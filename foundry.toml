@@ -3,4 +3,10 @@ src = "src"
 out = "out"
 libs = ["lib"]
 
+[doc]
+title = "Collar Protocol Documentation"
+repository = "https://github.com/CollarNetworks/protocol-core"
+out = "docs-temp"
+
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
