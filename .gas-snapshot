@@ -1,0 +1,2 @@
+CounterTest:testFuzz_SetNumber(uint256) (runs: 256, μ: 27320, ~: 28409)
+CounterTest:test_Increment() (gas: 28379)
