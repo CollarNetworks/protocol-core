@@ -3,9 +3,9 @@ pragma solidity ^0.8.18;
 
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@v3-periphery/contracts/libraries/TransferHelper.sol";
-import "@v3-periphery/contracts/interfaces/ISwapRouter.sol";
-import "@chainlink/interfaces/AggregatorV3Interface.sol";
+import "@uni-v3-periphery/libraries/TransferHelper.sol";
+import "@uni-v3-periphery/interfaces/ISwapRouter.sol";
+import "@chainlink-v0.8/interfaces/AggregatorV3Interface.sol";
 import "./interfaces/native/ICollarVaultEvents.sol";
 import "./interfaces/native/ICollarEngine.sol";
 import "./interfaces/external/IWETH.sol";
