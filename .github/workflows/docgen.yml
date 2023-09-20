@@ -37,6 +37,12 @@ jobs:
       - name: Run Tests
         run: forge test -vvv
 
+      - name: Extract branch name
+        run: echo "BRANCH_NAME=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
+  
+      - name: Checkout Branch
+        run: git checkout ${{ env.BRANCH_NAME }}
+      
       - name: Generate Docs
         run: |
           rm -rf docs
@@ -49,4 +55,4 @@ jobs:
           git config --global user.email 'actions@github.com'
           git add -A
           git commit -m "Auto-generate docs" || echo "No changes to commit"
-          git push
+          git push origin ${{ env.BRANCH_NAME }}
