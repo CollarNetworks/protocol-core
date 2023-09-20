@@ -1,6 +1,8 @@
 name: Tests & Docgen
 
-on: [pull_request]
+on: 
+  pull_request:
+    branches: [main]
 
 env:
   FOUNDRY_PROFILE: ci
@@ -13,7 +15,7 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
 
@@ -36,12 +38,6 @@ jobs:
 
       - name: Run Tests
         run: forge test -vvv
-
-      - name: Extract branch name
-        run: echo "BRANCH_NAME=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
-  
-      - name: Checkout Branch
-        run: git checkout ${{ env.BRANCH_NAME }}
       
       - name: Generate Docs
         run: |
@@ -51,8 +47,8 @@ jobs:
 
       - name: Commit and Push
         run: |
-          git config --global user.name 'GitHub Actions Bot'
-          git config --global user.email 'actions@github.com'
-          git add -A
-          git commit -m "Auto-generate docs" || echo "No changes to commit"
-          git push origin ${{ env.BRANCH_NAME }}
+          git config --global user.name github-actions
+          git config --global user.email github-actions@github.com
+          git add .
+          git commit -m "Auto-Generate Documentation"
+          git push
