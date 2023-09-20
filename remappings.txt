@@ -4,3 +4,4 @@ forge-std/=lib/forge-std/src/
 @openzeppelin-contracts/=lib/openzeppelin-contracts/
 @openzeppelin/=lib/openzeppelin-contracts/
 @v3-periphery/=lib/v3-periphery/
+@chainlink/=lib/chainlink/contracts/src/v0.8/
