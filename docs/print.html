@@ -85,7 +85,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item "><a href="index.html">Home</a></li><li class="chapter-item affix "><li class="part-title">src</li><li class="chapter-item "><a href="src/Counter.sol/contract.Counter.html">Counter</a></li></ol>
+                <ol class="chapter"><li class="chapter-item "><a href="index.html">Home</a></li><li class="chapter-item affix "><li class="part-title">src</li><li class="chapter-item "><a href="src/interfaces/index.html">❱ interfaces</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="src/interfaces/external/index.html">❱ external</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="src/interfaces/external/IERC20.sol/interface.IERC20.html">IERC20</a></li><li class="chapter-item "><a href="src/interfaces/external/IWETH.sol/interface.IWETH.html">IWETH</a></li></ol></li><li class="chapter-item "><a href="src/interfaces/native/index.html">❱ native</a><a class="toggle"><div>❱</div></a></li><li><ol class="section"><li class="chapter-item "><a href="src/interfaces/native/AutomateReady.sol/abstract.AutomateReady.html">AutomateReady</a></li><li class="chapter-item "><a href="src/interfaces/native/AutomateTaskCreator.sol/contract.AutomateTaskCreator.html">AutomateTaskCreator</a></li><li class="chapter-item "><a href="src/interfaces/native/ICollarEngine.sol/interface.ICollarEngine.html">ICollarEngine</a></li><li class="chapter-item "><a href="src/interfaces/native/ICollarEngineEvents.sol/interface.ICollarEngineEvents.html">ICollarEngineEvents</a></li><li class="chapter-item "><a href="src/interfaces/native/ICollarKeeperManager.sol/interface.ICollarKeeperManager.html">ICollarKeeperManager</a></li><li class="chapter-item "><a href="src/interfaces/native/ICollarVault.sol/interface.ICollarVault.html">ICollarVault</a></li><li class="chapter-item "><a href="src/interfaces/native/ICollarVaultEvents.sol/interface.ICollarVaultEvents.html">ICollarVaultEvents</a></li><li class="chapter-item "><a href="src/interfaces/native/IManagedVaultEvents.sol/interface.IManagedVaultEvents.html">IManagedVaultEvents</a></li><li class="chapter-item "><a href="src/interfaces/native/Types.sol/enum.Module.html">Module</a></li><li class="chapter-item "><a href="src/interfaces/native/Types.sol/struct.ModuleData.html">ModuleData</a></li><li class="chapter-item "><a href="src/interfaces/native/Types.sol/interface.IAutomate.html">IAutomate</a></li><li class="chapter-item "><a href="src/interfaces/native/Types.sol/interface.ITaskTreasuryUpgradable.html">ITaskTreasuryUpgradable</a></li><li class="chapter-item "><a href="src/interfaces/native/Types.sol/interface.IOpsProxyFactory.html">IOpsProxyFactory</a></li></ol></li></ol></li><li class="chapter-item "><a href="src/CollarEngine.sol/contract.CollarEngine.html">CollarEngine</a></li><li class="chapter-item "><a href="src/CollarVault.sol/contract.CollarVault.html">CollarVault</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -176,19 +176,908 @@
 <p>This repo primarily uses forge for development. See <a href="./FOUNDRY.html">foundry specific commands here</a>.</p>
 <p>Tests are run automatically via <a href="https://github.com/CollarNetworks/protocol-core/actions">GitHub Actions</a> on every push &amp; pr. This configuration can be found in <a href=".github/workflows/test.yml">.github/workflows/test.yml</a>. Consider installing the VSCode <a href="https://marketplace.visualstudio.com/items?itemName=cschleiden.vscode-github-actions">GitHub Actions extension</a> for a better experience.</p>
 <h2 id="documentation"><a class="header" href="#documentation">Documentation</a></h2>
-<p>Solidity docs are automatically created from <a href="https://docs.soliditylang.org/en/latest/style-guide.html#natspec">Solidity NatSpec</a> via the <a href="https://book.getfoundry.sh/reference/forge/forge-doc#forge-doc">forge doc command</a> and are automatically regenerated via Github Actions on every PR. This configuration can be found in <a href=".github/workflows/doc.yml">.github/workflows/test.yml</a>. You can run this docgen locally via <code>forge doc --build</code></p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="counter"><a class="header" href="#counter">Counter</a></h1>
-<p><a href="https://github.com/CollarNetworks/protocol-core/blob/2397dad05e2c6c0d369700d26871fbe6a45205f6/src/Counter.sol">Git Source</a></p>
-<h2 id="state-variables"><a class="header" href="#state-variables">State Variables</a></h2>
-<h3 id="number"><a class="header" href="#number">number</a></h3>
-<pre><code class="language-solidity">uint256 public number;
-</code></pre>
+<p>Solidity docs are automatically created from <a href="https://docs.soliditylang.org/en/latest/style-guide.html#natspec">Solidity NatSpec</a> via the <a href="https://book.getfoundry.sh/reference/forge/forge-doc#forge-doc">forge doc command</a> and are automatically regenerated via Github Actions on every PR. This configuration can be found in <a href=".github/workflows/tests-and-docgen.yml">.github/workflows/tests-and-docgen.yml</a>. You can run this docgen locally via <code>forge doc --build</code></p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="contents"><a class="header" href="#contents">Contents</a></h1>
+<ul>
+<li><a href="src/interfaces//src/interfaces/external">external</a></li>
+<li><a href="src/interfaces//src/interfaces/native">native</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="contents-1"><a class="header" href="#contents-1">Contents</a></h1>
+<ul>
+<li><a href="src/interfaces/external/IERC20.sol/interface.IERC20.html">IERC20</a></li>
+<li><a href="src/interfaces/external/IWETH.sol/interface.IWETH.html">IWETH</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="ierc20"><a class="header" href="#ierc20">IERC20</a></h1>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/external/IERC20.sol">Git Source</a></p>
 <h2 id="functions"><a class="header" href="#functions">Functions</a></h2>
-<h3 id="setnumber"><a class="header" href="#setnumber">setNumber</a></h3>
-<pre><code class="language-solidity">function setNumber(uint256 newNumber) public;
+<h3 id="totalsupply"><a class="header" href="#totalsupply">totalSupply</a></h3>
+<pre><code class="language-solidity">function totalSupply() external view returns (uint256);
 </code></pre>
-<h3 id="increment"><a class="header" href="#increment">increment</a></h3>
-<pre><code class="language-solidity">function increment() public;
+<h3 id="balanceof"><a class="header" href="#balanceof">balanceOf</a></h3>
+<pre><code class="language-solidity">function balanceOf(address account) external view returns (uint256);
+</code></pre>
+<h3 id="transfer"><a class="header" href="#transfer">transfer</a></h3>
+<pre><code class="language-solidity">function transfer(address to, uint256 amount) external returns (bool);
+</code></pre>
+<h3 id="allowance"><a class="header" href="#allowance">allowance</a></h3>
+<pre><code class="language-solidity">function allowance(address owner, address spender) external view returns (uint256);
+</code></pre>
+<h3 id="approve"><a class="header" href="#approve">approve</a></h3>
+<pre><code class="language-solidity">function approve(address spender, uint256 amount) external returns (bool);
+</code></pre>
+<h3 id="transferfrom"><a class="header" href="#transferfrom">transferFrom</a></h3>
+<pre><code class="language-solidity">function transferFrom(address from, address to, uint256 amount) external returns (bool);
+</code></pre>
+<h2 id="events"><a class="header" href="#events">Events</a></h2>
+<h3 id="transfer-1"><a class="header" href="#transfer-1">Transfer</a></h3>
+<pre><code class="language-solidity">event Transfer(address indexed from, address indexed to, uint256 value);
+</code></pre>
+<h3 id="approval"><a class="header" href="#approval">Approval</a></h3>
+<pre><code class="language-solidity">event Approval(address indexed owner, address indexed spender, uint256 value);
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="iweth"><a class="header" href="#iweth">IWETH</a></h1>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/external/IWETH.sol">Git Source</a></p>
+<h2 id="functions-1"><a class="header" href="#functions-1">Functions</a></h2>
+<h3 id="deposit"><a class="header" href="#deposit">deposit</a></h3>
+<pre><code class="language-solidity">function deposit() external payable;
+</code></pre>
+<h3 id="transfer-2"><a class="header" href="#transfer-2">transfer</a></h3>
+<pre><code class="language-solidity">function transfer(address to, uint256 value) external returns (bool);
+</code></pre>
+<h3 id="withdraw"><a class="header" href="#withdraw">withdraw</a></h3>
+<pre><code class="language-solidity">function withdraw(uint256) external;
+</code></pre>
+<h3 id="approve-1"><a class="header" href="#approve-1">approve</a></h3>
+<pre><code class="language-solidity">function approve(address guy, uint256 wad) external returns (bool);
+</code></pre>
+<h3 id="balanceof-1"><a class="header" href="#balanceof-1">balanceOf</a></h3>
+<pre><code class="language-solidity">function balanceOf(address account) external view returns (uint256);
+</code></pre>
+<h3 id="allowance-1"><a class="header" href="#allowance-1">allowance</a></h3>
+<pre><code class="language-solidity">function allowance(address owner, address spender) external view returns (uint256);
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="contents-2"><a class="header" href="#contents-2">Contents</a></h1>
+<ul>
+<li><a href="src/interfaces/native/AutomateReady.sol/abstract.AutomateReady.html">AutomateReady</a></li>
+<li><a href="src/interfaces/native/AutomateTaskCreator.sol/contract.AutomateTaskCreator.html">AutomateTaskCreator</a></li>
+<li><a href="src/interfaces/native/ICollarEngine.sol/interface.ICollarEngine.html">ICollarEngine</a></li>
+<li><a href="src/interfaces/native/ICollarEngineEvents.sol/interface.ICollarEngineEvents.html">ICollarEngineEvents</a></li>
+<li><a href="src/interfaces/native/ICollarKeeperManager.sol/interface.ICollarKeeperManager.html">ICollarKeeperManager</a></li>
+<li><a href="src/interfaces/native/ICollarVault.sol/interface.ICollarVault.html">ICollarVault</a></li>
+<li><a href="src/interfaces/native/ICollarVaultEvents.sol/interface.ICollarVaultEvents.html">ICollarVaultEvents</a></li>
+<li><a href="src/interfaces/native/IManagedVaultEvents.sol/interface.IManagedVaultEvents.html">IManagedVaultEvents</a></li>
+<li><a href="src/interfaces/native/Types.sol/enum.Module.html">Module</a></li>
+<li><a href="src/interfaces/native/Types.sol/struct.ModuleData.html">ModuleData</a></li>
+<li><a href="src/interfaces/native/Types.sol/interface.IAutomate.html">IAutomate</a></li>
+<li><a href="src/interfaces/native/Types.sol/interface.ITaskTreasuryUpgradable.html">ITaskTreasuryUpgradable</a></li>
+<li><a href="src/interfaces/native/Types.sol/interface.IOpsProxyFactory.html">IOpsProxyFactory</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="automateready"><a class="header" href="#automateready">AutomateReady</a></h1>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/AutomateReady.sol">Git Source</a></p>
+<p>*Inherit this contract to allow your smart contract to</p>
+<ul>
+<li>Make synchronous fee payments.</li>
+<li>Have call restrictions for functions to be automated.*</li>
+</ul>
+<h2 id="state-variables"><a class="header" href="#state-variables">State Variables</a></h2>
+<h3 id="automate"><a class="header" href="#automate">automate</a></h3>
+<pre><code class="language-solidity">IAutomate public immutable automate;
+</code></pre>
+<h3 id="dedicatedmsgsender"><a class="header" href="#dedicatedmsgsender">dedicatedMsgSender</a></h3>
+<pre><code class="language-solidity">address public immutable dedicatedMsgSender;
+</code></pre>
+<h3 id="_gelato"><a class="header" href="#_gelato">_gelato</a></h3>
+<pre><code class="language-solidity">address private immutable _gelato;
+</code></pre>
+<h3 id="eth"><a class="header" href="#eth">ETH</a></h3>
+<pre><code class="language-solidity">address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+</code></pre>
+<h3 id="ops_proxy_factory"><a class="header" href="#ops_proxy_factory">OPS_PROXY_FACTORY</a></h3>
+<pre><code class="language-solidity">address private constant OPS_PROXY_FACTORY = 0xC815dB16D4be6ddf2685C201937905aBf338F5D7;
+</code></pre>
+<h2 id="functions-2"><a class="header" href="#functions-2">Functions</a></h2>
+<h3 id="onlydedicatedmsgsender"><a class="header" href="#onlydedicatedmsgsender">onlyDedicatedMsgSender</a></h3>
+<ul>
+<li></li>
+</ul>
+<p>Only tasks created by _taskCreator defined in constructor can call
+the functions with this modifier.*</p>
+<pre><code class="language-solidity">modifier onlyDedicatedMsgSender();
+</code></pre>
+<h3 id="constructor"><a class="header" href="#constructor">constructor</a></h3>
+<ul>
+<li></li>
+</ul>
+<p>_taskCreator is the address which will create tasks for this contract.*</p>
+<pre><code class="language-solidity">constructor(address _automate, address _taskCreator);
+</code></pre>
+<h3 id="_transfer"><a class="header" href="#_transfer">_transfer</a></h3>
+<ul>
+<li></li>
+</ul>
+<p>Transfers fee to gelato for synchronous fee payments.
+_fee &amp; _feeToken should be queried from IAutomate.getFeeDetails()*</p>
+<pre><code class="language-solidity">function _transfer(uint256 _fee, address _feeToken) internal;
+</code></pre>
+<h3 id="_getfeedetails"><a class="header" href="#_getfeedetails">_getFeeDetails</a></h3>
+<pre><code class="language-solidity">function _getFeeDetails() internal view returns (uint256 fee, address feeToken);
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="automatetaskcreator"><a class="header" href="#automatetaskcreator">AutomateTaskCreator</a></h1>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/AutomateTaskCreator.sol">Git Source</a></p>
+<p><strong>Inherits:</strong>
+<a href="src/interfaces/native/AutomateTaskCreator.sol//docs-temp/src/src/interfaces/native/AutomateReady.sol/abstract.AutomateReady.html">AutomateReady</a></p>
+<p><em>Inherit this contract to allow your smart contract
+to be a task creator and create tasks.</em></p>
+<h2 id="state-variables-1"><a class="header" href="#state-variables-1">State Variables</a></h2>
+<h3 id="fundsowner"><a class="header" href="#fundsowner">fundsOwner</a></h3>
+<pre><code class="language-solidity">address public immutable fundsOwner;
+</code></pre>
+<h3 id="tasktreasury"><a class="header" href="#tasktreasury">taskTreasury</a></h3>
+<pre><code class="language-solidity">ITaskTreasuryUpgradable public immutable taskTreasury;
+</code></pre>
+<h2 id="functions-3"><a class="header" href="#functions-3">Functions</a></h2>
+<h3 id="constructor-1"><a class="header" href="#constructor-1">constructor</a></h3>
+<pre><code class="language-solidity">constructor(address _automate, address _fundsOwner) AutomateReady(_automate, address(this));
+</code></pre>
+<h3 id="withdrawfunds"><a class="header" href="#withdrawfunds">withdrawFunds</a></h3>
+<ul>
+<li></li>
+</ul>
+<p>Withdraw funds from this contract's Gelato balance to fundsOwner.*</p>
+<pre><code class="language-solidity">function withdrawFunds(uint256 _amount, address _token) external;
+</code></pre>
+<h3 id="_depositfunds"><a class="header" href="#_depositfunds">_depositFunds</a></h3>
+<pre><code class="language-solidity">function _depositFunds(uint256 _amount, address _token) internal;
+</code></pre>
+<h3 id="_createtask"><a class="header" href="#_createtask">_createTask</a></h3>
+<pre><code class="language-solidity">function _createTask(
+    address _execAddress,
+    bytes memory _execDataOrSelector,
+    ModuleData memory _moduleData,
+    address _feeToken
+) internal returns (bytes32);
+</code></pre>
+<h3 id="_canceltask"><a class="header" href="#_canceltask">_cancelTask</a></h3>
+<pre><code class="language-solidity">function _cancelTask(bytes32 _taskId) internal;
+</code></pre>
+<h3 id="_resolvermodulearg"><a class="header" href="#_resolvermodulearg">_resolverModuleArg</a></h3>
+<pre><code class="language-solidity">function _resolverModuleArg(address _resolverAddress, bytes memory _resolverData)
+    internal
+    pure
+    returns (bytes memory);
+</code></pre>
+<h3 id="_timemodulearg"><a class="header" href="#_timemodulearg">_timeModuleArg</a></h3>
+<pre><code class="language-solidity">function _timeModuleArg(uint256 _startTime, uint256 _interval) internal pure returns (bytes memory);
+</code></pre>
+<h3 id="_proxymodulearg"><a class="header" href="#_proxymodulearg">_proxyModuleArg</a></h3>
+<pre><code class="language-solidity">function _proxyModuleArg() internal pure returns (bytes memory);
+</code></pre>
+<h3 id="_singleexecmodulearg"><a class="header" href="#_singleexecmodulearg">_singleExecModuleArg</a></h3>
+<pre><code class="language-solidity">function _singleExecModuleArg() internal pure returns (bytes memory);
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="icollarengine"><a class="header" href="#icollarengine">ICollarEngine</a></h1>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/ICollarEngine.sol">Git Source</a></p>
+<h2 id="functions-4"><a class="header" href="#functions-4">Functions</a></h2>
+<h3 id="getoracleprice"><a class="header" href="#getoracleprice">getOraclePrice</a></h3>
+<pre><code class="language-solidity">function getOraclePrice() external view returns (uint256);
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="icollarengineevents"><a class="header" href="#icollarengineevents">ICollarEngineEvents</a></h1>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/ICollarEngineEvents.sol">Git Source</a></p>
+<h2 id="events-1"><a class="header" href="#events-1">Events</a></h2>
+<h3 id="testevent"><a class="header" href="#testevent">TestEvent</a></h3>
+<pre><code class="language-solidity">event TestEvent(address admin);
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="icollarkeepermanager"><a class="header" href="#icollarkeepermanager">ICollarKeeperManager</a></h1>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/ICollarKeeperManager.sol">Git Source</a></p>
+<h2 id="functions-5"><a class="header" href="#functions-5">Functions</a></h2>
+<h3 id="launchmaturitykeeper"><a class="header" href="#launchmaturitykeeper">launchMaturityKeeper</a></h3>
+<pre><code class="language-solidity">function launchMaturityKeeper(address vault, uint256 maturityTimestamp) external;
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="icollarvault"><a class="header" href="#icollarvault">ICollarVault</a></h1>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/ICollarVault.sol">Git Source</a></p>
+<h2 id="functions-6"><a class="header" href="#functions-6">Functions</a></h2>
+<h3 id="maturevault"><a class="header" href="#maturevault">matureVault</a></h3>
+<pre><code class="language-solidity">function matureVault() external;
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="icollarvaultevents"><a class="header" href="#icollarvaultevents">ICollarVaultEvents</a></h1>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/ICollarVaultEvents.sol">Git Source</a></p>
+<h2 id="events-2"><a class="header" href="#events-2">Events</a></h2>
+<h3 id="settleprefchanged"><a class="header" href="#settleprefchanged">SettlePrefChanged</a></h3>
+<pre><code class="language-solidity">event SettlePrefChanged(string settlePref, string newSettlePref);
+</code></pre>
+<h3 id="rollprefchange"><a class="header" href="#rollprefchange">RollPrefChange</a></h3>
+<pre><code class="language-solidity">event RollPrefChange(string rollPref, string newRollPref);
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="imanagedvaultevents"><a class="header" href="#imanagedvaultevents">IManagedVaultEvents</a></h1>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/IManagedVaultEvents.sol">Git Source</a></p>
+<h2 id="events-3"><a class="header" href="#events-3">Events</a></h2>
+<h3 id="managerchanged"><a class="header" href="#managerchanged">ManagerChanged</a></h3>
+<pre><code class="language-solidity">event ManagerChanged(address newManager);
+</code></pre>
+<h3 id="subscriptionperiodopen"><a class="header" href="#subscriptionperiodopen">SubscriptionPeriodOpen</a></h3>
+<pre><code class="language-solidity">event SubscriptionPeriodOpen();
+</code></pre>
+<h3 id="subscriptionperiodclosed"><a class="header" href="#subscriptionperiodclosed">SubscriptionPeriodClosed</a></h3>
+<pre><code class="language-solidity">event SubscriptionPeriodClosed();
+</code></pre>
+<h3 id="vaultcancelled"><a class="header" href="#vaultcancelled">VaultCancelled</a></h3>
+<pre><code class="language-solidity">event VaultCancelled();
+</code></pre>
+<h3 id="depositedasset"><a class="header" href="#depositedasset">DepositedAsset</a></h3>
+<pre><code class="language-solidity">event DepositedAsset(address user, uint256 amount);
+</code></pre>
+<h3 id="newdepositor"><a class="header" href="#newdepositor">NewDepositor</a></h3>
+<pre><code class="language-solidity">event NewDepositor(address user, uint256 amount);
+</code></pre>
+<h3 id="withdrewasset"><a class="header" href="#withdrewasset">WithdrewAsset</a></h3>
+<pre><code class="language-solidity">event WithdrewAsset(address user, uint256 amount);
+</code></pre>
+<h3 id="removeddepositor"><a class="header" href="#removeddepositor">RemovedDepositor</a></h3>
+<pre><code class="language-solidity">event RemovedDepositor(address user, uint256 amount);
+</code></pre>
+<h3 id="lentasset"><a class="header" href="#lentasset">LentAsset</a></h3>
+<pre><code class="language-solidity">event LentAsset(address user, uint256 amount);
+</code></pre>
+<h3 id="newlender"><a class="header" href="#newlender">NewLender</a></h3>
+<pre><code class="language-solidity">event NewLender(address user, uint256 amount);
+</code></pre>
+<h3 id="withdrewloan"><a class="header" href="#withdrewloan">WithdrewLoan</a></h3>
+<pre><code class="language-solidity">event WithdrewLoan(address user, uint256 amount);
+</code></pre>
+<h3 id="removedlender"><a class="header" href="#removedlender">RemovedLender</a></h3>
+<pre><code class="language-solidity">event RemovedLender(address user, uint256 amount);
+</code></pre>
+<h3 id="managerwithdrew"><a class="header" href="#managerwithdrew">ManagerWithdrew</a></h3>
+<pre><code class="language-solidity">event ManagerWithdrew(uint256 amount);
+</code></pre>
+<h3 id="assetshedged"><a class="header" href="#assetshedged">AssetsHedged</a></h3>
+<pre><code class="language-solidity">event AssetsHedged(uint256 callStrike, string maturity, uint256 fill, uint256 coverFill);
+</code></pre>
+<h3 id="loansdistributed"><a class="header" href="#loansdistributed">LoansDistributed</a></h3>
+<pre><code class="language-solidity">event LoansDistributed();
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="module"><a class="header" href="#module">Module</a></h1>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/Types.sol">Git Source</a></p>
+<pre><code class="language-solidity">enum Module {
+    RESOLVER,
+    TIME,
+    PROXY,
+    SINGLE_EXEC
+}
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="moduledata"><a class="header" href="#moduledata">ModuleData</a></h1>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/Types.sol">Git Source</a></p>
+<pre><code class="language-solidity">struct ModuleData {
+    Module[] modules;
+    bytes[] args;
+}
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="iautomate"><a class="header" href="#iautomate">IAutomate</a></h1>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/Types.sol">Git Source</a></p>
+<h2 id="functions-7"><a class="header" href="#functions-7">Functions</a></h2>
+<h3 id="createtask"><a class="header" href="#createtask">createTask</a></h3>
+<pre><code class="language-solidity">function createTask(
+    address execAddress,
+    bytes calldata execDataOrSelector,
+    ModuleData calldata moduleData,
+    address feeToken
+) external returns (bytes32 taskId);
+</code></pre>
+<h3 id="canceltask"><a class="header" href="#canceltask">cancelTask</a></h3>
+<pre><code class="language-solidity">function cancelTask(bytes32 taskId) external;
+</code></pre>
+<h3 id="getfeedetails"><a class="header" href="#getfeedetails">getFeeDetails</a></h3>
+<pre><code class="language-solidity">function getFeeDetails() external view returns (uint256, address);
+</code></pre>
+<h3 id="gelato"><a class="header" href="#gelato">gelato</a></h3>
+<pre><code class="language-solidity">function gelato() external view returns (address payable);
+</code></pre>
+<h3 id="tasktreasury-1"><a class="header" href="#tasktreasury-1">taskTreasury</a></h3>
+<pre><code class="language-solidity">function taskTreasury() external view returns (ITaskTreasuryUpgradable);
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="itasktreasuryupgradable"><a class="header" href="#itasktreasuryupgradable">ITaskTreasuryUpgradable</a></h1>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/Types.sol">Git Source</a></p>
+<h2 id="functions-8"><a class="header" href="#functions-8">Functions</a></h2>
+<h3 id="depositfunds"><a class="header" href="#depositfunds">depositFunds</a></h3>
+<pre><code class="language-solidity">function depositFunds(address receiver, address token, uint256 amount) external payable;
+</code></pre>
+<h3 id="withdrawfunds-1"><a class="header" href="#withdrawfunds-1">withdrawFunds</a></h3>
+<pre><code class="language-solidity">function withdrawFunds(address payable receiver, address token, uint256 amount) external;
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="iopsproxyfactory"><a class="header" href="#iopsproxyfactory">IOpsProxyFactory</a></h1>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/Types.sol">Git Source</a></p>
+<h2 id="functions-9"><a class="header" href="#functions-9">Functions</a></h2>
+<h3 id="getproxyof"><a class="header" href="#getproxyof">getProxyOf</a></h3>
+<pre><code class="language-solidity">function getProxyOf(address account) external view returns (address, bool);
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="collarengine"><a class="header" href="#collarengine">CollarEngine</a></h1>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/CollarEngine.sol">Git Source</a></p>
+<p><strong>Inherits:</strong>
+ReentrancyGuard, <a href="src/CollarEngine.sol//docs-temp/src/src/interfaces/native/ICollarEngineEvents.sol/interface.ICollarEngineEvents.html">ICollarEngineEvents</a></p>
+<p><strong>Author:</strong>
+Collar Networks, Inc.</p>
+<p>The engine handles RFQ and launches vaults</p>
+<p><em>Developers can send calls directly to the engine if they desire</em></p>
+<h2 id="state-variables-2"><a class="header" href="#state-variables-2">State Variables</a></h2>
+<h3 id="dexrouter"><a class="header" href="#dexrouter">dexRouter</a></h3>
+<p><em>SafeERC20 prevents other contracts from doing anything malicious when we call transferFrom</em></p>
+<p><em>Passed in during deployment</em></p>
+<pre><code class="language-solidity">ISwapRouter dexRouter;
+</code></pre>
+<h3 id="pricefeed"><a class="header" href="#pricefeed">priceFeed</a></h3>
+<pre><code class="language-solidity">AggregatorV3Interface internal priceFeed;
+</code></pre>
+<h3 id="admin"><a class="header" href="#admin">admin</a></h3>
+<pre><code class="language-solidity">address admin;
+</code></pre>
+<h3 id="marketmaker"><a class="header" href="#marketmaker">marketmaker</a></h3>
+<pre><code class="language-solidity">address marketmaker;
+</code></pre>
+<h3 id="feewallet"><a class="header" href="#feewallet">feeWallet</a></h3>
+<pre><code class="language-solidity">address payable feeWallet;
+</code></pre>
+<h3 id="feeratepct"><a class="header" href="#feeratepct">feeRatePct</a></h3>
+<pre><code class="language-solidity">uint256 feeRatePct;
+</code></pre>
+<h3 id="lendasset"><a class="header" href="#lendasset">lendAsset</a></h3>
+<pre><code class="language-solidity">address lendAsset;
+</code></pre>
+<h3 id="weth9"><a class="header" href="#weth9">WETH9</a></h3>
+<pre><code class="language-solidity">address WETH9;
+</code></pre>
+<h3 id="rfqid"><a class="header" href="#rfqid">rfqid</a></h3>
+<p><em>Tracks the number of quotes over time</em></p>
+<pre><code class="language-solidity">uint256 rfqid;
+</code></pre>
+<h3 id="uservaults"><a class="header" href="#uservaults">userVaults</a></h3>
+<p><em>Vault, collateral, client, marketmaker, tracking system</em></p>
+<pre><code class="language-solidity">mapping(address =&gt; mapping(uint256 =&gt; address)) internal userVaults;
+</code></pre>
+<h3 id="marketmakervaults"><a class="header" href="#marketmakervaults">marketmakerVaults</a></h3>
+<pre><code class="language-solidity">mapping(address =&gt; mapping(uint256 =&gt; address)) internal marketmakerVaults;
+</code></pre>
+<h3 id="nextmarketmakervaultid"><a class="header" href="#nextmarketmakervaultid">nextMarketmakerVaultId</a></h3>
+<pre><code class="language-solidity">mapping(address =&gt; uint256) internal nextMarketmakerVaultId;
+</code></pre>
+<h3 id="nextuservaultid"><a class="header" href="#nextuservaultid">nextUserVaultId</a></h3>
+<pre><code class="language-solidity">mapping(address =&gt; uint256) internal nextUserVaultId;
+</code></pre>
+<h3 id="pricings"><a class="header" href="#pricings">pricings</a></h3>
+<pre><code class="language-solidity">mapping(address =&gt; Pricing) internal pricings;
+</code></pre>
+<h3 id="iscustomer"><a class="header" href="#iscustomer">isCustomer</a></h3>
+<pre><code class="language-solidity">mapping(address =&gt; bool) internal isCustomer;
+</code></pre>
+<h3 id="clientescrow"><a class="header" href="#clientescrow">clientEscrow</a></h3>
+<pre><code class="language-solidity">mapping(address =&gt; uint256) internal clientEscrow;
+</code></pre>
+<h3 id="mmcollateralbalances"><a class="header" href="#mmcollateralbalances">mmCollateralBalances</a></h3>
+<pre><code class="language-solidity">mapping(address =&gt; uint256) internal mmCollateralBalances;
+</code></pre>
+<h2 id="functions-10"><a class="header" href="#functions-10">Functions</a></h2>
+<h3 id="constructor-2"><a class="header" href="#constructor-2">constructor</a></h3>
+<p>Takes in the required addresses upon deployment</p>
+<p><em>This should be later replaced by an addressbook contract</em></p>
+<pre><code class="language-solidity">constructor(
+    uint256 _feeRatePct,
+    address _feeWallet,
+    address _marketmaker,
+    address _lendAsset,
+    address _dexRouter,
+    address _oracle,
+    address _weth
+);
+</code></pre>
+<h3 id="onlyadmin"><a class="header" href="#onlyadmin">onlyAdmin</a></h3>
+<p>this modifier limits function calls to the admin i.e. the deployer of this contract</p>
+<pre><code class="language-solidity">modifier onlyAdmin();
+</code></pre>
+<h3 id="onlymarketmaker"><a class="header" href="#onlymarketmaker">onlyMarketMaker</a></h3>
+<p>this modifier limits calls to the specified marketmaker i.e. the deployer of this contract</p>
+<pre><code class="language-solidity">modifier onlyMarketMaker();
+</code></pre>
+<h3 id="receive"><a class="header" href="#receive">receive</a></h3>
+<p><em>this is required by the solidity  compiler</em></p>
+<pre><code class="language-solidity">receive() external payable;
+</code></pre>
+<h3 id="getadmin"><a class="header" href="#getadmin">getAdmin</a></h3>
+<p>getter functions for various variables, vaults, pricings, etc.</p>
+<pre><code class="language-solidity">function getAdmin() external view returns (address);
+</code></pre>
+<h3 id="getdexrouter"><a class="header" href="#getdexrouter">getDexRouter</a></h3>
+<pre><code class="language-solidity">function getDexRouter() external view returns (address);
+</code></pre>
+<h3 id="getmarketmaker"><a class="header" href="#getmarketmaker">getMarketmaker</a></h3>
+<pre><code class="language-solidity">function getMarketmaker() external view returns (address);
+</code></pre>
+<h3 id="getfeerate"><a class="header" href="#getfeerate">getFeerate</a></h3>
+<pre><code class="language-solidity">function getFeerate() external view returns (uint256);
+</code></pre>
+<h3 id="getfeewallet"><a class="header" href="#getfeewallet">getFeewallet</a></h3>
+<pre><code class="language-solidity">function getFeewallet() external view returns (address);
+</code></pre>
+<h3 id="getpricingbyclient"><a class="header" href="#getpricingbyclient">getPricingByClient</a></h3>
+<pre><code class="language-solidity">function getPricingByClient(address client) external view returns (Pricing memory);
+</code></pre>
+<h3 id="getstatebyclient"><a class="header" href="#getstatebyclient">getStateByClient</a></h3>
+<pre><code class="language-solidity">function getStateByClient(address client) external view returns (PxState);
+</code></pre>
+<h3 id="getlendasset"><a class="header" href="#getlendasset">getLendAsset</a></h3>
+<pre><code class="language-solidity">function getLendAsset() external view returns (address);
+</code></pre>
+<h3 id="getlasttradevault"><a class="header" href="#getlasttradevault">getLastTradeVault</a></h3>
+<pre><code class="language-solidity">function getLastTradeVault(address client) external view returns (address);
+</code></pre>
+<h3 id="getlasttradevaultmarketmaker"><a class="header" href="#getlasttradevaultmarketmaker">getLastTradeVaultMarketmaker</a></h3>
+<pre><code class="language-solidity">function getLastTradeVaultMarketmaker(address _marketmaker) external view returns (address);
+</code></pre>
+<h3 id="getclientescrow"><a class="header" href="#getclientescrow">getClientEscrow</a></h3>
+<pre><code class="language-solidity">function getClientEscrow(address client) external view returns (uint256);
+</code></pre>
+<h3 id="getnextuservaultid"><a class="header" href="#getnextuservaultid">getNextUserVaultId</a></h3>
+<pre><code class="language-solidity">function getNextUserVaultId(address _client) external view returns (uint256);
+</code></pre>
+<h3 id="getnextmarketmakervaultid"><a class="header" href="#getnextmarketmakervaultid">getNextMarketmakerVaultId</a></h3>
+<pre><code class="language-solidity">function getNextMarketmakerVaultId(address _marketmaker) external view returns (uint256);
+</code></pre>
+<h3 id="getclientvaultbyid"><a class="header" href="#getclientvaultbyid">getClientVaultById</a></h3>
+<pre><code class="language-solidity">function getClientVaultById(address _client, uint256 _id) external view returns (address);
+</code></pre>
+<h3 id="getmarketmakervaultbyid"><a class="header" href="#getmarketmakervaultbyid">getMarketmakerVaultById</a></h3>
+<pre><code class="language-solidity">function getMarketmakerVaultById(address _marketmaker, uint256 _id) external view returns (address);
+</code></pre>
+<h3 id="getlastthreeclientvaults"><a class="header" href="#getlastthreeclientvaults">getLastThreeClientVaults</a></h3>
+<p>Used by the UI to display latest vaults for clients</p>
+<pre><code class="language-solidity">function getLastThreeClientVaults(address _client) external view returns (address[3] memory);
+</code></pre>
+<h3 id="getlastthreemarketmakervaults"><a class="header" href="#getlastthreemarketmakervaults">getLastThreeMarketmakerVaults</a></h3>
+<p>Used by the UI to display latest vaults for marketmakers</p>
+<pre><code class="language-solidity">function getLastThreeMarketmakerVaults(address _marketmaker) external view returns (address[3] memory);
+</code></pre>
+<h3 id="getcurrrfqid"><a class="header" href="#getcurrrfqid">getCurrRfqid</a></h3>
+<pre><code class="language-solidity">function getCurrRfqid() external view returns (uint256);
+</code></pre>
+<h3 id="getmyprice"><a class="header" href="#getmyprice">getMyPrice</a></h3>
+<p>Retrieves the client's pricing details</p>
+<pre><code class="language-solidity">function getMyPrice()
+    external
+    view
+    returns (
+        uint256,
+        address,
+        address,
+        PxState,
+        string memory,
+        string memory,
+        uint256,
+        uint256,
+        uint256,
+        uint256,
+        uint256,
+        string memory
+    );
+</code></pre>
+<p><strong>Returns</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>&lt;none&gt;</code></td><td><code>uint256</code></td><td>a tuple of length 12</td></tr>
+<tr><td><code>&lt;none&gt;</code></td><td><code>address</code></td><td></td></tr>
+<tr><td><code>&lt;none&gt;</code></td><td><code>address</code></td><td></td></tr>
+<tr><td><code>&lt;none&gt;</code></td><td><code>PxState</code></td><td></td></tr>
+<tr><td><code>&lt;none&gt;</code></td><td><code>string</code></td><td></td></tr>
+<tr><td><code>&lt;none&gt;</code></td><td><code>string</code></td><td></td></tr>
+<tr><td><code>&lt;none&gt;</code></td><td><code>uint256</code></td><td></td></tr>
+<tr><td><code>&lt;none&gt;</code></td><td><code>uint256</code></td><td></td></tr>
+<tr><td><code>&lt;none&gt;</code></td><td><code>uint256</code></td><td></td></tr>
+<tr><td><code>&lt;none&gt;</code></td><td><code>uint256</code></td><td></td></tr>
+<tr><td><code>&lt;none&gt;</code></td><td><code>uint256</code></td><td></td></tr>
+<tr><td><code>&lt;none&gt;</code></td><td><code>string</code></td><td></td></tr>
+</tbody></table>
+</div>
+<h3 id="fetchoracleprice"><a class="header" href="#fetchoracleprice">fetchOraclePrice</a></h3>
+<p>Retrieves the oracle price</p>
+<pre><code class="language-solidity">function fetchOraclePrice() internal view returns (uint256);
+</code></pre>
+<h3 id="getoracleprice-1"><a class="header" href="#getoracleprice-1">getOraclePrice</a></h3>
+<p>Makes fetch external without upsetting the compiler</p>
+<pre><code class="language-solidity">function getOraclePrice() external view returns (uint256);
+</code></pre>
+<h3 id="updatedexrouter"><a class="header" href="#updatedexrouter">updateDexRouter</a></h3>
+<p>Allows the admin to update where the initial delta hedge is executed</p>
+<p><em>this functionality needs to be improved in v2 to allow for various dexes, ideally we extrapolate this into its own contract</em></p>
+<pre><code class="language-solidity">function updateDexRouter(address _newDexRouter) external onlyAdmin;
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>_newDexRouter</code></td><td><code>address</code></td><td>is the address of the new dex the admin wants to point the buying/selling flow to</td></tr>
+</tbody></table>
+</div>
+<h3 id="requestprice"><a class="header" href="#requestprice">requestPrice</a></h3>
+<p>This kicks off the pricing request, and is called by the client. We've currently implemented an LTV cap of 90%.
+The RFQ flow is managed by updating state from 0 -&gt; 1 -&gt; 2 depending on how far along in the process the client is with the marketmaker.
+This ensures consent is given and assets flow in a way that is consistent with that consent.</p>
+<pre><code class="language-solidity">function requestPrice(uint256 _qty, uint256 _ltvPct, uint256 _maturityTimestamp, string memory _notes) external;
+</code></pre>
+<p><strong>Parameters</strong></p>
+<div class="table-wrapper"><table><thead><tr><th>Name</th><th>Type</th><th>Description</th></tr></thead><tbody>
+<tr><td><code>_qty</code></td><td><code>uint256</code></td><td>The quantity of the asset that the user wants to borrow against. This determines the amount of collateral the user will receive.</td></tr>
+<tr><td><code>_ltvPct</code></td><td><code>uint256</code></td><td>The loan-to-value (LTV) ratio expresses the amount of collateral required as a percentage of the total amount of assets borrowed. For example, if the user wants to borrow 90 DAI and the LTV is 90%, they would need to provide 100 DAI worth of ETH as collateral. The LTV can range from 0% to 90%, and the function will fail if the requested LTV is higher than 90%. A higher LTV means that the user can borrow more assets with less collateral but at the cost of limiting their potential upside, assuming they don't roll.</td></tr>
+<tr><td><code>_maturityTimestamp</code></td><td><code>uint256</code></td><td>The UNIX timestamp at which the trade matures. The UNIX timestamp is the number of seconds that have elapsed since January 1, 1970.</td></tr>
+<tr><td><code>_notes</code></td><td><code>string</code></td><td>Additional notes or comments that the user wants to include with the pricing request.</td></tr>
+</tbody></table>
+</div>
+<h3 id="ackprice"><a class="header" href="#ackprice">ackPrice</a></h3>
+<p>This allows marketmakers to acknowledge clients as they arrive, and is currently limited to a single marketmaker.</p>
+<pre><code class="language-solidity">function ackPrice(address _client) external onlyMarketMaker;
+</code></pre>
+<h3 id="showprice"><a class="header" href="#showprice">showPrice</a></h3>
+<p>This functions allows marketmakers to show a price on-chain in a verifiable way</p>
+<pre><code class="language-solidity">function showPrice(address _client, uint256 _callStrikePct) external onlyMarketMaker;
+</code></pre>
+<h3 id="pullprice"><a class="header" href="#pullprice">pullPrice</a></h3>
+<p>This functions allows marketmakers to pull a price they've shown and not allow the client to trade.</p>
+<pre><code class="language-solidity">function pullPrice(address _client) external onlyMarketMaker;
+</code></pre>
+<h3 id="clientgiveorder"><a class="header" href="#clientgiveorder">clientGiveOrder</a></h3>
+<p>This allows the client to say &quot;done&quot; and increments the client's balance by the amount of ETH sent to the contract.</p>
+<pre><code class="language-solidity">function clientGiveOrder() external payable;
+</code></pre>
+<h3 id="clientpullorder"><a class="header" href="#clientpullorder">clientPullOrder</a></h3>
+<p>This allows the client to revoke their consent to trade</p>
+<pre><code class="language-solidity">function clientPullOrder() external;
+</code></pre>
+<h3 id="swapexactinputsingle"><a class="header" href="#swapexactinputsingle">swapExactInputSingle</a></h3>
+<p>This function integrates with the relevant Uniswap v3 pool to sell ETH at the market price to conduct the initial delta-hedge, an accommodation for marketmakers.</p>
+<pre><code class="language-solidity">function swapExactInputSingle(uint256 amountIn) internal returns (uint256 amountOut);
+</code></pre>
+<h3 id="executetrade"><a class="header" href="#executetrade">executeTrade</a></h3>
+<p>This function executes the trade the client has requested, gotten a price for, and requested to trade. It is called by the marketmaker and implies final consent</p>
+<pre><code class="language-solidity">function executeTrade(address _client) external onlyMarketMaker nonReentrant returns (address);
+</code></pre>
+<h3 id="incrementvaults"><a class="header" href="#incrementvaults">incrementVaults</a></h3>
+<p>This function aggregates all the recordkeeping for the broader contract into one to abstract this portion out from the main execute trade function</p>
+<pre><code class="language-solidity">function incrementVaults(address _client, address _marketmaker) internal returns (uint256, uint256);
+</code></pre>
+<h3 id="updatefeeratepct"><a class="header" href="#updatefeeratepct">updateFeeRatePct</a></h3>
+<p>This function allows the admin to lower the fee rate of the protocol or increase it.</p>
+<pre><code class="language-solidity">function updateFeeRatePct(uint256 _newFeeRatePct) external onlyAdmin;
+</code></pre>
+<h3 id="rejectorder"><a class="header" href="#rejectorder">rejectOrder</a></h3>
+<p>This allows the marketmaker to refund the client and call off the trade if the price has moved significantly</p>
+<pre><code class="language-solidity">function rejectOrder(address _client, string calldata _reason) external;
+</code></pre>
+<h2 id="structs"><a class="header" href="#structs">Structs</a></h2>
+<h3 id="pricing"><a class="header" href="#pricing">Pricing</a></h3>
+<p>The Pricing struct contains all the relevant information for a client's request for quote</p>
+<p><em>USDC has 6 decimal places which we have currently hardcoded for throughout the code. This will need to be improved in v2</em></p>
+<p><em>the maturity is measured using block.timestamp which can be manipulated +- 12 seconds, we are looking to improve upon this over time</em></p>
+<p><em>this is hardcoded to 18dp for the moment but may need to be updated in the future</em></p>
+<p><em>these strikes are tracked as 0dp percentages i.e. &quot;87&quot; or &quot;110&quot; in order to preserve mathematical accuracy</em></p>
+<p><em>we should do a deeper dive on exact decimal place accuracy in the future using Mantissa's</em></p>
+<pre><code class="language-solidity">struct Pricing {
+    uint256 rfqid;
+    address lendAsset;
+    address marketmaker;
+    address client;
+    PxState state;
+    string structure;
+    string underlier;
+    uint256 maturityTimestamp;
+    uint256 qty;
+    uint256 ltv;
+    uint256 putstrikePct;
+    uint256 callstrikePct;
+    string notes;
+}
+</code></pre>
+<h2 id="enums"><a class="header" href="#enums">Enums</a></h2>
+<h3 id="pxstate"><a class="header" href="#pxstate">PxState</a></h3>
+<p>Various states a Pricing struct can be in</p>
+<pre><code class="language-solidity">enum PxState {
+    NEW,
+    REQD,
+    ACKD,
+    PXD,
+    OFF,
+    REJ,
+    DONE
+}
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="collarvault"><a class="header" href="#collarvault">CollarVault</a></h1>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/CollarVault.sol">Git Source</a></p>
+<p><strong>Inherits:</strong>
+ReentrancyGuard, <a href="src/CollarVault.sol//docs-temp/src/src/interfaces/native/ICollarVaultEvents.sol/interface.ICollarVaultEvents.html">ICollarVaultEvents</a></p>
+<p><strong>Author:</strong>
+Collar Networks, Inc.</p>
+<p>The vault handles RFQ and execution of rolls for existing vaults</p>
+<h2 id="state-variables-3"><a class="header" href="#state-variables-3">State Variables</a></h2>
+<h3 id="qty"><a class="header" href="#qty">qty</a></h3>
+<pre><code class="language-solidity">uint256 qty;
+</code></pre>
+<h3 id="lent"><a class="header" href="#lent">lent</a></h3>
+<pre><code class="language-solidity">uint256 lent;
+</code></pre>
+<h3 id="lendasset-1"><a class="header" href="#lendasset-1">lendAsset</a></h3>
+<pre><code class="language-solidity">address lendAsset;
+</code></pre>
+<h3 id="putstrikepct"><a class="header" href="#putstrikepct">putstrikePct</a></h3>
+<pre><code class="language-solidity">uint256 putstrikePct;
+</code></pre>
+<h3 id="callstrikepct"><a class="header" href="#callstrikepct">callstrikePct</a></h3>
+<pre><code class="language-solidity">uint256 callstrikePct;
+</code></pre>
+<h3 id="marketmaker-1"><a class="header" href="#marketmaker-1">marketmaker</a></h3>
+<pre><code class="language-solidity">address marketmaker;
+</code></pre>
+<h3 id="client"><a class="header" href="#client">client</a></h3>
+<pre><code class="language-solidity">address payable client;
+</code></pre>
+<h3 id="maturitytimestamp"><a class="header" href="#maturitytimestamp">maturityTimestamp</a></h3>
+<pre><code class="language-solidity">uint256 maturityTimestamp;
+</code></pre>
+<h3 id="rollcount"><a class="header" href="#rollcount">rollcount</a></h3>
+<pre><code class="language-solidity">uint256 rollcount;
+</code></pre>
+<h3 id="fill"><a class="header" href="#fill">fill</a></h3>
+<pre><code class="language-solidity">uint256 fill;
+</code></pre>
+<h3 id="mmcollateral"><a class="header" href="#mmcollateral">mmCollateral</a></h3>
+<pre><code class="language-solidity">uint256 mmCollateral;
+</code></pre>
+<h3 id="proceeds"><a class="header" href="#proceeds">proceeds</a></h3>
+<pre><code class="language-solidity">uint256 proceeds;
+</code></pre>
+<h3 id="feepaid"><a class="header" href="#feepaid">feePaid</a></h3>
+<pre><code class="language-solidity">uint256 feePaid;
+</code></pre>
+<h3 id="rollpref"><a class="header" href="#rollpref">rollPref</a></h3>
+<pre><code class="language-solidity">bool rollPref = true;
+</code></pre>
+<h3 id="settled"><a class="header" href="#settled">settled</a></h3>
+<pre><code class="language-solidity">bool settled = false;
+</code></pre>
+<h3 id="repaid"><a class="header" href="#repaid">repaid</a></h3>
+<pre><code class="language-solidity">bool repaid = false;
+</code></pre>
+<h3 id="deetsposteda"><a class="header" href="#deetsposteda">deetsPostedA</a></h3>
+<pre><code class="language-solidity">bool deetsPostedA = false;
+</code></pre>
+<h3 id="deetspostedb"><a class="header" href="#deetspostedb">deetsPostedB</a></h3>
+<pre><code class="language-solidity">bool deetsPostedB = false;
+</code></pre>
+<h3 id="loanrepaybalance"><a class="header" href="#loanrepaybalance">loanRepayBalance</a></h3>
+<pre><code class="language-solidity">uint256 loanRepayBalance;
+</code></pre>
+<h3 id="settlepref"><a class="header" href="#settlepref">settlePref</a></h3>
+<pre><code class="language-solidity">uint256 settlePref = 0;
+</code></pre>
+<h3 id="postedphysicalcollat"><a class="header" href="#postedphysicalcollat">postedPhysicalCollat</a></h3>
+<pre><code class="language-solidity">uint256 postedPhysicalCollat = 0;
+</code></pre>
+<h3 id="finalprice"><a class="header" href="#finalprice">finalPrice</a></h3>
+<pre><code class="language-solidity">uint256 finalPrice;
+</code></pre>
+<h3 id="rollstate"><a class="header" href="#rollstate">rollstate</a></h3>
+<pre><code class="language-solidity">uint256 rollstate = 0;
+</code></pre>
+<h3 id="rollputpct"><a class="header" href="#rollputpct">rollputpct</a></h3>
+<pre><code class="language-solidity">uint256 rollputpct;
+</code></pre>
+<h3 id="rollcallpct"><a class="header" href="#rollcallpct">rollcallpct</a></h3>
+<pre><code class="language-solidity">uint256 rollcallpct;
+</code></pre>
+<h3 id="rollltvpct"><a class="header" href="#rollltvpct">rollltvpct</a></h3>
+<pre><code class="language-solidity">uint256 rollltvpct;
+</code></pre>
+<h3 id="rollmatstamp"><a class="header" href="#rollmatstamp">rollmatstamp</a></h3>
+<pre><code class="language-solidity">uint256 rollmatstamp;
+</code></pre>
+<h3 id="cashposted"><a class="header" href="#cashposted">cashposted</a></h3>
+<pre><code class="language-solidity">uint256 cashposted;
+</code></pre>
+<h3 id="feewallet-1"><a class="header" href="#feewallet-1">feeWallet</a></h3>
+<pre><code class="language-solidity">address feeWallet;
+</code></pre>
+<h3 id="rollfeerate"><a class="header" href="#rollfeerate">rollFeeRate</a></h3>
+<pre><code class="language-solidity">uint256 rollFeeRate;
+</code></pre>
+<h3 id="weth9-1"><a class="header" href="#weth9-1">WETH9</a></h3>
+<pre><code class="language-solidity">address WETH9;
+</code></pre>
+<h3 id="engine"><a class="header" href="#engine">engine</a></h3>
+<pre><code class="language-solidity">address immutable engine;
+</code></pre>
+<h3 id="admin-1"><a class="header" href="#admin-1">admin</a></h3>
+<pre><code class="language-solidity">address immutable admin;
+</code></pre>
+<h3 id="rfqid-1"><a class="header" href="#rfqid-1">rfqid</a></h3>
+<pre><code class="language-solidity">uint256 immutable rfqid;
+</code></pre>
+<h3 id="dexrouter-1"><a class="header" href="#dexrouter-1">dexRouter</a></h3>
+<pre><code class="language-solidity">ISwapRouter immutable dexRouter;
+</code></pre>
+<h3 id="pricefeed-1"><a class="header" href="#pricefeed-1">priceFeed</a></h3>
+<pre><code class="language-solidity">AggregatorV3Interface internal immutable priceFeed;
+</code></pre>
+<h2 id="functions-11"><a class="header" href="#functions-11">Functions</a></h2>
+<h3 id="constructor-3"><a class="header" href="#constructor-3">constructor</a></h3>
+<p>fills are 4 digits // inputted as 13000101 = 1300.0101 actual - need to keep as 8 digits</p>
+<pre><code class="language-solidity">constructor(
+    address _admin,
+    uint256 _rfqid,
+    uint256 _qty,
+    address _lendAsset,
+    uint256 _putStrikePct,
+    uint256 _callStrikePct,
+    uint256 _maturityTimestamp,
+    address _dexRouter,
+    address _priceFeed
+);
+</code></pre>
+<h3 id="fetchoracleprice-1"><a class="header" href="#fetchoracleprice-1">fetchOraclePrice</a></h3>
+<p>Retrieves the oracle price</p>
+<pre><code class="language-solidity">function fetchOraclePrice() internal view returns (uint256);
+</code></pre>
+<h3 id="getoracleprice-2"><a class="header" href="#getoracleprice-2">getOraclePrice</a></h3>
+<p>Makes fetch external without upsetting the compiler</p>
+<pre><code class="language-solidity">function getOraclePrice() internal view returns (uint256);
+</code></pre>
+<h3 id="getoraclepriceexternal"><a class="header" href="#getoraclepriceexternal">getOraclePriceExternal</a></h3>
+<pre><code class="language-solidity">function getOraclePriceExternal() external view returns (uint256);
+</code></pre>
+<h3 id="onlymarketmaker-1"><a class="header" href="#onlymarketmaker-1">onlyMarketMaker</a></h3>
+<p>Modifiers that limit who is allowed to do what at certain phases of the RFQ and Execution process</p>
+<pre><code class="language-solidity">modifier onlyMarketMaker();
+</code></pre>
+<h3 id="onlyclient"><a class="header" href="#onlyclient">onlyClient</a></h3>
+<pre><code class="language-solidity">modifier onlyClient();
+</code></pre>
+<h3 id="onlyadmin-1"><a class="header" href="#onlyadmin-1">onlyAdmin</a></h3>
+<pre><code class="language-solidity">modifier onlyAdmin();
+</code></pre>
+<h3 id="whilelive"><a class="header" href="#whilelive">whileLive</a></h3>
+<p>Ensures matured contracts can no longer be edited, request rolls, or change settlement type</p>
+<pre><code class="language-solidity">modifier whileLive();
+</code></pre>
+<h3 id="oncematured"><a class="header" href="#oncematured">onceMatured</a></h3>
+<pre><code class="language-solidity">modifier onceMatured();
+</code></pre>
+<h3 id="isrollable"><a class="header" href="#isrollable">isRollable</a></h3>
+<p>Currently 2 days is our minimum notice time that must be given prior to expiry to request a roll price</p>
+<pre><code class="language-solidity">modifier isRollable();
+</code></pre>
+<h3 id="iseligibleroller"><a class="header" href="#iseligibleroller">isEligibleRoller</a></h3>
+<pre><code class="language-solidity">modifier isEligibleRoller();
+</code></pre>
+<h3 id="onlyengine"><a class="header" href="#onlyengine">onlyEngine</a></h3>
+<p>Only allows the engine to call certain functions</p>
+<pre><code class="language-solidity">modifier onlyEngine();
+</code></pre>
+<h3 id="checkrepaid"><a class="header" href="#checkrepaid">checkRepaid</a></h3>
+<p>Additional get and check functionality</p>
+<pre><code class="language-solidity">function checkRepaid() external view returns (bool);
+</code></pre>
+<h3 id="checkmatured"><a class="header" href="#checkmatured">checkMatured</a></h3>
+<pre><code class="language-solidity">function checkMatured() external view returns (bool);
+</code></pre>
+<h3 id="checkphysicalcollateralposted"><a class="header" href="#checkphysicalcollateralposted">checkPhysicalCollateralPosted</a></h3>
+<pre><code class="language-solidity">function checkPhysicalCollateralPosted() external view returns (uint256);
+</code></pre>
+<h3 id="getmaturitytimestamp"><a class="header" href="#getmaturitytimestamp">getMaturityTimestamp</a></h3>
+<pre><code class="language-solidity">function getMaturityTimestamp() external view returns (uint256);
+</code></pre>
+<h3 id="getcollateralamount"><a class="header" href="#getcollateralamount">getCollateralAmount</a></h3>
+<pre><code class="language-solidity">function getCollateralAmount() external view returns (uint256);
+</code></pre>
+<h3 id="getrepaymentamount"><a class="header" href="#getrepaymentamount">getRepaymentAmount</a></h3>
+<pre><code class="language-solidity">function getRepaymentAmount() external view returns (uint256);
+</code></pre>
+<h3 id="getclaimableclientcash"><a class="header" href="#getclaimableclientcash">getClaimableClientCash</a></h3>
+<pre><code class="language-solidity">function getClaimableClientCash() external view returns (uint256);
+</code></pre>
+<h3 id="getclaimableclientphysical"><a class="header" href="#getclaimableclientphysical">getClaimableClientPhysical</a></h3>
+<pre><code class="language-solidity">function getClaimableClientPhysical() external view returns (uint256);
+</code></pre>
+<h3 id="checksettletype"><a class="header" href="#checksettletype">checkSettleType</a></h3>
+<pre><code class="language-solidity">function checkSettleType() external view returns (uint256);
+</code></pre>
+<h3 id="checkrolltype"><a class="header" href="#checkrolltype">checkRollType</a></h3>
+<pre><code class="language-solidity">function checkRollType() external view returns (bool);
+</code></pre>
+<h3 id="getfee"><a class="header" href="#getfee">getFee</a></h3>
+<pre><code class="language-solidity">function getFee() external view returns (uint256);
+</code></pre>
+<h3 id="getloanamt"><a class="header" href="#getloanamt">getLoanAmt</a></h3>
+<pre><code class="language-solidity">function getLoanAmt() external view returns (uint256);
+</code></pre>
+<h3 id="getvaultdetails"><a class="header" href="#getvaultdetails">getVaultDetails</a></h3>
+<p>Used by the UI to retrieve information about the vault</p>
+<pre><code class="language-solidity">function getVaultDetails()
+    external
+    view
+    returns (uint256, uint256, address, uint256, uint256, uint256, uint256, uint256, uint256, address, uint256, uint256);
+</code></pre>
+<h3 id="receive-1"><a class="header" href="#receive-1">receive</a></h3>
+<pre><code class="language-solidity">receive() external payable;
+</code></pre>
+<h3 id="setsettletype"><a class="header" href="#setsettletype">setSettleType</a></h3>
+<p>Allows clients to update settlement preferences</p>
+<pre><code class="language-solidity">function setSettleType(uint256 _newSettlePref) external onlyClient;
+</code></pre>
+<h3 id="getrolldetails"><a class="header" href="#getrolldetails">getRollDetails</a></h3>
+<p>Retrieves the roll details for the UI</p>
+<pre><code class="language-solidity">function getRollDetails() external view returns (bool, uint256, uint256, uint256, uint256);
+</code></pre>
+<h3 id="setrollpref"><a class="header" href="#setrollpref">setRollPref</a></h3>
+<p>Allows clients to update roll preferences</p>
+<pre><code class="language-solidity">function setRollPref(bool _newRollPref) external onlyClient whileLive;
+</code></pre>
+<h3 id="resetroll"><a class="header" href="#resetroll">resetRoll</a></h3>
+<p>Allows the contract to reset the roll details for the trade</p>
+<pre><code class="language-solidity">function resetRoll() internal whileLive;
+</code></pre>
+<h3 id="requestrollprice"><a class="header" href="#requestrollprice">requestRollPrice</a></h3>
+<p>Allows the client to request a roll price</p>
+<pre><code class="language-solidity">function requestRollPrice(uint256 _rollltvpct, uint256 _rollMaturityTimestamp)
+    external
+    isEligibleRoller
+    isRollable
+    whileLive;
+</code></pre>
+<h3 id="pullrollrequest"><a class="header" href="#pullrollrequest">pullRollRequest</a></h3>
+<pre><code class="language-solidity">function pullRollRequest() external isEligibleRoller isRollable whileLive;
+</code></pre>
+<h3 id="giverollorder"><a class="header" href="#giverollorder">giveRollOrder</a></h3>
+<pre><code class="language-solidity">function giveRollOrder() external isEligibleRoller isRollable whileLive;
+</code></pre>
+<h3 id="showrollprice"><a class="header" href="#showrollprice">showRollPrice</a></h3>
+<pre><code class="language-solidity">function showRollPrice(uint256 _rollcallpct) external onlyMarketMaker isRollable whileLive;
+</code></pre>
+<h3 id="rejectroll"><a class="header" href="#rejectroll">rejectRoll</a></h3>
+<pre><code class="language-solidity">function rejectRoll() external onlyMarketMaker isRollable whileLive;
+</code></pre>
+<h3 id="changemarketmaker"><a class="header" href="#changemarketmaker">changeMarketmaker</a></h3>
+<pre><code class="language-solidity">function changeMarketmaker(address _newMM) external onlyAdmin nonReentrant;
+</code></pre>
+<h3 id="swapexactinputsingle-1"><a class="header" href="#swapexactinputsingle-1">swapExactInputSingle</a></h3>
+<pre><code class="language-solidity">function swapExactInputSingle(uint256 amountIn) internal returns (uint256 amountOut);
+</code></pre>
+<h3 id="swapexactinputsingleflipped"><a class="header" href="#swapexactinputsingleflipped">swapExactInputSingleFlipped</a></h3>
+<pre><code class="language-solidity">function swapExactInputSingleFlipped(uint256 amountIn) internal returns (uint256 amountOut);
+</code></pre>
+<h3 id="executeroll"><a class="header" href="#executeroll">executeRoll</a></h3>
+<pre><code class="language-solidity">function executeRoll() external onlyMarketMaker isRollable whileLive nonReentrant;
+</code></pre>
+<h3 id="posttradedetailsa"><a class="header" href="#posttradedetailsa">postTradeDetailsA</a></h3>
+<pre><code class="language-solidity">function postTradeDetailsA(uint256 _lent, uint256 _fill, uint256 _collat, uint256 _proceeds, address _weth)
+    external
+    onlyEngine;
+</code></pre>
+<h3 id="posttradedetailsb"><a class="header" href="#posttradedetailsb">postTradeDetailsB</a></h3>
+<pre><code class="language-solidity">function postTradeDetailsB(
+    uint256 _fee,
+    address _feeWallet,
+    uint256 _rollFeeRate,
+    address _marketmaker,
+    address _client
+) external onlyEngine;
+</code></pre>
+<h3 id="repayloan"><a class="header" href="#repayloan">repayLoan</a></h3>
+<pre><code class="language-solidity">function repayLoan() external onlyClient whileLive nonReentrant;
+</code></pre>
+<h3 id="postcash"><a class="header" href="#postcash">postCash</a></h3>
+<pre><code class="language-solidity">function postCash(uint256 _stableAmt) external onlyClient whileLive nonReentrant;
+</code></pre>
+<h3 id="reclaimcash"><a class="header" href="#reclaimcash">reclaimCash</a></h3>
+<pre><code class="language-solidity">function reclaimCash(uint256 _stableAmt) external onlyClient;
+</code></pre>
+<h3 id="postphysical"><a class="header" href="#postphysical">postPhysical</a></h3>
+<pre><code class="language-solidity">function postPhysical() external payable onlyClient whileLive;
+</code></pre>
+<h3 id="reclaimphysical"><a class="header" href="#reclaimphysical">reclaimPhysical</a></h3>
+<pre><code class="language-solidity">function reclaimPhysical(uint256 amtWei) external onlyClient;
+</code></pre>
+<h3 id="maturevault-1"><a class="header" href="#maturevault-1">matureVault</a></h3>
+<pre><code class="language-solidity">function matureVault() external onceMatured nonReentrant;
 </code></pre>
 
                     </main>
