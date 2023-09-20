@@ -1,6 +1,6 @@
-name: Tests
+name: Tests & Docgen
 
-on: [push]
+on: [push, pull_request]
 
 env:
   FOUNDRY_PROFILE: ci
@@ -36,3 +36,17 @@ jobs:
 
       - name: Run Tests
         run: forge test -vvv
+
+      - name: Generate Docs
+        run: |
+          rm -rf docs
+          forge doc --build
+          mv docs-temp/book docs
+
+      - name: Commit and Push
+        run: |
+          git config --global user.name 'GitHub Actions Bot'
+          git config --global user.email 'actions@github.com'
+          git add -A
+          git commit -m "Auto-generate docs" || echo "No changes to commit"
+          git push

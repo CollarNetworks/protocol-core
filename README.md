@@ -8,4 +8,4 @@ Tests are run automatically via [GitHub Actions](https://github.com/CollarNetwor
 
 ## Documentation
 
-Solidity docs are automatically created from [Solidity NatSpec](https://docs.soliditylang.org/en/latest/style-guide.html#natspec) via the [forge doc command](https://book.getfoundry.sh/reference/forge/forge-doc#forge-doc) and are automatically regenerated via Github Actions on every push & pr. This configuration can be found in [.github/workflows/test.yml](.github/workflows/doc.yml).
+Solidity docs are automatically created from [Solidity NatSpec](https://docs.soliditylang.org/en/latest/style-guide.html#natspec) via the [forge doc command](https://book.getfoundry.sh/reference/forge/forge-doc#forge-doc) and are automatically regenerated via Github Actions on every PR. This configuration can be found in [.github/workflows/test.yml](.github/workflows/doc.yml). You can run this docgen locally via `forge doc --build`
