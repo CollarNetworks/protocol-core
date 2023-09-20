@@ -41,7 +41,7 @@ jobs:
         run: |
           rm -rf docs
           forge doc --build
-          mv -r docs-temp/book docs
+          mv docs-temp/book docs
 
       - name: Commit and Push
         run: |
