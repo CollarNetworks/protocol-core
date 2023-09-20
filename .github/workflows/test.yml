@@ -1,6 +1,6 @@
-name: test
+name: Tests
 
-on: workflow_dispatch
+on: [push, pull_request]
 
 env:
   FOUNDRY_PROFILE: ci
@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: true
 
-    name: Foundry project
+    name: Collar Protocol Core
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -22,13 +22,17 @@ jobs:
         with:
           version: nightly
 
-      - name: Run Forge build
-        run: |
-          forge --version
-          forge build --sizes
-        id: build
+      - name: Check Formatting
+        run: forge fmt --check
 
-      - name: Run Forge tests
-        run: |
-          forge test -vvv
-        id: test
+      - name: Install Dependencies
+        run: forge install
+
+      - name: Check Contract Sizes
+        run: forge build --sizes
+
+      - name: Check Gas Snapshots
+        run: forge snapshot --check
+
+      - name: Run Tests
+        run: forge test -vvv
