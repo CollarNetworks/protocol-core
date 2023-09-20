@@ -1,66 +1,11 @@
-## Foundry
+# Collar Protocol Core
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+## Setup
 
-Foundry consists of:
+This repo primarily uses forge for development. See [foundry specific commands here](./FOUNDRY.md).
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+Tests are run automatically via [GitHub Actions](https://github.com/CollarNetworks/protocol-core/actions) on every push & pr. This configuration can be found in [.github/workflows/test.yml](.github/workflows/test.yml). Consider installing the VSCode [GitHub Actions extension](https://marketplace.visualstudio.com/items?itemName=cschleiden.vscode-github-actions) for a better experience.
 
 ## Documentation
 
-https://book.getfoundry.sh/
-
-## Usage
-
-### Build
-
-```shell
-$ forge build
-```
-
-### Test
-
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+Solidity docs are automatically created from [Solidity NatSpec](https://docs.soliditylang.org/en/latest/style-guide.html#natspec) via the [forge doc command](https://book.getfoundry.sh/reference/forge/forge-doc#forge-doc) and are automatically regenerated via Github Actions on every push & pr. This configuration can be found in [.github/workflows/test.yml](.github/workflows/doc.yml).

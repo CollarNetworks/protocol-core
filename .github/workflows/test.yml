@@ -6,11 +6,11 @@ env:
   FOUNDRY_PROFILE: ci
 
 jobs:
-  check:
+  test:
     strategy:
       fail-fast: true
 
-    name: Collar Protocol Core
+    name: Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -36,3 +36,6 @@ jobs:
 
       - name: Run Tests
         run: forge test -vvv
+
+      - name: Generate Docs
+        run: forge doc

@@ -1,0 +1,14 @@
+name: DocGen
+
+on: [push, pull_request]
+
+env:
+  FOUNDRY_PROFILE: ci
+
+jobs:
+  docs:
+    strategy:
+      fail-fast: true
+
+    name: DocGen
+    runs-on: ubuntu-latest
