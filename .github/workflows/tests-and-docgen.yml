@@ -1,0 +1,63 @@
+name: Tests & Docgen
+
+on: [push, pull_request]
+
+env:
+  FOUNDRY_PROFILE: ci
+
+jobs:
+  test:
+    strategy:
+      fail-fast: true
+
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 0
+          submodules: recursive
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - uses: actions/checkout@v4
+        if: github.event_name == 'push'
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Check Formatting
+        run: forge fmt --check
+
+      - name: Install Dependencies
+        run: forge install
+
+      - name: Check Contract Sizes
+        run: forge build --sizes
+
+      - name: Check Gas Snapshots
+        run: forge snapshot --check
+
+      - name: Run Tests
+        run: forge test -vvv
+          
+      - name: Generate Docs
+        if: github.event_name == 'pull_request'
+        run: |
+          rm -rf docs
+          forge doc --build
+          mv docs-temp/book docs
+
+      - name: Commit and Push
+        if: github.event_name == 'pull_request'
+        run: |
+          git config --global user.name github-actions
+          git config --global user.email github-actions@github.com
+          git add .
+          git commit -m "Auto-Generate Documentation"
+          git push
