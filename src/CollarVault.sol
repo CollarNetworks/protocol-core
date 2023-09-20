@@ -6,9 +6,9 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@v3-periphery/contracts/libraries/TransferHelper.sol";
 import "@v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "@chainlink/interfaces/AggregatorV3Interface.sol";
-import "interfaces/ICollarVaultEvents.sol";
-import "interfaces/ICollarEngine.sol";
-import "../interfaces/IWETH.sol";
+import "./interfaces/native/ICollarVaultEvents.sol";
+import "./interfaces/native/ICollarEngine.sol";
+import "./interfaces/external/IWETH.sol";
 
 /// @title Collar Protocol Engine
 /// @author Collar Networks, Inc.
