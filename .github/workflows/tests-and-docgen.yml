@@ -1,8 +1,6 @@
 name: Tests & Docgen
 
-on: 
-  pull_request:
-    branches: [main]
+on: [push, pull_request]
 
 env:
   FOUNDRY_PROFILE: ci
@@ -16,7 +14,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        if: github.event_name == 'pull_request'
         with:
+          fetch-depth: 0
+          submodules: recursive
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - uses: actions/checkout@v4
+        if: github.event_name == 'push'
+        with:
+          fetch-depth: 0
           submodules: recursive
 
       - name: Install Foundry
@@ -38,14 +45,16 @@ jobs:
 
       - name: Run Tests
         run: forge test -vvv
-      
+          
       - name: Generate Docs
+        if: github.event_name == 'pull_request'
         run: |
           rm -rf docs
           forge doc --build
           mv docs-temp/book docs
 
       - name: Commit and Push
+        if: github.event_name == 'pull_request'
         run: |
           git config --global user.name github-actions
           git config --global user.email github-actions@github.com
