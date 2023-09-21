@@ -49,7 +49,7 @@ contract CollarEngineTest is Test {
         vm.label(address(engine), "CollarEngine");
     }
 
-    function test_DeploymentAndInitialValues() public {
+    function test_initialDeployAndValues() public {
         assertEq(engine.getAdmin(), owner);
         assertEq(engine.getDexRouter(), testDex);
         assertEq(engine.getMarketmaker(), marketMakerMike);
