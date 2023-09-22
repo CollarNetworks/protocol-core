@@ -9,8 +9,6 @@ import {IERC20} from "../../src/interfaces/external/IERC20.sol";
 contract CollarEngineTest is Test, EngineUtils {
     CollarEngine engine;
 
-    uint256 constant testQTY = 0.1 ether;
-    uint256 constant testLTV = 85;
     uint256 constant maturityTimestamp = 1670337200;
 
     function setUp() public {
@@ -40,27 +38,27 @@ contract CollarEngineTest is Test, EngineUtils {
 
     function test_requestPrice() public {
         uint256 currentRFQId = engine.getCurrRfqid();
-        assertEq(currentRFQId, 0);
+        assertEq(currentRFQId, DEFAULT_RFQID);
 
         startHoax(DEFAULT_ENGINE_PARAMS.averageJoe);
 
-        engine.requestPrice(testQTY, testLTV, maturityTimestamp, "");
+        engine.requestPrice(DEFAULT_QTY, DEFAULT_LTV, maturityTimestamp, "");
 
         currentRFQId = engine.getCurrRfqid();
-        assertEq(currentRFQId, 1);
+        assertEq(currentRFQId, DEFAULT_RFQID + 1);
 
         CollarEngine.Pricing memory joePrice = engine.getPricingByClient(DEFAULT_ENGINE_PARAMS.averageJoe);
 
-        assertEq(joePrice.rfqid, 0);
+        assertEq(joePrice.rfqid, DEFAULT_RFQID);
         assertEq(joePrice.lendAsset, DEFAULT_ENGINE_PARAMS.usdc);
         assertEq(joePrice.marketmaker, DEFAULT_ENGINE_PARAMS.marketMakerMike);
         assertEq(joePrice.client, DEFAULT_ENGINE_PARAMS.averageJoe);
         assertEq(joePrice.structure, "Prepaid");
         assertEq(joePrice.underlier, "ETH");
         assertEq(joePrice.maturityTimestamp, maturityTimestamp);
-        assertEq(joePrice.qty, testQTY);
-        assertEq(joePrice.ltv, testLTV);
-        assertEq(joePrice.putstrikePct, 88);
+        assertEq(joePrice.qty, DEFAULT_QTY);
+        assertEq(joePrice.ltv, DEFAULT_LTV);
+        assertEq(joePrice.putstrikePct, DEFAULT_PUT_STRIKE_PCT);
         assertEq(joePrice.callstrikePct, 0);
         assertEq(joePrice.notes, "");
     }
@@ -72,7 +70,7 @@ contract CollarEngineTest is Test, EngineUtils {
         CollarEngine.PxState joeState;
 
         hoax(DEFAULT_ENGINE_PARAMS.averageJoe);
-        engine.requestPrice(testQTY, testLTV, maturityTimestamp, "");
+        engine.requestPrice(DEFAULT_QTY, DEFAULT_LTV, maturityTimestamp, "");
         joeState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.averageJoe);
         assertTrue(joeState == CollarEngine.PxState.REQD);
 
@@ -86,7 +84,7 @@ contract CollarEngineTest is Test, EngineUtils {
         CollarEngine.PxState joeState;
 
         hoax(DEFAULT_ENGINE_PARAMS.averageJoe);
-        engine.requestPrice(testQTY, testLTV, maturityTimestamp, "");
+        engine.requestPrice(DEFAULT_QTY, DEFAULT_LTV, maturityTimestamp, "");
 
         startHoax(DEFAULT_ENGINE_PARAMS.marketMakerMike);
         engine.ackPrice(DEFAULT_ENGINE_PARAMS.averageJoe);
@@ -94,7 +92,7 @@ contract CollarEngineTest is Test, EngineUtils {
         joeState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.averageJoe);
         assertTrue(joeState == CollarEngine.PxState.ACKD);
 
-        engine.showPrice(DEFAULT_ENGINE_PARAMS.averageJoe, 110);
+        engine.showPrice(DEFAULT_ENGINE_PARAMS.averageJoe, DEFAULT_CALL_STRIKE_PCT);
 
         joeState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.averageJoe);
         assertTrue(joeState == CollarEngine.PxState.PXD);
@@ -104,11 +102,11 @@ contract CollarEngineTest is Test, EngineUtils {
         CollarEngine.PxState joeState;
 
         hoax(DEFAULT_ENGINE_PARAMS.averageJoe);
-        engine.requestPrice(testQTY, testLTV, maturityTimestamp, "");
+        engine.requestPrice(DEFAULT_QTY, DEFAULT_LTV, maturityTimestamp, "");
 
         startHoax(DEFAULT_ENGINE_PARAMS.marketMakerMike);
         engine.ackPrice(DEFAULT_ENGINE_PARAMS.averageJoe);
-        engine.showPrice(DEFAULT_ENGINE_PARAMS.averageJoe, 110);
+        engine.showPrice(DEFAULT_ENGINE_PARAMS.averageJoe, DEFAULT_CALL_STRIKE_PCT);
 
         joeState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.averageJoe);
         assertTrue(joeState == CollarEngine.PxState.PXD);
@@ -123,17 +121,17 @@ contract CollarEngineTest is Test, EngineUtils {
         CollarEngine.PxState joeState;
 
         hoax(DEFAULT_ENGINE_PARAMS.averageJoe);
-        engine.requestPrice(testQTY, testLTV, maturityTimestamp, "");
+        engine.requestPrice(DEFAULT_QTY, DEFAULT_LTV, maturityTimestamp, "");
 
         startHoax(DEFAULT_ENGINE_PARAMS.marketMakerMike);
         engine.ackPrice(DEFAULT_ENGINE_PARAMS.averageJoe);
-        engine.showPrice(DEFAULT_ENGINE_PARAMS.averageJoe, 110);
+        engine.showPrice(DEFAULT_ENGINE_PARAMS.averageJoe, DEFAULT_CALL_STRIKE_PCT);
 
         joeState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.averageJoe);
         assertTrue(joeState == CollarEngine.PxState.PXD);
 
         changePrank(DEFAULT_ENGINE_PARAMS.averageJoe);
-        engine.clientGiveOrder{value: testQTY}();
+        engine.clientGiveOrder{value: DEFAULT_QTY}();
         joeState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.averageJoe);
         assertTrue(joeState == CollarEngine.PxState.DONE);
     }
@@ -142,14 +140,14 @@ contract CollarEngineTest is Test, EngineUtils {
         CollarEngine.PxState joeState;
 
         hoax(DEFAULT_ENGINE_PARAMS.averageJoe);
-        engine.requestPrice(testQTY, testLTV, maturityTimestamp, "");
+        engine.requestPrice(DEFAULT_QTY, DEFAULT_LTV, maturityTimestamp, "");
 
         startHoax(DEFAULT_ENGINE_PARAMS.marketMakerMike);
         engine.ackPrice(DEFAULT_ENGINE_PARAMS.averageJoe);
-        engine.showPrice(DEFAULT_ENGINE_PARAMS.averageJoe, 110);
+        engine.showPrice(DEFAULT_ENGINE_PARAMS.averageJoe, DEFAULT_CALL_STRIKE_PCT);
 
         changePrank(DEFAULT_ENGINE_PARAMS.averageJoe);
-        engine.clientGiveOrder{value: testQTY}();
+        engine.clientGiveOrder{value: DEFAULT_QTY}();
 
         changePrank(DEFAULT_ENGINE_PARAMS.marketMakerMike);
         IERC20(DEFAULT_ENGINE_PARAMS.usdc).approve(address(engine), 1e10);
@@ -168,7 +166,7 @@ contract CollarEngineTest is Test, EngineUtils {
         uint256 feeRate;
 
         feeRate = engine.getFeerate();
-        assertEq(feeRate, 3);
+        assertEq(feeRate, DEFAULT_RAKE);
 
         hoax(DEFAULT_ENGINE_PARAMS.owner);
         engine.updateFeeRatePct(5);
@@ -179,42 +177,42 @@ contract CollarEngineTest is Test, EngineUtils {
 
     function test_clientPullOrder() public {
         hoax(DEFAULT_ENGINE_PARAMS.averageJoe);
-        engine.requestPrice(testQTY, testLTV, maturityTimestamp, "");
+        engine.requestPrice(DEFAULT_QTY, DEFAULT_LTV, maturityTimestamp, "");
 
         startHoax(DEFAULT_ENGINE_PARAMS.marketMakerMike);
         engine.ackPrice(DEFAULT_ENGINE_PARAMS.averageJoe);
-        engine.showPrice(DEFAULT_ENGINE_PARAMS.averageJoe, 110);
+        engine.showPrice(DEFAULT_ENGINE_PARAMS.averageJoe, DEFAULT_CALL_STRIKE_PCT);
 
         changePrank(DEFAULT_ENGINE_PARAMS.averageJoe);
         uint256 joeBalancePre = address(DEFAULT_ENGINE_PARAMS.averageJoe).balance;
-        engine.clientGiveOrder{value: testQTY}();
+        engine.clientGiveOrder{value: DEFAULT_QTY}();
         uint256 joeBalanceMid = address(DEFAULT_ENGINE_PARAMS.averageJoe).balance;
 
         uint256 joeEscrow = engine.getClientEscrow(DEFAULT_ENGINE_PARAMS.averageJoe);
-        assertEq(joeEscrow, 0.1 ether);
+        assertEq(joeEscrow, DEFAULT_QTY);
 
         engine.clientPullOrder();
         uint256 joeBalancePost = address(DEFAULT_ENGINE_PARAMS.averageJoe).balance;
 
         assertApproxEqRel(joeBalancePre, joeBalancePost, 1);
-        assertApproxEqRel(joeBalancePre - joeBalanceMid, testQTY, 1);
+        assertApproxEqRel(joeBalancePre - joeBalanceMid, DEFAULT_QTY, 1);
     }
 
     function test_rejectOrder() public {
         hoax(DEFAULT_ENGINE_PARAMS.averageJoe);
-        engine.requestPrice(testQTY, testLTV, maturityTimestamp, "");
+        engine.requestPrice(DEFAULT_QTY, DEFAULT_LTV, maturityTimestamp, "");
 
         startHoax(DEFAULT_ENGINE_PARAMS.marketMakerMike);
         engine.ackPrice(DEFAULT_ENGINE_PARAMS.averageJoe);
-        engine.showPrice(DEFAULT_ENGINE_PARAMS.averageJoe, 110);
+        engine.showPrice(DEFAULT_ENGINE_PARAMS.averageJoe, DEFAULT_CALL_STRIKE_PCT);
 
         changePrank(DEFAULT_ENGINE_PARAMS.averageJoe);
         uint256 joeBalancePre = address(DEFAULT_ENGINE_PARAMS.averageJoe).balance;
-        engine.clientGiveOrder{value: testQTY}();
+        engine.clientGiveOrder{value: DEFAULT_QTY}();
         uint256 joeBalanceMid = address(DEFAULT_ENGINE_PARAMS.averageJoe).balance;
 
         uint256 joeEscrow = engine.getClientEscrow(DEFAULT_ENGINE_PARAMS.averageJoe);
-        assertEq(joeEscrow, 0.1 ether);
+        assertEq(joeEscrow, DEFAULT_QTY);
 
         changePrank(DEFAULT_ENGINE_PARAMS.marketMakerMike);
         engine.rejectOrder(DEFAULT_ENGINE_PARAMS.averageJoe, "mkt moved");
@@ -225,6 +223,6 @@ contract CollarEngineTest is Test, EngineUtils {
         assertEq(joeEscrow, 0);
 
         assertApproxEqRel(joeBalancePre, joeBalancePost, 1);
-        assertApproxEqRel(joeBalancePre - joeBalanceMid, testQTY, 1);
+        assertApproxEqRel(joeBalancePre - joeBalanceMid, DEFAULT_QTY, 1);
     }
 }

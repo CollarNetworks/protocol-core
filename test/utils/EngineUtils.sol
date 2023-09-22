@@ -3,8 +3,9 @@ pragma solidity ^0.8.18;
 
 import "forge-std/Test.sol";
 import {CollarEngine} from "../../src/CollarEngine.sol";
+import {AddressBook, DefaultConstants} from "./CommonUtils.sol";
 
-abstract contract EngineUtils is Test {
+abstract contract EngineUtils is Test, AddressBook, DefaultConstants {
     struct EngineDeployParams {
         uint256 rake;
         address feeWallet;
@@ -18,15 +19,15 @@ abstract contract EngineUtils is Test {
     }
 
     EngineDeployParams DEFAULT_ENGINE_PARAMS = EngineDeployParams({
-        rake: 3,
-        feeWallet: makeAddr("fee"),
-        marketMakerMike: makeAddr("mike"),
-        usdc: makeAddr("usdc"),
-        testDex: makeAddr("dex"),
-        ethUSDOracle: makeAddr("oracle"),
-        weth: makeAddr("weth"),
-        averageJoe: makeAddr("joe"),
-        owner: makeAddr("owner")
+        rake: DEFAULT_RAKE,
+        feeWallet: feeWallet,
+        marketMakerMike: marketMakerMike,
+        usdc: usdc,
+        testDex: testDex,
+        ethUSDOracle: ethUSDOracle,
+        weth: weth,
+        averageJoe: averageJoe,
+        owner: owner
     });
 
     /// @dev Deploys a new CollarEngine with default params (above)
