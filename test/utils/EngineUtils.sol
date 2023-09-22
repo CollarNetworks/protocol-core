@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import {CollarEngine} from "../../src/CollarEngine.sol";
 import {AddressBook, DefaultConstants} from "./CommonUtils.sol";
 
+/// @dev Inherit this contract into a test contract to get access to the deployEngine function
 abstract contract EngineUtils is Test, AddressBook, DefaultConstants {
     struct EngineDeployParams {
         uint256 rake;

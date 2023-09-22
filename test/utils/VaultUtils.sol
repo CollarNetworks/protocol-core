@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import {CollarVault} from "../../src/CollarVault.sol";
 import {AddressBook, DefaultConstants} from "./CommonUtils.sol";
 
+/// @dev Inherit this contract into a test contract to get access to the deployEngine function
 abstract contract VaultUtils is Test, AddressBook, DefaultConstants {
     struct VaultDeployParams {
         address admin;
