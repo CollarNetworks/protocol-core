@@ -1,13 +1,25 @@
-ds-test/=lib/forge-std/lib/ds-test/src/
-erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/
-forge-std/=lib/forge-std/src/
+@uniswap/v3-periphery/=lib/uni-v3-periphery-v1.3.0/contracts/
+@uniswap/v3-core/=lib/uni-v3-core-v1.0.0/contracts/
 
+lib/uni-v3-periphery-v1.3.0:@openzeppelin/contracts/=lib/oz-v3.4.2-solc-0.7/contracts/
+lib/uni-v3-core-v1.0.0:@openzeppelin/contracts/=lib/oz-v3.4.2-solc-0.7/contracts/
+
+
+
+chainlink/=lib/chainlink/
 @chainlink-v0.8/=lib/chainlink/contracts/src/v0.8/
 
-@uni-v3-core/=lib/v3-core/
-@uniswap/v3-core/=lib/v3-core/
+ds-test/=lib/forge-std/lib/ds-test/src/
+erc4626-tests/=lib/oz-v4.9.3/lib/erc4626-tests/
 
-@uni-v3-periphery/=lib/v3-periphery/contracts/
-@uniswap/v3-periphery/=lib/v3-periphery/
+@forge-std/=lib/forge-std/src/
 
-@openzeppelin=lib/openzeppelin-contracts/contracts/
+openzeppelin/=lib/oz-v4.9.3/contracts/
+
+@oz-v3.4.2-solc-0.7/=lib/oz-v3.4.2-solc-0.7/contracts/
+@oz-v4.9.3/=lib/oz-v4.9.3/contracts/
+
+lib/uni-v3-periphery-v1.3.0:@uniswap/v3-core/=lib/uni-v3-core-v1.0.0/
+
+uni-v3-core-v1.0.0/=lib/uni-v3-core-v1.0.0/
+uni-v3-periphery-v1.3.0/=lib/uni-v3-periphery-v1.3.0/contracts/

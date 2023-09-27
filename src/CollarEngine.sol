@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import "@uni-v3-periphery/interfaces/ISwapRouter.sol";
-import "@uni-v3-periphery/libraries/TransferHelper.sol";
+import {ISwapRouter} from "./interfaces/external/uniswap-v3/periphery-v1.3.0/ISwapRouter.sol";
+import {SafeERC20} from "@oz-v4.9.3/token/ERC20/utils/SafeERC20.sol";
 import "@chainlink-v0.8/interfaces/AggregatorV3Interface.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@oz-v4.9.3/token/ERC20/utils/SafeERC20.sol";
+import "@oz-v4.9.3/security/ReentrancyGuard.sol";
 import "./interfaces/external/IWETH.sol";
 import "./interfaces/native/ICollarEngineEvents.sol";
 // import "interfaces/ICollarKeeperManager.sol";
@@ -387,7 +387,7 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents {
     function swapExactInputSingle(uint256 amountIn) internal returns (uint256 amountOut) {
         IWETH(WETH9).deposit{value: amountIn}();
         // Approve the router to spend DAI.
-        TransferHelper.safeApprove(WETH9, address(dexRouter), amountIn);
+        SafeERC20.safeApprove(IERC20(WETH9), address(dexRouter), amountIn);
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
             tokenIn: WETH9,
             tokenOut: lendAsset,
