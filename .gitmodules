@@ -4,9 +4,3 @@
 [submodule "lib/chainlink"]
 	path = lib/chainlink
 	url = https://github.com/smartcontractkit/chainlink
-[submodule "lib/uni-v3-core-solc-v0.8"]
-	path = lib/uni-v3-core-solc-v0.8
-	url = https://github.com/CollarNetworks/uni-v3-core-solc-v0.8
-[submodule "lib/uni-v3-periphery-solc-v0.8"]
-	path = lib/uni-v3-periphery-solc-v0.8
-	url = https://github.com/CollarNetworks/uni-v3-periphery-solc-v0.8
