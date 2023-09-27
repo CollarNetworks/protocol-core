@@ -1,6 +1,3 @@
 [submodule "lib/forge-std"]
 	path = lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
-[submodule "lib/uni-v3-periphery-solc-v0.8"]
-	path = lib/uni-v3-periphery-solc-v0.8
-	url = https://github.com/CollarNetworks/uni-v3-periphery-solc-v0.8
