@@ -130,7 +130,7 @@ contract CollarEngineTest is Test, EngineUtils {
         joeState = engine.getStateByClient(averageJoe);
         assertTrue(joeState == CollarEngine.PxState.PXD);
 
-        changePrank(averageJoe);
+        startHoax(averageJoe);
         engine.clientGiveOrder{value: DEFAULT_QTY}();
         joeState = engine.getStateByClient(averageJoe);
         assertTrue(joeState == CollarEngine.PxState.DONE);
@@ -146,10 +146,10 @@ contract CollarEngineTest is Test, EngineUtils {
         engine.ackPrice(averageJoe);
         engine.showPrice(averageJoe, DEFAULT_CALL_STRIKE_PCT);
 
-        changePrank(averageJoe);
+        startHoax(averageJoe);
         engine.clientGiveOrder{value: DEFAULT_QTY}();
 
-        changePrank(marketMakerMike);
+        startHoax(marketMakerMike);
         IERC20(usdc).approve(address(engine), 1e10);
         engine.executeTrade(averageJoe);
 
@@ -183,7 +183,7 @@ contract CollarEngineTest is Test, EngineUtils {
         engine.ackPrice(averageJoe);
         engine.showPrice(averageJoe, DEFAULT_CALL_STRIKE_PCT);
 
-        changePrank(averageJoe);
+        startHoax(averageJoe);
         uint256 joeBalancePre = address(averageJoe).balance;
         engine.clientGiveOrder{value: DEFAULT_QTY}();
         uint256 joeBalanceMid = address(averageJoe).balance;
@@ -206,7 +206,7 @@ contract CollarEngineTest is Test, EngineUtils {
         engine.ackPrice(averageJoe);
         engine.showPrice(averageJoe, DEFAULT_CALL_STRIKE_PCT);
 
-        changePrank(averageJoe);
+        startHoax(averageJoe);
         uint256 joeBalancePre = address(averageJoe).balance;
         engine.clientGiveOrder{value: DEFAULT_QTY}();
         uint256 joeBalanceMid = address(averageJoe).balance;
@@ -214,7 +214,7 @@ contract CollarEngineTest is Test, EngineUtils {
         uint256 joeEscrow = engine.getClientEscrow(averageJoe);
         assertEq(joeEscrow, DEFAULT_QTY);
 
-        changePrank(marketMakerMike);
+        startHoax(marketMakerMike);
         engine.rejectOrder(averageJoe, "mkt moved");
 
         uint256 joeBalancePost = address(averageJoe).balance;
