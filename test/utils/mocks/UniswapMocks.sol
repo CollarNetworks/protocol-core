@@ -3,21 +3,7 @@ pragma solidity ^0.8.18;
 
 import {Test} from "@forge-std/Test.sol";
 import {IERC20} from "../../../src/interfaces/external/IERC20.sol";
-import {IUniswapV3Factory} from "../../../src/interfaces/external/uniswap-v3/core-v1.0.0/IUniswapV3Factory.sol";
-import {ISwapRouter} from "../../../src/interfaces/external/uniswap-v3/periphery-v1.3.0/ISwapRouter.sol";
-import {INonfungibleTokenPositionDescriptor} from "../../../src/interfaces/external/uniswap-v3/periphery-v1.3.0/INonfungibleTokenPositionDescriptor.sol";
-import {INonfungiblePositionManager} from "../../../src/interfaces/external/uniswap-v3/periphery-v1.3.0/INonfungiblePositionManager.sol";
 import {ERC20, ERC20Permit} from "@oz-v4.9.3/token/ERC20/extensions/ERC20Permit.sol";
-
-string constant v3FactoryArtifact = "lib/compiled/uni-v3-core-v1.0.0/UniswapV3Factory.json";
-string constant weth9Artifact = "lib/compiled/WETH9.json";
-string constant swapRouterArtifact = "lib/compiled/uni-v3-periphery-v1.0.0/SwapRouter.json";
-string constant nonFungibleTokenPositionDescriptorArtifact = "lib/compiled/uni-v3-periphery-v1.0.0/NonfungibleTokenPositionDescriptor.json";
-string constant nonFungiblePositionManagerArtifact = "lib/compiled/uni-v3-periphery-v1.0.0/NonfungiblePositionManager.json";
-
-interface IWETH9 is IERC20 {
-    function deposit() external payable;
-}
 
 contract TestERC20 is ERC20Permit {
     constructor(uint256 amountToMint) ERC20("Test ERC20", "TEST") ERC20Permit("Test ERC20") {
@@ -27,9 +13,9 @@ contract TestERC20 is ERC20Permit {
 
 // Base fixture deploying V3 Factory, V3 Router and WETH9
 contract V3RouterFixture is Test {
-    IUniswapV3Factory public factory;
-    IWETH9 public weth9;
-    ISwapRouter public router;
+    UniswapV3Factory public factory;
+    WETH9 public weth9;
+    SwapRouter public router;
 
     // Deploys WETH9 and V3 Core's Factory contract, and then
     // hooks them on the router
