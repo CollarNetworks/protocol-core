@@ -5,7 +5,7 @@ import "@oz-v4.9.3/token/ERC20/utils/SafeERC20.sol";
 import "@oz-v4.9.3/security/ReentrancyGuard.sol";
 
 import {SafeERC20} from "@oz-v4.9.3/token/ERC20/utils/SafeERC20.sol";
-import {ISwapRouter} from "./interfaces/external/uniswap-v3/periphery-v1.3.0/ISwapRouter.sol";
+import {ISwapRouter} from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 
 import "@chainlink-v0.8/interfaces/AggregatorV3Interface.sol";
 import "./interfaces/native/ICollarVaultEvents.sol";
@@ -207,35 +207,9 @@ contract CollarVault is ReentrancyGuard, ICollarVaultEvents {
     function getVaultDetails()
         external
         view
-        returns (
-            uint256,
-            uint256,
-            address,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            address,
-            uint256,
-            uint256
-        )
+        returns (uint256, uint256, address, uint256, uint256, uint256, uint256, uint256, uint256, address, uint256, uint256)
     {
-        return (
-            qty,
-            lent,
-            lendAsset,
-            putstrikePct,
-            callstrikePct,
-            maturityTimestamp,
-            fill,
-            mmCollateral,
-            proceeds,
-            engine,
-            rfqid,
-            rollcount
-        );
+        return (qty, lent, lendAsset, putstrikePct, callstrikePct, maturityTimestamp, fill, mmCollateral, proceeds, engine, rfqid, rollcount);
     }
 
     receive() external payable {}
@@ -270,12 +244,7 @@ contract CollarVault is ReentrancyGuard, ICollarVaultEvents {
     /// @notice Allows the client to request a roll price
 
     //putstrike req is done as % of new fill/oracle px
-    function requestRollPrice(uint256 _rollltvpct, uint256 _rollMaturityTimestamp)
-        external
-        isEligibleRoller
-        isRollable
-        whileLive
-    {
+    function requestRollPrice(uint256 _rollltvpct, uint256 _rollMaturityTimestamp) external isEligibleRoller isRollable whileLive {
         rollstate = 1;
         rollltvpct = _rollltvpct;
         rollputpct = _rollltvpct + rollFeeRate;
@@ -419,10 +388,7 @@ contract CollarVault is ReentrancyGuard, ICollarVaultEvents {
         rollmatstamp = 0;
     }
 
-    function postTradeDetailsA(uint256 _lent, uint256 _fill, uint256 _collat, uint256 _proceeds, address _weth)
-        external
-        onlyEngine
-    {
+    function postTradeDetailsA(uint256 _lent, uint256 _fill, uint256 _collat, uint256 _proceeds, address _weth) external onlyEngine {
         require(!deetsPostedA, "error - deets already posted"); //only once
         deetsPostedA = true;
         lent = _lent;
@@ -432,13 +398,7 @@ contract CollarVault is ReentrancyGuard, ICollarVaultEvents {
         WETH9 = _weth;
     }
 
-    function postTradeDetailsB(
-        uint256 _fee,
-        address _feeWallet,
-        uint256 _rollFeeRate,
-        address _marketmaker,
-        address _client
-    ) external onlyEngine {
+    function postTradeDetailsB(uint256 _fee, address _feeWallet, uint256 _rollFeeRate, address _marketmaker, address _client) external onlyEngine {
         require(!deetsPostedB, "error - deets already posted"); //only once
         deetsPostedB = true;
         feePaid = _fee;

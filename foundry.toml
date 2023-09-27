@@ -2,6 +2,7 @@
 src = "src"
 out = "out"
 libs = ["lib"]
+optimizer = true
 
 [fmt]
 line_length = 160

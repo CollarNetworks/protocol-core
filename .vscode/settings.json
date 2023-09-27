@@ -4,6 +4,5 @@
   "solidity.defaultCompiler": "embedded",
   "solidity.packageDefaultDependenciesDirectory": "lib",
   "solidity.packageDefaultDependenciesContractsDirectory": "",
-  "solidity.linter": "",
   "solidity.monoRepoSupport": false
 }
