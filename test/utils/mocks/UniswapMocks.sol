@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.12;
 
 import {Test} from "@forge-std/Test.sol";
 import {ERC20, ERC20Permit} from "@oz-v4.9.3/token/ERC20/extensions/ERC20Permit.sol";
@@ -16,7 +16,7 @@ import {TickMath} from "@uni-v3-core/libraries/TickMath.sol";
 import {Path} from "@uni-v3-periphery/libraries/Path.sol";
 import {PoolAddress} from "@uni-v3-periphery/libraries/PoolAddress.sol";
 
-string constant weth9Artifact = "lib/artifacts/WETH9.json";
+string constant weth9Artifact = "lib/common/weth/WETH9.json";
 uint24 constant FEE_MEDIUM = 3000;
 int24 constant TICK_LOW = 10;
 int24 constant TICK_MEDIUM = 60;
