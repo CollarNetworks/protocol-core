@@ -3,7 +3,7 @@ pragma solidity ^0.8.18;
 
 import "forge-std/Test.sol";
 import {IERC20} from "../../src/interfaces/external/IERC20.sol";
-import {IUniswapV3Factory} from "../../src/interfaces/external/uniswap/IUniswapV3Factory.sol";
+import {SwapRouter} from "@uniswap/v3-periphery/contracts/SwapRouter.sol";
 
 // Mocks for Uniswap contracts
 

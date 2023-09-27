@@ -1,10 +1,13 @@
-@chainlink-v0.8/=lib/chainlink/contracts/src/v0.8/
 ds-test/=lib/forge-std/lib/ds-test/src/
 erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/
 forge-std/=lib/forge-std/src/
-@openzeppelin-contracts/=lib/openzeppelin-contracts/
-@openzeppelin/=lib/openzeppelin-contracts/
+
+@chainlink-v0.8/=lib/chainlink/contracts/src/v0.8/
+
 @uni-v3-core/=lib/v3-core/
-@uni-v3-periphery/=lib/v3-periphery/contracts/
 @uniswap/v3-core/=lib/v3-core/
+
+@uni-v3-periphery/=lib/v3-periphery/contracts/
 @uniswap/v3-periphery/=lib/v3-periphery/
+
+@openzeppelin=lib/openzeppelin-contracts/contracts/
