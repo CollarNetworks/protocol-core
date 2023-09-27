@@ -1,21 +1,20 @@
-@chainlink-v0.8/=lib/chainlink/v0.8/
-
+base64-sol/=lib/base64/
 ds-test/=lib/forge-std/lib/ds-test/src/
 erc4626-tests/=lib/oz-v4.9.3/lib/erc4626-tests/
 
 @forge-std/=lib/forge-std/src/
 
-openzeppelin/=lib/oz-v4.9.3/contracts/
-
-base64-sol/=lib/base64/
+@chainlink-v0.8/=lib/chainlink/v0.8/
 
 @oz-v4.9.3/=lib/oz-v4.9.3/contracts/
+@openzeppelin/contracts/=lib/oz-v4.9.3/contracts/
+openzeppelin/=lib/oz-v4.9.3/contracts/
 
+@uniswap/v3-core/contracts/=lib/uni-v3-core-solc-v0.8/
+@uniswap/v3-periphery/contracts/=lib/uni-v3-periphery-solc-v0.8/
 @uni-v3-periphery/=lib/uni-v3-periphery-solc-v0.8/
 @uni-v3-core/=lib/uni-v3-core-solc-v0.8/
-
 lib/uni-v3-periphery-solc-v0.8:@openzeppelin/contracts=lib/oz-v4.9.3/contracts/
 lib/uni-v3-core-solc-v0.8:@openzeppelin/contracts=lib/oz-v4.9.3/contracts/
-
 lib/uni-v3-periphery-solc-v0.8:@uniswap/v3-core/contracts/=lib/uni-v3-core-solc-v0.8/
 lib/uni-v3-core-solc-v0.8:@uniswap/v3-periphery/contracts/=lib/uni-v3-core-solc-v0.8/

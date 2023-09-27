@@ -2,7 +2,6 @@
 pragma solidity ^0.8.18;
 
 import {Test} from "@forge-std/Test.sol";
-import {IERC20} from "../../../src/interfaces/external/IERC20.sol";
 import {ERC20, ERC20Permit} from "@oz-v4.9.3/token/ERC20/extensions/ERC20Permit.sol";
 import {UniswapV3Factory} from "@uni-v3-core/UniswapV3Factory.sol";
 import {IWETH9} from "@uni-v3-periphery/interfaces/external/IWETH9.sol";
@@ -18,16 +17,9 @@ import {Path} from "@uni-v3-periphery/libraries/Path.sol";
 import {PoolAddress} from "@uni-v3-periphery/libraries/PoolAddress.sol";
 
 string constant weth9Artifact = "lib/artifacts/WETH9.json";
-
-uint24 constant FEE_LOW = 500;
 uint24 constant FEE_MEDIUM = 3000;
-uint24 constant FEE_HIGH = 10_000;
-
 int24 constant TICK_LOW = 10;
 int24 constant TICK_MEDIUM = 60;
-int24 constant TICK_HIGH = 200;
-
-uint256 constant PRECISION = 2 ** 96;
 
 // Fast sqrt, taken from Solmate.
 function sqrt(uint256 x) pure returns (uint256 z) {
@@ -85,6 +77,8 @@ function sqrt(uint256 x) pure returns (uint256 z) {
     }
 }
 
+uint256 constant PRECISION = 2 ** 96;
+
 // Computes the sqrt of the u64x96 fixed point price given the AMM reserves
 function encodePriceSqrt(uint256 reserve1, uint256 reserve0) pure returns (uint160) {
     return uint160(sqrt((reserve1 * PRECISION * PRECISION) / reserve0));
@@ -98,7 +92,7 @@ function getMaxTick(int24 tickSpacing) pure returns (int24) {
     return (TickMath.MAX_TICK / tickSpacing) * tickSpacing;
 }
 
-function encodePath(address[] memory path, uint24[] memory fees) returns (bytes memory) {
+function encodePath(address[] memory path, uint24[] memory fees) pure returns (bytes memory) {
     bytes memory res;
     for (uint256 i = 0; i < fees.length; i++) {
         res = abi.encodePacked(res, path[i], fees[i]);
@@ -112,8 +106,8 @@ contract TestERC20 is ERC20Permit {
         _mint(msg.sender, amountToMint);
     }
 }
-
 // Base fixture deploying V3 Factory, V3 Router and WETH9
+
 contract V3RouterFixture is Test {
     UniswapV3Factory public factory;
     IWETH9 public weth9;
@@ -144,8 +138,10 @@ contract CompleteFixture is V3RouterFixture {
         address token0 = address(new TestERC20(type(uint256).max / 2));
         address token1 = address(new TestERC20(type(uint256).max / 2));
         address token2 = address(new TestERC20(type(uint256).max / 2));
+
         require(token0 < token1, "unexpected token ordering 1");
         require(token2 < token1, "unexpected token ordering 2");
+
         // pre-sorted manually, TODO do this properly
         tokens.push(TestERC20(token1));
         tokens.push(TestERC20(token2));
@@ -160,8 +156,8 @@ contract CompleteFixture is V3RouterFixture {
 
 // Final feature which sets up the user's balances & approvals
 contract SwapRouterFixture is CompleteFixture {
-    address wallet = vm.addr(1);
-    address trader = vm.addr(2);
+    address immutable wallet = vm.addr(1);
+    address immutable trader = vm.addr(2);
 
     struct Balances {
         uint256 weth9;
@@ -198,20 +194,25 @@ contract Swaps is SwapRouterFixture {
         createPool(address(tokens[1]), address(tokens[2]));
     }
 
+    uint160 immutable sqrtPriceForCreatePool = encodePriceSqrt(1, 1);
+    int24 immutable minMediumTick = getMinTick(TICK_MEDIUM);
+    int24 immutable maxMediumTick = getMaxTick(TICK_MEDIUM);
+
     function createPool(address tokenAddressA, address tokenAddressB) public {
         if (tokenAddressA > tokenAddressB) {
             address tmp = tokenAddressA;
             tokenAddressA = tokenAddressB;
             tokenAddressB = tmp;
         }
-        nft.createAndInitializePoolIfNecessary(tokenAddressA, tokenAddressB, FEE_MEDIUM, encodePriceSqrt(1, 1));
+
+        nft.createAndInitializePoolIfNecessary(tokenAddressA, tokenAddressB, FEE_MEDIUM, sqrtPriceForCreatePool);
 
         INonfungiblePositionManager.MintParams memory liquidityParams = INonfungiblePositionManager.MintParams({
             token0: tokenAddressA,
             token1: tokenAddressB,
             fee: FEE_MEDIUM,
-            tickLower: getMinTick(TICK_MEDIUM),
-            tickUpper: getMaxTick(TICK_MEDIUM),
+            tickLower: minMediumTick,
+            tickUpper: maxMediumTick,
             recipient: wallet,
             amount0Desired: 1_000_000,
             amount1Desired: 1_000_000,
