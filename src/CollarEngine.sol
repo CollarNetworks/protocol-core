@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import {ISwapRouter} from "./interfaces/external/uniswap-v3/periphery-v1.3.0/ISwapRouter.sol";
-import {SafeERC20} from "@oz-v4.9.3/token/ERC20/utils/SafeERC20.sol";
+import {TransferHelper} from "@oz-v4.9.3/token/ERC20/utils/SafeERC20.sol";
 import "@chainlink-v0.8/interfaces/AggregatorV3Interface.sol";
 import "@oz-v4.9.3/token/ERC20/utils/SafeERC20.sol";
 import "@oz-v4.9.3/security/ReentrancyGuard.sol";
@@ -52,18 +51,10 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents {
 
     /// @notice Takes in the required addresses upon deployment
     /// @dev This should be later replaced by an addressbook contract
-    constructor(
-        uint256 _feeRatePct,
-        address _feeWallet,
-        address _marketmaker,
-        address _lendAsset,
-        address _dexRouter,
-        address _oracle,
-        address _weth
-    ) {
+    constructor(uint256 _feeRatePct, address _feeWallet, address _marketmaker, address _lendAsset, address _dexRouter, address _oracle, address _weth) {
         require(
-            _weth != address(0) && _oracle != address(0) && _dexRouter != address(0) && _lendAsset != address(0)
-                && _marketmaker != address(0) && _feeWallet != address(0) && _feeRatePct != 0,
+            _weth != address(0) && _oracle != address(0) && _dexRouter != address(0) && _lendAsset != address(0) && _marketmaker != address(0)
+                && _feeWallet != address(0) && _feeRatePct != 0,
             "error - no zero addresses"
         );
         admin = msg.sender;
@@ -242,36 +233,12 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents {
     function getMyPrice()
         external
         view
-        returns (
-            uint256,
-            address,
-            address,
-            PxState,
-            string memory,
-            string memory,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            string memory
-        )
+        returns (uint256, address, address, PxState, string memory, string memory, uint256, uint256, uint256, uint256, uint256, string memory)
     {
         require(isCustomer[msg.sender], "error - no pricings req'd for customer");
         Pricing memory p = pricings[msg.sender];
         return (
-            p.rfqid,
-            p.lendAsset,
-            p.marketmaker,
-            p.state,
-            p.structure,
-            p.underlier,
-            p.maturityTimestamp,
-            p.qty,
-            p.ltv,
-            p.putstrikePct,
-            p.callstrikePct,
-            p.notes
+            p.rfqid, p.lendAsset, p.marketmaker, p.state, p.structure, p.underlier, p.maturityTimestamp, p.qty, p.ltv, p.putstrikePct, p.callstrikePct, p.notes
         );
     }
 
@@ -315,21 +282,8 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents {
         require(_ltvPct <= 90, "error - current max ltv is 90%");
         uint256 r = rfqid;
         rfqid++;
-        pricings[msg.sender] = Pricing(
-            r,
-            lendAsset,
-            marketmaker,
-            msg.sender,
-            PxState.REQD,
-            "Prepaid",
-            "ETH",
-            _maturityTimestamp,
-            _qty,
-            _ltvPct,
-            _ltvPct + feeRatePct,
-            0,
-            _notes
-        );
+        pricings[msg.sender] =
+            Pricing(r, lendAsset, marketmaker, msg.sender, PxState.REQD, "Prepaid", "ETH", _maturityTimestamp, _qty, _ltvPct, _ltvPct + feeRatePct, 0, _notes);
         isCustomer[msg.sender] = true;
         //maybe also test for tax/delta here
     }
@@ -353,10 +307,7 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents {
 
     /// @notice This functions allows marketmakers to pull a price they've shown and not allow the client to trade.
     function pullPrice(address _client) external onlyMarketMaker {
-        require(
-            pricings[_client].state == PxState.PXD || pricings[_client].state == PxState.ACKD,
-            "error - can only pull PXD or ACKD pricings"
-        );
+        require(pricings[_client].state == PxState.PXD || pricings[_client].state == PxState.ACKD, "error - can only pull PXD or ACKD pricings");
         pricings[_client].state = PxState.OFF;
     }
 
@@ -371,10 +322,7 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents {
 
     /// @notice This allows the client to revoke their consent to trade
     function clientPullOrder() external {
-        require(
-            pricings[msg.sender].state == PxState.DONE || pricings[msg.sender].state == PxState.PXD,
-            "error - must be state DONE"
-        );
+        require(pricings[msg.sender].state == PxState.DONE || pricings[msg.sender].state == PxState.PXD, "error - must be state DONE");
         uint256 toPay = clientEscrow[msg.sender];
         clientEscrow[msg.sender] = 0;
         pricings[msg.sender].state = PxState.NEW; //reverts to pxd state
@@ -486,9 +434,7 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents {
 
     /// @notice This allows the marketmaker to refund the client and call off the trade if the price has moved significantly
     function rejectOrder(address _client, string calldata _reason) external {
-        require(
-            msg.sender == marketmaker || msg.sender == admin, "error - can only be done by the marketmaker or the admin"
-        );
+        require(msg.sender == marketmaker || msg.sender == admin, "error - can only be done by the marketmaker or the admin");
         require(pricings[_client].state == PxState.DONE, "error - can only ioi pricings with state PXD");
         pricings[_client].state = PxState.REJ;
         pricings[_client].notes = _reason;

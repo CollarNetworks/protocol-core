@@ -1,17 +1,11 @@
-erc4626-tests/=lib/oz-v4.9.3/lib/erc4626-tests/
+chainlink/=lib/chainlink/
 ds-test/=lib/forge-std/lib/ds-test/src/
+erc4626-tests/=lib/oz-v4.9.3/lib/erc4626-tests/
+
 @forge-std/=lib/forge-std/src/
-
-chainlink/=lib/chainlink/
-@chainlink-v0.8/=lib/chainlink/contracts/src/v0.8/
-
-chainlink/=lib/chainlink/
-@chainlink-v0.8/=lib/chainlink/contracts/src/v0.8/
 
 openzeppelin/=lib/oz-v4.9.3/contracts/
 
-@oz-v3.4.2-solc-0.7/=lib/oz-v3.4.2-solc-0.7/contracts/
-@oz-v4.9.3/=lib/oz-v4.9.3/contracts/
+@oz-v4.9.3/=lib/oz-v4.9.3/
 
-@uni-v3-core/=lib/uni-v3-core-solc-v0.8/
-@uni-v3-periphery/=lib/uni-v3-periphery-solc-v0.8/
+@uni-v3-periphery/=lib/uni-v3-periphery-solc_v0.8/contracts/
