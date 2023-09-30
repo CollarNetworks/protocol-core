@@ -6,7 +6,7 @@ optimizer = true
 fs_permissions = [{ access = "read", path = "./"}]
 
 [fmt]
-line_length = 160
+line_length = 120
 tab_width = 4
 int_types = "long"
 number_underscore = "thousands"

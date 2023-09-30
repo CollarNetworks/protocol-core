@@ -4,33 +4,39 @@ pragma solidity ^0.8.18;
 import "forge-std/Test.sol";
 import {CollarEngine} from "../../src/CollarEngine.sol";
 import {EngineUtils} from "../utils/EngineUtils.sol";
-import {IERC20} from "../../src/interfaces/external/IERC20.sol";
+import {TestERC20} from "../utils/mocks/TestERC20.sol";
+import {IERC20} from "@oz-v4.9.3/token/ERC20/IERC20.sol";
 
 contract CollarEngineTest is Test, EngineUtils {
     CollarEngine engine;
 
-    uint256 constant maturityTimestamp = 1670337200;
+    uint256 constant maturityTimestamp = 1_670_337_200;
 
-    function setUp() public {
+    function setUp() public override {
+        super.setUp();
+
         engine = deployEngine();
+
+        TestERC20(DEFAULT_ENGINE_PARAMS.usdc).mint(1e24);
+        TestERC20(DEFAULT_ENGINE_PARAMS.usdc).mintTo(DEFAULT_ENGINE_PARAMS.marketMaker, 1e24);
     }
 
     function test_initialDeployAndValues() public {
-        assertEq(engine.getAdmin(), owner);
-        assertEq(engine.getDexRouter(), testDex);
-        assertEq(engine.getMarketmaker(), marketMakerMike);
-        assertEq(engine.getFeewallet(), feeWallet);
-        assertEq(engine.getLendAsset(), usdc);
-        assertEq(engine.getFeerate(), DEFAULT_RAKE);
+        assertEq(engine.getAdmin(), DEFAULT_ENGINE_PARAMS.owner);
+        assertEq(engine.getDexRouter(), DEFAULT_ENGINE_PARAMS.testDex);
+        assertEq(engine.getMarketmaker(), DEFAULT_ENGINE_PARAMS.marketMaker);
+        assertEq(engine.getFeewallet(), DEFAULT_ENGINE_PARAMS.feeWallet);
+        assertEq(engine.getLendAsset(), DEFAULT_ENGINE_PARAMS.usdc);
+        assertEq(engine.getFeerate(), DEFAULT_ENGINE_PARAMS.rake);
     }
 
     function test_getOraclePrice() public {
         uint256 oraclePrice = engine.getOraclePrice();
-        assertEq(oraclePrice, 1172275959820000000000);
+        assertEq(oraclePrice, 1_172_275_959_820_000_000_000);
     }
 
     function test_updateDexRouter() public {
-        hoax(owner);
+        hoax(DEFAULT_ENGINE_PARAMS.owner);
         engine.updateDexRouter(0x0000000000000000000000000000000000000001);
         address newDexRouter = engine.getDexRouter();
         assertEq(newDexRouter, 0x0000000000000000000000000000000000000001);
@@ -40,124 +46,126 @@ contract CollarEngineTest is Test, EngineUtils {
         uint256 currentRFQId = engine.getCurrRfqid();
         assertEq(currentRFQId, DEFAULT_RFQID);
 
-        startHoax(averageJoe);
+        startHoax(DEFAULT_ENGINE_PARAMS.trader);
 
         engine.requestPrice(DEFAULT_QTY, DEFAULT_LTV, maturityTimestamp, "");
 
         currentRFQId = engine.getCurrRfqid();
         assertEq(currentRFQId, DEFAULT_RFQID + 1);
 
-        CollarEngine.Pricing memory joePrice = engine.getPricingByClient(averageJoe);
+        CollarEngine.Pricing memory traderPrice = engine.getPricingByClient(DEFAULT_ENGINE_PARAMS.trader);
 
-        assertEq(joePrice.rfqid, DEFAULT_RFQID);
-        assertEq(joePrice.lendAsset, usdc);
-        assertEq(joePrice.marketmaker, marketMakerMike);
-        assertEq(joePrice.client, averageJoe);
-        assertEq(joePrice.structure, "Prepaid");
-        assertEq(joePrice.underlier, "ETH");
-        assertEq(joePrice.maturityTimestamp, maturityTimestamp);
-        assertEq(joePrice.qty, DEFAULT_QTY);
-        assertEq(joePrice.ltv, DEFAULT_LTV);
-        assertEq(joePrice.putstrikePct, DEFAULT_PUT_STRIKE_PCT);
-        assertEq(joePrice.callstrikePct, 0);
-        assertEq(joePrice.notes, "");
+        assertEq(traderPrice.rfqid, DEFAULT_RFQID);
+        assertEq(traderPrice.lendAsset, DEFAULT_ENGINE_PARAMS.usdc);
+        assertEq(traderPrice.marketmaker, DEFAULT_ENGINE_PARAMS.marketMaker);
+        assertEq(traderPrice.client, DEFAULT_ENGINE_PARAMS.trader);
+        assertEq(traderPrice.structure, "Prepaid");
+        assertEq(traderPrice.underlier, "ETH");
+        assertEq(traderPrice.maturityTimestamp, maturityTimestamp);
+        assertEq(traderPrice.qty, DEFAULT_QTY);
+        assertEq(traderPrice.ltv, DEFAULT_LTV);
+        assertEq(traderPrice.putstrikePct, DEFAULT_PUT_STRIKE_PCT);
+        assertEq(traderPrice.callstrikePct, 0);
+        assertEq(traderPrice.notes, "");
     }
 
     // enum PxState{NEW, REQD, ACKD, PXD, OFF, REJ, DONE}
     //              0    1     2     3    4    5    6
 
     function test_ackPrice() public {
-        CollarEngine.PxState joeState;
+        CollarEngine.PxState traderState;
 
-        hoax(averageJoe);
+        hoax(DEFAULT_ENGINE_PARAMS.trader);
         engine.requestPrice(DEFAULT_QTY, DEFAULT_LTV, maturityTimestamp, "");
-        joeState = engine.getStateByClient(averageJoe);
-        assertTrue(joeState == CollarEngine.PxState.REQD);
+        traderState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.trader);
+        assertTrue(traderState == CollarEngine.PxState.REQD);
 
-        hoax(marketMakerMike);
-        engine.ackPrice(averageJoe);
-        joeState = engine.getStateByClient(averageJoe);
-        assertTrue(joeState == CollarEngine.PxState.ACKD);
+        hoax(DEFAULT_ENGINE_PARAMS.marketMaker);
+        engine.ackPrice(DEFAULT_ENGINE_PARAMS.trader);
+        traderState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.trader);
+        assertTrue(traderState == CollarEngine.PxState.ACKD);
     }
 
     function test_showPrice() public {
-        CollarEngine.PxState joeState;
+        CollarEngine.PxState traderState;
 
-        hoax(averageJoe);
+        hoax(DEFAULT_ENGINE_PARAMS.trader);
         engine.requestPrice(DEFAULT_QTY, DEFAULT_LTV, maturityTimestamp, "");
 
-        startHoax(marketMakerMike);
-        engine.ackPrice(averageJoe);
+        startHoax(DEFAULT_ENGINE_PARAMS.marketMaker);
+        engine.ackPrice(DEFAULT_ENGINE_PARAMS.trader);
 
-        joeState = engine.getStateByClient(averageJoe);
-        assertTrue(joeState == CollarEngine.PxState.ACKD);
+        traderState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.trader);
+        assertTrue(traderState == CollarEngine.PxState.ACKD);
 
-        engine.showPrice(averageJoe, DEFAULT_CALL_STRIKE_PCT);
+        engine.showPrice(DEFAULT_ENGINE_PARAMS.trader, DEFAULT_CALL_STRIKE_PCT);
 
-        joeState = engine.getStateByClient(averageJoe);
-        assertTrue(joeState == CollarEngine.PxState.PXD);
+        traderState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.trader);
+        assertTrue(traderState == CollarEngine.PxState.PXD);
     }
 
     function test_pullPrice() public {
-        CollarEngine.PxState joeState;
+        CollarEngine.PxState traderState;
 
-        hoax(averageJoe);
+        hoax(DEFAULT_ENGINE_PARAMS.trader);
         engine.requestPrice(DEFAULT_QTY, DEFAULT_LTV, maturityTimestamp, "");
 
-        startHoax(marketMakerMike);
-        engine.ackPrice(averageJoe);
-        engine.showPrice(averageJoe, DEFAULT_CALL_STRIKE_PCT);
+        startHoax(DEFAULT_ENGINE_PARAMS.marketMaker);
+        engine.ackPrice(DEFAULT_ENGINE_PARAMS.trader);
+        engine.showPrice(DEFAULT_ENGINE_PARAMS.trader, DEFAULT_CALL_STRIKE_PCT);
 
-        joeState = engine.getStateByClient(averageJoe);
-        assertTrue(joeState == CollarEngine.PxState.PXD);
+        traderState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.trader);
+        assertTrue(traderState == CollarEngine.PxState.PXD);
 
-        engine.pullPrice(averageJoe);
+        engine.pullPrice(DEFAULT_ENGINE_PARAMS.trader);
 
-        joeState = engine.getStateByClient(averageJoe);
-        assertTrue(joeState == CollarEngine.PxState.OFF);
+        traderState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.trader);
+        assertTrue(traderState == CollarEngine.PxState.OFF);
     }
 
     function test_clientGiveOrder() public {
-        CollarEngine.PxState joeState;
+        CollarEngine.PxState traderState;
 
-        hoax(averageJoe);
+        hoax(DEFAULT_ENGINE_PARAMS.trader);
         engine.requestPrice(DEFAULT_QTY, DEFAULT_LTV, maturityTimestamp, "");
 
-        startHoax(marketMakerMike);
-        engine.ackPrice(averageJoe);
-        engine.showPrice(averageJoe, DEFAULT_CALL_STRIKE_PCT);
+        startHoax(DEFAULT_ENGINE_PARAMS.marketMaker);
+        engine.ackPrice(DEFAULT_ENGINE_PARAMS.trader);
+        engine.showPrice(DEFAULT_ENGINE_PARAMS.trader, DEFAULT_CALL_STRIKE_PCT);
 
-        joeState = engine.getStateByClient(averageJoe);
-        assertTrue(joeState == CollarEngine.PxState.PXD);
+        traderState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.trader);
+        assertTrue(traderState == CollarEngine.PxState.PXD);
 
-        startHoax(averageJoe);
+        startHoax(DEFAULT_ENGINE_PARAMS.trader);
         engine.clientGiveOrder{value: DEFAULT_QTY}();
-        joeState = engine.getStateByClient(averageJoe);
-        assertTrue(joeState == CollarEngine.PxState.DONE);
+        traderState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.trader);
+        assertTrue(traderState == CollarEngine.PxState.DONE);
     }
 
     function test_executeTrade() public {
-        CollarEngine.PxState joeState;
+        CollarEngine.PxState traderState;
 
-        hoax(averageJoe);
+        hoax(DEFAULT_ENGINE_PARAMS.trader);
         engine.requestPrice(DEFAULT_QTY, DEFAULT_LTV, maturityTimestamp, "");
 
-        startHoax(marketMakerMike);
-        engine.ackPrice(averageJoe);
-        engine.showPrice(averageJoe, DEFAULT_CALL_STRIKE_PCT);
+        startHoax(DEFAULT_ENGINE_PARAMS.marketMaker);
 
-        startHoax(averageJoe);
+        engine.ackPrice(DEFAULT_ENGINE_PARAMS.trader);
+        engine.showPrice(DEFAULT_ENGINE_PARAMS.trader, DEFAULT_CALL_STRIKE_PCT);
+
+        startHoax(DEFAULT_ENGINE_PARAMS.trader);
         engine.clientGiveOrder{value: DEFAULT_QTY}();
 
-        startHoax(marketMakerMike);
-        IERC20(usdc).approve(address(engine), 1e10);
-        engine.executeTrade(averageJoe);
+        startHoax(DEFAULT_ENGINE_PARAMS.marketMaker);
+        IERC20(DEFAULT_ENGINE_PARAMS.usdc).approve(address(engine), 1e18);
+        engine.executeTrade(DEFAULT_ENGINE_PARAMS.trader);
 
-        joeState = engine.getStateByClient(averageJoe);
-        assertTrue(joeState == CollarEngine.PxState.NEW);
+        traderState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.trader);
+        assertTrue(traderState == CollarEngine.PxState.NEW);
 
-        uint256 engineUSDCBalance = IERC20(usdc).balanceOf(address(engine));
+        uint256 engineUSDCBalance = IERC20(DEFAULT_ENGINE_PARAMS.usdc).balanceOf(address(engine));
         assertLt(engineUSDCBalance, 10);
+
         uint256 engineETHBalance = address(engine).balance;
         assertEq(engineETHBalance, 0);
     }
@@ -168,7 +176,7 @@ contract CollarEngineTest is Test, EngineUtils {
         feeRate = engine.getFeerate();
         assertEq(feeRate, DEFAULT_RAKE);
 
-        hoax(owner);
+        hoax(DEFAULT_ENGINE_PARAMS.owner);
         engine.updateFeeRatePct(5);
 
         feeRate = engine.getFeerate();
@@ -176,53 +184,53 @@ contract CollarEngineTest is Test, EngineUtils {
     }
 
     function test_clientPullOrder() public {
-        hoax(averageJoe);
+        hoax(DEFAULT_ENGINE_PARAMS.trader);
         engine.requestPrice(DEFAULT_QTY, DEFAULT_LTV, maturityTimestamp, "");
 
-        startHoax(marketMakerMike);
-        engine.ackPrice(averageJoe);
-        engine.showPrice(averageJoe, DEFAULT_CALL_STRIKE_PCT);
+        startHoax(DEFAULT_ENGINE_PARAMS.marketMaker);
+        engine.ackPrice(DEFAULT_ENGINE_PARAMS.trader);
+        engine.showPrice(DEFAULT_ENGINE_PARAMS.trader, DEFAULT_CALL_STRIKE_PCT);
 
-        startHoax(averageJoe);
-        uint256 joeBalancePre = address(averageJoe).balance;
+        startHoax(DEFAULT_ENGINE_PARAMS.trader);
+        uint256 traderBalancePre = address(DEFAULT_ENGINE_PARAMS.trader).balance;
         engine.clientGiveOrder{value: DEFAULT_QTY}();
-        uint256 joeBalanceMid = address(averageJoe).balance;
+        uint256 traderBalanceMid = address(DEFAULT_ENGINE_PARAMS.trader).balance;
 
-        uint256 joeEscrow = engine.getClientEscrow(averageJoe);
-        assertEq(joeEscrow, DEFAULT_QTY);
+        uint256 traderEscrow = engine.getClientEscrow(DEFAULT_ENGINE_PARAMS.trader);
+        assertEq(traderEscrow, DEFAULT_QTY);
 
         engine.clientPullOrder();
-        uint256 joeBalancePost = address(averageJoe).balance;
+        uint256 traderBalancePost = address(DEFAULT_ENGINE_PARAMS.trader).balance;
 
-        assertApproxEqRel(joeBalancePre, joeBalancePost, 1);
-        assertApproxEqRel(joeBalancePre - joeBalanceMid, DEFAULT_QTY, 1);
+        assertApproxEqRel(traderBalancePre, traderBalancePost, 1);
+        assertApproxEqRel(traderBalancePre - traderBalanceMid, DEFAULT_QTY, 1);
     }
 
     function test_rejectOrder() public {
-        hoax(averageJoe);
+        hoax(DEFAULT_ENGINE_PARAMS.trader);
         engine.requestPrice(DEFAULT_QTY, DEFAULT_LTV, maturityTimestamp, "");
 
-        startHoax(marketMakerMike);
-        engine.ackPrice(averageJoe);
-        engine.showPrice(averageJoe, DEFAULT_CALL_STRIKE_PCT);
+        startHoax(DEFAULT_ENGINE_PARAMS.marketMaker);
+        engine.ackPrice(DEFAULT_ENGINE_PARAMS.trader);
+        engine.showPrice(DEFAULT_ENGINE_PARAMS.trader, DEFAULT_CALL_STRIKE_PCT);
 
-        startHoax(averageJoe);
-        uint256 joeBalancePre = address(averageJoe).balance;
+        startHoax(DEFAULT_ENGINE_PARAMS.trader);
+        uint256 traderBalancePre = address(DEFAULT_ENGINE_PARAMS.trader).balance;
         engine.clientGiveOrder{value: DEFAULT_QTY}();
-        uint256 joeBalanceMid = address(averageJoe).balance;
+        uint256 traderBalanceMid = address(DEFAULT_ENGINE_PARAMS.trader).balance;
 
-        uint256 joeEscrow = engine.getClientEscrow(averageJoe);
-        assertEq(joeEscrow, DEFAULT_QTY);
+        uint256 traderEscrow = engine.getClientEscrow(DEFAULT_ENGINE_PARAMS.trader);
+        assertEq(traderEscrow, DEFAULT_QTY);
 
-        startHoax(marketMakerMike);
-        engine.rejectOrder(averageJoe, "mkt moved");
+        startHoax(DEFAULT_ENGINE_PARAMS.marketMaker);
+        engine.rejectOrder(DEFAULT_ENGINE_PARAMS.trader, "mkt moved");
 
-        uint256 joeBalancePost = address(averageJoe).balance;
+        uint256 traderBalancePost = address(DEFAULT_ENGINE_PARAMS.trader).balance;
 
-        joeEscrow = engine.getClientEscrow(averageJoe);
-        assertEq(joeEscrow, 0);
+        traderEscrow = engine.getClientEscrow(DEFAULT_ENGINE_PARAMS.trader);
+        assertEq(traderEscrow, 0);
 
-        assertApproxEqRel(joeBalancePre, joeBalancePost, 1);
-        assertApproxEqRel(joeBalancePre - joeBalanceMid, DEFAULT_QTY, 1);
+        assertApproxEqRel(traderBalancePre, traderBalancePost, 1);
+        assertApproxEqRel(traderBalancePre - traderBalanceMid, DEFAULT_QTY, 1);
     }
 }

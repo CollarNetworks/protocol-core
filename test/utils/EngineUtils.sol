@@ -1,35 +1,47 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {CollarEngine} from "../../src/CollarEngine.sol";
-import {AddressBook, DefaultConstants} from "./CommonUtils.sol";
+import {DefaultConstants} from "./CommonUtils.sol";
+import {UniswapV3Mocks} from "./UniswapV3Utils.sol";
+import {MockOracle} from "./mocks/MockOracle.sol";
 
 /// @dev Inherit this contract into a test contract to get access to the deployEngine function
-abstract contract EngineUtils is Test, AddressBook, DefaultConstants {
+abstract contract EngineUtils is Test, DefaultConstants, UniswapV3Mocks {
     struct EngineDeployParams {
         uint256 rake;
         address feeWallet;
-        address marketMakerMike;
+        address marketMaker;
         address usdc;
         address testDex;
         address ethUSDOracle;
         address weth;
-        address averageJoe;
+        address trader;
         address owner;
     }
 
-    EngineDeployParams DEFAULT_ENGINE_PARAMS = EngineDeployParams({
-        rake: DEFAULT_RAKE,
-        feeWallet: feeWallet,
-        marketMakerMike: marketMakerMike,
-        usdc: usdc,
-        testDex: testDex,
-        ethUSDOracle: ethUSDOracle,
-        weth: weth,
-        averageJoe: averageJoe,
-        owner: owner
-    });
+    EngineDeployParams DEFAULT_ENGINE_PARAMS;
+
+    function setUp() public virtual override {
+        super.setUp();
+
+        DEFAULT_ENGINE_PARAMS = EngineDeployParams({
+            rake: DEFAULT_RAKE,
+            feeWallet: makeAddr("FeeWallet"),
+            marketMaker: makeAddr("MarketMaker"),
+            usdc: mockUni.tokenA,
+            testDex: mockUni.router,
+            ethUSDOracle: deployMockOracle(),
+            weth: mockUni.weth,
+            trader: makeAddr("Trader"),
+            owner: makeAddr("Owner")
+        });
+    }
+
+    function deployMockOracle() public returns (address) {
+        return address(new MockOracle());
+    }
 
     /// @dev Deploys a new CollarEngine with default params (above)
     function deployEngine() public returns (CollarEngine engine) {
@@ -46,7 +58,7 @@ abstract contract EngineUtils is Test, AddressBook, DefaultConstants {
         engine = new CollarEngine(
             params.rake,
             params.feeWallet,
-            params.marketMakerMike,
+            params.marketMaker,
             params.usdc,
             params.testDex,
             params.ethUSDOracle,
