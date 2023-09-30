@@ -1,10 +1,8 @@
 {
-    "solidity.packageDefaultDependenciesContractsDirectory": "src",
-    "solidity.packageDefaultDependenciesDirectory": "lib",
-    "editor.formatOnSave": true,
-    "[solidity]": {
-      "editor.defaultFormatter": "JuanBlanco.solidity" 
-    },
-    "solidity.formatter": "forge",
-    "solidity.compileUsingRemoteVersion": "v0.8.18"
-  }
+  "editor.formatOnSave": true,
+  "solidity.formatter": "forge",
+  "solidity.packageDefaultDependenciesDirectory": "lib",
+  "solidity.packageDefaultDependenciesContractsDirectory": "",
+  "solidity.monoRepoSupport": false,
+  "solidity.compileUsingRemoteVersion": "latest"
+}

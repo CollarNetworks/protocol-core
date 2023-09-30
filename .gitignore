@@ -12,3 +12,6 @@ docs-temp/
 
 # Dotenv file
 .env
+
+# Built files
+bin/
