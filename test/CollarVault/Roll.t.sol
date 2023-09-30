@@ -8,6 +8,7 @@ import {EngineUtils} from "../utils/EngineUtils.sol";
 import {VaultUtils} from "../utils/VaultUtils.sol";
 import {IERC20} from "../../src/interfaces/external/IERC20.sol";
 import {TestERC20} from "../utils/mocks/TestERC20.sol";
+import {MockOracle} from "../utils/mocks/MockOracle.sol";
 
 // Tests converted from ./old/test-vault-and-roll.js
 
@@ -19,6 +20,8 @@ contract CollarVault_RollTest is Test, VaultUtils {
         super.setUp();
 
         engine = deployEngine();
+
+        MockOracle(DEFAULT_ENGINE_PARAMS.ethUSDOracle).setLatestRoundData(117_227_595_982);
 
         TestERC20(DEFAULT_ENGINE_PARAMS.usdc).mintTo(DEFAULT_ENGINE_PARAMS.trader, 1e24);
         TestERC20(DEFAULT_ENGINE_PARAMS.usdc).mintTo(DEFAULT_ENGINE_PARAMS.marketMaker, 1e24);

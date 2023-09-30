@@ -37,6 +37,15 @@ abstract contract EngineUtils is Test, DefaultConstants, UniswapV3Mocks {
             trader: makeAddr("Trader"),
             owner: makeAddr("Owner")
         });
+
+        vm.label(DEFAULT_ENGINE_PARAMS.feeWallet, "FeeWallet");
+        vm.label(DEFAULT_ENGINE_PARAMS.marketMaker, "MarketMaker");
+        vm.label(DEFAULT_ENGINE_PARAMS.usdc, "USDC");
+        vm.label(DEFAULT_ENGINE_PARAMS.testDex, "TestDex");
+        vm.label(DEFAULT_ENGINE_PARAMS.ethUSDOracle, "EthUSDOracle");
+        vm.label(DEFAULT_ENGINE_PARAMS.weth, "WETH");
+        vm.label(DEFAULT_ENGINE_PARAMS.trader, "Trader");
+        vm.label(DEFAULT_ENGINE_PARAMS.owner, "Owner");
     }
 
     function deployMockOracle() public returns (address) {

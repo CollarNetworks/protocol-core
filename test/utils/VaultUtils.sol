@@ -36,7 +36,7 @@ abstract contract VaultUtils is Test, DefaultConstants, EngineUtils {
             callStrikePct: DEFAULT_CALL_STRIKE_PCT,
             maturityTimestamp: DEFAULT_MATURITY_TIMESTAMP,
             dexRouter: mockUni.router,
-            priceFeed: deployMockOracle()
+            priceFeed: DEFAULT_ENGINE_PARAMS.ethUSDOracle
         });
     }
 }

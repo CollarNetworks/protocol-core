@@ -5,6 +5,8 @@ import {Test} from "forge-std/Test.sol";
 import {AggregatorV3Interface} from "@chainlink-v0.8/interfaces/AggregatorV3Interface.sol";
 
 contract MockOracle is Test, AggregatorV3Interface {
+    int256 internal latestAnswer = 1;
+
     function decimals() external pure returns (uint8) {
         revert("Not yet implemented.");
     }
@@ -23,9 +25,13 @@ contract MockOracle is Test, AggregatorV3Interface {
 
     function latestRoundData()
         external
-        pure
+        view
         returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
     {
-        return (0, 117_227_595_982, 0, 0, 0);
+        return (0, latestAnswer, 0, 0, 0);
+    }
+
+    function setLatestRoundData(int256 answer) external {
+        latestAnswer = answer;
     }
 }

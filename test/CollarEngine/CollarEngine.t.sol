@@ -6,6 +6,7 @@ import {CollarEngine} from "../../src/CollarEngine.sol";
 import {EngineUtils} from "../utils/EngineUtils.sol";
 import {TestERC20} from "../utils/mocks/TestERC20.sol";
 import {IERC20} from "@oz-v4.9.3/token/ERC20/IERC20.sol";
+import {MockOracle} from "../utils/mocks/MockOracle.sol";
 
 contract CollarEngineTest is Test, EngineUtils {
     CollarEngine engine;
@@ -16,6 +17,8 @@ contract CollarEngineTest is Test, EngineUtils {
         super.setUp();
 
         engine = deployEngine();
+
+        MockOracle(DEFAULT_ENGINE_PARAMS.ethUSDOracle).setLatestRoundData(117_227_595_982);
 
         TestERC20(DEFAULT_ENGINE_PARAMS.usdc).mint(1e24);
         TestERC20(DEFAULT_ENGINE_PARAMS.usdc).mintTo(DEFAULT_ENGINE_PARAMS.marketMaker, 1e24);
