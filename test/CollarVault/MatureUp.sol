@@ -12,7 +12,7 @@ import {MockOracle} from "../utils/mocks/MockOracle.sol";
 
 // Tests converted from ./old/test-vault-and-roll.js
 
-contract CollarVault_MatureFlat is Test, VaultUtils {
+contract CollarVault_MatureUp is Test, VaultUtils {
     CollarEngine engine;
     CollarVault vault;
 
@@ -24,11 +24,11 @@ contract CollarVault_MatureFlat is Test, VaultUtils {
         VaultDeployParams memory vaultParams = VaultDeployParams({
             admin: makeAddr("Owner"),
             rfqid: DEFAULT_RFQID,
-            qty: 1 ether,
+            qty: DEFAULT_QTY,
             lendAsset: mockUni.tokenA,
             putStrikePct: DEFAULT_PUT_STRIKE_PCT,
             callStrikePct: DEFAULT_CALL_STRIKE_PCT,
-            maturityTimestamp: DEFAULT_MATURITY_TIMESTAMP,
+            maturityTimestamp: block.timestamp - 1,
             dexRouter: mockUni.router,
             priceFeed: DEFAULT_ENGINE_PARAMS.ethUSDOracle
         });
@@ -48,15 +48,15 @@ contract CollarVault_MatureFlat is Test, VaultUtils {
         );
 
         vault.postTradeDetailsA(
-            991_040_872, //lent
-            1_165_995_893, //fill
-            116_599_590, //collat
-            139_919_507, //proceeds
+            991_040_872 / 2, //lent
+            1_165_995_894 / 2, //fill
+            116_599_590 / 2, //collat
+            139_919_508 / 2, //proceeds
             DEFAULT_ENGINE_PARAMS.weth
         );
 
         vault.postTradeDetailsB(
-            34_979_876, //fee
+            34_979_876 / 2, //fee
             DEFAULT_ENGINE_PARAMS.feeWallet, //feewallet
             DEFAULT_ENGINE_PARAMS.rake, //feerate
             DEFAULT_ENGINE_PARAMS.marketMaker, //mm
@@ -65,15 +65,27 @@ contract CollarVault_MatureFlat is Test, VaultUtils {
 
         TestERC20(DEFAULT_ENGINE_PARAMS.usdc).mintTo(DEFAULT_ENGINE_PARAMS.trader, 1_000_000 * 1e6);
         TestERC20(DEFAULT_ENGINE_PARAMS.usdc).mintTo(DEFAULT_ENGINE_PARAMS.marketMaker, 1_000_000 * 1e6);
-        TestERC20(DEFAULT_ENGINE_PARAMS.usdc).mintTo(address(vault), 116_599_590);
-        TestERC20(DEFAULT_ENGINE_PARAMS.usdc).mintTo(address(vault), 139_919_507);
-        TestERC20(DEFAULT_ENGINE_PARAMS.usdc).mintTo(DEFAULT_ENGINE_PARAMS.trader, 991_096_509);
+        TestERC20(DEFAULT_ENGINE_PARAMS.usdc).mintTo(address(vault), 116_599_590 / 2);
+        TestERC20(DEFAULT_ENGINE_PARAMS.usdc).mintTo(address(vault), 139_919_508 / 2);
+        TestERC20(DEFAULT_ENGINE_PARAMS.usdc).mintTo(DEFAULT_ENGINE_PARAMS.trader, 991_096_510 / 2);
     }
 
-    function test_matureVaultFlat() public {
+    function test_matureVaultUp() public {
         MockOracle(DEFAULT_ENGINE_PARAMS.ethUSDOracle).setLatestRoundData(125_360_435_265);
-        assertEq(vault.getOraclePriceExternal(), 1_253_604_352_650_000_000_000);
-        assertTrue(vault.checkMatured());
-        assertEq(IERC20(DEFAULT_ENGINE_PARAMS.usdc).balanceOf(address(vault)), 256_519_097);
+
+        uint256 marketMakerBalanceBefore =
+            IERC20(DEFAULT_ENGINE_PARAMS.usdc).balanceOf(DEFAULT_ENGINE_PARAMS.marketMaker);
+
+        uint256 traderBalanceBefore = (DEFAULT_ENGINE_PARAMS.trader).balance;
+
+        vault.matureVault();
+
+        uint256 marketMakerBalanceAfter =
+            IERC20(DEFAULT_ENGINE_PARAMS.usdc).balanceOf(DEFAULT_ENGINE_PARAMS.marketMaker);
+
+        uint256 traderBalanceAfter = (DEFAULT_ENGINE_PARAMS.trader).balance;
+
+        assertEq(marketMakerBalanceAfter, marketMakerBalanceBefore);
+        assertEq(traderBalanceAfter - traderBalanceBefore, 10_178_204_823_562_330);
     }
 }
