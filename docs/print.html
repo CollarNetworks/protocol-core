@@ -188,7 +188,7 @@
 <li><a href="src/interfaces/external/IWETH.sol/interface.IWETH.html">IWETH</a></li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="ierc20"><a class="header" href="#ierc20">IERC20</a></h1>
-<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/external/IERC20.sol">Git Source</a></p>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/f929c0707ff937ea1da77413fec74b57e6cc24e6/src/interfaces/external/IERC20.sol">Git Source</a></p>
 <h2 id="functions"><a class="header" href="#functions">Functions</a></h2>
 <h3 id="totalsupply"><a class="header" href="#totalsupply">totalSupply</a></h3>
 <pre><code class="language-solidity">function totalSupply() external view returns (uint256);
@@ -216,7 +216,7 @@
 <pre><code class="language-solidity">event Approval(address indexed owner, address indexed spender, uint256 value);
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="iweth"><a class="header" href="#iweth">IWETH</a></h1>
-<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/external/IWETH.sol">Git Source</a></p>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/f929c0707ff937ea1da77413fec74b57e6cc24e6/src/interfaces/external/IWETH.sol">Git Source</a></p>
 <h2 id="functions-1"><a class="header" href="#functions-1">Functions</a></h2>
 <h3 id="deposit"><a class="header" href="#deposit">deposit</a></h3>
 <pre><code class="language-solidity">function deposit() external payable;
@@ -253,7 +253,7 @@
 <li><a href="src/interfaces/native/Types.sol/interface.IOpsProxyFactory.html">IOpsProxyFactory</a></li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="automateready"><a class="header" href="#automateready">AutomateReady</a></h1>
-<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/AutomateReady.sol">Git Source</a></p>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/f929c0707ff937ea1da77413fec74b57e6cc24e6/src/interfaces/native/AutomateReady.sol">Git Source</a></p>
 <p>*Inherit this contract to allow your smart contract to</p>
 <ul>
 <li>Make synchronous fee payments.</li>
@@ -303,7 +303,7 @@ _fee &amp; _feeToken should be queried from IAutomate.getFeeDetails()*</p>
 <pre><code class="language-solidity">function _getFeeDetails() internal view returns (uint256 fee, address feeToken);
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="automatetaskcreator"><a class="header" href="#automatetaskcreator">AutomateTaskCreator</a></h1>
-<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/AutomateTaskCreator.sol">Git Source</a></p>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/f929c0707ff937ea1da77413fec74b57e6cc24e6/src/interfaces/native/AutomateTaskCreator.sol">Git Source</a></p>
 <p><strong>Inherits:</strong>
 <a href="src/interfaces/native/AutomateTaskCreator.sol//docs-temp/src/src/interfaces/native/AutomateReady.sol/abstract.AutomateReady.html">AutomateReady</a></p>
 <p><em>Inherit this contract to allow your smart contract
@@ -356,31 +356,31 @@ to be a task creator and create tasks.</em></p>
 <pre><code class="language-solidity">function _singleExecModuleArg() internal pure returns (bytes memory);
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="icollarengine"><a class="header" href="#icollarengine">ICollarEngine</a></h1>
-<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/ICollarEngine.sol">Git Source</a></p>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/f929c0707ff937ea1da77413fec74b57e6cc24e6/src/interfaces/native/ICollarEngine.sol">Git Source</a></p>
 <h2 id="functions-4"><a class="header" href="#functions-4">Functions</a></h2>
 <h3 id="getoracleprice"><a class="header" href="#getoracleprice">getOraclePrice</a></h3>
 <pre><code class="language-solidity">function getOraclePrice() external view returns (uint256);
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="icollarengineevents"><a class="header" href="#icollarengineevents">ICollarEngineEvents</a></h1>
-<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/ICollarEngineEvents.sol">Git Source</a></p>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/f929c0707ff937ea1da77413fec74b57e6cc24e6/src/interfaces/native/ICollarEngineEvents.sol">Git Source</a></p>
 <h2 id="events-1"><a class="header" href="#events-1">Events</a></h2>
 <h3 id="testevent"><a class="header" href="#testevent">TestEvent</a></h3>
 <pre><code class="language-solidity">event TestEvent(address admin);
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="icollarkeepermanager"><a class="header" href="#icollarkeepermanager">ICollarKeeperManager</a></h1>
-<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/ICollarKeeperManager.sol">Git Source</a></p>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/f929c0707ff937ea1da77413fec74b57e6cc24e6/src/interfaces/native/ICollarKeeperManager.sol">Git Source</a></p>
 <h2 id="functions-5"><a class="header" href="#functions-5">Functions</a></h2>
 <h3 id="launchmaturitykeeper"><a class="header" href="#launchmaturitykeeper">launchMaturityKeeper</a></h3>
 <pre><code class="language-solidity">function launchMaturityKeeper(address vault, uint256 maturityTimestamp) external;
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="icollarvault"><a class="header" href="#icollarvault">ICollarVault</a></h1>
-<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/ICollarVault.sol">Git Source</a></p>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/f929c0707ff937ea1da77413fec74b57e6cc24e6/src/interfaces/native/ICollarVault.sol">Git Source</a></p>
 <h2 id="functions-6"><a class="header" href="#functions-6">Functions</a></h2>
 <h3 id="maturevault"><a class="header" href="#maturevault">matureVault</a></h3>
 <pre><code class="language-solidity">function matureVault() external;
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="icollarvaultevents"><a class="header" href="#icollarvaultevents">ICollarVaultEvents</a></h1>
-<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/ICollarVaultEvents.sol">Git Source</a></p>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/f929c0707ff937ea1da77413fec74b57e6cc24e6/src/interfaces/native/ICollarVaultEvents.sol">Git Source</a></p>
 <h2 id="events-2"><a class="header" href="#events-2">Events</a></h2>
 <h3 id="settleprefchanged"><a class="header" href="#settleprefchanged">SettlePrefChanged</a></h3>
 <pre><code class="language-solidity">event SettlePrefChanged(string settlePref, string newSettlePref);
@@ -389,7 +389,7 @@ to be a task creator and create tasks.</em></p>
 <pre><code class="language-solidity">event RollPrefChange(string rollPref, string newRollPref);
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="imanagedvaultevents"><a class="header" href="#imanagedvaultevents">IManagedVaultEvents</a></h1>
-<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/IManagedVaultEvents.sol">Git Source</a></p>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/f929c0707ff937ea1da77413fec74b57e6cc24e6/src/interfaces/native/IManagedVaultEvents.sol">Git Source</a></p>
 <h2 id="events-3"><a class="header" href="#events-3">Events</a></h2>
 <h3 id="managerchanged"><a class="header" href="#managerchanged">ManagerChanged</a></h3>
 <pre><code class="language-solidity">event ManagerChanged(address newManager);
@@ -437,7 +437,7 @@ to be a task creator and create tasks.</em></p>
 <pre><code class="language-solidity">event LoansDistributed();
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="module"><a class="header" href="#module">Module</a></h1>
-<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/Types.sol">Git Source</a></p>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/f929c0707ff937ea1da77413fec74b57e6cc24e6/src/interfaces/native/Types.sol">Git Source</a></p>
 <pre><code class="language-solidity">enum Module {
     RESOLVER,
     TIME,
@@ -446,14 +446,14 @@ to be a task creator and create tasks.</em></p>
 }
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="moduledata"><a class="header" href="#moduledata">ModuleData</a></h1>
-<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/Types.sol">Git Source</a></p>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/f929c0707ff937ea1da77413fec74b57e6cc24e6/src/interfaces/native/Types.sol">Git Source</a></p>
 <pre><code class="language-solidity">struct ModuleData {
     Module[] modules;
     bytes[] args;
 }
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="iautomate"><a class="header" href="#iautomate">IAutomate</a></h1>
-<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/Types.sol">Git Source</a></p>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/f929c0707ff937ea1da77413fec74b57e6cc24e6/src/interfaces/native/Types.sol">Git Source</a></p>
 <h2 id="functions-7"><a class="header" href="#functions-7">Functions</a></h2>
 <h3 id="createtask"><a class="header" href="#createtask">createTask</a></h3>
 <pre><code class="language-solidity">function createTask(
@@ -476,7 +476,7 @@ to be a task creator and create tasks.</em></p>
 <pre><code class="language-solidity">function taskTreasury() external view returns (ITaskTreasuryUpgradable);
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="itasktreasuryupgradable"><a class="header" href="#itasktreasuryupgradable">ITaskTreasuryUpgradable</a></h1>
-<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/Types.sol">Git Source</a></p>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/f929c0707ff937ea1da77413fec74b57e6cc24e6/src/interfaces/native/Types.sol">Git Source</a></p>
 <h2 id="functions-8"><a class="header" href="#functions-8">Functions</a></h2>
 <h3 id="depositfunds"><a class="header" href="#depositfunds">depositFunds</a></h3>
 <pre><code class="language-solidity">function depositFunds(address receiver, address token, uint256 amount) external payable;
@@ -485,13 +485,13 @@ to be a task creator and create tasks.</em></p>
 <pre><code class="language-solidity">function withdrawFunds(address payable receiver, address token, uint256 amount) external;
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="iopsproxyfactory"><a class="header" href="#iopsproxyfactory">IOpsProxyFactory</a></h1>
-<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/interfaces/native/Types.sol">Git Source</a></p>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/f929c0707ff937ea1da77413fec74b57e6cc24e6/src/interfaces/native/Types.sol">Git Source</a></p>
 <h2 id="functions-9"><a class="header" href="#functions-9">Functions</a></h2>
 <h3 id="getproxyof"><a class="header" href="#getproxyof">getProxyOf</a></h3>
 <pre><code class="language-solidity">function getProxyOf(address account) external view returns (address, bool);
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="collarengine"><a class="header" href="#collarengine">CollarEngine</a></h1>
-<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/CollarEngine.sol">Git Source</a></p>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/f929c0707ff937ea1da77413fec74b57e6cc24e6/src/CollarEngine.sol">Git Source</a></p>
 <p><strong>Inherits:</strong>
 ReentrancyGuard, <a href="src/CollarEngine.sol//docs-temp/src/src/interfaces/native/ICollarEngineEvents.sol/interface.ICollarEngineEvents.html">ICollarEngineEvents</a></p>
 <p><strong>Author:</strong>
@@ -783,7 +783,7 @@ This ensures consent is given and assets flow in a way that is consistent with t
 }
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="collarvault"><a class="header" href="#collarvault">CollarVault</a></h1>
-<p><a href="https://github.com/CollarNetworks/protocol-core/blob/6c5f918bced8df7983f9f9d29ec488c55e0cafdf/src/CollarVault.sol">Git Source</a></p>
+<p><a href="https://github.com/CollarNetworks/protocol-core/blob/f929c0707ff937ea1da77413fec74b57e6cc24e6/src/CollarVault.sol">Git Source</a></p>
 <p><strong>Inherits:</strong>
 ReentrancyGuard, <a href="src/CollarVault.sol//docs-temp/src/src/interfaces/native/ICollarVaultEvents.sol/interface.ICollarVaultEvents.html">ICollarVaultEvents</a></p>
 <p><strong>Author:</strong>
