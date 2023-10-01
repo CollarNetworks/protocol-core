@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.12;
 
-import "forge-std/Test.sol";
+import {Test} from "@forge-std/Test.sol";
 import {ERC20, ERC20Permit} from "@oz-v4.9.3/token/ERC20/extensions/ERC20Permit.sol";
 
 contract TestERC20 is ERC20Permit, Test {

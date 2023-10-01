@@ -4,6 +4,7 @@ out = "out"
 libs = ["lib"]
 optimizer = true
 fs_permissions = [{ access = "read", path = "./"}]
+solc_version = "0.8.21"
 
 [fmt]
 line_length = 120
