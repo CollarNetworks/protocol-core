@@ -12,7 +12,7 @@ import {MockOracle} from "../utils/mocks/MockOracle.sol";
 
 // Tests converted from ./old/test-vault-and-roll.js
 
-contract CollarVault_RollTest is Test, VaultUtils {
+contract CollarVault_Roll is Test, VaultUtils {
     CollarEngine engine;
     CollarVault vault;
 

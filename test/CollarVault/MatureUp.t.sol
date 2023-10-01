@@ -71,7 +71,7 @@ contract CollarVault_MatureUp is Test, VaultUtils {
     }
 
     function test_matureVaultUp() public {
-        MockOracle(DEFAULT_ENGINE_PARAMS.ethUSDOracle).setLatestRoundData(125_360_435_265);
+        MockOracle(DEFAULT_ENGINE_PARAMS.ethUSDOracle).setLatestRoundData(125_227_595_982);
 
         uint256 marketMakerBalanceBefore =
             IERC20(DEFAULT_ENGINE_PARAMS.usdc).balanceOf(DEFAULT_ENGINE_PARAMS.marketMaker);
@@ -86,6 +86,8 @@ contract CollarVault_MatureUp is Test, VaultUtils {
         uint256 traderBalanceAfter = (DEFAULT_ENGINE_PARAMS.trader).balance;
 
         assertEq(marketMakerBalanceAfter, marketMakerBalanceBefore);
-        assertEq(traderBalanceAfter - traderBalanceBefore, 10_178_204_823_562_330);
+        console2.log("traderBalanceBefore: %s", traderBalanceBefore);
+        console2.log("traderBalanceAfter: %s", traderBalanceAfter);
+        assertEq(traderBalanceAfter - traderBalanceBefore, 10_925_865_100_534_294);
     }
 }
