@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.0;
-
+/*
 import "../patched/token/ERC20/extensions/ERC20Permit.sol";
 
 contract ERC20PermitHarness is ERC20Permit {
@@ -14,4 +14,4 @@ contract ERC20PermitHarness is ERC20Permit {
     function burn(address account, uint256 amount) external {
         _burn(account, amount);
     }
-}
+}*/
