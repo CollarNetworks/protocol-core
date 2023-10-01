@@ -1,8 +1,0 @@
-{
-  "editor.formatOnSave": true,
-  "solidity.formatter": "forge",
-  "solidity.packageDefaultDependenciesDirectory": "lib",
-  "solidity.packageDefaultDependenciesContractsDirectory": "",
-  "solidity.monoRepoSupport": false,
-  "solidity.compileUsingRemoteVersion": "latest"
-}
