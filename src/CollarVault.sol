@@ -4,13 +4,13 @@ pragma solidity ^0.8.18;
 import "@oz-v4.9.3/token/ERC20/utils/SafeERC20.sol";
 import "@oz-v4.9.3/security/ReentrancyGuard.sol";
 
-import {SafeERC20} from "@oz-v4.9.3/token/ERC20/utils/SafeERC20.sol";
 import {ISwapRouter} from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 
 import "@chainlink-v0.8/interfaces/AggregatorV3Interface.sol";
 import "./interfaces/native/ICollarVaultEvents.sol";
 import "./interfaces/native/ICollarEngine.sol";
 import "./interfaces/external/IWETH.sol";
+import {TransferHelper} from "@uni-v3-periphery/libraries/TransferHelper.sol";
 
 /// @title Collar Protocol Engine
 /// @author Collar Networks, Inc.
@@ -314,7 +314,7 @@ contract CollarVault is ReentrancyGuard, ICollarVaultEvents {
     function swapExactInputSingle(uint256 amountIn) internal returns (uint256 amountOut) {
         IWETH(WETH9).deposit{value: amountIn}();
         // Approve the router to spend DAI.
-        SafeERC20.safeApprove(IERC20(WETH9), address(dexRouter), amountIn);
+        TransferHelper.safeApprove(WETH9, address(dexRouter), amountIn);
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
             tokenIn: WETH9,
             tokenOut: lendAsset,
@@ -331,7 +331,7 @@ contract CollarVault is ReentrancyGuard, ICollarVaultEvents {
     }
 
     function swapExactInputSingleFlipped(uint256 amountIn) internal returns (uint256 amountOut) {
-        SafeERC20.safeApprove(IERC20(lendAsset), address(dexRouter), amountIn);
+        TransferHelper.safeApprove(lendAsset, address(dexRouter), amountIn);
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
             tokenIn: lendAsset,
             tokenOut: WETH9,
