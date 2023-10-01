@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import "forge-std/Test.sol";
+import {Test} from "@forge-std/Test.sol";
 import {CollarEngine} from "../../src/CollarEngine.sol";
 import {CollarVault} from "../../src/CollarVault.sol";
 import {EngineUtils} from "../utils/EngineUtils.sol";
