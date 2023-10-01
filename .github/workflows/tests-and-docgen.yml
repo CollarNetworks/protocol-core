@@ -44,19 +44,3 @@ jobs:
 
       - name: Run Tests
         run: forge test -vvv
-          
-      - name: Generate Docs
-        if: github.event_name == 'pull_request'
-        run: |
-          rm -rf docs
-          forge doc --build
-          mv docs-temp/book docs
-
-      - name: Commit and Push
-        if: github.event_name == 'pull_request'
-        run: |
-          git config --global user.name github-actions
-          git config --global user.email github-actions@github.com
-          git add .
-          git commit -m "Auto-Generate Documentation"
-          git push
