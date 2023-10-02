@@ -353,8 +353,7 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents {
     /// @notice This functions allows marketmakers to pull a price they've shown and not allow the client to trade.
     function pullPrice(address _client) external onlyMarketMaker {
         require(
-            pricings[_client].state == PxState.PXD || pricings[_client].state == PxState.ACKD,
-            "error - can only pull PXD or ACKD pricings"
+            pricings[_client].state == PxState.PXD || pricings[_client].state == PxState.ACKD, "error - can only pull PXD or ACKD pricings"
         );
         pricings[_client].state = PxState.OFF;
     }
@@ -370,10 +369,7 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents {
 
     /// @notice This allows the client to revoke their consent to trade
     function clientPullOrder() external {
-        require(
-            pricings[msg.sender].state == PxState.DONE || pricings[msg.sender].state == PxState.PXD,
-            "error - must be state DONE"
-        );
+        require(pricings[msg.sender].state == PxState.DONE || pricings[msg.sender].state == PxState.PXD, "error - must be state DONE");
         uint256 toPay = clientEscrow[msg.sender];
         clientEscrow[msg.sender] = 0;
         pricings[msg.sender].state = PxState.NEW; //reverts to pxd state
@@ -485,9 +481,7 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents {
 
     /// @notice This allows the marketmaker to refund the client and call off the trade if the price has moved significantly
     function rejectOrder(address _client, string calldata _reason) external {
-        require(
-            msg.sender == marketmaker || msg.sender == admin, "error - can only be done by the marketmaker or the admin"
-        );
+        require(msg.sender == marketmaker || msg.sender == admin, "error - can only be done by the marketmaker or the admin");
         require(pricings[_client].state == PxState.DONE, "error - can only ioi pricings with state PXD");
         pricings[_client].state = PxState.REJ;
         pricings[_client].notes = _reason;

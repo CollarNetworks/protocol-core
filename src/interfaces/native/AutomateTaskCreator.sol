@@ -34,12 +34,10 @@ contract AutomateTaskCreator is AutomateReady {
         taskTreasury.depositFunds{value: ethValue}(address(this), _token, _amount);
     }
 
-    function _createTask(
-        address _execAddress,
-        bytes memory _execDataOrSelector,
-        ModuleData memory _moduleData,
-        address _feeToken
-    ) internal returns (bytes32) {
+    function _createTask(address _execAddress, bytes memory _execDataOrSelector, ModuleData memory _moduleData, address _feeToken)
+        internal
+        returns (bytes32)
+    {
         return automate.createTask(_execAddress, _execDataOrSelector, _moduleData, _feeToken);
     }
 
@@ -47,11 +45,7 @@ contract AutomateTaskCreator is AutomateReady {
         automate.cancelTask(_taskId);
     }
 
-    function _resolverModuleArg(address _resolverAddress, bytes memory _resolverData)
-        internal
-        pure
-        returns (bytes memory)
-    {
+    function _resolverModuleArg(address _resolverAddress, bytes memory _resolverData) internal pure returns (bytes memory) {
         return abi.encode(_resolverAddress, _resolverData);
     }
 

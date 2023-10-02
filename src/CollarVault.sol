@@ -207,35 +207,10 @@ contract CollarVault is ReentrancyGuard, ICollarVaultEvents {
     function getVaultDetails()
         external
         view
-        returns (
-            uint256,
-            uint256,
-            address,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            address,
-            uint256,
-            uint256
-        )
+        returns (uint256, uint256, address, uint256, uint256, uint256, uint256, uint256, uint256, address, uint256, uint256)
     {
-        return (
-            qty,
-            lent,
-            lendAsset,
-            putstrikePct,
-            callstrikePct,
-            maturityTimestamp,
-            fill,
-            mmCollateral,
-            proceeds,
-            engine,
-            rfqid,
-            rollcount
-        );
+        return
+            (qty, lent, lendAsset, putstrikePct, callstrikePct, maturityTimestamp, fill, mmCollateral, proceeds, engine, rfqid, rollcount);
     }
 
     receive() external payable {}
@@ -270,12 +245,7 @@ contract CollarVault is ReentrancyGuard, ICollarVaultEvents {
     /// @notice Allows the client to request a roll price
 
     //putstrike req is done as % of new fill/oracle px
-    function requestRollPrice(uint256 _rollltvpct, uint256 _rollMaturityTimestamp)
-        external
-        isEligibleRoller
-        isRollable
-        whileLive
-    {
+    function requestRollPrice(uint256 _rollltvpct, uint256 _rollMaturityTimestamp) external isEligibleRoller isRollable whileLive {
         rollstate = 1;
         rollltvpct = _rollltvpct;
         rollputpct = _rollltvpct + rollFeeRate;
@@ -419,10 +389,7 @@ contract CollarVault is ReentrancyGuard, ICollarVaultEvents {
         rollmatstamp = 0;
     }
 
-    function postTradeDetailsA(uint256 _lent, uint256 _fill, uint256 _collat, uint256 _proceeds, address _weth)
-        external
-        onlyEngine
-    {
+    function postTradeDetailsA(uint256 _lent, uint256 _fill, uint256 _collat, uint256 _proceeds, address _weth) external onlyEngine {
         require(!deetsPostedA, "error - deets already posted"); //only once
         deetsPostedA = true;
         lent = _lent;
@@ -432,13 +399,10 @@ contract CollarVault is ReentrancyGuard, ICollarVaultEvents {
         WETH9 = _weth;
     }
 
-    function postTradeDetailsB(
-        uint256 _fee,
-        address _feeWallet,
-        uint256 _rollFeeRate,
-        address _marketmaker,
-        address _client
-    ) external onlyEngine {
+    function postTradeDetailsB(uint256 _fee, address _feeWallet, uint256 _rollFeeRate, address _marketmaker, address _client)
+        external
+        onlyEngine
+    {
         require(!deetsPostedB, "error - deets already posted"); //only once
         deetsPostedB = true;
         feePaid = _fee;

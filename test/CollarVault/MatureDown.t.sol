@@ -27,11 +27,11 @@ contract CollarVault_MatureDown is Test, VaultUtils {
             admin: makeAddr("Owner"),
             rfqid: DEFAULT_RFQID,
             qty: DEFAULT_QTY,
-            lendAsset: mockUni.tokenA,
+            lendAsset: mocks.tokenA(),
             putStrikePct: DEFAULT_PUT_STRIKE_PCT,
             callStrikePct: DEFAULT_CALL_STRIKE_PCT,
             maturityTimestamp: DEFAULT_MATURITY_TIMESTAMP,
-            dexRouter: mockUni.router,
+            dexRouter: mocks.router(),
             priceFeed: DEFAULT_ENGINE_PARAMS.ethUSDOracle
         });
 
@@ -74,15 +74,13 @@ contract CollarVault_MatureDown is Test, VaultUtils {
 
     function test_matureVaultDown() public {
         uint256 traderEthBalanceBefore = address(DEFAULT_ENGINE_PARAMS.trader).balance;
-        uint256 marketMakerBalanceBefore =
-            IERC20(DEFAULT_ENGINE_PARAMS.usdc).balanceOf(DEFAULT_ENGINE_PARAMS.marketMaker);
+        uint256 marketMakerBalanceBefore = IERC20(DEFAULT_ENGINE_PARAMS.usdc).balanceOf(DEFAULT_ENGINE_PARAMS.marketMaker);
 
         startHoax(DEFAULT_ENGINE_PARAMS.marketMaker);
         vault.matureVault();
 
         uint256 traderEthBalanceAfter = address(DEFAULT_ENGINE_PARAMS.trader).balance;
-        uint256 marketMakerBalanceAfter =
-            IERC20(DEFAULT_ENGINE_PARAMS.usdc).balanceOf(DEFAULT_ENGINE_PARAMS.marketMaker);
+        uint256 marketMakerBalanceAfter = IERC20(DEFAULT_ENGINE_PARAMS.usdc).balanceOf(DEFAULT_ENGINE_PARAMS.marketMaker);
 
         assertEq(marketMakerBalanceAfter - marketMakerBalanceBefore, 51_303_819);
         assertEq(traderEthBalanceAfter, traderEthBalanceBefore);
