@@ -2,13 +2,14 @@
 pragma solidity ^0.8.18;
 
 import {TransferHelper} from "@uni-v3-periphery/libraries/TransferHelper.sol";
-import "@chainlink-v0.8/interfaces/AggregatorV3Interface.sol";
-import "@oz-v4.9.3/token/ERC20/utils/SafeERC20.sol";
-import "@oz-v4.9.3/security/ReentrancyGuard.sol";
-import "./interfaces/external/IWETH.sol";
-import "./interfaces/native/ICollarEngineEvents.sol";
+import {AggregatorV3Interface} from "@chainlink-v0.8/interfaces/AggregatorV3Interface.sol";
+import {SafeERC20, IERC20} from "@oz-v4.9.3/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "@oz-v4.9.3/security/ReentrancyGuard.sol";
+import {IWETH} from "./interfaces/external/IWETH.sol";
+import {ICollarEngineEvents} from "./interfaces/native/ICollarEngineEvents.sol";
 // import "interfaces/ICollarKeeperManager.sol";
-import "./CollarVault.sol";
+import {CollarVault} from "./CollarVault.sol";
+import {ISwapRouter} from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 // import "./CollarKeeperManager.sol";
 
 /// @title Collar Protocol Engine
