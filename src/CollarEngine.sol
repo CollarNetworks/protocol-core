@@ -59,7 +59,7 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
 
     /// @notice Retrieves the client's pricing details
     /// @return a tuple of length 12
-    function getMyPrice() external view returns (Pricing) {
+    function getMyPrice() external view returns (Pricing memory) {
         require(isCustomer[msg.sender], "error - no pricings req'd for customer");
         return pricings[msg.sender];
     }
@@ -170,30 +170,30 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
     function executeTrade(address _client) external onlyMarketMaker nonReentrant returns (address) {
         //take lendasset from marketmakerr
         IERC20 lentAsset = IERC20(lendAsset);
-        Pricing memory p = pricings[_client];
+        Pricing memory clientPricing = pricings[_client];
 
         // translates back to a dollar fill
-        uint256 fill = swapExactInputSingle(p.qty) * 1e18 / p.qty;
+        uint256 fill = swapExactInputSingle(clientPricing.qty) * 1e18 / clientPricing.qty;
 
         //prevents underflow
-        uint256 collat = (p.callstrikePct - 100) * p.qty * fill / 1e2 / 1e18 + 1;
+        uint256 collat = (clientPricing.callstrikePct - 100) * clientPricing.qty * fill / 1e2 / 1e18 + 1;
 
         //make the new vault
         CollarVault vault = new CollarVault(
-            admin,
-            p.rfqid,
-            p.qty,
-            p.lendAsset,
-            p.putstrikePct,
-            p.callstrikePct,
-            p.maturityTimestamp,
+            owner(),
+            clientPricing.rfqid,
+            clientPricing.qty,
+            clientPricing.lendAsset,
+            clientPricing.putstrikePct,
+            clientPricing.callstrikePct,
+            clientPricing.maturityTimestamp,
             address(dexRouter),
             address(priceFeed)
         );
 
         //add the vaults to tracking system, increment trackers
-        (uint256 currIdUser, uint256 currIdmm) = incrementVaults(p.client, p.marketmaker);
-        userVaults[p.client][currIdUser] = address(vault);
+        (uint256 currIdUser, uint256 currIdmm) = incrementVaults(clientPricing.client, clientPricing.marketmaker);
+        userVaults[clientPricing.client][currIdUser] = address(vault);
         marketmakerVaults[msg.sender][currIdmm] = address(vault);
 
         //write down the client balance to zero since you're paying them out
@@ -203,28 +203,28 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
         lentAsset.safeTransferFrom(msg.sender, address(vault), collat);
 
         //move rest of sale proceeds to vault
-        lentAsset.safeTransfer(address(vault), (100 - p.putstrikePct) * fill * p.qty / 1e2 / 1e18);
+        lentAsset.safeTransfer(address(vault), (100 - clientPricing.putstrikePct) * fill * clientPricing.qty / 1e2 / 1e18);
 
         //pay fee to feewallet
-        lentAsset.safeTransfer(feeWallet, feeRatePct * p.qty * fill / 1e2 / 1e18);
+        lentAsset.safeTransfer(feeWallet, feeRatePct * clientPricing.qty * fill / 1e2 / 1e18);
 
         //send loan to client
-        lentAsset.safeTransfer(p.client, (p.putstrikePct - feeRatePct) * p.qty * fill / 1e2 / 1e18);
+        lentAsset.safeTransfer(clientPricing.client, (clientPricing.putstrikePct - feeRatePct) * clientPricing.qty * fill / 1e2 / 1e18);
 
         vault.postTradeDetailsA(
-            (p.putstrikePct - feeRatePct) * p.qty * fill / 1e2 / 1e18, //loanAmt
+            (clientPricing.putstrikePct - feeRatePct) * clientPricing.qty * fill / 1e2 / 1e18, //loanAmt
             fill, //fill
             collat, // mmCollat
-            (100 - p.putstrikePct) * fill * p.qty / 1e2 / 1e18,
+            (100 - clientPricing.putstrikePct) * fill * clientPricing.qty / 1e2 / 1e18,
             WETH9
         );
 
         vault.postTradeDetailsB(
-            feeRatePct * p.qty * fill / 1e2 / 1e18, // fee
+            feeRatePct * clientPricing.qty * fill / 1e2 / 1e18, // fee
             feeWallet,
             feeRatePct,
-            p.marketmaker,
-            p.client
+            clientPricing.marketmaker,
+            clientPricing.client
         );
 
         //launch keeper with gelato
