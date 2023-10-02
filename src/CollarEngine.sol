@@ -1,4 +1,11 @@
 // SPDX-License-Identifier: MIT
+
+/*
+ * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocol.xyz>
+ * 
+ * All rights reserved. No warranty, explicit or implicit, provided.
+ */
+
 pragma solidity ^0.8.18;
 
 import {TransferHelper} from "@uni-v3-periphery/libraries/TransferHelper.sol";
@@ -7,9 +14,12 @@ import {SafeERC20, IERC20} from "@oz-v4.9.3/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@oz-v4.9.3/security/ReentrancyGuard.sol";
 import {IWETH} from "./interfaces/external/IWETH.sol";
 import {ICollarEngineEvents} from "./interfaces/native/ICollarEngineEvents.sol";
-// import "interfaces/ICollarKeeperManager.sol";
+import {ICollarEngine} from "./interfaces/native/ICollarEngine.sol";
 import {CollarVault} from "./CollarVault.sol";
 import {ISwapRouter} from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
+import {ICollarEngineGetters} from "./interfaces/native/ICollarEngineGetters.sol";
+
+// import "interfaces/ICollarKeeperManager.sol";
 // import "./CollarKeeperManager.sol";
 
 /// @title Collar Protocol Engine
@@ -17,38 +27,9 @@ import {ISwapRouter} from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 /// @notice The engine handles RFQ and launches vaults
 /// @dev Developers can send calls directly to the engine if they desire
 /// @custom:security-contact hello@collarprotocol.xyz
-/*
- * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocol.xyz>
- * 
- * All rights reserved. No warranty, explicit or implicit, provided.
- */
-
-contract CollarEngine is ReentrancyGuard, ICollarEngineEvents {
+contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, ICollarEngineGetters {
     /// @dev SafeERC20 prevents other contracts from doing anything malicious when we call transferFrom
     using SafeERC20 for IERC20;
-
-    /// @dev Passed in during deployment
-    ISwapRouter dexRouter;
-    // address keeperManager;
-    AggregatorV3Interface internal priceFeed;
-    address admin;
-    address marketmaker;
-    address payable feeWallet;
-    uint256 feeRatePct;
-    address lendAsset;
-    address WETH9;
-    /// @dev Tracks the number of quotes over time
-    uint256 rfqid;
-
-    /// @dev Vault, collateral, client, marketmaker, tracking system
-    mapping(address => mapping(uint256 => address)) internal userVaults;
-    mapping(address => mapping(uint256 => address)) internal marketmakerVaults;
-    mapping(address => uint256) internal nextMarketmakerVaultId;
-    mapping(address => uint256) internal nextUserVaultId;
-    mapping(address => Pricing) internal pricings;
-    mapping(address => bool) internal isCustomer;
-    mapping(address => uint256) internal clientEscrow;
-    mapping(address => uint256) internal mmCollateralBalances;
 
     /// @notice Takes in the required addresses upon deployment
     /// @dev This should be later replaced by an addressbook contract
@@ -75,166 +56,6 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents {
         dexRouter = ISwapRouter(_dexRouter);
         priceFeed = AggregatorV3Interface(_oracle);
         WETH9 = _weth;
-    }
-
-    /// @notice Various states a Pricing struct can be in
-    /// @param NEW means the client has nothing currently priced
-    /// @param REQD means the client has requested a price from a marketmaker
-    /// @param ACKD means the client has been acknowledged by the marketmaker
-    /// @param PXD means the client can now accept or reject the price
-    /// @param OFF means the marketmaker has pulled the price due to market movement
-    /// @param REJ means the client or marketmaker has rejected the pricing and a new pricing can be requested
-    /// @param DONE means the client has said "DONE" and consented to a trade
-    enum PxState {
-        NEW,
-        REQD,
-        ACKD,
-        PXD,
-        OFF,
-        REJ,
-        DONE
-    }
-
-    /// @notice The Pricing struct contains all the relevant information for a client's request for quote
-    /// @param rfqid is the unique identifier for this pricing
-    /// @param lendAsset refers to the asset that will be lent, usually a stablecoin (i.e. USDC)
-    /// @dev USDC has 6 decimal places which we have currently hardcoded for throughout the code. This will need to be improved in v2
-    /// @param marketmaker refers to the asset that will be lent, usually a stablecoin (i.e. USDC)
-    /// @param client specifies which client has requested the trade
-    /// @param state refers to what state the pricing is in, via the above ENUM
-    /// @param structure specifies in plain language what type of trade is occuring i.e. "Collar"
-    /// @param underlier refers to the risk asset i.e. ETH the price of which is measured by the provided oracle
-    /// @param maturityTimestamp tracks the duration of the trade, typically 1-6 months
-    /// @dev the maturity is measured using block.timestamp which can be manipulated +- 12 seconds, we are looking to improve upon this over time
-    /// @param qty is the amount of the underlying asset that the client wishes to hedge
-    /// @dev this is hardcoded to 18dp for the moment but may need to be updated in the future
-    /// @param ltv the loan-to-value ratio the client expects i.e. "87" with a "3" feeRatePct would lead to "90" putstrikePct
-    /// @param putstrikePct this is the floor on the asset's value and the amount the client will need to repay at maturity
-    /// @param callstrikePct this is the cap on the asset's value that is being agreed to
-    /// @dev these strikes are tracked as 0dp percentages i.e. "87" or "110" in order to preserve mathematical accuracy
-    /// @dev we should do a deeper dive on exact decimal place accuracy in the future using Mantissa's
-    /// @param notes is an optional parameter that allows for notes to be recorded on the blockchain with the pricing for the marketmaker in a trustless way
-    struct Pricing {
-        uint256 rfqid;
-        address lendAsset;
-        address marketmaker;
-        address client;
-        PxState state;
-        string structure;
-        string underlier;
-        uint256 maturityTimestamp;
-        uint256 qty;
-        uint256 ltv;
-        uint256 putstrikePct;
-        uint256 callstrikePct;
-        string notes;
-    }
-
-    /// @notice this modifier limits function calls to the admin i.e. the deployer of this contract
-    modifier onlyAdmin() {
-        require(msg.sender == admin, "error - only callable by admin");
-        _;
-    }
-    /// @notice this modifier limits calls to the specified marketmaker i.e. the deployer of this contract
-
-    modifier onlyMarketMaker() {
-        require(msg.sender == marketmaker, "error - only callable by whitelisted marketmaker");
-        _;
-    }
-
-    /// @dev this is required by the solidity  compiler
-    receive() external payable {}
-
-    /// @notice getter functions for various variables, vaults, pricings, etc.
-    function getAdmin() external view returns (address) {
-        return admin;
-    }
-
-    function getDexRouter() external view returns (address) {
-        return address(dexRouter);
-    }
-
-    function getMarketmaker() external view returns (address) {
-        return marketmaker;
-    }
-
-    function getFeerate() external view returns (uint256) {
-        return feeRatePct;
-    }
-
-    function getFeewallet() external view returns (address) {
-        return feeWallet;
-    }
-
-    function getPricingByClient(address client) external view returns (Pricing memory) {
-        return pricings[client];
-    }
-
-    function getStateByClient(address client) external view returns (PxState) {
-        return pricings[client].state;
-    }
-
-    function getLendAsset() external view returns (address) {
-        return lendAsset;
-    }
-
-    function getLastTradeVault(address client) external view returns (address) {
-        return userVaults[client][nextUserVaultId[client] - 1];
-    }
-
-    function getLastTradeVaultMarketmaker(address _marketmaker) external view returns (address) {
-        return marketmakerVaults[_marketmaker][nextMarketmakerVaultId[marketmaker] - 1];
-    }
-
-    function getClientEscrow(address client) external view returns (uint256) {
-        return clientEscrow[client];
-    }
-
-    function getNextUserVaultId(address _client) external view returns (uint256) {
-        return nextUserVaultId[_client];
-    }
-
-    function getNextMarketmakerVaultId(address _marketmaker) external view returns (uint256) {
-        return nextMarketmakerVaultId[_marketmaker];
-    }
-
-    function getClientVaultById(address _client, uint256 _id) external view returns (address) {
-        return userVaults[_client][_id];
-    }
-
-    function getMarketmakerVaultById(address _marketmaker, uint256 _id) external view returns (address) {
-        return marketmakerVaults[_marketmaker][_id];
-    }
-
-    /// @notice Used by the UI to display latest vaults for clients
-    function getLastThreeClientVaults(address _client) external view returns (address[3] memory) {
-        require(_client != address(0), "error - no zero inputs");
-        address[3] memory out;
-        uint256 next = nextUserVaultId[_client];
-        if (next < 3) {
-            next = 3;
-        }
-        for (uint256 i = next - 3; i < next; i++) {
-            out[i] = userVaults[_client][i];
-        }
-        return (out);
-    }
-
-    /// @notice Used by the UI to display latest vaults for marketmakers
-    function getLastThreeMarketmakerVaults(address _marketmaker) external view returns (address[3] memory) {
-        address[3] memory out;
-        uint256 next = nextMarketmakerVaultId[_marketmaker];
-        if (next < 3) {
-            next = 3;
-        }
-        for (uint256 i = next - 3; i < next; i++) {
-            out[i] = marketmakerVaults[_marketmaker][i];
-        }
-        return (out);
-    }
-
-    function getCurrRfqid() external view returns (uint256) {
-        return rfqid;
     }
 
     /// @notice Retrieves the client's pricing details
@@ -275,16 +96,11 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents {
         );
     }
 
-    /// @notice Retrieves the oracle price
-    function fetchOraclePrice() internal view returns (uint256) {
+    /// @notice Makes fetch external without upsetting the compiler
+    function getOraclePrice() public view override returns (uint256) {
         (, int256 price,,,) = priceFeed.latestRoundData();
         uint256 p = uint256(price) * 1e10; //make sure
         return (p);
-    }
-
-    /// @notice Makes fetch external without upsetting the compiler
-    function getOraclePrice() external view returns (uint256) {
-        return fetchOraclePrice();
     }
 
     /// @notice Allows the admin to update where the initial delta hedge is executed
