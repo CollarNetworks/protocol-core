@@ -14,12 +14,9 @@ struct ModuleData {
 }
 
 interface IAutomate {
-    function createTask(
-        address execAddress,
-        bytes calldata execDataOrSelector,
-        ModuleData calldata moduleData,
-        address feeToken
-    ) external returns (bytes32 taskId);
+    function createTask(address execAddress, bytes calldata execDataOrSelector, ModuleData calldata moduleData, address feeToken)
+        external
+        returns (bytes32 taskId);
 
     function cancelTask(bytes32 taskId) external;
 

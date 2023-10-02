@@ -4,6 +4,9 @@ pragma solidity ^0.8.12;
 import {Test} from "@forge-std/Test.sol";
 import {ERC20, ERC20Permit} from "@oz-v4.9.3/token/ERC20/extensions/ERC20Permit.sol";
 
+/// @title TestERC20
+/// @dev Extension of ERC20Permit that allows free minting
+/// @dev The address is automatically labelled with the name of the token via forge-std
 contract TestERC20 is ERC20Permit, Test {
     uint8 internal decimals_;
 

@@ -74,15 +74,13 @@ contract CollarVault_MatureDown is Test, VaultUtils {
 
     function test_matureVaultDown() public {
         uint256 traderEthBalanceBefore = address(DEFAULT_ENGINE_PARAMS.trader).balance;
-        uint256 marketMakerBalanceBefore =
-            IERC20(DEFAULT_ENGINE_PARAMS.usdc).balanceOf(DEFAULT_ENGINE_PARAMS.marketMaker);
+        uint256 marketMakerBalanceBefore = IERC20(DEFAULT_ENGINE_PARAMS.usdc).balanceOf(DEFAULT_ENGINE_PARAMS.marketMaker);
 
         startHoax(DEFAULT_ENGINE_PARAMS.marketMaker);
         vault.matureVault();
 
         uint256 traderEthBalanceAfter = address(DEFAULT_ENGINE_PARAMS.trader).balance;
-        uint256 marketMakerBalanceAfter =
-            IERC20(DEFAULT_ENGINE_PARAMS.usdc).balanceOf(DEFAULT_ENGINE_PARAMS.marketMaker);
+        uint256 marketMakerBalanceAfter = IERC20(DEFAULT_ENGINE_PARAMS.usdc).balanceOf(DEFAULT_ENGINE_PARAMS.marketMaker);
 
         assertEq(marketMakerBalanceAfter - marketMakerBalanceBefore, 51_303_819);
         assertEq(traderEthBalanceAfter, traderEthBalanceBefore);

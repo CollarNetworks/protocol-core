@@ -73,15 +73,13 @@ contract CollarVault_MatureUp is Test, VaultUtils {
     function test_matureVaultUp() public {
         MockOracle(DEFAULT_ENGINE_PARAMS.ethUSDOracle).setLatestRoundData(125_227_595_982);
 
-        uint256 marketMakerBalanceBefore =
-            IERC20(DEFAULT_ENGINE_PARAMS.usdc).balanceOf(DEFAULT_ENGINE_PARAMS.marketMaker);
+        uint256 marketMakerBalanceBefore = IERC20(DEFAULT_ENGINE_PARAMS.usdc).balanceOf(DEFAULT_ENGINE_PARAMS.marketMaker);
 
         uint256 traderBalanceBefore = (DEFAULT_ENGINE_PARAMS.trader).balance;
 
         vault.matureVault();
 
-        uint256 marketMakerBalanceAfter =
-            IERC20(DEFAULT_ENGINE_PARAMS.usdc).balanceOf(DEFAULT_ENGINE_PARAMS.marketMaker);
+        uint256 marketMakerBalanceAfter = IERC20(DEFAULT_ENGINE_PARAMS.usdc).balanceOf(DEFAULT_ENGINE_PARAMS.marketMaker);
 
         uint256 traderBalanceAfter = (DEFAULT_ENGINE_PARAMS.trader).balance;
 
