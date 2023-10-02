@@ -9,6 +9,7 @@ import {ISwapRouter} from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 import {NonfungiblePositionManager as NFTManager} from "@uni-v3-periphery/NonfungiblePositionManager.sol";
 import {INonfungiblePositionManager as INFTManager} from "@uni-v3-periphery/interfaces/INonfungiblePositionManager.sol";
 import {MockWeth} from "../mocks/MockWeth.sol";
+import {Test} from "@forge-std/Test.sol";
 
 library UniswapV3Math {
     uint24 constant FEE_LOW = 500;
@@ -18,6 +19,8 @@ library UniswapV3Math {
     int24 constant TICK_LOW = 10;
     int24 constant TICK_MEDIUM = 60;
     int24 constant TICK_HIGH = 200;
+
+    function EVEN_PRICE() public pure returns (uint160) { return encodePriceSqrt(1, 1); }
 
     function feeToTick(uint24 fee) public pure returns (int24 tick) {
         require(fee == FEE_LOW || fee == FEE_MEDIUM || fee == FEE_HIGH, "Invalid fee tier");
@@ -35,16 +38,18 @@ library UniswapV3Math {
         if (tick == TICK_HIGH) return FEE_HIGH;
     }
 
+    uint256 constant PRECISION = 2**96;
+
     /// @dev Computes the sqrt of the u64x96 fixed point price given the AMM reserves
     /// @dev Taken from gakonst/uniswap-v3-periphery
     /// @param reserve1 The reserve of token1
     /// @param reserve0 The reserve of token0
     function encodePriceSqrt(uint256 reserve1, uint256 reserve0) public pure returns (uint160) {
-        return uint160(sqrt((reserve1 * (2 ** 96) * (2 ** 96)) / reserve0));
+        return uint160(sqrt((reserve1 * PRECISION * PRECISION) / reserve0));
     }
 
     /// @dev Fast sqrt, taken from Solmate.
-    /// @param x The input value, assumed to be a 64-bit unsigned integer.
+    /// @param x The input value
     function sqrt(uint256 x) public pure returns (uint256 z) {
         assembly {
             // Start off with z at 1.
@@ -176,7 +181,7 @@ library UniswapV3Math {
     }
 }
 
-library UniswapV3Utils {
+abstract contract UniswapV3Utils is Test {
     function deployUniswapV3() public returns (address weth, address factory, address nftManager, address router) {
         weth = address(new MockWeth());
         factory = address(new UniswapV3Factory());
@@ -193,18 +198,22 @@ library UniswapV3Utils {
         (address token0, uint256 reserve0, address token1, uint256 reserve1) =
             (tokenA < tokenB) ? (tokenA, reserveA, tokenB, reserveB) : (tokenB, reserveB, tokenA, reserveA);
 
+        while(reserve0 > 1e10 && reserve1 > 1e10) {
+            (reserve0, reserve1) = (reserve0 / 1e10, reserve1 / 1e10);
+        }
+
         uint160 initialPrice = UniswapV3Math.encodePriceSqrt(reserve0, reserve1);
 
         pool = NFTManager(payable(nftManager)).createAndInitializePoolIfNecessary(token0, token1, fee, initialPrice);
     }
 
-    function mintLiquidity(address _tokenA, address _tokenB, uint256 _spendAmount, uint24 _fee, address nftManager, address recipient)
+    function mintLiquidity(address _tokenA, address _tokenB, uint256 _spendAmountA, uint256 _spendAmountB, uint24 _fee, address nftManager, address recipient)
         public
     {
-        require(_spendAmount > 0, "spendAmount must be > 0");
+        require(_spendAmountA > 0, "spendAmountA must be > 0");
         require(_fee == UniswapV3Math.FEE_LOW || _fee == UniswapV3Math.FEE_MEDIUM || _fee == UniswapV3Math.FEE_HIGH, "Invalid FEE_TIER");
 
-        (address _token0, address _token1) = _tokenA < _tokenB ? (_tokenA, _tokenB) : (_tokenB, _tokenA);
+        (address _token0, address _token1, uint256 _amount0Desired, uint256 _amount1Desired) = _tokenA < _tokenB ? (_tokenA, _tokenB, _spendAmountA, _spendAmountB) : (_tokenB, _tokenA, _spendAmountB, _spendAmountA);
 
         int24 _tick = UniswapV3Math.feeToTick(_fee);
 
@@ -214,8 +223,8 @@ library UniswapV3Utils {
             fee: _fee,
             tickLower: UniswapV3Math.getMinTick(_tick),
             tickUpper: UniswapV3Math.getMaxTick(_tick),
-            amount0Desired: _spendAmount,
-            amount1Desired: _spendAmount,
+            amount0Desired: _amount0Desired,
+            amount1Desired: _amount1Desired,
             amount0Min: 0,
             amount1Min: 0,
             recipient: recipient,

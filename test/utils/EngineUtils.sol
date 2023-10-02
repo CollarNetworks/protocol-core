@@ -4,11 +4,13 @@ pragma solidity ^0.8.18;
 import {Test} from "@forge-std/Test.sol";
 import {CollarEngine} from "../../src/CollarEngine.sol";
 import {DefaultConstants} from "./CommonUtils.sol";
-import {UniswapV3Mocks} from "./UniswapV3Utils.sol";
+import {UniswapV3Mocks} from "./mocks/MockUniV3.sol";
 import {MockOracle} from "./mocks/MockOracle.sol";
 
 /// @dev Inherit this contract into a test contract to get access to the deployEngine function
-abstract contract EngineUtils is Test, DefaultConstants, UniswapV3Mocks {
+abstract contract EngineUtils is Test, DefaultConstants {
+    UniswapV3Mocks mocks;
+
     struct EngineDeployParams {
         uint256 rake;
         address feeWallet;
@@ -23,17 +25,17 @@ abstract contract EngineUtils is Test, DefaultConstants, UniswapV3Mocks {
 
     EngineDeployParams DEFAULT_ENGINE_PARAMS;
 
-    function setUp() public virtual override {
-        super.setUp();
+    function setUp() public virtual  {
+        mocks = new UniswapV3Mocks();
 
         DEFAULT_ENGINE_PARAMS = EngineDeployParams({
             rake: DEFAULT_RAKE,
             feeWallet: makeAddr("FeeWallet"),
             marketMaker: makeAddr("MarketMaker"),
-            usdc: mockUni.tokenA,
-            testDex: mockUni.router,
+            usdc: mocks.tokenA(),
+            testDex: mocks.router(),
             ethUSDOracle: deployMockOracle(),
-            weth: mockUni.weth,
+            weth: mocks.weth(),
             trader: makeAddr("Trader"),
             owner: makeAddr("Owner")
         });

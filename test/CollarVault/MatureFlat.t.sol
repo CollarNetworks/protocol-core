@@ -25,11 +25,11 @@ contract CollarVault_MatureFlat is Test, VaultUtils {
             admin: makeAddr("Owner"),
             rfqid: DEFAULT_RFQID,
             qty: 1 ether,
-            lendAsset: mockUni.tokenA,
+            lendAsset: mocks.tokenA(),
             putStrikePct: DEFAULT_PUT_STRIKE_PCT,
             callStrikePct: DEFAULT_CALL_STRIKE_PCT,
             maturityTimestamp: DEFAULT_MATURITY_TIMESTAMP,
-            dexRouter: mockUni.router,
+            dexRouter: mocks.router(),
             priceFeed: DEFAULT_ENGINE_PARAMS.ethUSDOracle
         });
 
