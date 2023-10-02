@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 /*
- * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocol.xyz>
- * 
+ * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocolentAsset.xyz>
  * All rights reserved. No warranty, explicit or implicit, provided.
  */
 
@@ -26,7 +25,7 @@ import {ICollarEngineGetters} from "./interfaces/native/ICollarEngineGetters.sol
 /// @author Collar Networks, Inc.
 /// @notice The engine handles RFQ and launches vaults
 /// @dev Developers can send calls directly to the engine if they desire
-/// @custom:security-contact hello@collarprotocol.xyz
+/// @custom:security-contact hello@collarprotocolentAsset.xyz
 contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, ICollarEngineGetters {
     /// @dev SafeERC20 prevents other contracts from doing anything malicious when we call transferFrom
     using SafeERC20 for IERC20;
@@ -47,12 +46,12 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
                 && _marketmaker != address(0) && _feeWallet != address(0) && _feeRatePct != 0,
             "error - no zero addresses"
         );
+
         admin = msg.sender;
         marketmaker = _marketmaker;
         lendAsset = _lendAsset;
         feeRatePct = _feeRatePct;
         feeWallet = payable(_feeWallet);
-        // IERC20(lendAsset).approve(_dexRouter, 2**256-1);
         dexRouter = ISwapRouter(_dexRouter);
         priceFeed = AggregatorV3Interface(_oracle);
         WETH9 = _weth;
@@ -114,16 +113,12 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
      * @notice This kicks off the pricing request, and is called by the client. We've currently implemented an LTV cap of 90%.
      * The RFQ flow is managed by updating state from 0 -> 1 -> 2 depending on how far along in the process the client is with the marketmaker.
      * This ensures consent is given and assets flow in a way that is consistent with that consent.
-     *
      * @param _qty The quantity of the asset that the user wants to borrow against. This determines the amount of collateral the user will receive.
-     *
      * @param _ltvPct The loan-to-value (LTV) ratio expresses the amount of collateral required as a percentage of the total amount of assets
      *                borrowed. For example, if the user wants to borrow 90 DAI and the LTV is 90%, they would need to provide 100 DAI worth of ETH as
-     *                collateral. The LTV can range from 0% to 90%, and the function will fail if the requested LTV is higher than 90%.
-     *                A higher LTV means that the user can borrow more assets with less collateral but at the cost of limiting their potential upside, assuming they don't roll.
-     *
+     *                collateralentAsset. The LTV can range from 0% to 90%, and the function will fail if the requested LTV is higher than 90%.
+     *                A higher LTV means that the user can borrow more assets with less collateral but at the cost of limiting their potential upside, assuming they don't rollentAsset.
      * @param _maturityTimestamp The UNIX timestamp at which the trade matures. The UNIX timestamp is the number of seconds that have elapsed since January 1, 1970.
-     *
      * @param _notes Additional notes or comments that the user wants to include with the pricing request.
      */
 
@@ -198,15 +193,21 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
     // function setKeeperManager(address _newKeeperManager) external onlyAdmin {
     //     keeperManager = _newKeeperManager;
     // }
-    /// @notice This function executes the trade the client has requested, gotten a price for, and requested to trade. It is called by the marketmaker and implies final consent
+    
+    /// @notice This function executes the trade the client has requested, gotten a price for, 
+    /// and requested to trade. It is called by the marketmaker and implies final consent
+    /// @param _client the address of the counterparty for the marketmaker
     function executeTrade(address _client) external onlyMarketMaker nonReentrant returns (address) {
         //take lendasset from marketmakerr
-        IERC20 l = IERC20(lendAsset);
+        IERC20 lentAsset = IERC20(lendAsset);
         Pricing memory p = pricings[_client];
+
         // translates back to a dollar fill
         uint256 fill = swapExactInputSingle(p.qty) * 1e18 / p.qty;
+
         //prevents underflow
         uint256 collat = (p.callstrikePct - 100) * p.qty * fill / 1e2 / 1e18 + 1;
+
         //make the new vault
         CollarVault vault = new CollarVault(
             admin,
@@ -227,14 +228,18 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
 
         //write down the client balance to zero since you're paying them out
         clientEscrow[_client] = 0;
+
         //move mm collateral to the vault
-        l.safeTransferFrom(msg.sender, address(vault), collat);
+        lentAsset.safeTransferFrom(msg.sender, address(vault), collat);
+
         //move rest of sale proceeds to vault
-        l.safeTransfer(address(vault), (100 - p.putstrikePct) * fill * p.qty / 1e2 / 1e18);
+        lentAsset.safeTransfer(address(vault), (100 - p.putstrikePct) * fill * p.qty / 1e2 / 1e18);
+
         //pay fee to feewallet
-        l.safeTransfer(feeWallet, feeRatePct * p.qty * fill / 1e2 / 1e18);
+        lentAsset.safeTransfer(feeWallet, feeRatePct * p.qty * fill / 1e2 / 1e18);
+
         //send loan to client
-        l.safeTransfer(p.client, (p.putstrikePct - feeRatePct) * p.qty * fill / 1e2 / 1e18);
+        lentAsset.safeTransfer(p.client, (p.putstrikePct - feeRatePct) * p.qty * fill / 1e2 / 1e18);
 
         vault.postTradeDetailsA(
             (p.putstrikePct - feeRatePct) * p.qty * fill / 1e2 / 1e18, //loanAmt
@@ -243,6 +248,7 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
             (100 - p.putstrikePct) * fill * p.qty / 1e2 / 1e18,
             WETH9
         );
+
         vault.postTradeDetailsB(
             feeRatePct * p.qty * fill / 1e2 / 1e18, // fee
             feeWallet,
@@ -274,11 +280,13 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
         pricings[_client].notes = _reason;
         uint256 amtToSend = clientEscrow[_client];
         clientEscrow[_client] = 0;
+s
         //this is the most secure way to transfer value
         _client.call{value: amtToSend}("");
     }
 
-    /// @notice This function aggregates all the recordkeeping for the broader contract into one to abstract this portion out from the main execute trade function
+    /// @notice This function aggregates all the recordkeeping for the broader contract into one 
+    /// to abstract this portion out from the main execute trade function
     function incrementVaults(address _client, address _marketmaker) internal returns (uint256, uint256) {
         uint256 currIdUser = nextUserVaultId[_client];
         uint256 nextIdUser = currIdUser + 1;
@@ -289,9 +297,12 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
         return (currIdUser, currIdmm);
     }
 
-    /// @notice This function integrates with the relevant Uniswap v3 pool to sell ETH at the market price to conduct the initial delta-hedge, an accommodation for marketmakers.
+    /// @notice This function integrates with the relevant Uniswap v3 pool to sell ETH at the market price 
+    /// to conduct the initial delta-hedge, an accommodation for marketmakers.
+    /// @param amountIn amount of ETH to sell
     function swapExactInputSingle(uint256 amountIn) internal returns (uint256 amountOut) {
         IWETH(WETH9).deposit{value: amountIn}();
+        
         // Approve the router to spend DAI.
         SafeERC20.safeApprove(IERC20(WETH9), address(dexRouter), amountIn);
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
@@ -304,7 +315,7 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
             amountOutMinimum: 0, //can be limit orders
             sqrtPriceLimitX96: 0
         });
-        amountOut = dexRouter.exactInputSingle(params);
-        return (amountOut);
+
+        return dexRouter.exactInputSingle(params);
     }
 }
