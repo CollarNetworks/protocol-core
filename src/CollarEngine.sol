@@ -195,25 +195,6 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
         // require(success == true, "error - failed to withdraw");
     }
 
-    /// @notice This function integrates with the relevant Uniswap v3 pool to sell ETH at the market price to conduct the initial delta-hedge, an accommodation for marketmakers.
-    function swapExactInputSingle(uint256 amountIn) internal returns (uint256 amountOut) {
-        IWETH(WETH9).deposit{value: amountIn}();
-        // Approve the router to spend DAI.
-        SafeERC20.safeApprove(IERC20(WETH9), address(dexRouter), amountIn);
-        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
-            tokenIn: WETH9,
-            tokenOut: lendAsset,
-            fee: 3000, // pool fee 0.3%
-            recipient: address(this),
-            deadline: block.timestamp,
-            amountIn: amountIn,
-            amountOutMinimum: 0, //can be limit orders
-            sqrtPriceLimitX96: 0
-        });
-        amountOut = dexRouter.exactInputSingle(params);
-        return (amountOut);
-    }
-
     // function setKeeperManager(address _newKeeperManager) external onlyAdmin {
     //     keeperManager = _newKeeperManager;
     // }
@@ -279,17 +260,6 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
         return (address(vault));
     }
 
-    /// @notice This function aggregates all the recordkeeping for the broader contract into one to abstract this portion out from the main execute trade function
-    function incrementVaults(address _client, address _marketmaker) internal returns (uint256, uint256) {
-        uint256 currIdUser = nextUserVaultId[_client];
-        uint256 nextIdUser = currIdUser + 1;
-        uint256 currIdmm = nextMarketmakerVaultId[_marketmaker];
-        uint256 nextIdmm = currIdmm + 1;
-        nextUserVaultId[_client] = nextIdUser;
-        nextMarketmakerVaultId[_marketmaker] = nextIdmm;
-        return (currIdUser, currIdmm);
-    }
-
     /// @notice This function allows the admin to lower the fee rate of the protocol or increase it.
     function updateFeeRatePct(uint256 _newFeeRatePct) external onlyAdmin {
         // i.e. "3"
@@ -306,5 +276,35 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
         clientEscrow[_client] = 0;
         //this is the most secure way to transfer value
         _client.call{value: amtToSend}("");
+    }
+
+    /// @notice This function aggregates all the recordkeeping for the broader contract into one to abstract this portion out from the main execute trade function
+    function incrementVaults(address _client, address _marketmaker) internal returns (uint256, uint256) {
+        uint256 currIdUser = nextUserVaultId[_client];
+        uint256 nextIdUser = currIdUser + 1;
+        uint256 currIdmm = nextMarketmakerVaultId[_marketmaker];
+        uint256 nextIdmm = currIdmm + 1;
+        nextUserVaultId[_client] = nextIdUser;
+        nextMarketmakerVaultId[_marketmaker] = nextIdmm;
+        return (currIdUser, currIdmm);
+    }
+
+    /// @notice This function integrates with the relevant Uniswap v3 pool to sell ETH at the market price to conduct the initial delta-hedge, an accommodation for marketmakers.
+    function swapExactInputSingle(uint256 amountIn) internal returns (uint256 amountOut) {
+        IWETH(WETH9).deposit{value: amountIn}();
+        // Approve the router to spend DAI.
+        SafeERC20.safeApprove(IERC20(WETH9), address(dexRouter), amountIn);
+        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+            tokenIn: WETH9,
+            tokenOut: lendAsset,
+            fee: 3000, // pool fee 0.3%
+            recipient: address(this),
+            deadline: block.timestamp,
+            amountIn: amountIn,
+            amountOutMinimum: 0, //can be limit orders
+            sqrtPriceLimitX96: 0
+        });
+        amountOut = dexRouter.exactInputSingle(params);
+        return (amountOut);
     }
 }

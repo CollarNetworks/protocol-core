@@ -25,7 +25,7 @@ abstract contract EngineUtils is Test, DefaultConstants {
 
     EngineDeployParams DEFAULT_ENGINE_PARAMS;
 
-    function setUp() public virtual  {
+    function setUp() public virtual {
         mocks = new UniswapV3Mocks();
 
         DEFAULT_ENGINE_PARAMS = EngineDeployParams({

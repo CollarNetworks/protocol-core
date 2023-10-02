@@ -20,7 +20,9 @@ library UniswapV3Math {
     int24 constant TICK_MEDIUM = 60;
     int24 constant TICK_HIGH = 200;
 
-    function EVEN_PRICE() public pure returns (uint160) { return encodePriceSqrt(1, 1); }
+    function EVEN_PRICE() public pure returns (uint160) {
+        return encodePriceSqrt(1, 1);
+    }
 
     function feeToTick(uint24 fee) public pure returns (int24 tick) {
         require(fee == FEE_LOW || fee == FEE_MEDIUM || fee == FEE_HIGH, "Invalid fee tier");
@@ -38,7 +40,7 @@ library UniswapV3Math {
         if (tick == TICK_HIGH) return FEE_HIGH;
     }
 
-    uint256 constant PRECISION = 2**96;
+    uint256 constant PRECISION = 2 ** 96;
 
     /// @dev Computes the sqrt of the u64x96 fixed point price given the AMM reserves
     /// @dev Taken from gakonst/uniswap-v3-periphery
@@ -198,7 +200,7 @@ abstract contract UniswapV3Utils is Test {
         (address token0, uint256 reserve0, address token1, uint256 reserve1) =
             (tokenA < tokenB) ? (tokenA, reserveA, tokenB, reserveB) : (tokenB, reserveB, tokenA, reserveA);
 
-        while(reserve0 > 1e10 && reserve1 > 1e10) {
+        while (reserve0 > 1e10 && reserve1 > 1e10) {
             (reserve0, reserve1) = (reserve0 / 1e10, reserve1 / 1e10);
         }
 
@@ -207,13 +209,20 @@ abstract contract UniswapV3Utils is Test {
         pool = NFTManager(payable(nftManager)).createAndInitializePoolIfNecessary(token0, token1, fee, initialPrice);
     }
 
-    function mintLiquidity(address _tokenA, address _tokenB, uint256 _spendAmountA, uint256 _spendAmountB, uint24 _fee, address nftManager, address recipient)
-        public
-    {
+    function mintLiquidity(
+        address _tokenA,
+        address _tokenB,
+        uint256 _spendAmountA,
+        uint256 _spendAmountB,
+        uint24 _fee,
+        address nftManager,
+        address recipient
+    ) public {
         require(_spendAmountA > 0, "spendAmountA must be > 0");
         require(_fee == UniswapV3Math.FEE_LOW || _fee == UniswapV3Math.FEE_MEDIUM || _fee == UniswapV3Math.FEE_HIGH, "Invalid FEE_TIER");
 
-        (address _token0, address _token1, uint256 _amount0Desired, uint256 _amount1Desired) = _tokenA < _tokenB ? (_tokenA, _tokenB, _spendAmountA, _spendAmountB) : (_tokenB, _tokenA, _spendAmountB, _spendAmountA);
+        (address _token0, address _token1, uint256 _amount0Desired, uint256 _amount1Desired) =
+            _tokenA < _tokenB ? (_tokenA, _tokenB, _spendAmountA, _spendAmountB) : (_tokenB, _tokenA, _spendAmountB, _spendAmountA);
 
         int24 _tick = UniswapV3Math.feeToTick(_fee);
 

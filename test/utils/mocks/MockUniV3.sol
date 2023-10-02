@@ -85,12 +85,16 @@ contract UniswapV3Mocks is Test, UniswapV3Utils {
     }
 
     function setupPool(address _tokenA, address _tokenB, uint256 _reserveA, uint256 _reserveB, uint24 _fee) public returns (address) {
-        require(_fee == UniswapV3Math.FEE_LOW || _fee == UniswapV3Math.FEE_MEDIUM || _fee == UniswapV3Math.FEE_HIGH, "UniswapV3Mocks: invalid fee");
+        require(
+            _fee == UniswapV3Math.FEE_LOW || _fee == UniswapV3Math.FEE_MEDIUM || _fee == UniswapV3Math.FEE_HIGH,
+            "UniswapV3Mocks: invalid fee"
+        );
 
-        (address _token0, uint256 _reserve0, address _token1, uint256 _reserve1) = _tokenA < _tokenB ? (_tokenA, _reserveA, _tokenB, _reserveB) : (_tokenB, _reserveB, _tokenA, _reserveA);
-        
+        (address _token0, uint256 _reserve0, address _token1, uint256 _reserve1) =
+            _tokenA < _tokenB ? (_tokenA, _reserveA, _tokenB, _reserveB) : (_tokenB, _reserveB, _tokenA, _reserveA);
+
         address pool = createPool(_token0, _reserve0, _token1, _reserve1, nftManager, _fee);
-        
+
         vm.label(address(this), "UniswapV3Mocks");
 
         TestERC20(_token0).mint(_reserve0);

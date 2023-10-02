@@ -38,7 +38,15 @@ abstract contract ICollarEngine is IPayable {
     /// @param OFF means the marketmaker has pulled the price due to market movement
     /// @param REJ means the client or marketmaker has rejected the pricing and a new pricing can be requested
     /// @param DONE means the client has said "DONE" and consented to a trade
-    enum PxState {NEW, REQD, ACKD, PXD, OFF, REJ, DONE}
+    enum PxState {
+        NEW,
+        REQD,
+        ACKD,
+        PXD,
+        OFF,
+        REJ,
+        DONE
+    }
 
     /// @notice The Pricing struct contains all the relevant information for a client's request for quote
     /// @param rfqid is the unique identifier for this pricing
@@ -79,7 +87,7 @@ abstract contract ICollarEngine is IPayable {
     // function setKeeperManager(address) external;
 
     /// @notice this modifier limits function calls to the admin i.e. the deployer of this contract
-    modifier onlyAdmin() { 
+    modifier onlyAdmin() {
         require(msg.sender == admin, "error - only callable by admin");
         _;
     }

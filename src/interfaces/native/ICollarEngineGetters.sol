@@ -33,7 +33,7 @@ abstract contract ICollarEngineGetters is ICollarEngine {
         return rfqid;
     }
 
-        function getLastTradeVault(address client) external view returns (address) {
+    function getLastTradeVault(address client) external view returns (address) {
         return userVaults[client][nextUserVaultId[client] - 1];
     }
 
@@ -69,7 +69,7 @@ abstract contract ICollarEngineGetters is ICollarEngine {
         return pricings[client].state;
     }
 
-        /// @notice Used by the UI to display latest vaults for clients
+    /// @notice Used by the UI to display latest vaults for clients
     function getLastThreeClientVaults(address _client) external view returns (address[3] memory) {
         require(_client != address(0), "error - no zero inputs");
         address[3] memory out;
