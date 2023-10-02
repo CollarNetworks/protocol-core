@@ -4,14 +4,14 @@ pragma solidity ^0.8.18;
 import {ISwapRouter} from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 import {IPayable} from "./IPayable.sol";
 import {AggregatorV3Interface} from "@chainlink-v0.8/interfaces/AggregatorV3Interface.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-abstract contract ICollarEngine is IPayable {
+abstract contract ICollarEngine is IPayable, Ownable {
     /// @dev Passed in during deployment
     ISwapRouter dexRouter;
 
     // address keeperManager;
     AggregatorV3Interface internal priceFeed;
-    address admin;
     address marketmaker;
     address payable feeWallet;
     uint256 feeRatePct;
@@ -86,15 +86,15 @@ abstract contract ICollarEngine is IPayable {
     function getOraclePrice() external view virtual returns (uint256);
     // function setKeeperManager(address) external;
 
-    /// @notice this modifier limits function calls to the admin i.e. the deployer of this contract
-    modifier onlyAdmin() {
-        require(msg.sender == admin, "error - only callable by admin");
-        _;
-    }
     /// @notice this modifier limits calls to the specified marketmaker i.e. the deployer of this contract
 
     modifier onlyMarketMaker() {
         require(msg.sender == marketmaker, "error - only callable by whitelisted marketmaker");
+        _;
+    }
+
+    modifier onlyOwnerOrMarketMaker() {
+        require(msg.sender == marketmaker || msg.sender == owner(), "error - only callable by whitelisted marketmaker or owner");
         _;
     }
 }

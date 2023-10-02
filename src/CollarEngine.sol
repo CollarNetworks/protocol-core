@@ -17,6 +17,7 @@ import {ICollarEngine} from "./interfaces/native/ICollarEngine.sol";
 import {CollarVault} from "./CollarVault.sol";
 import {ISwapRouter} from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 import {ICollarEngineGetters} from "./interfaces/native/ICollarEngineGetters.sol";
+import {Ownable} from "@oz-v4.9.3/access/Ownable.sol";
 
 // import "interfaces/ICollarKeeperManager.sol";
 // import "./CollarKeeperManager.sol";
@@ -47,7 +48,6 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
             "error - no zero addresses"
         );
 
-        admin = msg.sender;
         marketmaker = _marketmaker;
         lendAsset = _lendAsset;
         feeRatePct = _feeRatePct;
@@ -59,56 +59,25 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
 
     /// @notice Retrieves the client's pricing details
     /// @return a tuple of length 12
-    function getMyPrice()
-        external
-        view
-        returns (
-            uint256,
-            address,
-            address,
-            PxState,
-            string memory,
-            string memory,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            uint256,
-            string memory
-        )
-    {
+    function getMyPrice() external view returns (Pricing) {
         require(isCustomer[msg.sender], "error - no pricings req'd for customer");
-        Pricing memory p = pricings[msg.sender];
-        return (
-            p.rfqid,
-            p.lendAsset,
-            p.marketmaker,
-            p.state,
-            p.structure,
-            p.underlier,
-            p.maturityTimestamp,
-            p.qty,
-            p.ltv,
-            p.putstrikePct,
-            p.callstrikePct,
-            p.notes
-        );
+        return pricings[msg.sender];
     }
 
     /// @notice Makes fetch external without upsetting the compiler
     function getOraclePrice() public view override returns (uint256) {
         (, int256 price,,,) = priceFeed.latestRoundData();
-        uint256 p = uint256(price) * 1e10; //make sure
-        return (p);
+        return uint256(price) * 1e10; //make sure
     }
 
     /// @notice Allows the admin to update where the initial delta hedge is executed
     /// @param _newDexRouter is the address of the new dex the admin wants to point the buying/selling flow to
     /// @dev this functionality needs to be improved in v2 to allow for various dexes, ideally we extrapolate this into its own contract
-    function updateDexRouter(address _newDexRouter) external onlyAdmin {
+    function updateDexRouter(address _newDexRouter) external onlyOwner {
         require(_newDexRouter != address(0));
         dexRouter = ISwapRouter(_newDexRouter);
     }
+
     /**
      * @notice This kicks off the pricing request, and is called by the client. We've currently implemented an LTV cap of 90%.
      * The RFQ flow is managed by updating state from 0 -> 1 -> 2 depending on how far along in the process the client is with the marketmaker.
@@ -124,10 +93,9 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
 
     function requestPrice(uint256 _qty, uint256 _ltvPct, uint256 _maturityTimestamp, string memory _notes) external {
         require(_ltvPct <= 90, "error - current max ltv is 90%");
-        uint256 r = rfqid;
-        rfqid++;
+
         pricings[msg.sender] = Pricing(
-            r,
+            rfqid,
             lendAsset,
             marketmaker,
             msg.sender,
@@ -141,7 +109,9 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
             0,
             _notes
         );
+
         isCustomer[msg.sender] = true;
+        rfqid++;
         //maybe also test for tax/delta here
     }
 
@@ -193,7 +163,7 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
     // function setKeeperManager(address _newKeeperManager) external onlyAdmin {
     //     keeperManager = _newKeeperManager;
     // }
-    
+
     /// @notice This function executes the trade the client has requested, gotten a price for, 
     /// and requested to trade. It is called by the marketmaker and implies final consent
     /// @param _client the address of the counterparty for the marketmaker
@@ -267,20 +237,19 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
     }
 
     /// @notice This function allows the admin to lower the fee rate of the protocol or increase it.
-    function updateFeeRatePct(uint256 _newFeeRatePct) external onlyAdmin {
+    function updateFeeRatePct(uint256 _newFeeRatePct) external onlyOwner {
         // i.e. "3"
         feeRatePct = _newFeeRatePct;
     }
 
     /// @notice This allows the marketmaker to refund the client and call off the trade if the price has moved significantly
-    function rejectOrder(address _client, string calldata _reason) external {
-        require(msg.sender == marketmaker || msg.sender == admin, "error - can only be done by the marketmaker or the admin");
+    function rejectOrder(address _client, string calldata _reason) external onlyOwnerOrMarketMaker() {
         require(pricings[_client].state == PxState.DONE, "error - can only ioi pricings with state PXD");
         pricings[_client].state = PxState.REJ;
         pricings[_client].notes = _reason;
         uint256 amtToSend = clientEscrow[_client];
         clientEscrow[_client] = 0;
-s
+
         //this is the most secure way to transfer value
         _client.call{value: amtToSend}("");
     }
