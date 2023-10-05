@@ -164,7 +164,7 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
     //     keeperManager = _newKeeperManager;
     // }
 
-    /// @notice This function executes the trade the client has requested, gotten a price for, 
+    /// @notice This function executes the trade the client has requested, gotten a price for,
     /// and requested to trade. It is called by the marketmaker and implies final consent
     /// @param _client the address of the counterparty for the marketmaker
     function executeTrade(address _client) external onlyMarketMaker nonReentrant returns (address) {
@@ -243,7 +243,7 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
     }
 
     /// @notice This allows the marketmaker to refund the client and call off the trade if the price has moved significantly
-    function rejectOrder(address _client, string calldata _reason) external onlyOwnerOrMarketMaker() {
+    function rejectOrder(address _client, string calldata _reason) external onlyOwnerOrMarketMaker {
         require(pricings[_client].state == PxState.DONE, "error - can only ioi pricings with state PXD");
         pricings[_client].state = PxState.REJ;
         pricings[_client].notes = _reason;
@@ -254,7 +254,7 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
         _client.call{value: amtToSend}("");
     }
 
-    /// @notice This function aggregates all the recordkeeping for the broader contract into one 
+    /// @notice This function aggregates all the recordkeeping for the broader contract into one
     /// to abstract this portion out from the main execute trade function
     function incrementVaults(address _client, address _marketmaker) internal returns (uint256, uint256) {
         uint256 currIdUser = nextUserVaultId[_client];
@@ -266,12 +266,12 @@ contract CollarEngine is ReentrancyGuard, ICollarEngineEvents, ICollarEngine, IC
         return (currIdUser, currIdmm);
     }
 
-    /// @notice This function integrates with the relevant Uniswap v3 pool to sell ETH at the market price 
+    /// @notice This function integrates with the relevant Uniswap v3 pool to sell ETH at the market price
     /// to conduct the initial delta-hedge, an accommodation for marketmakers.
     /// @param amountIn amount of ETH to sell
     function swapExactInputSingle(uint256 amountIn) internal returns (uint256 amountOut) {
         IWETH(WETH9).deposit{value: amountIn}();
-        
+
         // Approve the router to spend DAI.
         SafeERC20.safeApprove(IERC20(WETH9), address(dexRouter), amountIn);
         ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({

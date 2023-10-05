@@ -21,7 +21,7 @@ contract CollarVault is ReentrancyGuard, ICollarVault {
     using SafeERC20 for IERC20;
 
     /// @notice fills are 4 digits // inputted as 13000101 = 1300.0101 actual - need to keep as 8 digits
-    constructor(        
+    constructor(
         address _admin,
         uint256 _rfqid,
         uint256 _qty,
@@ -69,8 +69,6 @@ contract CollarVault is ReentrancyGuard, ICollarVault {
             (qty, lent, lendAsset, putstrikePct, callstrikePct, maturityTimestamp, fill, mmCollateral, proceeds, engine, rfqid, rollcount);
     }
 
-    receive() external payable {}
-
     /// @notice Allows clients to update settlement preferences
     function setSettleType(uint256 _newSettlePref) external onlyClient {
         require(!settled, "error - vault has already been settled");
@@ -88,10 +86,7 @@ contract CollarVault is ReentrancyGuard, ICollarVault {
         rollPref = _newRollPref;
     }
 
-
-
     /// @notice Allows the client to request a roll price
-
     //putstrike req is done as % of new fill/oracle px
     function requestRollPrice(uint256 _rollltvpct, uint256 _rollMaturityTimestamp) external isEligibleRoller isRollable whileLive {
         rollstate = 1;
@@ -129,7 +124,7 @@ contract CollarVault is ReentrancyGuard, ICollarVault {
         //should only be called in states of marketmaker blowup/abandonment
     }
 
-        //see if call higher or lower, if lower, mm withdraws, if higher, they post
+    //see if call higher or lower, if lower, mm withdraws, if higher, they post
     //see if ltv higher or lower, if lower, client posts, if higher, withdraw
     function executeRoll() external onlyMarketMaker isRollable whileLive nonReentrant {
         require(true, "error - people have enough collateral");

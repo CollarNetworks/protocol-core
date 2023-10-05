@@ -4,8 +4,9 @@ pragma solidity ^0.8.18;
 import {ICollarVaultEvents} from "./ICollarVaultEvents.sol";
 import {ISwapRouter} from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 import {AggregatorV3Interface} from "@chainlink-v0.8/interfaces/AggregatorV3Interface.sol";
+import {IPayable} from "./IPayable.sol";
 
-abstract contract ICollarVault is ICollarVaultEvents {
+abstract contract ICollarVault is ICollarVaultEvents, IPayable {
     uint256 qty;
 
     uint256 lent;
@@ -13,10 +14,10 @@ abstract contract ICollarVault is ICollarVaultEvents {
 
     uint256 putstrikePct;
     uint256 callstrikePct;
-    
+
     address marketmaker;
     address payable client;
-    
+
     uint256 maturityTimestamp;
     uint256 rollcount;
 
@@ -65,7 +66,7 @@ abstract contract ICollarVault is ICollarVaultEvents {
         _;
     }
 
-        /// @notice Ensures matured contracts can no longer be edited, request rolls, or change settlement type
+    /// @notice Ensures matured contracts can no longer be edited, request rolls, or change settlement type
     modifier whileLive() {
         require(block.timestamp < maturityTimestamp, "error - this has matured");
         _;
@@ -107,5 +108,3 @@ abstract contract ICollarVault is ICollarVaultEvents {
         _;
     }
 }
-
-
