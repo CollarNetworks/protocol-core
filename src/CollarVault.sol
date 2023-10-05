@@ -10,63 +10,18 @@ import {ICollarVaultEvents} from "./interfaces/native/ICollarVaultEvents.sol";
 import {ICollarEngine} from "./interfaces/native/ICollarEngine.sol";
 import {IWETH} from "./interfaces/external/IWETH.sol";
 import {TransferHelper} from "@uni-v3-periphery/libraries/TransferHelper.sol";
+import {ICollarVault} from "./interfaces/native/ICollarVault.sol";
 
 /// @title Collar Protocol Engine
 /// @author Collar Networks, Inc.
 /// @notice The vault handles RFQ and execution of rolls for existing vaults
 /// @custom:security-contact hello@collarprotocol.xyz
 
-contract CollarVault is ReentrancyGuard, ICollarVaultEvents {
+contract CollarVault is ReentrancyGuard, ICollarVault {
     using SafeERC20 for IERC20;
-    //trade details
-
-    uint256 qty;
-    uint256 lent;
-    address lendAsset;
-    uint256 putstrikePct;
-    uint256 callstrikePct;
-    address marketmaker;
-    address payable client;
-    uint256 maturityTimestamp;
-    uint256 rollcount;
-
-    //economic amts
-    uint256 fill;
-    uint256 mmCollateral;
-    uint256 proceeds;
-    uint256 feePaid;
-
-    //settlement preferences/status
-    bool rollPref = true;
-    bool settled = false;
-    bool repaid = false;
-    bool deetsPostedA = false;
-    bool deetsPostedB = false;
-    uint256 loanRepayBalance; // where money goes when you repay
-    uint256 settlePref = 0; // 0 netshare 1 cash 2 physical
-    uint256 postedPhysicalCollat = 0;
-    uint256 finalPrice;
-
-    //rolldetails
-    uint256 rollstate = 0; // 0 new 1 reqd 2 pxd 3 done 4 execd
-    uint256 rollputpct;
-    uint256 rollcallpct;
-    uint256 rollltvpct;
-    uint256 rollmatstamp;
-    uint256 cashposted;
-
-    //reference
-    address feeWallet;
-    uint256 rollFeeRate;
-    address WETH9;
-    address immutable engine;
-    address immutable admin;
-    uint256 immutable rfqid;
-    ISwapRouter immutable dexRouter;
-    AggregatorV3Interface internal immutable priceFeed;
 
     /// @notice fills are 4 digits // inputted as 13000101 = 1300.0101 actual - need to keep as 8 digits
-    constructor(
+    constructor(        
         address _admin,
         uint256 _rfqid,
         uint256 _qty,
@@ -90,116 +45,18 @@ contract CollarVault is ReentrancyGuard, ICollarVaultEvents {
     }
 
     /// @notice Retrieves the oracle price
-    function fetchOraclePrice() internal view returns (uint256) {
+    function getOraclePrice() public view returns (uint256) {
         (, int256 price,,,) = priceFeed.latestRoundData();
         uint256 p = uint256(price) * 1e10; //make sure
         return (p);
-    }
-
-    /// @notice Makes fetch external without upsetting the compiler
-    function getOraclePrice() internal view returns (uint256) {
-        return fetchOraclePrice();
-    }
-
-    function getOraclePriceExternal() external view returns (uint256) {
-        return fetchOraclePrice();
-    }
-
-    /// @notice Modifiers that limit who is allowed to do what at certain phases of the RFQ and Execution process
-    modifier onlyMarketMaker() {
-        require(msg.sender == marketmaker, "error - this function can only be called by the marketmaker");
-        _;
-    }
-
-    modifier onlyClient() {
-        require(msg.sender == client, "error - this function can only be called by the client");
-        _;
-    }
-
-    modifier onlyAdmin() {
-        require(msg.sender == admin, "error - this function can only be called by the admin");
-        _;
-    }
-
-    /// @notice Ensures matured contracts can no longer be edited, request rolls, or change settlement type
-    modifier whileLive() {
-        require(block.timestamp < maturityTimestamp, "error - this has matured");
-        _;
-    }
-
-    modifier onceMatured() {
-        require(block.timestamp >= maturityTimestamp, "error - this vault is still live");
-        _;
-    }
-
-    /// @notice Currently 2 days is our minimum notice time that must be given prior to expiry to request a roll price
-    modifier isRollable() {
-        require(maturityTimestamp - block.timestamp >= 2 days, "error - cant roll within 2 days of expiry");
-        _;
-    }
-
-    //admins can roll within a week of maturity, only if rolling is enabled on contract
-    modifier isEligibleRoller() {
-        require(
-            msg.sender == client || (rollPref && msg.sender == admin && maturityTimestamp - block.timestamp <= 1 weeks),
-            "error - you are not an eligible roller at this time"
-        );
-        _;
-    }
-
-    /// @notice Only allows the engine to call certain functions
-    modifier onlyEngine() {
-        require(msg.sender == engine, "error - can only be called by the engine");
-        _;
-    }
-
-    /// @notice Additional get and check functionality
-    function checkRepaid() external view returns (bool) {
-        return repaid;
     }
 
     function checkMatured() external view returns (bool) {
         return block.timestamp >= maturityTimestamp;
     }
 
-    function checkPhysicalCollateralPosted() external view returns (uint256) {
-        return postedPhysicalCollat;
-    }
-
-    function getMaturityTimestamp() external view returns (uint256) {
-        return maturityTimestamp;
-    }
-
-    function getCollateralAmount() external view returns (uint256) {
-        return mmCollateral;
-    }
-
     function getRepaymentAmount() external view returns (uint256) {
         return putstrikePct * qty / 1e2;
-    }
-
-    function getClaimableClientCash() external view returns (uint256) {
-        return cashposted;
-    }
-
-    function getClaimableClientPhysical() external view returns (uint256) {
-        return postedPhysicalCollat;
-    }
-
-    function checkSettleType() external view returns (uint256) {
-        return settlePref;
-    }
-
-    function checkRollType() external view returns (bool) {
-        return rollPref;
-    }
-
-    function getFee() external view returns (uint256) {
-        return feePaid;
-    }
-
-    function getLoanAmt() external view returns (uint256) {
-        return lent;
     }
 
     /// @notice Used by the UI to retrieve information about the vault
@@ -231,15 +88,7 @@ contract CollarVault is ReentrancyGuard, ICollarVaultEvents {
         rollPref = _newRollPref;
     }
 
-    /// @notice Allows the contract to reset the roll details for the trade
-    function resetRoll() internal whileLive {
-        IERC20 l = IERC20(lendAsset);
-        rollstate = 0;
-        rollcallpct = 0;
-        rollputpct = 0;
-        rollmatstamp = 0;
-        l.safeTransfer(client, cashposted);
-    }
+
 
     /// @notice Allows the client to request a roll price
 
@@ -280,47 +129,12 @@ contract CollarVault is ReentrancyGuard, ICollarVaultEvents {
         //should only be called in states of marketmaker blowup/abandonment
     }
 
-    function swapExactInputSingle(uint256 amountIn) internal returns (uint256 amountOut) {
-        IWETH(WETH9).deposit{value: amountIn}();
-        // Approve the router to spend DAI.
-        TransferHelper.safeApprove(WETH9, address(dexRouter), amountIn);
-        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
-            tokenIn: WETH9,
-            tokenOut: lendAsset,
-            // pool fee 0.3%
-            fee: 3000,
-            recipient: address(this),
-            deadline: block.timestamp,
-            amountIn: amountIn,
-            amountOutMinimum: 0,
-            sqrtPriceLimitX96: 0
-        });
-        amountOut = dexRouter.exactInputSingle(params);
-        return (amountOut);
-    }
-
-    function swapExactInputSingleFlipped(uint256 amountIn) internal returns (uint256 amountOut) {
-        TransferHelper.safeApprove(lendAsset, address(dexRouter), amountIn);
-        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
-            tokenIn: lendAsset,
-            tokenOut: WETH9,
-            fee: 3000, // pool fee 0.3%
-            recipient: address(this),
-            deadline: block.timestamp,
-            amountIn: amountIn,
-            amountOutMinimum: 0,
-            sqrtPriceLimitX96: 0
-        });
-        amountOut = dexRouter.exactInputSingle(params);
-        return (amountOut);
-    }
-
-    //see if call higher or lower, if lower, mm withdraws, if higher, they post
+        //see if call higher or lower, if lower, mm withdraws, if higher, they post
     //see if ltv higher or lower, if lower, client posts, if higher, withdraw
     function executeRoll() external onlyMarketMaker isRollable whileLive nonReentrant {
         require(true, "error - people have enough collateral");
         require(rollstate == 3, "error - client order has not yet been given (need state 3)");
-        IERC20 l = IERC20(lendAsset);
+        IERC20 lentERC20 = IERC20(lendAsset);
         uint256 newpx = getOraclePrice() / 1e12;
         uint256 rollfee = qty * rollFeeRate * newpx / 1e2 / 1e18;
         //figure out how much client made based on oracle px
@@ -345,9 +159,9 @@ contract CollarVault is ReentrancyGuard, ICollarVaultEvents {
         //true up mm collat
 
         if (newmmcollat >= mmportion) {
-            l.safeTransferFrom(msg.sender, address(this), newmmcollat - mmportion);
+            lentERC20.safeTransferFrom(msg.sender, address(this), newmmcollat - mmportion);
         } else {
-            l.safeTransfer(msg.sender, mmportion - newmmcollat);
+            lentERC20.safeTransfer(msg.sender, mmportion - newmmcollat);
         }
         //true up client collat (may be cash or phys)
 
@@ -365,12 +179,12 @@ contract CollarVault is ReentrancyGuard, ICollarVaultEvents {
             }
         } else {
             // lent += clientportion-newclientcollat-rollfee; // or just write to .85?
-            l.safeTransfer(client, clientportion - newclientcollat);
+            lentERC20.safeTransfer(client, clientportion - newclientcollat);
             //give client excess collat
         }
         //payout protocol fee
         feePaid += rollfee;
-        l.safeTransfer(feeWallet, rollfee);
+        lentERC20.safeTransfer(feeWallet, rollfee);
 
         //update all the terms of the vault to the rolled terms
         lent = rollltvpct * newpx * qty / 1e18 / 1e2;
@@ -439,15 +253,15 @@ contract CollarVault is ReentrancyGuard, ICollarVaultEvents {
         msg.sender.call{value: amtWei}; // proper way to transmit value
     }
 
-    function matureVault() external onceMatured nonReentrant {
+    function matureVault() external override onceMatured nonReentrant {
         // anyone can call, protocol/keepers/mm/client will do it
         require(!settled, "error - vault has already been settled");
         settled = true;
-        finalPrice = fetchOraclePrice() / 1e12;
+        finalPrice = getOraclePrice() / 1e12;
         //figure out how much each person gets
         uint256 mmGets;
         uint256 clientGets;
-        IERC20 l = IERC20(lendAsset);
+        IERC20 lentERC20 = IERC20(lendAsset);
         if (finalPrice <= putstrikePct * fill / 1e2) {
             mmGets = (proceeds + mmCollateral) * qty / 1e18;
             clientGets = 0;
@@ -464,14 +278,59 @@ contract CollarVault is ReentrancyGuard, ICollarVaultEvents {
             clientGets += putstrikePct * fill * qty / 1e2;
         }
         if ((settlePref == 0 || settlePref == 2) && clientGets > 0) {
-            l.safeApprove(address(dexRouter), clientGets + mmGets);
+            lentERC20.safeApprove(address(dexRouter), clientGets + mmGets);
             uint256 ethProceeds = swapExactInputSingleFlipped(clientGets); //returns "amounts?"
             IWETH(WETH9).withdraw(ethProceeds);
             client.call{value: ethProceeds}("");
         } else {
-            l.safeTransfer(client, clientGets); // pay cash
+            lentERC20.safeTransfer(client, clientGets); // pay cash
         }
         //payout marketmaker
-        l.safeTransfer(marketmaker, mmGets); // if it's usdc 6dp
+        lentERC20.safeTransfer(marketmaker, mmGets); // if it's usdc 6dp
+    }
+
+    function swapExactInputSingle(uint256 amountIn) internal returns (uint256 amountOut) {
+        IWETH(WETH9).deposit{value: amountIn}();
+        // Approve the router to spend DAI.
+        TransferHelper.safeApprove(WETH9, address(dexRouter), amountIn);
+        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+            tokenIn: WETH9,
+            tokenOut: lendAsset,
+            // pool fee 0.3%
+            fee: 3000,
+            recipient: address(this),
+            deadline: block.timestamp,
+            amountIn: amountIn,
+            amountOutMinimum: 0,
+            sqrtPriceLimitX96: 0
+        });
+        amountOut = dexRouter.exactInputSingle(params);
+        return (amountOut);
+    }
+
+    function swapExactInputSingleFlipped(uint256 amountIn) internal returns (uint256 amountOut) {
+        TransferHelper.safeApprove(lendAsset, address(dexRouter), amountIn);
+        ISwapRouter.ExactInputSingleParams memory params = ISwapRouter.ExactInputSingleParams({
+            tokenIn: lendAsset,
+            tokenOut: WETH9,
+            fee: 3000, // pool fee 0.3%
+            recipient: address(this),
+            deadline: block.timestamp,
+            amountIn: amountIn,
+            amountOutMinimum: 0,
+            sqrtPriceLimitX96: 0
+        });
+        amountOut = dexRouter.exactInputSingle(params);
+        return (amountOut);
+    }
+
+    /// @notice Allows the contract to reset the roll details for the trade
+    function resetRoll() internal whileLive {
+        IERC20 lendAsset = IERC20(lendAsset);
+        rollstate = 0;
+        rollcallpct = 0;
+        rollputpct = 0;
+        rollmatstamp = 0;
+        lendAsset.safeTransfer(client, cashposted);
     }
 }
