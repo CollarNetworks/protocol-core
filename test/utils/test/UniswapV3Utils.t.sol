@@ -43,7 +43,8 @@ contract UniswapUtilsTest is Test, UniswapV3Mocks {
         uint256 balanceABefore = TestERC20(mocks.tokenA()).balanceOf(_uniTest1);
         uint256 balanceBBefore = TestERC20(mocks.tokenB()).balanceOf(_uniTest1);
 
-        uint256 amountOut = UniswapV3Utils.swap(mocks.tokenA(), mocks.tokenB(), amountIn, mocks.router(), _uniTest1, UniswapV3Math.FEE_MEDIUM, true);
+        uint256 amountOut =
+            UniswapV3Utils.swap(mocks.tokenA(), mocks.tokenB(), amountIn, mocks.router(), _uniTest1, UniswapV3Math.FEE_MEDIUM, true);
 
         uint256 balanceAAfter = TestERC20(mocks.tokenA()).balanceOf(_uniTest1);
         uint256 balanceBAfter = TestERC20(mocks.tokenB()).balanceOf(_uniTest1);

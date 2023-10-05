@@ -3,6 +3,7 @@ pragma solidity ^0.8.18;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {CollarEngine} from "../../src/CollarEngine.sol";
+import {ICollarEngine} from "../../src/interfaces/native/ICollarEngine.sol";
 import {EngineUtils} from "../utils/EngineUtils.sol";
 import {TestERC20} from "../utils/mocks/TestERC20.sol";
 import {IERC20} from "@oz-v4.9.3/token/ERC20/IERC20.sol";
@@ -76,17 +77,17 @@ contract CollarEngineTest is Test, EngineUtils {
     //              0    1     2     3    4    5    6
 
     function test_ackPrice() public {
-        CollarEngine.PxState traderState;
+        ICollarEngine.PxState traderState;
 
         hoax(DEFAULT_ENGINE_PARAMS.trader);
         engine.requestPrice(DEFAULT_QTY, DEFAULT_LTV, maturityTimestamp, "");
         traderState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.trader);
-        assertTrue(traderState == CollarEngine.PxState.REQD);
+        assertTrue(traderState == ICollarEngine.PxState.REQD);
 
         hoax(DEFAULT_ENGINE_PARAMS.marketMaker);
         engine.ackPrice(DEFAULT_ENGINE_PARAMS.trader);
         traderState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.trader);
-        assertTrue(traderState == CollarEngine.PxState.ACKD);
+        assertTrue(traderState == ICollarEngine.PxState.ACKD);
     }
 
     function test_showPrice() public {
@@ -99,12 +100,12 @@ contract CollarEngineTest is Test, EngineUtils {
         engine.ackPrice(DEFAULT_ENGINE_PARAMS.trader);
 
         traderState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.trader);
-        assertTrue(traderState == CollarEngine.PxState.ACKD);
+        assertTrue(traderState == ICollarEngine.PxState.ACKD);
 
         engine.showPrice(DEFAULT_ENGINE_PARAMS.trader, DEFAULT_CALL_STRIKE_PCT);
 
         traderState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.trader);
-        assertTrue(traderState == CollarEngine.PxState.PXD);
+        assertTrue(traderState == ICollarEngine.PxState.PXD);
     }
 
     function test_pullPrice() public {
@@ -118,16 +119,16 @@ contract CollarEngineTest is Test, EngineUtils {
         engine.showPrice(DEFAULT_ENGINE_PARAMS.trader, DEFAULT_CALL_STRIKE_PCT);
 
         traderState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.trader);
-        assertTrue(traderState == CollarEngine.PxState.PXD);
+        assertTrue(traderState == ICollarEngine.PxState.PXD);
 
         engine.pullPrice(DEFAULT_ENGINE_PARAMS.trader);
 
         traderState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.trader);
-        assertTrue(traderState == CollarEngine.PxState.OFF);
+        assertTrue(traderState == ICollarEngine.PxState.OFF);
     }
 
     function test_clientGiveOrder() public {
-        CollarEngine.PxState traderState;
+        ICollarEngine.PxState traderState;
 
         hoax(DEFAULT_ENGINE_PARAMS.trader);
         engine.requestPrice(DEFAULT_QTY, DEFAULT_LTV, maturityTimestamp, "");
@@ -137,16 +138,16 @@ contract CollarEngineTest is Test, EngineUtils {
         engine.showPrice(DEFAULT_ENGINE_PARAMS.trader, DEFAULT_CALL_STRIKE_PCT);
 
         traderState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.trader);
-        assertTrue(traderState == CollarEngine.PxState.PXD);
+        assertTrue(traderState == ICollarEngine.PxState.PXD);
 
         startHoax(DEFAULT_ENGINE_PARAMS.trader);
         engine.clientGiveOrder{value: DEFAULT_QTY}();
         traderState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.trader);
-        assertTrue(traderState == CollarEngine.PxState.DONE);
+        assertTrue(traderState == ICollarEngine.PxState.DONE);
     }
 
     function test_executeTrade() public {
-        CollarEngine.PxState traderState;
+        ICollarEngine.PxState traderState;
 
         hoax(DEFAULT_ENGINE_PARAMS.trader);
         engine.requestPrice(DEFAULT_QTY, DEFAULT_LTV, maturityTimestamp, "");
@@ -164,7 +165,7 @@ contract CollarEngineTest is Test, EngineUtils {
         engine.executeTrade(DEFAULT_ENGINE_PARAMS.trader);
 
         traderState = engine.getStateByClient(DEFAULT_ENGINE_PARAMS.trader);
-        assertTrue(traderState == CollarEngine.PxState.NEW);
+        assertTrue(traderState == ICollarEngine.PxState.NEW);
 
         uint256 engineUSDCBalance = IERC20(DEFAULT_ENGINE_PARAMS.usdc).balanceOf(address(engine));
         assertLt(engineUSDCBalance, 10);
