@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
+import {ICollarEngineEvents} from "./ICollarEngineEvents.sol";
 import {ISwapRouter} from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 import {IPayable} from "./IPayable.sol";
 import {AggregatorV3Interface} from "@chainlink-v0.8/interfaces/AggregatorV3Interface.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-abstract contract ICollarEngine is IPayable, Ownable {
+abstract contract ICollarEngine is IPayable, Ownable, ICollarEngineEvents {
     /// @dev Passed in during deployment
     ISwapRouter dexRouter;
 
