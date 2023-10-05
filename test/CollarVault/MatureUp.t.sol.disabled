@@ -6,7 +6,7 @@ import {CollarEngine} from "../../src/CollarEngine.sol";
 import {CollarVault} from "../../src/CollarVault.sol";
 import {EngineUtils} from "../utils/EngineUtils.sol";
 import {VaultUtils} from "../utils/VaultUtils.sol";
-import {IERC20} from "../../src/interfaces/external/IERC20.sol";
+import {IERC20} from "@oz-v4.9.3/token/ERC20/IERC20.sol";
 import {TestERC20} from "../utils/mocks/TestERC20.sol";
 import {MockOracle} from "../utils/mocks/MockOracle.sol";
 

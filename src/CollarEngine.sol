@@ -11,12 +11,12 @@ import {TransferHelper} from "@uni-v3-periphery/libraries/TransferHelper.sol";
 import {AggregatorV3Interface} from "@chainlink-v0.8/interfaces/AggregatorV3Interface.sol";
 import {SafeERC20, IERC20} from "@oz-v4.9.3/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@oz-v4.9.3/security/ReentrancyGuard.sol";
-import {IWETH} from "./interfaces/external/IWETH.sol";
-import {ICollarEngineEvents} from "./interfaces/native/ICollarEngineEvents.sol";
-import {ICollarEngine} from "./interfaces/native/ICollarEngine.sol";
+import {IWETH9 as IWETH} from "@uni-v3-periphery/interfaces/external/IWETH9.sol";
+import {ICollarEngineEvents} from "./interfaces/ICollarEngineEvents.sol";
+import {ICollarEngine} from "./interfaces/ICollarEngine.sol";
 import {CollarVault} from "./CollarVault.sol";
 import {ISwapRouter} from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
-import {ICollarEngineGetters} from "./interfaces/native/ICollarEngineGetters.sol";
+import {ICollarEngineGetters} from "./interfaces/ICollarEngineGetters.sol";
 import {Ownable} from "@oz-v4.9.3/access/Ownable.sol";
 
 // import "interfaces/ICollarKeeperManager.sol";
