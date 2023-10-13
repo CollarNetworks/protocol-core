@@ -27,6 +27,20 @@ abstract contract ICollarLiquidityPool {
     /// @notice This is a double-mapping that stores the amount of liquidity that a given address owns at a given tick
     /// @dev It does not specify if it is withdrawable!
     /// @dev Invariant: liquidityOwnedAtTick[address][tick] <= liquidityAtTick[tick]
-    /// @dev Invariant: liquidtiyOwnedAtTick[address][tick] <= lockedLiquidityAtTick[tick]
+    /// @dev Invariant: liquidityOwnedAtTick[address][tick] <= lockedLiquidityAtTick[tick]
     mapping(address => mapping(uint24 => uint256)) public liquidityOwnedAtTick;
+
+    /// @notice Transfers liquidity tokens from the provider and supplied them to the pool at the given tick
+    /// @param amount The amount of liquidity tokens to add
+    /// @param provider The address of the liquidity provider
+    /// @param tick The tick to add liquidity at
+    function addSingleTickLiquidity(uint256 amount, uint24 tick, address provider) external virtual;
+
+    /// @notice Transfers liquidity tokens from the provider and suppliesd them to the pool at the given ticks
+    /// @dev The provider must have approved transfer of tokens to the caller, if not the caller themselves; the caller
+    /// must have approved transfer of tokens to the pool
+    /// @param amounts The amounts of liquidity tokens to add - ordered
+    /// @param ticks The ticks to add liquidity at - ordered
+    /// @param provider The address of the liquidity provider
+    function addMultiTickLiquidity(uint256[] calldata amounts, uint24[] calldata ticks, address provider) external virtual;
 }
