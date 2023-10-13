@@ -13,6 +13,8 @@ The engine is the heart of the system. It is responsible for the following:
 
 ### Vaults
  - vaults are idempotent with collars
+ - a user can have many vaults; a vault can only have one user
+ - a vault can have many market makers - depending on how the composition of the liquidity pool pulled from
  - vaults are created by the engine by the end-user
  - vaults are supplied with liquidity from market makers via liquidity pools and from users directly
  - vaults have only two possible states: active and inactive
@@ -36,5 +38,17 @@ The engine is the heart of the system. It is responsible for the following:
 ## Steps to MVP
  - [x] list out desired user and market maker flows
  - [x] list out desired admin and system management flows
- - [ ] list out every single interaction between system smart contracts
+ - [x] list out every single interaction between system smart contracts
  - [ ] create interfaces for each smart contract
+    - [ ] Engine
+    - [ ] Vault
+    - [ ] Liquidity Pools
+    - [ ] Liquidity Pool Manager
+    - [ ] Lens
+ - [ ] create implementations for each smart contract
+    - [ ] Engine
+    - [ ] Vault
+    - [ ] Liquidity Pools
+    - [ ] Liquidity Pool Manager
+    - [ ] Lens
+ - [ ] create test suites for each contract and for flows
