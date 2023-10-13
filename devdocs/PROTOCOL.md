@@ -34,7 +34,7 @@ The engine is the heart of the system. It is responsible for the following:
  - vaults that are created on-demand with liquidity from the liquidity pools when users send in their assets
 
 ## Steps to MVP
- - [ ] list out desired user and market maker flows
- - [ ] list out desired admin and system management flows
+ - [x] list out desired user and market maker flows
+ - [x] list out desired admin and system management flows
  - [ ] list out every single interaction between system smart contracts
  - [ ] create interfaces for each smart contract
