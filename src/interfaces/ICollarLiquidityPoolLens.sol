@@ -22,24 +22,33 @@ interface ICollarLiquidityPoolLens {
     function liquidityAtTick(uint24 tick) external view returns (uint256);
 
     /// @notice Returns the amount of liquidity in the pool at a given tick available to be used (ie, not locked in a vault)
+    /// @param tick The tick to check liquidity at
     function availableLiquidityAtTick(uint24 tick) external view returns (uint256);
 
     /// @notice Returns the amount of liquidity in the pool at a given tick locked in a vault
+    /// @param tick The tick to check liquidity at
     function lockedLiquidityAtTick(uint24 tick) external view returns (uint256);
 
     /// @notice Returns all data about a given tick
-    function getTick(uint24 index) external view returns (uint256 total, uint256 available);
+    /// @param tick The tick to check
+    function getTick(uint24 tick) external view returns (uint256 total, uint256 available);
 
     /// @notice Given a tick index, returns the bips value that this represents (lower bound)
+    /// @param tick The tick to check
     function tickToBips(uint24 tick) external view returns (uint24);
 
     /// @notice Given a bips value, returns the tick index that this represents (lower bound)
+    /// @param bips The bips value to check
     function bipsToTick(uint24 bips) external view returns (uint24);
 
     /// @notice Returns the amount of liquidity in the pool between two ticks
+    /// @param tickLower The lower tick - inclusive
+    /// @param tickUpper The upper tick - inclusive
     function getLiquidityInTickRange(uint24 tickLower, uint24 tickUpper) external view returns (uint256);
 
     /// @notice Returns the amount of liquidity in the pool between two bips values
+    /// @param bipsLower The lower bips - inclusive
+    /// @param bipsUpper The upper bips - inclusive
     function getLiquidityInBipsRange(uint24 bipsLower, uint24 bipsUpper) external view returns (uint256);
 
     /// @notice Returns the amount of liquidity in the pool, starting with the highest bip and counting down,
