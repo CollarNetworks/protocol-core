@@ -46,13 +46,13 @@ interface ICollarLiquidityPoolLens {
     /// @param tickUpper The upper tick - inclusive
     function getLiquidityInTickRange(uint24 tickLower, uint24 tickUpper) external view returns (uint256);
 
-    /// @notice Returns the amount of liquidity in the pool between two bips values
-    /// @param bipsLower The lower bips - inclusive
-    /// @param bipsUpper The upper bips - inclusive
-    function getLiquidityInBipsRange(uint24 bipsLower, uint24 bipsUpper) external view returns (uint256);
+    /// @notice Returns the amount of liquidity in the pool between two bps values
+    /// @param bpsLower The lower bps - inclusive
+    /// @param bpsUpper The upper bps - inclusive
+    function getLiquidityInBpsRange(uint24 bpsLower, uint24 bpsUpper) external view returns (uint256);
 
     /// @notice Returns the amount of liquidity in the pool, starting with the highest bip and counting down,
     /// that composes together to form a weighted average (mean) of the supplied value
-    /// @param bipsMean The mean value to calculate liquidity to
-    function getLiquidityToMeanValue(uint24 bipsMean) external view returns (uint256);
+    /// @param bpsMean The mean value to calculate liquidity to
+    function getLiquidityToMeanValue(uint24 bpsMean) external view returns (uint256);
 }

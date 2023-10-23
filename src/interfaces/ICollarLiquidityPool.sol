@@ -11,8 +11,8 @@ abstract contract ICollarLiquidityPool {
     /// @notice The address of the token supplied to this pool as liquidity
     address public token;
 
-    /// @notice The size of each "tick" in the pool in bips (1/100 of a percent)
-    uint24 public tickSize;
+    /// @notice The size of each "tick" in the pool in bps (1/100 of a percent)
+    uint24 public tickSizeInBps;
 
     /// @notice The total amount of liquidity in the pool
     uint256 public totalSupply;
@@ -36,7 +36,7 @@ abstract contract ICollarLiquidityPool {
     /// @param tick The tick to add liquidity at
     function addSingleTickLiquidity(uint256 amount, uint24 tick, address provider) external virtual;
 
-    /// @notice Transfers liquidity tokens from the provider and suppliesd them to the pool at the given ticks
+    /// @notice Transfers liquidity tokens from the provider and supplies them to the pool at the given ticks
     /// @dev The provider must have approved transfer of tokens to the caller, if not the caller themselves; the caller
     /// must have approved transfer of tokens to the pool
     /// @param amounts The amounts of liquidity tokens to add - ordered
