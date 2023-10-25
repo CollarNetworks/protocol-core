@@ -58,6 +58,20 @@ contract CollarVaultManager is ICollarVaultManager {
         CollarOpts calldata collarOpts,
         LiquidityOpts calldata liquidityOpts
     ) external override returns (bytes32) {
+        // verify asset specifiers
+
+        // very collar opts
+
+        // very liquidity opts
+
+        // tranfer collateral
+
+        // swap, if necessary
+
+        // lock liquidity
+
+        // set storage struct
+
         revert("Not implemented");
     }
 
@@ -65,6 +79,20 @@ contract CollarVaultManager is ICollarVaultManager {
         bytes32 vaultUUID
     ) external override
     vaultExists(vaultUUID) returns (int256) {
+        // retrieve final price values
+
+        // calculate payouts
+
+        // unlock liquidity
+
+        // swap, if necessary
+
+        // transfer user payout to this contract, if any
+
+        // mark vault as finalized
+
+        // set storage struct
+
         revert("Not implemented");
     }
 }
