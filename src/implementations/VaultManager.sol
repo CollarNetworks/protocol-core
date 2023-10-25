@@ -39,7 +39,7 @@ contract CollarVaultManager is ICollarVaultManager {
         revert("Not implemented");
     }
 
-    function withrawCash(bytes32 vaultUUID, uint256 amount, address to) external override vaultExists(vaultUUIDD) returns (uint256) {
+    function withrawCash(bytes32 vaultUUID, uint256 amount, address to) external override vaultExists(vaultUUID) returns (uint256) {
         revert("Not implemented");
     }
 
