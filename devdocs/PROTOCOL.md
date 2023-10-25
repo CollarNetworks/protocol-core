@@ -39,13 +39,13 @@ The engine is the heart of the system. It is responsible for the following:
  - [x] list out desired user and market maker flows
  - [x] list out desired admin and system management flows
  - [x] list out every single interaction between system smart contracts
- - [ ] create interfaces for each smart contract
-    - [ ] Engine
+ - [x] create interfaces for each smart contract
+    - [x] Engine
     - [x] Vault
     - [x] Liquidity Pools
     - [x] Liquidity Pool Manager
-    - [ ] Lens
-    - [ ] Core
+    - [x] Lens
+    - [x] Core
  - [ ] create implementations for each smart contract
     - [ ] Engine
     - [ ] Vault
