@@ -8,32 +8,45 @@
 pragma solidity ^0.8.18;
 
 import { ICollarEngine } from "../interfaces/IEngine.sol";
+import { CollarVaultManager } from "./VaultManager.sol";
 
 contract CollarEngine is ICollarEngine {
-
     constructor(address _core, address _collarLiquidityPoolManager) ICollarEngine(_core, _collarLiquidityPoolManager) {}
 
-    function createVaultManager() external override returns (address) {
-        revert("Not implemented");
+    function createVaultManager() external override returns (address _vaultManager) {
+        if (addressToVaultManager[msg.sender] != address(0)) {
+            revert VaultManagerAlreadyExists(msg.sender, addressToVaultManager[msg.sender]);
+        }
+
+        address vaultManager = address(new CollarVaultManager(msg.sender));
+        addressToVaultManager[msg.sender] = vaultManager;
+
+        return vaultManager;
     }
 
     function setLiquidityPoolManager(address _liquidityPoolManager) external override {
-        revert("Not implemented");
+        if (_liquidityPoolManager == address(0)) revert InvalidZeroAddress(_liquidityPoolManager);
+    
+        liquidityPoolManager = _liquidityPoolManager;
     }
 
-    function addSupportedCollateralAsset(address asset) external override {
-        revert("Not implemented");
+    function addSupportedCollateralAsset(address asset) external override
+    isNotValidCollateralAsset(asset) {
+        isSupportedCollateralAsset[asset] = true;
     }
 
-    function removeSupportedCollateralAsset(address asset) external override {
-        revert("Not implemented");
+    function removeSupportedCollateralAsset(address asset) external override
+    isValidCollateralAsset(asset) {
+        isSupportedCollateralAsset[asset] = false;
     }
 
-    function addSupportedCashAsset(address asset) external override {
-        revert("Not implemented");
+    function addSupportedCashAsset(address asset) external override
+    isNotValidCashAsset(asset) {
+        isSupportedCashAsset[asset] = true;
     }
 
-    function removeSupportedCashAsset(address asset) external override {
-        revert("Not implemented");
+    function removeSupportedCashAsset(address asset) external override
+    isValidCashAsset(asset) {
+        isSupportedCashAsset[asset] = false;
     }
 }

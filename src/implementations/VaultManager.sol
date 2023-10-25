@@ -15,6 +15,12 @@ contract CollarVaultManager is ICollarVaultManager {
         _;
     }
 
+    constructor(
+        address owner
+    ) {
+        user = owner;
+    }
+
     function isActive(bytes32 vaultUUID) public override view vaultExists(vaultUUID) returns (bool) {
         return vaultsByUUID[vaultUUID].active;
     }

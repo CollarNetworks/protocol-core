@@ -65,6 +65,9 @@ abstract contract ICollarVaultManager {
         LiquidityOpts liquidityOpts;
     }
 
+    /// @notice The user that owns the vault
+    address user;
+
     /// @notice The number of vaults a user has opened
     uint256 public vaultCount;
 

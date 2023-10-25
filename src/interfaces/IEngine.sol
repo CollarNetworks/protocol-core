@@ -8,6 +8,33 @@
 pragma solidity ^0.8.18;
 
 abstract contract ICollarEngine {
+    error VaultManagerAlreadyExists(address user, address vaultManager);
+    error CollateralAssetNotSupported(address asset);
+    error CashAssetNotSupported(address asset);
+    error CollateralAssetAlreadySupported(address asset);
+    error CashAssetAlreadySupported(address asset);
+    error InvalidZeroAddress(address addr);
+
+    modifier isValidCollateralAsset(address asset) {
+        if (!isSupportedCollateralAsset[asset]) revert CollateralAssetNotSupported(asset);
+        _;
+    }
+
+    modifier isValidCashAsset(address asset) {
+        if (!isSupportedCashAsset[asset]) revert CashAssetNotSupported(asset);
+        _;
+    }
+
+    modifier isNotValidCollateralAsset(address asset) {
+        if (isSupportedCollateralAsset[asset]) revert CollateralAssetAlreadySupported(asset);
+        _;
+    }
+
+    modifier isNotValidCashAsset(address asset) {
+        if (isSupportedCashAsset[asset]) revert CashAssetAlreadySupported(asset);
+        _;
+    }
+
     address immutable core;
     address public liquidityPoolManager;
 
