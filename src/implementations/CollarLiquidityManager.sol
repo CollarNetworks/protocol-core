@@ -7,8 +7,8 @@
 
 pragma solidity ^0.8.18;
 
-import {ICollarVault} from "./IVault.sol";
+import { ICollarLiquidityManager } from "../interfaces/ICollarLiquidityManager.sol";
 
-abstract contract IRollableVault is ICollarVault {
-    /// @todo: functions that enable this vault to be rolled
+contract CollarLiquidityManager is ICollarLiquidityManager {
+
 }
