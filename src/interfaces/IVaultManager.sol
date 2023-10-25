@@ -9,6 +9,9 @@ pragma solidity ^0.8.18;
 
 abstract contract ICollarVaultManager {
 
+    /// @notice Indicates that the vault specified does not exist
+    error NonExistentVault(bytes32 vaultUUID);
+
     /// @notice This struct contains information about which assests (and how much of them) are in each vault
     /// @param collateralAsset The address of the collateral asset
     /// @param collateralAmount The amount of the collateral asset
@@ -47,12 +50,15 @@ abstract contract ICollarVaultManager {
     /// @dev We use a mapping below to store each vault by unique identifier (UUID)
     /// @param collateralAmountInitial The amount of collateral deposited into the vault at the time of creation
     /// @param collateralPriceInitial The price of the collateral asset at the time of creation
+    /// @param active Whether or not the vault is active (if true, it has not been finalized)
     /// @param assetSpecifiers The asset specifiers for the vault
     /// @param collarOpts The collar options for the vault
     /// @param liquidityOpts The liquidity options for the vault
     struct Vault {
         uint256 collateralAmountInitial;
         uint256 collateralPriceInitial;
+
+        bool active;
 
         AssetSpecifiers assetSpecifiers;
         CollarOpts collarOpts;
@@ -63,10 +69,13 @@ abstract contract ICollarVaultManager {
     uint256 public vaultCount;
 
     /// @notice Retrieves the vault details by UUID
-    mapping(bytes32 UUID => Vault) public vaultsbyUUID;
+    mapping(bytes32 UUID => Vault) public vaultsByUUID;
 
     /// @notice Gives UUID of vault by index (order of creation)
-    mapping(uint256 index => bytes32 UUID) public VaultUUIDsByIndex;
+    mapping(uint256 index => bytes32 UUID) public vaultUUIDsByIndex;
+
+    /// @notice Reverse mapping of UUID to index
+    mapping(bytes32 UUID => uint256 index) public vaultIndexByUUID;
 
     /// @notice Whether or not the vault has been finalized (requires a transaction)
     /// @param vaultUUID The UUID of the vault to check
