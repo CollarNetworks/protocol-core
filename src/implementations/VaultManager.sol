@@ -15,25 +15,27 @@ contract CollarVaultManager is ICollarVaultManager {
         _;
     }
 
-    constructor(
-        address owner
-    ) {
+    constructor(address owner) {
         user = owner;
     }
 
-    function isActive(bytes32 vaultUUID) public override view vaultExists(vaultUUID) returns (bool) {
+    function isActive(bytes32 vaultUUID) public override view
+    vaultExists(vaultUUID) returns (bool) {
         return vaultsByUUID[vaultUUID].active;
     }
 
-    function isExpired(bytes32 vaultUUID) public override view vaultExists(vaultUUID) returns (bool) {
+    function isExpired(bytes32 vaultUUID) public override view
+    vaultExists(vaultUUID) returns (bool) {
         return vaultsByUUID[vaultUUID].collarOpts.expiry > block.timestamp;
     }
 
-    function getExpiry(bytes32 vaultUUID) public override view vaultExists(vaultUUID) returns (uint256) {
+    function getExpiry(bytes32 vaultUUID) public override view
+    vaultExists(vaultUUID) returns (uint256) {
         return vaultsByUUID[vaultUUID].collarOpts.expiry;
     }
 
-    function timeRemaining(bytes32 vaultUUID) public override view vaultExists(vaultUUID) returns (uint256) {
+    function timeRemaining(bytes32 vaultUUID) public override view
+    vaultExists(vaultUUID) returns (uint256) {
         uint256 expiry = getExpiry(vaultUUID);
 
         if (expiry < block.timestamp) return 0;
@@ -41,11 +43,13 @@ contract CollarVaultManager is ICollarVaultManager {
         return expiry - block.timestamp;
     }
 
-    function depositCash(bytes32 vaultUUID, uint256 amount, address from) external override vaultExists(vaultUUID) returns (uint256) {
+    function depositCash(bytes32 vaultUUID, uint256 amount, address from) external override
+    vaultExists(vaultUUID) returns (uint256) {
         revert("Not implemented");
     }
 
-    function withrawCash(bytes32 vaultUUID, uint256 amount, address to) external override vaultExists(vaultUUID) returns (uint256) {
+    function withrawCash(bytes32 vaultUUID, uint256 amount, address to) external override
+    vaultExists(vaultUUID) returns (uint256) {
         revert("Not implemented");
     }
 
@@ -59,7 +63,8 @@ contract CollarVaultManager is ICollarVaultManager {
 
     function finalizeVault(
         bytes32 vaultUUID
-    ) external override vaultExists(vaultUUID) returns (int256) {
+    ) external override
+    vaultExists(vaultUUID) returns (int256) {
         revert("Not implemented");
     }
 }
