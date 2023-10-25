@@ -9,7 +9,7 @@ pragma solidity ^0.8.18;
 
 abstract contract ICollarLiquidityPool {
     /// @notice The address of the token supplied to this pool as liquidity
-    address public token;
+    address public asset;
 
     /// @notice The size of each "tick" in the pool in bps (1/100 of a percent)
     uint24 public tickSizeInBps;
