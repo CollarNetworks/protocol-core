@@ -7,13 +7,21 @@
 
 pragma solidity ^0.8.18;
 
-abstract contract ICollarEngine {
+abstract contract ICollarEngineErrors {
     error VaultManagerAlreadyExists(address user, address vaultManager);
     error CollateralAssetNotSupported(address asset);
     error CashAssetNotSupported(address asset);
     error CollateralAssetAlreadySupported(address asset);
     error CashAssetAlreadySupported(address asset);
     error InvalidZeroAddress(address addr);
+    error InvalidCashAmount(uint256 amount);
+    error InvalidCollateralAmount(uint256 amount);
+    error InvalidLiquidityPool(address pool);
+    error CollarLengthNotSupported(uint256 length);
+    error InvalidLiquidityOpts();
+}
+
+abstract contract ICollarEngine is ICollarEngineErrors {
 
     modifier isValidCollateralAsset(address asset) {
         if (!isSupportedCollateralAsset[asset]) revert CollateralAssetNotSupported(asset);
@@ -35,6 +43,11 @@ abstract contract ICollarEngine {
         _;
     }
 
+    modifier isSupportedCollarLength(uint256 length) {
+        if (!isValidCollarLength[length]) revert CollarLengthNotSupported(length);
+        _;
+    }
+
     address immutable core;
     address public liquidityPoolManager;
 
@@ -47,6 +60,9 @@ abstract contract ICollarEngine {
 
     /// @notice This mapping indicates whether or not a particular asset is supported as cash
     mapping(address => bool) public isSupportedCashAsset;
+
+    /// @notice This mapping indicates whether or not a particular collar length is supported
+    mapping(uint256 => bool) public isValidCollarLength;
     
     /// @notice Initializes the engine.
     /// @param _core The address of the core contract.
@@ -78,4 +94,12 @@ abstract contract ICollarEngine {
     /// @notice Removes an asset from the list of supported cash assets
     /// @param asset The address of the asset to remove
     function removeSupportedCashAsset(address asset) external virtual;
+
+    /// @notice Adds a collar length to the list of supported collar lengths
+    /// @param length The length to add, in seconds
+    function addSupportedCollarLength(uint256 length) external virtual;
+
+    /// @notice Removes a collar length from the list of supported collar lengths
+    /// @param length The length to remove, in seconds
+    function removeSupportedCollarLength(uint256 length) external virtual;
 }
