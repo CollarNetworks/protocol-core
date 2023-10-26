@@ -1,0 +1,22 @@
+{
+    "woke.compiler.solc.remappings": [
+        "@forge-std/=lib/forge-std/src/",
+        "@chainlink-v0.8/=lib/chainlink/v0.8/",
+        "@oz-v4.9.3/=lib/oz-v4.9.3/",
+        "@openzeppelin/contracts/=lib/oz-v4.9.3/",
+        "openzeppelin/=lib/oz-v4.9.3/",
+        "@uniswap/v3-core/contracts/=lib/uni-v3-core-solc-v0.8/",
+        "@uniswap/v3-periphery/contracts/=lib/uni-v3-periphery-solc-v0.8/",
+        "@uni-v3-periphery/=lib/uni-v3-periphery-solc-v0.8/",
+        "@uni-v3-core/=lib/uni-v3-core-solc-v0.8/",
+        "lib/uni-v3-periphery-solc-v0.8:@openzeppelin/contracts/=lib/oz-v4.9.3/",
+        "chainlink/=lib/chainlink/",
+        "common/=lib/common/",
+        "ds-test/=lib/forge-std/lib/ds-test/src/",
+        "forge-std/=lib/forge-std/src/",
+        "oz-v3.4.2-solc-0.7/=lib/oz-v3.4.2-solc-0.7/",
+        "oz-v4.9.3/=lib/oz-v4.9.3/",
+        "uni-v3-core-solc-v0.8/=lib/uni-v3-core-solc-v0.8/",
+        "uni-v3-periphery-solc-v0.8/=lib/uni-v3-periphery-solc-v0.8/"
+    ]
+}
