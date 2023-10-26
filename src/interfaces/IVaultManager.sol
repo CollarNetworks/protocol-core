@@ -7,10 +7,19 @@
 
 pragma solidity ^0.8.18;
 
-abstract contract ICollarVaultManager {
+import { Sweepable } from "../utils/Sweepable.sol";
+
+abstract contract ICollarVaultManager is Sweepable {
+    /// @notice The address of the collar engine, which is what creates the Vault Manager contract per user
+    address immutable public engine;
 
     /// @notice Indicates that the vault specified does not exist
     error NonExistentVault(bytes32 vaultUUID);
+
+    /// @notice Indicates that the caller is not the owner of the contract, but should be
+    error NotOwner(address who);
+
+    error ExceedsMinLTV(uint256 ltv, uint256 minLTV);
 
     /// @notice This struct contains information about which assests (and how much of them) are in each vault
     /// @param collateralAsset The address of the collateral asset
@@ -57,6 +66,7 @@ abstract contract ICollarVaultManager {
     struct Vault {
         uint256 collateralAmountInitial;
         uint256 collateralPriceInitial;
+        uint256 collateralValueInitial;
 
         bool active;
 
@@ -79,6 +89,16 @@ abstract contract ICollarVaultManager {
 
     /// @notice Reverse mapping of UUID to index
     mapping(bytes32 UUID => uint256 index) public vaultIndexByUUID;
+
+    /// @notice Count of how many vaults have any particular token
+    mapping(address token => uint256 count) public tokenVaultCount;
+
+    /// @notice Total balance of any particular token across all vaults
+    mapping(address token => uint256 totalBalance) public tokenTotalBalance;
+
+    constructor() {
+        engine = msg.sender;
+    }
 
     /// @notice Whether or not the vault has been finalized (requires a transaction)
     /// @param vaultUUID The UUID of the vault to check
@@ -125,4 +145,12 @@ abstract contract ICollarVaultManager {
     function finalizeVault(
         bytes32 vaultUUID
     ) external virtual returns (int256);
+
+    /// @notice Returns the bps of the LTV ratio of the vault
+    /// @param vaultUUID The UUID of the vault to check
+    function getLTV(bytes32 vaultUUID) public virtual view returns (uint256);
+
+    /// @notice Returns the bps of the LTV ratio of the vault
+    /// @param _vault The vault to check (as a storage reference)
+    function getLTV(Vault storage _vault) internal virtual view returns (uint256);
 }
