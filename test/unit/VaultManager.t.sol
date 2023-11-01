@@ -13,17 +13,26 @@ import { CollarVaultManager } from "../../src/implementations/VaultManager.sol";
 
 contract VaultManagerTest is Test {
     address user1 = makeAddr("user1");
+    address token1;
 
     CollarVaultManager vaultManager;
 
     function setUp() public {
         vaultManager = new CollarVaultManager(user1);    
+
+        token1 = new TestERC20("token1", "T1");
     }
 
     function test_openVault() public {
         ICollarVaultManager.AssetSpecifiers memory assetSpecifiers;
+
+
         ICollarVaultManager.CollarOpts memory collarOpts;
+
+
         ICollarVaultManager.LiquidityOpts memory liquidityOpts;
+
+
     }
 
     function test_closeVault() public {
