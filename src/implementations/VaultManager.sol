@@ -11,6 +11,7 @@ import { ICollarVaultManager } from "../interfaces/IVaultManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ICollarEngine, ICollarEngineErrors } from "../interfaces/IEngine.sol";
 import { ICollarLiquidityPoolManager } from "../interfaces/ICollarLiquidityPoolManager.sol";
+import { ICollarLiquidityPool } from "../interfaces/ICollarLiquidityPool.sol";
 
 contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
     modifier vaultExists(bytes32 vaultUUID) {
@@ -141,8 +142,13 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         if (!(ICollarEngine(engine)).isValidCollarLength(collarLength)) revert CollarLengthNotSupported(collarLength);
 
         // verify call & strike
+        if (callStrike <= putStrike) revert InvalidStrikeOpts(callStrike, putStrike);
+        if (callStrike < MIN_CALL_STRIKE) revert InvalidCallStrike(callStrike);
+        if (putStrike > MAX_PUT_STRIKE) revert InvalidPutStrike(putStrike);
 
-        // verify ltv
+        // verify ltv (reminder: denominated in bps)
+        if (ltv > MAX_LTV) revert InvalidLTV(ltv); // ltv must be less than 100%
+        if (ltv == 0) revert InvalidLTV(ltv); // ltv cannot be zero
 
         // very liquidity pool validity
         address pool = liquidityOpts.liquidityPool;
@@ -150,18 +156,19 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
 
         // verify amounts & ticks are equal; specific ticks and amoutns verified in transfer step
         uint256[] calldata amounts = liquidityOpts.amounts;
-        uint256[] calldata ticks =  liquidityOpts.ticks;
+        uint24[] calldata ticks =  liquidityOpts.ticks;
 
         if (amounts.length != ticks.length) revert InvalidLiquidityOpts();
 
-        // loop over amounts & ticks and lock liquidity
+        // attempt to lock the liquidity
+        ICollarLiquidityPool(pool).lockLiquidity(amounts, ticks);
 
-
-        // swap, if necessary
-
+        // swap entire amount of collateral for cash
+        // IEngine(engine).dex
+        // once we swap, we allocate 100-LTV as locked liquidity
+        // and we allocate LTV amount as withdrawable liqudity
 
         // set storage struct
-
 
         revert("Not implemented");
     }

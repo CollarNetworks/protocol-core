@@ -49,4 +49,14 @@ contract CollarEngine is ICollarEngine {
     isValidCashAsset(asset) {
         isSupportedCashAsset[asset] = false;
     }
+
+    function addSupportedCollarLength(uint256 length) external override
+    isSupportedCollarLength(length) {
+        isValidCollarLength[length] = true;
+    }
+
+    function removeSupportedCollarLength(uint256 length) external override
+    isSupportedCollarLength(length) {
+        isValidCollarLength[length] = false;
+    }
 }

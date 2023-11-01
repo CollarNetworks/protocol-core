@@ -23,6 +23,8 @@ abstract contract ICollarEngineErrors {
 
 abstract contract ICollarEngine is ICollarEngineErrors {
 
+    address public constant DEX = address(0xDEAD);
+
     modifier isValidCollateralAsset(address asset) {
         if (!isSupportedCollateralAsset[asset]) revert CollateralAssetNotSupported(asset);
         _;
@@ -45,6 +47,11 @@ abstract contract ICollarEngine is ICollarEngineErrors {
 
     modifier isSupportedCollarLength(uint256 length) {
         if (!isValidCollarLength[length]) revert CollarLengthNotSupported(length);
+        _;
+    }
+
+    modifier isNotSupportedCollarLength(uint256 length) {
+        if (isValidCollarLength[length]) revert CollarLengthNotSupported(length);
         _;
     }
 

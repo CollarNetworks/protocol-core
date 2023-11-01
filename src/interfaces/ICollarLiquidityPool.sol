@@ -59,4 +59,24 @@ abstract contract ICollarLiquidityPool {
     /// @param provider The address of the liquidity provider
     /// @param recipient The address of the recipient for the liquidity once withdrawn
     function removeMultiTickLiquidity(uint256[] calldata amounts, uint24[] calldata ticks, address provider, address recipient) external virtual;
+
+    /// @notice Locks liquidity at a given tick
+    /// @param amount The amount of liquidity to lock
+    /// @param tick The tick to lock liquidity at
+    function lockLiquidityAtTick(uint256 amount, uint24 tick) external virtual;
+
+    /// @notice Locks liquidity at multiple ticks
+    /// @param amounts The amounts of liquidity to lock - ordered
+    /// @param ticks The ticks to lock liquidity at - ordered
+    function lockLiquidity(uint256[] calldata amounts, uint24[] calldata ticks) external virtual;
+
+    /// @notice Unlocks liquidity at a given tick
+    /// @param amount The amount of liquidity to unlock
+    /// @param tick The tick to unlock liquidity at
+    function unlockLiquidityAtTick(uint256 amount, uint24 tick) external virtual;
+
+    /// @notice Unlocks liquidity at multiple ticks
+    /// @param amounts The amounts of liquidity to unlock - ordered
+    /// @param ticks The ticks to unlock liquidity at - ordered
+    function unlockLiquidity(uint256[] calldata amounts, uint24[] calldata ticks) external virtual;
 }
