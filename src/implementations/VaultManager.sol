@@ -12,6 +12,8 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ICollarEngine, ICollarEngineErrors } from "../interfaces/IEngine.sol";
 import { ICollarLiquidityPoolManager } from "../interfaces/ICollarLiquidityPoolManager.sol";
 import { ICollarLiquidityPool } from "../interfaces/ICollarLiquidityPool.sol";
+import { SwapRouter } from "@uni-v3-periphery/SwapRouter.sol";
+import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 
 contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
     modifier vaultExists(bytes32 vaultUUID) {
@@ -160,13 +162,26 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
 
         if (amounts.length != ticks.length) revert InvalidLiquidityOpts();
 
-        // attempt to lock the liquidity
+        // attempt to lock the liquidity (to pay out max call strike)
         ICollarLiquidityPool(pool).lockLiquidity(amounts, ticks);
 
         // swap entire amount of collateral for cash
-        // IEngine(engine).dex
-        // once we swap, we allocate 100-LTV as locked liquidity
-        // and we allocate LTV amount as withdrawable liqudity
+        ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter.ExactInputSingleParams({
+            tokenIn: collateralAsset,
+            tokenOut: cashAsset,
+            fee: 3000,
+            recipient: address(this),
+            deadline: block.timestamp,
+            amountIn: collateralAmount,
+            amountOutMinimum: 0,
+            sqrtPriceLimitX96: 0
+        });
+
+        ISwapRouter(payable(ICollarEngine(engine).DEX())).exactInputSingle(swapParams);
+
+        // mark LTV as withdrawable
+
+        // mark the rest as locked
 
         // set storage struct
 
