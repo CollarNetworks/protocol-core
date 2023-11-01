@@ -116,7 +116,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         AssetSpecifiers calldata assetSpecifiers,
         CollarOpts calldata collarOpts,
         LiquidityOpts calldata liquidityOpts
-    ) external override returns (bytes32) {
+    ) external override returns (bytes32 vaultUUID) {
         // cache asset addresses
         address cashAsset = assetSpecifiers.cashAsset;
         address collateralAsset = assetSpecifiers.collateralAsset;
@@ -188,7 +188,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         uint256 nonWithdrawable = cashReceived - maxWithdrawable;
 
         // generate UUID and set vault storage
-        bytes32 vaultUUID = keccak256(abi.encodePacked(user, vaultCount));
+        vaultUUID = keccak256(abi.encodePacked(user, vaultCount));
 
         vaultsByUUID[vaultUUID] = Vault(
             assetSpecifiers.collateralAmount,
@@ -213,27 +213,70 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         vaultCount++;
 
         // emit event
+        emit VaultOpened(vaultUUID);
+
+        return vaultUUID;
     }
 
     function finalizeVault(
         bytes32 vaultUUID
     ) external override
-    vaultExists(vaultUUID) returns (int256) {
-        // retrieve final price values
+    vaultExists(vaultUUID) returns (int256 net) {
+        // get vault info
+        Vault storage vault = vaultsByUUID[vaultUUID];
 
-        // calculate payouts
+        // cache vault options
+        uint256 putStrike = vault.collarOpts.putStrike;
+        uint256 callStrike = vault.collarOpts.callStrike;
+        uint256 collateralPriceInitial = vault.collateralPriceInitial;
+        uint256 collateralAmountInitial = vault.collateralAmountInitial;
+
+        // retrieve final price values
+        uint256 collateralPriceFinal = 1;
+
+        // calculate payouts to user and market maker
+        (
+            uint256 amountToUser, 
+            uint256 amountToMarketMaker, 
+            uint256 liquidityToMoveToVault,
+            uint256 callScaleFactor
+        ) = calcPayouts(
+            putStrike,
+            callStrike,
+            collateralPriceInitial,
+            collateralAmountInitial,
+            collateralPriceFinal
+        );
 
         // unlock liquidity
+        address pool = vault.liquidityOpts.liquidityPool;
+        uint24[] memory ticks = vault.liquidityOpts.ticks;
+        uint256[] memory amounts = vault.liquidityOpts.amounts;
+
+        ICollarLiquidityPool(pool).unlockLiquidity(amounts, ticks);
+
+        // move liquidity to vault, if applicable
+        if (liquidityToMoveToVault > 0 ) {
+            // if liquidity to move < total liquidity, we need to scale down the amounts by the proportional difference
+            if (callScaleFactor > 0) {
+                for (uint256 amountIndex = 0; amountIndex < amounts.length; amountIndex++) {
+                    amounts[amountIndex] = (amounts[amountIndex] * callScaleFactor) / 10_000;
+                }
+            }
+
+            ICollarLiquidityPool(pool).transferLiquidity(amounts, ticks);
+        }
 
         // swap, if necessary
-
-        // transfer user payout to this contract, if any
+        // for now we just assume the settlement type is cash - no swap required
 
         // mark vault as finalized
+        vault.active = false;
 
-        // set storage struct
+        // emit event
+        emit VaultClosed(vaultUUID);
 
-        revert("Not implemented");
+        return net;
     }
 
     function getLTV(bytes32 vaultUUID) public override view returns (uint256) {
@@ -250,5 +293,49 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
 
     function calcLTV(uint256 currentValue, uint256 referenceValue) internal pure returns (uint256) {
         return (currentValue * 10000) / referenceValue;
+    }
+
+    function calcPayouts(
+        uint256 callStrike,
+        uint256 putStrike,
+        uint256 collateralPriceInitial,
+        uint256 collateralAmountInitial,
+        uint256 collateralPriceFinal
+    ) internal pure returns (
+        uint256 amountToUser,
+        uint256 amountToMarketMaker,
+        uint256 liquidityToMoveToVault,
+        uint256 callScaleFactor
+    ) {
+        // convert call and put strike bps --> price
+        uint256 putStrikePrice = (collateralPriceInitial * putStrike) / 10_000;
+        uint256 callStrikePrice = (collateralPriceFinal * callStrike) / 10_000;
+
+        amountToUser = 0;
+        amountToMarketMaker = 0;
+        liquidityToMoveToVault = 0;
+
+        if (collateralPriceFinal < putStrikePrice) {
+            // if price < put strike, user gets only the put strike amount
+            amountToUser = (putStrike * collateralPriceInitial * collateralAmountInitial) / 10_000;
+
+            // market maker gets nothing (but keeps their locked liquidity)
+        } else if (collateralPriceFinal > callStrikePrice) {
+            // if price > call strike, pull all locked liquidity from liquidity pool and give to user
+            amountToUser = (callStrike * collateralPriceInitial * collateralAmountInitial) / 10_000;
+
+            // liquidity to move to the vault is all of the liquidity locked for this vault from the market maker
+            liquidityToMoveToVault = ((10_000 - callStrike) * collateralPriceInitial * collateralAmountInitial) / 10_000;
+        } else { 
+            // if put strike < price < call strike, user gets their collateral value, market maker keeps the rest
+            amountToUser = collateralPriceFinal * collateralAmountInitial;
+
+            if (collateralPriceFinal > collateralPriceInitial) {    
+                liquidityToMoveToVault = (collateralPriceFinal - collateralPriceInitial) * collateralAmountInitial;
+                callScaleFactor = ((callStrikePrice - collateralPriceFinal) * 10000) / callStrikePrice;
+            } else {
+                amountToMarketMaker = (collateralPriceInitial - collateralPriceFinal) * collateralAmountInitial;
+            }
+        }
     }
 }

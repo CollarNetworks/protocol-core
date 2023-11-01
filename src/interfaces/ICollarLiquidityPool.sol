@@ -79,4 +79,14 @@ abstract contract ICollarLiquidityPool {
     /// @param amounts The amounts of liquidity to unlock - ordered
     /// @param ticks The ticks to unlock liquidity at - ordered
     function unlockLiquidity(uint256[] calldata amounts, uint24[] calldata ticks) external virtual;
+
+    /// @notice Transfers liquidity from a tick
+    /// @param amount The amount of liquidity to transfer
+    /// @param tick The tick to transfer from
+    function transferLiquidityFromTick(uint256 amount, uint24 tick) external virtual;
+
+    /// @notice Transfers liquidity from multiple ticks
+    /// @param amounts The amounts of liquidity to transfer - ordered
+    /// @param ticks The ticks to pull from - ordered
+    function transferLiquidity(uint256[] calldata amounts, uint24[] calldata ticks) external virtual;
 }

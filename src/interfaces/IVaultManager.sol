@@ -10,17 +10,17 @@ pragma solidity ^0.8.18;
 import { Sweepable } from "../utils/Sweepable.sol";
 
 abstract contract ICollarVaultManager is Sweepable {
-    /// @notice The maximum global ltv, not changeable; set to 100% for now (in bps)
-    uint256 constant public MAX_LTV = 10_000;
+    /// @notice Indicates that a vault has been opened
+    event VaultOpened(bytes32 vaultId);
 
-    /// @notice The minimum call strike, not changeable; set to 150% for now (in bps)
-    uint256 constant public MIN_CALL_STRIKE = 100_000;
+    /// @notice Indicates that a vault has been closed
+    event VaultClosed(bytes32 vaultId);
 
-    /// @notice The maximum put strike, not changeable; set to 100% for now (in bps)
-    uint256 constant public MAX_PUT_STRIKE = 100_000;
+    /// @notice Indicates that a loan withdrawal has been made
+    event LoanWithdrawal(bytes32 vaultId, uint256 amount);
 
-    /// @notice The address of the collar engine, which is what creates the Vault Manager contract per user
-    address immutable public engine;
+    /// @notice Indicates that a loan repayment has been made
+    event LoanRepayment(bytes32 vaultId, uint256 amount);
 
     /// @notice Indicates that the vault specified does not exist
     error NonExistentVault(bytes32 vaultUUID);
@@ -28,11 +28,22 @@ abstract contract ICollarVaultManager is Sweepable {
     /// @notice Indicates that the caller is not the owner of the contract, but should be
     error NotOwner(address who);
 
+    /// @notice Indicates that the ltv provided on vault open is not valid
     error InvalidLTV(uint256 providedLTV);
+
+    /// @notice Indicates that the provided call and strike parameters on vault open are not valid
     error InvalidStrikeOpts(uint256 callStrike, uint256 putStrike);
+
+    /// @notice Indicates that the provided call strike prarameter is not valid
     error InvalidCallStrike(uint256 callStrike);
+
+    /// @notice Indicates that the provided put strike parameter is not valid
     error InvalidPutStrike(uint256 putStrike);
+
+    /// @notice Indicates that there is not sufficient unlocked liquidity to open a vault with the provided parameters
     error InsufficientLiquidity(uint24 tick, uint256 amount, uint256 available);
+
+    /// @notice Indicates that the ltv would be too low if the action were to be executed
     error ExceedsMinLTV(uint256 ltv, uint256 minLTV);
 
     /// @notice This struct contains information about which assests (and how much of them) are in each vault
@@ -95,6 +106,18 @@ abstract contract ICollarVaultManager is Sweepable {
         CollarOpts collarOpts;
         LiquidityOpts liquidityOpts;
     }
+
+    /// @notice The maximum global ltv, not changeable; set to 100% for now (in bps)
+    uint256 constant public MAX_LTV = 10_000;
+
+    /// @notice The minimum call strike, not changeable; set to 150% for now (in bps)
+    uint256 constant public MIN_CALL_STRIKE = 100_000;
+
+    /// @notice The maximum put strike, not changeable; set to 100% for now (in bps)
+    uint256 constant public MAX_PUT_STRIKE = 100_000;
+
+    /// @notice The address of the collar engine, which is what creates the Vault Manager contract per user
+    address immutable public engine;
 
     /// @notice The user that owns the vault
     address user;
