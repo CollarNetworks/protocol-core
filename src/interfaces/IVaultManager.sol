@@ -73,6 +73,9 @@ abstract contract ICollarVaultManager is Sweepable {
     /// @dev We use a mapping below to store each vault by unique identifier (UUID)
     /// @param collateralAmountInitial The amount of collateral deposited into the vault at the time of creation
     /// @param collateralPriceInitial The price of the collateral asset at the time of creation
+    /// @param withdrawn The amount of cash withdrawn as a loan
+    /// @param maxWithdrawable The maximum amount of cash withdrawable as a loan
+    /// @param nonWithdrawable The amount of cash that is not withdrawable as part of the loan
     /// @param active Whether or not the vault is active (if true, it has not been finalized)
     /// @param assetSpecifiers The asset specifiers for the vault
     /// @param collarOpts The collar options for the vault
@@ -81,6 +84,10 @@ abstract contract ICollarVaultManager is Sweepable {
         uint256 collateralAmountInitial;
         uint256 collateralPriceInitial;
         uint256 collateralValueInitial;
+
+        uint256 withdrawn;
+        uint256 maxWithdrawable;
+        uint256 nonWithdrawable;
 
         bool active;
 
@@ -104,10 +111,10 @@ abstract contract ICollarVaultManager is Sweepable {
     /// @notice Reverse mapping of UUID to index
     mapping(bytes32 UUID => uint256 index) public vaultIndexByUUID;
 
-    /// @notice Count of how many vaults have any particular token
+    /// @notice Count of how many vaults have any particular token as cash
     mapping(address token => uint256 count) public tokenVaultCount;
 
-    /// @notice Total balance of any particular token across all vaults
+    /// @notice Total balance of any particular token across all vaults (cash)
     mapping(address token => uint256 totalBalance) public tokenTotalBalance;
 
     constructor() {

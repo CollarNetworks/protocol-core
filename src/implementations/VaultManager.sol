@@ -165,6 +165,9 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         // attempt to lock the liquidity (to pay out max call strike)
         ICollarLiquidityPool(pool).lockLiquidity(amounts, ticks);
 
+        // calculate price to swap collateral for
+        uint256 collateralPriceInitial = 1;
+
         // swap entire amount of collateral for cash
         ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter.ExactInputSingleParams({
             tokenIn: collateralAsset,
@@ -177,15 +180,39 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
             sqrtPriceLimitX96: 0
         });
 
-        ISwapRouter(payable(ICollarEngine(engine).DEX())).exactInputSingle(swapParams);
+        uint256 cashReceived = ISwapRouter(payable(ICollarEngine(engine).DEX())).exactInputSingle(swapParams);
 
-        // mark LTV as withdrawable
+        // mark LTV as withdrawable and the rest as locked
+        uint256 maxWithdrawable = (cashReceived * ltv) / 10000;
+        uint256 withdrawn = 0;
+        uint256 nonWithdrawable = cashReceived - maxWithdrawable;
 
-        // mark the rest as locked
+        // generate UUID and set vault storage
+        bytes32 vaultUUID = keccak256(abi.encodePacked(user, vaultCount));
 
-        // set storage struct
+        vaultsByUUID[vaultUUID] = Vault(
+            assetSpecifiers.collateralAmount,
+            collateralPriceInitial,
+            cashReceived,
+            withdrawn,
+            maxWithdrawable,
+            nonWithdrawable,
+            true,
+            assetSpecifiers,
+            collarOpts,
+            liquidityOpts
+        );
 
-        revert("Not implemented");
+        vaultUUIDsByIndex[vaultCount] = vaultUUID;
+        vaultIndexByUUID[vaultUUID] = vaultCount;
+
+        tokenVaultCount[cashAsset]++;
+        tokenTotalBalance[cashAsset] += collateralAmount;
+
+        // increment vault count
+        vaultCount++;
+
+        // emit event
     }
 
     function finalizeVault(
