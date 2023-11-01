@@ -8,7 +8,8 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/Test.sol";
-import "../../src/implementations/VaultManager.sol";
+import { ICollarVaultManager } from "../../src/interfaces/IVaultManager.sol";
+import { CollarVaultManager } from "../../src/implementations/VaultManager.sol";
 
 contract VaultManagerTest is Test {
     address user1 = makeAddr("user1");
@@ -20,7 +21,9 @@ contract VaultManagerTest is Test {
     }
 
     function test_openVault() public {
-        
+        ICollarVaultManager.AssetSpecifiers memory assetSpecifiers;
+        ICollarVaultManager.CollarOpts memory collarOpts;
+        ICollarVaultManager.LiquidityOpts memory liquidityOpts;
     }
 
     function test_closeVault() public {
