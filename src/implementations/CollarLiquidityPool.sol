@@ -34,4 +34,28 @@ contract CollarLiquidityPool is ICollarLiquidityPool {
     function removeMultiTickLiquidity(uint256[] calldata amounts, uint24[] calldata ticks, address provider, address recipient) external override {
         revert("Not implemented");
     }
+
+    function lockLiquidityAtTick(uint256 amount, uint24 tick) external override {
+        revert("Not implemented");
+    }
+
+    function lockLiquidity(uint256[] calldata amounts, uint24[] calldata ticks) external override {
+        revert("Not implemented");
+    }
+
+    function unlockLiquidityAtTick(uint256 amount, uint24 tick) external override {
+        revert("Not implemented");
+    }
+
+    function unlockLiquidity(uint256[] calldata amounts, uint24[] calldata ticks) external override {
+        revert("Not implemented");
+    }
+
+    function transferLiquidityFromTick(uint256 amount, uint24 tick) external override {
+        revert("Not implemented");
+    }
+
+    function transferLiquidity(uint256[] calldata amounts, uint24[] calldata ticks) external override {
+        revert("Not implemented");
+    }
 }

@@ -19,7 +19,7 @@ contract VaultManagerTest is Test {
 
     TestERC20 token1;
     TestERC20 token2;
-    TestERC02 token3;
+    TestERC20 token3;
 
     CollarVaultManager vaultManager;
 
@@ -48,7 +48,9 @@ contract VaultManagerTest is Test {
 
         ICollarVaultManager.LiquidityOpts memory liquidityOpts;
 
-        // todo: set liquidity opts
+        //liquidityOpts.amounts
+        //liquidityOpts.ticks
+        //liquidityOpts.liquidityPool
 
     }
 
