@@ -7,9 +7,12 @@
 
 pragma solidity ^0.8.18;
 
-/// @notice Indicates the user tried to withdraw more than they have in balance
-error InsufficientBalance();
+library SharedLiquidityPoolErrors {
+    /// @notice Indicates the user tried to withdraw more than they have in balance
+    error InsufficientBalance();
+}
 
+/// @notice Allows extends liquidity pools to have balances tracked per address
 abstract contract ISharedLiquidityPool {
     /// @notice Balance of each depositor
     mapping(address => uint256) public balanceOf;

@@ -7,7 +7,8 @@
 
 pragma solidity ^0.8.18;
 
-import "../interfaces/ILiquidityPool.sol";
+
+import { ILiquidityPool, LiquidityPoolErrors } from "../interfaces/ILiquidityPool.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract LiquidityPool is ILiquidityPool {
@@ -19,16 +20,22 @@ contract LiquidityPool is ILiquidityPool {
         return IERC20(asset).balanceOf(address(this));
     }
 
-    function deposit(address from, uint256 amount) public virtual override {
+    function deposit(
+        address from, 
+        uint256 amount
+    ) public virtual override {
         if (from != msg.sender) {
-            if (IERC20(asset).allowance(from, msg.sender) < amount) revert InsufficientAllowance();
-            if (IERC20(asset).allowance(from, address(this)) < amount) revert InsufficientAllowance();
+            if (IERC20(asset).allowance(from, msg.sender) < amount) revert LiquidityPoolErrors.InsufficientAllowance();
+            if (IERC20(asset).allowance(from, address(this)) < amount) revert LiquidityPoolErrors.InsufficientAllowance();
         }
 
         IERC20(asset).transferFrom(from, address(this), amount);
     }
 
-    function withdraw(address to, uint256 amount) public virtual override {
+    function withdraw(
+        address to, 
+        uint256 amount
+    ) public virtual override {
         IERC20(asset).transfer(to, amount);
     }
 }

@@ -7,14 +7,16 @@
 
 pragma solidity ^0.8.18;
 
-/// @notice Must specify ticks to deposit in
-error NoGeneralDeposits();
+library SubdividedLiquidityPoolErrors {
+    /// @notice Must specify ticks to deposit in
+    error NoGeneralDeposits();
 
-/// @notice Must specify the ticks to withdraw from
-error NoGeneralWithdrawals();
+    /// @notice Must specify the ticks to withdraw from
+    error NoGeneralWithdrawals();
 
-/// @notice Indicates that the arrays provided are not of equal length
-error MismatchedArrays();
+    /// @notice Indicates that the arrays provided are not of equal length
+    error MismatchedArrays();
+}
 
 abstract contract ISubdividedLiquidityPool {
     /// @notice Liquidity available at each tick

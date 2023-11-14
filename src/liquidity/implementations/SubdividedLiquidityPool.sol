@@ -7,8 +7,9 @@
 
 pragma solidity ^0.8.18;
 
-import "./SharedLiquidityPool.sol";
-import "../interfaces/ISubdividedLiquidityPool.sol";
+import { SharedLiquidityPool } from "./SharedLiquidityPool.sol";
+import { ISubdividedLiquidityPool, SubdividedLiquidityPoolErrors } from "../interfaces/ISubdividedLiquidityPool.sol";
+import { SharedLiquidityPoolErrors } from "../interfaces/ISharedLiquidityPool.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract SubdividedLiquidityPool is ISubdividedLiquidityPool, SharedLiquidityPool {
@@ -17,20 +18,32 @@ contract SubdividedLiquidityPool is ISubdividedLiquidityPool, SharedLiquidityPoo
 
     constructor(address _asset) SharedLiquidityPool(_asset) {}
 
-    function depositToTick(address from, uint256 amount, uint24 tick) public virtual override {
+    function depositToTick(
+        address from, 
+        uint256 amount, 
+        uint24 tick
+    ) public virtual override {
         liquidityAtTick[tick] += amount;
         liquidityAtTickByAddress[tick][msg.sender] += amount;
         super.deposit(from, amount);
     }
 
-    function withdrawFromTick(address to, uint256 amount, uint24 tick) public virtual override {
+    function withdrawFromTick(
+        address to, 
+        uint256 amount, 
+        uint24 tick
+    ) public virtual override {
         liquidityAtTick[tick] -= amount;
         liquidityAtTickByAddress[tick][msg.sender] -= amount;
         super.withdraw(to, amount);
     }
 
-    function depositToTicks(address from, uint256[] calldata amounts, uint24[] calldata ticks) public virtual override {
-        if (amounts.length != ticks.length) revert MismatchedArrays();
+    function depositToTicks(
+        address from, 
+        uint256[] calldata amounts, 
+        uint24[] calldata ticks
+    ) public virtual override {
+        if (amounts.length != ticks.length) revert SubdividedLiquidityPoolErrors.MismatchedArrays();
         
         uint256 totalToDeposit = 0;
 
@@ -46,8 +59,12 @@ contract SubdividedLiquidityPool is ISubdividedLiquidityPool, SharedLiquidityPoo
         super.deposit(from, totalToDeposit);
     }
 
-    function withdrawFromTicks(address to, uint256[] calldata amounts, uint24[] calldata ticks) public virtual override {
-        if (amounts.length != ticks.length) revert MismatchedArrays();
+    function withdrawFromTicks(
+        address to, 
+        uint256[] calldata amounts, 
+        uint24[] calldata ticks
+    ) public virtual override {
+        if (amounts.length != ticks.length) revert SubdividedLiquidityPoolErrors.MismatchedArrays();
         
         uint256 totalToWithdraw = 0;
 
@@ -55,7 +72,7 @@ contract SubdividedLiquidityPool is ISubdividedLiquidityPool, SharedLiquidityPoo
             uint24 tick = ticks[i];
             uint256 amount = amounts[i];
 
-            if (liquidityAtTickByAddress[tick][msg.sender] < amount) revert InsufficientBalance();    
+            if (liquidityAtTickByAddress[tick][msg.sender] < amount) revert SharedLiquidityPoolErrors.InsufficientBalance();    
 
             liquidityAtTick[tick] -= amount;
             liquidityAtTickByAddress[tick][msg.sender] -= amount;
@@ -67,11 +84,11 @@ contract SubdividedLiquidityPool is ISubdividedLiquidityPool, SharedLiquidityPoo
 
     /// @dev We disallow explicitly calling the general form of deposit from here on out
     function deposit(address /*from*/, uint256 /*amount*/) public virtual override {
-        revert NoGeneralDeposits();
+        revert SubdividedLiquidityPoolErrors.NoGeneralDeposits();
     }
 
     /// @dev We disallow explicitly calling the general form of withdraw from here on out
     function withdraw(address /*to*/, uint256 /*amount*/) public virtual override {
-        revert NoGeneralWithdrawals();
+        revert SubdividedLiquidityPoolErrors.NoGeneralWithdrawals();
     }
 }

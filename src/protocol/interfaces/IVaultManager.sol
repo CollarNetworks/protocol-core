@@ -7,9 +7,7 @@
 
 pragma solidity ^0.8.18;
 
-import { Sweepable } from "../utils/Sweepable.sol";
-
-abstract contract ICollarVaultManager is Sweepable {
+library CollarVaultManagerErrors {
     /// @notice Indicates that a vault has been opened
     event VaultOpened(bytes32 vaultId);
 
@@ -45,7 +43,9 @@ abstract contract ICollarVaultManager is Sweepable {
 
     /// @notice Indicates that the ltv would be too low if the action were to be executed
     error ExceedsMinLTV(uint256 ltv, uint256 minLTV);
+}
 
+abstract contract ICollarVaultManager {
     /// @notice This struct contains information about which assests (and how much of them) are in each vault
     /// @param collateralAsset The address of the collateral asset
     /// @param collateralAmount The amount of the collateral asset

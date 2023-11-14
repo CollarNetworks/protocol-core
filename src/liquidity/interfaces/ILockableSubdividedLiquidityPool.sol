@@ -9,11 +9,13 @@ pragma solidity ^0.8.18;
 
 import { ISubdividedLiquidityPool } from "./ISubdividedLiquidityPool.sol";
 
-/// @notice Indicates that there is not enough *unlocked* balance to perform the action
-error InsufficientUnlockedBalance();
+library LockableSubdividedLiquidityPoolErrors {
+    /// @notice Indicates that there is not enough *unlocked* balance to perform the action
+    error InsufficientUnlockedBalance();
 
-/// @notice Indicates that there is not enough *locked* balance to perform this act4ion
-error InsufficientLockedBalance();
+    /// @notice Indicates that there is not enough *locked* balance to perform this act4ion
+    error InsufficientLockedBalance();
+}
 
 abstract contract ILockableSubdividedLiquidityPool is ISubdividedLiquidityPool {
     /// @notice Locked liquidity at each tick

@@ -10,14 +10,13 @@ pragma solidity ^0.8.18;
 import { ICollarVaultManager } from "../interfaces/IVaultManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ICollarEngine, ICollarEngineErrors } from "../interfaces/IEngine.sol";
-import { ICollarLiquidityPoolManager } from "../interfaces/ICollarLiquidityPoolManager.sol";
-import { CollarLiquidityPool } from "../implementations/CollarLiquidityPool.sol";
 import { SwapRouter } from "@uni-v3-periphery/SwapRouter.sol";
 import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
+import { CollarVaultManagerErrors } from "../interfaces/IVaultManager.sol";
 
 contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
     modifier vaultExists(bytes32 vaultUUID) {
-        if (vaultIndexByUUID[vaultUUID] == 0) revert NonExistentVault(vaultUUID);
+        if (vaultIndexByUUID[vaultUUID] == 0) revert CollarVaultManagerErrors.NonExistentVault(vaultUUID);
         _;
     }
 
@@ -154,7 +153,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
 
         // very liquidity pool validity
         address pool = liquidityOpts.liquidityPool;
-        if (!ICollarLiquidityPoolManager(ICollarEngine(pool).liquidityPoolManager()).isCollarLiquidityPool(pool) || pool == address(0)) revert InvalidLiquidityPool(pool);
+        //if (!ICollarLiquidityPoolManager(ICollarEngine(pool).liquidityPoolManager()).isCollarLiquidityPool(pool) || pool == address(0)) revert InvalidLiquidityPool(pool);
 
         // verify amounts & ticks are equal; specific ticks and amoutns verified in transfer step
         uint256[] calldata amounts = liquidityOpts.amounts;
@@ -163,7 +162,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         if (amounts.length != ticks.length) revert InvalidLiquidityOpts();
 
         // attempt to lock the liquidity (to pay out max call strike)
-        CollarLiquidityPool(pool).lockLiquidity(amounts, ticks);
+        //CollarLiquidityPool(pool).lockLiquidity(amounts, ticks);
 
         // calculate price to swap collateral for
         uint256 collateralPriceInitial = 1;
@@ -253,7 +252,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         uint24[] memory ticks = vault.liquidityOpts.ticks;
         uint256[] memory amounts = vault.liquidityOpts.amounts;
 
-        CollarLiquidityPool(pool).unlockLiquidity(amounts, ticks);
+        //CollarLiquidityPool(pool).unlockLiquidity(amounts, ticks);
 
         // move liquidity to vault, if applicable
         if (liquidityToMoveToVault > 0 ) {
@@ -264,7 +263,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
                 }
             }
 
-            CollarLiquidityPool(pool).transferLiquidity(amounts, ticks);
+            //CollarLiquidityPool(pool).transferLiquidity(amounts, ticks);
         }
 
         // swap, if necessary

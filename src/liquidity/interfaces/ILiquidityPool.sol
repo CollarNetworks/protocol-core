@@ -7,9 +7,13 @@
 
 pragma solidity ^0.8.18;
 
-/// @notice Indicates that the caller doesn't have enough allowance from the spender to call this function
-error InsufficientAllowance();
+library LiquidityPoolErrors {
+    /// @notice Indicates that the caller doesn't have enough allowance from the spender to call this function
+    error InsufficientAllowance();
+}
 
+/// @notice The base interface for a simple liquidity pool
+/// @dev tracks a single asset, and allows depositing and withdrawing
 abstract contract ILiquidityPool {
     /// @notice Each liquidity pool can hold only one asset type
     address public asset;

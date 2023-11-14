@@ -8,7 +8,7 @@
 pragma solidity ^0.8.18;
 
 import "lib/forge-std/src/Test.sol";
-import "../../src/implementations/SharedLiquidityPool.sol";
+import "../../src/liquidity/implementations/SharedLiquidityPool.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 
 contract SharedLiquidityPoolTest is Test {
