@@ -7,10 +7,10 @@
 
 pragma solidity ^0.8.18;
 
-abstract contract ILiquidityPool {
-    /// @notice Indicates that the caller doesn't have enough allowance from the spender to call this function
-    error InsufficientAllowance(address provider, address spender);
+/// @notice Indicates that the caller doesn't have enough allowance from the spender to call this function
+error InsufficientAllowance();
 
+abstract contract ILiquidityPool {
     /// @notice Each liquidity pool can hold only one asset type
     address public asset;
 

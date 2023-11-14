@@ -8,7 +8,7 @@
 pragma solidity ^0.8.18;
 
 import "lib/forge-std/src/Test.sol";
-import { LiquidityPool } from "../../src/implementations/LiquidityPool.sol";
+import "../../src/implementations/LiquidityPool.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 
 contract LiquidityPoolTest is Test {
@@ -67,9 +67,13 @@ contract LiquidityPoolTest is Test {
     function test_depositWithoutApprovalFromOther() public {
         asset.mint(other, 1000);
 
-        vm.expectRevert("ERC20: insufficient allowance");
-        
+        vm.expectRevert(InsufficientAllowance.selector);
+        pool.deposit(other, 1000);
+
         hoax(other);
+        asset.approve(address(this), 1000);
+
+        vm.expectRevert(InsufficientAllowance.selector);
         pool.deposit(other, 1000);
     }
 

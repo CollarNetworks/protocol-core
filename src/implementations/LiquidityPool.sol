@@ -21,8 +21,8 @@ contract LiquidityPool is ILiquidityPool {
 
     function deposit(address from, uint256 amount) public virtual override {
         if (from != msg.sender) {
-            if (IERC20(asset).allowance(from, msg.sender) < amount) revert InsufficientAllowance(from, msg.sender);
-            if (IERC20(asset).allowance(from, address(this)) < amount) revert InsufficientAllowance(from, address(this));
+            if (IERC20(asset).allowance(from, msg.sender) < amount) revert InsufficientAllowance();
+            if (IERC20(asset).allowance(from, address(this)) < amount) revert InsufficientAllowance();
         }
 
         IERC20(asset).transferFrom(from, address(this), amount);
