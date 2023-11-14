@@ -11,6 +11,6 @@ import "../interfaces/IProportionalDividendsPool.sol";
 
 contract ProportionalDividendsPool is IProportionalDividendsPool {
     function payDividends(uint24 tick, uint256 amount) public virtual override {
-
+        
     }
 }

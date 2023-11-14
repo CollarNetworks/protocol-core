@@ -7,15 +7,16 @@
 
 pragma solidity ^0.8.18;
 
-import "./ILiquidityPool.sol";
+/// @notice Must specify ticks to deposit in
+error NoGeneralDeposits();
+
+/// @notice Must specify the ticks to withdraw from
+error NoGeneralWithdrawals();
+
+/// @notice Indicates that the arrays provided are not of equal length
+error MismatchedArrays();
 
 abstract contract ISubdividedLiquidityPool {
-    /// @notice Must specify ticks to deposit in
-    error NoGeneralDeposits();
-
-    /// @notice Must specify the ticks to withdraw from
-    error NoGeneralWithdrawals();
-
     /// @notice Liquidity available at each tick
     mapping(uint24 => uint256) public liquidityAtTick;
 
@@ -41,5 +42,5 @@ abstract contract ISubdividedLiquidityPool {
     /// @param to the address of the withdrawer
     /// @param amounts the amounts to withdraw from each tick
     /// @param ticks the ticks to withdraw from
-    function withrawFromTicks(address to, uint256[] calldata amounts, uint24[] calldata ticks) public virtual;
+    function withdrawFromTicks(address to, uint256[] calldata amounts, uint24[] calldata ticks) public virtual;
 }

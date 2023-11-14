@@ -11,7 +11,7 @@ import { ICollarVaultManager } from "../interfaces/IVaultManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ICollarEngine, ICollarEngineErrors } from "../interfaces/IEngine.sol";
 import { ICollarLiquidityPoolManager } from "../interfaces/ICollarLiquidityPoolManager.sol";
-import { ICollarLiquidityPool } from "../interfaces/ICollarLiquidityPool.sol";
+import { CollarLiquidityPool } from "../implementations/CollarLiquidityPool.sol";
 import { SwapRouter } from "@uni-v3-periphery/SwapRouter.sol";
 import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 
@@ -163,7 +163,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         if (amounts.length != ticks.length) revert InvalidLiquidityOpts();
 
         // attempt to lock the liquidity (to pay out max call strike)
-        ICollarLiquidityPool(pool).lockLiquidity(amounts, ticks);
+        CollarLiquidityPool(pool).lockLiquidity(amounts, ticks);
 
         // calculate price to swap collateral for
         uint256 collateralPriceInitial = 1;
@@ -253,7 +253,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         uint24[] memory ticks = vault.liquidityOpts.ticks;
         uint256[] memory amounts = vault.liquidityOpts.amounts;
 
-        ICollarLiquidityPool(pool).unlockLiquidity(amounts, ticks);
+        CollarLiquidityPool(pool).unlockLiquidity(amounts, ticks);
 
         // move liquidity to vault, if applicable
         if (liquidityToMoveToVault > 0 ) {
@@ -264,7 +264,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
                 }
             }
 
-            ICollarLiquidityPool(pool).transferLiquidity(amounts, ticks);
+            CollarLiquidityPool(pool).transferLiquidity(amounts, ticks);
         }
 
         // swap, if necessary

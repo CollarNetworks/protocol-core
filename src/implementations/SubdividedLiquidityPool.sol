@@ -15,6 +15,8 @@ contract SubdividedLiquidityPool is ISubdividedLiquidityPool, SharedLiquidityPoo
     /// @notice Liquidity available at each tick for each address
     mapping(uint24 => mapping(address => uint256)) public liquidityAtTickByAddress;
 
+    constructor(address _asset) SharedLiquidityPool(_asset) {}
+
     function depositToTick(address from, uint256 amount, uint24 tick) public virtual override {
         liquidityAtTick[tick] += amount;
         liquidityAtTickByAddress[tick][msg.sender] += amount;
@@ -28,6 +30,8 @@ contract SubdividedLiquidityPool is ISubdividedLiquidityPool, SharedLiquidityPoo
     }
 
     function depositToTicks(address from, uint256[] calldata amounts, uint24[] calldata ticks) public virtual override {
+        if (amounts.length != ticks.length) revert MismatchedArrays();
+        
         uint256 totalToDeposit = 0;
 
         for (uint256 i = 0; i < amounts.length; i++) {
@@ -42,12 +46,16 @@ contract SubdividedLiquidityPool is ISubdividedLiquidityPool, SharedLiquidityPoo
         super.deposit(from, totalToDeposit);
     }
 
-    function withrawFromTicks(address to, uint256[] calldata amounts, uint24[] calldata ticks) public virtual override {
+    function withdrawFromTicks(address to, uint256[] calldata amounts, uint24[] calldata ticks) public virtual override {
+        if (amounts.length != ticks.length) revert MismatchedArrays();
+        
         uint256 totalToWithdraw = 0;
 
         for (uint256 i = 0; i < amounts.length; i++) {
             uint24 tick = ticks[i];
             uint256 amount = amounts[i];
+
+            if (liquidityAtTickByAddress[tick][msg.sender] < amount) revert InsufficientBalance();    
 
             liquidityAtTick[tick] -= amount;
             liquidityAtTickByAddress[tick][msg.sender] -= amount;
