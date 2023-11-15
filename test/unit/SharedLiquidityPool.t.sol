@@ -8,7 +8,8 @@
 pragma solidity ^0.8.18;
 
 import "lib/forge-std/src/Test.sol";
-import "../../src/liquidity/implementations/SharedLiquidityPool.sol";
+import { SharedLiquidityPool } from "../../src/liquidity/implementations/SharedLiquidityPool.sol";
+import { SharedLiquidityPoolErrors } from "../../src/liquidity/interfaces/ISharedLiquidityPool.sol"; 
 import { TestERC20 } from "../utils/TestERC20.sol";
 
 contract SharedLiquidityPoolTest is Test {
@@ -88,7 +89,7 @@ contract SharedLiquidityPoolTest is Test {
         asset.approve(address(pool), 1000);
         pool.deposit(address(this), 1000);
 
-        vm.expectRevert(InsufficientBalance.selector);
+        vm.expectRevert(SharedLiquidityPoolErrors.InsufficientBalance.selector);
         pool.withdraw(address(this), 1001);
     }
 }

@@ -24,39 +24,47 @@ contract CollarEngine is ICollarEngine {
         return vaultManager;
     }
 
-    function setLiquidityPoolManager(address _liquidityPoolManager) external override {
+    function setLiquidityPoolManager(
+        address _liquidityPoolManager
+    ) external override {
         if (_liquidityPoolManager == address(0)) revert InvalidZeroAddress(_liquidityPoolManager);
     
         liquidityPoolManager = _liquidityPoolManager;
     }
 
-    function addSupportedCollateralAsset(address asset) external override
-    isNotValidCollateralAsset(asset) {
+    function addSupportedCollateralAsset(
+        address asset
+    ) external override isNotValidCollateralAsset(asset) {
         isSupportedCollateralAsset[asset] = true;
     }
 
-    function removeSupportedCollateralAsset(address asset) external override
-    isValidCollateralAsset(asset) {
+    function removeSupportedCollateralAsset(
+        address asset
+    ) external override isValidCollateralAsset(asset) {
         isSupportedCollateralAsset[asset] = false;
     }
 
-    function addSupportedCashAsset(address asset) external override
-    isNotValidCashAsset(asset) {
+    function addSupportedCashAsset(
+        address asset
+    ) external override isNotValidCashAsset(asset) {
         isSupportedCashAsset[asset] = true;
     }
 
-    function removeSupportedCashAsset(address asset) external override
-    isValidCashAsset(asset) {
+    function removeSupportedCashAsset(
+        address asset
+    ) external override isValidCashAsset(asset) {
         isSupportedCashAsset[asset] = false;
     }
 
-    function addSupportedCollarLength(uint256 length) external override
-    isSupportedCollarLength(length) {
+    function addSupportedCollarLength(
+        uint256 length
+    ) external override isSupportedCollarLength(length) {
         isValidCollarLength[length] = true;
     }
 
-    function removeSupportedCollarLength(uint256 length) external override
-    isSupportedCollarLength(length) {
+    function removeSupportedCollarLength(
+        uint256 length
+    ) external override isSupportedCollarLength(length) {
         isValidCollarLength[length] = false;
     }
 }

@@ -8,7 +8,9 @@
 pragma solidity ^0.8.18;
 
 import "lib/forge-std/src/Test.sol";
-import "../../src/liquidity/implementations/SubdividedLiquidityPool.sol";
+import { SubdividedLiquidityPool } from "../../src/liquidity/implementations/SubdividedLiquidityPool.sol";
+import { SubdividedLiquidityPoolErrors } from "../../src/liquidity/interfaces/ISubdividedLiquidityPool.sol";
+import { SharedLiquidityPoolErrors } from "../../src/liquidity/interfaces/ISharedLiquidityPool.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 
 contract LiquidityPoolTest is Test {
@@ -304,7 +306,7 @@ contract LiquidityPoolTest is Test {
 
         amounts[2] = 601;
 
-        vm.expectRevert(InsufficientBalance.selector);
+        vm.expectRevert(SharedLiquidityPoolErrors.InsufficientBalance.selector);
         pool.withdrawFromTicks(address(this), amounts, ticks);
     }
 
@@ -330,10 +332,10 @@ contract LiquidityPoolTest is Test {
         ticksTooBig[2] = 10001;
         ticksTooBig[3] = 10002;
 
-        vm.expectRevert(MismatchedArrays.selector);
+        vm.expectRevert(SubdividedLiquidityPoolErrors.MismatchedArrays.selector);
         pool.depositToTicks(address(this), amounts, ticksTooSmall);
 
-        vm.expectRevert(MismatchedArrays.selector);
+        vm.expectRevert(SubdividedLiquidityPoolErrors.MismatchedArrays.selector);
         pool.depositToTicks(address(this), amounts, ticksTooBig);
     }
 
@@ -352,17 +354,17 @@ contract LiquidityPoolTest is Test {
         ticks[1] = 25;
         ticks[2] = 10001;
 
-        vm.expectRevert(MismatchedArrays.selector);
+        vm.expectRevert(SubdividedLiquidityPoolErrors.MismatchedArrays.selector);
         pool.withdrawFromTicks(address(this), amountsTooSmall, ticks);
     }
 
     function test_depositSuper() public {
-        vm.expectRevert(NoGeneralDeposits.selector);
+        vm.expectRevert(SubdividedLiquidityPoolErrors.NoGeneralDeposits.selector);
         pool.deposit(address(this), 1000);
     }
 
     function test_withdrawSuper() public {
-        vm.expectRevert(NoGeneralWithdrawals.selector);
+        vm.expectRevert(SubdividedLiquidityPoolErrors.NoGeneralWithdrawals.selector);
         pool.withdraw(address(this), 1000);
     }
 }

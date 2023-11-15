@@ -13,6 +13,7 @@ import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 import { ICollarEngine, ICollarEngineErrors } from "../interfaces/IEngine.sol";
 import { ICollarVaultManager, CollarVaultManagerErrors, CollarVaultManagerEvents } from "../interfaces/IVaultManager.sol";
 import { CollarLiquidityPool } from "../../liquidity/implementations/CollarLiquidityPool.sol";
+import { ICollarLiquidityPoolManager } from "../interfaces/ICollarLiquidityPoolManager.sol";
 
 contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
     modifier vaultExists(bytes32 vaultUUID) {
@@ -155,7 +156,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         if (amounts.length != ticks.length) revert InvalidLiquidityOpts();
 
         // attempt to lock the liquidity (to pay out max call strike)
-        CollarLiquidityPool(pool).lockLiquidity(amounts, ticks);
+        CollarLiquidityPool(pool).lockLiquidityAtTicks(amounts, ticks);
 
         // calculate price to swap collateral for
         uint256 collateralPriceInitial = 1;
@@ -245,7 +246,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         uint24[] memory ticks = vault.liquidityOpts.ticks;
         uint256[] memory amounts = vault.liquidityOpts.amounts;
 
-        CollarLiquidityPool(pool).unlockLiquidity(amounts, ticks);
+        CollarLiquidityPool(pool).unlockLiquidityAtTicks(amounts, ticks);
 
         // move liquidity to vault, if applicable
         if (liquidityToMoveToVault > 0 ) {
@@ -256,7 +257,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
                 }
             }
 
-            CollarLiquidityPool(pool).transferLiquidity(amounts, ticks);
+            // CollarLiquidityPool(pool).transferLiquidity(amounts, ticks);
         }
 
         // swap, if necessary
@@ -266,7 +267,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         vault.active = false;
 
         // emit event
-        emit CollarVaultManagerEvents.VaultClosed(vaultUUID);
+        //emit CollarVaultManagerEvents.VaultClosed(vaultUUID);
 
         return net;
     }

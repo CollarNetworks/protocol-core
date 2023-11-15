@@ -8,7 +8,8 @@
 pragma solidity ^0.8.18;
 
 import "lib/forge-std/src/Test.sol";
-import "../../src/liquidity/implementations/LockableSubdividedLiquidityPool.sol";
+import { LockableSubdividedLiquidityPool } from "../../src/liquidity/implementations/LockableSubdividedLiquidityPool.sol";
+import { LockableSubdividedLiquidityPoolErrors } from "../../src/liquidity/interfaces/ILockableSubdividedLiquidityPool.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 
 contract LockableSubdividedLiquidityPoolTest is Test {
@@ -51,7 +52,7 @@ contract LockableSubdividedLiquidityPoolTest is Test {
 
         pool.depositToTick(address(this), 100, 100);
 
-        vm.expectRevert(InsufficientUnlockedBalance.selector);
+        vm.expectRevert(LockableSubdividedLiquidityPoolErrors.InsufficientUnlockedBalance.selector);
         pool.lockLiquidityAtTick(101, 100);
     }
 
@@ -62,7 +63,7 @@ contract LockableSubdividedLiquidityPoolTest is Test {
         pool.depositToTick(address(this), 100, 100);
         pool.lockLiquidityAtTick(100, 100);
 
-        vm.expectRevert(InsufficientLockedBalance.selector);
+        vm.expectRevert(LockableSubdividedLiquidityPoolErrors.InsufficientLockedBalance.selector);
         pool.unlockLiquidityAtTick(101, 100);
     }
 
@@ -89,7 +90,7 @@ contract LockableSubdividedLiquidityPoolTest is Test {
         pool.depositToTick(address(this), 100, 100);
         pool.lockLiquidityAtTick(100, 100);
         
-        vm.expectRevert(InsufficientUnlockedBalance.selector);
+        vm.expectRevert(LockableSubdividedLiquidityPoolErrors.InsufficientUnlockedBalance.selector);
         pool.withdrawFromTick(address(this), 100, 100);
     }
 
@@ -204,7 +205,7 @@ contract LockableSubdividedLiquidityPoolTest is Test {
         withdrawAmounts[0] = 100;
         withdrawAmounts[1] = 200;
 
-        vm.expectRevert(InsufficientUnlockedBalance.selector);
+        vm.expectRevert(LockableSubdividedLiquidityPoolErrors.InsufficientUnlockedBalance.selector);
         pool.withdrawFromTicks(address(this), withdrawAmounts, ticks);
     }
 }
