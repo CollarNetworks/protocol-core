@@ -8,9 +8,9 @@
 pragma solidity ^0.8.18;
 
 import "lib/forge-std/src/Test.sol";
-import { LockableSubdividedLiquidityPool } from "../../src/liquidity/implementations/LockableSubdividedLiquidityPool.sol";
-import { LockableSubdividedLiquidityPoolErrors } from "../../src/liquidity/interfaces/ILockableSubdividedLiquidityPool.sol";
-import { TestERC20 } from "../utils/TestERC20.sol";
+import { LockableSubdividedLiquidityPool } from "../../../src/liquidity/implementations/LockableSubdividedLiquidityPool.sol";
+import { LockableSubdividedLiquidityPoolErrors } from "../../../src/liquidity/interfaces/ILockableSubdividedLiquidityPool.sol";
+import { TestERC20 } from "../../utils/TestERC20.sol";
 
 contract LockableSubdividedLiquidityPoolTest is Test {
     LockableSubdividedLiquidityPool pool;

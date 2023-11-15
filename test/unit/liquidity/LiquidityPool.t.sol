@@ -8,9 +8,9 @@
 pragma solidity ^0.8.18;
 
 import "lib/forge-std/src/Test.sol";
-import { LiquidityPool } from "../../src/liquidity/implementations/LiquidityPool.sol";
-import { LiquidityPoolErrors } from "../../src/liquidity/interfaces/ILiquidityPool.sol";
-import { TestERC20 } from "../utils/TestERC20.sol";
+import { LiquidityPool } from "../../../src/liquidity/implementations/LiquidityPool.sol";
+import { LiquidityPoolErrors } from "../../../src/liquidity/interfaces/ILiquidityPool.sol";
+import { TestERC20 } from "../../utils/TestERC20.sol";
 
 contract LiquidityPoolTest is Test {
     LiquidityPool pool;
