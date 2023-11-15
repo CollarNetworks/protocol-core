@@ -7,7 +7,7 @@
 
 pragma solidity ^0.8.18;
 
-library CollarVaultManagerErrors {
+library CollarVaultManagerEvents {
     /// @notice Indicates that a vault has been opened
     event VaultOpened(bytes32 vaultId);
 
@@ -19,7 +19,9 @@ library CollarVaultManagerErrors {
 
     /// @notice Indicates that a loan repayment has been made
     event LoanRepayment(bytes32 vaultId, uint256 amount);
+}
 
+library CollarVaultManagerErrors {
     /// @notice Indicates that the vault specified does not exist
     error NonExistentVault(bytes32 vaultUUID);
 

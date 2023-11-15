@@ -7,12 +7,12 @@
 
 pragma solidity ^0.8.18;
 
-import { ICollarVaultManager } from "../interfaces/IVaultManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ICollarEngine, ICollarEngineErrors } from "../interfaces/IEngine.sol";
 import { SwapRouter } from "@uni-v3-periphery/SwapRouter.sol";
 import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
-import { CollarVaultManagerErrors } from "../interfaces/IVaultManager.sol";
+import { ICollarEngine, ICollarEngineErrors } from "../interfaces/IEngine.sol";
+import { ICollarVaultManager, CollarVaultManagerErrors, CollarVaultManagerEvents } from "../interfaces/IVaultManager.sol";
+import { CollarLiquidityPool } from "../../liquidity/implementations/CollarLiquidityPool.sol";
 
 contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
     modifier vaultExists(bytes32 vaultUUID) {
@@ -24,23 +24,27 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         user = owner;
     }
 
-    function isActive(bytes32 vaultUUID) public override view
-    vaultExists(vaultUUID) returns (bool) {
+    function isActive(
+        bytes32 vaultUUID
+    ) public override view vaultExists(vaultUUID) returns (bool) {
         return vaultsByUUID[vaultUUID].active;
     }
 
-    function isExpired(bytes32 vaultUUID) public override view
-    vaultExists(vaultUUID) returns (bool) {
+    function isExpired(
+        bytes32 vaultUUID
+    ) public override view vaultExists(vaultUUID) returns (bool) {
         return vaultsByUUID[vaultUUID].collarOpts.expiry > block.timestamp;
     }
 
-    function getExpiry(bytes32 vaultUUID) public override view
-    vaultExists(vaultUUID) returns (uint256) {
+    function getExpiry(
+        bytes32 vaultUUID
+    ) public override view vaultExists(vaultUUID) returns (uint256) {
         return vaultsByUUID[vaultUUID].collarOpts.expiry;
     }
 
-    function timeRemaining(bytes32 vaultUUID) public override view
-    vaultExists(vaultUUID) returns (uint256) {
+    function timeRemaining(
+        bytes32 vaultUUID
+    ) public override view vaultExists(vaultUUID) returns (uint256) {
         uint256 expiry = getExpiry(vaultUUID);
 
         if (expiry < block.timestamp) return 0;
@@ -48,8 +52,11 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         return expiry - block.timestamp;
     }
 
-    function depositCash(bytes32 vaultUUID, uint256 amount, address from) external override
-    vaultExists(vaultUUID) returns (uint256 newCashBalance) {
+    function depositCash(
+        bytes32 vaultUUID, 
+        uint256 amount, 
+        address from
+    ) external override vaultExists(vaultUUID) returns (uint256 newCashBalance) {
         // grab reference to the vault
         Vault storage vault = vaultsByUUID[vaultUUID];
         
@@ -68,8 +75,11 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         return vault.assetSpecifiers.cashAmount;
     }
 
-    function withrawCash(bytes32 vaultUUID, uint256 amount, address to) external override
-    vaultExists(vaultUUID) returns (uint256 newCashBalance) {
+    function withrawCash(
+        bytes32 vaultUUID, 
+        uint256 amount, 
+        address to
+    ) external override vaultExists(vaultUUID) returns (uint256 newCashBalance) {
         // grab refernce to the vault 
         Vault storage vault = vaultsByUUID[vaultUUID];
 
@@ -89,26 +99,9 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         uint256 ltv = getLTV(vault);
 
         // revert if too low
-        if (ltv < vault.collarOpts.ltv) revert ExceedsMinLTV(ltv, vault.collarOpts.ltv);
+        if (ltv < vault.collarOpts.ltv) revert CollarVaultManagerErrors.ExceedsMinLTV(ltv, vault.collarOpts.ltv);
 
         return vault.assetSpecifiers.cashAmount;
-    }
-
-    /// @notice This function should allow the user to sweep any tokens or ETH accidentally sent to the contract
-    /// @dev We calculate the excess tokens or ETH via the simple formula: Excess = Balances - ∑(Vault Balances)
-    /// @dev Raw ETH is represented via EIP-7528 (0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)
-    function canSweep(address caller, address token, address /*destination*/, uint256 amount) public override view returns (bool) {
-        if (caller != user) revert NotOwner(caller);
-
-        // If the token is not supported by any vaults, we can automatically approve the sweep
-        // We leave the edge case of "not enough of the token" to the user to handle
-        if (tokenVaultCount[token] == 0) return true;
-
-        // We don't care about the destination; we even allow the zero address in case a burn is desired
-        // Calculate how much extra of the token we have, if any
-        uint256 excess = IERC20(token).balanceOf(address(this)) - tokenTotalBalance[token];
-
-        return amount <= excess;
     }
 
     function openVault(
@@ -143,17 +136,17 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         if (!(ICollarEngine(engine)).isValidCollarLength(collarLength)) revert CollarLengthNotSupported(collarLength);
 
         // verify call & strike
-        if (callStrike <= putStrike) revert InvalidStrikeOpts(callStrike, putStrike);
-        if (callStrike < MIN_CALL_STRIKE) revert InvalidCallStrike(callStrike);
-        if (putStrike > MAX_PUT_STRIKE) revert InvalidPutStrike(putStrike);
+        if (callStrike <= putStrike) revert CollarVaultManagerErrors.InvalidStrikeOpts(callStrike, putStrike);
+        if (callStrike < MIN_CALL_STRIKE) revert CollarVaultManagerErrors.InvalidCallStrike(callStrike);
+        if (putStrike > MAX_PUT_STRIKE) revert CollarVaultManagerErrors.InvalidPutStrike(putStrike);
 
         // verify ltv (reminder: denominated in bps)
-        if (ltv > MAX_LTV) revert InvalidLTV(ltv); // ltv must be less than 100%
-        if (ltv == 0) revert InvalidLTV(ltv); // ltv cannot be zero
+        if (ltv > MAX_LTV) revert CollarVaultManagerErrors.InvalidLTV(ltv); // ltv must be less than 100%
+        if (ltv == 0) revert CollarVaultManagerErrors.InvalidLTV(ltv); // ltv cannot be zero
 
         // very liquidity pool validity
         address pool = liquidityOpts.liquidityPool;
-        //if (!ICollarLiquidityPoolManager(ICollarEngine(pool).liquidityPoolManager()).isCollarLiquidityPool(pool) || pool == address(0)) revert InvalidLiquidityPool(pool);
+        if (!ICollarLiquidityPoolManager(ICollarEngine(pool).liquidityPoolManager()).isCollarLiquidityPool(pool) || pool == address(0)) revert InvalidLiquidityPool(pool);
 
         // verify amounts & ticks are equal; specific ticks and amoutns verified in transfer step
         uint256[] calldata amounts = liquidityOpts.amounts;
@@ -162,7 +155,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         if (amounts.length != ticks.length) revert InvalidLiquidityOpts();
 
         // attempt to lock the liquidity (to pay out max call strike)
-        //CollarLiquidityPool(pool).lockLiquidity(amounts, ticks);
+        CollarLiquidityPool(pool).lockLiquidity(amounts, ticks);
 
         // calculate price to swap collateral for
         uint256 collateralPriceInitial = 1;
@@ -212,7 +205,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         vaultCount++;
 
         // emit event
-        emit VaultOpened(vaultUUID);
+        emit CollarVaultManagerEvents.VaultOpened(vaultUUID);
 
         return vaultUUID;
     }
@@ -252,7 +245,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         uint24[] memory ticks = vault.liquidityOpts.ticks;
         uint256[] memory amounts = vault.liquidityOpts.amounts;
 
-        //CollarLiquidityPool(pool).unlockLiquidity(amounts, ticks);
+        CollarLiquidityPool(pool).unlockLiquidity(amounts, ticks);
 
         // move liquidity to vault, if applicable
         if (liquidityToMoveToVault > 0 ) {
@@ -263,7 +256,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
                 }
             }
 
-            //CollarLiquidityPool(pool).transferLiquidity(amounts, ticks);
+            CollarLiquidityPool(pool).transferLiquidity(amounts, ticks);
         }
 
         // swap, if necessary
@@ -273,7 +266,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         vault.active = false;
 
         // emit event
-        emit VaultClosed(vaultUUID);
+        emit CollarVaultManagerEvents.VaultClosed(vaultUUID);
 
         return net;
     }
