@@ -10,105 +10,22 @@ pragma solidity ^0.8.18;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SwapRouter } from "@uni-v3-periphery/SwapRouter.sol";
 import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
-import { ICollarEngine, ICollarEngineErrors } from "../interfaces/IEngine.sol";
-import { ICollarVaultManager, CollarVaultManagerErrors, CollarVaultManagerEvents } from "../interfaces/IVaultManager.sol";
+import { ICollarEngine, ICollarEngineErrors } from "../../protocol/interfaces/IEngine.sol";
+import { ICollarVaultManager } from "../interfaces/ICollarVaultManager.sol";
 import { CollarLiquidityPool } from "../../liquidity/implementations/CollarLiquidityPool.sol";
-import { ICollarLiquidityPoolManager } from "../interfaces/ICollarLiquidityPoolManager.sol";
+import { ICollarLiquidityPoolManager } from "../../protocol/interfaces/ICollarLiquidityPoolManager.sol";
+import { CollarVaultState, CollarVaultManagerErrors, CollarVaultManagerEvents, CollarVaultConstants } from "../../vaults/interfaces/CollarLibs.sol";
+import { CollarVaultLens } from "./CollarVaultLens.sol";
 
-contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
-    modifier vaultExists(bytes32 vaultUUID) {
-        if (vaultIndexByUUID[vaultUUID] == 0) revert CollarVaultManagerErrors.NonExistentVault(vaultUUID);
-        _;
-    }
-
+contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarVaultLens {
     constructor(address owner) ICollarVaultManager() {
         user = owner;
     }
 
-    function isActive(
-        bytes32 vaultUUID
-    ) public override view vaultExists(vaultUUID) returns (bool) {
-        return vaultsByUUID[vaultUUID].active;
-    }
-
-    function isExpired(
-        bytes32 vaultUUID
-    ) public override view vaultExists(vaultUUID) returns (bool) {
-        return vaultsByUUID[vaultUUID].collarOpts.expiry > block.timestamp;
-    }
-
-    function getExpiry(
-        bytes32 vaultUUID
-    ) public override view vaultExists(vaultUUID) returns (uint256) {
-        return vaultsByUUID[vaultUUID].collarOpts.expiry;
-    }
-
-    function timeRemaining(
-        bytes32 vaultUUID
-    ) public override view vaultExists(vaultUUID) returns (uint256) {
-        uint256 expiry = getExpiry(vaultUUID);
-
-        if (expiry < block.timestamp) return 0;
-
-        return expiry - block.timestamp;
-    }
-
-    function depositCash(
-        bytes32 vaultUUID, 
-        uint256 amount, 
-        address from
-    ) external override vaultExists(vaultUUID) returns (uint256 newCashBalance) {
-        // grab reference to the vault
-        Vault storage vault = vaultsByUUID[vaultUUID];
-        
-        // cache the token address
-        address cashToken = vault.assetSpecifiers.cashAsset;
-
-        // increment the cash balance of this vault
-        vault.assetSpecifiers.cashAmount += amount;
-
-        // update the total balance tracker
-        tokenTotalBalance[cashToken] += amount;
-
-        // transfer in the cash
-        IERC20(cashToken).transferFrom(from, address(this), amount);
-
-        return vault.assetSpecifiers.cashAmount;
-    }
-
-    function withrawCash(
-        bytes32 vaultUUID, 
-        uint256 amount, 
-        address to
-    ) external override vaultExists(vaultUUID) returns (uint256 newCashBalance) {
-        // grab refernce to the vault 
-        Vault storage vault = vaultsByUUID[vaultUUID];
-
-        // cache the token address
-        address cashToken = vault.assetSpecifiers.cashAsset;
-
-        // decrement the token balance of the vault
-        vault.assetSpecifiers.cashAmount -= amount;
-
-        // update the total balance tracker
-        tokenTotalBalance[cashToken] -= amount;
-
-        // transfer out the cash
-        IERC20(cashToken).transfer(to, amount);
-
-        // calculate & cache the ltv of the vault
-        uint256 ltv = getLTV(vault);
-
-        // revert if too low
-        if (ltv < vault.collarOpts.ltv) revert CollarVaultManagerErrors.ExceedsMinLTV(ltv, vault.collarOpts.ltv);
-
-        return vault.assetSpecifiers.cashAmount;
-    }
-
     function openVault(
-        AssetSpecifiers calldata assetSpecifiers,
-        CollarOpts calldata collarOpts,
-        LiquidityOpts calldata liquidityOpts
+        CollarVaultState.AssetSpecifiers calldata assetSpecifiers,
+        CollarVaultState.CollarOpts calldata collarOpts,
+        CollarVaultState.LiquidityOpts calldata liquidityOpts
     ) external override returns (bytes32 vaultUUID) {
         // cache asset addresses
         address cashAsset = assetSpecifiers.cashAsset;
@@ -138,11 +55,11 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
 
         // verify call & strike
         if (callStrike <= putStrike) revert CollarVaultManagerErrors.InvalidStrikeOpts(callStrike, putStrike);
-        if (callStrike < MIN_CALL_STRIKE) revert CollarVaultManagerErrors.InvalidCallStrike(callStrike);
-        if (putStrike > MAX_PUT_STRIKE) revert CollarVaultManagerErrors.InvalidPutStrike(putStrike);
+        if (callStrike < CollarVaultConstants.MIN_CALL_STRIKE) revert CollarVaultManagerErrors.InvalidCallStrike(callStrike);
+        if (putStrike > CollarVaultConstants.MAX_PUT_STRIKE) revert CollarVaultManagerErrors.InvalidPutStrike(putStrike);
 
         // verify ltv (reminder: denominated in bps)
-        if (ltv > MAX_LTV) revert CollarVaultManagerErrors.InvalidLTV(ltv); // ltv must be less than 100%
+        if (ltv > CollarVaultConstants.MAX_LTV) revert CollarVaultManagerErrors.InvalidLTV(ltv); // ltv must be less than 100%
         if (ltv == 0) revert CollarVaultManagerErrors.InvalidLTV(ltv); // ltv cannot be zero
 
         // very liquidity pool validity
@@ -183,7 +100,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         // generate UUID and set vault storage
         vaultUUID = keccak256(abi.encodePacked(user, vaultCount));
 
-        vaultsByUUID[vaultUUID] = Vault(
+        vaultsByUUID[vaultUUID] = CollarVaultState.Vault(
             assetSpecifiers.collateralAmount,
             collateralPriceInitial,
             cashReceived,
@@ -213,10 +130,9 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
 
     function finalizeVault(
         bytes32 vaultUUID
-    ) external override
-    vaultExists(vaultUUID) returns (int256 net) {
+    ) external override vaultExists(vaultUUID) returns (int256 net) {
         // get vault info
-        Vault storage vault = vaultsByUUID[vaultUUID];
+        CollarVaultState.Vault storage vault = vaultsByUUID[vaultUUID];
 
         // cache vault options
         uint256 putStrike = vault.collarOpts.putStrike;
@@ -272,12 +188,59 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors {
         return net;
     }
 
-    function getLTV(bytes32 vaultUUID) public override view returns (uint256) {
-        Vault storage _vault = vaultsByUUID[vaultUUID];
-        return getLTV(_vault);
+    function depositCash(
+        bytes32 vaultUUID, 
+        uint256 amount, 
+        address from
+    ) external override vaultExists(vaultUUID) returns (uint256 newCashBalance) {
+        // grab reference to the vault
+        CollarVaultState.Vault storage vault = vaultsByUUID[vaultUUID];
+        
+        // cache the token address
+        address cashToken = vault.assetSpecifiers.cashAsset;
+
+        // increment the cash balance of this vault
+        vault.assetSpecifiers.cashAmount += amount;
+
+        // update the total balance tracker
+        tokenTotalBalance[cashToken] += amount;
+
+        // transfer in the cash
+        IERC20(cashToken).transferFrom(from, address(this), amount);
+
+        return vault.assetSpecifiers.cashAmount;
     }
 
-    function getLTV(Vault storage _vault) internal override view returns (uint256) {
+    function withrawCash(
+        bytes32 vaultUUID, 
+        uint256 amount, 
+        address to
+    ) external override vaultExists(vaultUUID) returns (uint256 newCashBalance) {
+        // grab refernce to the vault 
+        CollarVaultState.Vault storage vault = vaultsByUUID[vaultUUID];
+
+        // cache the token address
+        address cashToken = vault.assetSpecifiers.cashAsset;
+
+        // decrement the token balance of the vault
+        vault.assetSpecifiers.cashAmount -= amount;
+
+        // update the total balance tracker
+        tokenTotalBalance[cashToken] -= amount;
+
+        // transfer out the cash
+        IERC20(cashToken).transfer(to, amount);
+
+        // calculate & cache the ltv of the vault
+        uint256 ltv = getLTV(vault);
+
+        // revert if too low
+        if (ltv < vault.collarOpts.ltv) revert CollarVaultManagerErrors.ExceedsMinLTV(ltv, vault.collarOpts.ltv);
+
+        return vault.assetSpecifiers.cashAmount;
+    }
+
+    function getLTV(CollarVaultState.Vault storage _vault) internal override view returns (uint256) {
         uint256 cashValue = _vault.assetSpecifiers.cashAmount;
         uint256 referenceValue = _vault.collateralValueInitial;
 
