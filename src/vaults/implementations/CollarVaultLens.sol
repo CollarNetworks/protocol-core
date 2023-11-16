@@ -26,13 +26,13 @@ abstract contract CollarVaultLens is ICollarVaultLens, ICollarVaultManager {
     function isExpired(
         bytes32 vaultUUID
     ) public override view vaultExists(vaultUUID) returns (bool) {
-        return vaultsByUUID[vaultUUID].collarOpts.expiry > block.timestamp;
+        return vaultsByUUID[vaultUUID].expiry > block.timestamp;
     }
 
     function getExpiry(
         bytes32 vaultUUID
     ) public override view vaultExists(vaultUUID) returns (uint256) {
-        return vaultsByUUID[vaultUUID].collarOpts.expiry;
+        return vaultsByUUID[vaultUUID].expiry;
     }
 
     function timeRemaining(
@@ -43,10 +43,5 @@ abstract contract CollarVaultLens is ICollarVaultLens, ICollarVaultManager {
         if (expiry < block.timestamp) return 0;
 
         return expiry - block.timestamp;
-    }
-
-    function getLTV(bytes32 vaultUUID) public override view returns (uint256) {
-        CollarVaultState.Vault storage _vault = vaultsByUUID[vaultUUID];
-        return getLTV(_vault);
-    }   
+    } 
 }

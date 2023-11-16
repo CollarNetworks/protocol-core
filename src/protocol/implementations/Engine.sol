@@ -18,7 +18,7 @@ contract CollarEngine is ICollarEngine {
             revert VaultManagerAlreadyExists(msg.sender, addressToVaultManager[msg.sender]);
         }
 
-        address vaultManager = address(new CollarVaultManager(msg.sender));
+        address vaultManager = address(new CollarVaultManager(address(this), msg.sender));
         addressToVaultManager[msg.sender] = vaultManager;
 
         return vaultManager;
@@ -58,7 +58,7 @@ contract CollarEngine is ICollarEngine {
 
     function addSupportedCollarLength(
         uint256 length
-    ) external override isSupportedCollarLength(length) {
+    ) external override isNotSupportedCollarLength(length) {
         isValidCollarLength[length] = true;
     }
 
@@ -66,5 +66,9 @@ contract CollarEngine is ICollarEngine {
         uint256 length
     ) external override isSupportedCollarLength(length) {
         isValidCollarLength[length] = false;
+    }
+
+    function getHistoricalAssetPrice(address /*asset*/, uint256 /*timestamp*/) external override pure returns (uint256) {
+        revert("Method not yet implemented");
     }
 }

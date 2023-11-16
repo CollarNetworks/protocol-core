@@ -35,8 +35,8 @@ abstract contract ICollarVaultManager {
     /// @notice Total balance of any particular token across all vaults (cash)
     mapping(address token => uint256 totalBalance) public tokenTotalBalance;
 
-    constructor() {
-        engine = msg.sender;
+    constructor(address _engine) {
+        engine = _engine;
     }
 
     /// @notice Opens a vault with the given asset specifiers and collar options and liquidity sources, if possible
@@ -44,11 +44,12 @@ abstract contract ICollarVaultManager {
     /// @param assetSpecifiers The asset specifiers for the vault
     /// @param collarOpts The collar options for the vault
     /// @param liquidityOpts The liquidity options for the vault
+    /// @return UUID of the vault
     function openVault(
         CollarVaultState.AssetSpecifiers calldata assetSpecifiers,
         CollarVaultState.CollarOpts calldata collarOpts,
         CollarVaultState.LiquidityOpts calldata liquidityOpts
-    ) external virtual returns (bytes32);
+    ) external virtual returns (bytes32 UUID);
 
     /// @notice Closes a vault and returns the collateral to the user or market maker
     /// @dev This function will revert if the vault is not finalizable
@@ -61,25 +62,21 @@ abstract contract ICollarVaultManager {
     /// @param vaultUUID The UUID of the vault to deposit into
     /// @param amount The amount of cash to deposit
     /// @param from The address to send the cash from
+    /// @return newUnlockedCashBalance balance of the vault after the deposit
     function depositCash(
         bytes32 vaultUUID, 
         uint256 amount,
         address from
-    ) external virtual returns (uint256);
+    ) external virtual returns (uint256 newUnlockedCashBalance);
     
     /// @notice Allows a user to withdraw cash (take out a loan) from a particular vault
     /// @param vaultUUID The UUID of the vault to withdraw from
     /// @param amount The amount of cash to withdraw
     /// @param to The address to send the cash to
+    /// @return newUnlockedCashBalance balance of the vault after the withdrawal
     function withrawCash(
         bytes32 vaultUUID, 
         uint256 amount, 
         address to
-    ) external virtual returns (uint256);
-
-    /// @notice Returns the bps of the LTV ratio of the vault
-    /// @param _vault The vault to check (as a storage reference)
-    function getLTV(
-        CollarVaultState.Vault storage _vault
-    ) internal virtual view returns (uint256);
+    ) external virtual returns (uint256 newUnlockedCashBalance);
 }

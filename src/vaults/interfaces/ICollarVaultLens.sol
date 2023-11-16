@@ -24,8 +24,4 @@ abstract contract ICollarVaultLens {
     /// @notice Time remaining in seconds until the vault expires - 0 if already expired
     /// @param vaultUUID The UUID of the vault to check
     function timeRemaining(bytes32 vaultUUID) external virtual view returns (uint256);
-
-    /// @notice Returns the bps of the LTV ratio of the vault
-    /// @param vaultUUID The UUID of the vault to check
-    function getLTV(bytes32 vaultUUID) public virtual view returns (uint256);
 }

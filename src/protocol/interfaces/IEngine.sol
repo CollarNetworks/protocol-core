@@ -109,4 +109,9 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     /// @notice Removes a collar length from the list of supported collar lengths
     /// @param length The length to remove, in seconds
     function removeSupportedCollarLength(uint256 length) external virtual;
+
+    /// @notice Gets the price of a particular asset at a particular timestamp
+    /// @param asset The address of the asset to get the price of
+    /// @param timestamp The timestamp to get the price at
+    function getHistoricalAssetPrice(address asset, uint256 timestamp) external view virtual returns (uint256);
 }

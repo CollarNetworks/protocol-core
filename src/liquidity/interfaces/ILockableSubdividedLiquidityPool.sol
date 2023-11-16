@@ -24,20 +24,20 @@ abstract contract ILockableSubdividedLiquidityPool is ISubdividedLiquidityPool {
     /// @notice Lock liquidity at a specific tick
     /// @param amount how much to lock
     /// @param tick the tick to lock at
-    function lockLiquidityAtTick(uint256 amount, uint24 tick) public virtual;
+    function lockLiquidityAtTick(uint256 amount, uint24 tick) public virtual returns(uint256 totalLocked);
 
     /// @notice Unlock liquidity at a specific tick
     /// @param amount how much to unlock
     /// @param tick the tick to unlock at
-    function unlockLiquidityAtTick(uint256 amount, uint24 tick) public virtual;
+    function unlockLiquidityAtTick(uint256 amount, uint24 tick) public virtual returns(uint256 totalUnlocked);
 
     /// @notice Plural form of lockLiquidityAtTick
     /// @param amounts how much to lock at each tick
     /// @param ticks the ticks to lock at
-    function lockLiquidityAtTicks(uint256[] calldata amounts, uint24[] calldata ticks) public virtual;
+    function lockLiquidityAtTicks(uint256[] calldata amounts, uint24[] calldata ticks) public virtual returns (uint256 totalLocked);
 
     /// @notice Plural form of unlockLiquidityAtTick
     /// @param amounts how much to unlock at each tick
     /// @param ticks the ticks to unlock at
-    function unlockLiquidityAtTicks(uint256[] calldata amounts, uint24[] calldata ticks) public virtual;
+    function unlockLiquidityAtTicks(uint256[] calldata amounts, uint24[] calldata ticks) public virtual returns (uint256 totalUnlocked);
 }

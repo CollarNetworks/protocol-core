@@ -27,20 +27,23 @@ library CollarVaultManagerErrors {
     /// @notice Indicates that the vault specified does not exist
     error NonExistentVault(bytes32 vaultUUID);
 
+    /// @notice Indicates that the vault is inactive
+    error InactiveVault(bytes32 vaultUUID);
+
+    /// @notice Indicates that the vault is active
+    error NotYetExpired(bytes32 vaultUUID);
+
     /// @notice Indicates that the caller is not the owner of the contract, but should be
     error NotOwner(address who);
 
-    /// @notice Indicates that the ltv provided on vault open is not valid
-    error InvalidLTV(uint256 providedLTV);
+    /// @notice Indicates that the asset options provided are invalid
+    error InvalidAssetSpecifiers();
 
-    /// @notice Indicates that the provided call and strike parameters on vault open are not valid
-    error InvalidStrikeOpts(uint256 callStrike, uint256 putStrike);
+    /// @notice Indicates that the collar options provided are invalid
+    error InvalidCollarOpts();
 
-    /// @notice Indicates that the provided call strike prarameter is not valid
-    error InvalidCallStrike(uint256 callStrike);
-
-    /// @notice Indicates that the provided put strike parameter is not valid
-    error InvalidPutStrike(uint256 putStrike);
+    /// @notice Indicates that the liquidity options provided are invalid
+    error InvalidLiquidityOpts();
 
     /// @notice Indicates that there is not sufficient unlocked liquidity to open a vault with the provided parameters
     error InsufficientLiquidity(uint24 tick, uint256 amount, uint256 available);
@@ -53,9 +56,9 @@ library CollarVaultManagerErrors {
 library CollarVaultState {
     /// @notice This struct contains information about which assests (and how much of them) are in each vault
     /// @param collateralAsset The address of the collateral asset
-    /// @param collateralAmount The amount of the collateral asset
+    /// @param collateralAmount The minimumamount of the collateral asset
     /// @param cashAsset The address of the cash asset
-    /// @param cashAmount The amount of the cash asset
+    /// @param cashAmount The minimum amount of the cash asset to swap the collateral for
     struct AssetSpecifiers {
         address collateralAsset;
         uint256 collateralAmount;
@@ -64,13 +67,9 @@ library CollarVaultState {
     }
 
     /// @notice This struct contains information about the collar options for each vault
-    /// @param putStrike The strike price of the put option expressed as bps of starting price
-    /// @param callStrike The strike price of the call option expressed as bps of starting price
     /// @param expiry The expiry of the options express as a unix timestamp
     /// @param ltv The maximjum loan-to-value ratio of loans taken out of this vault, expressed as bps of the collateral value
     struct CollarOpts {
-        uint256 putStrike;
-        uint256 callStrike;
         uint256 expiry;
         uint256 ltv;
     }
@@ -86,30 +85,34 @@ library CollarVaultState {
     }
 
     /// @notice This struct represents each individual vault as a whole
-    /// @dev We use a mapping below to store each vault by unique identifier (UUID)
-    /// @param collateralAmountInitial The amount of collateral deposited into the vault at the time of creation
-    /// @param collateralPriceInitial The price of the collateral asset at the time of creation
-    /// @param withdrawn The amount of cash withdrawn as a loan
-    /// @param maxWithdrawable The maximum amount of cash withdrawable as a loan
-    /// @param nonWithdrawable The amount of cash that is not withdrawable as part of the loan
-    /// @param active Whether or not the vault is active (if true, it has not been finalized)
-    /// @param assetSpecifiers The asset specifiers for the vault
-    /// @param collarOpts The collar options for the vault
-    /// @param liquidityOpts The liquidity options for the vault
+    /// @param active Whether or not the vault is active
+    /// @param expiry The expiry of the vault - UNIX timestamp
+    /// @param ltv The loan-to-value ratio of the vault, expressed as bps of the collateral value
+    /// @param collateralAsset The address of the collateral asset
+    /// @param collateralAmount The amount of the collateral asset
+    /// @param cashAsset The address of the cash asset
+    /// @param cashAmount The amount of the cash asset
+    /// @param unlockedCashBalance The amount of cash that is unlocked (withdrawable)
+    /// @param lockedCashBalance The amount of cash that is locked (unwithdrawable)
+    /// @param liquidityPool The address of the liquidity pool where cash is locked
+    /// @param ticks The ticks where liquidity is locked
+    /// @param amounts The amounts of liquidity that are locked in each tick
     struct Vault {
-        uint256 collateralAmountInitial;
-        uint256 collateralPriceInitial;
-        uint256 collateralValueInitial;
+        bool active;        
+        uint256 expiry;
+        uint256 ltv;
 
-        uint256 withdrawn;
-        uint256 maxWithdrawable;
-        uint256 nonWithdrawable;
+        address collateralAsset;
+        uint256 collateralAmount;
+        address cashAsset;
+        uint256 cashAmount;
 
-        bool active;
+        uint256 unlockedCashBalance;
+        uint256 lockedCashBalance;
 
-        AssetSpecifiers assetSpecifiers;
-        CollarOpts collarOpts;
-        LiquidityOpts liquidityOpts;
+        address liquidityPool;
+        uint24[] ticks;
+        uint256[] amounts;
     }
 }
 

@@ -12,18 +12,21 @@ import { TestERC20 } from "../../utils/TestERC20.sol";
 import { CollarVaultState, CollarVaultConstants } from "../../../src/vaults/interfaces/CollarLibs.sol";
 import { CollarVaultManager } from "../../../src/vaults/implementations/CollarVaultManager.sol";
 import { CollarLiquidityPool } from "../../../src/liquidity/implementations/CollarLiquidityPool.sol";
+import { CollarEngine } from "../../../src/protocol/implementations/Engine.sol";
 
 contract CollarVaultManagerTest is Test {
     TestERC20 collateral;
     TestERC20 cash;
     CollarVaultManager manager;
-    CollarLiquiditiyPool pool;
+    CollarLiquidityPool pool;
+    CollarEngine engine;
 
     function setUp() public {
         collateral = new TestERC20("Collateral", "CLT");
         cash = new TestERC20("Cash", "CSH");
-        manager = new CollarVaultManager();
         pool = new CollarLiquidityPool(address(cash));
+        engine = new CollarEngine(address(this), address(manager));
+        manager = new CollarVaultManager(address(engine), address(this));
     }
 
     function test_createVault() public {
@@ -35,9 +38,7 @@ contract CollarVaultManagerTest is Test {
         );
 
         CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts(
-            90,
-            110,
-            block.timestamp + 90 days,
+            block.timestamp + 3 days,
             90
         );
 
@@ -56,6 +57,14 @@ contract CollarVaultManagerTest is Test {
             ticks,
             amounts
         );
+
+        cash.mint(address(this), 2000e18);
+        cash.approve(address(pool), 2000e18);
+        pool.depositToTicks(address(this), amounts, ticks);
+
+        engine.addSupportedCashAsset(address(cash));
+        engine.addSupportedCollateralAsset(address(collateral));
+        engine.addSupportedCollarLength(3 days);
 
         bytes32 uuid = manager.openVault(
             assetOpts,
