@@ -17,6 +17,10 @@ abstract contract CollarVaultLens is ICollarVaultLens, ICollarVaultManager {
         _;
     }
 
+    function getVault(bytes32 vaultUUID) public view returns (CollarVaultState.Vault memory) {
+        return vaultsByUUID[vaultUUID];
+    }
+
     function isActive(
         bytes32 vaultUUID
     ) public override view vaultExists(vaultUUID) returns (bool) {

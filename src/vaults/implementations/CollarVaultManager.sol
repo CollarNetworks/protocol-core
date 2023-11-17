@@ -46,8 +46,10 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
             amountOutMinimum: assetSpecifiers.cashAmount,
             sqrtPriceLimitX96: 0
         });
-
-        uint256 cashAmount = ISwapRouter(payable(ICollarEngine(engine).DEX())).exactInputSingle(swapParams);
+    
+        IERC20(assetSpecifiers.collateralAsset).transferFrom(msg.sender, address(this), assetSpecifiers.collateralAmount);
+        IERC20(assetSpecifiers.collateralAsset).approve(ICollarEngine(engine).dexRouter(), assetSpecifiers.collateralAmount);
+        uint256 cashAmount = ISwapRouter(payable(ICollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
 
         // mark LTV as withdrawable and the rest as locked
         uint256 unlockedCashBalance = (cashAmount * collarOpts.ltv) / 10000;

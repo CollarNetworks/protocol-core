@@ -23,7 +23,7 @@ abstract contract ICollarEngineErrors {
 
 abstract contract ICollarEngine is ICollarEngineErrors {
 
-    address public constant DEX = address(0xDEAD);
+    address public immutable dexRouter;
 
     modifier isValidCollateralAsset(address asset) {
         if (!isSupportedCollateralAsset[asset]) revert CollateralAssetNotSupported(asset);
@@ -73,9 +73,10 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     
     /// @notice Initializes the engine.
     /// @param _core The address of the core contract.
-    constructor(address _core, address _liquidityPoolManager) {
+    constructor(address _core, address _liquidityPoolManager, address _dexRouter) {
         core = _core;
         liquidityPoolManager = _liquidityPoolManager;
+        dexRouter = _dexRouter;
     }
 
     /// @notice Creates a vault manager contract for the user that calls this function, if it does not already exist

@@ -14,6 +14,8 @@ contract CollarLiquidityPool is ICollarLiquidityPool, LockableSubdividedLiquidit
     constructor(address _asset) LockableSubdividedLiquidityPool(_asset) {}
 
     function tickToBpsOffset(uint24 tick) public pure override returns (uint256) {
+        // 1% per tick
+        // so 100% is 10_000
         return tick * 100;
     }
 
