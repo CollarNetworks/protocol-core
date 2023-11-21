@@ -56,6 +56,9 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         uint256 unlockedCashBalance = (cashAmount * collarOpts.ltv) / 10000;
         uint256 lockedCashBalance = cashAmount - unlockedCashBalance;
 
+        // increment vault count
+        vaultCount++;
+
         // generate UUID and set vault storage
         vaultUUID = keccak256(abi.encodePacked(user, vaultCount));
 
@@ -79,9 +82,6 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
 
         tokenVaultCount[assetSpecifiers.cashAsset]++;
         tokenTotalBalance[assetSpecifiers.cashAsset] += assetSpecifiers.collateralAmount;
-
-        // increment vault count
-        vaultCount++;
 
         // emit event
         emit CollarVaultManagerEvents.VaultOpened(vaultUUID);
@@ -181,7 +181,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         return vault.unlockedCashBalance;
     }
 
-    function withrawCash(
+    function withdrawCash(
         bytes32 vaultUUID, 
         uint256 amount, 
         address to

@@ -74,7 +74,7 @@ abstract contract ICollarVaultManager {
     /// @param amount The amount of cash to withdraw
     /// @param to The address to send the cash to
     /// @return newUnlockedCashBalance balance of the vault after the withdrawal
-    function withrawCash(
+    function withdrawCash(
         bytes32 vaultUUID, 
         uint256 amount, 
         address to
