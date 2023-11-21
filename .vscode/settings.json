@@ -1,4 +1,5 @@
 {
     "solidity.monoRepoSupport": false,
-    "solidity.enabledAsYouTypeCompilationErrorCheck": true
+    "solidity.enabledAsYouTypeCompilationErrorCheck": true,
+    "solidity.defaultCompiler": "localFile"
 }

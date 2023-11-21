@@ -39,7 +39,7 @@ library TickCalculations {
     /// @param tickScaleFactor The tickScaleFactor to use for the conversion
     /// @param startingPrice The price at which the tick starts
     function tickToPrice(uint24 tick, uint256 tickScaleFactor, uint256 startingPrice) public pure returns (uint256) {
-        return (startingPrice * tickToBps(tick, tickScaleFactor)) / 10_000;
+        return (startingPrice * tickToBps(tick, tickScaleFactor)) / (10_000 / tickScaleFactor);
     }
 
     /// @notice Given some price and a specified starting price, returns the tick at that price
@@ -47,6 +47,6 @@ library TickCalculations {
     /// @param tickScaleFactor The tickScaleFactor to use for the conversion
     /// @param startingPrice The price at which the tick starts
     function priceToTick(uint256 price, uint256 tickScaleFactor, uint256 startingPrice) public pure returns (uint24) {
-        return bpsToTick((price * 10_000) / startingPrice, tickScaleFactor);
+        return bpsToTick((price * (10_000 / tickScaleFactor)) / startingPrice, tickScaleFactor);
     }
 }
