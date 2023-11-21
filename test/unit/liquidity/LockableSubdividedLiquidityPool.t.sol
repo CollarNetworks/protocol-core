@@ -19,7 +19,7 @@ contract LockableSubdividedLiquidityPoolTest is Test {
 
     function setUp() public {
         asset = new TestERC20("Test", "TST");
-        pool = new LockableSubdividedLiquidityPool(address(asset));
+        pool = new LockableSubdividedLiquidityPool(address(asset), 1); // 0.01% per tick
         other = makeAddr("other");
     }
 

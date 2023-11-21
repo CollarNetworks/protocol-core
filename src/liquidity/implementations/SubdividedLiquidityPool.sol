@@ -13,10 +13,14 @@ import { SharedLiquidityPoolErrors } from "../interfaces/ISharedLiquidityPool.so
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract SubdividedLiquidityPool is ISubdividedLiquidityPool, SharedLiquidityPool {
+    uint256 public immutable scaleFactor;
+
     /// @notice Liquidity available at each tick for each address
     mapping(uint24 => mapping(address => uint256)) public liquidityAtTickByAddress;
 
-    constructor(address _asset) SharedLiquidityPool(_asset) {}
+    constructor(address _asset, uint256 _scaleFactor) SharedLiquidityPool(_asset) {
+        scaleFactor = _scaleFactor;
+    }
 
     function depositToTick(
         address from, 

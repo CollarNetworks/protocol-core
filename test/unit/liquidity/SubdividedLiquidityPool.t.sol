@@ -20,7 +20,7 @@ contract LiquidityPoolTest is Test {
 
     function setUp() public {
         asset = new TestERC20("Test", "TST");
-        pool = new SubdividedLiquidityPool(address(asset));
+        pool = new SubdividedLiquidityPool(address(asset), 1); // 0.01% per tick
         other = makeAddr("other");
     }
 

@@ -16,6 +16,7 @@ import { CollarLiquidityPool } from "../../liquidity/implementations/CollarLiqui
 import { ICollarLiquidityPoolManager } from "../../protocol/interfaces/ICollarLiquidityPoolManager.sol";
 import { CollarVaultState, CollarVaultManagerErrors, CollarVaultManagerEvents, CollarVaultConstants } from "../../vaults/interfaces/CollarLibs.sol";
 import { CollarVaultLens } from "./CollarVaultLens.sol";
+import { TickCalculations } from "../../liquidity/implementations/TickCalculations.sol";
 
 contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarVaultLens {
     constructor(address _engine, address _owner) ICollarVaultManager(_engine) {
@@ -114,6 +115,8 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         // if it is above the call strike, this liquidity unit goes to the user
         // if it is in between, the amount above the put strike goes to the user and the remaining goes to the market maker
 
+        uint256 scaleFactor = CollarLiquidityPool(vault.liquidityPool).scaleFactor();
+
         uint24[] memory ticks = vault.ticks;
         uint256[] memory amounts = vault.amounts;
 
@@ -123,7 +126,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
             uint24 tickIndex = ticks[tick];
             uint256 amount = amounts[tick];
 
-            uint256 tickPrice = CollarLiquidityPool(vault.liquidityPool).tickToPrice(tickIndex, startingPrice);
+            uint256 tickPrice = TickCalculations.tickToPrice(tickIndex, scaleFactor, startingPrice);
 
             uint256 marketMakerAmount = 0;
             uint256 userAmount = 0;

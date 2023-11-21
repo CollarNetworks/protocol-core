@@ -7,13 +7,14 @@
 
 pragma solidity ^0.8.18;
 
-import "lib/forge-std/src/Test.sol";
+import "forge-std/Test.sol";
 import { TestERC20 } from "../../utils/TestERC20.sol";
 import { CollarVaultState, CollarVaultConstants } from "../../../src/vaults/interfaces/CollarLibs.sol";
 import { CollarVaultManager } from "../../../src/vaults/implementations/CollarVaultManager.sol";
 import { CollarLiquidityPool } from "../../../src/liquidity/implementations/CollarLiquidityPool.sol";
 import { CollarEngine } from "../../../src/protocol/implementations/Engine.sol";
 import { MockUniRouter } from "../../utils/MockUniRouter.sol";
+import { ArrayHelpersUint24, ArrayHelpersUint256 } from "../../utils/ArrayHelpers.sol";
 
 contract CollarVaultManagerTest is Test {
     TestERC20 collateral;
@@ -23,45 +24,38 @@ contract CollarVaultManagerTest is Test {
     CollarEngine engine;
     MockUniRouter router;
 
+    CollarVaultState.AssetSpecifiers defaultAssetOpts;
+    CollarVaultState.CollarOpts defaultCollarOpts;
+    CollarVaultState.LiquidityOpts defaultLiquidityOpts;
+
     function setUp() public {
         // create contracts
         collateral = new TestERC20("Collateral", "CLT");
         cash = new TestERC20("Cash", "CSH");
-        pool = new CollarLiquidityPool(address(cash));
+        pool = new CollarLiquidityPool(address(cash), 1); // 0.01% per tick 
         router = new MockUniRouter();
         engine = new CollarEngine(address(this), address(manager), address(router));
         manager = new CollarVaultManager(address(engine), address(this));
-    }
 
-    function test_createVault() public {
-        // 1/3 params for vault creation
-        CollarVaultState.AssetSpecifiers memory assetOpts = CollarVaultState.AssetSpecifiers(
+        // set up some default vars to be used in (some) tests
+        defaultAssetOpts = CollarVaultState.AssetSpecifiers(
             address(collateral),
             1000e18,    // we want to deposit 1000 tokens of collateral
             address(cash),
             1000e18     // we are expecting this to swap for, at minimum, 1000 tokens of cash
         );
 
-        // 2/3 params for vault creation
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts(
+        defaultCollarOpts = CollarVaultState.CollarOpts(
             block.timestamp + 3 days,   // vault expiry will be in 3 days
             9_000                       // 90% ltv
         );
+    }
 
-        // we're going to pull from a single tick in the liquidity pool - representing a callstrike of 110% the current price
-        uint24[] memory ticks = new uint24[](1);
-        ticks[0] = 11_000;
+    function test_createVault() public {
+        uint24[] memory ticks = ArrayHelpersUint24.uint24Array(11_000);      // callstrike @ 110%
+        uint256[] memory amounts = ArrayHelpersUint256.uint256Array(100e18); // 100 tokens of liqudity to be locked @ callstrike
 
-        // we're going to need to lock 100 tokens of liquidity in this tick to cover the call-striek point
-        uint256[] memory amounts = new uint256[](1);
-        amounts[0] = 100e18;
-
-        // 3/3 params for vault creation
-        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(
-            address(pool),
-            ticks,
-            amounts
-        );
+        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), ticks, amounts);
 
         // mint ourselves cash so we can deposit to the liquidity pool
         cash.mint(address(this), 2000e18);
@@ -79,11 +73,7 @@ contract CollarVaultManagerTest is Test {
         collateral.approve(address(manager), 5000e18);
 
         // finally, open the vault
-        bytes32 uuid = manager.openVault(
-            assetOpts,
-            collarOpts,
-            liquidityOpts
-        );
+        bytes32 uuid = manager.openVault(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
 
         // there should only be one vault that exists for this manager
         assertEq(manager.vaultCount(), 1);

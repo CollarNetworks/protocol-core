@@ -16,7 +16,7 @@ contract LockableSubdividedLiquidityPool is ILockableSubdividedLiquidityPool, Su
     /// @notice Liquidity available at each tick for each address
     mapping(uint24 => mapping(address => uint256)) public lockedliquidityAtTickByAddress;
 
-    constructor(address _asset) SubdividedLiquidityPool(_asset) {}
+    constructor(address _asset, uint256 _scaleFactor) SubdividedLiquidityPool(_asset, _scaleFactor) {}
 
     function lockLiquidityAtTick(
         uint256 amount, 
