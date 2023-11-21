@@ -224,4 +224,32 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.unlockedCashBalance, 1000e18);
         assertEq(vault.lockedCashBalance, 100e18);
     }
+
+    /*
+    function test_finalizeVault() public {
+        // create liquidity options
+        uint24[] memory ticks = ArrayHelpersUint24.uint24Array(11_000);      // callstrike @ 110%
+        uint256[] memory amounts = ArrayHelpersUint256.uint256Array(100e18); // 100 tokens of liqudity to be locked @ callstrike
+        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), ticks, amounts);
+
+        // deposit to the liquidity pool
+        pool.depositToTicks(address(this), amounts, ticks);
+
+        // open the vault
+        bytes32 uuid = manager.openVault(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
+
+        // finalize the vault
+        manager.finalizeVault(uuid);
+
+        // grab the vault state so we can check it
+        CollarVaultState.Vault memory vault = manager.getVault(uuid);
+
+        assertEq(vault.unlockedCashBalance, 0);
+        assertEq(vault.lockedCashBalance, 0);
+        assertEq(vault.collateralAmount, 0);
+        assertEq(vault.cashAmount, 0);
+        assertEq(vault.ticks.length, 0);
+        assertEq(vault.amounts.length, 0);
+    }
+    */
 }

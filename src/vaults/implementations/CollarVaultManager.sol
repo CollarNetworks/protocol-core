@@ -92,13 +92,10 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
     function finalizeVault(
         bytes32 vaultUUID
     ) external override vaultExists(vaultUUID) returns (int256 net) {
-        // get vault info
         CollarVaultState.Vault storage vault = vaultsByUUID[vaultUUID];
 
-        // verify vault is active
+        // verify vault is active & expired
         if (!vault.active) revert CollarVaultManagerErrors.InactiveVault(vaultUUID);
-
-        // verify vault is expired
         if (vault.expiry < block.timestamp) revert CollarVaultManagerErrors.NotYetExpired(vaultUUID);
 
         // calculate payouts to user and/or market maker
@@ -106,8 +103,6 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
 
         // for now, we're using ltv as a standin for put-strike
         uint256 putStrikePrice = (vault.ltv * vault.cashAmount) / 10_000;
-
-        // calculate the initial price
         uint256 startingPrice = vault.collateralAmount / vault.cashAmount;
 
         // for each tick of liquidity locked, calculate whether it is below the put strike, above the call strike, or somewhere in between
