@@ -113,10 +113,6 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         uint256 putStrikePrice = (vault.ltv * vault.cashAmount) / 10_000;
         uint256 startingPrice = vault.collateralAmount / vault.cashAmount;
 
-        // for each tick of liquidity locked, calculate whether it is below the put strike, above the call strike, or somewhere in between
-        // if it is below the put strike, this liquidity unit goes to the market maker, as well as the locked cash balance
-        // if it is above the call strike, this liquidity unit goes to the user, as well as the locked cash balance
-        // if it is in between, the amount above the put strike goes to the user and the rest to the market maker
         uint256 poolScaleFactor = CollarLiquidityPool(vault.liquidityPool).scaleFactor();
 
         uint24[] memory ticks = vault.callStrikeTicks;
