@@ -56,7 +56,7 @@ abstract contract ICollarVaultManager {
     /// @param vaultUUID The UUID of the vault to close
     function finalizeVault(
         bytes32 vaultUUID
-    ) external virtual returns (int256);
+    ) external virtual;
 
     /// @notice Allows a user to deposit cash (repay their loan) into a particular vault
     /// @param vaultUUID The UUID of the vault to deposit into

@@ -99,7 +99,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
 
     function finalizeVault(
         bytes32 vaultUUID
-    ) external override vaultExists(vaultUUID) returns (int256 net) {
+    ) external override vaultExists(vaultUUID) {
         CollarVaultState.Vault storage vault = vaultsByUUID[vaultUUID];
 
         // verify vault is active & expired
@@ -109,7 +109,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         // calculate payouts to user and/or market maker
         uint256 collateralPriceFinal = ICollarEngine(engine).getHistoricalAssetPrice(vault.collateralAsset, vault.expiry);
 
-        // for now, we're using ltv as a standin for put-strike
+        // ltv = put-strike
         uint256 putStrikePrice = (vault.ltv * vault.cashAmount) / 10_000;
         uint256 startingPrice = vault.collateralAmount / vault.cashAmount;
 
@@ -282,8 +282,6 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
 
         // mark vault as finalized
         vault.active = false;
-
-        return net;
     }
 
     function depositCash(
