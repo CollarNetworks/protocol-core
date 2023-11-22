@@ -5,6 +5,9 @@
  * All rights reserved. No warranty, explicit or implicit, provided.
  */
 
+// how does this contract work exactly? let's ask chatGPT
+// https://chat.openai.com/share/0b6207d4-25b0-4853-acb8-2e78332295ee
+
 pragma solidity ^0.8.18;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -124,8 +127,6 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
 
         uint256[] memory payoutsToMarketMakersFromPool = new uint256[](ticks.length);
         uint256[] memory payoutsToMarketMakersFromVault = new uint256[](ticks.length);
-
-        uint256 recoverRatio = startingPrice < collateralPriceFinal ? 1 : (startingPrice - collateralPriceFinal) / startingPrice;
 
         // each vault has a locked cash balance in the VAULT itself - this covers from the put strike to the starting price
         // each vault has a locked cash balance in the POOL itself - this covers from the starting price to the call strike
