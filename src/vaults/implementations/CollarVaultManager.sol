@@ -6,7 +6,7 @@
  */
 
 // how does this contract work exactly? let's ask chatGPT
-// https://chat.openai.com/share/0b6207d4-25b0-4853-acb8-2e78332295ee
+// https://chat.openai.com/share/fcdbd3fa-5aa3-42ef-8c61-cbcfe7f09524
 
 pragma solidity ^0.8.18;
 
