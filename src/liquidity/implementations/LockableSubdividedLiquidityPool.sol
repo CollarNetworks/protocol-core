@@ -63,6 +63,10 @@ contract LockableSubdividedLiquidityPool is ILockableSubdividedLiquidityPool, Su
         }
     }
 
+    function lockLiquidityAtTicks(uint256 total, uint256[] calldata ratios, uint24[] calldata ticks) public virtual override returns (uint256 totalUnlocked) {
+        revert("Method not yet implemented");
+    }
+
     function unlockLiquidityAtTicks(
         uint256[] calldata amounts, 
         uint24[] calldata ticks
@@ -80,6 +84,10 @@ contract LockableSubdividedLiquidityPool is ILockableSubdividedLiquidityPool, Su
 
             totalUnlocked += amount;
         }
+    }
+
+    function unlockLiquidityAtTicks(uint256 total, uint256[] calldata ratios, uint24[] calldata ticks) public virtual override returns (uint256 totalUnlocked) {
+        revert("Method not yet implemented");
     }
     
     function withdrawFromTick(
@@ -114,4 +122,16 @@ contract LockableSubdividedLiquidityPool is ILockableSubdividedLiquidityPool, Su
 
         super.withdrawFromTicks(to, amounts, ticks);
     }   
+
+    function rewardLiquidityToTick(uint256 amount, uint24 tick) public override {
+        revert("Method not yet implemented");
+    }
+
+    function rewardLiquidityToTicks(uint256[] calldata amounts, uint24[] calldata ticks) public override {
+        revert("Method not yet implemented");
+    }
+
+    function rewardLiquidityToTicks(uint256 total, uint256[] calldata ratios, uint24[] calldata ticks) public override {
+        revert("Method not yet implemented");
+    }
 }

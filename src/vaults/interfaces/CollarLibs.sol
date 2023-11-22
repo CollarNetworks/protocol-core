@@ -76,12 +76,14 @@ library CollarVaultState {
 
     /// @notice This struct contains information about how to source the liquidity for each vault
     /// @param liquidityPool The address of the liquidity pool to draw from
+    /// @param totalLiquidity The total amount of liquidity to draw from the liquidity pool
     /// @param ticks The ticks from which to draw liquidity
-    /// @param amounts The amounts of liquidity to draw from each tick
+    /// @param ratios The ratios of liquidity to draw from in the liquidity pool; must sum to 1e12
     struct LiquidityOpts {
         address liquidityPool;
+        uint256 totalLiquidity;
         uint24[] ticks;
-        uint256[] amounts;
+        uint256[] ratios;
     }
 
     /// @notice This struct represents each individual vault as a whole
@@ -92,27 +94,52 @@ library CollarVaultState {
     /// @param collateralAmount The amount of the collateral asset
     /// @param cashAsset The address of the cash asset
     /// @param cashAmount The amount of the cash asset
-    /// @param unlockedCashBalance The amount of cash that is unlocked (withdrawable)
-    /// @param lockedCashBalance The amount of cash that is locked (unwithdrawable)
+    /// @param unlockedCashTotal The amount of cash that is unlocked (withdrawable) total
+    /// @param lockedCashTotal The amount of cash that is locked (unwithdrawable) total
     /// @param liquidityPool The address of the liquidity pool where cash is locked
-    /// @param ticks The ticks where liquidity is locked
-    /// @param amounts The amounts of liquidity that are locked in each tick
+    /// @param callStrikeTicks The ticks where liquidity is locked, representing potential callstriek payouts
+    /// @param tickRatios The ratios of liquidity that are locked in each tick, representing potential callstrike payouts; should sum to 1e12
+    /// @param callStrikeAmounts The amounts of liquidity that are locked in each tick< representing potential callstrike payouts
     struct Vault {
-        bool active;        
+        bool active;
+
+        // --- INITIAL VAULT PARAMETERS --- ///
+
         uint256 expiry;
         uint256 ltv;
 
-        address collateralAsset;
-        uint256 collateralAmount;
-        address cashAsset;
-        uint256 cashAmount;
-
-        uint256 unlockedCashBalance;
-        uint256 lockedCashBalance;
-
         address liquidityPool;
-        uint24[] ticks;
-        uint256[] amounts;
+
+        address cashAsset;
+        address collateralAsset;
+
+        // the cash amount is the amount of cash that we swap the collateral for
+        uint256 cashAmount;
+        uint256 collateralAmount;
+
+        // this specififes the exact call strikes that are to be used
+        // but not now much liquidity to use/lock at each callstirke - that comes later
+        uint24[] callStrikeTicks;
+
+        // this array of length equal to the above callStrikeTicks array indicates the ratio of lquidity
+        // to pull from each tick provided in the above array
+        // it must sum to a total of 1e12 or the entire operation should revert
+        // these indicate the the ratio at which liquidity is locked at various ticks,
+        uint256[] tickRatios;
+
+        // the total locked cash in the vault is the amount that might be forfeit
+        // to the market maker in the worst possible case (for the user)
+        uint256 lockedVaultCashTotal;
+
+        // the total locked cash in the pool is the amount that might be forfeit
+        // to the user in the worse possible case (for the market maker)
+        uint256 lockedPoolCashTotal;
+
+        /// --- DYNAMIC VAULT PARAMETERS --- ///
+
+        // the total unlocked cash in the vault is the amount that can be withdrawn by the user
+        // this amount will obviously change over time as the vault is withdrawn from by the user
+        uint256 unlockedVaultCashTotal;
     }
 }
 

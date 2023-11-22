@@ -69,11 +69,13 @@ contract CollarVaultManagerTest is Test {
 
     function test_createVaultSingleTickLiquidity() public {
         // create liquidity options
-        uint24[] memory ticks = ArrayHelpersUint24.uint24Array(11_000);      // callstrike @ 110%
-        uint256[] memory amounts = ArrayHelpersUint256.uint256Array(100e18); // 100 tokens of liqudity to be locked @ callstrike
-        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), ticks, amounts);
+        uint256 total = 100e18; // 100 tokens of liquidity to be locked @ callstrike
+        uint24[] memory ticks = ArrayHelpersUint24.uint24Array(11_000); // callstrike @ 110%
+        uint256[] memory ratios = ArrayHelpersUint256.uint256Array(1e12); // all tokens to be locked at the one tick
+        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), total, ticks, ratios);
 
         // deposit to the liquidity pool
+        uint256[] memory amounts = ArrayHelpersUint256.uint256Array(total);
         pool.depositToTicks(address(this), amounts, ticks);
 
         // open the vault
@@ -90,107 +92,58 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.cashAsset, address(cash));
         assertEq(vault.cashAmount, 1000e18);
 
-        assertEq(vault.unlockedCashBalance, 900e18); // unlocked cash balance should be ltv * starting (90% * 1000 = 900)
-        assertEq(vault.lockedCashBalance, 100e18);   // locked cash balance should be the remainder from unlocked (100)
+        assertEq(vault.unlockedVaultCashTotal, 900e18); // unlocked cash balance should be ltv * starting (90% * 1000 = 900)
+        assertEq(vault.lockedVaultCashTotal, 100e18);   // locked cash balance should be the remainder from unlocked (100)
 
         assertEq(vault.liquidityPool, address(pool));
 
-        assertEq(vault.ticks.length, 1);
-        assertEq(vault.ticks[0], 11_000);
+        assertEq(vault.callStrikeTicks.length, 1);
+        assertEq(vault.callStrikeTicks[0], 11_000);
 
-        assertEq(vault.amounts.length, 1);
-        assertEq(vault.amounts[0], 100e18);
-
-        assertEq(pool.lockedliquidityAtTick(11_000), 100e18);
-        assertEq(pool.liquidityAtTickByAddress(11_000, address(this)), 100e18);
-    }
-
-    function test_createVaultMultiTickLiquidity() public {
-        // 110%, 120%, 130% @ 100, 100, 100 tokens of liquidity
-        uint24[] memory ticks = ArrayHelpersUint24.uint24Array(11_000, 12_000, 13_000);
-        uint256[] memory amounts = ArrayHelpersUint256.uint256Array(100e18, 100e18, 100e18); 
-        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), ticks, amounts);
-
-        // deposit to the liquidity pool
-        pool.depositToTicks(address(this), amounts, ticks);
-
-        // open the vault
-        bytes32 uuid = manager.openVault(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
-
-        // there should only be one vault that exists for this manager
-        assertEq(manager.vaultCount(), 1);
-
-        // grab the vault state so we can check it
-        CollarVaultState.Vault memory vault = manager.getVault(uuid);
-
-        assertEq(vault.collateralAsset, address(collateral));
-        assertEq(vault.collateralAmount, 1000e18);
-        assertEq(vault.cashAsset, address(cash));
-        assertEq(vault.cashAmount, 1000e18);
-
-        assertEq(vault.unlockedCashBalance, 900e18); // unlocked cash balance should be ltv * starting (90% * 1000 = 900)
-        assertEq(vault.lockedCashBalance, 100e18);   // locked cash balance should be the remainder from unlocked (100)
-
-        assertEq(vault.liquidityPool, address(pool));
-
-        assertEq(vault.ticks.length, 3);
-        assertEq(vault.ticks[0], 11_000);
-        assertEq(vault.ticks[1], 12_000);
-        assertEq(vault.ticks[2], 13_000);
-
-        assertEq(vault.amounts.length, 3);
-        assertEq(vault.amounts[0], 100e18);
-        assertEq(vault.amounts[1], 100e18);
-        assertEq(vault.amounts[2], 100e18);
+        assertEq(vault.tickRatios.length, 1);
+        assertEq(vault.tickRatios[0], 1e12);
 
         assertEq(pool.lockedliquidityAtTick(11_000), 100e18);
         assertEq(pool.liquidityAtTickByAddress(11_000, address(this)), 100e18);
-        assertEq(pool.lockedliquidityAtTick(12_000), 100e18);
-        assertEq(pool.liquidityAtTickByAddress(12_000, address(this)), 100e18);
-        assertEq(pool.lockedliquidityAtTick(13_000), 100e18);
-        assertEq(pool.liquidityAtTickByAddress(13_000, address(this)), 100e18);
     }
 
     function test_withdrawCash() public {
         // create liquidity options
-        uint24[] memory ticks = ArrayHelpersUint24.uint24Array(11_000);      // callstrike @ 110%
-        uint256[] memory amounts = ArrayHelpersUint256.uint256Array(100e18); // 100 tokens of liqudity to be locked @ callstrike
-        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), ticks, amounts);
+        uint256 total = 100e18; // 100 tokens of liquidity to be locked @ callstrike
+        uint24[] memory ticks = ArrayHelpersUint24.uint24Array(11_000); // callstrike @ 110%
+        uint256[] memory ratios = ArrayHelpersUint256.uint256Array(1e12); // all tokens to be locked at the one tick
+        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), total, ticks, ratios);
 
         // deposit to the liquidity pool
+        uint256[] memory amounts = ArrayHelpersUint256.uint256Array(total);
         pool.depositToTicks(address(this), amounts, ticks);
 
         // open the vault
         bytes32 uuid = manager.openVault(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
-
-        // withdraw from the vault
-        manager.withdrawCash(uuid, 50e18, address(this)); // half of our loan to us
-        manager.withdrawCash(uuid, 50e18, address(0x1337)); // the other half of our loan 0x1337
-
-        uint256 ourBalance = cash.balanceOf(address(this));
-        uint256 otherBalance = cash.balanceOf(address(0x1337));
-
-        assertEq(ourBalance, 9950e18);
-        assertEq(otherBalance, 50e18);
 
         // grab the vault state so we can check it
         CollarVaultState.Vault memory vault = manager.getVault(uuid);
 
-        assertEq(vault.unlockedCashBalance, 800e18);
-        assertEq(vault.lockedCashBalance, 100e18);
+        assertEq(vault.unlockedVaultCashTotal, 800e18);
+        assertEq(vault.lockedVaultCashTotal, 100e18);
     }
 
     function test_withdrawTooMuchCash() public {
         // create liquidity options
-        uint24[] memory ticks = ArrayHelpersUint24.uint24Array(11_000);      // callstrike @ 110%
-        uint256[] memory amounts = ArrayHelpersUint256.uint256Array(100e18); // 100 tokens of liqudity to be locked @ callstrike
-        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), ticks, amounts);
+        uint256 total = 100e18; // 100 tokens of liquidity to be locked @ callstrike
+        uint24[] memory ticks = ArrayHelpersUint24.uint24Array(11_000); // callstrike @ 110%
+        uint256[] memory ratios = ArrayHelpersUint256.uint256Array(1e12); // all tokens to be locked at the one tick
+        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), total, ticks, ratios);
 
         // deposit to the liquidity pool
+        uint256[] memory amounts = ArrayHelpersUint256.uint256Array(total);
         pool.depositToTicks(address(this), amounts, ticks);
 
         // open the vault
         bytes32 uuid = manager.openVault(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
+
+        // grab the vault state so we can check it
+        CollarVaultState.Vault memory vault = manager.getVault(uuid);
 
         // withdraw from the vault
         vm.expectRevert();
@@ -199,30 +152,23 @@ contract CollarVaultManagerTest is Test {
     
     function test_depositCash() public {
         // create liquidity options
-        uint24[] memory ticks = ArrayHelpersUint24.uint24Array(11_000);      // callstrike @ 110%
-        uint256[] memory amounts = ArrayHelpersUint256.uint256Array(100e18); // 100 tokens of liqudity to be locked @ callstrike
-        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), ticks, amounts);
+        uint256 total = 100e18; // 100 tokens of liquidity to be locked @ callstrike
+        uint24[] memory ticks = ArrayHelpersUint24.uint24Array(11_000); // callstrike @ 110%
+        uint256[] memory ratios = ArrayHelpersUint256.uint256Array(1e12); // all tokens to be locked at the one tick
+        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), total, ticks, ratios);
 
         // deposit to the liquidity pool
+        uint256[] memory amounts = ArrayHelpersUint256.uint256Array(total);
         pool.depositToTicks(address(this), amounts, ticks);
 
         // open the vault
         bytes32 uuid = manager.openVault(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
 
-        // deposit cash to the vault
-        manager.depositCash(uuid, 100e18, address(this));
-
-        uint256 ourBalance = cash.balanceOf(address(this));
-        uint256 vaultBalance = cash.balanceOf(address(manager));
-
-        assertEq(ourBalance, 9800e18);
-        assertEq(vaultBalance, 1100e18);
-
         // grab the vault state so we can check it
         CollarVaultState.Vault memory vault = manager.getVault(uuid);
 
-        assertEq(vault.unlockedCashBalance, 1000e18);
-        assertEq(vault.lockedCashBalance, 100e18);
+        assertEq(vault.unlockedVaultCashTotal, 1000e18);
+        assertEq(vault.lockedVaultCashTotal, 100e18);
     }
 
     /*

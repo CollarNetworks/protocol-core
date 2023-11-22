@@ -34,7 +34,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         validateLiquidity(liquidityOpts);
 
         // attempt to lock the liquidity (to pay out max call strike)
-        CollarLiquidityPool(liquidityOpts.liquidityPool).lockLiquidityAtTicks(liquidityOpts.amounts, liquidityOpts.ticks);
+        CollarLiquidityPool(liquidityOpts.liquidityPool).lockLiquidityAtTicks(liquidityOpts.totalLiquidity, liquidityOpts.ratios, liquidityOpts.ticks);
 
         // swap entire amount of collateral for cash
         ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter.ExactInputSingleParams({
@@ -53,8 +53,8 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         uint256 cashAmount = ISwapRouter(payable(ICollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
 
         // mark LTV as withdrawable and the rest as locked
-        uint256 unlockedCashBalance = (cashAmount * collarOpts.ltv) / 10000;
-        uint256 lockedCashBalance = cashAmount - unlockedCashBalance;
+        uint256 unlockedVaultCashTotal = (cashAmount * collarOpts.ltv) / 10000;
+        uint256 lockedVaultCashTotal = cashAmount - unlockedVaultCashTotal;
 
         // increment vault count
         vaultCount++;
@@ -63,18 +63,23 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         vaultUUID = keccak256(abi.encodePacked(user, vaultCount));
 
         vaultsByUUID[vaultUUID] = CollarVaultState.Vault(
-            true,
-            collarOpts.expiry,
-            collarOpts.ltv,
-            assetSpecifiers.collateralAsset,
-            assetSpecifiers.collateralAmount,
-            assetSpecifiers.cashAsset,
-            cashAmount,
-            unlockedCashBalance,
-            lockedCashBalance,
-            liquidityOpts.liquidityPool,
-            liquidityOpts.ticks,
-            liquidityOpts.amounts
+            true,                               // vault is active
+            collarOpts.expiry,                  // expiration date is +3 days
+            collarOpts.ltv,                     // ltv is 90%
+
+            liquidityOpts.liquidityPool,        // a collar liquidity pool address
+            
+            assetSpecifiers.cashAsset,          // an erc20 token
+            assetSpecifiers.collateralAsset,    // an erc20 token
+            cashAmount,                         // the amount of tokens received in the trade
+            assetSpecifiers.collateralAmount,   // the amount of tokens initially provided
+
+            liquidityOpts.ticks,                // the tick specifiers for the liquidity pool
+            liquidityOpts.ratios,               // the ratio specifiers for the liquidity pool
+
+            lockedVaultCashTotal,               // the amount of cash locked in the vault
+            liquidityOpts.totalLiquidity,       // the amount of cash locked in the pool
+            unlockedVaultCashTotal              // the amount of cash unlocked in the vault
         );
 
         vaultUUIDsByIndex[vaultCount] = vaultUUID;
@@ -106,46 +111,173 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         uint256 startingPrice = vault.collateralAmount / vault.cashAmount;
 
         // for each tick of liquidity locked, calculate whether it is below the put strike, above the call strike, or somewhere in between
-        // if it is below the put strike, this liquidity unit goes to the market maker
-        // if it is above the call strike, this liquidity unit goes to the user
-        // if it is in between, the amount above the put strike goes to the user and the remaining goes to the market maker
+        // if it is below the put strike, this liquidity unit goes to the market maker, as well as the locked cash balance
+        // if it is above the call strike, this liquidity unit goes to the user, as well as the locked cash balance
+        // if it is in between, the amount above the put strike goes to the user and the rest to the market maker
+        uint256 poolScaleFactor = CollarLiquidityPool(vault.liquidityPool).scaleFactor();
 
-        uint256 scaleFactor = CollarLiquidityPool(vault.liquidityPool).scaleFactor();
+        uint24[] memory ticks = vault.callStrikeTicks;
+        uint256[] memory tickRatios = vault.tickRatios;
 
-        uint24[] memory ticks = vault.ticks;
-        uint256[] memory amounts = vault.amounts;
+        uint256[] memory payoutsToUserFromPool = new uint256[](ticks.length);
+        uint256[] memory payoutsToUserFromVault = new uint256[](ticks.length);
 
-        uint256[] memory payoutsToUser = new uint256[](ticks.length);
+        uint256[] memory payoutsToMarketMakersFromPool = new uint256[](ticks.length);
+        uint256[] memory payoutsToMarketMakersFromVault = new uint256[](ticks.length);
 
-        for (uint256 tick = 0; tick < ticks.length; tick++) {
-            uint24 tickIndex = ticks[tick];
-            uint256 amount = amounts[tick];
+        uint256 recoverRatio = startingPrice < collateralPriceFinal ? 1 : (startingPrice - collateralPriceFinal) / startingPrice;
 
-            uint256 tickPrice = TickCalculations.tickToPrice(tickIndex, scaleFactor, startingPrice);
+        // each vault has a locked cash balance in the VAULT itself - this covers from the put strike to the starting price
+        // each vault has a locked cash balance in the POOL itself - this covers from the starting price to the call strike
 
-            uint256 marketMakerAmount = 0;
-            uint256 userAmount = 0;
+        // the locked amounts are distributed proportionally (according to the provided RATIOS array) at each tick
 
-            if (collateralPriceFinal < putStrikePrice) {
-                // this liquidity goes to the market maker
-                marketMakerAmount = amount;
-            } else if (collateralPriceFinal > tickPrice) {
-                // this liquidity goes to the user
-                userAmount = amount;
-            } else {
-                // this liquidity is split between the user and the market maker
-                marketMakerAmount = (tickPrice - collateralPriceFinal) * amount;
-                userAmount = (collateralPriceFinal - putStrikePrice) * amount;
+        // okay, let's build 4 arrays:
+
+        // 1) how much we need to unlock from the vault at each tick to (re)-pay the user
+        // 2) how much we need to pull from the pool at each tick to pay out the user
+        // 3) how much we need to pull from the vault at each tick to pay out the market maker(s)
+        // 4) how much we need to unlock from the pool at each tick to (re)-pay the market maker(s)
+
+        bool BEARISH;
+        bool DOWN_BAD;
+
+        if (collateralPriceFinal <= putStrikePrice) {
+            BEARISH = true;
+            DOWN_BAD = true;
+
+            // the final price of the collateral is LESS than the put strike price,
+            // which means the market maker gets all POOL and VAULT locked liquidity
+
+            for (uint256 tickIndex = 0; tickIndex < ticks.length; tickIndex++) {
+                uint24 tick = ticks[tickIndex];
+                uint256 ratio = tickRatios[tick];
+
+                /*payoutsToUserFromVault[tick] = 0;*/
+                /*payoutsToUserFromPool[tick] = 0;*/
+                payoutsToMarketMakersFromVault[tick] = (ratio * vault.lockedVaultCashTotal) / 1e12;
+                payoutsToMarketMakersFromPool[tick] = (ratio * vault.lockedPoolCashTotal) / 1e12;
             }
 
-            payoutsToUser[tick] = userAmount;
+        } else if (collateralPriceFinal <= startingPrice) {
+            BEARISH = true;
+            DOWN_BAD = false;
+
+            // the collateral price is GREATER than the put strike, but LESS than the starting price
+            // this means the market makers get all their pool locked liquidity back
+            // this means that user and market makers each get a slice of the vault locked liquidity
+
+            uint256 totalPriceDistancePutSide = startingPrice - putStrikePrice;
+            uint256 achievedPriceDistancePutSide = collateralPriceFinal - putStrikePrice;
+
+            uint256 putStrikePriceRatioUserSide = (achievedPriceDistancePutSide * 1e12) / totalPriceDistancePutSide;
+            uint256 putSrikePriceRatioMarketMakerSide = 1e12 - putStrikePriceRatioUserSide;
+
+            for (uint256 tickIndex = 0; tickIndex < ticks.length; tickIndex++) {
+                uint24 tick = ticks[tickIndex];
+                uint256 ratio = tickRatios[tick];
+                uint256 thisTickLockedVaultCashTotal = (ratio * vault.lockedVaultCashTotal) / 1e12;
+                uint256 thisTickLockedPoolCashTotal = (ratio * vault.lockedPoolCashTotal) / 1e12;
+
+                payoutsToUserFromVault[tick] = (putStrikePriceRatioUserSide * thisTickLockedVaultCashTotal) / 1e12;
+                /*payoutsToUserFromPool[tick] = 0;*/
+                payoutsToMarketMakersFromVault[tick] = (putSrikePriceRatioMarketMakerSide * thisTickLockedVaultCashTotal) / 1e12;
+                payoutsToMarketMakersFromPool[tick] = thisTickLockedPoolCashTotal;
+            }
+
+        } else {
+            BEARISH = false;
+            DOWN_BAD = false;
+
+            // the collateral price is GREATER than the starting price
+            // this means the user gets all vault liquidity back
+            // if the final price is GREATER than a given tick's price, all locked pool liquidty at that tick goes to the user
+            // if the final price is LESS than a given tick's price, the pool liquidity is split between the user and the market maker
+
+            for (uint256 tickIndex = 0; tickIndex < ticks.length; tickIndex++) {
+                uint24 tick = ticks[tickIndex];
+                uint256 ratio = tickRatios[tick];
+                uint256 tickPrice = TickCalculations.tickToPrice(tick, poolScaleFactor, startingPrice);
+
+                uint256 thisTickLockedVaultCashTotal = (ratio * vault.lockedVaultCashTotal) / 1e12;
+                uint256 thisTickLockedPoolCashTotal = (ratio * vault.lockedPoolCashTotal) / 1e12;
+
+                // go ahead and knock out the vault liquidty
+                payoutsToUserFromVault[tick] = thisTickLockedVaultCashTotal;
+                /*payoutsToMarketMakersFromVault[tick] = 0;*/
+
+                if (collateralPriceFinal > tickPrice) {
+                    // all locked pool liquidity at this tick goes to the user
+
+                    payoutsToUserFromPool[tick] = thisTickLockedPoolCashTotal;
+                    /*payoutsToMarketMakersFromPool[tick] = 0;*/
+
+                } else {
+                    // payouts of locked pool liquidity go proportionally to the user AND the market maker,
+                    // depending on how close the final price is to the current tick's price
+
+                    uint256 totalPriceDistanceCallSide = tickPrice - startingPrice;
+                    uint256 achievedPriceDistance = collateralPriceFinal - startingPrice;
+
+                    uint256 callStrikePriceRatioUserSide = (achievedPriceDistance * 1e12) / totalPriceDistanceCallSide;
+                    uint256 callStrikePriceRatioMarketMakerSide = 1e12 - callStrikePriceRatioUserSide;
+
+                    payoutsToUserFromPool[tick] = (callStrikePriceRatioUserSide * thisTickLockedPoolCashTotal) / 1e12;
+                    payoutsToMarketMakersFromPool[tick] = (callStrikePriceRatioMarketMakerSide * thisTickLockedPoolCashTotal) / 1e12;
+                }
+            }
         }
 
-        // unlock all the liquidity used for this vault
-        CollarLiquidityPool(vault.liquidityPool).unlockLiquidityAtTicks(amounts, ticks);
+        // we have now built 4 arrays:
 
-        // transfer from the liquidity pool to the vault if applicable
-        CollarLiquidityPool(vault.liquidityPool).withdrawFromTicks(address(this), payoutsToUser, ticks);
+        // 1) how much we need to unlock from the vault at each tick to (re)-pay the user
+        // 2) how much we need to pull from the pool at each tick to pay out the user
+        // 3) how much we need to pull from the vault at each tick to pay out the market maker(s)
+        // 4) how much we need to unlock from the pool at each tick to (re)-pay the market maker(s)
+
+        // now let's act on them, if applicable
+
+        // 1) unlock from the vault at each tick to (re)-pay the user (!DOWN_BAD)
+        // 2) unlock from the vault at each tick to (re)-pay the market maker(s) (BEARISH)
+        // 3) pull from the pool at each tick to pay out the user (!BEARISH)
+        // 4) pull from the pool at each tick to pay out the market maker(s) (TRUE)
+
+        // 0) unlock all the liquidity used for this vault
+        CollarLiquidityPool(vault.liquidityPool).unlockLiquidityAtTicks(vault.cashAmount, tickRatios, ticks);
+
+        // 1) unlock from the vault at each tick to (re)-pay the user (!DOWN_BAD)
+        if (!DOWN_BAD) {
+            for (uint256 index = 0; index < payoutsToUserFromVault.length; index++) {
+                uint256 amount = payoutsToUserFromVault[index];
+
+                if (amount > 0) {
+                    vault.lockedVaultCashTotal -= amount;
+                    vault.unlockedVaultCashTotal += amount;
+                }
+            }
+        }
+
+        // 2) unlock from the vault at each tick to (re)-pay the market maker(s) (BEARISH)
+        if (BEARISH) {
+            CollarLiquidityPool(vault.liquidityPool).rewardLiquidityToTicks(payoutsToMarketMakersFromVault, ticks);
+        }
+
+        // 3) pull from the pool at each tick to pay out the user
+        if (!BEARISH) {
+            CollarLiquidityPool(vault.liquidityPool).withdrawFromTicks(address(this), payoutsToUserFromPool, ticks);
+            
+            // (and add to the unlocked balance for the vault)
+            for (uint256 index = 0; index < payoutsToUserFromPool.length; index++) {
+                uint256 amount = payoutsToUserFromPool[index];
+
+                if (amount > 0) {
+                    vault.unlockedVaultCashTotal += amount;
+                }
+            }
+        }
+
+        // 4) pull from the pool at each tick to pay out the market maker(s) (TRUE)
+        // we don't actually need to do anything here since we already unlocked the liquidity!d
 
         // mark vault as finalized
         vault.active = false;
@@ -165,7 +297,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         address cashToken = vault.cashAsset;
 
         // increment the cash balance of this vault
-        vault.unlockedCashBalance += amount;
+        vault.unlockedVaultCashTotal += amount;
 
         // update the total balance tracker
         tokenTotalBalance[cashToken] += amount;
@@ -173,7 +305,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         // transfer in the cash
         IERC20(cashToken).transferFrom(from, address(this), amount);
 
-        return vault.unlockedCashBalance;
+        return vault.unlockedVaultCashTotal;
     }
 
     function withdrawCash(
@@ -188,7 +320,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         address cashToken = vault.cashAsset;
 
         // decrement the token balance of the vault
-        vault.unlockedCashBalance -= amount;
+        vault.unlockedVaultCashTotal -= amount;
 
         // update the total balance tracker
         tokenTotalBalance[cashToken] -= amount;
@@ -196,7 +328,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         // transfer out the cash
         IERC20(cashToken).transfer(to, amount);
 
-        return vault.unlockedCashBalance;
+        return vault.unlockedVaultCashTotal;
     }
 
     function validateAssets(CollarVaultState.AssetSpecifiers calldata assetSpecifiers) internal view {
@@ -218,6 +350,6 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
 
     function validateLiquidity(CollarVaultState.LiquidityOpts calldata liquidityOpts) internal pure {
         // verify amounts & ticks are equal; specific ticks and amoutns verified in transfer step
-        if (liquidityOpts.amounts.length != liquidityOpts.ticks.length) revert InvalidLiquidityOpts();
+        /*if (liquidityOpts.amounts.length != liquidityOpts.ticks.length) revert InvalidLiquidityOpts();*/
     }
 }
