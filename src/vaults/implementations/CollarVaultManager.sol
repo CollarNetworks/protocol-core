@@ -133,7 +133,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
 
         // the locked amounts are distributed proportionally (according to the provided RATIOS array) at each tick
 
-        // okay, let's build 4 arrays:
+        // okay, let's build 4 arrays (we'll optimize later)
 
         // 1) how much we need to unlock from the vault at each tick to (re)-pay the user
         // 2) how much we need to pull from the pool at each tick to pay out the user
