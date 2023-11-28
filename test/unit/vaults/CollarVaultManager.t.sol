@@ -12,7 +12,7 @@ import { TestERC20 } from "../../utils/TestERC20.sol";
 import { CollarVaultState, CollarVaultConstants } from "../../../src/vaults/interfaces/CollarLibs.sol";
 import { CollarVaultManager } from "../../../src/vaults/implementations/CollarVaultManager.sol";
 import { CollarLiquidityPool } from "../../../src/liquidity/implementations/CollarLiquidityPool.sol";
-import { CollarEngine } from "../../../src/protocol/implementations/Engine.sol";
+import { MockeEngine } from "../../utils/MockEngine.sol";
 import { MockUniRouter } from "../../utils/MockUniRouter.sol";
 import { ArrayHelpersUint24, ArrayHelpersUint256 } from "../../utils/ArrayHelpers.sol";
 
@@ -21,7 +21,7 @@ contract CollarVaultManagerTest is Test {
     TestERC20 cash;
     CollarVaultManager manager;
     CollarLiquidityPool pool;
-    CollarEngine engine;
+    MockEngine engine;
     MockUniRouter router;
 
     CollarVaultState.AssetSpecifiers defaultAssetOpts;
@@ -34,7 +34,7 @@ contract CollarVaultManagerTest is Test {
         cash = new TestERC20("Cash", "CSH");
         pool = new CollarLiquidityPool(address(cash), 1); // 0.01% per tick 
         router = new MockUniRouter();
-        engine = new CollarEngine(address(this), address(manager), address(router));
+        engine = new MockEngine(address(this), address(manager), address(router));
         manager = new CollarVaultManager(address(engine), address(this));
 
         // set up some default vars to be used in (some) tests
@@ -193,18 +193,35 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.lockedVaultCashTotal, 100e18);
     }
 
-    /*
     function test_finalizeVault() public {
         // create liquidity options
-        uint24[] memory ticks = ArrayHelpersUint24.uint24Array(11_000);      // callstrike @ 110%
-        uint256[] memory amounts = ArrayHelpersUint256.uint256Array(100e18); // 100 tokens of liqudity to be locked @ callstrike
-        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), ticks, amounts);
+        uint256 total = 100e18; // 100 tokens of liquidity to be locked @ callstrike
+        uint24[] memory ticks = ArrayHelpersUint24.uint24Array(11_000); // callstrike @ 110%
+        uint256[] memory ratios = ArrayHelpersUint256.uint256Array(1e12); // all tokens to be locked at the one tick
+        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), total, ticks, ratios);
 
         // deposit to the liquidity pool
+        uint256[] memory amounts = ArrayHelpersUint256.uint256Array(total);
         pool.depositToTicks(address(this), amounts, ticks);
 
         // open the vault
         bytes32 uuid = manager.openVault(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
+
+        // grab the vault state so we can check it
+        CollarVaultState.Vault memory vault = manager.getVault(uuid);
+
+        // set the historical asset price @ vault close
+        uint256 vaultExpiryCalculated = vault.opened + 3 days;
+        uint256 vaultExpiryActual = vault.expiry;
+
+        assertEq(vaultExpiryCalculated, vaultExpiryActual);
+
+        // price is in terms of cash per collateral
+        // but in the vault, we compare price as if its the total amount of cash we got for our collateral
+        // thus we need to multiply
+        // we'll use a precision multiplier of 1e12 for now
+        // and we'll set the price to have gone from 1000 --> 500
+        engine.setHistoricalAssetPrice(address(collateral), vaultExpiryActual, 500e18 * 1e12);
 
         // finalize the vault
         manager.finalizeVault(uuid);
@@ -212,12 +229,11 @@ contract CollarVaultManagerTest is Test {
         // grab the vault state so we can check it
         CollarVaultState.Vault memory vault = manager.getVault(uuid);
 
-        assertEq(vault.unlockedCashBalance, 0);
-        assertEq(vault.lockedCashBalance, 0);
+        assertEq(vault.unlockedVaultCashTotal, 0);
+        assertEq(vault.lockedVaultCashTotal, 0);
         assertEq(vault.collateralAmount, 0);
         assertEq(vault.cashAmount, 0);
-        assertEq(vault.ticks.length, 0);
-        assertEq(vault.amounts.length, 0);
+        assertEq(vault.tickRatios.length, 1);
+        assertEq(vault.callStrikeTicks.length, 1);
     }
-    */
 }

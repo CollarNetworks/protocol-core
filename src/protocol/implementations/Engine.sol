@@ -68,7 +68,7 @@ contract CollarEngine is ICollarEngine {
         isValidCollarLength[length] = false;
     }
 
-    function getHistoricalAssetPrice(address /*asset*/, uint256 /*timestamp*/) external override pure returns (uint256) {
+    function getHistoricalAssetPrice(address /*asset*/, uint256 /*timestamp*/) external view virtual override returns (uint256) {
         revert("Method not yet implemented");
     }
 }

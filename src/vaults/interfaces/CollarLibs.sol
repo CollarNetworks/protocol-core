@@ -88,6 +88,7 @@ library CollarVaultState {
 
     /// @notice This struct represents each individual vault as a whole
     /// @param active Whether or not the vault is active
+    /// @param opened Unix timestamp of when the vault was opened
     /// @param expiry The expiry of the vault - UNIX timestamp
     /// @param ltv The loan-to-value ratio of the vault, expressed as bps of the collateral value
     /// @param collateralAsset The address of the collateral asset
@@ -102,6 +103,7 @@ library CollarVaultState {
     /// @param callStrikeAmounts The amounts of liquidity that are locked in each tick< representing potential callstrike payouts
     struct Vault {
         bool active;
+        uint256 opened;
 
         // --- INITIAL VAULT PARAMETERS --- ///
 

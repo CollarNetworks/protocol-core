@@ -67,6 +67,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
 
         vaultsByUUID[vaultUUID] = CollarVaultState.Vault(
             true,                               // vault is active
+            block.timestamp,                    // vault creation timestamp
             collarOpts.expiry,                  // expiration date is +3 days
             collarOpts.ltv,                     // ltv is 90%
 
@@ -97,21 +98,93 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         return vaultUUID;
     }
 
-    function finalizeVault(
-        bytes32 vaultUUID
-    ) external override vaultExists(vaultUUID) {
+    function finalizeVault(bytes32 vaultUUID) external override vaultExists(vaultUUID) {
+        /* steps
+
+            1) validate input (vault exsits, is active, and is expired)
+            2) calculate payouts and pull to/from vault/pool as needed
+            3) mark vault as finalized
+
+        */
+
+        /* --- step 1: validate input (Vault exists, is active, and is expired) --- */
+
+        // grab reference to the vault
         CollarVaultState.Vault storage vault = vaultsByUUID[vaultUUID];
 
         // verify vault is active & expired
         if (!vault.active) revert CollarVaultManagerErrors.InactiveVault(vaultUUID);
         if (vault.expiry < block.timestamp) revert CollarVaultManagerErrors.NotYetExpired(vaultUUID);
 
+        /* --- step 2: calculate payouts and pull to/from vault/pool as needed ---
+
+            scenario 1: close price < put
+
+              85%        90%       95%      100%      105%      110%      115%      120%
+               |         |         |         |         |         |         |         |        
+            <--------------------------------------------------------------------------->
+                  |      |                                       |   |
+                  p     put                                      x   y      
+
+            1) locked vault balance --> market maker / liquidity pool
+            2) locked pool balance  --> market maker / liquidity pool
+            3) unlock liquidity pool balance
+
+            scenario 2: 100% > close price > put
+            
+              85%        90%       95%      100%      105%      110%      115%      120%
+               |         |         |         |         |         |         |         |        
+            <-------------------------------------------------------------------------->
+                         |            |                          |   |
+                        put           p                          x   y               
+
+            1) locked vault balance partial --> user, locked vault balance partial --> market maker / liquidity pool
+            2) locked pool balance --> market maker / liquidity pool
+            3) unlock liquidity pool balance
+
+            scenario 3: x & y > close price > 100%
+
+              85%        90%       95%      100%      105%      110%      115%      120%
+               |         |         |         |         |         |         |         |        
+            <-------------------------------------------------------------------------->
+                         |                             |         |   |
+                        put                            p         x   y  
+
+            1) locked vault balance --> user
+            2) locked pool balance partial --> user, locked pool balance partial --> market maker / liquidity pool
+            3) unlock liquidity pool balance
+
+            scenario 4: y > close price > x
+
+              85%        90%       95%      100%      105%      110%      115%      120%
+               |         |         |         |         |         |         |         |        
+            <-------------------------------------------------------------------------->
+                         |                                       | | |
+                        put                                      x p y  
+                
+            1) locked vault balance --> user
+            2) locked pool balance x --> user
+            3) locked pool balance y partial --> user, locked pool balance y partial --> market maker / liquidity pool
+            4) unlock liquidity pool balance
+
+            scenario 5: close price > x & y
+
+              85%        90%       95%      100%      105%      110%      115%      120%
+               |         |         |         |         |         |         |         |        
+            <-------------------------------------------------------------------------->
+                         |                                       |   |     |
+                        put                                      x   y     p
+
+            1) locked vault balance --> user
+            2) locked pool balance --> user
+        */
+
         // calculate payouts to user and/or market maker
         uint256 collateralPriceFinal = ICollarEngine(engine).getHistoricalAssetPrice(vault.collateralAsset, vault.expiry);
 
         // ltv = put-strike
-        uint256 putStrikePrice = (vault.ltv * vault.cashAmount) / 10_000;
-        uint256 startingPrice = vault.collateralAmount / vault.cashAmount;
+        uint256 putStrikePrice = (vault.ltv * vault.cashAmount * 1e12) / 10_000;
+        uint256 startingPrice = (vault.collateralAmount * 1e12) / vault.cashAmount;
 
         uint256 poolScaleFactor = CollarLiquidityPool(vault.liquidityPool).scaleFactor();
 
@@ -276,7 +349,9 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         // 4) pull from the pool at each tick to pay out the market maker(s) (TRUE)
         // we don't actually need to do anything here since we already unlocked the liquidity!d
 
-        // mark vault as finalized
+
+        /* --- step 3: mark vault as finalized --- */
+
         vault.active = false;
     }
 
