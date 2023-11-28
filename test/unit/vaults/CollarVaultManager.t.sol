@@ -124,6 +124,15 @@ contract CollarVaultManagerTest is Test {
         // grab the vault state so we can check it
         CollarVaultState.Vault memory vault = manager.getVault(uuid);
 
+        assertEq(vault.unlockedVaultCashTotal, 900e18);
+        assertEq(vault.lockedVaultCashTotal, 100e18);
+
+        // withdraw from the vault
+        manager.withdrawCash(uuid, 100e18, address(this));
+
+        // grab the vault from storage again since we're using a mem ref and not a storage ref
+        vault = manager.getVault(uuid);
+
         assertEq(vault.unlockedVaultCashTotal, 800e18);
         assertEq(vault.lockedVaultCashTotal, 100e18);
     }
@@ -167,6 +176,19 @@ contract CollarVaultManagerTest is Test {
         // grab the vault state so we can check it
         CollarVaultState.Vault memory vault = manager.getVault(uuid);
 
+        // we've deposited 1000 tokens of collateral
+        // at a callstrike of 110%, so 100 tokens of liquidity from the pool are locked
+        // with an ltv of 90%, so our initial unlocked balance should be 900
+
+        assertEq(vault.unlockedVaultCashTotal, 900e18);
+        assertEq(vault.lockedVaultCashTotal, 100e18);
+
+        // deposit cash
+        manager.depositCash(uuid, 100e18, address(this));
+
+        // grab the vault from storage again since we're using a mem ref and not a storage ref
+        vault = manager.getVault(uuid);
+        
         assertEq(vault.unlockedVaultCashTotal, 1000e18);
         assertEq(vault.lockedVaultCashTotal, 100e18);
     }

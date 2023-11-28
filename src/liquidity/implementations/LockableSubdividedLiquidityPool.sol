@@ -21,33 +21,29 @@ contract LockableSubdividedLiquidityPool is ILockableSubdividedLiquidityPool, Su
     function lockLiquidityAtTick(
         uint256 amount, 
         uint24 tick
-    ) public virtual override returns(uint256 totalLocked) {
+    ) public virtual override {
         uint256 freeLiquidity = liquidityAtTickByAddress[tick][msg.sender] - lockedliquidityAtTickByAddress[tick][msg.sender];
 
         if (freeLiquidity < amount) revert LockableSubdividedLiquidityPoolErrors.InsufficientUnlockedBalance();
 
         lockedliquidityAtTick[tick] += amount;
         lockedliquidityAtTickByAddress[tick][msg.sender] += amount;
-
-        return amount;
     }
 
     function unlockLiquidityAtTick(
         uint256 amount, 
         uint24 tick
-    ) public virtual override returns(uint256 totalUnlocked) {
+    ) public virtual override {
         if (lockedliquidityAtTickByAddress[tick][msg.sender] < amount) revert LockableSubdividedLiquidityPoolErrors.InsufficientLockedBalance();
 
         lockedliquidityAtTick[tick] -= amount;
         lockedliquidityAtTickByAddress[tick][msg.sender] -= amount;
-
-        return amount;
     }
 
     function lockLiquidityAtTicks(
         uint256[] calldata amounts,
         uint24[] calldata ticks
-    ) public virtual override returns(uint256 totalLocked) {
+    ) public virtual override{
         if (amounts.length != ticks.length) revert SubdividedLiquidityPoolErrors.MismatchedArrays();
 
         for (uint256 i = 0; i < amounts.length; i++) {
@@ -59,18 +55,34 @@ contract LockableSubdividedLiquidityPool is ILockableSubdividedLiquidityPool, Su
 
             lockedliquidityAtTick[tick] += amount;
             lockedliquidityAtTickByAddress[tick][msg.sender] += amount;
-            totalLocked += amount;
         }
     }
 
-    function lockLiquidityAtTicks(uint256 total, uint256[] calldata ratios, uint24[] calldata ticks) public virtual override returns (uint256 totalUnlocked) {
-        revert("Method not yet implemented");
+    function lockLiquidityAtTicks(uint256 total, uint256[] calldata ratios, uint24[] calldata ticks) public virtual override {
+        if (ratios.length != ticks.length) revert SubdividedLiquidityPoolErrors.MismatchedArrays();
+
+        uint256 totalLocked = 0;
+
+        for (uint256 i = 0; i < ticks.length; i++) {
+            uint24 thisTick = ticks[i];
+            uint256 thisRatio = ratios[i];
+
+            uint256 thisAmount = (total * thisRatio) / 1e12;
+            uint256 freeTickLiquidity = liquidityAtTick[thisTick] - lockedliquidityAtTick[thisTick];
+            if (freeTickLiquidity < thisAmount) revert LockableSubdividedLiquidityPoolErrors.InsufficientUnlockedBalance();
+
+            lockedliquidityAtTick[thisTick] += thisAmount;
+            lockedliquidityAtTickByAddress[thisTick][msg.sender] += thisAmount;
+            totalLocked += thisAmount;
+        }
+
+        if (totalLocked != total) revert LockableSubdividedLiquidityPoolErrors.InvalidParams();
     }
 
     function unlockLiquidityAtTicks(
         uint256[] calldata amounts, 
         uint24[] calldata ticks
-    ) public virtual override returns(uint256 totalUnlocked) {
+    ) public virtual override {
         if (amounts.length != ticks.length) revert SubdividedLiquidityPoolErrors.MismatchedArrays();
 
         for (uint256 i = 0; i < amounts.length; i++) {
@@ -81,13 +93,27 @@ contract LockableSubdividedLiquidityPool is ILockableSubdividedLiquidityPool, Su
 
             lockedliquidityAtTick[tick] -= amount;
             lockedliquidityAtTickByAddress[tick][msg.sender] -= amount;
-
-            totalUnlocked += amount;
         }
     }
 
-    function unlockLiquidityAtTicks(uint256 total, uint256[] calldata ratios, uint24[] calldata ticks) public virtual override returns (uint256 totalUnlocked) {
-        revert("Method not yet implemented");
+    function unlockLiquidityAtTicks(uint256 total, uint256[] calldata ratios, uint24[] calldata ticks) public virtual override {
+        if (ratios.length != ticks.length) revert SubdividedLiquidityPoolErrors.MismatchedArrays();
+
+        uint256 totalUnlocked = 0;
+
+        for (uint256 i = 0; i < ticks.length; i++) {
+            uint24 thisTick = ticks[i];
+            uint256 thisRatio = ratios[i];
+
+            uint256 thisAmount = (total * thisRatio) / 1e12;
+            if (lockedliquidityAtTickByAddress[thisTick][msg.sender] < thisAmount) revert LockableSubdividedLiquidityPoolErrors.InsufficientLockedBalance();
+
+            lockedliquidityAtTick[thisTick] -= thisAmount;
+            lockedliquidityAtTickByAddress[thisTick][msg.sender] -= thisAmount;
+            totalUnlocked += thisAmount;
+        }
+
+        if (totalUnlocked != total) revert LockableSubdividedLiquidityPoolErrors.InvalidParams();
     }
     
     function withdrawFromTick(
