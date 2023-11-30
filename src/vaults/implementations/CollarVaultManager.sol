@@ -48,15 +48,13 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         uint256 unlockedCashBalance; uint256 lockedCashBalance;
         (unlockedCashBalance, lockedCashBalance) = calculateCashBalances(cashAmount, collarOpts.ltv);
 
-        // caulate a bunch of stuff we need to create the vault
-
-        uint256 startingPrice = ICollarEngine(engine).getCurrentAssetPrice(assets.cashAsset);
-
+        // grab & calculate info for vault creation
         uint24 putStrikeTick = liquidityOpts.putStrikeTick;
         uint24 callStrikeTick = liquidityOpts.callStrikeTick;
 
         uint256 tickScale = CollarLiquidityPool(liquidityOpts.liquidityPool).scaleFactor();
-        
+
+        uint256 startingPrice = ICollarEngine(engine).getCurrentAssetPrice(assets.cashAsset);
         uint256 putStrikePrice = TickCalculations.tickToPrice(putStrikeTick, tickScale, startingPrice);
         uint256 callStrikePrice = TickCalculations.tickToPrice(callStrikeTick, tickScale, startingPrice);
 
@@ -81,7 +79,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
             putStrikePrice,                 // price of collateral @ the put strike
             callStrikePrice,                // price of collateral @ the call strike
             putStrikeTick,                  // index of the put strike tick in the liquidity pool
-            callStrikeTick,                 // index of the call strike tick  in the liquidity pool
+            callStrikeTick,                 // index of the call strike tick in the liquidity pool
 
             unlockedCashBalance,            // unlocked cash balance (withdrawable from the vault)
             lockedCashBalance               // locked cash balance (unwithdrawable from the vault)
@@ -162,7 +160,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
             vault.unlockedVaultCash += poolCashToUser;
             vault.unlockedVaultCash += vault.lockedVaultCash;
             vault.lockedVaultCash = 0;
-            
+
         // ???
         } else {
             revert("This really should not be possible!");

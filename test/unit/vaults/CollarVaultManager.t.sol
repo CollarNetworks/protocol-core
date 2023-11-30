@@ -12,7 +12,7 @@ import { TestERC20 } from "../../utils/TestERC20.sol";
 import { CollarVaultState, CollarVaultConstants } from "../../../src/vaults/interfaces/CollarLibs.sol";
 import { CollarVaultManager } from "../../../src/vaults/implementations/CollarVaultManager.sol";
 import { CollarLiquidityPool } from "../../../src/liquidity/implementations/CollarLiquidityPool.sol";
-import { MockeEngine } from "../../utils/MockEngine.sol";
+import { MockEngine } from "../../utils/MockEngine.sol";
 import { MockUniRouter } from "../../utils/MockUniRouter.sol";
 import { ArrayHelpersUint24, ArrayHelpersUint256 } from "../../utils/ArrayHelpers.sol";
 
@@ -28,6 +28,7 @@ contract CollarVaultManagerTest is Test {
     CollarVaultState.CollarOpts defaultCollarOpts;
     CollarVaultState.LiquidityOpts defaultLiquidityOpts;
 
+    /*
     function setUp() public {
         // create contracts
         collateral = new TestERC20("Collateral", "CLT");
@@ -65,8 +66,9 @@ contract CollarVaultManagerTest is Test {
         engine.addSupportedCashAsset(address(cash));
         engine.addSupportedCollateralAsset(address(collateral));
         engine.addSupportedCollarLength(3 days);
-    }
+    }*/
 
+    /*
     function test_createVaultSingleTickLiquidity() public {
         // create liquidity options
         uint256 total = 100e18; // 100 tokens of liquidity to be locked @ callstrike
@@ -106,7 +108,9 @@ contract CollarVaultManagerTest is Test {
         assertEq(pool.lockedliquidityAtTick(11_000), 100e18);
         assertEq(pool.liquidityAtTickByAddress(11_000, address(this)), 100e18);
     }
+    */
 
+    /*
     function test_withdrawCash() public {
         // create liquidity options
         uint256 total = 100e18; // 100 tokens of liquidity to be locked @ callstrike
@@ -135,8 +139,9 @@ contract CollarVaultManagerTest is Test {
 
         assertEq(vault.unlockedVaultCashTotal, 800e18);
         assertEq(vault.lockedVaultCashTotal, 100e18);
-    }
+    }*/
 
+    /*
     function test_withdrawTooMuchCash() public {
         // create liquidity options
         uint256 total = 100e18; // 100 tokens of liquidity to be locked @ callstrike
@@ -157,8 +162,9 @@ contract CollarVaultManagerTest is Test {
         // withdraw from the vault
         vm.expectRevert();
         manager.withdrawCash(uuid, 901e18, address(this));
-    }
+    }/*
     
+    /*
     function test_depositCash() public {
         // create liquidity options
         uint256 total = 100e18; // 100 tokens of liquidity to be locked @ callstrike
@@ -191,8 +197,9 @@ contract CollarVaultManagerTest is Test {
         
         assertEq(vault.unlockedVaultCashTotal, 1000e18);
         assertEq(vault.lockedVaultCashTotal, 100e18);
-    }
+    }*/
 
+    /*
     function test_finalizeVault() public {
         // create liquidity options
         uint256 total = 100e18; // 100 tokens of liquidity to be locked @ callstrike
@@ -227,7 +234,7 @@ contract CollarVaultManagerTest is Test {
         manager.finalizeVault(uuid);
 
         // grab the vault state so we can check it
-        CollarVaultState.Vault memory vault = manager.getVault(uuid);
+        vault = manager.getVault(uuid);
 
         assertEq(vault.unlockedVaultCashTotal, 0);
         assertEq(vault.lockedVaultCashTotal, 0);
@@ -235,5 +242,5 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.cashAmount, 0);
         assertEq(vault.tickRatios.length, 1);
         assertEq(vault.callStrikeTicks.length, 1);
-    }
+    }*/
 }

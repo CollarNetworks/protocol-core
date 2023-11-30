@@ -43,7 +43,7 @@ contract LockableSubdividedLiquidityPool is ILockableSubdividedLiquidityPool, Su
         super.withdraw(to, amount, tick);
     }
 
-    function reward(uint256 amount, uint24 tick) public override {
+    function reward(uint256 /*amount*/, uint24 /*tick*/) public pure override {
         revert("Method not yet implemented");
     }
 }
