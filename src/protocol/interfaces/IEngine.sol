@@ -115,4 +115,8 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     /// @param asset The address of the asset to get the price of
     /// @param timestamp The timestamp to get the price at
     function getHistoricalAssetPrice(address asset, uint256 timestamp) external view virtual returns (uint256);
+
+    /// @notice Gets the current price of a particular asset
+    /// @param asset The address of the asset to get the price of
+    function getCurrentAssetPrice(address asset) external view virtual returns (uint256);
 }

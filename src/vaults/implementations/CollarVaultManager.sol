@@ -36,20 +36,29 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         validateLiquidity(liquidityOpts);
 
         // lock liquidity from the liquidity pool (to pay out potentially up to the callstrike)
-        CollarLiquidityPool(liquidityOpts.liquidityPool).lock(liquidityOpts.amount, liquidityOpts.tick);
+        CollarLiquidityPool(liquidityOpts.liquidityPool).lock(liquidityOpts.amountToLock, liquidityOpts.callStrikeTick);
 
-        // transfer in collateral & swap to cash 
+        // transfer in collateral
         IERC20(assets.collateralAsset).transferFrom(msg.sender, address(this), assets.collateralAmount);
-        uint256 cashAmount = swapCollateral(assets);
 
+        // swap collateral for cash
+        uint256 cashAmount = swap(assets);
+        
         // calculate locked & unlocked balances
         uint256 unlockedCashBalance; uint256 lockedCashBalance;
         (unlockedCashBalance, lockedCashBalance) = calculateCashBalances(cashAmount, collarOpts.ltv);
 
-        // calculate the put & call strike prices (in terms of how much cash asset you'd get for 1e18 of the collateral asset)
-        uint256 putStrikePrice = (collarOpts.ltv * cashAmount * 1e12) / 10_000;
-        uint256 callStrikePrice = (10000 * cashAmount * 1e12) / collarOpts.ltv;
-        uint256 startingPrice = 0; // todo calculate this
+        // caulate a bunch of stuff we need to create the vault
+
+        uint256 startingPrice = ICollarEngine(engine).getCurrentAssetPrice(assets.cashAsset);
+
+        uint24 putStrikeTick = liquidityOpts.putStrikeTick;
+        uint24 callStrikeTick = liquidityOpts.callStrikeTick;
+
+        uint256 tickScale = CollarLiquidityPool(liquidityOpts.liquidityPool).scaleFactor();
+        
+        uint256 putStrikePrice = TickCalculations.tickToPrice(putStrikeTick, tickScale, startingPrice);
+        uint256 callStrikePrice = TickCalculations.tickToPrice(callStrikeTick, tickScale, startingPrice);
 
         // generate nonce-based UUID & pre-increment vault count
         vaultUUID = keccak256(abi.encodePacked(user, ++vaultCount));
@@ -60,18 +69,22 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
             block.timestamp,                // creation time = now
             collarOpts.expiry,              // expires some time in the future
             collarOpts.ltv,                 // loan-to-value for withdrawal
+
             assets.collateralAsset,         // collateral token address (ERC20)
-            assets.collateralAmount,        // amount of collateral tokens
             assets.cashAsset,               // cash token address (ERC20)
+            assets.collateralAmount,        // amount of collateral tokens
             cashAmount,                     // amount of cash tokens total
-            putStrikePrice,                 // price of 1e18 of the collateral asset @ put strike in terms of the cash asset
-            callStrikePrice,                // price of 1e18 of the collateral asset @ call strike in terms of the cash asset
-            startingPrice,                  // price of 1e18 of the collateral asset @ start in terms of the cash asset
-            unlockedCashBalance,            // amount (initially & currently) withdrawable
-            lockedCashBalance,              // amount locked
+
             liquidityOpts.liquidityPool,    // address of the liquidity pool
-            liquidityOpts.amount,           // the amount of liquidity locked
-            liquidityOpts.tick              // the tick at which liquidity is locked
+            liquidityOpts.amountToLock,     // the amount of liquidity locked
+            startingPrice,                  // starting (current) price of collateral asset
+            putStrikePrice,                 // price of collateral @ the put strike
+            callStrikePrice,                // price of collateral @ the call strike
+            putStrikeTick,                  // index of the put strike tick in the liquidity pool
+            callStrikeTick,                 // index of the call strike tick  in the liquidity pool
+
+            unlockedCashBalance,            // unlocked cash balance (withdrawable from the vault)
+            lockedCashBalance               // locked cash balance (unwithdrawable from the vault)
         );
 
         // set various vault mappings
@@ -105,60 +118,80 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         //  - locked vault cash is given to the user to cover collateral appreciation
         //  - locked pool liquidity is partially used to cover some collateral appreciation
 
-        // calculate payouts to user and/or market maker
-        uint256 finalCollateralPrice = ICollarEngine(engine).getHistoricalAssetPrice(vault.collateralAsset, vault.expiresAt);
+        // unlock the liquidty from the pool first
+        CollarLiquidityPool(vault.liquidityPool).unlock(vault.cashAmount, vault.callStrikeTick);
 
-        uint256 putStrikePrice = vault.putStrikePrice;
+        // grab all price info
         uint256 startingPrice = vault.startingPrice;
+        uint256 putStrikePrice = vault.putStrikePrice;
+        uint256 callStrikePrice = vault.callStrikePrice;
+        uint256 finalPrice = ICollarEngine(engine).getHistoricalAssetPrice(vault.collateralAsset, vault.expiresAt);
 
-        uint256 poolScaleFactor = CollarLiquidityPool(vault.liquidityPool).scaleFactor();
+        CollarLiquidityPool pool = CollarLiquidityPool(vault.liquidityPool);
 
-        CollarLiquidityPool(vault.liquidityPool).unlock(vault.cashAmount, vault.tick);
+        if (finalPrice < putStrikePrice) {
+
+            // CASE 1 - all vault cash to liquidity pool
+
+            pool.reward(vault.lockedVaultCash, vault.callStrikeTick);
+
+        } else if (finalPrice > callStrikePrice) {
+
+            // CASE 2 - all vault cash to user, all locked pool cash to user
+
+            vault.unlockedVaultCash += vault.lockedVaultCash;
+            vault.lockedVaultCash = 0;
+
+            pool.withdraw(address(this), vault.lockedPoolCash);
+
+        } else if (putStrikePrice < finalPrice && finalPrice < startingPrice) {
+
+            // CASE 3 - proportional vault cash to user
+            
+            uint256 vaultCashToPool = ((vault.lockedVaultCash * (startingPrice - finalPrice) * 1e32) / (startingPrice - putStrikePrice)) / 1e32;
+            uint256 vaultCashToUser = vault.lockedVaultCash - vaultCashToPool;
+
+            vault.unlockedVaultCash += vaultCashToUser;
+
+            pool.reward(vaultCashToPool, vault.callStrikeTick);
+
+        } else if (callStrikePrice > finalPrice && finalPrice > startingPrice) {
+
+            // CASE 4 - all vault cash to user, proportional locked pool cash to user
+
+            uint256 poolCashToUser = ((vault.lockedPoolCash * (finalPrice - startingPrice) * 1e32) / (callStrikePrice - startingPrice)) / 1e32;
+
+            pool.withdraw(address(this), poolCashToUser);
+
+            vault.unlockedVaultCash += poolCashToUser;
+            vault.unlockedVaultCash += vault.lockedVaultCash;
+            vault.lockedVaultCash = 0;
+        }
 
         vault.active = false;
     }
 
-    function deposit(
-        bytes32 vaultUUID, 
-        uint256 amount, 
-        address from
-    ) external override vaultExists(vaultUUID) returns (uint256 newUnlockedCashBalance) {
-        // grab reference to the vault
+    function deposit(bytes32 vaultUUID, uint256 amount, address from) external override vaultExists(vaultUUID) returns (uint256 newUnlockedCashBalance) {
         CollarVaultState.Vault storage vault = vaultsByUUID[vaultUUID];
-        
-        // cache the token address
-        address cashToken = vault.cashAsset;
 
         // increment the cash balance of this vault
-        vault.unlockedCashTotal += amount;
+        newUnlockedCashBalance = vault.unlockedVaultCash += amount;
 
         // transfer in the cash
-        IERC20(cashToken).transferFrom(from, address(this), amount);
-
-        return vault.unlockedCashTotal;
+        IERC20(vault.cashAsset).transferFrom(from, address(this), amount);
     }
 
-    function withdraw(
-        bytes32 vaultUUID, 
-        uint256 amount, 
-        address to
-    ) external override vaultExists(vaultUUID) returns (uint256 newUnlockedCashBalance) {
-        // grab refernce to the vault 
+    function withdraw(bytes32 vaultUUID, uint256 amount, address to) external override vaultExists(vaultUUID) returns (uint256 newUnlockedCashBalance) {
         CollarVaultState.Vault storage vault = vaultsByUUID[vaultUUID];
 
-        // cache the token address
-        address cashToken = vault.cashAsset;
-
         // decrement the token balance of the vault
-        vault.unlockedCashTotal -= amount;
+        newUnlockedCashBalance = vault.unlockedVaultCash -= amount;
 
         // transfer out the cash
-        IERC20(cashToken).transfer(to, amount);
-
-        return vault.unlockedCashTotal;
+        IERC20(vault.cashAsset).transfer(to, amount);
     }
 
-    function swapCollateral(CollarVaultState.AssetSpecifiers calldata assets) internal returns (uint256 cashReceived) {
+    function swap(CollarVaultState.AssetSpecifiers calldata assets) internal returns (uint256 cashReceived) {
         IERC20(assets.collateralAsset).approve(ICollarEngine(engine).dexRouter(), assets.collateralAmount);
 
         ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter.ExactInputSingleParams({
@@ -175,7 +208,10 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         cashReceived = ISwapRouter(payable(ICollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
     }
 
-    function calculateCashBalances(uint256 cashAmount, uint256 ltv) internal pure returns (uint256 unlockedCashBalance, uint256 lockedCashBalance) {
+    function calculateCashBalances(uint256 cashAmount, uint256 ltv) internal pure returns (
+        uint256 unlockedCashBalance, 
+        uint256 lockedCashBalance) 
+    {
         unlockedCashBalance = (cashAmount * ltv) / 10000;
         lockedCashBalance = cashAmount - unlockedCashBalance;
     }

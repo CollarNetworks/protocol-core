@@ -76,12 +76,13 @@ library CollarVaultState {
 
     /// @notice This struct contains information about how to source the liquidity for each vault
     /// @param liquidityPool The address of the liquidity pool to draw from
-    /// @param amount The amount of liquidity locked at the tick
+    /// @param amountToLock The amount of liquidity to lock at the tick
     /// @param tick The tick at which liquidity is locked
     struct LiquidityOpts {
         address liquidityPool;
-        uint256 amount;
-        uint24 tick;
+        uint256 amountToLock;
+        uint24 putStrikeTick;
+        uint24 callStrikeTick;
     }
 
     /// @notice This struct represents each individual vault as a whole
@@ -90,31 +91,47 @@ library CollarVaultState {
     /// @param expiresAt The expiry of the vault - UNIX timestamp
     /// @param ltv The loan-to-value ratio of the vault, expressed as bps of the collateral value
     /// @param collateralAsset The address of the collateral asset (ERC20)
-    /// @param collateralAmount The amount of the collateral asset to be deposited when opening the vault
     /// @param cashAsset The address of the cash asset (ERC20)
+    /// @param collateralAmount The amount of the collateral asset to be deposited when opening the vault
     /// @param cashAmount The amount of the cash asset received after swapping from collateral
+    /// @param liquidityPool The address of the liquidity pool where cash is locked
+    /// @param lockedPoolCash The amount of cash that is currently locked in the liquidity pool for this particular vault
+    /// @param startingPrice The price of the cash asset in terms of 1e18 of the collateral asset at the time of opening the vault
+    /// @param putStrikePrice The strike price of the put option in terms of 1e18 of the collateral asset
+    /// @param callStrikePrice The strike price of the call option in terms of 1e18 of the collateral asset
+    /// @param poolPutStrikeTick The tick at which the put option is struck
+    /// @param poolCallStrikeTick The tick at which the call option is struck
     /// @param unlockedCashTotal The amount of cash that is currently unlocked (withdrawable); this is the only state var that changes during a vault's lifetime
     /// @param lockedCashTotal The amount of cash that is currently locked (unwithdrawable)
-    /// @param liquidityPool The address of the liquidity pool where cash is locked
-    /// @param ticK The tick at which liquidity is locked
-    /// @param amount The amount of liquidity locked at the tick
     struct Vault {
+        /* ----- Basic Vault Info ----- */
+
         bool active;
         uint256 openedAt;
         uint256 expiresAt;
         uint256 ltv;
+        
+        /* ---- Asset Specific Info ----- */
+
         address collateralAsset;
-        uint256 collateralAmount;
         address cashAsset;
+        uint256 collateralAmount;
         uint256 cashAmount;
+
+        /* ----- Liquidity Pool Stuff ----- */
+
+        address liquidityPool;
+        uint256 lockedPoolCash;
+        uint256 startingPrice;
         uint256 putStrikePrice;
         uint256 callStrikePrice;
-        uint256 startingPrice;
-        uint256 unlockedCashTotal;
-        uint256 lockedCashTotal;
-        address liquidityPool;
-        uint256 amount;    
-        uint24 tick;
+        uint24 putStrikeTick;
+        uint24 callStrikeTick;
+
+        /* ----- Vault Specific Stuff ----- */
+
+        uint256 unlockedVaultCash;
+        uint256 lockedVaultCash;
     }
 }
 
