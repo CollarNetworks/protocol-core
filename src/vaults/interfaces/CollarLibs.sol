@@ -76,72 +76,45 @@ library CollarVaultState {
 
     /// @notice This struct contains information about how to source the liquidity for each vault
     /// @param liquidityPool The address of the liquidity pool to draw from
-    /// @param totalLiquidity The total amount of liquidity to draw from the liquidity pool
-    /// @param ticks The ticks from which to draw liquidity
-    /// @param ratios The ratios of liquidity to draw from in the liquidity pool; must sum to 1e12
+    /// @param amount The amount of liquidity locked at the tick
+    /// @param tick The tick at which liquidity is locked
     struct LiquidityOpts {
         address liquidityPool;
-        uint256 totalLiquidity;
-        uint24[] ticks;
-        uint256[] ratios;
+        uint256 amount;
+        uint24 tick;
     }
 
     /// @notice This struct represents each individual vault as a whole
     /// @param active Whether or not the vault is active
-    /// @param opened Unix timestamp of when the vault was opened
-    /// @param expiry The expiry of the vault - UNIX timestamp
+    /// @param openedAt Unix timestamp of when the vault was opened
+    /// @param expiresAt The expiry of the vault - UNIX timestamp
     /// @param ltv The loan-to-value ratio of the vault, expressed as bps of the collateral value
-    /// @param collateralAsset The address of the collateral asset
-    /// @param collateralAmount The amount of the collateral asset
-    /// @param cashAsset The address of the cash asset
-    /// @param cashAmount The amount of the cash asset
-    /// @param unlockedCashTotal The amount of cash that is unlocked (withdrawable) total
-    /// @param lockedCashTotal The amount of cash that is locked (unwithdrawable) total
+    /// @param collateralAsset The address of the collateral asset (ERC20)
+    /// @param collateralAmount The amount of the collateral asset to be deposited when opening the vault
+    /// @param cashAsset The address of the cash asset (ERC20)
+    /// @param cashAmount The amount of the cash asset received after swapping from collateral
+    /// @param unlockedCashTotal The amount of cash that is currently unlocked (withdrawable); this is the only state var that changes during a vault's lifetime
+    /// @param lockedCashTotal The amount of cash that is currently locked (unwithdrawable)
     /// @param liquidityPool The address of the liquidity pool where cash is locked
-    /// @param callStrikeTicks The ticks where liquidity is locked, representing potential callstriek payouts
-    /// @param tickRatios The ratios of liquidity that are locked in each tick, representing potential callstrike payouts; should sum to 1e12
-    /// @param callStrikeAmounts The amounts of liquidity that are locked in each tick< representing potential callstrike payouts
+    /// @param ticK The tick at which liquidity is locked
+    /// @param amount The amount of liquidity locked at the tick
     struct Vault {
         bool active;
-        uint256 opened;
-
-        // --- INITIAL VAULT PARAMETERS --- ///
-
-        uint256 expiry;
+        uint256 openedAt;
+        uint256 expiresAt;
         uint256 ltv;
-
-        address liquidityPool;
-
-        address cashAsset;
         address collateralAsset;
-
-        // the cash amount is the amount of cash that we swap the collateral for
-        uint256 cashAmount;
         uint256 collateralAmount;
-
-        // this specififes the exact call strikes that are to be used
-        // but not now much liquidity to use/lock at each callstirke - that comes later
-        uint24[] callStrikeTicks;
-
-        // this array of length equal to the above callStrikeTicks array indicates the ratio of lquidity
-        // to pull from each tick provided in the above array
-        // it must sum to a total of 1e12 or the entire operation should revert
-        // these indicate the the ratio at which liquidity is locked at various ticks,
-        uint256[] tickRatios;
-
-        // the total locked cash in the vault is the amount that might be forfeit
-        // to the market maker in the worst possible case (for the user)
-        uint256 lockedVaultCashTotal;
-
-        // the total locked cash in the pool is the amount that might be forfeit
-        // to the user in the worse possible case (for the market maker)
-        uint256 lockedPoolCashTotal;
-
-        /// --- DYNAMIC VAULT PARAMETERS --- ///
-
-        // the total unlocked cash in the vault is the amount that can be withdrawn by the user
-        // this amount will obviously change over time as the vault is withdrawn from by the user
-        uint256 unlockedVaultCashTotal;
+        address cashAsset;
+        uint256 cashAmount;
+        uint256 putStrikePrice;
+        uint256 callStrikePrice;
+        uint256 startingPrice;
+        uint256 unlockedCashTotal;
+        uint256 lockedCashTotal;
+        address liquidityPool;
+        uint256 amount;    
+        uint24 tick;
     }
 }
 

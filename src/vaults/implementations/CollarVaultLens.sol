@@ -17,6 +17,16 @@ abstract contract CollarVaultLens is ICollarVaultLens, ICollarVaultManager {
         _;
     }
 
+    modifier vaultIsActive(bytes32 vaultUUID) {
+        if (!isActive(vaultUUID)) revert CollarVaultManagerErrors.InactiveVault(vaultUUID);
+        _;
+    }
+
+    modifier vaultIsExpired(bytes32 vaultUUID) {
+        if (!isExpired(vaultUUID)) revert CollarVaultManagerErrors.NotYetExpired(vaultUUID);
+        _;
+    }
+
     function getVault(bytes32 vaultUUID) public view returns (CollarVaultState.Vault memory) {
         return vaultsByUUID[vaultUUID];
     }
@@ -30,22 +40,22 @@ abstract contract CollarVaultLens is ICollarVaultLens, ICollarVaultManager {
     function isExpired(
         bytes32 vaultUUID
     ) public override view vaultExists(vaultUUID) returns (bool) {
-        return vaultsByUUID[vaultUUID].expiry > block.timestamp;
+        return vaultsByUUID[vaultUUID].expiresAt > block.timestamp;
     }
 
     function getExpiry(
         bytes32 vaultUUID
     ) public override view vaultExists(vaultUUID) returns (uint256) {
-        return vaultsByUUID[vaultUUID].expiry;
+        return vaultsByUUID[vaultUUID].expiresAt;
     }
 
     function timeRemaining(
         bytes32 vaultUUID
     ) public override view vaultExists(vaultUUID) returns (uint256) {
-        uint256 expiry = getExpiry(vaultUUID);
+        uint256 expiresAt = getExpiry(vaultUUID);
 
-        if (expiry < block.timestamp) return 0;
+        if (expiresAt < block.timestamp) return 0;
 
-        return expiry - block.timestamp;
+        return expiresAt - block.timestamp;
     } 
 }

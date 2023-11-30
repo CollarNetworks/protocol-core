@@ -29,12 +29,6 @@ abstract contract ICollarVaultManager {
     /// @notice Reverse mapping of UUID to index
     mapping(bytes32 UUID => uint256 index) public vaultIndexByUUID;
 
-    /// @notice Count of how many vaults have any particular token as cash
-    mapping(address token => uint256 count) public tokenVaultCount;
-
-    /// @notice Total balance of any particular token across all vaults (cash)
-    mapping(address token => uint256 totalBalance) public tokenTotalBalance;
-
     constructor(address _engine) {
         engine = _engine;
     }
@@ -45,7 +39,7 @@ abstract contract ICollarVaultManager {
     /// @param collarOpts The collar options for the vault
     /// @param liquidityOpts The liquidity options for the vault
     /// @return UUID of the vault
-    function openVault(
+    function open(
         CollarVaultState.AssetSpecifiers calldata assetSpecifiers,
         CollarVaultState.CollarOpts calldata collarOpts,
         CollarVaultState.LiquidityOpts calldata liquidityOpts
@@ -54,7 +48,7 @@ abstract contract ICollarVaultManager {
     /// @notice Closes a vault and returns the collateral to the user or market maker
     /// @dev This function will revert if the vault is not finalizable
     /// @param vaultUUID The UUID of the vault to close
-    function finalizeVault(
+    function finalize(
         bytes32 vaultUUID
     ) external virtual;
 
@@ -63,7 +57,7 @@ abstract contract ICollarVaultManager {
     /// @param amount The amount of cash to deposit
     /// @param from The address to send the cash from
     /// @return newUnlockedCashBalance balance of the vault after the deposit
-    function depositCash(
+    function deposit(
         bytes32 vaultUUID, 
         uint256 amount,
         address from
@@ -74,7 +68,7 @@ abstract contract ICollarVaultManager {
     /// @param amount The amount of cash to withdraw
     /// @param to The address to send the cash to
     /// @return newUnlockedCashBalance balance of the vault after the withdrawal
-    function withdrawCash(
+    function withdraw(
         bytes32 vaultUUID, 
         uint256 amount, 
         address to

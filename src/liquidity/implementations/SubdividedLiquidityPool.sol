@@ -22,68 +22,16 @@ contract SubdividedLiquidityPool is ISubdividedLiquidityPool, SharedLiquidityPoo
         scaleFactor = _scaleFactor;
     }
 
-    function depositToTick(
-        address from, 
-        uint256 amount, 
-        uint24 tick
-    ) public virtual override {
+    function deposit(address from, uint256 amount, uint24 tick) public virtual override {
         liquidityAtTick[tick] += amount;
         liquidityAtTickByAddress[tick][msg.sender] += amount;
         super.deposit(from, amount);
     }
 
-    function withdrawFromTick(
-        address to, 
-        uint256 amount, 
-        uint24 tick
-    ) public virtual override {
+    function withdraw(address to, uint256 amount, uint24 tick) public virtual override {
         liquidityAtTick[tick] -= amount;
         liquidityAtTickByAddress[tick][msg.sender] -= amount;
         super.withdraw(to, amount);
-    }
-
-    function depositToTicks(
-        address from, 
-        uint256[] calldata amounts, 
-        uint24[] calldata ticks
-    ) public virtual override {
-        if (amounts.length != ticks.length) revert SubdividedLiquidityPoolErrors.MismatchedArrays();
-        
-        uint256 totalToDeposit = 0;
-
-        for (uint256 i = 0; i < amounts.length; i++) {
-            uint24 tick = ticks[i];
-            uint256 amount = amounts[i];
-
-            liquidityAtTick[tick] += amount;
-            liquidityAtTickByAddress[tick][msg.sender] += amount;
-            totalToDeposit += amount;
-        }
-
-        super.deposit(from, totalToDeposit);
-    }
-
-    function withdrawFromTicks(
-        address to, 
-        uint256[] calldata amounts, 
-        uint24[] calldata ticks
-    ) public virtual override {
-        if (amounts.length != ticks.length) revert SubdividedLiquidityPoolErrors.MismatchedArrays();
-        
-        uint256 totalToWithdraw = 0;
-
-        for (uint256 i = 0; i < amounts.length; i++) {
-            uint24 tick = ticks[i];
-            uint256 amount = amounts[i];
-
-            if (liquidityAtTickByAddress[tick][msg.sender] < amount) revert SharedLiquidityPoolErrors.InsufficientBalance();    
-
-            liquidityAtTick[tick] -= amount;
-            liquidityAtTickByAddress[tick][msg.sender] -= amount;
-            totalToWithdraw += amount;
-        }
-
-        super.withdraw(to, totalToWithdraw);
     }
 
     /// @dev We disallow explicitly calling the general form of deposit from here on out

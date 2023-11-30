@@ -26,23 +26,11 @@ abstract contract ISubdividedLiquidityPool {
     /// @param from the address of the depositor
     /// @param amount how many assets to deposit
     /// @param tick the tick to deposit to
-    function depositToTick(address from, uint256 amount, uint24 tick) public virtual;
-
-    /// @notice Plural form of depositToTick
-    /// @param from the address of the depositor
-    /// @param amounts the amounts to deposit into each tick
-    /// @param ticks the ticks to deposit to
-    function depositToTicks(address from, uint256[] calldata amounts, uint24[] calldata ticks) public virtual;
+    function deposit(address from, uint256 amount, uint24 tick) public virtual;
 
     /// @notice Withdraw from a specific tick
     /// @param to the address of the withdrawer
     /// @param amount how many assets to withdraw
     /// @param tick the tick to withdraw from
-    function withdrawFromTick(address to, uint256 amount, uint24 tick) public virtual;
-
-    /// @notice Plural form of withdrawFromTick
-    /// @param to the address of the withdrawer
-    /// @param amounts the amounts to withdraw from each tick
-    /// @param ticks the ticks to withdraw from
-    function withdrawFromTicks(address to, uint256[] calldata amounts, uint24[] calldata ticks) public virtual;
+    function withdraw(address to, uint256 amount, uint24 tick) public virtual;
 }
