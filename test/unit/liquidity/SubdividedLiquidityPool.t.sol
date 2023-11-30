@@ -75,21 +75,6 @@ contract LiquidityPoolTest is Test {
         assertEq(asset.balanceOf(address(this)), 1000);
     }
 
-    function test_depositSingleNotEnoughAllowance() public {
-        asset.mint(address(this), 1000);
-        asset.approve(address(pool), 999);
-
-        vm.expectRevert("ERC20: insufficient allowance");
-        pool.deposit(address(this), 1000, 5);
-    }
-
-    function test_depositSingleNotEnoughBalance() public {
-        asset.mint(address(this), 999);
-        asset.approve(address(pool), 1000);
-
-        pool.deposit(address(this), 1000, 5);
-    }
-
     function test_depositNotEnoughAllowance() public {
         asset.mint(address(this), 1000);
         asset.approve(address(pool), 999);
