@@ -27,13 +27,13 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
      }
 
     function open(
-        CollarVaultState.AssetSpecifiers calldata assets,
-        CollarVaultState.CollarOpts calldata collarOpts,
-        CollarVaultState.LiquidityOpts calldata liquidityOpts
+        CollarVaultState.AssetSpecifiers calldata assets,       // addresses & amounts of collateral & cash assets
+        CollarVaultState.CollarOpts calldata collarOpts,        // expiry & ltv
+        CollarVaultState.LiquidityOpts calldata liquidityOpts   // pool address, callstrike & amount to lock there, putstrike
     ) external override returns (bytes32 vaultUUID) {
-        validateAssets(assets);
-        validateOpts(collarOpts);
-        validateLiquidity(liquidityOpts);
+        validateAssets(assets);             // todo finish this
+        validateOpts(collarOpts);           // todo finish this
+        validateLiquidity(liquidityOpts);   // todo finish this
 
         // lock liquidity from the liquidity pool (to pay out potentially up to the callstrike)
         CollarLiquidityPool(liquidityOpts.liquidityPool).lock(liquidityOpts.amountToLock, liquidityOpts.callStrikeTick);
@@ -189,6 +189,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         IERC20(vault.cashAsset).transfer(to, amount);
     }
 
+    // Given asset opts, perform the swap from collteral --> cash
     function swap(CollarVaultState.AssetSpecifiers calldata assets) internal returns (uint256 cashReceived) {
         IERC20(assets.collateralAsset).approve(ICollarEngine(engine).dexRouter(), assets.collateralAmount);
 
@@ -206,10 +207,11 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         cashReceived = ISwapRouter(payable(ICollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
     }
 
+    // Simple helper function that calculates ltv & non-ltv amount given an input cash amount
     function calculateCashBalances(uint256 cashAmount, uint256 ltv) internal pure returns (
         uint256 unlockedCashBalance, 
-        uint256 lockedCashBalance) 
-    {
+        uint256 lockedCashBalance
+    ) {
         unlockedCashBalance = (cashAmount * ltv) / 10000;
         lockedCashBalance = cashAmount - unlockedCashBalance;
     }

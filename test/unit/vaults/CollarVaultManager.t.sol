@@ -28,7 +28,7 @@ contract CollarVaultManagerTest is Test {
     CollarVaultState.CollarOpts defaultCollarOpts;
     CollarVaultState.LiquidityOpts defaultLiquidityOpts;
 
-    /*
+    
     function setUp() public {
         // create contracts
         collateral = new TestERC20("Collateral", "CLT");
@@ -66,22 +66,20 @@ contract CollarVaultManagerTest is Test {
         engine.addSupportedCashAsset(address(cash));
         engine.addSupportedCollateralAsset(address(collateral));
         engine.addSupportedCollarLength(3 days);
-    }*/
+    }
 
-    /*
     function test_createVaultSingleTickLiquidity() public {
         // create liquidity options
-        uint256 total = 100e18; // 100 tokens of liquidity to be locked @ callstrike
-        uint24[] memory ticks = ArrayHelpersUint24.uint24Array(11_000); // callstrike @ 110%
-        uint256[] memory ratios = ArrayHelpersUint256.uint256Array(1e12); // all tokens to be locked at the one tick
-        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), total, ticks, ratios);
+        uint256 amount = 100e18; // 100 tokens of liquidity to be locked @ callstrike
+        uint24 callstriketick = 11_000; // callstrike @ 110%
+        uint24 putstriketick = 9_000; // putstrike @ 90%
+        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), amount, putstriketick, callstriketick);
 
         // deposit to the liquidity pool
-        uint256[] memory amounts = ArrayHelpersUint256.uint256Array(total);
-        pool.depositToTicks(address(this), amounts, ticks);
+        pool.deposit(address(this), amount, callstriketick);
 
         // open the vault
-        bytes32 uuid = manager.openVault(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
+        bytes32 uuid = manager.open(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
 
         // there should only be one vault that exists for this manager
         assertEq(manager.vaultCount(), 1);
@@ -94,21 +92,17 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.cashAsset, address(cash));
         assertEq(vault.cashAmount, 1000e18);
 
-        assertEq(vault.unlockedVaultCashTotal, 900e18); // unlocked cash balance should be ltv * starting (90% * 1000 = 900)
-        assertEq(vault.lockedVaultCashTotal, 100e18);   // locked cash balance should be the remainder from unlocked (100)
+        assertEq(vault.unlockedVaultCash, 900e18); // unlocked cash balance should be ltv * starting (90% * 1000 = 900)
+        assertEq(vault.lockedVaultCash, 100e18);   // locked cash balance should be the remainder from unlocked (100)
 
         assertEq(vault.liquidityPool, address(pool));
 
-        assertEq(vault.callStrikeTicks.length, 1);
-        assertEq(vault.callStrikeTicks[0], 11_000);
-
-        assertEq(vault.tickRatios.length, 1);
-        assertEq(vault.tickRatios[0], 1e12);
+        assertEq(vault.callStrikeTick, 11_000);
+        assertEq(vault.putStrikeTick, 9_000);
 
         assertEq(pool.lockedliquidityAtTick(11_000), 100e18);
         assertEq(pool.liquidityAtTickByAddress(11_000, address(this)), 100e18);
     }
-    */
 
     /*
     function test_withdrawCash() public {

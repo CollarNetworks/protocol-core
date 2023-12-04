@@ -56,7 +56,7 @@ library CollarVaultManagerErrors {
 library CollarVaultState {
     /// @notice This struct contains information about which assests (and how much of them) are in each vault
     /// @param collateralAsset The address of the collateral asset
-    /// @param collateralAmount The minimumamount of the collateral asset
+    /// @param collateralAmount The amount of the collateral asset deposited
     /// @param cashAsset The address of the cash asset
     /// @param cashAmount The minimum amount of the cash asset to swap the collateral for
     struct AssetSpecifiers {
