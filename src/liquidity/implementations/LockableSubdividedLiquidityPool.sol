@@ -19,7 +19,7 @@ contract LockableSubdividedLiquidityPool is ILockableSubdividedLiquidityPool, Su
     constructor(address _asset, uint256 _scaleFactor) SubdividedLiquidityPool(_asset, _scaleFactor) {}
 
     function lock(uint256 amount, uint24 tick) public virtual override {
-        uint256 freeLiquidity = liquidityAtTickByAddress[tick][msg.sender] - lockedliquidityAtTickByAddress[tick][msg.sender];
+        uint256 freeLiquidity = liquidityAtTick[tick] - lockedliquidityAtTick[tick];
 
         if (freeLiquidity < amount) revert LockableSubdividedLiquidityPoolErrors.InsufficientUnlockedBalance();
 
@@ -28,10 +28,11 @@ contract LockableSubdividedLiquidityPool is ILockableSubdividedLiquidityPool, Su
     }
 
     function unlock(uint256 amount, uint24 tick) public virtual override {
-        if (lockedliquidityAtTickByAddress[tick][msg.sender] < amount) revert LockableSubdividedLiquidityPoolErrors.InsufficientLockedBalance();
+        if (lockedliquidityAtTick[tick] < amount) revert LockableSubdividedLiquidityPoolErrors.InsufficientLockedBalance();
 
         lockedliquidityAtTick[tick] -= amount;
-        lockedliquidityAtTickByAddress[tick][msg.sender] -= amount;
+
+        // @todo add in logic on how to unlock proportionally
     }
 
     function withdraw(address to, uint256 amount, uint24 tick) public virtual override(ISubdividedLiquidityPool, SubdividedLiquidityPool) {
@@ -41,6 +42,8 @@ contract LockableSubdividedLiquidityPool is ILockableSubdividedLiquidityPool, Su
         if (freeLiquidity < amount) revert LockableSubdividedLiquidityPoolErrors.InsufficientUnlockedBalance();
 
         super.withdraw(to, amount, tick);
+
+        // @todo fix this
     }
 
     function reward(uint256 /*amount*/, uint24 /*tick*/) public pure override {

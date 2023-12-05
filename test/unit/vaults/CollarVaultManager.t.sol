@@ -28,7 +28,6 @@ contract CollarVaultManagerTest is Test {
     CollarVaultState.CollarOpts defaultCollarOpts;
     CollarVaultState.LiquidityOpts defaultLiquidityOpts;
 
-    
     function setUp() public {
         // create contracts
         collateral = new TestERC20("Collateral", "CLT");
@@ -70,13 +69,13 @@ contract CollarVaultManagerTest is Test {
 
     function test_createVaultSingleTickLiquidity() public {
         // create liquidity options
-        uint256 amount = 100e18; // 100 tokens of liquidity to be locked @ callstrike
+        uint256 poolDepositAmount = 100e18; // 100 tokens of liquidity to be locked @ callstrike
         uint24 callstriketick = 11_000; // callstrike @ 110%
         uint24 putstriketick = 9_000; // putstrike @ 90%
-        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), amount, putstriketick, callstriketick);
+        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), poolDepositAmount, putstriketick, callstriketick);
 
         // deposit to the liquidity pool
-        pool.deposit(address(this), amount, callstriketick);
+        pool.deposit(address(this), poolDepositAmount, callstriketick);
 
         // open the vault
         bytes32 uuid = manager.open(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
@@ -87,111 +86,116 @@ contract CollarVaultManagerTest is Test {
         // grab the vault state so we can check it
         CollarVaultState.Vault memory vault = manager.getVault(uuid);
 
+        // default: 1000 collateral tokens <==swap==> 1000 cash tokens @ 90% LTV ==> 900 unlocked & 100 locked
+
+        // check assets & amounts
         assertEq(vault.collateralAsset, address(collateral));
         assertEq(vault.collateralAmount, 1000e18);
         assertEq(vault.cashAsset, address(cash));
         assertEq(vault.cashAmount, 1000e18);
 
-        assertEq(vault.unlockedVaultCash, 900e18); // unlocked cash balance should be ltv * starting (90% * 1000 = 900)
-        assertEq(vault.lockedVaultCash, 100e18);   // locked cash balance should be the remainder from unlocked (100)
+        // check unlocked & locked amounts
+        assertEq(vault.unlockedVaultCash, 900e18);
+        assertEq(vault.lockedVaultCash, 100e18);
 
-        assertEq(vault.liquidityPool, address(pool));
-
+        // check call & put strike ticks
         assertEq(vault.callStrikeTick, 11_000);
         assertEq(vault.putStrikeTick, 9_000);
 
+        // check specific locked liquidity amounts
         assertEq(pool.lockedliquidityAtTick(11_000), 100e18);
         assertEq(pool.liquidityAtTickByAddress(11_000, address(this)), 100e18);
     }
 
-    /*
-    function test_withdrawCash() public {
+    function test_withdraw() public {
         // create liquidity options
-        uint256 total = 100e18; // 100 tokens of liquidity to be locked @ callstrike
-        uint24[] memory ticks = ArrayHelpersUint24.uint24Array(11_000); // callstrike @ 110%
-        uint256[] memory ratios = ArrayHelpersUint256.uint256Array(1e12); // all tokens to be locked at the one tick
-        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), total, ticks, ratios);
+        uint256 poolDepositAmount = 100e18; // 100 tokens of liquidity to be locked @ callstrike
+        uint24 callstriketick = 11_000; // callstrike @ 110%
+        uint24 putstriketick = 9_000; // putstrike @ 90%
+        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), poolDepositAmount, putstriketick, callstriketick);
 
         // deposit to the liquidity pool
-        uint256[] memory amounts = ArrayHelpersUint256.uint256Array(total);
-        pool.depositToTicks(address(this), amounts, ticks);
+        pool.deposit(address(this), poolDepositAmount, callstriketick);
 
         // open the vault
-        bytes32 uuid = manager.openVault(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
+        bytes32 uuid = manager.open(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
 
         // grab the vault state so we can check it
         CollarVaultState.Vault memory vault = manager.getVault(uuid);
 
-        assertEq(vault.unlockedVaultCashTotal, 900e18);
-        assertEq(vault.lockedVaultCashTotal, 100e18);
+        // default: 1000 collateral tokens <==swap==> 1000 cash tokens @ 90% LTV ==> 900 unlocked & 100 locked
 
-        // withdraw from the vault
-        manager.withdrawCash(uuid, 100e18, address(this));
+        assertEq(vault.unlockedVaultCash, 900e18);
+        assertEq(vault.lockedVaultCash, 100e18);
+
+        // withdraw all 100 tokens frrom the vault
+        manager.withdraw(uuid, 100e18, address(this));
 
         // grab the vault from storage again since we're using a mem ref and not a storage ref
         vault = manager.getVault(uuid);
 
-        assertEq(vault.unlockedVaultCashTotal, 800e18);
-        assertEq(vault.lockedVaultCashTotal, 100e18);
-    }*/
+        // vault should have 800 unlocked & 100 locked tokens
+        assertEq(vault.unlockedVaultCash, 800e18);
+        assertEq(vault.lockedVaultCash, 100e18);
+    }
 
-    /*
-    function test_withdrawTooMuchCash() public {
+    function test_withdrawTooMuch() public {
         // create liquidity options
-        uint256 total = 100e18; // 100 tokens of liquidity to be locked @ callstrike
-        uint24[] memory ticks = ArrayHelpersUint24.uint24Array(11_000); // callstrike @ 110%
-        uint256[] memory ratios = ArrayHelpersUint256.uint256Array(1e12); // all tokens to be locked at the one tick
-        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), total, ticks, ratios);
+        uint256 poolDepositAmount = 100e18; // 100 tokens of liquidity to be locked @ callstrike
+        uint24 callstriketick = 11_000; // callstrike @ 110%
+        uint24 putstriketick = 9_000; // putstrike @ 90%
+        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), poolDepositAmount, putstriketick, callstriketick);
 
         // deposit to the liquidity pool
-        uint256[] memory amounts = ArrayHelpersUint256.uint256Array(total);
-        pool.depositToTicks(address(this), amounts, ticks);
+        pool.deposit(address(this), poolDepositAmount, callstriketick);
 
         // open the vault
-        bytes32 uuid = manager.openVault(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
+        bytes32 uuid = manager.open(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
 
         // grab the vault state so we can check it
         CollarVaultState.Vault memory vault = manager.getVault(uuid);
 
-        // withdraw from the vault
+        // default: 1000 collateral tokens <==swap==> 1000 cash tokens @ 90% LTV ==> 900 unlocked & 100 locked
+
+        // withdraw from the vault - 901 tokens should cause underflow / error
         vm.expectRevert();
-        manager.withdrawCash(uuid, 901e18, address(this));
-    }/*
+        manager.withdraw(uuid, 901e18, address(this));
+    }
     
-    /*
-    function test_depositCash() public {
+    function test_deposit() public {
         // create liquidity options
-        uint256 total = 100e18; // 100 tokens of liquidity to be locked @ callstrike
-        uint24[] memory ticks = ArrayHelpersUint24.uint24Array(11_000); // callstrike @ 110%
-        uint256[] memory ratios = ArrayHelpersUint256.uint256Array(1e12); // all tokens to be locked at the one tick
-        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), total, ticks, ratios);
+        uint256 poolDepositAmount = 100e18; // 100 tokens of liquidity to be locked @ callstrike
+        uint24 callstriketick = 11_000; // callstrike @ 110%
+        uint24 putstriketick = 9_000; // putstrike @ 90%
+        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), poolDepositAmount, putstriketick, callstriketick);
 
         // deposit to the liquidity pool
-        uint256[] memory amounts = ArrayHelpersUint256.uint256Array(total);
-        pool.depositToTicks(address(this), amounts, ticks);
+        pool.deposit(address(this), poolDepositAmount, callstriketick);
+
+        // set the price of the asset
+        engine.setCurrentAssetPrice(address(collateral), 1e18);
 
         // open the vault
-        bytes32 uuid = manager.openVault(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
+        bytes32 uuid = manager.open(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
 
         // grab the vault state so we can check it
         CollarVaultState.Vault memory vault = manager.getVault(uuid);
 
-        // we've deposited 1000 tokens of collateral
-        // at a callstrike of 110%, so 100 tokens of liquidity from the pool are locked
-        // with an ltv of 90%, so our initial unlocked balance should be 900
+        // default: 1000 collateral tokens <==swap==> 1000 cash tokens @ 90% LTV ==> 900 unlocked & 100 locked
 
-        assertEq(vault.unlockedVaultCashTotal, 900e18);
-        assertEq(vault.lockedVaultCashTotal, 100e18);
+        assertEq(vault.unlockedVaultCash, 900e18);
+        assertEq(vault.lockedVaultCash, 100e18);
 
         // deposit cash
-        manager.depositCash(uuid, 100e18, address(this));
+        manager.deposit(uuid, 100e18, address(this));
 
         // grab the vault from storage again since we're using a mem ref and not a storage ref
         vault = manager.getVault(uuid);
         
-        assertEq(vault.unlockedVaultCashTotal, 1000e18);
-        assertEq(vault.lockedVaultCashTotal, 100e18);
-    }*/
+        // after depositing 100 additional cash ==> 1000 unlocked & 100 locked
+        assertEq(vault.unlockedVaultCash, 1000e18);
+        assertEq(vault.lockedVaultCash, 100e18);
+    }
 
     /*
     function test_finalizeVault() public {
@@ -203,7 +207,7 @@ contract CollarVaultManagerTest is Test {
 
         // deposit to the liquidity pool
         uint256[] memory amounts = ArrayHelpersUint256.uint256Array(total);
-        pool.depositToTicks(address(this), amounts, ticks);
+        pool.deposit(address(this), amounts, ticks);
 
         // open the vault
         bytes32 uuid = manager.openVault(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
@@ -230,8 +234,8 @@ contract CollarVaultManagerTest is Test {
         // grab the vault state so we can check it
         vault = manager.getVault(uuid);
 
-        assertEq(vault.unlockedVaultCashTotal, 0);
-        assertEq(vault.lockedVaultCashTotal, 0);
+        assertEq(vault.unlockedVaultCash, 0);
+        assertEq(vault.lockedVaultCash, 0);
         assertEq(vault.collateralAmount, 0);
         assertEq(vault.cashAmount, 0);
         assertEq(vault.tickRatios.length, 1);
