@@ -103,7 +103,7 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.putStrikeTick, 9_000);
 
         // check specific locked liquidity amounts
-        assertEq(pool.lockedliquidityAtTick(11_000), 100e18);
+        assertEq(pool.lockedLiquidityAtTick(11_000), 100e18);
         assertEq(pool.liquidityAtTickByAddress(11_000, address(this)), 100e18);
     }
 
@@ -197,48 +197,115 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.lockedVaultCash, 100e18);
     }
 
-    /*
-    function test_finalizeVault() public {
+    function test_finalizeVaultCollateralBelowPutStrike() public {
         // create liquidity options
-        uint256 total = 100e18; // 100 tokens of liquidity to be locked @ callstrike
-        uint24[] memory ticks = ArrayHelpersUint24.uint24Array(11_000); // callstrike @ 110%
-        uint256[] memory ratios = ArrayHelpersUint256.uint256Array(1e12); // all tokens to be locked at the one tick
-        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), total, ticks, ratios);
+        uint256 poolDepositAmount = 100e18; // 100 tokens of liquidity to be locked @ callstrike
+        uint24 callstriketick = 11_000; // callstrike @ 110%
+        uint24 putstriketick = 9_000; // putstrike @ 90%
+        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), poolDepositAmount, putstriketick, callstriketick);
 
         // deposit to the liquidity pool
-        uint256[] memory amounts = ArrayHelpersUint256.uint256Array(total);
-        pool.deposit(address(this), amounts, ticks);
+        pool.deposit(address(this), poolDepositAmount, callstriketick);
+
+        // set the price of the asset
+        engine.setCurrentAssetPrice(address(collateral), 1e18);
 
         // open the vault
-        bytes32 uuid = manager.openVault(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
+        bytes32 uuid = manager.open(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
 
         // grab the vault state so we can check it
         CollarVaultState.Vault memory vault = manager.getVault(uuid);
 
+        // check prices for good measure
+        assertEq(vault.putStrikePrice, 0.9e18);
+        assertEq(vault.callStrikePrice, 1.1e18);
+        assertEq(vault.startingPrice, 1e18);
+
+        // default: 1000 collateral tokens <==swap==> 1000 cash tokens @ 90% LTV ==> 900 unlocked & 100 locked
+
         // set the historical asset price @ vault close
-        uint256 vaultExpiryCalculated = vault.opened + 3 days;
-        uint256 vaultExpiryActual = vault.expiry;
+        uint256 vaultExpiryCalculated = vault.openedAt + 3 days;
+        uint256 vaultExpiryActual = vault.expiresAt;
 
         assertEq(vaultExpiryCalculated, vaultExpiryActual);
 
-        // price is in terms of cash per collateral
-        // but in the vault, we compare price as if its the total amount of cash we got for our collateral
-        // thus we need to multiply
-        // we'll use a precision multiplier of 1e12 for now
-        // and we'll set the price to have gone from 1000 --> 500
-        engine.setHistoricalAssetPrice(address(collateral), vaultExpiryActual, 500e18 * 1e12);
+        // set historical price to 1e18 cash = 2e18 collateral (collateral value down by half)
+        engine.setHistoricalAssetPrice(address(collateral), vault.expiresAt, 0.5e18);
 
         // finalize the vault
-        manager.finalizeVault(uuid);
+        manager.finalize(uuid);
 
         // grab the vault state so we can check it
         vault = manager.getVault(uuid);
 
-        assertEq(vault.unlockedVaultCash, 0);
+        // @todo fix the below validations once the "reward" method is added in to the liquidity pool
+
+        /*
+        // collateral price < put strike price @ finalize ==> vault cash to liquidity pool, liquidity pool cash untouched
+        assertEq(vault.active, false);
+        assertEq(vault.unlockedVaultCash, 900e18);
         assertEq(vault.lockedVaultCash, 0);
-        assertEq(vault.collateralAmount, 0);
-        assertEq(vault.cashAmount, 0);
-        assertEq(vault.tickRatios.length, 1);
-        assertEq(vault.callStrikeTicks.length, 1);
-    }*/
+        assertEq(pool.liquidityAtTick(callstriketick), 100e18);
+        assertEq(pool.lockedLiquidityAtTick(putstriketick), 0);
+        // @todo add in pool.lockedLiquidityAtTickByAddress check once we fix that logic
+        // @todo add in pool.liquidityAtTick check once we fix that logic etc
+        */
+    }
+
+    function test_finalizeVaultCollateralAboveCallStrike() public {
+        // create liquidity options
+        uint256 poolDepositAmount = 100e18; // 100 tokens of liquidity to be locked @ callstrike
+        uint24 callstriketick = 11_000; // callstrike @ 110%
+        uint24 putstriketick = 9_000; // putstrike @ 90%
+        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts(address(pool), poolDepositAmount, putstriketick, callstriketick);
+
+        // deposit to the liquidity pool
+        pool.deposit(address(this), poolDepositAmount, callstriketick);
+
+        // set the price of the asset
+        engine.setCurrentAssetPrice(address(collateral), 1e18);
+
+        // open the vault
+        bytes32 uuid = manager.open(defaultAssetOpts, defaultCollarOpts, liquidityOpts);
+
+        // grab the vault state so we can check it
+        CollarVaultState.Vault memory vault = manager.getVault(uuid);
+
+        // check prices for good measure
+        assertEq(vault.putStrikePrice, 0.9e18);
+        assertEq(vault.callStrikePrice, 1.1e18);
+        assertEq(vault.startingPrice, 1e18);
+
+        // default: 1000 collateral tokens <==swap==> 1000 cash tokens @ 90% LTV ==> 900 unlocked & 100 locked
+
+        // set the historical asset price @ vault close
+        uint256 vaultExpiryCalculated = vault.openedAt + 3 days;
+        uint256 vaultExpiryActual = vault.expiresAt;
+
+        assertEq(vaultExpiryCalculated, vaultExpiryActual);
+
+        // set historical price to 1e18 cash = 0.5e18 collateral (collateral up 2x)
+        engine.setHistoricalAssetPrice(address(collateral), vault.expiresAt, 2e18);
+
+        // finalize the vault
+        manager.finalize(uuid);
+
+        // grab the vault state so we can check it
+        vault = manager.getVault(uuid);
+
+        // collateral price > call strike price @ finalize ==> vault cash to user; liquidity pool cash to user
+        assertEq(vault.active, false);
+        assertEq(vault.unlockedVaultCash, 1100e18);
+        assertEq(vault.lockedVaultCash, 0);
+        assertEq(pool.liquidityAtTick(callstriketick), 0e18);
+        assertEq(pool.lockedLiquidityAtTick(putstriketick), 0);
+        // @todo add in pool.lockedLiquidityAtTickByAddress check once we fix that logic
+        // @todo add in pool.liquidityAtTick check once we fix that logic etc
+    }
+
+    // function test_finalizeVaultCollateralAtStartingPrice() public {
+
+    // function test_finalizeVaultCollateralBetweenPutAndStart() public {
+
+    // function test_finalizeVaultCollateralBetweenStartAndCall() public {
 }

@@ -39,11 +39,11 @@ contract LockableSubdividedLiquidityPoolTest is Test {
         pool.lock(amount0, tick0);
         pool.lock(amount1, tick1);
 
-        assertEq(pool.lockedliquidityAtTick(100), 100);
-        assertEq(pool.lockedliquidityAtTickByAddress(100, address(this)), 100);
+        assertEq(pool.lockedLiquidityAtTick(100), 100);
+        assertEq(pool.lockedLiquidityAtTickByAddress(100, address(this)), 100);
 
-        assertEq(pool.lockedliquidityAtTick(200), 200);
-        assertEq(pool.lockedliquidityAtTickByAddress(200, address(this)), 200);
+        assertEq(pool.lockedLiquidityAtTick(200), 200);
+        assertEq(pool.lockedLiquidityAtTickByAddress(200, address(this)), 200);
     }
 
     function test_unlock() public {
@@ -65,12 +65,12 @@ contract LockableSubdividedLiquidityPoolTest is Test {
         pool.unlock(amount0, tick0);
         pool.unlock(amount1, tick1);
 
-        assertEq(pool.lockedliquidityAtTick(100), 0);
-        //assertEq(pool.lockedliquidityAtTickByAddress(100, address(this)), 0);
+        assertEq(pool.lockedLiquidityAtTick(100), 0);
+        //assertEq(pool.lockedLiquidityAtTickByAddress(100, address(this)), 0);
         // @todo re-enable once unlock logic figured out
 
-        assertEq(pool.lockedliquidityAtTick(200), 0);
-        //assertEq(pool.lockedliquidityAtTickByAddress(200, address(this)), 0);
+        assertEq(pool.lockedLiquidityAtTick(200), 0);
+        //assertEq(pool.lockedLiquidityAtTickByAddress(200, address(this)), 0);
         // @todo re-enable once unlock logic figured out
     }
 
@@ -108,14 +108,14 @@ contract LockableSubdividedLiquidityPoolTest is Test {
 
         assertEq(pool.liquidityAtTick(100), 50);
         assertEq(pool.liquidityAtTickByAddress(100, address(this)), 50);
-        assertEq(pool.lockedliquidityAtTick(100), 50);
-        assertEq(pool.lockedliquidityAtTickByAddress(100, address(this)), 50);
+        assertEq(pool.lockedLiquidityAtTick(100), 50);
+        assertEq(pool.lockedLiquidityAtTickByAddress(100, address(this)), 50);
 
         // @todo re-examine this test after unlock logic figured out
     }
     */
 
-    function test_withdrawLockedLiquidity() public {
+    function test_withdrawlockedLiquidity() public {
         asset.mint(address(this), 1000);
         asset.approve(address(pool), 1000);
 

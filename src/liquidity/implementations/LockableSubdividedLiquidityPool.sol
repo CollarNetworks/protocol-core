@@ -14,30 +14,30 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract LockableSubdividedLiquidityPool is ILockableSubdividedLiquidityPool, SubdividedLiquidityPool {
     /// @notice Liquidity available at each tick for each address
-    mapping(uint24 => mapping(address => uint256)) public lockedliquidityAtTickByAddress;
+    mapping(uint24 => mapping(address => uint256)) public lockedLiquidityAtTickByAddress;
 
     constructor(address _asset, uint256 _scaleFactor) SubdividedLiquidityPool(_asset, _scaleFactor) {}
 
     function lock(uint256 amount, uint24 tick) public virtual override {
-        uint256 freeLiquidity = liquidityAtTick[tick] - lockedliquidityAtTick[tick];
+        uint256 freeLiquidity = liquidityAtTick[tick] - lockedLiquidityAtTick[tick];
 
         if (freeLiquidity < amount) revert LockableSubdividedLiquidityPoolErrors.InsufficientUnlockedBalance();
 
-        lockedliquidityAtTick[tick] += amount;
-        lockedliquidityAtTickByAddress[tick][msg.sender] += amount;
+        lockedLiquidityAtTick[tick] += amount;
+        lockedLiquidityAtTickByAddress[tick][msg.sender] += amount;
     }
 
     function unlock(uint256 amount, uint24 tick) public virtual override {
-        if (lockedliquidityAtTick[tick] < amount) revert LockableSubdividedLiquidityPoolErrors.InsufficientLockedBalance();
+        if (lockedLiquidityAtTick[tick] < amount) revert LockableSubdividedLiquidityPoolErrors.InsufficientLockedBalance();
 
-        lockedliquidityAtTick[tick] -= amount;
+        lockedLiquidityAtTick[tick] -= amount;
 
         // @todo add in logic on how to unlock proportionally
     }
 
     function withdraw(address to, uint256 amount, uint24 tick) public virtual override(ISubdividedLiquidityPool, SubdividedLiquidityPool) {
         // don't allow withdrawals of locked liquidity
-        uint256 freeLiquidity = liquidityAtTickByAddress[tick][msg.sender] - lockedliquidityAtTickByAddress[tick][msg.sender];
+        uint256 freeLiquidity = liquidityAtTickByAddress[tick][msg.sender] - lockedLiquidityAtTickByAddress[tick][msg.sender];
 
         if (freeLiquidity < amount) revert LockableSubdividedLiquidityPoolErrors.InsufficientUnlockedBalance();
 
@@ -47,6 +47,10 @@ contract LockableSubdividedLiquidityPool is ILockableSubdividedLiquidityPool, Su
     }
 
     function reward(uint256 /*amount*/, uint24 /*tick*/) public pure override {
+        revert("Method not yet implemented");
+    }
+
+    function penalize(address /*toWhere*/, uint256 /*amount*/, uint24 /*tick*/) public pure override {
         revert("Method not yet implemented");
     }
 }

@@ -22,7 +22,7 @@ library LockableSubdividedLiquidityPoolErrors {
 
 abstract contract ILockableSubdividedLiquidityPool is ISubdividedLiquidityPool {
     /// @notice Locked liquidity at each tick
-    mapping(uint24 => uint256) public lockedliquidityAtTick;
+    mapping(uint24 => uint256) public lockedLiquidityAtTick;
 
     /// @notice Lock liquidity at a specific tick
     /// @param amount how much to lock
@@ -38,4 +38,9 @@ abstract contract ILockableSubdividedLiquidityPool is ISubdividedLiquidityPool {
     /// @param amount how much to reward
     /// @param tick the tick to reward at
     function reward(uint256 amount, uint24 tick) public virtual;
+
+    /// @notice Penalize liquidity at a specific tick
+    /// @param amount how much to penalize
+    /// @param tick the tick to penalize at
+    function penalize(address toWhere, uint256 amount, uint24 tick) public virtual;
 }

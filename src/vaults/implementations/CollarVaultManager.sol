@@ -54,7 +54,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
 
         uint256 tickScale = CollarLiquidityPool(liquidityOpts.liquidityPool).scaleFactor();
 
-        uint256 startingPrice = ICollarEngine(engine).getCurrentAssetPrice(assets.cashAsset);
+        uint256 startingPrice = ICollarEngine(engine).getCurrentAssetPrice(assets.collateralAsset);
         uint256 putStrikePrice = TickCalculations.tickToPrice(putStrikeTick, tickScale, startingPrice);
         uint256 callStrikePrice = TickCalculations.tickToPrice(callStrikeTick, tickScale, startingPrice);
 
@@ -116,8 +116,8 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         //  - locked vault cash is given to the user to cover collateral appreciation
         //  - locked pool liquidity is partially used to cover some collateral appreciation
 
-        // unlock the liquidty from the pool first
-        CollarLiquidityPool(vault.liquidityPool).unlock(vault.cashAmount, vault.callStrikeTick);
+        // unlock the liquidity from the pool first
+        CollarLiquidityPool(vault.liquidityPool).unlock(vault.lockedPoolCash, vault.callStrikeTick);
 
         // grab all price info
         uint256 startingPrice = vault.startingPrice;
@@ -128,19 +128,25 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         CollarLiquidityPool pool = CollarLiquidityPool(vault.liquidityPool);
 
         // CASE 1 - all vault cash to liquidity pool
-        if (finalPrice < putStrikePrice) {                                          
+        if (finalPrice <= putStrikePrice) {                                          
 
             pool.reward(vault.lockedVaultCash, vault.callStrikeTick);
 
         // CASE 2 - all vault cash to user, all locked pool cash to user
-        } else if (finalPrice > callStrikePrice) {                                 
+        } else if (finalPrice >= callStrikePrice) {                                 
 
             vault.unlockedVaultCash += vault.lockedVaultCash;
             vault.lockedVaultCash = 0;
 
-            pool.withdraw(address(this), vault.lockedPoolCash);
+            pool.penalize(address(this), vault.lockedPoolCash, vault.callStrikeTick);
 
-        // CASE 3 - proportional vault cash to user
+        // CASE 3 - all vault cash to user
+        } else if (finalPrice == startingPrice) {
+
+            vault.unlockedVaultCash += vault.lockedVaultCash;
+            vault.lockedVaultCash = 0;
+
+        // CASE 4 - proportional vault cash to user
         } else if (putStrikePrice < finalPrice && finalPrice < startingPrice) {     
             
             uint256 vaultCashToPool = ((vault.lockedVaultCash * (startingPrice - finalPrice) * 1e32) / (startingPrice - putStrikePrice)) / 1e32;
@@ -150,12 +156,12 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
 
             pool.reward(vaultCashToPool, vault.callStrikeTick);
 
-        // CASE 4 - all vault cash to user, proportional locked pool cash to user
+        // CASE 5 - all vault cash to user, proportional locked pool cash to user
         } else if (callStrikePrice > finalPrice && finalPrice > startingPrice) {    
 
             uint256 poolCashToUser = ((vault.lockedPoolCash * (finalPrice - startingPrice) * 1e32) / (callStrikePrice - startingPrice)) / 1e32;
 
-            pool.withdraw(address(this), poolCashToUser);
+            pool.penalize(address(this), poolCashToUser, vault.callStrikeTick);
 
             vault.unlockedVaultCash += poolCashToUser;
             vault.unlockedVaultCash += vault.lockedVaultCash;
