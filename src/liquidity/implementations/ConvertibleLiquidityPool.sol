@@ -59,7 +59,7 @@ contract ConvertibleLiquidityPool is SubdividedLiquidityPool, ERC1155 {
     /// @dev should only be callable by a vault via the engine
     /// @param tokenUUID the UUID of the token to apply the delta to (also the vault UUID)
     /// @param delta the amount to adjust the liquidity by
-    function applyLiquidityDeltaForToken(bytes32 tokenUUID, int256 delta) public virtual onlyEngine {
+    function adjustLiquidity(bytes32 tokenUUID, int256 delta) public virtual onlyEngine {
         liquiditySupplyForToken[tokenUUID] = uint256(int256(liquiditySupplyForToken[tokenUUID]) + delta);
     }
 
