@@ -12,6 +12,12 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 
+/// @notice This contract builds on top of the SubdividedLiquidityPool to allow for *allocated* liquidity
+/// to be converted into ERC1155 tokens which represent the holder's "put" optionality in a vault. Aside from
+/// the "burn" function (which allows users to redeem liquidity once applicable), all methods are called by
+/// the Engine only. The Engine will call "mint" to lock liquidity at a given tick when a vault is opened, and
+/// will adjust the amount of liquidity the tokens can be redeemed for at vault finalization.
+/// @dev The token UUID created for each vault is the vault UUID itself
 contract ConvertibleLiquidityPool is SubdividedLiquidityPool, ERC1155 {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
 
@@ -27,8 +33,6 @@ contract ConvertibleLiquidityPool is SubdividedLiquidityPool, ERC1155 {
     }
 
     // ----- CONSTANTS & STATE VARS ----- //
-
-    uint256 constant MaximumLiquidityProvidersPerTick = 7;
 
     address immutable Engine;
 
@@ -53,16 +57,18 @@ contract ConvertibleLiquidityPool is SubdividedLiquidityPool, ERC1155 {
 
     /// @notice applies a delta to the amount of liquidity corresponding to a given token
     /// @dev should only be callable by a vault via the engine
-    function applyLiquidityDeltaForToken(bytes32 tokenUUID, int256 delta) public onlyEngine {
+    /// @param tokenUUID the UUID of the token to apply the delta to (also the vault UUID)
+    /// @param delta the amount to adjust the liquidity by
+    function applyLiquidityDeltaForToken(bytes32 tokenUUID, int256 delta) public virtual onlyEngine {
         liquiditySupplyForToken[tokenUUID] = uint256(int256(liquiditySupplyForToken[tokenUUID]) + delta);
     }
 
     // ----- PUBLIC STATE CHANGING FUNCTIONS ----- //
 
     /// @notice locks liquidity at a given tick and mints "put" option tokens for locked liquidity
-    /// @dev selects which liquidity providers to use at a tick (all of them)
-    /// proportionally to the amount of liquidity they have provided
-    function mint(bytes32 uuid, uint256 amountToLock, uint24 tick) public virtual {
+    /// @param uuid the UUID of the vault to mint tokens for (also the token UUID)
+    /// @param tick the tick to lock liquidity at
+    function mint(bytes32 uuid, uint256 amountToLock, uint24 tick) public virtual onlyEngine {
         uint256 tickTotalLiquidity = liquidityAtTick[tick];
 
         // cache liquidity provider amounts
@@ -96,6 +102,8 @@ contract ConvertibleLiquidityPool is SubdividedLiquidityPool, ERC1155 {
     }
 
     /// @notice redeems liquidity tokens for the underlying cash asset, "unlocking" the liquidity
+    /// @param uuid the UUID of the vault to redeem liquidity for (also the token UUID)
+    /// @param amount the amount of liquidity tokens to redeem
     function burn(bytes32 uuid, uint256 amount) public {
         _burn(msg.sender, uint256(uuid), amount);
 
