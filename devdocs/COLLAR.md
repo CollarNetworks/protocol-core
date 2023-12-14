@@ -14,7 +14,7 @@ Collar Protocol consists of three main components.
 ## The Collar
 
 User provides collateral to the system and is issued a loan against the value of the collateral.
-The user is protected against downside risk of the collaterlal's value (to a degree), but is similarly
+The user is protected against downside risk of the collateral's value (to a degree), but is similarly
 limited in upside potential.
 
 There are two primary parameters to each Collar: the callstrike and the putstrike.
