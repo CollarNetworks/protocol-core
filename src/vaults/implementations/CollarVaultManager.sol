@@ -15,14 +15,27 @@ import { SwapRouter } from "@uni-v3-periphery/SwapRouter.sol";
 import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 import { ICollarEngine, ICollarEngineErrors } from "../../protocol/interfaces/IEngine.sol";
 import { ICollarVaultManager } from "../interfaces/ICollarVaultManager.sol";
-import { CollarLiquidityPool } from "../../liquidity/implementations/CollarLiquidityPool.sol";
 import { ICollarLiquidityPoolManager } from "../../protocol/interfaces/ICollarLiquidityPoolManager.sol";
+import { ConvertibleLiquidityPool } from "../../liquidity/implementations/ConvertibleLiquidityPool.sol";
 import { CollarVaultState, CollarVaultManagerErrors, CollarVaultManagerEvents, CollarVaultConstants } from "../../vaults/interfaces/CollarLibs.sol";
 import { CollarVaultLens } from "./CollarVaultLens.sol";
 import { TickCalculations } from "../../liquidity/implementations/TickCalculations.sol";
+import { ERC1155 } from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 
-contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarVaultLens {
-    constructor(address _engine, address _owner) ICollarVaultManager(_engine) {
+contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarVaultLens, ERC1155 {
+
+    /// @notice this mapping stores how vaulable the vault tokens are for each vault
+    /// @dev the value will always be 1 for a non-finalized vault, and once the vault is closed,
+    /// can be zero or greater depending on the outcome of the vault
+    mapping(bytes32 tokenUUID => uint256 liquidityAvailable) public cashSupplyForVaultToken;
+
+     /// @notice tracks the total supply of each vault token
+    mapping(uint256 tokenId => uint256 totalSupply) public totalSupply;
+
+    constructor(address _engine, address _owner) 
+        ICollarVaultManager(_engine)
+        ERC1155("Collar Vault") 
+    {
         user = _owner;
      }
 
@@ -35,14 +48,20 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         validateOpts(collarOpts);           // todo finish this
         validateLiquidity(liquidityOpts);   // todo finish this
 
-        // lock liquidity from the liquidity pool (to pay out potentially up to the callstrike)
-        CollarLiquidityPool(liquidityOpts.liquidityPool).lock(liquidityOpts.amountToLock, liquidityOpts.callStrikeTick);
+        // generate nonce-based UUID & pre-increment vault count
+        vaultUUID = keccak256(abi.encodePacked(user, ++vaultCount));
 
         // transfer in collateral
         IERC20(assets.collateralAsset).transferFrom(msg.sender, address(this), assets.collateralAmount);
 
         // swap collateral for cash
         uint256 cashAmount = swap(assets);
+
+        // Update the cash supply for liquidity token
+        cashSupplyForVaultToken[vaultUUID] = cashAmount;
+
+        // convert liquidity pool cash into liquidity-pool tokens
+        ConvertibleLiquidityPool(liquidityOpts.liquidityPool).mint(vaultUUID, liquidityOpts.amountToLock, liquidityOpts.callStrikeTick);
         
         // calculate locked & unlocked balances
         uint256 unlockedCashBalance; uint256 lockedCashBalance;
@@ -52,14 +71,11 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         uint24 putStrikeTick = liquidityOpts.putStrikeTick;
         uint24 callStrikeTick = liquidityOpts.callStrikeTick;
 
-        uint256 tickScale = CollarLiquidityPool(liquidityOpts.liquidityPool).scaleFactor();
+        uint256 tickScale = ConvertibleLiquidityPool(liquidityOpts.liquidityPool).scaleFactor();
 
         uint256 startingPrice = ICollarEngine(engine).getCurrentAssetPrice(assets.collateralAsset);
         uint256 putStrikePrice = TickCalculations.tickToPrice(putStrikeTick, tickScale, startingPrice);
         uint256 callStrikePrice = TickCalculations.tickToPrice(callStrikeTick, tickScale, startingPrice);
-
-        // generate nonce-based UUID & pre-increment vault count
-        vaultUUID = keccak256(abi.encodePacked(user, ++vaultCount));
 
         // create the vault
         vaultsByUUID[vaultUUID] = CollarVaultState.Vault(
@@ -117,7 +133,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         //  - locked pool liquidity is partially used to cover some collateral appreciation
 
         // unlock the liquidity from the pool first
-        CollarLiquidityPool(vault.liquidityPool).unlock(vault.lockedPoolCash, vault.callStrikeTick);
+        ConvertibleLiquidityPool(vault.liquidityPool).burn(vaultUUID, vault.lockedPoolCash);
 
         // grab all price info
         uint256 startingPrice = vault.startingPrice;
@@ -125,7 +141,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         uint256 callStrikePrice = vault.callStrikePrice;
         uint256 finalPrice = ICollarEngine(engine).getHistoricalAssetPrice(vault.collateralAsset, vault.expiresAt);
 
-        CollarLiquidityPool pool = CollarLiquidityPool(vault.liquidityPool);
+        ConvertibleLiquidityPool pool = ConvertibleLiquidityPool(vault.liquidityPool);
 
         // CASE 1 - all vault cash to liquidity pool
         if (finalPrice <= putStrikePrice) {                                          
@@ -194,6 +210,60 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         // transfer out the cash
         IERC20(vault.cashAsset).transfer(to, amount);
     }
+
+    // ----- PRIVATE / INTERNAL FUNCTIONS ----- //
+
+    /// @notice Mints **vault** liquidity tokens
+    /// @dev Called internally by openVault
+    function mint(bytes32 vaultUUID, uint256 amount, uint24 tick) internal virtual {
+
+        cashSupplyForVaultToken[vaultUUID] += amount;
+        
+        _mint(msg.sender, uint256(vaultUUID), amount, "");
+    }
+
+    /// @notice Burns **vault** liquidity tokens
+    /// @dev Called internally by finalizeVault
+    function burn(bytes32 vaultUUID, uint256 amount, uint24 tick) internal virtual {
+
+        // calculate how much cash this redeems for
+        uint256 cashAmount = ((amount * cashSupplyForVaultToken[vaultUUID] * 1e18) / totalSupply[uint256(vaultUUID)]) / 1e18;
+
+        cashSupplyForVaultToken[vaultUUID] -= amount;
+        
+        _burn(msg.sender, uint256(vaultUUID), amount);
+    
+        // transfer cash out to the person who burned the tokens
+        IERC20(vaultsByUUID[vaultUUID].cashAsset).transfer(msg.sender, cashAmount);
+    }
+
+    /// @dev We override _mint (and also _burn) to track total supply of each token (not implemented by default for ERC1155)
+    function _mint(address account, uint256 id, uint256 amount, bytes memory data) internal virtual override {
+        super._mint(account, id, amount, data);
+
+        totalSupply[id] += amount;
+    }
+
+    /// @dev We override _burn (and also _mint) to track total supply of each token (not implemented by default for ERC1155)
+    function _burn(address account, uint256 id, uint256 amount) internal virtual override {
+        super._burn(account, id, amount);
+
+        totalSupply[id] -= amount;
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     // Given asset opts, perform the swap from collteral --> cash
     function swap(CollarVaultState.AssetSpecifiers calldata assets) internal returns (uint256 cashReceived) {

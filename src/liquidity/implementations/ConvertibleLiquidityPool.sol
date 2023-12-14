@@ -37,9 +37,9 @@ contract ConvertibleLiquidityPool is SubdividedLiquidityPool, ERC1155 {
     address immutable Engine;
 
     /// @notice this mapping stores how vaulable the liquidity tokens are for each vault
-    /// @dev the value will always be 1 for a non-closed vault, and once the vault is closed,
-    /// can zero or greater depending on the outcome of the vault
-    mapping(bytes32 tokenUUID => uint256 liquidityAvailable) public liquiditySupplyForToken;
+    /// @dev the value will always be 1 for a non-finalized vault, and once the vault is closed,
+    /// can be zero or greater depending on the outcome of the vault
+    mapping(bytes32 tokenUUID => uint256 liquidityAvailable) public cashSupplyForPoolToken;
 
     /// @notice tracks the total supply of each liquidity token
     mapping(uint256 tokenId => uint256 totalSupply) public totalSupply;
@@ -60,7 +60,7 @@ contract ConvertibleLiquidityPool is SubdividedLiquidityPool, ERC1155 {
     /// @param tokenUUID the UUID of the token to apply the delta to (also the vault UUID)
     /// @param delta the amount to adjust the liquidity by
     function adjustLiquidity(bytes32 tokenUUID, int256 delta) public virtual onlyEngine {
-        liquiditySupplyForToken[tokenUUID] = uint256(int256(liquiditySupplyForToken[tokenUUID]) + delta);
+        cashSupplyForPoolToken[tokenUUID] = uint256(int256(cashSupplyForPoolToken[tokenUUID]) + delta);
     }
 
     // ----- PUBLIC STATE CHANGING FUNCTIONS ----- //
@@ -98,7 +98,7 @@ contract ConvertibleLiquidityPool is SubdividedLiquidityPool, ERC1155 {
         }
 
         // set the amount of liquidity that this token is redeeamble for (in relation to the total supply)
-        liquiditySupplyForToken[uuid] = amountToLock;
+        cashSupplyForPoolToken[uuid] = amountToLock;
     }
 
     /// @notice redeems liquidity tokens for the underlying cash asset, "unlocking" the liquidity
@@ -110,11 +110,11 @@ contract ConvertibleLiquidityPool is SubdividedLiquidityPool, ERC1155 {
         // grab the total supply of the liquidity token for this vault
         uint256 totalRedeemTokenSupply = totalSupply[uint256(uuid)];
 
-        // grab the total amount of liquidity available for this liquidity token
-        uint256 totalLiquidtyAvailable = liquiditySupplyForToken[uuid];
-
         // calculate the amount of liquidity that the provided amount of tokens redeems for
-        uint256 liquidityRedeemed = ((amount * totalLiquidtyAvailable * 1e18) / totalRedeemTokenSupply) / 1e18;
+        uint256 liquidityRedeemed = ((amount * cashSupplyForPoolToken[uuid] * 1e18) / totalRedeemTokenSupply) / 1e18;
+
+        // decrement the liquidity available for this token
+        cashSupplyForPoolToken[uuid] -= liquidityRedeemed;
 
         // grab the tick that this token applies to
         uint24 tick = uuidToTick[uuid];
