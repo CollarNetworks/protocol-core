@@ -8,24 +8,12 @@
 pragma solidity ^0.8.18;
 
 import { ICollarPool } from "../interfaces/ICollarPool.sol";
-import { ICollarMultiTokenVault } from "../interfaces/ICollarMultiTokenVault.sol";
 import { Constants, CollarVaultState } from "../libs/CollarLibs.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-struct SlotState {
-    uint256 liquidity;
-    address[] providers;
-    uint256[] amounts;
-}
 
-contract CollarPool is ICollarPool, ICollarMultiTokenVault, Constants {
 
-    mapping(bytes32 uuid => bool) public hasMinted;
-    mapping(uint256 id => uint256) public totalTokenSupply;
-    mapping(bytes32 uuid => uint256) public totalCashSupplyForToken;
-    mapping(uint256 slotID => SlotState slot) public slots;
-    mapping(bytes32 uuid => bool vaultFinalized) public vaultStatus;
-
+contract CollarPool is ICollarPool, Constants {
     constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset) ICollarPool(_engine, _tickScaleFactor, _cashAsset) {}
 
     function addLiquidity(
@@ -163,7 +151,7 @@ contract CollarPool is ICollarPool, ICollarMultiTokenVault, Constants {
         }
     }
 
-    function mint(bytes32 uuid, uint256 slot, uint256 amount) external {
+    function mint(bytes32 uuid, uint256 slot, uint256 amount) external override {
         // ensure this is the first/only mint
         if (hasMinted[uuid]) {
             revert("Already minted");
@@ -245,23 +233,41 @@ contract CollarPool is ICollarPool, ICollarMultiTokenVault, Constants {
 
     function vaultPullLiquidity(
         bytes32 uuid,
-        uint256 slot,
+        address receiver,
         uint256 amount
-    ) external virtual {
-        revert("Not implemented");
+    ) external override {
+        // verify caller via engine
+        if (msg.sender != engine) {
+            revert("Only engine can pull liquidity");
+        } 
+
+        // update the amount of total cash tokens for that vault
+        totalCashSupplyForToken[uuid] -= amount;
+
+        // transfer liquidity
+        IERC20(cashAsset).transferFrom(address(this), receiver, amount);
     }
 
     function vaultPushLiquidity(
         bytes32 uuid,
-        uint256 slot,
+        address sender,
         uint256 amount
-    ) external virtual {
-        revert("Not implemented");
+    ) external override {
+        // verify caller via engine
+        if (msg.sender != engine) {
+            revert("Only engine can push liquidity");
+        }
+
+        // update the amount of total cash tokens for that vault
+        totalCashSupplyForToken[uuid] += amount;
+
+        // transfer liquidity
+        IERC20(cashAsset).transferFrom(sender, address(this), amount);
     }
 
     function finalizeVault(
         bytes32 uuid
-    ) external virtual {
+    ) external override {
         // ensure that this is a valid vault calling us - it must call through the engine
         if (msg.sender != engine) {
             revert("Only engine can finalize");

@@ -6,7 +6,7 @@
  */
 
 pragma solidity ^0.8.18;
-
+ 
 import "forge-std/Test.sol";
 import { TestERC20 } from "../../utils/TestERC20.sol";
 import { CollarVaultState, CollarVaultConstants } from "../../../src/vaults/interfaces/CollarLibs.sol";

@@ -7,8 +7,7 @@
 
 pragma solidity ^0.8.18;
 
-import { ICollarVault } from "../interfaces/ICollarVault.sol";
-import { ICollarMultiTokenVault } from "../interfaces/ICollarMultiTokenVault.sol";
+import { ICollarVaultManager } from "../interfaces/ICollarVaultManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Constants, CollarVaultState } from "../libs/CollarLibs.sol";
 import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
@@ -16,21 +15,9 @@ import { ICollarEngine } from "../interfaces/ICollarEngine.sol";
 import { TickCalculations } from "../libs/TickCalculations.sol";
 import { CollarPool } from "./CollarPool.sol";
 
-contract CollarVaultManager is ICollarVault, ICollarMultiTokenVault, Constants {
-    address immutable user;
-    address immutable engine;
+contract CollarVaultManager is ICollarVaultManager, Constants {
 
-    mapping(uint256 id => uint256) public totalTokenSupply;
-    mapping(bytes32 uuid => CollarVaultState.Vault vault) public vaultsByUUID;
-    mapping(bytes32 => uint256) public vaultTokenCashSupply;
-
-    uint256 public vaultCount;
-
-    constructor(address _engine, address _owner) {
-        user = _owner;
-        engine = _engine;
-        vaultCount = 0;
-    }
+    constructor(address _engine, address _owner) ICollarVaultManager(_engine, _owner) {}
 
     function openVault(
         CollarVaultState.AssetSpecifiers calldata assetData,       // addresses & amounts of collateral & cash assets
@@ -224,18 +211,6 @@ contract CollarVaultManager is ICollarVault, ICollarMultiTokenVault, Constants {
         IERC20(vaultsByUUID[uuid].cashAsset).transfer(msg.sender, redeemValue);
     }
 
-    function withdraw(bytes32 uuid, uint256 amount) external {
-        uint256 loanBalance = vaultsByUUID[uuid].loanBalance;
-
-        // withdraw from user's loan balance
-        if (amount > loanBalance) {
-            revert("Insufficient loan balance");
-        } else {
-            vaultsByUUID[uuid].loanBalance -= amount;
-            IERC20(vaultsByUUID[uuid].cashAsset).transfer(msg.sender, amount);
-        }
-    }
-
     function previewRedeem(bytes32 uuid, uint256 amount) public override view returns (uint256 cashReceived) {
         bool finalized = !vaultsByUUID[uuid].active;
 
@@ -254,6 +229,18 @@ contract CollarVaultManager is ICollarVault, ICollarMultiTokenVault, Constants {
             uint256 currentCollateralPrice = ICollarEngine(engine).getCurrentAssetPrice(vaultsByUUID[uuid].collateralAsset);
 
             revert("Not implemented");
+        }
+    }
+
+    function withdraw(bytes32 uuid, uint256 amount) external {
+        uint256 loanBalance = vaultsByUUID[uuid].loanBalance;
+
+        // withdraw from user's loan balance
+        if (amount > loanBalance) {
+            revert("Insufficient loan balance");
+        } else {
+            vaultsByUUID[uuid].loanBalance -= amount;
+            IERC20(vaultsByUUID[uuid].cashAsset).transfer(msg.sender, amount);
         }
     }
 

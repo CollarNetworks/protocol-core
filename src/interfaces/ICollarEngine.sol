@@ -124,5 +124,4 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     /// @param liquidityPool The address of the liquidity pool
     /// @param uuid The UUID of the vault to finalize
     function notifyFinalized(address liquidityPool, bytes32 uuid) external virtual;
-
 }
