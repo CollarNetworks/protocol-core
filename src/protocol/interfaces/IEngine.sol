@@ -119,4 +119,10 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     /// @notice Gets the current price of 1e18 of a particular asset
     /// @param asset The address of the asset to get the price of
     function getCurrentAssetPrice(address asset) external view virtual returns (uint256);
+
+    /// @notice Allows a valid vault to notify the pool that it is finalized
+    /// @param liquidityPool The address of the liquidity pool
+    /// @param uuid The UUID of the vault to finalize
+    function notifyFinalized(address liquidityPool, bytes32 uuid) external virtual;
+
 }

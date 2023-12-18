@@ -14,3 +14,5 @@ lib/uni-v3-periphery-solc-v0.8:@openzeppelin/contracts=lib/oz-v4.9.3/
 lib/uni-v3-core-solc-v0.8:@openzeppelin/contracts=lib/oz-v4.9.3/
 lib/uni-v3-periphery-solc-v0.8:@uniswap/v3-core/contracts/=lib/uni-v3-core-solc-v0.8/
 lib/uni-v3-core-solc-v0.8:@uniswap/v3-periphery/contracts/=lib/uni-v3-core-solc-v0.8/
+
+@solmate=lib/solmate/src/

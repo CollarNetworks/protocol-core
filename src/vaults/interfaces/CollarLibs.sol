@@ -76,11 +76,9 @@ library CollarVaultState {
 
     /// @notice This struct contains information about how to source the liquidity for each vault
     /// @param liquidityPool The address of the liquidity pool to draw from
-    /// @param amountToLock The amount of liquidity to lock at the tick
     /// @param tick The tick at which liquidity is locked
     struct LiquidityOpts {
         address liquidityPool;
-        uint256 amountToLock;
         uint24 putStrikeTick;
         uint24 callStrikeTick;
     }
@@ -99,11 +97,16 @@ library CollarVaultState {
     /// @param startingPrice The price of the cash asset in terms of 1e18 of the collateral asset at the time of opening the vault
     /// @param putStrikePrice The strike price of the put option in terms of 1e18 of the collateral asset
     /// @param callStrikePrice The strike price of the call option in terms of 1e18 of the collateral asset
-    /// @param poolPutStrikeTick The tick at which the put option is struck
-    /// @param poolCallStrikeTick The tick at which the call option is struck
-    /// @param unlockedCashTotal The amount of cash that is currently unlocked (withdrawable); this is the only state var that changes during a vault's lifetime
-    /// @param lockedCashTotal The amount of cash that is currently locked (unwithdrawable)
+    /// @param putStrikeTick The tick at which the put option is struck
+    /// @param callStrikeTick The tick at which the call option is struck
+    /// @param loanBalance amount of cash that is currently unlocked (withdrawable); this is the only state var that changes during a vault's lifetime
+    /// @param lockedVaultCash The amount of cash that is currently locked (unwithdrawable)
     struct Vault {
+
+        // todo: denote which of these values are supplied by user on vault creation
+        // and which of them are derived values; we must carefully verify supplied values,
+        // but derived values can be naively trusted
+
         /* ----- Basic Vault Info ----- */
 
         bool active;
@@ -122,21 +125,20 @@ library CollarVaultState {
 
         address liquidityPool;
         uint256 lockedPoolCash;
-        uint256 startingPrice;
+        uint256 initialCollateralPrice;
         uint256 putStrikePrice;
         uint256 callStrikePrice;
         uint24 putStrikeTick;
         uint24 callStrikeTick;
 
         /* ----- Vault Specific Stuff ----- */
-
-        uint256 unlockedVaultCash;
+        uint256 loanBalance;
         uint256 lockedVaultCash;
     }
 }
 
 /// @notice Constants for the vault manager
-library CollarVaultConstants {
+abstract contract Constants {
     /// @notice The maximum global ltv, not changeable; set to 100% for now (in bps)
     uint256 constant public MAX_LTV = 10_000;
 
@@ -145,4 +147,7 @@ library CollarVaultConstants {
 
     /// @notice The maximum put strike, not changeable; set to 100% for now (in bps)
     uint256 constant public MAX_PUT_STRIKE = 100_000;
+
+    uint256 constant public ONE_HUNDRED_PERCENT = 10_000;
+    uint256 constant public PRECISION_MULTIPLIER = 1e18;
 }
