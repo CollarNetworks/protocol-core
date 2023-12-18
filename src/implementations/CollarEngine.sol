@@ -7,8 +7,8 @@
 
 pragma solidity ^0.8.18;
 
-import { ICollarEngine } from "../interfaces/IEngine.sol";
-import { CollarVaultManager } from "../../vaults/implementations/CollarVaultManager.sol";
+import { ICollarEngine } from "../interfaces/ICollarEngine.sol";
+import { CollarVaultManager } from "./CollarVaultManager.sol";
 
 contract CollarEngine is ICollarEngine {
     constructor(address _core, address _collarLiquidityPoolManager, address _dexRouter) ICollarEngine(_core, _collarLiquidityPoolManager, _dexRouter) {}

@@ -7,9 +7,9 @@
 
 pragma solidity ^0.8.18;
 
-import { PoolBase } from "./PoolBase.sol";
-import { MultiTokenVault } from "./MultiTokenVault.sol";
-import { Constants, CollarVaultState } from "../vaults/interfaces/CollarLibs.sol";
+import { ICollarPool } from "../interfaces/ICollarPool.sol";
+import { ICollarMultiTokenVault } from "../interfaces/ICollarMultiTokenVault.sol";
+import { Constants, CollarVaultState } from "../libs/CollarLibs.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 struct SlotState {
@@ -18,11 +18,7 @@ struct SlotState {
     uint256[] amounts;
 }
 
-contract CollarPool is PoolBase, MultiTokenVault, Constants {
-
-    uint256 immutable public tickScaleFactor;
-    address immutable public engine;
-    address immutable public cashAsset;
+contract CollarPool is ICollarPool, ICollarMultiTokenVault, Constants {
 
     mapping(bytes32 uuid => bool) public hasMinted;
     mapping(uint256 id => uint256) public totalTokenSupply;
@@ -30,11 +26,7 @@ contract CollarPool is PoolBase, MultiTokenVault, Constants {
     mapping(uint256 slotID => SlotState slot) public slots;
     mapping(bytes32 uuid => bool vaultFinalized) public vaultStatus;
 
-    constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset) {
-        tickScaleFactor = _tickScaleFactor;
-        engine = _engine;
-        cashAsset = _cashAsset;
-    }
+    constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset) ICollarPool(_engine, _tickScaleFactor, _cashAsset) {}
 
     function addLiquidity(
         uint256 slotIndex,

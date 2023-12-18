@@ -9,7 +9,7 @@ pragma solidity ^0.8.18;
 
 import { ERC6909 } from "@solmate/tokens/ERC6909.sol";
 
-abstract contract MultiTokenVault is ERC6909 {
+abstract contract ICollarMultiTokenVault is ERC6909 {
 
     mapping(bytes32 uuid => uint256 totalCashSupply) tokenCashSupply;
 

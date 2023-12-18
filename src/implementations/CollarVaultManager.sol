@@ -7,16 +7,16 @@
 
 pragma solidity ^0.8.18;
 
-import { VaultBase } from "./VaultBase.sol";
-import { MultiTokenVault } from "./MultiTokenVault.sol";
+import { ICollarVault } from "../interfaces/ICollarVault.sol";
+import { ICollarMultiTokenVault } from "../interfaces/ICollarMultiTokenVault.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { Constants, CollarVaultState } from "../vaults/interfaces/CollarLibs.sol";
+import { Constants, CollarVaultState } from "../libs/CollarLibs.sol";
 import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
-import { ICollarEngine } from "../protocol/interfaces/IEngine.sol";
-import { TickCalculations } from "../liquidity/implementations/TickCalculations.sol";
+import { ICollarEngine } from "../interfaces/ICollarEngine.sol";
+import { TickCalculations } from "../libs/TickCalculations.sol";
 import { CollarPool } from "./CollarPool.sol";
 
-contract CollarVaultManager is VaultBase, MultiTokenVault, Constants {
+contract CollarVaultManager is ICollarVault, ICollarMultiTokenVault, Constants {
     address immutable user;
     address immutable engine;
 
@@ -189,10 +189,10 @@ contract CollarVaultManager is VaultBase, MultiTokenVault, Constants {
 
         // pull cash from the liquidity pool if amount is nonzero
         if (cashNeededFromPool > 0) {
-            CollarPool(vault.liquidityPool).vaultPullLiquidity(uuid, vault.callStrikeTick, cashNeededFromPool);
+            ICollarPool(vault.liquidityPool).vaultPullLiquidity(uuid, vault.callStrikeTick, cashNeededFromPool);
         } else {
             vault.lockedVaultCash -= cashToSendToPool;
-            CollarPool(vault.liquidityPool).vaultPushLiquidity(uuid, vault.callStrikeTick, cashToSendToPool);
+            ICollarPool(vault.liquidityPool).vaultPushLiquidity(uuid, vault.callStrikeTick, cashToSendToPool);
         }
 
         // set total redeem value for vault tokens to locked vault cash + cash pulled from pool

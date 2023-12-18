@@ -7,9 +7,9 @@
 
 pragma solidity ^0.8.18;
 
-import { CollarVaultState } from "../vaults/interfaces/CollarLibs.sol";
+import { CollarVaultState } from "../libs/CollarLibs.sol";
 
-abstract contract VaultBase {
+abstract contract ICollarVault {
 
     function openVault(
         CollarVaultState.AssetSpecifiers calldata assets,       // addresses & amounts of collateral & cash assets
