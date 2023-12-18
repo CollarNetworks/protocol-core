@@ -176,10 +176,10 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
 
         // pull cash from the liquidity pool if amount is nonzero
         if (cashNeededFromPool > 0) {
-            ICollarPool(vault.liquidityPool).vaultPullLiquidity(uuid, vault.callStrikeTick, cashNeededFromPool);
+            CollarPool(vault.liquidityPool).vaultPullLiquidity(uuid, vault.callStrikeTick, cashNeededFromPool);
         } else {
             vault.lockedVaultCash -= cashToSendToPool;
-            ICollarPool(vault.liquidityPool).vaultPushLiquidity(uuid, vault.callStrikeTick, cashToSendToPool);
+            CollarPool(vault.liquidityPool).vaultPushLiquidity(uuid, vault.callStrikeTick, cashToSendToPool);
         }
 
         // set total redeem value for vault tokens to locked vault cash + cash pulled from pool
