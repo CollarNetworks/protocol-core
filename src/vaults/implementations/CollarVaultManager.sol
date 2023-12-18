@@ -37,7 +37,7 @@ contract CollarVaultManager is ICollarVaultManager, ICollarEngineErrors, CollarV
         ERC1155("Collar Vault") 
     {
         user = _owner;
-     }
+    }
 
     function open(
         CollarVaultState.AssetSpecifiers calldata assets,       // addresses & amounts of collateral & cash assets
