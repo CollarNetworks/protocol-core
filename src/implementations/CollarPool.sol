@@ -14,6 +14,12 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 contract CollarPool is ICollarPool, Constants {
     constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset) ICollarPool(_engine, _tickScaleFactor, _cashAsset) {}
 
+    function getSlot(
+        uint256 slotIndex
+    ) external override view returns (SlotState memory) {
+        return slots[slotIndex];
+    }
+
     function addLiquidity(
         uint256 slotIndex,
         uint256 amount
@@ -24,22 +30,36 @@ contract CollarPool is ICollarPool, Constants {
         // iterate to find availability
         bool freeSlotFound = false;
         bool smallSlotFound = false;
+
+        uint256 freeSlotIndex = type(uint256).max;
         uint256 smallestSlotIndex = type(uint256).max;
         uint256 smallestAmountSoFar = type(uint256).max;
-        for (uint256 i = 0; i < slot.providers.length; i++) {
-            if (slot.providers[i] == address(0)) {
-                // found an empty slot - allocate here
-                slot.providers[i] = msg.sender;
-                slot.amounts[i] = amount;
-                freeSlotFound = true;
-                break;
-            } else if (slot.amounts[i] < amount && slot.amounts[i] < smallestAmountSoFar) {
-                // found a slot with less liquidity than the amount we want to allocate
-                // keep track of the smallest slot we've seen so far
-                smallestSlotIndex = i;
-                smallestAmountSoFar = slot.amounts[i];
-                smallSlotFound = true;
-            }
+
+        // if this is the first time we're touching this slot, we need to initialize the arrays
+        if (slot.providers.length == 0) {
+            slot.providers = new address[](5);
+            slot.amounts = new uint256[](5);
+            freeSlotFound = true;
+            freeSlotIndex = 0;
+        }
+
+        if (!freeSlotFound) {
+            revert("NO SIR");
+            for (uint256 i = 0; i < slot.providers.length; i++) {
+                if (slot.providers[i] == address(0)) {
+                    // found an empty slot - allocate here
+                    slot.providers[i] = msg.sender;
+                    slot.amounts[i] = amount;
+                    freeSlotFound = true;
+                    break;
+                } else if (slot.amounts[i] < amount && slot.amounts[i] < smallestAmountSoFar) {
+                    // found a slot with less liquidity than the amount we want to allocate
+                    // keep track of the smallest slot we've seen so far
+                    smallestSlotIndex = i;
+                    smallestAmountSoFar = slot.amounts[i];
+                    smallSlotFound = true;
+                }
+            } 
         }
 
         if (!freeSlotFound && !smallSlotFound) {
@@ -58,6 +78,20 @@ contract CollarPool is ICollarPool, Constants {
             slot.providers[smallestSlotIndex] = msg.sender;
             slot.amounts[smallestSlotIndex] = amount;
             providerLiquidityBySlot[msg.sender][slotIndex] = amount;
+
+            // update total slot liquidity
+            slotLiquidity[slotIndex] -= smallestAmountSoFar;
+            slotLiquidity[slotIndex] += amount;
+
+            slot.liquidity -= smallestAmountSoFar;
+            slot.liquidity += amount;
+        }
+
+        if (freeSlotFound) {
+            // allocate to free slot
+            slot.providers[freeSlotIndex] = msg.sender;
+            slot.amounts[freeSlotIndex] = amount;
+            providerLiquidityBySlot[msg.sender][slotIndex] = amount;
         }
 
         // transfer collateral from provider to pool
@@ -65,6 +99,7 @@ contract CollarPool is ICollarPool, Constants {
 
         // update total slot liquidity amount
         slotLiquidity[slotIndex] += amount;
+        slot.liquidity += amount;
     }
 
     function removeLiquidity(

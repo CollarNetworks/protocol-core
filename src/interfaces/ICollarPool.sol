@@ -9,13 +9,16 @@ pragma solidity ^0.8.18;
 
 import { ERC6909 } from "@solmate/tokens/ERC6909.sol";
 
-abstract contract ICollarPool is ERC6909 {
-
+abstract contract ICollarPoolState {
     struct SlotState {
         uint256 liquidity;
         address[] providers;
         uint256[] amounts;
     }
+}
+
+
+abstract contract ICollarPool is ERC6909, ICollarPoolState {
 
     /// @notice This is the ID of the slot that is unallocated to any particular call strike percentage
     uint256 public constant UNALLOCATED_SLOT = type(uint256).max;
@@ -57,6 +60,12 @@ abstract contract ICollarPool is ERC6909 {
         engine = _engine;
         cashAsset = _cashAsset;
     }
+
+    /// @notice Gets the state of a particular slot
+    /// @param slotIndex The index of the slot to get the state of
+    function getSlot(
+        uint256 slotIndex
+    ) external virtual returns (SlotState memory);
 
     /// @notice Adds liquidity to a given slot
     function addLiquidity(
