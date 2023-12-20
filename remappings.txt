@@ -3,8 +3,9 @@
 @chainlink-v0.8/=lib/chainlink/v0.8/
 
 @oz-v4.9.3/=lib/oz-v4.9.3/
-@openzeppelin/contracts/=lib/oz-v4.9.3/
-openzeppelin/=lib/oz-v4.9.3/
+@oz-v5.0.0/=lib/oz-v5.0.0/
+@openzeppelin/contracts/=lib/oz-v5.0.0/
+openzeppelin/=lib/oz-v5.0.0/
 
 @uniswap/v3-core/contracts/=lib/uni-v3-core-solc-v0.8/
 @uniswap/v3-periphery/contracts/=lib/uni-v3-periphery-solc-v0.8/

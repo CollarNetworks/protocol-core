@@ -11,8 +11,6 @@ import { ICollarPool } from "../interfaces/ICollarPool.sol";
 import { Constants, CollarVaultState } from "../libs/CollarLibs.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-
-
 contract CollarPool is ICollarPool, Constants {
     constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset) ICollarPool(_engine, _tickScaleFactor, _cashAsset) {}
 
@@ -20,7 +18,6 @@ contract CollarPool is ICollarPool, Constants {
         uint256 slotIndex,
         uint256 amount
     ) external virtual override {
-
         // check if destination slot has space - if not, check to see if this provider has rights to kick out smallest provider
         SlotState storage slot = slots[slotIndex];
 

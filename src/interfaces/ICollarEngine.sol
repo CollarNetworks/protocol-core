@@ -9,6 +9,7 @@ pragma solidity ^0.8.18;
 
 abstract contract ICollarEngineErrors {
     error VaultManagerAlreadyExists(address user, address vaultManager);
+    error LiquidityPoolAlreadyAdded(address pool);
     error CollateralAssetNotSupported(address asset);
     error CashAssetNotSupported(address asset);
     error CollateralAssetAlreadySupported(address asset);
@@ -19,11 +20,23 @@ abstract contract ICollarEngineErrors {
     error InvalidLiquidityPool(address pool);
     error CollarLengthNotSupported(uint256 length);
     error InvalidLiquidityOpts();
+    error AssetNotSupported(address asset);
+    error AssetAlreadySupported(address asset);
 }
 
 abstract contract ICollarEngine is ICollarEngineErrors {
 
     address public immutable dexRouter;
+
+    modifier isValidLiquidityPool(address pool) {
+        if (!isLiquidityPool[pool]) revert InvalidLiquidityPool(pool);
+        _;
+    }
+
+    modifier isNotValidLiquidityPool(address pool) {
+        if (isLiquidityPool[pool]) revert LiquidityPoolAlreadyAdded(pool);
+        _;
+    }
 
     modifier isValidCollateralAsset(address asset) {
         if (!isSupportedCollateralAsset[asset]) revert CollateralAssetNotSupported(asset);
@@ -32,6 +45,11 @@ abstract contract ICollarEngine is ICollarEngineErrors {
 
     modifier isValidCashAsset(address asset) {
         if (!isSupportedCashAsset[asset]) revert CashAssetNotSupported(asset);
+        _;
+    }
+
+    modifier isValidAsset(address asset) {
+        if (!isSupportedCollateralAsset[asset] && !isSupportedCashAsset[asset]) revert AssetNotSupported(asset);
         _;
     }
 
@@ -45,6 +63,11 @@ abstract contract ICollarEngine is ICollarEngineErrors {
         _;
     }
 
+    modifier isNotValidAsset(address asset) {
+        if (isSupportedCollateralAsset[asset] || isSupportedCashAsset[asset]) revert AssetAlreadySupported(asset);
+        _;
+    }
+
     modifier isSupportedCollarLength(uint256 length) {
         if (!isValidCollarLength[length]) revert CollarLengthNotSupported(length);
         _;
@@ -55,12 +78,12 @@ abstract contract ICollarEngine is ICollarEngineErrors {
         _;
     }
 
-    address immutable core;
-    address public liquidityPoolManager;
-
     /// @notice This mapping stores the address of the vault contract per user (or market maker)
     /// @dev This will be zero if the user has not yet created a vault
     mapping(address => address) public addressToVaultManager;
+
+    /// @notice This mapping indicates whether or not a particular pool is valid
+    mapping(address => bool) public isLiquidityPool;
 
     /// @notice This mapping indicates whether or not a particular asset is supported as collateral
     mapping(address => bool) public isSupportedCollateralAsset;
@@ -72,20 +95,21 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     mapping(uint256 => bool) public isValidCollarLength;
     
     /// @notice Initializes the engine.
-    /// @param _core The address of the core contract.
-    constructor(address _core, address _liquidityPoolManager, address _dexRouter) {
-        core = _core;
-        liquidityPoolManager = _liquidityPoolManager;
+    constructor(address _dexRouter) {
         dexRouter = _dexRouter;
     }
+
+    /// @notice Adds a liquidity pool to the list of supported pools
+    /// @param pool The address of the pool to add
+    function addLiquidityPool(address pool) external virtual;
+
+    /// @notice Removes a liquidity pool from the list of supported pools
+    /// @param pool The address of the pool to remove
+    function removeLiquidityPool(address pool) external virtual;
 
     /// @notice Creates a vault manager contract for the user that calls this function, if it does not already exist
     /// @dev This function is called by the user when they want to create a new vault if they haven't done so in the past
     function createVaultManager() external virtual returns (address);
-
-    /// @notice Sets the address of the liquidity pool manager contract
-    /// @param _liquidityPoolManager The address of the liquidity pool manager contract
-    function setLiquidityPoolManager(address _liquidityPoolManager) external virtual;
     
     /// @notice Adds an asset to the list of supported collateral assets
     /// @param asset The address of the asset to add

@@ -176,10 +176,12 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
 
         // pull cash from the liquidity pool if amount is nonzero
         if (cashNeededFromPool > 0) {
-            CollarPool(vault.liquidityPool).vaultPullLiquidity(uuid, vault.callStrikeTick, cashNeededFromPool);
+            
+            CollarPool(vault.liquidityPool).vaultPullLiquidity(uuid, address(this), cashNeededFromPool);
         } else {
             vault.lockedVaultCash -= cashToSendToPool;
-            CollarPool(vault.liquidityPool).vaultPushLiquidity(uuid, vault.callStrikeTick, cashToSendToPool);
+            IERC20(vault.cashAsset).approve(vault.liquidityPool, cashToSendToPool);
+            CollarPool(vault.liquidityPool).vaultPushLiquidity(uuid, address(this), cashToSendToPool);
         }
 
         // set total redeem value for vault tokens to locked vault cash + cash pulled from pool
@@ -232,7 +234,7 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
         }
     }
 
-    function withdraw(bytes32 uuid, uint256 amount) external {
+    function withdraw(bytes32 uuid, uint256 amount) external override {
         uint256 loanBalance = vaultsByUUID[uuid].loanBalance;
 
         // withdraw from user's loan balance
@@ -242,6 +244,11 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
             vaultsByUUID[uuid].loanBalance -= amount;
             IERC20(vaultsByUUID[uuid].cashAsset).transfer(msg.sender, amount);
         }
+    }
+
+    function vaultInfo(bytes32 uuid) external view override returns (bytes memory) {
+        bytes memory data = abi.encode(vaultsByUUID[uuid]);
+        return data;
     }
 
     function _validateAssetData(CollarVaultState.AssetSpecifiers calldata assetData) internal pure {

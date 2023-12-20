@@ -9,18 +9,19 @@ pragma solidity ^0.8.18;
 
 import { CollarVaultState } from "../libs/CollarLibs.sol";
 import { ERC6909 } from "@solmate/tokens/ERC6909.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-abstract contract ICollarVaultManager is ERC6909 {
-    address immutable user;
-    address immutable engine;
+abstract contract ICollarVaultManager is ERC6909, Ownable {
+    address immutable public user;
+    address immutable public engine;
 
     uint256 public vaultCount;
 
     mapping(uint256 id => uint256) public totalTokenSupply;
-    mapping(bytes32 uuid => CollarVaultState.Vault vault) public vaultsByUUID;
+    mapping(bytes32 uuid => CollarVaultState.Vault vault) internal vaultsByUUID;
     mapping(bytes32 => uint256) public vaultTokenCashSupply;
 
-    constructor(address _engine, address _owner) {
+    constructor(address _engine, address _owner) Ownable(_owner) {
         user = _owner;
         engine = _engine;
         vaultCount = 0;
@@ -65,4 +66,6 @@ abstract contract ICollarVaultManager is ERC6909 {
         bytes32 uuid, 
         uint256 amount
     ) external virtual;
+
+    function vaultInfo(bytes32 uuid) external view virtual returns (bytes calldata data);
 }
