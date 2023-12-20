@@ -22,11 +22,17 @@ abstract contract ICollarEngineErrors {
     error InvalidLiquidityOpts();
     error AssetNotSupported(address asset);
     error AssetAlreadySupported(address asset);
+    error InvalidVaultManager(address vaultManager);
 }
 
 abstract contract ICollarEngine is ICollarEngineErrors {
 
     address public immutable dexRouter;
+
+    modifier isValidVaultManager(address vaultManager) {
+        if (vaultManagers[vaultManager] == false) revert InvalidVaultManager(vaultManager);
+        _;
+    }
 
     modifier isValidLiquidityPool(address pool) {
         if (!isLiquidityPool[pool]) revert InvalidLiquidityPool(pool);
@@ -77,6 +83,9 @@ abstract contract ICollarEngine is ICollarEngineErrors {
         if (isValidCollarLength[length]) revert CollarLengthNotSupported(length);
         _;
     }
+
+    /// @notice This mapping stores whether or not a vault manager is valid
+    mapping(address => bool) public vaultManagers;
 
     /// @notice This mapping stores the address of the vault contract per user (or market maker)
     /// @dev This will be zero if the user has not yet created a vault

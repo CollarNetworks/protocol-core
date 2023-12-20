@@ -22,6 +22,7 @@ contract CollarEngine is ICollarEngine, Ownable {
 
         address vaultManager = address(new CollarVaultManager(address(this), msg.sender));
         addressToVaultManager[msg.sender] = vaultManager;
+        vaultManagers[vaultManager] = true;
 
         return vaultManager;
     }
@@ -78,7 +79,7 @@ contract CollarEngine is ICollarEngine, Ownable {
         revert("Method not yet implemented");
     }
 
-    function notifyFinalized(address pool, bytes32 uuid) external override isValidLiquidityPool(pool) {
+    function notifyFinalized(address pool, bytes32 uuid) external override isValidVaultManager(msg.sender) isValidLiquidityPool(pool) {
         revert("Method not yet implemented");
     }
 }

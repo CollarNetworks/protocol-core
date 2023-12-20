@@ -9,8 +9,6 @@ pragma solidity ^0.8.18;
 
 import { ERC6909 } from "@solmate/tokens/ERC6909.sol";
 
-
-
 abstract contract ICollarPool is ERC6909 {
 
     struct SlotState {

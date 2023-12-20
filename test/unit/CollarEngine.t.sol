@@ -45,21 +45,29 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         assertEq(engine.owner(), address(this));
     }
 
-    function test_addRemoveLiquidityPool() public {
+    function test_addLiquidityPool() public {
         assertFalse(engine.isLiquidityPool(address(pool1)));
-
         engine.addLiquidityPool(address(pool1));
         assertTrue(engine.isLiquidityPool(address(pool1)));
+    }
 
+    function test_removeLiquidityPool() public {
+        engine.addLiquidityPool(address(pool1));
         engine.removeLiquidityPool(address(pool1));
         assertFalse(engine.isLiquidityPool(address(pool1)));
     }
 
-    function test_addRemoveLiquidityPoolAuth() public {
+    function test_addLiquidityPool_noAuth() public {
         startHoax(user1);
 
         vm.expectRevert(user1NotAuthorized);
         engine.addLiquidityPool(address(pool1));
+
+        vm.stopPrank();
+    }
+
+    function test_removeLiquidityPool_noAuth() public {
+        startHoax(user1);
 
         vm.expectRevert(user1NotAuthorized);
         engine.removeLiquidityPool(address(pool1));
@@ -67,40 +75,39 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         vm.stopPrank();
     }
 
-    function test_addRemoveCollateralAssets() public {
-        assertFalse(engine.isSupportedCollateralAsset(address(token1)));
-        assertFalse(engine.isSupportedCollateralAsset(address(token2)));
-
-        engine.addSupportedCollateralAsset(address(token1));
-        assertTrue(engine.isSupportedCollateralAsset(address(token1)));
-        assertFalse(engine.isSupportedCollateralAsset(address(token2)));
+    function test_addSupportedCashAsset() public {
         assertFalse(engine.isSupportedCashAsset(address(token1)));
-
-        engine.removeSupportedCollateralAsset(address(token1));
-        assertFalse(engine.isSupportedCollateralAsset(address(token1)));
-        assertFalse(engine.isSupportedCollateralAsset(address(token2)));
-
-        engine.addSupportedCollateralAsset(address(token1));
-        engine.addSupportedCollateralAsset(address(token2));
-
-        assertTrue(engine.isSupportedCollateralAsset(address(token1)));
-        assertTrue(engine.isSupportedCollateralAsset(address(token2)));
-        assertFalse(engine.isSupportedCashAsset(address(token1)));
-        assertFalse(engine.isSupportedCashAsset(address(token2)));
+        engine.addSupportedCashAsset(address(token1));
+        assertTrue(engine.isSupportedCashAsset(address(token1)));
     }
 
-    function test_addDuplicateAsset() public {
+    function test_addSupportedCashAsset_noAuth() public {
+        startHoax(user1);
+        vm.expectRevert(user1NotAuthorized);
         engine.addSupportedCashAsset(address(token1));
-        engine.addSupportedCollateralAsset(address(token2));
+        vm.stopPrank();
+    }
 
+    function test_addSupportedCashAsset_duplicateAsset() public {
+        engine.addSupportedCashAsset(address(token1));
         vm.expectRevert(abi.encodeWithSelector(CashAssetAlreadySupported.selector, address(token1)));
         engine.addSupportedCashAsset(address(token1));
-
-        vm.expectRevert(abi.encodeWithSelector(CollateralAssetAlreadySupported.selector, address(token2)));
-        engine.addSupportedCollateralAsset(address(token2));
     }
 
-    function test_removeNonExistentAsset() public {
+    function test_removeSupportedCashAsset() public {
+        engine.addSupportedCashAsset(address(token1));
+        engine.removeSupportedCashAsset(address(token1));
+        assertFalse(engine.isSupportedCashAsset(address(token1)));
+    }
+
+    function test_removeSupportedCashAsset_noAuth() public {
+        startHoax(user1);
+        vm.expectRevert(user1NotAuthorized);
+        engine.removeSupportedCashAsset(address(token1));
+        vm.stopPrank();
+    }
+
+    function test_removeSupportedCashAsset_nonExistentAsset() public {
         vm.expectRevert(abi.encodeWithSelector(CashAssetNotSupported.selector, address(token1)));
         engine.removeSupportedCashAsset(address(token1));
 
@@ -108,81 +115,61 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         engine.removeSupportedCollateralAsset(address(token2));
     }
 
-    function test_addRemoveCollateralAuth() public {
-        startHoax(user1);
+    function test_addSupportedCollateralAsset() public {
+        assertFalse(engine.isSupportedCollateralAsset(address(token1)));
+        engine.addSupportedCollateralAsset(address(token1));
+        assertTrue(engine.isSupportedCollateralAsset(address(token1)));
+    }
 
+    function test_addSupportedCollateralAsset_noAuth() public {
+        startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
         engine.addSupportedCollateralAsset(address(token1));
+        vm.stopPrank();
+    }
 
+    function test_addSupportedCollateralAsset_duplicateAsset() public {
+        engine.addSupportedCollateralAsset(address(token1));
+        vm.expectRevert(abi.encodeWithSelector(CollateralAssetAlreadySupported.selector, address(token1)));
+        engine.addSupportedCollateralAsset(address(token1));
+    }
+
+    function test_removeSupportedCollateralAsset() public {
+        engine.addSupportedCollateralAsset(address(token1));
+        engine.removeSupportedCollateralAsset(address(token1));
+        assertFalse(engine.isSupportedCollateralAsset(address(token1)));
+    }
+
+    function test_removeSupportedCollateralAsset_noAuth() public {
+        startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
         engine.removeSupportedCollateralAsset(address(token1));
-
-        vm.stopPrank();
-    }
-    
-    function test_addRemoveCash() public {
-        assertFalse(engine.isSupportedCashAsset(address(token1)));
-        assertFalse(engine.isSupportedCashAsset(address(token2)));
-
-        engine.addSupportedCashAsset(address(token1));
-        assertTrue(engine.isSupportedCashAsset(address(token1)));
-        assertFalse(engine.isSupportedCashAsset(address(token2)));
-        assertFalse(engine.isSupportedCollateralAsset(address(token1)));
-
-        engine.removeSupportedCashAsset(address(token1));
-        assertFalse(engine.isSupportedCashAsset(address(token1)));
-        assertFalse(engine.isSupportedCashAsset(address(token2)));
-        assertFalse(engine.isSupportedCollateralAsset(address(token1)));
-
-        engine.addSupportedCashAsset(address(token1));
-        engine.addSupportedCashAsset(address(token2));
-
-        assertTrue(engine.isSupportedCashAsset(address(token1)));
-        assertTrue(engine.isSupportedCashAsset(address(token2)));
-        assertFalse(engine.isSupportedCollateralAsset(address(token1)));
-        assertFalse(engine.isSupportedCollateralAsset(address(token2)));
-    }
-
-    function test_addRemoveCashAuth() public {
-        startHoax(user1);
-
-        vm.expectRevert(user1NotAuthorized);
-        engine.addSupportedCashAsset(address(token1));
-
-        vm.expectRevert(user1NotAuthorized);
-        engine.removeSupportedCashAsset(address(token1));
-
         vm.stopPrank();
     }
 
-    function test_addRemoveCollarLengths() public {
+    function test_addSupportedCollarLength() public {
         assertFalse(engine.isValidCollarLength(1));
-        assertFalse(engine.isValidCollarLength(2));
-
         engine.addSupportedCollarLength(1);
         assertTrue(engine.isValidCollarLength(1));
-        assertFalse(engine.isValidCollarLength(2));
-
-        engine.removeSupportedCollarLength(1);
-        assertFalse(engine.isValidCollarLength(1));
-        assertFalse(engine.isValidCollarLength(2));
-
-        engine.addSupportedCollarLength(1);
-        engine.addSupportedCollarLength(2);
-
-        assertTrue(engine.isValidCollarLength(1));
-        assertTrue(engine.isValidCollarLength(2));
     }
 
-    function test_addRemoveCollarLengthsAuth() public {
+    function test_addSupportedCollarLength_noAuth() public {
         startHoax(user1);
-
         vm.expectRevert(user1NotAuthorized);
         engine.addSupportedCollarLength(1);
+        vm.stopPrank();
+    }
 
+    function test_removeSupportedCollarLength() public {
+        engine.addSupportedCollarLength(1);
+        engine.removeSupportedCollarLength(1);
+        assertFalse(engine.isValidCollarLength(1));
+    }
+
+    function test_removeSupportedCollarLength_noAuth() public {
+        startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
         engine.removeSupportedCollarLength(1);
-
         vm.stopPrank();
     }
 
@@ -201,7 +188,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
     
     */
 
-    function test_getCurrentAssetPriceInvalidAsset() public {
+    function test_getCurrentAssetPrice_InvalidAsset() public {
         vm.expectRevert(abi.encodeWithSelector(AssetNotSupported.selector, address(token1)));
         engine.getCurrentAssetPrice(address(token1));
     }
@@ -229,9 +216,32 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
 
     */
 
-    function test_notifyFinalizedInvalidPool() public {
+    function test_notifyFinalized_InvalidVault() public {
+        engine.addLiquidityPool(pool1);
+        
+        startHoax(user1);
+
+        address vault = engine.createVaultManager();
+        
+        vm.expectRevert(abi.encodeWithSelector(InvalidVaultManager.selector, address(user1)));
+        engine.notifyFinalized(pool1, bytes32(0));
+        
+        vm.stopPrank();
+    }
+
+    function test_notifyFinalized_InvalidPool() public {
+        startHoax(user1);
+
+        address vault = engine.createVaultManager();
+
+        vm.stopPrank();
+
+        startHoax(vault);
+
         vm.expectRevert(abi.encodeWithSelector(InvalidLiquidityPool.selector, address(pool1)));
-        engine.notifyFinalized(address(pool1), bytes32(0));
+        engine.notifyFinalized(pool1, bytes32(0));
+    
+        vm.stopPrank();
     }
 
     function test_createVaultManager() public {
@@ -255,7 +265,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         vm.stopPrank();
     }
 
-    function test_createDuplicateVaultManager() public {
+    function test_createVaultManager_duplicate() public {
         startHoax(user1);
 
         address vaultManager = engine.createVaultManager();
