@@ -20,7 +20,7 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
     constructor(address _engine, address _owner) ICollarVaultManager(_engine, _owner) {}
 
     function openVault(
-        CollarVaultState.AssetSpecifiers calldata assetData,       // addresses & amounts of collateral & cash assets
+        CollarVaultState.AssetSpecifiers calldata assetData,    // addresses & amounts of collateral & cash assets
         CollarVaultState.CollarOpts calldata collarOpts,        // expiry & ltv
         CollarVaultState.LiquidityOpts calldata liquidityOpts   // pool address, callstrike & amount to lock there, putstrike
     ) external override returns (bytes32 uuid) {

@@ -57,7 +57,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         assertFalse(engine.isLiquidityPool(address(pool1)));
     }
 
-    function test_addLiquidityPool_noAuth() public {
+    function test_addLiquidityPool_NoAuth() public {
         startHoax(user1);
 
         vm.expectRevert(user1NotAuthorized);
@@ -66,7 +66,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         vm.stopPrank();
     }
 
-    function test_removeLiquidityPool_noAuth() public {
+    function test_removeLiquidityPool_NoAuth() public {
         startHoax(user1);
 
         vm.expectRevert(user1NotAuthorized);
@@ -81,14 +81,14 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         assertTrue(engine.isSupportedCashAsset(address(token1)));
     }
 
-    function test_addSupportedCashAsset_noAuth() public {
+    function test_addSupportedCashAsset_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
         engine.addSupportedCashAsset(address(token1));
         vm.stopPrank();
     }
 
-    function test_addSupportedCashAsset_duplicateAsset() public {
+    function test_addSupportedCashAsset_Duplicate() public {
         engine.addSupportedCashAsset(address(token1));
         vm.expectRevert(abi.encodeWithSelector(CashAssetAlreadySupported.selector, address(token1)));
         engine.addSupportedCashAsset(address(token1));
@@ -100,14 +100,14 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         assertFalse(engine.isSupportedCashAsset(address(token1)));
     }
 
-    function test_removeSupportedCashAsset_noAuth() public {
+    function test_removeSupportedCashAsset_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
         engine.removeSupportedCashAsset(address(token1));
         vm.stopPrank();
     }
 
-    function test_removeSupportedCashAsset_nonExistentAsset() public {
+    function test_removeSupportedCashAsset_NonExistent() public {
         vm.expectRevert(abi.encodeWithSelector(CashAssetNotSupported.selector, address(token1)));
         engine.removeSupportedCashAsset(address(token1));
 
@@ -121,14 +121,14 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         assertTrue(engine.isSupportedCollateralAsset(address(token1)));
     }
 
-    function test_addSupportedCollateralAsset_noAuth() public {
+    function test_addSupportedCollateralAsset_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
         engine.addSupportedCollateralAsset(address(token1));
         vm.stopPrank();
     }
 
-    function test_addSupportedCollateralAsset_duplicateAsset() public {
+    function test_addSupportedCollateralAsset_Duplicate() public {
         engine.addSupportedCollateralAsset(address(token1));
         vm.expectRevert(abi.encodeWithSelector(CollateralAssetAlreadySupported.selector, address(token1)));
         engine.addSupportedCollateralAsset(address(token1));
@@ -140,7 +140,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         assertFalse(engine.isSupportedCollateralAsset(address(token1)));
     }
 
-    function test_removeSupportedCollateralAsset_noAuth() public {
+    function test_removeSupportedCollateralAsset_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
         engine.removeSupportedCollateralAsset(address(token1));
@@ -153,7 +153,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         assertTrue(engine.isValidCollarLength(1));
     }
 
-    function test_addSupportedCollarLength_noAuth() public {
+    function test_addSupportedCollarLength_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
         engine.addSupportedCollarLength(1);
@@ -166,7 +166,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         assertFalse(engine.isValidCollarLength(1));
     }
 
-    function test_removeSupportedCollarLength_noAuth() public {
+    function test_removeSupportedCollarLength_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
         engine.removeSupportedCollarLength(1);
@@ -265,7 +265,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         vm.stopPrank();
     }
 
-    function test_createVaultManager_duplicate() public {
+    function test_createVaultManager_Duplicate() public {
         startHoax(user1);
 
         address vaultManager = engine.createVaultManager();

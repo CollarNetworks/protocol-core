@@ -51,7 +51,19 @@ contract CollarPoolTest is Test {
         revert("TODO");
     }
 
+    function test_addLiquidity_MinimumNotMet() public {
+        revert("TODO");
+    }
+
     function test_removeLiquidity() public {
+        revert("TODO");
+    }
+
+    function test_removeLiquidity_InvalidSlot() public {
+        revert("TODO");
+    }
+
+    function test_removeLiquidity_AmountTooHigh() public {
         revert("TODO");
     }
 
@@ -59,7 +71,35 @@ contract CollarPoolTest is Test {
         revert("TODO");
     }
 
+    function test_reallocateLiquidty_InvalidSource() public {
+        revert("TODO");
+    }
+
+    function test_reallocateLiquidty_InvalidDestination() public {
+        revert("TODO");
+    }
+
+    function test_reallocateLiquidty_SourceAmountTooHigh() public {
+        revert("TODO");
+    }
+
+    function test_reallocateLiquidty_DestinationAmountTooHigh() public {
+        revert("TODO");
+    }
+
+    function test_reallocateLiquidity_DestinationAmountMinimumNotMet() public {
+        revert("TODO");
+    }
+
+    function test_reallocateLiquidity_DestinationFullUserSmallestBidder() public {
+        revert("TODO");
+    }
+
     function test_vaultPullLiquidity() public {
+        revert("TODO");
+    }
+
+    function test_vaultPullLiquidity_InvalidVault() public {
         revert("TODO");
     }
 
@@ -67,7 +107,19 @@ contract CollarPoolTest is Test {
         revert("TODO");
     }
 
+    function test_vaultPushLiquidity_InvalidAmount() public {
+        revert("TODO");
+    }
+
     function test_mint() public {
+        revert("TODO");
+    }
+
+    function test_mint_InvalidVault() public {
+        revert("TODO");
+    }
+
+    function test_mint_InvalidSlot() public {
         revert("TODO");
     }
 
@@ -75,11 +127,47 @@ contract CollarPoolTest is Test {
         revert("TODO");
     }
 
+    function test_redeem_InvalidAmount() public {
+        revert("TODO");
+    }
+
+    function test_redeem_VaultNotFinalized() public {
+        revert("TODO");
+    }
+
+    function test_redeem_VaultNotValid() public {
+        revert("TODO");
+    }
+
     function test_previewRedeem() public {
         revert("TODO");
     }
 
+    function test_previewRedeem_VaultNotFinalized() public {
+        revert("TODO");
+    }
+
+    function test_previewRedeem_VaultNotValid() public {
+        revert("TODO");
+    }
+
+    function test_previewRedeem_InvalidAmount() public {
+        revert("TODO");
+    }
+
     function test_finalizeVault() public {
+        revert("TODO");
+    }
+
+    function test_finalizeVault_InvalidVault() public {
+        revert("TODO");
+    }
+
+    function test_finalizeVault_NotYetExpired() public {
+        revert("TODO");
+    }
+
+    function test_finalizeVault_AlreadyFinalized() public {
         revert("TODO");
     }
 }
