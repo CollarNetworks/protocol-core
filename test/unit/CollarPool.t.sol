@@ -24,6 +24,9 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
     address user1 = makeAddr("user1");
     address user2 = makeAddr("user2");
+    address user3 = makeAddr("user3");
+    address user4 = makeAddr("user4");
+    address user5 = makeAddr("user5");
 
     // below we copy error messages from contracts since they aren't by default "public" or otherwise accessible
 
@@ -38,10 +41,15 @@ contract CollarPoolTest is Test, ICollarPoolState {
         engine = new CollarEngine(address(router));
 
         pool = new CollarPool(address(engine), 1, address(token1));
+    }
 
-        startHoax(user1);
-        token1.mint(user1, 100_000);
+    function mintTokensToUserAndApprovePool(address user) internal {
+        startHoax(user);
+        token1.mint(user, 100_000);
+        token2.mint(user, 100_000);
         token1.approve(address(pool), 100_000);
+        token2.approve(address(pool), 100_000);
+        vm.stopPrank();
     }
 
     function test_deploymentAndDeployParams() public {
@@ -51,6 +59,10 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }
 
     function test_addLiquidity() public {
+        mintTokensToUserAndApprovePool(user1);
+
+        startHoax(user1);
+
         pool.addLiquidity(111, 25_000);
 
         assertEq(pool.slotLiquidity(111), 25_000);
@@ -84,10 +96,59 @@ contract CollarPoolTest is Test, ICollarPoolState {
         assertEq(slot.providers.length, 5);
         assertEq(slot.providers[0], user1);
         assertEq(slot.amounts[0], 25_100);
+
+        vm.stopPrank();
     }
 
     function test_addLiquidity_FillEntireSlot() public {
-        revert("TODO");
+        mintTokensToUserAndApprovePool(user1);
+        mintTokensToUserAndApprovePool(user2);
+        mintTokensToUserAndApprovePool(user3);
+        mintTokensToUserAndApprovePool(user4);
+        mintTokensToUserAndApprovePool(user5);
+
+        hoax(user1);
+        pool.addLiquidity(111, 1_000);
+
+        hoax(user2);
+        pool.addLiquidity(111, 2_000);
+
+        hoax(user3);
+        pool.addLiquidity(111, 3_000);
+
+        hoax(user4);
+        pool.addLiquidity(111, 4_000);
+
+        hoax(user5);
+        pool.addLiquidity(111, 5_000);
+
+        assertEq(pool.slotLiquidity(111), 15_000);
+
+        assertEq(pool.providerLiquidityBySlot(user1, 111), 1_000);
+        assertEq(pool.providerLiquidityBySlot(user2, 111), 2_000);
+        assertEq(pool.providerLiquidityBySlot(user3, 111), 3_000);
+        assertEq(pool.providerLiquidityBySlot(user4, 111), 4_000);
+        assertEq(pool.providerLiquidityBySlot(user5, 111), 5_000);
+
+        SlotState memory slot = pool.getSlot(111);
+
+        assertEq(slot.liquidity, 15_000);
+        assertEq(slot.providers.length, 5);
+        assertEq(slot.amounts.length, 5);
+
+        assertEq(slot.providers[0], user1);
+        assertEq(slot.providers[1], user2);
+        assertEq(slot.providers[2], user3);
+        assertEq(slot.providers[3], user4);
+        assertEq(slot.providers[4], user5);
+
+        assertEq(slot.amounts[0], 1_000);
+        assertEq(slot.amounts[1], 2_000);
+        assertEq(slot.amounts[2], 3_000);
+        assertEq(slot.amounts[3], 4_000);
+        assertEq(slot.amounts[4], 5_000);
+
+        vm.stopPrank();
     }
     /*
     function test_addLiquidity_SlotFull() public {
@@ -130,6 +191,8 @@ contract CollarPoolTest is Test, ICollarPoolState {
     */
 
     function test_removeLiquidity() public {
+        startHoax(user1);
+
         pool.addLiquidity(111, 25_000);
 
         pool.removeLiquidity(111, 10_000);
@@ -151,6 +214,8 @@ contract CollarPoolTest is Test, ICollarPoolState {
         assertEq(slot.amounts[2], 0);
         assertEq(slot.amounts[3], 0);
         assertEq(slot.amounts[4], 0);
+
+        vm.stopPrank();
     }
 
     /*

@@ -8,17 +8,18 @@
 pragma solidity ^0.8.18;
 
 import { ERC6909 } from "@solmate/tokens/ERC6909.sol";
+import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 
 abstract contract ICollarPoolState {
     struct SlotState {
         uint256 liquidity;
-        address[] providers;
-        uint256[] amounts;
+        EnumerableMap.AddressToUintMap providers;
     }
 }
 
 
 abstract contract ICollarPool is ERC6909, ICollarPoolState {
+    using EnumerableMap for EnumerableMap.AddressToUintMap;
 
     /// @notice This is the ID of the slot that is unallocated to any particular call strike percentage
     uint256 public constant UNALLOCATED_SLOT = type(uint256).max;
@@ -123,6 +124,14 @@ abstract contract ICollarPool is ERC6909, ICollarPoolState {
     function finalizeVault(
         bytes32 uuid
     ) external virtual;
+
+    /// @notice Returns the number of free entries in a slot; will be 0 if full
+    /// @param slotID The ID of the slot to check
+    function slotAvailability(uint256 slotID) external view virtual returns (uint256 freeEntries);
+
+    /// @notice Returns the address and associated amount of the provider in the given slot with the least amount provided
+    /// @param slotID The ID of the slot to check
+    function getSmallestProvider(uint256 slotID) external view virtual returns (address provider);
 }
 
 

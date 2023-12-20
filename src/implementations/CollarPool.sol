@@ -11,7 +11,9 @@ import { ICollarPool } from "../interfaces/ICollarPool.sol";
 import { Constants, CollarVaultState } from "../libs/CollarLibs.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+
 contract CollarPool is ICollarPool, Constants {
+
     constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset) ICollarPool(_engine, _tickScaleFactor, _cashAsset) {}
 
     function getSlot(
@@ -23,130 +25,35 @@ contract CollarPool is ICollarPool, Constants {
     function addLiquidity(
         uint256 slotIndex,
         uint256 amount
-    ) external virtual override {
-        bool freeSlotFound = false;
-        bool smallSlotFound = false;
-        uint256 freeSlotIndex = type(uint256).max;
-        uint256 smallestSlotIndex = type(uint256).max;
-        uint256 smallestAmountSoFar = type(uint256).max;
-
-        // check if provider already has a slot here first
-        
-        if (providerLiquidityBySlot[msg.sender][slotIndex] > 0) {
-            freeSlotFound = true;
-            
-            // iterate to find which index it is
-            for (uint256 i = 0; i < slots[slotIndex].providers.length; i++) {
-                if (slots[slotIndex].providers[i] == msg.sender) {
-                    freeSlotIndex = i;
-                }
-            }
-        }
-
-        // check if destination slot has space - if not, check to see if this provider has rights to kick out smallest provider
+    ) public virtual override {
         SlotState storage slot = slots[slotIndex];
 
-        // if this is the first time we're touching this slot, we need to initialize the arrays
-        if (slot.providers.length == 0) {
-            slot.providers = new address[](5);
-            slot.amounts = new uint256[](5);
-            freeSlotFound = true;
-            freeSlotIndex = 0;
-        }
+        if (slot.providers.contains(msg.sender) || !isSlotFull(slotIndex)) {
+            _allocate(slotID, msg.sender, amount);
+        } else {
+            address smallestProvider = getSmallestProvider(slotIndex);
+            uint256 smallestAmount = slot.providers.get(smallestProvider);
 
-        if (!freeSlotFound) {
-            revert("NO SIR");
-            for (uint256 i = 0; i < slot.providers.length; i++) {
-                if (slot.providers[i] == address(0)) {
-                    // found an empty slot - allocate here
-                    slot.providers[i] = msg.sender;
-                    slot.amounts[i] = amount;
-                    freeSlotFound = true;
-                    break;
-                } else if (slot.amounts[i] < amount && slot.amounts[i] < smallestAmountSoFar) {
-                    // found a slot with less liquidity than the amount we want to allocate
-                    // keep track of the smallest slot we've seen so far
-                    smallestSlotIndex = i;
-                    smallestAmountSoFar = slot.amounts[i];
-                    smallSlotFound = true;
-                }
-            } 
-        }
-
-        if (!freeSlotFound && !smallSlotFound) {
-            revert("No available slots at destination, sorry!");
-        }
-
-        if (!freeSlotFound && smallSlotFound) {
-            // kick out smallest provider
-            address smallestProvider = slot.providers[smallestSlotIndex];
-
-            // moved smallest guy's balance to the unallocated slot
-            providerLiquidityBySlot[smallestProvider][slotIndex] = 0;
-            providerLiquidityBySlot[smallestProvider][UNALLOCATED_SLOT] += smallestAmountSoFar;
-
-            // allocate new guy to the slot where the smallest guy was
-            slot.providers[smallestSlotIndex] = msg.sender;
-            slot.amounts[smallestSlotIndex] = amount;
-            providerLiquidityBySlot[msg.sender][slotIndex] = amount;
-
-            // update total slot liquidity
-            slotLiquidity[slotIndex] -= smallestAmountSoFar;
-            slotLiquidity[slotIndex] += amount;
-
-            slot.liquidity -= smallestAmountSoFar;
-            slot.liquidity += amount;
-        }
-
-        if (freeSlotFound) {
-            if (slot.providers[freeSlotIndex] != address(0) && slot.providers[freeSlotIndex] != msg.sender) {
-                revert("Slot already allocated to another provider");
-            }
-
-            if (slot.providers[freeSlotIndex] == address(0)) {
-                // this is a new provider, so we need to add them to the list
-                slot.providers[freeSlotIndex] = msg.sender;
-            }
-
-            slot.amounts[freeSlotIndex] += amount;
-            providerLiquidityBySlot[msg.sender][slotIndex] += amount;
+            if (smallestAmount > amount) revert("Amount not high enough to kick out anyone from full slot.");
+            
+            _reAllocate(smallestProvider, slotIndex, UNALLOCATED_SLOT, smallestAmount);
+            _allocate(slotIndex, msg.sender, amount);
         }
 
         // transfer collateral from provider to pool
         IERC20(cashAsset).transferFrom(msg.sender, address(this), amount);
-
-        // update total slot liquidity amount
-        slotLiquidity[slotIndex] += amount;
-        slot.liquidity += amount;
     }
 
     function removeLiquidity(
         uint256 slot,
         uint256 amount
-    ) external virtual override {
-
-        // verify free liquidity in slot
+    ) public virtual override {
+        // verify sender has enough liquidity in slot
         if (providerLiquidityBySlot[msg.sender][slot] < amount) {
             revert("Not enough liquidity");
         }
-
-        // find index of provider in slot
-        uint256 providerSlot = type(uint256).max;
-        for (uint256 i = 0; i < slots[slot].providers.length; i++) {
-            if (slots[slot].providers[i] == msg.sender) {
-                providerSlot = i;
-                break;
-            }
-        }
-
-        // send to provider & decrement balance
-        slots[slot].amounts[providerSlot] -= amount;
-        providerLiquidityBySlot[msg.sender][slot] -= amount;
-        IERC20(cashAsset).transfer(msg.sender, amount);
-
-        // update global bals too
-        slotLiquidity[slot] -= amount;
-        slots[slot].liquidity -= amount;
+        
+        _reAllocate(msg.sender, slot, UNALLOCATED_SLOT, amount);
     }
 
     function reallocateLiquidity(
@@ -154,65 +61,8 @@ contract CollarPool is ICollarPool, Constants {
         uint256 destinationSlotIndex,
         uint256 amount
     ) external virtual override {
-
-        // verify free liquidity in slot
-        if (providerLiquidityBySlot[msg.sender][sourceSlotIndex] < amount) {
-            revert("Not enough liquidity");
-        }
-
-        // check if destination slot has space - if not, check to see if this provider has rights to kick out smallest provider
-        SlotState storage destinationSlot = slots[destinationSlotIndex];
-        SlotState storage sourceSlot = slots[sourceSlotIndex];
-
-        // iterate to find availability
-        bool freeSlotFound = false;
-        bool smallSlotFound = false;
-        uint256 smallestSlotIndex = type(uint256).max;
-        uint256 smallestAmountSoFar = type(uint256).max;
-        for (uint256 i = 0; i < destinationSlot.providers.length; i++) {
-            if (destinationSlot.providers[i] == address(0)) {
-                // found an empty slot - allocate here
-                destinationSlot.providers[i] = msg.sender;
-                destinationSlot.amounts[i] = amount;
-                freeSlotFound = true;
-                break;
-            } else if (destinationSlot.amounts[i] < amount && destinationSlot.amounts[i] < smallestAmountSoFar) {
-                // found a slot with less liquidity than the amount we want to allocate
-                // keep track of the smallest slot we've seen so far
-                smallestSlotIndex = i;
-                smallestAmountSoFar = destinationSlot.amounts[i];
-                smallSlotFound = true;
-            }
-        }
-
-        if (!freeSlotFound && !smallSlotFound) {
-            revert("No available slots at destination, sorry!");
-        }
-
-        if (!freeSlotFound && smallSlotFound) {
-            // kick out smallest provider
-            address smallestProvider = destinationSlot.providers[smallestSlotIndex];
-
-            // moved smallest guy's balance to the unallocated slot
-            providerLiquidityBySlot[smallestProvider][destinationSlotIndex] = 0;
-            providerLiquidityBySlot[smallestProvider][UNALLOCATED_SLOT] += smallestAmountSoFar;
-
-            // allocate new guy to the slot where the smallest guy was
-            destinationSlot.providers[smallestSlotIndex] = msg.sender;
-            destinationSlot.amounts[smallestSlotIndex] = amount;
-            providerLiquidityBySlot[msg.sender][destinationSlotIndex] = amount;
-
-            // finally, unallocated the source slot
-            providerLiquidityBySlot[msg.sender][sourceSlotIndex] -= amount;
-            
-            for(uint256 i = 0; i < sourceSlot.providers.length; i++) {
-                if (sourceSlot.providers[i] == msg.sender) {
-                    sourceSlot.providers[i] = address(0);
-                    sourceSlot.amounts[i] = 0;
-                    break;
-                }
-            }
-        }
+        removeLiquidity(sourceSlotIndex, amount);
+        addLiquidity(destinationSlotIndex, amount);
     }
 
     function mint(bytes32 uuid, uint256 slot, uint256 amount) external override {
@@ -344,6 +194,62 @@ contract CollarPool is ICollarPool, Constants {
 
         // finalize the vault
         vaultStatus[uuid] = true;
+    }
+
+    function isSlotFull(uint256 slotID) public view override returns (bool full) {
+        if (slots[slotID].providers.length == 5) {
+            return true;
+        } else return false;
+    }
+
+    function getSmallestProvider(uint256 slotID) public view override returns (address smallestProvider) {
+        if (!isSlotFull(slotID)) {
+            return address(0);
+        } else {
+            SlotState slot = slots[slotID];
+            address smallestProvider = address(0);
+            uint256 smallestAmount = type(uint256).max;
+
+            for (uint i=0; i < 5; i++) {
+                (address _provider, address _amount) = slot.providers.at(i);
+
+                if (_amount < smallestAmount) {
+                    smallestAmount = _amount;
+                    smallestProvider = _provider;
+                }
+            }
+
+            return smallestProvider;
+        }
+    }
+
+    function _allocate(uint256 slotID, address provider, uint256 amount) internal {
+        SlotState storage slot = slots[slotID];
+
+        if (slot.providers.contains(provider)) {
+            uint256 providerAmount = slot.providers.get(provider);
+            slot.providers.set(provider, providerAmount + amount);
+        } else {
+            slot.providers.set(provider, amount);
+        }
+
+        slot.liquidity += amount;
+    }
+
+    function _unallocate(uint256 slotID, address provider, uint256 amount) internal {
+        SlotState storage slot = slots[slotID];
+
+        uint256 sourceAmount = slot.providers.get(provider);
+        
+        if (sourceAmount == amount) slot.providers.remove(provider);
+        else slot.providers.set(provider, sourceAmount - amount);
+
+        slot.liquidity -= amount;
+    }
+
+    function _reAllocate(address provider, uint256 sourceSlotID, uint256 destinationSlotID, uint256 amount) internal {
+        _unallocate(sourceSlotID, provider, amount);
+        _allocate(destinationSlotID, provider, amount);
     }
 
     function _mint(address account, uint256 id, uint256 amount) internal override {
