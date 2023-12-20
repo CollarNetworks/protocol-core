@@ -67,11 +67,27 @@ contract CollarPoolTest is Test, ICollarPoolState {
         assertEq(slot.providers[2], address(0));
         assertEq(slot.providers[3], address(0));
         assertEq(slot.providers[4], address(0));
-        
+    
         assertEq(slot.amounts[1], 0);
         assertEq(slot.amounts[2], 0);
         assertEq(slot.amounts[3], 0);
         assertEq(slot.amounts[4], 0);
+
+        pool.addLiquidity(111, 100);
+
+        assertEq(pool.slotLiquidity(111), 25_100);
+        assertEq(pool.providerLiquidityBySlot(user1, 111), 25_100);
+
+        slot = pool.getSlot(111);
+
+        assertEq(slot.liquidity, 25_100);
+        assertEq(slot.providers.length, 5);
+        assertEq(slot.providers[0], user1);
+        assertEq(slot.amounts[0], 25_100);
+    }
+
+    function test_addLiquidity_FillEntireSlot() public {
+        revert("TODO");
     }
     /*
     function test_addLiquidity_SlotFull() public {
@@ -114,12 +130,30 @@ contract CollarPoolTest is Test, ICollarPoolState {
     */
 
     function test_removeLiquidity() public {
+        pool.addLiquidity(111, 25_000);
 
+        pool.removeLiquidity(111, 10_000);
 
+        assertEq(pool.slotLiquidity(111), 15_000);
 
-        revert("TODO");
+        SlotState memory slot = pool.getSlot(111);
+
+        assertEq(slot.liquidity, 15_000);
+        assertEq(slot.providers.length, 5);
+        assertEq(slot.providers[0], user1);
+        assertEq(slot.amounts[0], 15_000);
+
+        assertEq(slot.providers[1], address(0));
+        assertEq(slot.providers[2], address(0));
+        assertEq(slot.providers[3], address(0));
+        assertEq(slot.providers[4], address(0));
+        assertEq(slot.amounts[1], 0);
+        assertEq(slot.amounts[2], 0);
+        assertEq(slot.amounts[3], 0);
+        assertEq(slot.amounts[4], 0);
     }
 
+    /*
     function test_removeLiquidity_InvalidSlot() public {
 
 
@@ -132,7 +166,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
 
         revert("TODO");
-    }
+    }*/
 
     function test_reallocateLiquidity() public {
 
@@ -141,6 +175,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         revert("TODO");
     }
 
+    /*
     function test_reallocateLiquidty_InvalidSource() public {
 
 
@@ -176,6 +211,8 @@ contract CollarPoolTest is Test, ICollarPoolState {
     function test_reallocateLiquidity_DestinationFullUserSmallestBidder() public {
         revert("TODO");
     }
+
+    */
 
     function test_vaultPullLiquidity() public {
         revert("TODO");

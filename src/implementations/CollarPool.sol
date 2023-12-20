@@ -24,16 +24,27 @@ contract CollarPool is ICollarPool, Constants {
         uint256 slotIndex,
         uint256 amount
     ) external virtual override {
-        // check if destination slot has space - if not, check to see if this provider has rights to kick out smallest provider
-        SlotState storage slot = slots[slotIndex];
-
-        // iterate to find availability
         bool freeSlotFound = false;
         bool smallSlotFound = false;
-
         uint256 freeSlotIndex = type(uint256).max;
         uint256 smallestSlotIndex = type(uint256).max;
         uint256 smallestAmountSoFar = type(uint256).max;
+
+        // check if provider already has a slot here first
+        
+        if (providerLiquidityBySlot[msg.sender][slotIndex] > 0) {
+            freeSlotFound = true;
+            
+            // iterate to find which index it is
+            for (uint256 i = 0; i < slots[slotIndex].providers.length; i++) {
+                if (slots[slotIndex].providers[i] == msg.sender) {
+                    freeSlotIndex = i;
+                }
+            }
+        }
+
+        // check if destination slot has space - if not, check to see if this provider has rights to kick out smallest provider
+        SlotState storage slot = slots[slotIndex];
 
         // if this is the first time we're touching this slot, we need to initialize the arrays
         if (slot.providers.length == 0) {
@@ -88,10 +99,17 @@ contract CollarPool is ICollarPool, Constants {
         }
 
         if (freeSlotFound) {
-            // allocate to free slot
-            slot.providers[freeSlotIndex] = msg.sender;
-            slot.amounts[freeSlotIndex] = amount;
-            providerLiquidityBySlot[msg.sender][slotIndex] = amount;
+            if (slot.providers[freeSlotIndex] != address(0) && slot.providers[freeSlotIndex] != msg.sender) {
+                revert("Slot already allocated to another provider");
+            }
+
+            if (slot.providers[freeSlotIndex] == address(0)) {
+                // this is a new provider, so we need to add them to the list
+                slot.providers[freeSlotIndex] = msg.sender;
+            }
+
+            slot.amounts[freeSlotIndex] += amount;
+            providerLiquidityBySlot[msg.sender][slotIndex] += amount;
         }
 
         // transfer collateral from provider to pool
@@ -112,9 +130,23 @@ contract CollarPool is ICollarPool, Constants {
             revert("Not enough liquidity");
         }
 
+        // find index of provider in slot
+        uint256 providerSlot = type(uint256).max;
+        for (uint256 i = 0; i < slots[slot].providers.length; i++) {
+            if (slots[slot].providers[i] == msg.sender) {
+                providerSlot = i;
+                break;
+            }
+        }
+
         // send to provider & decrement balance
+        slots[slot].amounts[providerSlot] -= amount;
         providerLiquidityBySlot[msg.sender][slot] -= amount;
         IERC20(cashAsset).transfer(msg.sender, amount);
+
+        // update global bals too
+        slotLiquidity[slot] -= amount;
+        slots[slot].liquidity -= amount;
     }
 
     function reallocateLiquidity(
