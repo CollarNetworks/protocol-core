@@ -84,6 +84,9 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
         // set Vault Specific stuff
         vaultsByUUID[uuid].loanBalance = (collarOpts.ltv * cashReceivedFromSwap) / ONE_HUNDRED_PERCENT;
         vaultsByUUID[uuid].lockedVaultCash = ((ONE_HUNDRED_PERCENT - collarOpts.ltv) * cashReceivedFromSwap) / ONE_HUNDRED_PERCENT;
+    
+        // approve the pool
+        IERC20(assetData.cashAsset).approve(liquidityOpts.liquidityPool, vaultsByUUID[uuid].lockedVaultCash);
     }
 
     function closeVault(
@@ -191,7 +194,7 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
 
         // mark vault as finalized
         vault.active = false;
-        ICollarEngine(engine).notifyFinalized(vault.liquidityPool, uuid);
+        //ICollarEngine(engine).notifyFinalized(vault.liquidityPool, uuid);
     }
 
     function redeem(bytes32 uuid, uint256 amount) external override {

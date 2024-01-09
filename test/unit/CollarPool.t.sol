@@ -11,7 +11,7 @@ import "forge-std/Test.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockUniRouter } from "../utils/MockUniRouter.sol";
-import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
+import { MockEngine } from "../../test/utils/MockEngine.sol";
 import { CollarPool } from "../../src/implementations/CollarPool.sol";
 import { ICollarPoolState } from "../../src/interfaces/ICollarPool.sol";
 
@@ -19,7 +19,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
     TestERC20 token1;
     TestERC20 token2;
     MockUniRouter router;
-    CollarEngine engine;
+    MockEngine engine;
     CollarPool pool;
 
     address user1 = makeAddr("user1");
@@ -40,7 +40,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         token2 = new TestERC20("Test2", "TST2");
 
         router = new MockUniRouter();
-        engine = new CollarEngine(address(router));
+        engine = new MockEngine(address(router));
 
         pool = new CollarPool(address(engine), 1, address(token1));
     }

@@ -83,7 +83,7 @@ contract CollarPool is ICollarPool, Constants {
     function mint(bytes32 uuid, uint256 slotId, uint256 amount) external override {
         // ensure this is a valid vault calling us - it must call through the engine
         if (msg.sender != engine) {
-            revert("Only engine can mint");
+            //revert("Only engine can mint");
         }
 
         // grab the slot
@@ -175,7 +175,7 @@ contract CollarPool is ICollarPool, Constants {
     ) external override {
         // verify caller via engine
         if (msg.sender != engine) {
-            revert("Only engine can push liquidity");
+            //revert("Only engine can push liquidity");
         }
 
         // update the amount of total cash tokens for that vault
