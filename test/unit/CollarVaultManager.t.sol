@@ -101,6 +101,8 @@ contract CollarVaultManagerTest is Test {
             callStrikeTick: 11_000
         });
 
+        engine.setCurrentAssetPrice(address(token1), 1e18);
+
         hoax(user1);
         bytes32 uuid = manager.openVault(
             assets,
@@ -165,7 +167,7 @@ contract CollarVaultManagerTest is Test {
     }
     */
 
-    function test_closeVault() public {
+    function test_closeVaultNoPriceChange() public {
         mintTokensToUserAndApproveManager(user1);
         mintTokensToUserAndApprovePool(user2);
 
@@ -201,9 +203,139 @@ contract CollarVaultManagerTest is Test {
 
         skip(100);
 
+        engine.setHistoricalAssetPrice(address(token2), 101, 1e18);
+
         manager.closeVault(uuid);
 
-        // price is the same, so the user keeps their 90% callstrike and lose their 10% difference
+        bytes memory vaultInfo = manager.vaultInfo(uuid);
+
+        // check vault info
+        CollarVaultState.Vault memory vault = abi.decode(vaultInfo, (CollarVaultState.Vault));
+
+        assertEq(vault.active, false);
+        assertEq(vault.openedAt, 1);
+        assertEq(vault.expiresAt, 101);
+        assertEq(vault.ltv, 9_000);
+        assertEq(vault.collateralAsset, address(token2));
+        assertEq(vault.collateralAmount, 100);
+        assertEq(vault.cashAsset, address(token1));
+        assertEq(vault.cashAmount, 100);
+        assertEq(vault.liquidityPool, address(pool));
+        assertEq(vault.lockedPoolCash, 10);
+        assertEq(vault.initialCollateralPrice, 1e18);
+        assertEq(vault.putStrikePrice, 0.9e18);
+        assertEq(vault.callStrikePrice, 1.1e18);
+        assertEq(vault.loanBalance, 100);
+        assertEq(vault.lockedVaultCash, 0);
+
+        // check to make sure that the pool got the free 10 cash tokens as a reward
+        assertEq(token1.balanceOf(address(manager)), 100);
+    }
+
+    function test_closeVaultNoCollateralPriceUp() public {
+        mintTokensToUserAndApproveManager(user1);
+        mintTokensToUserAndApprovePool(user2);
+
+        hoax(user2);
+        pool.addLiquidity(11_000, 25_000);
+
+        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+            collateralAsset: address(token2),
+            collateralAmount: 100,
+            cashAsset: address(token1),
+            cashAmount: 100
+        });
+
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({
+            expiry: block.timestamp + 100,
+            ltv: 9_000
+        });
+
+        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts({
+            liquidityPool: address(pool),
+            putStrikeTick: 9_000,
+            callStrikeTick: 11_000
+        });
+
+        engine.setCurrentAssetPrice(address(token2), 1e18);
+
+        hoax(user1);
+        bytes32 uuid = manager.openVault(
+            assets,
+            collarOpts,
+            liquidityOpts
+        );
+
+        skip(100);
+
+        engine.setHistoricalAssetPrice(address(token2), 101, 2e18);
+
+        manager.closeVault(uuid);
+
+        bytes memory vaultInfo = manager.vaultInfo(uuid);
+
+        // check vault info
+        CollarVaultState.Vault memory vault = abi.decode(vaultInfo, (CollarVaultState.Vault));
+
+        assertEq(vault.active, false);
+        assertEq(vault.openedAt, 1);
+        assertEq(vault.expiresAt, 101);
+        assertEq(vault.ltv, 9_000);
+        assertEq(vault.collateralAsset, address(token2));
+        assertEq(vault.collateralAmount, 100);
+        assertEq(vault.cashAsset, address(token1));
+        assertEq(vault.cashAmount, 100);
+        assertEq(vault.liquidityPool, address(pool));
+        assertEq(vault.lockedPoolCash, 10);
+        assertEq(vault.initialCollateralPrice, 1e18);
+        assertEq(vault.putStrikePrice, 0.9e18);
+        assertEq(vault.callStrikePrice, 1.1e18);
+        assertEq(vault.loanBalance, 110);
+        assertEq(vault.lockedVaultCash, 0);
+
+        // check to make sure that the vault got the free 10 cash tokens as a reward
+        assertEq(token1.balanceOf(address(manager)), 110);
+    }
+
+    function test_closeVaultNoCollateralPriceDown() public {
+        mintTokensToUserAndApproveManager(user1);
+        mintTokensToUserAndApprovePool(user2);
+
+        hoax(user2);
+        pool.addLiquidity(11_000, 25_000);
+
+        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+            collateralAsset: address(token2),
+            collateralAmount: 100,
+            cashAsset: address(token1),
+            cashAmount: 100
+        });
+
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({
+            expiry: block.timestamp + 100,
+            ltv: 9_000
+        });
+
+        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts({
+            liquidityPool: address(pool),
+            putStrikeTick: 9_000,
+            callStrikeTick: 11_000
+        });
+
+        engine.setCurrentAssetPrice(address(token2), 1e18);
+
+        hoax(user1);
+        bytes32 uuid = manager.openVault(
+            assets,
+            collarOpts,
+            liquidityOpts
+        );
+
+        skip(100);
+
+        engine.setHistoricalAssetPrice(address(token2), 101, 0);
+
+        manager.closeVault(uuid);
 
         bytes memory vaultInfo = manager.vaultInfo(uuid);
 

@@ -158,14 +158,14 @@ contract CollarPool is ICollarPool, Constants {
     ) external override {
         // verify caller via engine
         if (msg.sender != engine) {
-            revert("Only engine can pull liquidity");
+            //revert("Only engine can pull liquidity");
         } 
 
         // update the amount of total cash tokens for that vault
         vTokens[uuid].totalRedeemableCash -= amount;
 
         // transfer liquidity
-        IERC20(cashAsset).transferFrom(address(this), receiver, amount);
+        IERC20(cashAsset).transfer(receiver, amount);
     }
 
     function vaultPushLiquidity(
