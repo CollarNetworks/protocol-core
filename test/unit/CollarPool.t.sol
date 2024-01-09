@@ -72,7 +72,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         uint256 providerLength = pool.getSlotProviderLength(111);
 
         assertEq(liquidity, 25_000);
-        assertEq(providerLength, 5);
+        assertEq(providerLength, 1);
 
         (address provider0, uint256 liquidity0) = pool.getSlotProviderInfoAt(111, 0);
 
@@ -120,7 +120,6 @@ contract CollarPoolTest is Test, ICollarPoolState {
         assertEq(pool.getSlotProviderInfo(111, user4), 4_000);
         assertEq(pool.getSlotProviderInfo(111, user5), 5_000);
 
-
         uint256 liquidity = pool.getSlotLiquidity(111);
         uint256 providerLength = pool.getSlotProviderLength(111);
 
@@ -144,9 +143,8 @@ contract CollarPoolTest is Test, ICollarPoolState {
         assertEq(liquidity2, 3_000);
         assertEq(liquidity3, 4_000);
         assertEq(liquidity4, 5_000);
-
-        vm.stopPrank();
     }
+    
     /*
     function test_addLiquidity_SlotFull() public {
 
@@ -188,10 +186,11 @@ contract CollarPoolTest is Test, ICollarPoolState {
     */
 
     function test_removeLiquidity() public {
+        mintTokensToUserAndApprovePool(user1);
+        
         startHoax(user1);
 
         pool.addLiquidity(111, 25_000);
-
         pool.removeLiquidity(111, 10_000);
 
         assertEq(pool.getSlotLiquidity(111), 15_000);
@@ -200,7 +199,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         uint256 providerLength = pool.getSlotProviderLength(111);
 
         assertEq(liquidity, 15_000);
-        assertEq(providerLength, 5);
+        assertEq(providerLength, 1);
 
         (address provider0, uint256 liquidity0) = pool.getSlotProviderInfoAt(111, 0);
 
