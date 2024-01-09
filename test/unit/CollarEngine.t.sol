@@ -24,7 +24,6 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
 
     address user1 = makeAddr("user1");
     address user2 = makeAddr("user2");
-
     address pool1 = makeAddr("pool1");
 
     // below we copy error messages from contracts since they aren't by default "public" or otherwise accessible
