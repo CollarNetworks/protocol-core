@@ -180,8 +180,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         assertEq(pool.getSlotLiquidity(pool.UNALLOCATED_SLOT()), 1000);
         assertEq(pool.getSlotProviderInfo(pool.UNALLOCATED_SLOT(), user1), 1000);
     }
-    /*
-
+    
     function test_addLiquidity_NotEnoughCash() public {
 
         revert("TODO");
@@ -207,8 +206,6 @@ contract CollarPoolTest is Test, ICollarPoolState {
         revert("TODO");
     }
 
-    */
-
     function test_removeLiquidity() public {
         mintTokensToUserAndApprovePool(user1);
         
@@ -233,7 +230,6 @@ contract CollarPoolTest is Test, ICollarPoolState {
         vm.stopPrank();
     }
 
-    /*
     function test_removeLiquidity_InvalidSlot() public {
 
 
@@ -246,7 +242,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
 
         revert("TODO");
-    }*/
+    }
 
     function test_reallocateLiquidity() public {
         mintTokensToUserAndApprovePool(user1);
@@ -273,7 +269,6 @@ contract CollarPoolTest is Test, ICollarPoolState {
         assertEq(pool.getSlotProviderInfo(222, user1), 25_000);
     }
 
-    /*
     function test_reallocateLiquidty_InvalidSource() public {
 
 
@@ -309,8 +304,6 @@ contract CollarPoolTest is Test, ICollarPoolState {
     function test_reallocateLiquidity_DestinationFullUserSmallestBidder() public {
         revert("TODO");
     }
-
-    */
 
     function test_vaultPullLiquidity() public {
         revert("TODO");

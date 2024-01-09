@@ -137,7 +137,6 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.lockedVaultCash, 10);
     }
 
-    /*
     function test_openVault_DuplicateOptions() public {
         revert("TODO");
     }
@@ -165,7 +164,6 @@ contract CollarVaultManagerTest is Test {
     function test_openVault_NoAuth() public {
         revert("TODO");
     }
-    */
 
     function test_closeVaultNoPriceChange() public {
         mintTokensToUserAndApproveManager(user1);
@@ -362,8 +360,6 @@ contract CollarVaultManagerTest is Test {
         assertEq(token1.balanceOf(address(manager)), 90);
     }
 
-    /*
-
     function test_closeVault_AlreadyClosed() public {
         revert("TODO");
     }
@@ -431,5 +427,4 @@ contract CollarVaultManagerTest is Test {
     function test_vaultInfo_InvalidVault() public {
         revert("TODO");
     }
-    */
 }
