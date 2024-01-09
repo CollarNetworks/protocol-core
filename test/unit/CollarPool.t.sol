@@ -27,6 +27,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
     address user3 = makeAddr("user3");
     address user4 = makeAddr("user4");
     address user5 = makeAddr("user5");
+    address user6 = makeAddr("user6");
 
     // below we copy error messages from contracts since they aren't by default "public" or otherwise accessible
 
@@ -138,18 +139,48 @@ contract CollarPoolTest is Test, ICollarPoolState {
         assertEq(liquidity4, 5_000);
     }
     
-    /*
     function test_addLiquidity_SlotFull() public {
+        mintTokensToUserAndApprovePool(user1);
+        mintTokensToUserAndApprovePool(user2);
+        mintTokensToUserAndApprovePool(user3);
+        mintTokensToUserAndApprovePool(user4);
+        mintTokensToUserAndApprovePool(user5);
+        mintTokensToUserAndApprovePool(user6);
 
+        hoax(user1);
+        pool.addLiquidity(111, 1_000);
 
+        hoax(user2);
+        pool.addLiquidity(111, 2_000);
 
+        hoax(user3);
+        pool.addLiquidity(111, 3_000);
 
+        hoax(user4);
+        pool.addLiquidity(111, 4_000);
 
+        hoax(user5);
+        pool.addLiquidity(111, 5_000);
 
+        hoax(user6);
+        pool.addLiquidity(111, 6_000);
 
+        assertEq(pool.getSlotLiquidity(111), 20_000);
+        assertEq(pool.getSlotProviderLength(111), 5);
 
-        revert("TODO");
+        vm.expectRevert(abi.encodeWithSelector(EnumerableMapNonexistentKey.selector, user1));
+        pool.getSlotProviderInfo(111, user1);
+
+        assertEq(pool.getSlotProviderInfo(111, user2), 2_000);
+        assertEq(pool.getSlotProviderInfo(111, user3), 3_000);
+        assertEq(pool.getSlotProviderInfo(111, user4), 4_000);
+        assertEq(pool.getSlotProviderInfo(111, user5), 5_000);
+        assertEq(pool.getSlotProviderInfo(111, user6), 6_000);
+
+        assertEq(pool.getSlotLiquidity(pool.UNALLOCATED_SLOT()), 1000);
+        assertEq(pool.getSlotProviderInfo(pool.UNALLOCATED_SLOT(), user1), 1000);
     }
+    /*
 
     function test_addLiquidity_NotEnoughCash() public {
 
