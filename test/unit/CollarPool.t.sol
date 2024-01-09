@@ -30,6 +30,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
     // below we copy error messages from contracts since they aren't by default "public" or otherwise accessible
 
+    error EnumerableMapNonexistentKey(bytes32 key);
     error OwnableUnauthorizedAccount(address account);
     bytes user1NotAuthorized = abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, address(user1));
 
@@ -67,12 +68,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         assertEq(pool.getSlotLiquidity(111), 25_000);
         assertEq(pool.getSlotProviderInfo(111, user1), 25_000);
-
-        uint256 liquidity = pool.getSlotLiquidity(111);
-        uint256 providerLength = pool.getSlotProviderLength(111);
-
-        assertEq(liquidity, 25_000);
-        assertEq(providerLength, 1);
+        assertEq(pool.getSlotProviderLength(111), 1);
 
         (address provider0, uint256 liquidity0) = pool.getSlotProviderInfoAt(111, 0);
 
@@ -81,11 +77,8 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         pool.addLiquidity(111, 100);
 
-        liquidity = pool.getSlotLiquidity(111);
-        liquidity0 = pool.getSlotProviderInfo(111, provider0);
-
-        assertEq(liquidity, 25_100);
-        assertEq(liquidity0, 25_100);
+        assertEq(pool.getSlotLiquidity(111), 25_100);
+        assertEq(pool.getSlotProviderInfo(111, user1), 25_100);
 
         vm.stopPrank();
     }
@@ -225,10 +218,28 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }*/
 
     function test_reallocateLiquidity() public {
+        mintTokensToUserAndApprovePool(user1);
 
+        startHoax(user1);
 
+        pool.addLiquidity(111, 25_000);
+        pool.reallocateLiquidity(111, 222, 10_000);
 
-        revert("TODO");
+        assertEq(pool.getSlotLiquidity(111), 15_000);
+        assertEq(pool.getSlotLiquidity(222), 10_000);
+
+        assertEq(pool.getSlotProviderInfo(111, user1), 15_000);
+        assertEq(pool.getSlotProviderInfo(222, user1), 10_000);
+
+        pool.reallocateLiquidity(111, 222, 15_000);
+
+        assertEq(pool.getSlotLiquidity(111), 0);
+        assertEq(pool.getSlotLiquidity(222), 25_000);
+
+        vm.expectRevert(abi.encodeWithSelector(EnumerableMapNonexistentKey.selector, user1));
+        pool.getSlotProviderInfo(111, user1);
+
+        assertEq(pool.getSlotProviderInfo(222, user1), 25_000);
     }
 
     /*
