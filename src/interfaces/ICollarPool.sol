@@ -7,18 +7,32 @@
 
 pragma solidity ^0.8.18;
 
-import { ERC6909 } from "@solmate/tokens/ERC6909.sol";
+import { IERC6909WithSupply } from "../interfaces/IERC6909WithSupply.sol";
 import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 
 abstract contract ICollarPoolState {
-    struct SlotState {
+    using EnumerableMap for EnumerableMap.AddressToUintMap;
+
+    // represents one partitioned slice of the liquidity pool, its providers, and the amount they provide
+    struct LiquiditySlot {
         uint256 liquidity;
         EnumerableMap.AddressToUintMap providers;
     }
+
+    /// @notice Records the state of each slot (see LiquiditySlot struct above)
+    mapping(uint256 slotId => LiquiditySlot slot) internal slots;
+
+    // vToken = token representing an opened vault
+    struct vToken {
+        bool redeemable;
+        uint256 totalRedeemableCash;
+    }
+
+    /// @notice Records the state of each vToken (see vToken struct above)
+    mapping(bytes32 uuid => vToken vToken) public vTokens;
 }
 
-
-abstract contract ICollarPool is ERC6909, ICollarPoolState {
+abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
 
     /// @notice This is the ID of the slot that is unallocated to any particular call strike percentage
@@ -33,40 +47,38 @@ abstract contract ICollarPool is ERC6909, ICollarPoolState {
 
     /// @notice The address of the cash asset is set upon pool creation (and verified with the engine as allowed)
     address immutable public cashAsset;
-
-    /// @notice Records whether or not a particular vault has minted tokens (only allowed once)
-    mapping(bytes32 uuid => bool) public hasMinted;
-
-    /// @notice Records whether or not a particular vault has been finalized (only allowed once)
-    mapping(bytes32 uuid => bool vaultFinalized) public vaultStatus;
     
-    /// @notice Records the state of each slot (see SlotState struct above)
-    mapping(uint256 slotID => SlotState slot) public slots;
-
-    /// @notice Records the total amount of liquidity in each slot
-    mapping(uint256 slot => uint256 liquidity) public slotLiquidity;
-
-    /// @notice Records the amount of liquidity provided by each provider in each slot
-    mapping(address provider => mapping(uint256 slot => uint256 amount)) public providerLiquidityBySlot;
-
-    /// @notice Records the total amount of tokens minted for each vault
-    mapping(uint256 id => uint256) public totalTokenSupply;
-
-    /// @notice Records the total amount of cash available for a corresponding vault token
-    /// @dev Only set once vault is finalized
-    mapping(bytes32 uuid => uint256 cash) public totalCashSupplyForToken;
-
     constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset) {
         tickScaleFactor = _tickScaleFactor;
         engine = _engine;
         cashAsset = _cashAsset;
     }
 
-    /// @notice Gets the state of a particular slot
+    /// @notice Gets the amount of liquidity in a particular slot
     /// @param slotIndex The index of the slot to get the state of
-    function getSlot(
+    function getSlotLiquidity(
         uint256 slotIndex
-    ) external virtual returns (SlotState memory);
+    ) external virtual returns (uint256);
+
+    /// @notice Gets the number of providers in a particular slot
+    /// @param slotIndex The index of the slot to get the state of
+    function getSlotProviderLength(
+        uint256 slotIndex
+    ) external virtual returns (uint256);
+
+    /// @notice Gets the address & liquidity amount of the provider at a particular index in a particular slot
+    /// @param slotIndex The index of the slot to get the state of
+    /// @param providerIndex The index of the provider to get the state of
+    function getSlotProviderInfoAt(
+        uint256 slotIndex,
+        uint256 providerIndex
+    ) external virtual returns (address, uint256);
+
+    /// @notice Gets the address & liquidity amount of the provider in a particular slot
+    function getSlotProviderInfo(
+        uint256 slotIndex,
+        address provider
+    ) external virtual returns (uint256);
 
     /// @notice Adds liquidity to a given slot
     function addLiquidity(
@@ -119,19 +131,6 @@ abstract contract ICollarPool is ERC6909, ICollarPoolState {
         bytes32 uuid, 
         uint256 amount
     ) external virtual returns (uint256);
-
-    /// @notice Allows valid valid to mark a vault as finalized
-    function finalizeVault(
-        bytes32 uuid
-    ) external virtual;
-
-    /// @notice Returns the number of free entries in a slot; will be 0 if full
-    /// @param slotID The ID of the slot to check
-    function slotAvailability(uint256 slotID) external view virtual returns (uint256 freeEntries);
-
-    /// @notice Returns the address and associated amount of the provider in the given slot with the least amount provided
-    /// @param slotID The ID of the slot to check
-    function getSmallestProvider(uint256 slotID) external view virtual returns (address provider);
 }
 
 

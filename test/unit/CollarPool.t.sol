@@ -65,37 +65,27 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         pool.addLiquidity(111, 25_000);
 
-        assertEq(pool.slotLiquidity(111), 25_000);
-        assertEq(pool.providerLiquidityBySlot(user1, 111), 25_000);
+        assertEq(pool.getSlotLiquidity(111), 25_000);
+        assertEq(pool.getSlotProviderInfo(111, user1), 25_000);
 
-        SlotState memory slot = pool.getSlot(111);
+        uint256 liquidity = pool.getSlotLiquidity(111);
+        uint256 providerLength = pool.getSlotProviderLength(111);
 
-        assertEq(slot.liquidity, 25_000);
-        assertEq(slot.providers.length, 5);
-        assertEq(slot.providers[0], user1);
-        assertEq(slot.amounts[0], 25_000);
+        assertEq(liquidity, 25_000);
+        assertEq(providerLength, 5);
 
-        assertEq(slot.providers[1], address(0));
-        assertEq(slot.providers[2], address(0));
-        assertEq(slot.providers[3], address(0));
-        assertEq(slot.providers[4], address(0));
-    
-        assertEq(slot.amounts[1], 0);
-        assertEq(slot.amounts[2], 0);
-        assertEq(slot.amounts[3], 0);
-        assertEq(slot.amounts[4], 0);
+        (address provider0, uint256 liquidity0) = pool.getSlotProviderInfoAt(111, 0);
+
+        assertEq(provider0, user1);
+        assertEq(liquidity0, 25_000);
 
         pool.addLiquidity(111, 100);
 
-        assertEq(pool.slotLiquidity(111), 25_100);
-        assertEq(pool.providerLiquidityBySlot(user1, 111), 25_100);
+        liquidity = pool.getSlotLiquidity(111);
+        liquidity0 = pool.getSlotProviderInfo(111, provider0);
 
-        slot = pool.getSlot(111);
-
-        assertEq(slot.liquidity, 25_100);
-        assertEq(slot.providers.length, 5);
-        assertEq(slot.providers[0], user1);
-        assertEq(slot.amounts[0], 25_100);
+        assertEq(liquidity, 25_100);
+        assertEq(liquidity0, 25_100);
 
         vm.stopPrank();
     }
@@ -122,31 +112,38 @@ contract CollarPoolTest is Test, ICollarPoolState {
         hoax(user5);
         pool.addLiquidity(111, 5_000);
 
-        assertEq(pool.slotLiquidity(111), 15_000);
+        assertEq(pool.getSlotLiquidity(111), 15_000);
 
-        assertEq(pool.providerLiquidityBySlot(user1, 111), 1_000);
-        assertEq(pool.providerLiquidityBySlot(user2, 111), 2_000);
-        assertEq(pool.providerLiquidityBySlot(user3, 111), 3_000);
-        assertEq(pool.providerLiquidityBySlot(user4, 111), 4_000);
-        assertEq(pool.providerLiquidityBySlot(user5, 111), 5_000);
+        assertEq(pool.getSlotProviderInfo(111, user1), 1_000);
+        assertEq(pool.getSlotProviderInfo(111, user2), 2_000);
+        assertEq(pool.getSlotProviderInfo(111, user3), 3_000);
+        assertEq(pool.getSlotProviderInfo(111, user4), 4_000);
+        assertEq(pool.getSlotProviderInfo(111, user5), 5_000);
 
-        SlotState memory slot = pool.getSlot(111);
 
-        assertEq(slot.liquidity, 15_000);
-        assertEq(slot.providers.length, 5);
-        assertEq(slot.amounts.length, 5);
+        uint256 liquidity = pool.getSlotLiquidity(111);
+        uint256 providerLength = pool.getSlotProviderLength(111);
 
-        assertEq(slot.providers[0], user1);
-        assertEq(slot.providers[1], user2);
-        assertEq(slot.providers[2], user3);
-        assertEq(slot.providers[3], user4);
-        assertEq(slot.providers[4], user5);
+        assertEq(liquidity, 15_000);
+        assertEq(providerLength, 5);
 
-        assertEq(slot.amounts[0], 1_000);
-        assertEq(slot.amounts[1], 2_000);
-        assertEq(slot.amounts[2], 3_000);
-        assertEq(slot.amounts[3], 4_000);
-        assertEq(slot.amounts[4], 5_000);
+        (address provider0, uint256 liquidity0) = pool.getSlotProviderInfoAt(111, 0);
+        (address provider1, uint256 liquidity1) = pool.getSlotProviderInfoAt(111, 1);
+        (address provider2, uint256 liquidity2) = pool.getSlotProviderInfoAt(111, 2);
+        (address provider3, uint256 liquidity3) = pool.getSlotProviderInfoAt(111, 3);
+        (address provider4, uint256 liquidity4) = pool.getSlotProviderInfoAt(111, 4);
+
+        assertEq(provider0, user1);
+        assertEq(provider1, user2);
+        assertEq(provider2, user3);    
+        assertEq(provider3, user4);
+        assertEq(provider4, user5);
+
+        assertEq(liquidity0, 1_000);
+        assertEq(liquidity1, 2_000);
+        assertEq(liquidity2, 3_000);
+        assertEq(liquidity3, 4_000);
+        assertEq(liquidity4, 5_000);
 
         vm.stopPrank();
     }
@@ -197,23 +194,18 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         pool.removeLiquidity(111, 10_000);
 
-        assertEq(pool.slotLiquidity(111), 15_000);
+        assertEq(pool.getSlotLiquidity(111), 15_000);
 
-        SlotState memory slot = pool.getSlot(111);
+        uint256 liquidity = pool.getSlotLiquidity(111);
+        uint256 providerLength = pool.getSlotProviderLength(111);
 
-        assertEq(slot.liquidity, 15_000);
-        assertEq(slot.providers.length, 5);
-        assertEq(slot.providers[0], user1);
-        assertEq(slot.amounts[0], 15_000);
+        assertEq(liquidity, 15_000);
+        assertEq(providerLength, 5);
 
-        assertEq(slot.providers[1], address(0));
-        assertEq(slot.providers[2], address(0));
-        assertEq(slot.providers[3], address(0));
-        assertEq(slot.providers[4], address(0));
-        assertEq(slot.amounts[1], 0);
-        assertEq(slot.amounts[2], 0);
-        assertEq(slot.amounts[3], 0);
-        assertEq(slot.amounts[4], 0);
+        (address provider0, uint256 liquidity0) = pool.getSlotProviderInfoAt(111, 0);
+
+        assertEq(provider0, user1);
+        assertEq(liquidity0, 15_000);
 
         vm.stopPrank();
     }
