@@ -63,13 +63,23 @@ Once you deploy the protocol as specified above, scroll up a little bit in your 
 
 Import the private keys for the deployer and the test addresses into a dev wallet so that you can easily switch between them. Metamask should work fine. All of the default addresses here are among the 10 anvil default accounts and should be preloaded with plenty of ETH; users 1 and 2 are by default preloaded with 100k of each test token (cash and collateral), and you can easily get more by calling `TestToken.mint(address, amount)` on the deployed test token smart contracts.
 
+### Mock Contracts
+    
+For this local/dev environment, we don't need to set up all of Uniswap, Chainlink oracles, etc. So we mock this functionality instead. Specifically, the following:
+
+ - [TestERC20 tokens](../test/utils/TestERC20.sol) - standard ERC20 implementation, but with added function for easy & free minting. You can call `mint(address, amount` on these contracts to get free tokens for testing. By default this is what `cashTestToken` and `collateralTestToken` are in the two deploy scripts here.
+
+ - [Mocked UniV3 Router](../test/utils//MockUniRouter.sol)  - extremely simple mock of the Uniswap V3 router implementing only the `exactInputSingle` method (which is what vaults currently use to swap from collateral to cash). It will always use the maximum allowable slippage, eg `amountOutMinimum` and the trade will always succeed for any value (assuming the router has enough tokens; it's preloaed with 1 million of each token in each of these scripts by default)
+
+ - [Mock Engine](../test/utils/MockEngine.sol) - fully functional `CollarEngine`, but we add in two functions to set the current price of an asset (for opening vaults) and the historical price of an asset at some blocktime (for closing vaults). You can have a look at the [vault manager tests](../test/unit/CollarVaultManager.t.sol) to see more specifically how this can be used.
+
 ## Contract ABIs
 
 To build a frontend that interacts with the smart contracts, you'll need the ABIs for each contract. You can grab them via `forge inspect`:
 
 `> forge inspect CollarEngine abi` : outputs to console
 
-`> forge inspect CollarEngine abi > CollarEngine.json` : outputs to file, use this in your frontend web3 lib
+`> forge inspect CollarEngine abi > ~/CollarFrontend/abis/CollarEngine.json` : outputs to file, use this in your frontend web3 lib
 
 ## Customizing deploy scripts
 
