@@ -7,16 +7,16 @@
 
 pragma solidity ^0.8.18;
 
-import {ICollarVaultManager} from "../interfaces/ICollarVaultManager.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Constants, CollarVaultState} from "../libs/CollarLibs.sol";
-import {ISwapRouter} from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
-import {ICollarEngine} from "../interfaces/ICollarEngine.sol";
-import {TickCalculations} from "../libs/TickCalculations.sol";
-import {CollarPool} from "./CollarPool.sol";
+import { ICollarVaultManager } from "../interfaces/ICollarVaultManager.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Constants, CollarVaultState } from "../libs/CollarLibs.sol";
+import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
+import { ICollarEngine } from "../interfaces/ICollarEngine.sol";
+import { TickCalculations } from "../libs/TickCalculations.sol";
+import { CollarPool } from "./CollarPool.sol";
 
 contract CollarVaultManager is ICollarVaultManager, Constants {
-    constructor(address _engine, address _owner) ICollarVaultManager(_engine, _owner) {}
+    constructor(address _engine, address _owner) ICollarVaultManager(_engine, _owner) { }
 
     function openVault(
         CollarVaultState.AssetSpecifiers calldata assetData, // addresses & amounts of collateral & cash assets

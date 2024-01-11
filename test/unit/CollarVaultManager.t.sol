@@ -8,15 +8,15 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/Test.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {TestERC20} from "../utils/TestERC20.sol";
-import {MockUniRouter} from "../utils/MockUniRouter.sol";
-import {MockEngine} from "../../test/utils/MockEngine.sol";
-import {CollarPool} from "../../src/implementations/CollarPool.sol";
-import {ICollarPoolState} from "../../src/interfaces/ICollarPool.sol";
-import {CollarVaultState} from "../../src/libs/CollarLibs.sol";
-import {ICollarVaultManager} from "../../src/interfaces/ICollarVaultManager.sol";
-import {CollarVaultManager} from "../../src/implementations/CollarVaultManager.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { TestERC20 } from "../utils/TestERC20.sol";
+import { MockUniRouter } from "../utils/MockUniRouter.sol";
+import { MockEngine } from "../../test/utils/MockEngine.sol";
+import { CollarPool } from "../../src/implementations/CollarPool.sol";
+import { ICollarPoolState } from "../../src/interfaces/ICollarPool.sol";
+import { CollarVaultState } from "../../src/libs/CollarLibs.sol";
+import { ICollarVaultManager } from "../../src/interfaces/ICollarVaultManager.sol";
+import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
 
 contract CollarVaultManagerTest is Test {
     TestERC20 token1;
@@ -91,10 +91,10 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({expiry: block.timestamp + 100, ltv: 9000});
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ expiry: block.timestamp + 100, ltv: 9000 });
 
         CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000});
+            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
@@ -170,10 +170,10 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({expiry: block.timestamp + 100, ltv: 9000});
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ expiry: block.timestamp + 100, ltv: 9000 });
 
         CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000});
+            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token2), 1e18);
 
@@ -225,10 +225,10 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({expiry: block.timestamp + 100, ltv: 9000});
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ expiry: block.timestamp + 100, ltv: 9000 });
 
         CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000});
+            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token2), 1e18);
 
@@ -280,10 +280,10 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({expiry: block.timestamp + 100, ltv: 9000});
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ expiry: block.timestamp + 100, ltv: 9000 });
 
         CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000});
+            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token2), 1e18);
 

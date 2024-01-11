@@ -7,15 +7,15 @@
 
 pragma solidity ^0.8.18;
 
-import {ICollarPool} from "../interfaces/ICollarPool.sol";
-import {Constants, CollarVaultState} from "../libs/CollarLibs.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {EnumerableMap} from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
+import { ICollarPool } from "../interfaces/ICollarPool.sol";
+import { Constants, CollarVaultState } from "../libs/CollarLibs.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 
 contract CollarPool is ICollarPool, Constants {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
 
-    constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset) ICollarPool(_engine, _tickScaleFactor, _cashAsset) {}
+    constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset) ICollarPool(_engine, _tickScaleFactor, _cashAsset) { }
 
     function getSlotLiquidity(uint256 slotIndex) external view override returns (uint256) {
         return slots[slotIndex].liquidity;
@@ -100,7 +100,7 @@ contract CollarPool is ICollarPool, Constants {
         slot.liquidity -= amount;
 
         // finally, store the info about the vToken
-        vTokens[uuid] = vToken({redeemable: false, totalRedeemableCash: amount});
+        vTokens[uuid] = vToken({ redeemable: false, totalRedeemableCash: amount });
     }
 
     function redeem(bytes32 uuid, uint256 amount) external override {

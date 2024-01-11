@@ -7,13 +7,13 @@
 
 pragma solidity ^0.8.18;
 
-import {CollarEngine} from "../../src/implementations/CollarEngine.sol";
+import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
 
 contract MockEngine is CollarEngine {
     mapping(address => uint256) public currentAssetPrices;
     mapping(address => mapping(uint256 => uint256)) public historicalAssetPrices;
 
-    constructor(address _dexRouter) CollarEngine(_dexRouter) {}
+    constructor(address _dexRouter) CollarEngine(_dexRouter) { }
 
     function setHistoricalAssetPrice(address asset, uint256 timestamp, uint256 value) external {
         historicalAssetPrices[asset][timestamp] = value;

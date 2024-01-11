@@ -7,12 +7,12 @@
 
 pragma solidity ^0.8.18;
 
-import {ICollarEngine} from "../interfaces/ICollarEngine.sol";
-import {CollarVaultManager} from "./CollarVaultManager.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import { ICollarEngine } from "../interfaces/ICollarEngine.sol";
+import { CollarVaultManager } from "./CollarVaultManager.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract CollarEngine is ICollarEngine, Ownable {
-    constructor(address _dexRouter) ICollarEngine(_dexRouter) Ownable(msg.sender) {}
+    constructor(address _dexRouter) ICollarEngine(_dexRouter) Ownable(msg.sender) { }
 
     function createVaultManager() external override returns (address _vaultManager) {
         if (addressToVaultManager[msg.sender] != address(0)) {

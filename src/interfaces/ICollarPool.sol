@@ -7,8 +7,8 @@
 
 pragma solidity ^0.8.18;
 
-import {IERC6909WithSupply} from "../interfaces/IERC6909WithSupply.sol";
-import {EnumerableMap} from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
+import { IERC6909WithSupply } from "../interfaces/IERC6909WithSupply.sol";
+import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 
 abstract contract ICollarPoolState {
     using EnumerableMap for EnumerableMap.AddressToUintMap;

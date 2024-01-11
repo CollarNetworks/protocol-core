@@ -8,12 +8,12 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/Test.sol";
-import {TestERC20} from "../utils/TestERC20.sol";
-import {MockUniRouter} from "../utils/MockUniRouter.sol";
-import {MockVaultManager} from "../utils/MockVaultManager.sol";
-import {CollarEngine} from "../../src/implementations/CollarEngine.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ICollarEngineErrors} from "../../src/interfaces/ICollarEngine.sol";
+import { TestERC20 } from "../utils/TestERC20.sol";
+import { MockUniRouter } from "../utils/MockUniRouter.sol";
+import { MockVaultManager } from "../utils/MockVaultManager.sol";
+import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { ICollarEngineErrors } from "../../src/interfaces/ICollarEngine.sol";
 
 contract CollarEngineTest is Test, ICollarEngineErrors {
     TestERC20 token1;
