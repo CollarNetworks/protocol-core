@@ -7,10 +7,9 @@
 
 pragma solidity ^0.8.18;
 
-import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
+import {CollarEngine} from "../../src/implementations/CollarEngine.sol";
 
 contract MockEngine is CollarEngine {
-
     mapping(address => uint256) public currentAssetPrices;
     mapping(address => mapping(uint256 => uint256)) public historicalAssetPrices;
 
@@ -30,6 +29,5 @@ contract MockEngine is CollarEngine {
 
     function getCurrentAssetPrice(address asset) external view virtual override returns (uint256) {
         return currentAssetPrices[asset];
-    }    
+    }
 }
-

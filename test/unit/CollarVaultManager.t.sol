@@ -8,15 +8,15 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/Test.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { TestERC20 } from "../utils/TestERC20.sol";
-import { MockUniRouter } from "../utils/MockUniRouter.sol";
-import { MockEngine } from "../../test/utils/MockEngine.sol";
-import { CollarPool } from "../../src/implementations/CollarPool.sol";
-import { ICollarPoolState } from "../../src/interfaces/ICollarPool.sol";
-import { CollarVaultState } from "../../src/libs/CollarLibs.sol";
-import { ICollarVaultManager } from "../../src/interfaces/ICollarVaultManager.sol";
-import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {TestERC20} from "../utils/TestERC20.sol";
+import {MockUniRouter} from "../utils/MockUniRouter.sol";
+import {MockEngine} from "../../test/utils/MockEngine.sol";
+import {CollarPool} from "../../src/implementations/CollarPool.sol";
+import {ICollarPoolState} from "../../src/interfaces/ICollarPool.sol";
+import {CollarVaultState} from "../../src/libs/CollarLibs.sol";
+import {ICollarVaultManager} from "../../src/interfaces/ICollarVaultManager.sol";
+import {CollarVaultManager} from "../../src/implementations/CollarVaultManager.sol";
 
 contract CollarVaultManagerTest is Test {
     TestERC20 token1;
@@ -32,6 +32,7 @@ contract CollarVaultManagerTest is Test {
 
     // below we copy error messages from contracts since they aren't by default "public" or otherwise accessible
     error OwnableUnauthorizedAccount(address account);
+
     bytes user1NotAuthorized = abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, address(user1));
 
     function setUp() public {
@@ -90,26 +91,16 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({
-            expiry: block.timestamp + 100,
-            ltv: 9_000
-        });
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({expiry: block.timestamp + 100, ltv: 9000});
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts({
-            liquidityPool: address(pool),
-            putStrikeTick: 9_000,
-            callStrikeTick: 11_000
-        });
+        CollarVaultState.LiquidityOpts memory liquidityOpts =
+            CollarVaultState.LiquidityOpts({liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000});
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
         hoax(user1);
-        bytes32 uuid = manager.openVault(
-            assets,
-            collarOpts,
-            liquidityOpts
-        );
-        
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+
         assertEq(manager.vaultCount(), 1);
 
         bytes memory vaultInfo = manager.vaultInfo(uuid);
@@ -121,7 +112,7 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.active, true);
         assertEq(vault.openedAt, 1);
         assertEq(vault.expiresAt, 101);
-        assertEq(vault.ltv, 9_000);
+        assertEq(vault.ltv, 9000);
         assertEq(vault.collateralAsset, address(token1));
         assertEq(vault.collateralAmount, 100);
         assertEq(vault.cashAsset, address(token2));
@@ -131,7 +122,7 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.initialCollateralPrice, 1e18);
         assertEq(vault.putStrikePrice, 0.9e18);
         assertEq(vault.callStrikePrice, 1.1e18);
-        assertEq(vault.putStrikeTick, 9_000);
+        assertEq(vault.putStrikeTick, 9000);
         assertEq(vault.callStrikeTick, 11_000);
         assertEq(vault.loanBalance, 90);
         assertEq(vault.lockedVaultCash, 10);
@@ -179,25 +170,15 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({
-            expiry: block.timestamp + 100,
-            ltv: 9_000
-        });
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({expiry: block.timestamp + 100, ltv: 9000});
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts({
-            liquidityPool: address(pool),
-            putStrikeTick: 9_000,
-            callStrikeTick: 11_000
-        });
+        CollarVaultState.LiquidityOpts memory liquidityOpts =
+            CollarVaultState.LiquidityOpts({liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000});
 
         engine.setCurrentAssetPrice(address(token2), 1e18);
 
         hoax(user1);
-        bytes32 uuid = manager.openVault(
-            assets,
-            collarOpts,
-            liquidityOpts
-        );
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
         skip(100);
 
@@ -213,7 +194,7 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.active, false);
         assertEq(vault.openedAt, 1);
         assertEq(vault.expiresAt, 101);
-        assertEq(vault.ltv, 9_000);
+        assertEq(vault.ltv, 9000);
         assertEq(vault.collateralAsset, address(token2));
         assertEq(vault.collateralAmount, 100);
         assertEq(vault.cashAsset, address(token1));
@@ -244,25 +225,15 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({
-            expiry: block.timestamp + 100,
-            ltv: 9_000
-        });
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({expiry: block.timestamp + 100, ltv: 9000});
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts({
-            liquidityPool: address(pool),
-            putStrikeTick: 9_000,
-            callStrikeTick: 11_000
-        });
+        CollarVaultState.LiquidityOpts memory liquidityOpts =
+            CollarVaultState.LiquidityOpts({liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000});
 
         engine.setCurrentAssetPrice(address(token2), 1e18);
 
         hoax(user1);
-        bytes32 uuid = manager.openVault(
-            assets,
-            collarOpts,
-            liquidityOpts
-        );
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
         skip(100);
 
@@ -278,7 +249,7 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.active, false);
         assertEq(vault.openedAt, 1);
         assertEq(vault.expiresAt, 101);
-        assertEq(vault.ltv, 9_000);
+        assertEq(vault.ltv, 9000);
         assertEq(vault.collateralAsset, address(token2));
         assertEq(vault.collateralAmount, 100);
         assertEq(vault.cashAsset, address(token1));
@@ -309,25 +280,15 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({
-            expiry: block.timestamp + 100,
-            ltv: 9_000
-        });
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({expiry: block.timestamp + 100, ltv: 9000});
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts = CollarVaultState.LiquidityOpts({
-            liquidityPool: address(pool),
-            putStrikeTick: 9_000,
-            callStrikeTick: 11_000
-        });
+        CollarVaultState.LiquidityOpts memory liquidityOpts =
+            CollarVaultState.LiquidityOpts({liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000});
 
         engine.setCurrentAssetPrice(address(token2), 1e18);
 
         hoax(user1);
-        bytes32 uuid = manager.openVault(
-            assets,
-            collarOpts,
-            liquidityOpts
-        );
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
         skip(100);
 
@@ -343,7 +304,7 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.active, false);
         assertEq(vault.openedAt, 1);
         assertEq(vault.expiresAt, 101);
-        assertEq(vault.ltv, 9_000);
+        assertEq(vault.ltv, 9000);
         assertEq(vault.collateralAsset, address(token2));
         assertEq(vault.collateralAmount, 100);
         assertEq(vault.cashAsset, address(token1));

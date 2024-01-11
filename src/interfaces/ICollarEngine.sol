@@ -26,7 +26,6 @@ abstract contract ICollarEngineErrors {
 }
 
 abstract contract ICollarEngine is ICollarEngineErrors {
-
     address public immutable dexRouter;
 
     modifier isValidVaultManager(address vaultManager) {
@@ -102,7 +101,7 @@ abstract contract ICollarEngine is ICollarEngineErrors {
 
     /// @notice This mapping indicates whether or not a particular collar length is supported
     mapping(uint256 => bool) public isValidCollarLength;
-    
+
     /// @notice Initializes the engine.
     constructor(address _dexRouter) {
         dexRouter = _dexRouter;
@@ -119,7 +118,7 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     /// @notice Creates a vault manager contract for the user that calls this function, if it does not already exist
     /// @dev This function is called by the user when they want to create a new vault if they haven't done so in the past
     function createVaultManager() external virtual returns (address);
-    
+
     /// @notice Adds an asset to the list of supported collateral assets
     /// @param asset The address of the asset to add
     function addSupportedCollateralAsset(address asset) external virtual;

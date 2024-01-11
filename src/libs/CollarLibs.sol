@@ -102,27 +102,21 @@ library CollarVaultState {
     /// @param loanBalance amount of cash that is currently unlocked (withdrawable); this is the only state var that changes during a vault's lifetime
     /// @param lockedVaultCash The amount of cash that is currently locked (unwithdrawable)
     struct Vault {
-
         // todo: denote which of these values are supplied by user on vault creation
         // and which of them are derived values; we must carefully verify supplied values,
         // but derived values can be naively trusted
 
         /* ----- Basic Vault Info ----- */
-
         bool active;
         uint256 openedAt;
         uint256 expiresAt;
         uint256 ltv;
-        
         /* ---- Asset Specific Info ----- */
-
         address collateralAsset;
         address cashAsset;
         uint256 collateralAmount;
         uint256 cashAmount;
-
         /* ----- Liquidity Pool Stuff ----- */
-
         address liquidityPool;
         uint256 lockedPoolCash;
         uint256 initialCollateralPrice;
@@ -130,7 +124,6 @@ library CollarVaultState {
         uint256 callStrikePrice;
         uint24 putStrikeTick;
         uint24 callStrikeTick;
-
         /* ----- Vault Specific Stuff ----- */
         uint256 loanBalance;
         uint256 lockedVaultCash;
@@ -140,14 +133,14 @@ library CollarVaultState {
 /// @notice Constants for the vault manager
 abstract contract Constants {
     /// @notice The maximum global ltv, not changeable; set to 100% for now (in bps)
-    uint256 constant public MAX_LTV = 10_000;
+    uint256 public constant MAX_LTV = 10_000;
 
     /// @notice The minimum call strike, not changeable; set to 150% for now (in bps)
-    uint256 constant public MIN_CALL_STRIKE = 100_000;
+    uint256 public constant MIN_CALL_STRIKE = 100_000;
 
     /// @notice The maximum put strike, not changeable; set to 100% for now (in bps)
-    uint256 constant public MAX_PUT_STRIKE = 100_000;
+    uint256 public constant MAX_PUT_STRIKE = 100_000;
 
-    uint256 constant public ONE_HUNDRED_PERCENT = 10_000;
-    uint256 constant public PRECISION_MULTIPLIER = 1e18;
+    uint256 public constant ONE_HUNDRED_PERCENT = 10_000;
+    uint256 public constant PRECISION_MULTIPLIER = 1e18;
 }

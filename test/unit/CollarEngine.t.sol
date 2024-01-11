@@ -8,12 +8,12 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/Test.sol";
-import { TestERC20 } from "../utils/TestERC20.sol";
-import { MockUniRouter } from "../utils/MockUniRouter.sol";
-import { MockVaultManager } from "../utils/MockVaultManager.sol";
-import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { ICollarEngineErrors } from "../../src/interfaces/ICollarEngine.sol";
+import {TestERC20} from "../utils/TestERC20.sol";
+import {MockUniRouter} from "../utils/MockUniRouter.sol";
+import {MockVaultManager} from "../utils/MockVaultManager.sol";
+import {CollarEngine} from "../../src/implementations/CollarEngine.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ICollarEngineErrors} from "../../src/interfaces/ICollarEngine.sol";
 
 contract CollarEngineTest is Test, ICollarEngineErrors {
     TestERC20 token1;
@@ -29,6 +29,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
     // below we copy error messages from contracts since they aren't by default "public" or otherwise accessible
 
     error OwnableUnauthorizedAccount(address account);
+
     bytes user1NotAuthorized = abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, address(user1));
 
     function setUp() public {
@@ -174,8 +175,8 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
 
     function test_getCurrentAssetPrice() public {
         revert("Method not yet implemented!");
-    } 
-    
+    }
+
     function test_getCurrentAssetPrice_InvalidAsset() public {
         vm.expectRevert(abi.encodeWithSelector(AssetNotSupported.selector, address(token1)));
         engine.getCurrentAssetPrice(address(token1));
@@ -205,14 +206,14 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
 
     function test_notifyFinalized_InvalidVault() public {
         engine.addLiquidityPool(pool1);
-        
+
         startHoax(user1);
 
         address vault = engine.createVaultManager();
-        
+
         vm.expectRevert(abi.encodeWithSelector(InvalidVaultManager.selector, address(user1)));
         engine.notifyFinalized(pool1, bytes32(0));
-        
+
         vm.stopPrank();
     }
 
@@ -227,7 +228,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
 
         vm.expectRevert(abi.encodeWithSelector(InvalidLiquidityPool.selector, address(pool1)));
         engine.notifyFinalized(pool1, bytes32(0));
-    
+
         vm.stopPrank();
     }
 

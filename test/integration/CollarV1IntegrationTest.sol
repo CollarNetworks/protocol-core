@@ -8,13 +8,10 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/Test.sol";
-import { TestERC20 } from "../utils/TestERC20.sol";
+import {TestERC20} from "../utils/TestERC20.sol";
 
 contract CollarV1IntegrationTest is Test {
-
-    function setUp() public {
-
-    }
+    function setUp() public {}
 
     function test_deployAllContractsAndCheckParams() public {
         revert("TODO");

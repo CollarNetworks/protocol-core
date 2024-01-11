@@ -7,10 +7,9 @@
 
 pragma solidity ^0.8.18;
 
-import { ICollarEngine } from "../interfaces/ICollarEngine.sol";
-import { CollarVaultManager } from "./CollarVaultManager.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-
+import {ICollarEngine} from "../interfaces/ICollarEngine.sol";
+import {CollarVaultManager} from "./CollarVaultManager.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract CollarEngine is ICollarEngine, Ownable {
     constructor(address _dexRouter) ICollarEngine(_dexRouter) Ownable(msg.sender) {}
@@ -35,43 +34,31 @@ contract CollarEngine is ICollarEngine, Ownable {
         isLiquidityPool[pool] = false;
     }
 
-    function addSupportedCollateralAsset(
-        address asset
-    ) external override onlyOwner isNotValidCollateralAsset(asset)  {
+    function addSupportedCollateralAsset(address asset) external override onlyOwner isNotValidCollateralAsset(asset) {
         isSupportedCollateralAsset[asset] = true;
     }
 
-    function removeSupportedCollateralAsset(
-        address asset
-    ) external override onlyOwner isValidCollateralAsset(asset)  {
+    function removeSupportedCollateralAsset(address asset) external override onlyOwner isValidCollateralAsset(asset) {
         isSupportedCollateralAsset[asset] = false;
     }
 
-    function addSupportedCashAsset(
-        address asset
-    ) external override onlyOwner isNotValidCashAsset(asset)  {
+    function addSupportedCashAsset(address asset) external override onlyOwner isNotValidCashAsset(asset) {
         isSupportedCashAsset[asset] = true;
     }
 
-    function removeSupportedCashAsset(
-        address asset
-    ) external override onlyOwner isValidCashAsset(asset)  {
+    function removeSupportedCashAsset(address asset) external override onlyOwner isValidCashAsset(asset) {
         isSupportedCashAsset[asset] = false;
     }
 
-    function addSupportedCollarLength(
-        uint256 length
-    ) external override onlyOwner isNotSupportedCollarLength(length)  {
+    function addSupportedCollarLength(uint256 length) external override onlyOwner isNotSupportedCollarLength(length) {
         isValidCollarLength[length] = true;
     }
 
-    function removeSupportedCollarLength(
-        uint256 length
-    ) external override onlyOwner isSupportedCollarLength(length)  {
+    function removeSupportedCollarLength(uint256 length) external override onlyOwner isSupportedCollarLength(length) {
         isValidCollarLength[length] = false;
     }
 
-    function getHistoricalAssetPrice(address /*asset*/, uint256 /*timestamp*/) external view virtual override returns (uint256) {
+    function getHistoricalAssetPrice(address, /*asset*/ uint256 /*timestamp*/ ) external view virtual override returns (uint256) {
         revert("Method not yet implemented");
     }
 
