@@ -17,6 +17,7 @@ import { ICollarPoolState } from "../../src/interfaces/ICollarPool.sol";
 import { CollarVaultState } from "../../src/libs/CollarLibs.sol";
 import { ICollarVaultManager } from "../../src/interfaces/ICollarVaultManager.sol";
 import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
+import { IERC6909WithSupply } from "../../src/interfaces/IERC6909WithSupply.sol";
 
 contract CollarVaultManagerTest is Test {
     TestERC20 token1;
@@ -43,7 +44,7 @@ contract CollarVaultManagerTest is Test {
         router = new MockUniRouter();
         engine = new MockEngine(address(router));
 
-        pool = new CollarPool(address(engine), 1, address(token1));
+        pool = new CollarPool(address(engine), 1, address(token2));
         manager = new CollarVaultManager(address(engine), user1);
 
         engine.addLiquidityPool(address(pool));
@@ -52,6 +53,17 @@ contract CollarVaultManagerTest is Test {
 
         token1.mint(address(router), 100_000);
         token2.mint(address(router), 100_000);
+
+        // label everything to make reading the test errors easier
+        vm.label(address(manager), "Vault Manager");
+        vm.label(address(engine), "Collar Engine");
+        vm.label(address(pool), "Collar Pool");
+
+        vm.label(address(token1), "Test Token 1 // Collateral");
+        vm.label(address(token2), "Test Token 2 // Cash");
+
+        vm.label(user1, "Test User 1");
+        vm.label(user2, "Test User 2");
     }
 
     function mintTokensToUserAndApprovePool(address user) internal {
@@ -219,6 +231,8 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_openVault_InvalidLiquidityOpts() public {
+        revert("TODO: Need to add in validation for liquidity opts (in vault manager AND in pool");
+
         mintTokensToUserAndApproveManager(user1);
         mintTokensToUserAndApprovePool(user2);
 
@@ -285,7 +299,7 @@ contract CollarVaultManagerTest is Test {
         vm.expectRevert(abi.encodeWithSelector(ERC20InsufficientBalance.selector, address(user1), 0, 100));
         manager.openVault(assets, collarOpts, liquidityOpts);
     }
-    
+
     function test_closeVaultNoPriceChange() public {
         mintTokensToUserAndApproveManager(user1);
         mintTokensToUserAndApprovePool(user2);
@@ -294,9 +308,9 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidity(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token2),
+            collateralAsset: address(token1),
             collateralAmount: 100,
-            cashAsset: address(token1),
+            cashAsset: address(token2),
             cashAmount: 100
         });
 
@@ -305,14 +319,14 @@ contract CollarVaultManagerTest is Test {
         CollarVaultState.LiquidityOpts memory liquidityOpts =
             CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token2), 1e18);
+        engine.setCurrentAssetPrice(address(token1), 1e18);
 
         hoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
         skip(100);
 
-        engine.setHistoricalAssetPrice(address(token2), 101, 1e18);
+        engine.setHistoricalAssetPrice(address(token1), 101, 1e18);
 
         manager.closeVault(uuid);
 
@@ -325,9 +339,9 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.openedAt, 1);
         assertEq(vault.expiresAt, 101);
         assertEq(vault.ltv, 9000);
-        assertEq(vault.collateralAsset, address(token2));
+        assertEq(vault.collateralAsset, address(token1));
         assertEq(vault.collateralAmount, 100);
-        assertEq(vault.cashAsset, address(token1));
+        assertEq(vault.cashAsset, address(token2));
         assertEq(vault.cashAmount, 100);
         assertEq(vault.liquidityPool, address(pool));
         assertEq(vault.lockedPoolCash, 10);
@@ -338,7 +352,7 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.lockedVaultCash, 0);
 
         // check to make sure that the pool got the free 10 cash tokens as a reward
-        assertEq(token1.balanceOf(address(manager)), 100);
+        assertEq(token2.balanceOf(address(manager)), 100);
     }
 
     function test_closeVaultNoCollateralPriceUp() public {
@@ -349,9 +363,9 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidity(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token2),
+            collateralAsset: address(token1),
             collateralAmount: 100,
-            cashAsset: address(token1),
+            cashAsset: address(token2),
             cashAmount: 100
         });
 
@@ -360,14 +374,14 @@ contract CollarVaultManagerTest is Test {
         CollarVaultState.LiquidityOpts memory liquidityOpts =
             CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token2), 1e18);
+        engine.setCurrentAssetPrice(address(token1), 1e18);
 
         hoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
         skip(100);
 
-        engine.setHistoricalAssetPrice(address(token2), 101, 2e18);
+        engine.setHistoricalAssetPrice(address(token1), 101, 2e18);
 
         manager.closeVault(uuid);
 
@@ -380,9 +394,9 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.openedAt, 1);
         assertEq(vault.expiresAt, 101);
         assertEq(vault.ltv, 9000);
-        assertEq(vault.collateralAsset, address(token2));
+        assertEq(vault.collateralAsset, address(token1));
         assertEq(vault.collateralAmount, 100);
-        assertEq(vault.cashAsset, address(token1));
+        assertEq(vault.cashAsset, address(token2));
         assertEq(vault.cashAmount, 100);
         assertEq(vault.liquidityPool, address(pool));
         assertEq(vault.lockedPoolCash, 10);
@@ -393,7 +407,7 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.lockedVaultCash, 0);
 
         // check to make sure that the vault got the free 10 cash tokens as a reward
-        assertEq(token1.balanceOf(address(manager)), 110);
+        assertEq(token2.balanceOf(address(manager)), 110);
     }
 
     function test_closeVaultNoCollateralPriceDown() public {
@@ -404,9 +418,9 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidity(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token2),
+            collateralAsset: address(token1),
             collateralAmount: 100,
-            cashAsset: address(token1),
+            cashAsset: address(token2),
             cashAmount: 100
         });
 
@@ -415,14 +429,14 @@ contract CollarVaultManagerTest is Test {
         CollarVaultState.LiquidityOpts memory liquidityOpts =
             CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token2), 1e18);
+        engine.setCurrentAssetPrice(address(token1), 1e18);
 
         hoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
         skip(100);
 
-        engine.setHistoricalAssetPrice(address(token2), 101, 0);
+        engine.setHistoricalAssetPrice(address(token1), 101, 0);
 
         manager.closeVault(uuid);
 
@@ -435,9 +449,9 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.openedAt, 1);
         assertEq(vault.expiresAt, 101);
         assertEq(vault.ltv, 9000);
-        assertEq(vault.collateralAsset, address(token2));
+        assertEq(vault.collateralAsset, address(token1));
         assertEq(vault.collateralAmount, 100);
-        assertEq(vault.cashAsset, address(token1));
+        assertEq(vault.cashAsset, address(token2));
         assertEq(vault.cashAmount, 100);
         assertEq(vault.liquidityPool, address(pool));
         assertEq(vault.lockedPoolCash, 10);
@@ -448,7 +462,7 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.lockedVaultCash, 0);
 
         // check to make sure that the pool got the free 10 cash tokens as a reward
-        assertEq(token1.balanceOf(address(manager)), 90);
+        assertEq(token2.balanceOf(address(manager)), 90);
     }
 
     function test_closeVault_AlreadyClosed() public {
@@ -459,9 +473,9 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidity(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token2),
+            collateralAsset: address(token1),
             collateralAmount: 100,
-            cashAsset: address(token1),
+            cashAsset: address(token2),
             cashAmount: 100
         });
 
@@ -498,9 +512,9 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidity(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token2),
+            collateralAsset: address(token1),
             collateralAmount: 100,
-            cashAsset: address(token1),
+            cashAsset: address(token2),
             cashAmount: 100
         });
 
@@ -525,7 +539,37 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_redeem() public {
-        revert("TODO");
+        mintTokensToUserAndApproveManager(user1);
+        mintTokensToUserAndApprovePool(user2);
+
+        hoax(user2);
+        pool.addLiquidity(11_000, 25_000);
+
+        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+            collateralAsset: address(token1),
+            collateralAmount: 100,
+            cashAsset: address(token2),
+            cashAmount: 100
+        });
+
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ expiry: block.timestamp + 100, ltv: 9000 });
+
+        CollarVaultState.LiquidityOpts memory liquidityOpts =
+            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+
+        engine.setCurrentAssetPrice(address(token2), 1e18);
+
+        hoax(user1);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+
+        skip(100);
+
+        engine.setHistoricalAssetPrice(address(token2), 101, 1e18);
+
+        manager.closeVault(uuid);
+
+        IERC6909WithSupply token = IERC6909WithSupply(manager);
+        assertEq(token.totalTokenSupply(uint256(uuid)), 100);
     }
 
     function test_redeem_InvalidVault() public {
