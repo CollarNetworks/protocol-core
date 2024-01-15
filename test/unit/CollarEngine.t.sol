@@ -173,32 +173,10 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         vm.stopPrank();
     }
 
-    function test_getCurrentAssetPrice() public {
-        revert("Method not yet implemented!");
-    }
-
     function test_getCurrentAssetPrice_InvalidAsset() public {
         vm.expectRevert(abi.encodeWithSelector(AssetNotSupported.selector, address(token1)));
         engine.getCurrentAssetPrice(address(token1));
     }
-
-    /* >>> not unit tests - need to implement as integration tests <<<
-
-    function test_getHistoricalAssetPrice() public {
-        engine.addSupportedCashAsset(address(token1));
-
-        uint256 price = engine.getHistoricalAssetPrice(address(token1), 123456789);
-        assertEq(price, 987654321);
-    }
-
-    function test_getHistoricalAssetPriceRemovedAsset() public {
-        engine.addSupportedCashAsset(address(token1));
-        engine.removeSupportedCashAsset(address(token1));
-
-        uint256 price = engine.getHistoricalAssetPrice(address(token1), 123456789);
-        assertEq(price, 987654321);
-    }
-    */
 
     function test_notifyFinalized() public {
         assertTrue(false);

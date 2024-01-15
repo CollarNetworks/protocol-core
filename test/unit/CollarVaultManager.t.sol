@@ -32,6 +32,7 @@ contract CollarVaultManagerTest is Test {
 
     // below we copy error messages from contracts since they aren't by default "public" or otherwise accessible
     error OwnableUnauthorizedAccount(address account);
+    error ERC20InsufficientBalance(address sender, uint256 balance, uint256 needed);
 
     bytes user1NotAuthorized = abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, address(user1));
 
@@ -128,34 +129,163 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.lockedVaultCash, 10);
     }
 
-    function test_openVault_DuplicateOptions() public {
-        revert("TODO");
-    }
-
     function test_openVault_InvalidAssetSpecifiers() public {
-        revert("TODO");
+        mintTokensToUserAndApproveManager(user1);
+        mintTokensToUserAndApprovePool(user2);
+
+        hoax(user2);
+        pool.addLiquidity(11_000, 25_000);
+
+        CollarVaultState.AssetSpecifiers memory invalidCollatAddr = CollarVaultState.AssetSpecifiers({
+            collateralAsset: address(token2),
+            collateralAmount: 100,
+            cashAsset: address(token2),
+            cashAmount: 100
+        });
+
+        CollarVaultState.AssetSpecifiers memory invalidCollatAmount = CollarVaultState.AssetSpecifiers({
+            collateralAsset: address(token1),
+            collateralAmount: 0,
+            cashAsset: address(token2),
+            cashAmount: 100
+        });
+
+        CollarVaultState.AssetSpecifiers memory invalidCashAmount = CollarVaultState.AssetSpecifiers({
+            collateralAsset: address(token1),
+            collateralAmount: 100,
+            cashAsset: address(token2),
+            cashAmount: 0
+        });
+
+        CollarVaultState.AssetSpecifiers memory invalidCashAddr = CollarVaultState.AssetSpecifiers({
+            collateralAsset: address(token1),
+            collateralAmount: 100,
+            cashAsset: address(token1),
+            cashAmount: 100
+        });
+
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ expiry: block.timestamp + 100, ltv: 9000 });
+
+        CollarVaultState.LiquidityOpts memory liquidityOpts =
+            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+
+        engine.setCurrentAssetPrice(address(token1), 1e18);
+
+        startHoax(user1);
+        
+        vm.expectRevert("Unsupported collateral asset");
+        manager.openVault(invalidCollatAddr, collarOpts, liquidityOpts);
+
+        vm.expectRevert("Collateral amount must be > 0");
+        manager.openVault(invalidCollatAmount, collarOpts, liquidityOpts);
+
+        vm.expectRevert("Unsupported cash asset");
+        manager.openVault(invalidCashAddr, collarOpts, liquidityOpts);
+
+        vm.expectRevert("Cash amount must be > 0");
+        manager.openVault(invalidCashAmount, collarOpts, liquidityOpts);
     }
 
     function test_openVault_InvalidCollarOpts() public {
-        revert("TODO");
+        revert("TODO: Need to add in expiry length validation & modification to Engine");
+
+
+        mintTokensToUserAndApproveManager(user1);
+        mintTokensToUserAndApprovePool(user2);
+
+        hoax(user2);
+        pool.addLiquidity(11_000, 25_000);
+
+        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+            collateralAsset: address(token1),
+            collateralAmount: 100,
+            cashAsset: address(token2),
+            cashAmount: 100
+        });
+
+        CollarVaultState.CollarOpts memory invalidExpiry = CollarVaultState.CollarOpts({ expiry: block.timestamp + 100, ltv: 9000 });
+        CollarVaultState.CollarOpts memory invalidLTV = CollarVaultState.CollarOpts({ expiry: block.timestamp + 100, ltv: 90 });
+
+        CollarVaultState.LiquidityOpts memory liquidityOpts =
+            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+
+        engine.setCurrentAssetPrice(address(token1), 1e18);
+
+        hoax(user1);
+        
+        manager.openVault(assets, invalidExpiry, liquidityOpts);
+
+        manager.openVault(assets, invalidLTV, liquidityOpts);
     }
 
     function test_openVault_InvalidLiquidityOpts() public {
-        revert("TODO");
+        mintTokensToUserAndApproveManager(user1);
+        mintTokensToUserAndApprovePool(user2);
+
+        hoax(user2);
+        pool.addLiquidity(11_000, 25_000);
+
+        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+            collateralAsset: address(token1),
+            collateralAmount: 100,
+            cashAsset: address(token2),
+            cashAmount: 100
+        });
+
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ expiry: block.timestamp + 100, ltv: 9000 });
+
+        CollarVaultState.LiquidityOpts memory invalidPool =
+            CollarVaultState.LiquidityOpts({ liquidityPool: address(token1), putStrikeTick: 9000, callStrikeTick: 11_000 });
+
+        CollarVaultState.LiquidityOpts memory invalidPutStrike =
+            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 900_000, callStrikeTick: 11_000 });
+
+        CollarVaultState.LiquidityOpts memory invalidCallStrike =
+            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 110 });
+
+        engine.setCurrentAssetPrice(address(token1), 1e18);
+
+        hoax(user1);
+        
+        vm.expectRevert("Invalid pool address");
+        manager.openVault(assets, collarOpts, invalidPool);
+
+        vm.expectRevert("Invalid put strike");
+        manager.openVault(assets, collarOpts, invalidPutStrike);
+
+        vm.expectRevert("Invalid call strike");
+        manager.openVault(assets, collarOpts, invalidCallStrike);
     }
 
     function test_openVault_NotEnoughAssets() public {
-        revert("TODO");
-    }
+        mintTokensToUserAndApprovePool(user2);
 
-    function test_openVault_NoAssetPermissiosn() public {
-        revert("TODO");
-    }
+        hoax(user2);
+        pool.addLiquidity(11_000, 25_000);
 
-    function test_openVault_NoAuth() public {
-        revert("TODO");
-    }
+        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+            collateralAsset: address(token1),
+            collateralAmount: 100,
+            cashAsset: address(token2),
+            cashAmount: 100
+        });
 
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ expiry: block.timestamp + 100, ltv: 9000 });
+
+        CollarVaultState.LiquidityOpts memory liquidityOpts =
+            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+
+        engine.setCurrentAssetPrice(address(token1), 1e18);
+
+        startHoax(user1);
+
+        token1.approve(address(pool), 100_000);
+        token1.approve(address(manager), 100_000);
+
+        vm.expectRevert(abi.encodeWithSelector(ERC20InsufficientBalance.selector, address(user1), 0, 100));
+        manager.openVault(assets, collarOpts, liquidityOpts);
+    }
+    
     function test_closeVaultNoPriceChange() public {
         mintTokensToUserAndApproveManager(user1);
         mintTokensToUserAndApprovePool(user2);
@@ -322,15 +452,76 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_closeVault_AlreadyClosed() public {
-        revert("TODO");
+        mintTokensToUserAndApproveManager(user1);
+        mintTokensToUserAndApprovePool(user2);
+
+        hoax(user2);
+        pool.addLiquidity(11_000, 25_000);
+
+        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+            collateralAsset: address(token2),
+            collateralAmount: 100,
+            cashAsset: address(token1),
+            cashAmount: 100
+        });
+
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ expiry: block.timestamp + 100, ltv: 9000 });
+
+        CollarVaultState.LiquidityOpts memory liquidityOpts =
+            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+
+        engine.setCurrentAssetPrice(address(token2), 1e18);
+
+        hoax(user1);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+
+        skip(100);
+
+        engine.setHistoricalAssetPrice(address(token2), 101, 1e18);
+
+        manager.closeVault(uuid);
+
+        vm.expectRevert("Vault not active or not finalizable");
+        manager.closeVault(uuid);
     }
 
     function test_closeVault_InvalidVault() public {
-        revert("TODO");
+        vm.expectRevert("Vault does not exist");
+        manager.closeVault(bytes32(0));
     }
 
     function test_closeVault_NotExpired() public {
-        revert("TODO");
+        mintTokensToUserAndApproveManager(user1);
+        mintTokensToUserAndApprovePool(user2);
+
+        hoax(user2);
+        pool.addLiquidity(11_000, 25_000);
+
+        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+            collateralAsset: address(token2),
+            collateralAmount: 100,
+            cashAsset: address(token1),
+            cashAmount: 100
+        });
+
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ expiry: block.timestamp + 100, ltv: 9000 });
+
+        CollarVaultState.LiquidityOpts memory liquidityOpts =
+            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+
+        engine.setCurrentAssetPrice(address(token2), 1e18);
+
+        hoax(user1);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+
+        vm.expectRevert("Vault not active or not finalizable");
+        manager.closeVault(uuid);
+
+        // advance some blocks, but not all of them!
+        skip(25);
+
+        vm.expectRevert("Vault not active or not finalizable");
+        manager.closeVault(uuid);
     }
 
     function test_redeem() public {
@@ -386,6 +577,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_vaultInfo_InvalidVault() public {
-        revert("TODO");
+        vm.expectRevert("Vault does not exist");
+        manager.vaultInfo(bytes32(0));
     }
 }

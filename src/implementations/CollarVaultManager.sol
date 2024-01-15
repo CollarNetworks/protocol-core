@@ -248,17 +248,35 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
     }
 
     function vaultInfo(bytes32 uuid) external view override returns (bytes memory) {
+        if (vaultsByUUID[uuid].openedAt == 0) {
+            revert("Vault does not exist");
+        }
+
         bytes memory data = abi.encode(vaultsByUUID[uuid]);
         return data;
     }
 
-    function _validateAssetData(CollarVaultState.AssetSpecifiers calldata assetData) internal pure {
+    function _validateAssetData(CollarVaultState.AssetSpecifiers calldata assetData) internal {
         // verify cash & collateral assets against engine for validity
+        if (!ICollarEngine(engine).isSupportedCashAsset(assetData.cashAsset)) {
+            revert("Unsupported cash asset");
+        }
+
+        if (!ICollarEngine(engine).isSupportedCollateralAsset(assetData.collateralAsset)) {
+            revert("Unsupported collateral asset");
+        }
 
         // verify cash & collateral amounts are > 0
+        if (assetData.cashAmount == 0) {
+            revert("Cash amount must be > 0");
+        }
+
+        if (assetData.collateralAmount == 0) {
+            revert("Collateral amount must be > 0");
+        }
     }
 
-    function _validateCollarOpts(CollarVaultState.CollarOpts calldata collarOpts) internal pure {
+    function _validateCollarOpts(CollarVaultState.CollarOpts calldata collarOpts) internal {
         // verify expiry is in the future
 
         // verify expiry is exactly within a standard set of time blocks via the engine
@@ -266,7 +284,7 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
         // verify ltv is within engine-allowed bounds
     }
 
-    function _validateLiquidityOpts(CollarVaultState.LiquidityOpts calldata liquidityOpts) internal pure {
+    function _validateLiquidityOpts(CollarVaultState.LiquidityOpts calldata liquidityOpts) internal {
         // verify liquidity pool is a valid collar liquidity pool
 
         // verify the amount to lock from the liquidity pool is > 0
