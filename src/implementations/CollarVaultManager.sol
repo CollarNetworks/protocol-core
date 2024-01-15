@@ -109,7 +109,10 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
         uint256 startingPrice = vault.initialCollateralPrice;
         uint256 putStrikePrice = vault.putStrikePrice;
         uint256 callStrikePrice = vault.callStrikePrice;
+
         uint256 finalPrice = ICollarEngine(engine).getHistoricalAssetPrice(vault.collateralAsset, vault.expiresAt);
+
+        if (finalPrice == 0) revert("Asset price cannot be 0");
 
         // vault can finalze in 4 possible states, depending on where the final price (P_1) ends up
         // relative to the put strike (PUT), the call strike (CAL), and the starting price (P_0)
@@ -177,11 +180,8 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
         // pull cash from the liquidity pool if amount is nonzero
         if (cashNeededFromPool > 0) {
             CollarPool(vault.liquidityPool).vaultPullLiquidity(uuid, address(this), cashNeededFromPool);
-            vault.loanBalance += cashNeededFromPool;
-            vault.loanBalance += vault.lockedVaultCash;
         } else {
             vault.lockedVaultCash -= cashToSendToPool;
-            vault.loanBalance += vault.lockedVaultCash;
             IERC20(vault.cashAsset).approve(vault.liquidityPool, cashToSendToPool);
             CollarPool(vault.liquidityPool).vaultPushLiquidity(uuid, address(this), cashToSendToPool);
         }
@@ -207,6 +207,9 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
             revert("Vault not finalized / still active!");
         }
 
+        // check auth just in case
+        if (user != msg.sender) revert("Only user can redeem tokens");
+
         // calculate cash redeem value
         uint256 redeemValue = previewRedeem(uuid, amount);
 
@@ -216,6 +219,8 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
     }
 
     function previewRedeem(bytes32 uuid, uint256 amount) public view override returns (uint256 cashReceived) {
+        if (amount == 0) revert("Amount cannot be 0");
+
         bool finalized = !vaultsByUUID[uuid].active;
 
         if (finalized) {
@@ -223,9 +228,17 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
             // grab collateral asset value @ exact vault expiration time
 
             uint256 totalTokenCashSupply = vaultTokenCashSupply[uuid];
-            uint256 totalTokenSupply = totalTokenSupply[uint256(uuid)];
+            uint256 totalTokenSupplyLocal = totalTokenSupply[uint256(uuid)];
 
-            cashReceived = (totalTokenCashSupply * amount) / totalTokenSupply;
+            if (totalTokenCashSupply == 0) {
+                revert("Vault has no redeemable cash");
+            }
+
+            if (totalTokenSupplyLocal == 0) {
+                revert("Vault has no tokens");
+            }
+
+            cashReceived = (totalTokenCashSupply * amount) / totalTokenSupplyLocal;
         } else {
             // calculate redeem value based on current price of asset
 

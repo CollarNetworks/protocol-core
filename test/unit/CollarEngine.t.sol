@@ -179,7 +179,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
     }
 
     function test_notifyFinalized() public {
-        assertTrue(false);
+        revert("TODO: Implemenet passthrough vault finalization");
     }
 
     function test_notifyFinalized_InvalidVault() public {

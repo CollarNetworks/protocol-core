@@ -436,7 +436,7 @@ contract CollarVaultManagerTest is Test {
 
         skip(100);
 
-        engine.setHistoricalAssetPrice(address(token1), 101, 0);
+        engine.setHistoricalAssetPrice(address(token1), 101, 1);
 
         manager.closeVault(uuid);
 
@@ -484,14 +484,14 @@ contract CollarVaultManagerTest is Test {
         CollarVaultState.LiquidityOpts memory liquidityOpts =
             CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token2), 1e18);
+        engine.setCurrentAssetPrice(address(token1), 1e18);
 
         hoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
         skip(100);
 
-        engine.setHistoricalAssetPrice(address(token2), 101, 1e18);
+        engine.setHistoricalAssetPrice(address(token1), 101, 1e18);
 
         manager.closeVault(uuid);
 
@@ -557,19 +557,49 @@ contract CollarVaultManagerTest is Test {
         CollarVaultState.LiquidityOpts memory liquidityOpts =
             CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token2), 1e18);
+        engine.setCurrentAssetPrice(address(token1), 1e18);
 
         hoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
+        bytes memory vaultInfo = manager.vaultInfo(uuid);
+        CollarVaultState.Vault memory vault = abi.decode(vaultInfo, (CollarVaultState.Vault));
+
+        assertEq(vault.lockedVaultCash, 10);
+        assertEq(vault.lockedPoolCash, 10);
+
         skip(100);
 
-        engine.setHistoricalAssetPrice(address(token2), 101, 1e18);
+        engine.setHistoricalAssetPrice(address(token1), vault.expiresAt, 2e18);
 
         manager.closeVault(uuid);
 
         IERC6909WithSupply token = IERC6909WithSupply(manager);
+
+        vaultInfo = manager.vaultInfo(uuid);
+        vault = abi.decode(vaultInfo, (CollarVaultState.Vault));
+
         assertEq(token.totalTokenSupply(uint256(uuid)), 100);
+        assertEq(token.balanceOf(user1, uint256(uuid)), 100);
+
+        assertEq(manager.vaultTokenCashSupply(uuid), 20);
+
+        assertEq(vault.lockedVaultCash, 0);
+
+        uint256 toReceive = manager.previewRedeem(uuid, 100);
+        assertEq(toReceive, 20);
+
+        hoax(user1);
+        manager.redeem(uuid, 100);
+
+        assertEq(token2.balanceOf(user1), 100_020);
+        assertEq(token2.balanceOf(address(manager)), 90);
+
+        vaultInfo = manager.vaultInfo(uuid);
+        vault = abi.decode(vaultInfo, (CollarVaultState.Vault));
+
+        assertEq(vault.lockedVaultCash, 0);
+        assertEq(vault.loanBalance, 90);
     }
 
     function test_redeem_InvalidVault() public {
@@ -589,7 +619,58 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_previewRedeem() public {
-        revert("TODO");
+                mintTokensToUserAndApproveManager(user1);
+        mintTokensToUserAndApprovePool(user2);
+
+        hoax(user2);
+        pool.addLiquidity(11_000, 25_000);
+
+        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+            collateralAsset: address(token1),
+            collateralAmount: 100,
+            cashAsset: address(token2),
+            cashAmount: 100
+        });
+
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ expiry: block.timestamp + 100, ltv: 9000 });
+
+        CollarVaultState.LiquidityOpts memory liquidityOpts =
+            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+
+        engine.setCurrentAssetPrice(address(token1), 1e18);
+
+        hoax(user1);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+
+        bytes memory vaultInfo = manager.vaultInfo(uuid);
+        CollarVaultState.Vault memory vault = abi.decode(vaultInfo, (CollarVaultState.Vault));
+
+        assertEq(vault.lockedVaultCash, 10);
+        assertEq(vault.lockedPoolCash, 10);
+
+        skip(100);
+
+        engine.setHistoricalAssetPrice(address(token1), vault.expiresAt, 2e18);
+
+        manager.closeVault(uuid);
+
+        IERC6909WithSupply token = IERC6909WithSupply(manager);
+
+        vaultInfo = manager.vaultInfo(uuid);
+        vault = abi.decode(vaultInfo, (CollarVaultState.Vault));
+
+        assertEq(token.totalTokenSupply(uint256(uuid)), 100);
+        assertEq(token.balanceOf(user1, uint256(uuid)), 100);
+
+        assertEq(manager.vaultTokenCashSupply(uuid), 20);
+
+        assertEq(vault.lockedVaultCash, 0);
+
+        uint256 toReceive = manager.previewRedeem(uuid, 100);
+        assertEq(toReceive, 20);
+
+        toReceive = manager.previewRedeem(uuid, 50);
+        assertEq(toReceive, 10);
     }
 
     function test_previewRedeem_NotFinalized() public {
