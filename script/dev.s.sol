@@ -77,7 +77,7 @@ contract DeployInitializedProtocol is Script {
 
     address router;
     address engine;
-    
+
     function run() external {
         VmSafe.Wallet memory deployer = vm.createWallet(vm.envUint("PRIVKEY_DEV_DEPLOYER"));
         VmSafe.Wallet memory testWallet1 = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST1"));
@@ -116,7 +116,7 @@ contract DeployInitializedProtocol is Script {
 
         vm.stopBroadcast();
         vm.startBroadcast(testWallet1.addr);
-    
+
         address user1VaultManager = address(new CollarVaultManager(engine, testWallet1.addr));
 
         vm.stopBroadcast();
