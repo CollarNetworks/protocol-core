@@ -33,6 +33,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
     error EnumerableMapNonexistentKey(bytes32 key);
     error OwnableUnauthorizedAccount(address account);
+    error ERC20InsufficientBalance(address account, uint256 amount, uint256 balance);
 
     bytes user1NotAuthorized = abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, address(user1));
 
@@ -44,6 +45,12 @@ contract CollarPoolTest is Test, ICollarPoolState {
         engine = new MockEngine(address(router));
 
         pool = new CollarPool(address(engine), 1, address(token1));
+
+        vm.label(address(token1), "Test Token 1 // Pool Cash Token");
+        vm.label(address(token2), "Test Token 2 // Collateral");
+
+        vm.label(address(pool), "CollarPool");
+        vm.label(address(engine), "CollarEngine");
     }
 
     function mintTokensToUserAndApprovePool(address user) internal {
@@ -183,19 +190,45 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }
 
     function test_addLiquidity_NotEnoughCash() public {
-        revert("TODO");
+        mintTokensToUserAndApprovePool(user1);
+
+        startHoax(user1);
+        token1.approve(address(pool), 1000e18);
+
+        vm.expectRevert(abi.encodeWithSelector(ERC20InsufficientBalance.selector, address(user1), 100_000, 1e18));
+        pool.addLiquidity(111, 1e18);
     }
 
     function test_addLiquidity_InvalidSlot() public {
-        revert("TODO");
+        revert("TODO: Add in gating below 100% for valid slots to add liquidity to");
     }
 
     function test_addLiquidity_SlotFullUserSmallestBidder() public {
-        revert("TODO");
-    }
+        mintTokensToUserAndApprovePool(user1);
+        mintTokensToUserAndApprovePool(user2);
+        mintTokensToUserAndApprovePool(user3);
+        mintTokensToUserAndApprovePool(user4);
+        mintTokensToUserAndApprovePool(user5);
+        mintTokensToUserAndApprovePool(user6);
 
-    function test_addLiquidity_MinimumNotMet() public {
-        revert("TODO");
+        hoax(user1);
+        pool.addLiquidity(111, 1000);
+
+        hoax(user2);
+        pool.addLiquidity(111, 2000);
+
+        hoax(user3);
+        pool.addLiquidity(111, 3000);
+
+        hoax(user4);
+        pool.addLiquidity(111, 4000);
+
+        hoax(user5);
+        pool.addLiquidity(111, 5000);
+
+        hoax(user6);
+        vm.expectRevert("Amount not high enough to kick out anyone from full slot.");
+        pool.addLiquidity(111, 500);
     }
 
     function test_removeLiquidity() public {
@@ -223,11 +256,25 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }
 
     function test_removeLiquidity_InvalidSlot() public {
-        revert("TODO");
+        mintTokensToUserAndApprovePool(user1);
+
+        startHoax(user1);
+
+        pool.addLiquidity(111, 25_000);
+
+        vm.expectRevert(abi.encodeWithSelector(EnumerableMapNonexistentKey.selector, user1));
+        pool.removeLiquidity(110, 10_000);
     }
 
     function test_removeLiquidity_AmountTooHigh() public {
-        revert("TODO");
+        mintTokensToUserAndApprovePool(user1);
+
+        startHoax(user1);
+
+        pool.addLiquidity(111, 25_000);
+
+        vm.expectRevert("Not enough liquidity");
+        pool.removeLiquidity(111, 26_000);
     }
 
     function test_reallocateLiquidity() public {
@@ -256,27 +303,67 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }
 
     function test_reallocateLiquidty_InvalidSource() public {
-        revert("TODO");
+        mintTokensToUserAndApprovePool(user1);
+
+        startHoax(user1);
+
+        pool.addLiquidity(111, 25_000);
+
+        vm.expectRevert(abi.encodeWithSelector(EnumerableMapNonexistentKey.selector, user1));
+        pool.reallocateLiquidity(110, 222, 10_000);
     }
 
     function test_reallocateLiquidty_InvalidDestination() public {
-        revert("TODO");
-    }
+        revert("TODO: Add in bounds checking for callstrikes in pools");
 
-    function test_reallocateLiquidty_SourceAmountTooHigh() public {
-        revert("TODO");
+        mintTokensToUserAndApprovePool(user1);
+
+        startHoax(user1);
+
+        pool.addLiquidity(111, 25_000);
+        pool.reallocateLiquidity(111, 23, 10_000);
     }
 
     function test_reallocateLiquidty_DestinationAmountTooHigh() public {
-        revert("TODO");
-    }
+        mintTokensToUserAndApprovePool(user1);
 
-    function test_reallocateLiquidity_DestinationAmountMinimumNotMet() public {
-        revert("TODO");
+        startHoax(user1);
+
+        pool.addLiquidity(111, 25_000);
+
+        vm.expectRevert("Not enough liquidity");
+        pool.reallocateLiquidity(111, 23, 26_000);
     }
 
     function test_reallocateLiquidity_DestinationFullUserSmallestBidder() public {
-        revert("TODO");
+        mintTokensToUserAndApprovePool(user1);
+        mintTokensToUserAndApprovePool(user2);
+        mintTokensToUserAndApprovePool(user3);
+        mintTokensToUserAndApprovePool(user4);
+        mintTokensToUserAndApprovePool(user5);
+        mintTokensToUserAndApprovePool(user6);
+
+        hoax(user1);
+        pool.addLiquidity(111, 1000);
+
+        hoax(user2);
+        pool.addLiquidity(111, 2000);
+
+        hoax(user3);
+        pool.addLiquidity(111, 3000);
+
+        hoax(user4);
+        pool.addLiquidity(111, 4000);
+
+        hoax(user5);
+        pool.addLiquidity(111, 5000);
+
+        startHoax(user6);
+
+        pool.addLiquidity(110, 500);
+
+        vm.expectRevert("Amount not high enough to kick out anyone from full slot.");
+        pool.reallocateLiquidity(110, 111, 500);
     }
 
     function test_vaultPullLiquidity() public {
