@@ -370,8 +370,12 @@ contract CollarPoolTest is Test, ICollarPoolState {
         revert("TODO");
     }
 
-    function test_vaultPullLiquidity_InvalidVault() public {
-        revert("TODO");
+    function test_vaultPullLiquidity_Auth() public {
+        revert("TODO: Add in auth checks for vault via engine passthru");
+    }
+
+    function test_vaultPushLiquidity_Auth() public {
+        revert("TODO: Add in auth checks for vault via engine passthru");
     }
 
     function test_vaultPushLiquidity() public {
@@ -379,7 +383,13 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }
 
     function test_vaultPushLiquidity_InvalidAmount() public {
-        revert("TODO");
+        vm.expectRevert("Cannot push 0 amount of liquidity");
+        pool.vaultPushLiquidity(bytes32(0), user1, 0);
+    }
+
+    function test_vaultPullLiquidity_InvalidAmount() public {
+        vm.expectRevert("Cannot push 0 amount of liquidity");
+        pool.vaultPullLiquidity(bytes32(0), user1, 0);
     }
 
     function test_mint() public {
