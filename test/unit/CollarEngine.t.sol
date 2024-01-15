@@ -10,7 +10,7 @@ pragma solidity ^0.8.18;
 import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockUniRouter } from "../utils/MockUniRouter.sol";
-import { MockVaultManager } from "../utils/MockVaultManager.sol";
+import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
 import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ICollarEngineErrors } from "../../src/interfaces/ICollarEngine.sol";
@@ -19,7 +19,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
     TestERC20 token1;
     TestERC20 token2;
     MockUniRouter router;
-    MockVaultManager manager;
+    CollarVaultManager manager;
     CollarEngine engine;
 
     address user1 = makeAddr("user1");
@@ -37,7 +37,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         token2 = new TestERC20("Test2", "TST2");
         router = new MockUniRouter();
         engine = new CollarEngine(address(router));
-        manager = new MockVaultManager(address(engine), address(this));
+        manager = new CollarVaultManager(address(engine), address(this));
     }
 
     function test_deploymentAndDeployParams() public {
@@ -242,9 +242,9 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
 
         address vaultManager = createdVaultManager;
 
-        address vaultManagerOwner = MockVaultManager(vaultManager).owner();
-        address vaultManagerUSer = MockVaultManager(vaultManager).user();
-        address vaultManagerEngine = MockVaultManager(vaultManager).engine();
+        address vaultManagerOwner = CollarVaultManager(vaultManager).owner();
+        address vaultManagerUSer = CollarVaultManager(vaultManager).user();
+        address vaultManagerEngine = CollarVaultManager(vaultManager).engine();
 
         assertEq(vaultManagerOwner, user1);
         assertEq(vaultManagerUSer, user1);
