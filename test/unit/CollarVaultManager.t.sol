@@ -745,19 +745,94 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_withdraw() public {
-        revert("TODO");
+        mintTokensToUserAndApproveManager(user1);
+        mintTokensToUserAndApprovePool(user2);
+
+        hoax(user2);
+        pool.addLiquidity(11_000, 25_000);
+
+        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+            collateralAsset: address(token1),
+            collateralAmount: 100,
+            cashAsset: address(token2),
+            cashAmount: 100
+        });
+
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ expiry: block.timestamp + 100, ltv: 9000 });
+
+        CollarVaultState.LiquidityOpts memory liquidityOpts =
+            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+
+        engine.setCurrentAssetPrice(address(token1), 1e18);
+
+        startHoax(user1);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+
+        manager.withdraw(uuid, 90);
+
+        assertEq(token2.balanceOf(user1), 100_090);
+    }
+
+    function test_withdraw_OnlyUser() public {
+        mintTokensToUserAndApproveManager(user1);
+        mintTokensToUserAndApprovePool(user2);
+
+        hoax(user2);
+        pool.addLiquidity(11_000, 25_000);
+
+        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+            collateralAsset: address(token1),
+            collateralAmount: 100,
+            cashAsset: address(token2),
+            cashAmount: 100
+        });
+
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ expiry: block.timestamp + 100, ltv: 9000 });
+
+        CollarVaultState.LiquidityOpts memory liquidityOpts =
+            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+
+        engine.setCurrentAssetPrice(address(token1), 1e18);
+
+        hoax(user1);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+
+        vm.expectRevert("Only user can withdraw");
+        manager.withdraw(uuid, 90);
     }
 
     function test_withdraw_TooMuch() public {
-        revert("TODO");
-    }
+        mintTokensToUserAndApproveManager(user1);
+        mintTokensToUserAndApprovePool(user2);
 
-    function test_withdraw_NoAuth() public {
-        revert("TODO");
+        hoax(user2);
+        pool.addLiquidity(11_000, 25_000);
+
+        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+            collateralAsset: address(token1),
+            collateralAmount: 100,
+            cashAsset: address(token2),
+            cashAmount: 100
+        });
+
+        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ expiry: block.timestamp + 100, ltv: 9000 });
+
+        CollarVaultState.LiquidityOpts memory liquidityOpts =
+            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+
+        engine.setCurrentAssetPrice(address(token1), 1e18);
+
+        startHoax(user1);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+
+        vm.expectRevert("Insufficient loan balance");
+        manager.withdraw(uuid, 91);
     }
 
     function test_withdraw_InvalidVault() public {
-        revert("TODO");
+        hoax(user1);
+        vm.expectRevert("Vault does not exist");
+        manager.withdraw(bytes32(0), 100);
     }
 
     function test_vaultInfo_InvalidVault() public {

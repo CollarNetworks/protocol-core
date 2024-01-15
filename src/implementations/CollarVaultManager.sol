@@ -250,6 +250,9 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
     }
 
     function withdraw(bytes32 uuid, uint256 amount) external override {
+        if (msg.sender != user) revert("Only user can withdraw");
+        if (vaultsByUUID[uuid].openedAt == 0) revert("Vault does not exist");
+
         uint256 loanBalance = vaultsByUUID[uuid].loanBalance;
 
         // withdraw from user's loan balance
