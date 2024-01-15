@@ -220,6 +220,7 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
 
     function previewRedeem(bytes32 uuid, uint256 amount) public view override returns (uint256 cashReceived) {
         if (amount == 0) revert("Amount cannot be 0");
+        if (vaultsByUUID[uuid].openedAt == 0) revert("Vault does not exist");
 
         bool finalized = !vaultsByUUID[uuid].active;
 
