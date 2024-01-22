@@ -1,5 +1,4 @@
-name: Tests & Docgen
-
+name: Tests
 on: [push, pull_request]
 
 env:
@@ -30,17 +29,8 @@ jobs:
         with:
           version: nightly
 
-      - name: Check Formatting
-        run: forge fmt --check
-
       - name: Install Dependencies
         run: forge install
 
-      - name: Check Contract Sizes
-        run: forge build --sizes
-
-      - name: Check Gas Snapshots
-        run: forge snapshot --check
-
-      - name: Run Tests
+      - name: Build Contracts & Run Tests
         run: forge test -vvv

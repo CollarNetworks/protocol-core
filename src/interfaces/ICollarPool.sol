@@ -22,14 +22,14 @@ abstract contract ICollarPoolState {
     /// @notice Records the state of each slot (see LiquiditySlot struct above)
     mapping(uint256 slotId => LiquiditySlot slot) internal slots;
 
-    // vToken = token representing an opened vault
-    struct vToken {
+    // pToken = token representing an opened vault for the *pool* (as opposed to the vault's version of this, which is a vToken)
+    struct pToken {
         bool redeemable;
         uint256 totalRedeemableCash;
     }
 
-    /// @notice Records the state of each vToken (see vToken struct above)
-    mapping(bytes32 uuid => vToken vToken) public vTokens;
+    /// @notice Records the state of each pToken (see pToken struct above)
+    mapping(bytes32 uuid => pToken pToken) public pTokens;
 }
 
 abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
@@ -80,10 +80,10 @@ abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
     function reallocateLiquidity(uint256 sourceSlot, uint256 destinationSlot, uint256 amount) external virtual;
 
     /// @notice Allows a valid vault to pull liquidity from the pool on finalization
-    function vaultPullLiquidity(bytes32 uuid, address receiver, uint256 amount) external virtual;
+    function pullLiquidity(bytes32 uuid, address receiver, uint256 amount) external virtual;
 
     /// @notice Allows a valid vault to push liquidity to the pool on finalization
-    function vaultPushLiquidity(bytes32 uuid, address sender, uint256 amount) external virtual;
+    function pushLiquidity(bytes32 uuid, address sender, uint256 amount) external virtual;
 
     /// @notice Allows a vault to mint tokens once liquidity is locked upon vault creation
     function mint(bytes32 uuid, uint256 slot, uint256 amount) external virtual;

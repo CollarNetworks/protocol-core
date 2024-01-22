@@ -99,8 +99,8 @@ contract CollarPool is ICollarPool, Constants {
         // decrement available liquidity in slot
         slot.liquidity -= amount;
 
-        // finally, store the info about the vToken
-        vTokens[uuid] = vToken({ redeemable: false, totalRedeemableCash: amount });
+        // finally, store the info about the pToken
+        pTokens[uuid] = pToken({ redeemable: false, totalRedeemableCash: amount });
     }
 
     function redeem(bytes32 uuid, uint256 amount) external override {
@@ -110,7 +110,7 @@ contract CollarPool is ICollarPool, Constants {
         uint256 redeemValue = previewRedeem(uuid, amount);
 
         // adjust total redeemable cash
-        vTokens[uuid].totalRedeemableCash -= redeemValue;
+        pTokens[uuid].totalRedeemableCash -= redeemValue;
 
         // redeem to user & burn tokens
         _burn(msg.sender, uint256(uuid), amount);
@@ -118,14 +118,14 @@ contract CollarPool is ICollarPool, Constants {
     }
 
     function previewRedeem(bytes32 uuid, uint256 amount) public view override returns (uint256 cashReceived) {
-        // grab the info for this particular vToken
-        vToken storage vToken = vTokens[uuid];
+        // grab the info for this particular pToken
+        pToken storage pToken = pTokens[uuid];
 
-        if (vToken.redeemable) {
+        if (pToken.redeemable) {
             // if finalized, calculate final redeem value
             // grab collateral asset value @ exact vault expiration time
 
-            uint256 _totalTokenCashSupply = vToken.totalRedeemableCash;
+            uint256 _totalTokenCashSupply = pToken.totalRedeemableCash;
             uint256 _totalTokenSupply = totalTokenSupply[uint256(uuid)];
 
             cashReceived = (_totalTokenCashSupply * amount) / _totalTokenSupply;
@@ -134,27 +134,27 @@ contract CollarPool is ICollarPool, Constants {
         }
     }
 
-    function vaultPullLiquidity(bytes32 uuid, address receiver, uint256 amount) external override {
+    function pullLiquidity(bytes32 uuid, address receiver, uint256 amount) external override {
         // verify caller via engine
         if (msg.sender != engine) {
             //revert("Only engine can pull liquidity");
         }
 
         // update the amount of total cash tokens for that vault
-        vTokens[uuid].totalRedeemableCash -= amount;
+        pTokens[uuid].totalRedeemableCash -= amount;
 
         // transfer liquidity
         IERC20(cashAsset).transfer(receiver, amount);
     }
 
-    function vaultPushLiquidity(bytes32 uuid, address sender, uint256 amount) external override {
+    function pushLiquidity(bytes32 uuid, address sender, uint256 amount) external override {
         // verify caller via engine
         if (msg.sender != engine) {
             //revert("Only engine can push liquidity");
         }
 
         // update the amount of total cash tokens for that vault
-        vTokens[uuid].totalRedeemableCash += amount;
+        pTokens[uuid].totalRedeemableCash += amount;
 
         // transfer liquidity
         IERC20(cashAsset).transferFrom(sender, address(this), amount);

@@ -384,12 +384,12 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
     function test_vaultPushLiquidity_InvalidAmount() public {
         vm.expectRevert("Cannot push 0 amount of liquidity");
-        pool.vaultPushLiquidity(bytes32(0), user1, 0);
+        pool.pushLiquidity(bytes32(0), user1, 0);
     }
 
     function test_vaultPullLiquidity_InvalidAmount() public {
         vm.expectRevert("Cannot push 0 amount of liquidity");
-        pool.vaultPullLiquidity(bytes32(0), user1, 0);
+        pool.pullLiquidity(bytes32(0), user1, 0);
     }
 
     function test_mint() public {

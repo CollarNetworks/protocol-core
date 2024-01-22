@@ -179,11 +179,11 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
 
         // pull cash from the liquidity pool if amount is nonzero
         if (cashNeededFromPool > 0) {
-            CollarPool(vault.liquidityPool).vaultPullLiquidity(uuid, address(this), cashNeededFromPool);
+            CollarPool(vault.liquidityPool).pullLiquidity(uuid, address(this), cashNeededFromPool);
         } else {
             vault.lockedVaultCash -= cashToSendToPool;
             IERC20(vault.cashAsset).approve(vault.liquidityPool, cashToSendToPool);
-            CollarPool(vault.liquidityPool).vaultPushLiquidity(uuid, address(this), cashToSendToPool);
+            CollarPool(vault.liquidityPool).pushLiquidity(uuid, address(this), cashToSendToPool);
         }
 
         // set total redeem value for vault tokens to locked vault cash + cash pulled from pool
