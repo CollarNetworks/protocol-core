@@ -77,16 +77,48 @@ contract CollarEngine is ICollarEngine, Ownable {
         return supportedCashAssets.contains(asset);
     }
 
+    function supportedCashAssetsLength() external view returns (uint256) {
+        return supportedCashAssets.length();
+    }
+
+    function getSupportedCashAsset(uint256 index) external view returns (address) {
+        return supportedCashAssets.at(index);
+    }
+
     function isSupportedCollateralAsset(address asset) external view returns (bool) {
         return supportedCollateralAssets.contains(asset);
+    }
+
+    function supportedCollateralAssetsLength() external view returns (uint256) {
+        return supportedCollateralAssets.length();
+    }
+
+    function getSupportedCollateralAsset(uint256 index) external view returns (address) {
+        return supportedCollateralAssets.at(index);
     }
 
     function isSupportedLiquidityPool(address pool) external view returns (bool) {
         return collarLiquidityPools.contains(pool);
     }
 
+    function supportedLiquidityPoolsLength() external view returns (uint256) {
+        return collarLiquidityPools.length();
+    }
+
+    function getSupportedLiquidityPool(uint256 index) external view returns (address) {
+        return collarLiquidityPools.at(index);
+    }
+
     function isValidCollarLength(uint256 length) external view returns (bool) {
         return validCollarLengths.contains(length);
+    }
+
+    function validCollarLengthsLength() external view returns (uint256) {
+        return validCollarLengths.length();
+    }
+
+    function getValidCollarLength(uint256 index) external view returns (uint256) {
+        return validCollarLengths.at(index);
     }
 
     function createVaultManager() external override returns (address _vaultManager) {
