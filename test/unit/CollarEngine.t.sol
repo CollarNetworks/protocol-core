@@ -46,15 +46,15 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
     }
 
     function test_addLiquidityPool() public {
-        assertFalse(engine.isLiquidityPool(address(pool1)));
+        assertFalse(engine.isSupportedLiquidityPool(address(pool1)));
         engine.addLiquidityPool(address(pool1));
-        assertTrue(engine.isLiquidityPool(address(pool1)));
+        assertTrue(engine.isSupportedLiquidityPool(address(pool1)));
     }
 
     function test_removeLiquidityPool() public {
         engine.addLiquidityPool(address(pool1));
         engine.removeLiquidityPool(address(pool1));
-        assertFalse(engine.isLiquidityPool(address(pool1)));
+        assertFalse(engine.isSupportedLiquidityPool(address(pool1)));
     }
 
     function test_addLiquidityPool_NoAuth() public {
@@ -147,29 +147,29 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         vm.stopPrank();
     }
 
-    function test_addSupportedCollarLength() public {
+    function test_addCollarLength() public {
         assertFalse(engine.isValidCollarLength(1));
-        engine.addSupportedCollarLength(1);
+        engine.addCollarLength(1);
         assertTrue(engine.isValidCollarLength(1));
     }
 
-    function test_addSupportedCollarLength_NoAuth() public {
+    function test_addCollarLength_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
-        engine.addSupportedCollarLength(1);
+        engine.addCollarLength(1);
         vm.stopPrank();
     }
 
-    function test_removeSupportedCollarLength() public {
-        engine.addSupportedCollarLength(1);
-        engine.removeSupportedCollarLength(1);
+    function test_removeCollarLength() public {
+        engine.addCollarLength(1);
+        engine.removeCollarLength(1);
         assertFalse(engine.isValidCollarLength(1));
     }
 
-    function test_removeSupportedCollarLength_NoAuth() public {
+    function test_removeCollarLength_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
-        engine.removeSupportedCollarLength(1);
+        engine.removeCollarLength(1);
         vm.stopPrank();
     }
 

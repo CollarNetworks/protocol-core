@@ -11,7 +11,7 @@ import { ICollarVaultManager } from "../interfaces/ICollarVaultManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Constants, CollarVaultState } from "../libs/CollarLibs.sol";
 import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
-import { ICollarEngine } from "../interfaces/ICollarEngine.sol";
+import { CollarEngine } from "../implementations/CollarEngine.sol";
 import { TickCalculations } from "../libs/TickCalculations.sol";
 import { CollarPool } from "./CollarPool.sol";
 
@@ -64,7 +64,7 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
             / (ONE_HUNDRED_PERCENT) / PRECISION_MULTIPLIER;
 
         // grab the current collateral price so that we can record it
-        uint256 initialCollateralPrice = ICollarEngine(engine).getCurrentAssetPrice(assetData.collateralAsset);
+        uint256 initialCollateralPrice = CollarEngine(engine).getCurrentAssetPrice(assetData.collateralAsset);
 
         // set Liquidity Pool Stuff
         vaultsByUUID[uuid].liquidityPool = liquidityOpts.liquidityPool;
@@ -110,7 +110,7 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
         uint256 putStrikePrice = vault.putStrikePrice;
         uint256 callStrikePrice = vault.callStrikePrice;
 
-        uint256 finalPrice = ICollarEngine(engine).getHistoricalAssetPrice(vault.collateralAsset, vault.expiresAt);
+        uint256 finalPrice = CollarEngine(engine).getHistoricalAssetPrice(vault.collateralAsset, vault.expiresAt);
 
         if (finalPrice == 0) revert("Asset price cannot be 0");
 
@@ -193,7 +193,7 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
 
         // mark vault as finalized
         vault.active = false;
-        //ICollarEngine(engine).notifyFinalized(vault.liquidityPool, uuid);
+        //CollarEngine(engine).notifyFinalized(vault.liquidityPool, uuid);
     }
 
     function redeem(bytes32 uuid, uint256 amount) external override {
@@ -243,7 +243,7 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
         } else {
             // calculate redeem value based on current price of asset
 
-            uint256 currentCollateralPrice = ICollarEngine(engine).getCurrentAssetPrice(vaultsByUUID[uuid].collateralAsset);
+            uint256 currentCollateralPrice = CollarEngine(engine).getCurrentAssetPrice(vaultsByUUID[uuid].collateralAsset);
 
             revert("Not implemented");
         }
@@ -275,11 +275,11 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
 
     function _validateAssetData(CollarVaultState.AssetSpecifiers calldata assetData) internal {
         // verify cash & collateral assets against engine for validity
-        if (!ICollarEngine(engine).isSupportedCashAsset(assetData.cashAsset)) {
+        if (!CollarEngine(engine).isSupportedCashAsset(assetData.cashAsset)) {
             revert("Unsupported cash asset");
         }
 
-        if (!ICollarEngine(engine).isSupportedCollateralAsset(assetData.collateralAsset)) {
+        if (!CollarEngine(engine).isSupportedCollateralAsset(assetData.collateralAsset)) {
             revert("Unsupported collateral asset");
         }
 
@@ -320,7 +320,7 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
 
     function _swap(CollarVaultState.AssetSpecifiers calldata assets) internal returns (uint256 cashReceived) {
         // approve the dex router so we can swap the collateral to cash
-        IERC20(assets.collateralAsset).approve(ICollarEngine(engine).dexRouter(), assets.collateralAmount);
+        IERC20(assets.collateralAsset).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount);
 
         // build the swap transaction
         ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter.ExactInputSingleParams({
@@ -335,7 +335,7 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
         });
 
         // cache the amount of cash received
-        cashReceived = ISwapRouter(payable(ICollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
+        cashReceived = ISwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
 
         // revert if minimum not met
         if (cashReceived < assets.cashAmount) {
