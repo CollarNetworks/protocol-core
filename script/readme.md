@@ -1,4 +1,4 @@
-# Preqrequisites
+# Prerequisites
 Before asking questions about `forge script`, please read the following:
 
 https://book.getfoundry.sh/tutorials/solidity-scripting
