@@ -47,6 +47,8 @@ contract CollarVaultManagerTest is Test {
         pool = new CollarPool(address(engine), 1, address(token2));
         manager = new CollarVaultManager(address(engine), user1);
 
+        engine.forceRegisterVaultManager(user1, address(manager));
+
         engine.addLiquidityPool(address(pool));
         engine.addSupportedCollateralAsset(address(token1));
         engine.addSupportedCashAsset(address(token2));

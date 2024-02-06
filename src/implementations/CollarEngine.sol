@@ -9,12 +9,18 @@ pragma solidity ^0.8.18;
 
 import { ICollarEngine } from "../interfaces/ICollarEngine.sol";
 import { CollarVaultManager } from "./CollarVaultManager.sol";
+import { CollarPool } from "./CollarPool.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 contract CollarEngine is ICollarEngine, Ownable {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;
+
+    modifier ensureValidVaultManager(address vaultManager) {
+        if (vaultManagers.contains(vaultManager) == false) revert InvalidVaultManager(vaultManager);
+        _;
+    }
 
     modifier ensureValidLiquidityPool(address pool) {
         if (!collarLiquidityPools.contains(pool)) revert InvalidLiquidityPool(pool);
@@ -66,12 +72,27 @@ contract CollarEngine is ICollarEngine, Ownable {
         _;
     }
 
-    EnumerableSet.AddressSet private collarLiquidityPools;
-    EnumerableSet.AddressSet private supportedCollateralAssets;
-    EnumerableSet.AddressSet private supportedCashAssets;
-    EnumerableSet.UintSet private validCollarLengths;
+    EnumerableSet.AddressSet internal vaultManagers;
+    EnumerableSet.AddressSet internal collarLiquidityPools;
+    EnumerableSet.AddressSet internal supportedCollateralAssets;
+    EnumerableSet.AddressSet internal supportedCashAssets;
+    EnumerableSet.UintSet internal validCollarLengths;
+    
+    mapping(bytes32 uuid => bool) public isVaultFinalized;
 
     constructor(address _dexRouter) ICollarEngine(_dexRouter) Ownable(msg.sender) { }
+
+    function isVaultManager(address vaultManager) external view returns (bool) {
+        return vaultManagers.contains(vaultManager);
+    }
+
+    function vaultManagersLength() external view returns (uint256) {
+        return vaultManagers.length();
+    }
+
+    function getVaultManager(uint256 index) external view returns (address) {
+        return vaultManagers.at(index);
+    }
 
     function isSupportedCashAsset(address asset) external view returns (bool) {
         return supportedCashAssets.contains(asset);
@@ -127,8 +148,9 @@ contract CollarEngine is ICollarEngine, Ownable {
         }
 
         address vaultManager = address(new CollarVaultManager(address(this), msg.sender));
+
+        vaultManagers.add(vaultManager);
         addressToVaultManager[msg.sender] = vaultManager;
-        vaultManagers[vaultManager] = true;
 
         return vaultManager;
     }
@@ -173,7 +195,9 @@ contract CollarEngine is ICollarEngine, Ownable {
         revert("Method not yet implemented");
     }
 
-    function notifyFinalized(address pool, bytes32 uuid) external override ensureValidVaultManager(msg.sender) ensureValidLiquidityPool(pool) {
-        revert("Method not yet implemented");
+    function notifyFinalized(address pool, bytes32 uuid) external override ensureValidVaultManager(msg.sender) {
+        isVaultFinalized[uuid] = true;
+
+        CollarPool(pool).finalizeToken(uuid);
     }
 }

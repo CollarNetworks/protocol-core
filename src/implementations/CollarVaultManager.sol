@@ -18,6 +18,10 @@ import { CollarPool } from "./CollarPool.sol";
 contract CollarVaultManager is ICollarVaultManager, Constants {
     constructor(address _engine, address _owner) ICollarVaultManager(_engine, _owner) { }
 
+    function isVaultExpired(bytes32 uuid) external view returns (bool) {
+        return vaultsByUUID[uuid].expiresAt < block.timestamp;
+    }
+
     function openVault(
         CollarVaultState.AssetSpecifiers calldata assetData, // addresses & amounts of collateral & cash assets
         CollarVaultState.CollarOpts calldata collarOpts, // expiry & ltv
@@ -193,7 +197,7 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
 
         // mark vault as finalized
         vault.active = false;
-        //CollarEngine(engine).notifyFinalized(vault.liquidityPool, uuid);
+        CollarEngine(engine).notifyFinalized(vault.liquidityPool, uuid);
     }
 
     function redeem(bytes32 uuid, uint256 amount) external override {

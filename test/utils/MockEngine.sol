@@ -8,8 +8,12 @@
 pragma solidity ^0.8.18;
 
 import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 contract MockEngine is CollarEngine {
+    using EnumerableSet for EnumerableSet.AddressSet;
+    using EnumerableSet for EnumerableSet.UintSet;
+
     mapping(address => uint256) public currentAssetPrices;
     mapping(address => mapping(uint256 => uint256)) public historicalAssetPrices;
 
@@ -29,5 +33,10 @@ contract MockEngine is CollarEngine {
 
     function getCurrentAssetPrice(address asset) external view virtual override returns (uint256) {
         return currentAssetPrices[asset];
+    }
+
+    function forceRegisterVaultManager(address user, address vaultManager) external {
+        addressToVaultManager[user] = vaultManager;
+        vaultManagers.add(vaultManager);
     }
 }

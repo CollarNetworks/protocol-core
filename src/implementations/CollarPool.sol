@@ -11,6 +11,8 @@ import { ICollarPool } from "../interfaces/ICollarPool.sol";
 import { Constants, CollarVaultState } from "../libs/CollarLibs.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
+import { CollarEngine } from "./CollarEngine.sol";
+import { CollarVaultManager } from "./CollarVaultManager.sol";
 
 contract CollarPool is ICollarPool, Constants {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
@@ -70,13 +72,23 @@ contract CollarPool is ICollarPool, Constants {
 
     function mint(bytes32 uuid, uint256 slotId, uint256 amount) external override {
         // ensure this is a valid vault calling us - it must call through the engine
-        if (msg.sender != engine) {
-            //revert("Only engine can mint");
+        if (!CollarEngine(engine).isVaultManager(msg.sender)) {
+            revert("Only registered vaults can mint");
         }
 
         // grab the slot
         LiquiditySlot storage slot = slots[slotId];
         uint256 numProviders = slot.providers.length();
+
+        // if no providers, revert
+        if (numProviders == 0) {
+            revert("No providers in slot");
+        }
+
+        // if not enough liquidity, revert
+        if (slot.liquidity < amount) {
+            revert("Not enough liquidity in slot");
+        }
 
         for (uint256 i = 0; i < numProviders; i++) {
             // calculate how much to pull from provider based off of their proportional ownership of liquidity in this slot
@@ -104,7 +116,9 @@ contract CollarPool is ICollarPool, Constants {
     }
 
     function redeem(bytes32 uuid, uint256 amount) external override {
-        // ensure vault is finalized
+        if (!CollarEngine(engine).isVaultFinalized(uuid)) {
+            revert("Vault not finalized");
+        }
 
         // calculate cash redeem value
         uint256 redeemValue = previewRedeem(uuid, amount);
@@ -158,6 +172,16 @@ contract CollarPool is ICollarPool, Constants {
 
         // transfer liquidity
         IERC20(cashAsset).transferFrom(sender, address(this), amount);
+    }
+
+    function finalizeToken(bytes32 uuid) external override {
+        // verify caller via engine
+        if (msg.sender != engine) {
+            revert("Only engine can finalize token");
+        }
+
+        // set the pToken as redeemable
+        pTokens[uuid].redeemable = true;
     }
 
     function _isSlotFull(uint256 slotID) internal view returns (bool full) {

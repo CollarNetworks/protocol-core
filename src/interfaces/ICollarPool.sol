@@ -91,6 +91,9 @@ abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
     /// @notice Allows liquidity providers to redeem liquidity-pool tokens corresponding to a particular vault
     function redeem(bytes32 uuid, uint256 amount) external virtual;
 
+    /// @notice Allows the engine to finalize a vault token
+    function finalizeToken(bytes32 uuid) external virtual;
+
     /// @notice Allows liquidity providers to preview the amount of cash they would receive upon redeeming for a particular vault token
     function previewRedeem(bytes32 uuid, uint256 amount) external virtual returns (uint256);
 }

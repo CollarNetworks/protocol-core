@@ -14,6 +14,9 @@ import { MockUniRouter } from "../utils/MockUniRouter.sol";
 import { MockEngine } from "../../test/utils/MockEngine.sol";
 import { CollarPool } from "../../src/implementations/CollarPool.sol";
 import { ICollarPoolState } from "../../src/interfaces/ICollarPool.sol";
+import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
+import { IERC6909WithSupply } from "../../src/interfaces/IERC6909WithSupply.sol";
+import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
 
 contract CollarPoolTest is Test, ICollarPoolState {
     TestERC20 token1;
@@ -21,6 +24,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
     MockUniRouter router;
     MockEngine engine;
     CollarPool pool;
+    CollarVaultManager manager;
 
     address user1 = makeAddr("user1");
     address user2 = makeAddr("user2");
@@ -44,6 +48,10 @@ contract CollarPoolTest is Test, ICollarPoolState {
         router = new MockUniRouter();
         engine = new MockEngine(address(router));
 
+        manager = new CollarVaultManager(address(engine), user1);
+
+        engine.forceRegisterVaultManager(user1, address(manager));
+
         pool = new CollarPool(address(engine), 1, address(token1));
 
         vm.label(address(token1), "Test Token 1 // Pool Cash Token");
@@ -51,6 +59,15 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         vm.label(address(pool), "CollarPool");
         vm.label(address(engine), "CollarEngine");
+    }
+
+    function mintTokensAndApprovePool(address recipient) internal {
+        startHoax(recipient);
+        token1.mint(recipient, 100_000);
+        token2.mint(recipient, 100_000);
+        token1.approve(address(pool), 100_000);
+        token2.approve(address(pool), 100_000);
+        vm.stopPrank();
     }
 
     function mintTokensToUserAndApprovePool(address user) internal {
@@ -393,19 +410,62 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }
 
     function test_mint() public {
-        revert("TODO");
+        mintTokensAndApprovePool(user1);
+        mintTokensAndApprovePool(address(manager));
+
+        startHoax(user1);
+        pool.addLiquidity(111, 100_000);
+
+        startHoax(address(manager));
+        pool.mint(keccak256(abi.encodePacked(user1)), 111, 100_000);
+
+        uint userTokens = IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+
+        assertEq(userTokens, 100_000);
     }
 
     function test_mint_InvalidVault() public {
-        revert("TODO");
+        mintTokensAndApprovePool(user1);
+        mintTokensAndApprovePool(address(manager));
+
+        startHoax(user1);
+
+        pool.addLiquidity(111, 100_000);
+
+        vm.expectRevert("Only registered vaults can mint");
+        pool.mint(keccak256(abi.encodePacked(user1)), 111, 100_000);
     }
 
     function test_mint_InvalidSlot() public {
-        revert("TODO");
+        mintTokensAndApprovePool(user1);
+        mintTokensAndApprovePool(address(manager));
+
+        startHoax(user1);
+        pool.addLiquidity(111, 100_000);
+
+        startHoax(address(manager));
+
+        vm.expectRevert("No providers in slot");
+        pool.mint(keccak256(abi.encodePacked(user1)), 112, 100_000);
     }
 
     function test_redeem() public {
-        revert("TODO");
+        mintTokensAndApprovePool(user1);
+        mintTokensAndApprovePool(address(manager));
+
+        startHoax(user1);
+        pool.addLiquidity(111, 100_000);
+
+        startHoax(address(manager));
+        pool.mint(keccak256(abi.encodePacked(user1)), 111, 100_000);
+
+        IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+
+        CollarEngine(engine).notifyFinalized(address(pool), keccak256(abi.encodePacked(user1)));
+
+        startHoax(user1);
+
+        pool.redeem(keccak256(abi.encodePacked(user1)), 100_000);
     }
 
     function test_redeem_InvalidAmount() public {
@@ -421,11 +481,43 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }
 
     function test_previewRedeem() public {
-        revert("TODO");
+        mintTokensAndApprovePool(user1);
+        mintTokensAndApprovePool(address(manager));
+
+        startHoax(user1);
+        pool.addLiquidity(111, 100_000);
+
+        startHoax(address(manager));
+        pool.mint(keccak256(abi.encodePacked(user1)), 111, 100_000);
+
+        IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+
+        CollarEngine(engine).notifyFinalized(address(pool), keccak256(abi.encodePacked(user1)));
+
+        startHoax(user1);
+
+        uint256 previewAmount = pool.previewRedeem(keccak256(abi.encodePacked(user1)), 100_000);
+
+        assertEq(previewAmount, 100_000);
     }
 
     function test_previewRedeem_VaultNotFinalized() public {
-        revert("TODO");
+        mintTokensAndApprovePool(user1);
+        mintTokensAndApprovePool(address(manager));
+
+        startHoax(user1);
+        pool.addLiquidity(111, 100_000);
+
+        startHoax(address(manager));
+        pool.mint(keccak256(abi.encodePacked(user1)), 111, 100_000);
+
+        IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+
+        startHoax(user1);
+
+        uint256 previewAmount = pool.previewRedeem(keccak256(abi.encodePacked(user1)), 100_000);
+
+        assertEq(previewAmount, 100_000);
     }
 
     function test_previewRedeem_VaultNotValid() public {
