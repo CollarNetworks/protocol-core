@@ -69,7 +69,7 @@ For this local/dev environment, we don't need to set up all of Uniswap, Chainlin
 
  - [TestERC20 tokens](../test/utils/TestERC20.sol) - standard ERC20 implementation, but with added function for easy & free minting. You can call `mint(address, amount` on these contracts to get free tokens for testing. By default this is what `cashTestToken` and `collateralTestToken` are in the two deploy scripts here.
 
- - [Mocked UniV3 Router](../test/utils//MockUniRouter.sol)  - extremely simple mock of the Uniswap V3 router implementing only the `exactInputSingle` method (which is what vaults currently use to swap from collateral to cash). It will always use the maximum allowable slippage, eg `amountOutMinimum` and the trade will always succeed for any value (assuming the router has enough tokens; it's preloaed with 1 million of each token in each of these scripts by default)
+ - [Mocked UniV3 Router](../test/utils//MockUniRouter.sol)  - extremely simple mock of the Uniswap V3 router implementing only the `exactInputSingle` method (which is what vaults currently use to swap from collateral to cash). It will always use the maximum allowable slippage, eg `amountOutMinimum` and the trade will always succeed for any value (assuming the router has enough tokens; it's preloaded with 1 million of each token in each of these scripts by default)
 
  - [Mock Engine](../test/utils/MockEngine.sol) - fully functional `CollarEngine`, but we add in two functions to set the current price of an asset (for opening vaults) and the historical price of an asset at some blocktime (for closing vaults). You can have a look at the [vault manager tests](../test/unit/CollarVaultManager.t.sol) to see more specifically how this can be used.
 
