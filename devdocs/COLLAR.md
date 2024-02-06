@@ -1,5 +1,8 @@
 # Collar Protocol v1
 
+Note: These docs are likely outdated.
+TODO: Update these docs.
+
 ## Overview
 
 Collar Protocol consists of three main components.
@@ -26,7 +29,7 @@ to the percentage value of the starting price of the collateral.
 
 A value of 120% would mean that the user could close the vault with up to 20% profit on the value of the supplied collateral.
 
-##### PuStrike: The downside protection of the collar
+##### PutStrike: The downside protection of the collar
 
 The putstrike can be any percentage below 100%; this limits the downside risk of the collar
 to the percentage value of the starting price of the collateral.
