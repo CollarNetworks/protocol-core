@@ -13,6 +13,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import { CollarEngine } from "./CollarEngine.sol";
 import { CollarVaultManager } from "./CollarVaultManager.sol";
+import { IERC6909WithSupply } from "../../src/interfaces/IERC6909WithSupply.sol";
 
 contract CollarPool is ICollarPool, Constants {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
@@ -117,7 +118,12 @@ contract CollarPool is ICollarPool, Constants {
 
     function redeem(bytes32 uuid, uint256 amount) external override {
         if (!CollarEngine(engine).isVaultFinalized(uuid)) {
-            revert("Vault not finalized");
+            revert("Vault not finalized or invalid");
+        }
+
+        // ensure that the user has enough tokens
+        if (IERC6909WithSupply(address(this)).balanceOf(msg.sender, uint256(uuid)) < amount) {
+            revert("Not enough tokens");
         }
 
         // calculate cash redeem value

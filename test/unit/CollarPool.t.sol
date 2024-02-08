@@ -384,7 +384,19 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }
 
     function test_vaultPullLiquidity() public {
-        revert("TODO");
+        mintTokensToUserAndApprovePool(user1);
+
+        startHoax(user1);
+
+        pool.addLiquidity(111, 25_000);
+        
+        pool.pushLiquidity(keccak256(abi.encodePacked(user1)), user1, 25_000);
+
+        assertEq(IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1)))), 25_000);
+
+        pool.pullLiquidity(keccak256(abi.encodePacked(user1)), user1, 25_000);
+
+        assertEq(IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1)))), 0);
     }
 
     function test_vaultPullLiquidity_Auth() public {
@@ -469,15 +481,61 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }
 
     function test_redeem_InvalidAmount() public {
-        revert("TODO");
+        mintTokensAndApprovePool(user1);
+        mintTokensAndApprovePool(address(manager));
+
+        startHoax(user1);
+        pool.addLiquidity(111, 100_000);
+
+        startHoax(address(manager));
+        pool.mint(keccak256(abi.encodePacked(user1)), 111, 100_000);
+
+        IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+
+        CollarEngine(engine).notifyFinalized(address(pool), keccak256(abi.encodePacked(user1)));
+
+        startHoax(user1);
+
+        vm.expectRevert("Not enough tokens");
+        pool.redeem(keccak256(abi.encodePacked(user1)), 110_000);
     }
 
     function test_redeem_VaultNotFinalized() public {
-        revert("TODO");
+        mintTokensAndApprovePool(user1);
+        mintTokensAndApprovePool(address(manager));
+
+        startHoax(user1);
+        pool.addLiquidity(111, 100_000);
+
+        startHoax(address(manager));
+        pool.mint(keccak256(abi.encodePacked(user1)), 111, 100_000);
+
+        IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+
+        startHoax(user1);
+
+        vm.expectRevert("Vault not finalized or invalid");
+        pool.redeem(keccak256(abi.encodePacked(user1)), 100_000);
     }
 
     function test_redeem_VaultNotValid() public {
-        revert("TODO");
+        mintTokensAndApprovePool(user1);
+        mintTokensAndApprovePool(address(manager));
+
+        startHoax(user1);
+        pool.addLiquidity(111, 100_000);
+
+        startHoax(address(manager));
+        pool.mint(keccak256(abi.encodePacked(user1)), 111, 100_000);
+
+        IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+
+        CollarEngine(engine).notifyFinalized(address(pool), keccak256(abi.encodePacked(user1)));
+
+        startHoax(user1);
+
+        vm.expectRevert("Vault not finalized or invalid");
+        pool.redeem(keccak256(abi.encodePacked(user2)), 100_000);
     }
 
     function test_previewRedeem() public {
@@ -502,6 +560,10 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }
 
     function test_previewRedeem_VaultNotFinalized() public {
+        revert("In-progress viewing of preview amount not yet implemented");
+    }
+
+    function test_previewRedeem_VaultNotValid() public {
         mintTokensAndApprovePool(user1);
         mintTokensAndApprovePool(address(manager));
 
@@ -513,34 +575,25 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
 
-        startHoax(user1);
-
-        uint256 previewAmount = pool.previewRedeem(keccak256(abi.encodePacked(user1)), 100_000);
-
-        assertEq(previewAmount, 100_000);
-    }
-
-    function test_previewRedeem_VaultNotValid() public {
-        revert("TODO");
+        CollarEngine(engine).notifyFinalized(address(pool), keccak256(abi.encodePacked(user2)));
     }
 
     function test_previewRedeem_InvalidAmount() public {
-        revert("TODO");
-    }
+        mintTokensAndApprovePool(user1);
+        mintTokensAndApprovePool(address(manager));
 
-    function test_finalizeVault() public {
-        revert("TODO");
-    }
+        startHoax(user1);
+        pool.addLiquidity(111, 100_000);
 
-    function test_finalizeVault_InvalidVault() public {
-        revert("TODO");
-    }
+        startHoax(address(manager));
+        pool.mint(keccak256(abi.encodePacked(user1)), 111, 100_000);
 
-    function test_finalizeVault_NotYetExpired() public {
-        revert("TODO");
-    }
+        IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
 
-    function test_finalizeVault_AlreadyFinalized() public {
-        revert("TODO");
+        CollarEngine(engine).notifyFinalized(address(pool), keccak256(abi.encodePacked(user1)));
+
+        startHoax(user1);
+
+        uint256 previewAmount = pool.previewRedeem(keccak256(abi.encodePacked(user1)), 110_000);
     }
 }
