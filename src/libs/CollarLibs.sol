@@ -67,10 +67,10 @@ library CollarVaultState {
     }
 
     /// @notice This struct contains information about the collar options for each vault
-    /// @param expiry The expiry of the options express as a unix timestamp
+    /// @param length The length of the options express as a unix timestamp
     /// @param ltv The maximjum loan-to-value ratio of loans taken out of this vault, expressed as bps of the collateral value
     struct CollarOpts {
-        uint256 expiry;
+        uint256 length;
         uint256 ltv;
     }
 
@@ -86,7 +86,7 @@ library CollarVaultState {
     /// @notice This struct represents each individual vault as a whole
     /// @param active Whether or not the vault is active
     /// @param openedAt Unix timestamp of when the vault was opened
-    /// @param expiresAt The expiry of the vault - UNIX timestamp
+    /// @param expiresAt The length of the vault - UNIX timestamp
     /// @param ltv The loan-to-value ratio of the vault, expressed as bps of the collateral value
     /// @param collateralAsset The address of the collateral asset (ERC20)
     /// @param cashAsset The address of the cash asset (ERC20)

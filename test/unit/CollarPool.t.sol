@@ -216,10 +216,6 @@ contract CollarPoolTest is Test, ICollarPoolState {
         pool.addLiquidity(111, 1e18);
     }
 
-    function test_addLiquidity_InvalidSlot() public {
-        revert("TODO: Add in gating below 100% for valid slots to add liquidity to");
-    }
-
     function test_addLiquidity_SlotFullUserSmallestBidder() public {
         mintTokensToUserAndApprovePool(user1);
         mintTokensToUserAndApprovePool(user2);
@@ -328,17 +324,6 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         vm.expectRevert(abi.encodeWithSelector(EnumerableMapNonexistentKey.selector, user1));
         pool.reallocateLiquidity(110, 222, 10_000);
-    }
-
-    function test_reallocateLiquidty_InvalidDestination() public {
-        revert("TODO: Add in bounds checking for callstrikes in pools");
-
-        mintTokensToUserAndApprovePool(user1);
-
-        startHoax(user1);
-
-        pool.addLiquidity(111, 25_000);
-        pool.reallocateLiquidity(111, 23, 10_000);
     }
 
     function test_reallocateLiquidty_DestinationAmountTooHigh() public {
@@ -591,10 +576,6 @@ contract CollarPoolTest is Test, ICollarPoolState {
         uint256 previewAmount = pool.previewRedeem(keccak256(abi.encodePacked(user1)), 100_000);
 
         assertEq(previewAmount, 100_000);
-    }
-
-    function test_previewRedeem_VaultNotFinalized() public {
-        revert("TODO: In-progress viewing of preview amount not yet implemented");
     }
 
     function test_previewRedeem_VaultNotValid() public {

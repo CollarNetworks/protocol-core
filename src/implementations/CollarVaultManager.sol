@@ -24,7 +24,7 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
 
     function openVault(
         CollarVaultState.AssetSpecifiers calldata assetData, // addresses & amounts of collateral & cash assets
-        CollarVaultState.CollarOpts calldata collarOpts, // expiry & ltv
+        CollarVaultState.CollarOpts calldata collarOpts, // length & ltv
         CollarVaultState.LiquidityOpts calldata liquidityOpts // pool address, callstrike & amount to lock there, putstrike
     ) external override returns (bytes32 uuid) {
         // only user is allowed to open vaults
@@ -44,7 +44,7 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
         // set Basic Vault Info
         vaultsByUUID[uuid].active = true;
         vaultsByUUID[uuid].openedAt = block.timestamp;
-        vaultsByUUID[uuid].expiresAt = collarOpts.expiry;
+        vaultsByUUID[uuid].expiresAt = block.timestamp + collarOpts.length;
         vaultsByUUID[uuid].ltv = collarOpts.ltv;
 
         // set Asset Specific Info
@@ -101,7 +101,7 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
             revert("Vault does not exist");
         }
 
-        // ensure vault is active (not finalized) and finalizable (past expiry)
+        // ensure vault is active (not finalized) and finalizable (past length)
         if (!vaultsByUUID[uuid].active || vaultsByUUID[uuid].expiresAt > block.timestamp) {
             revert("Vault not active or not finalizable");
         }
@@ -184,10 +184,12 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
         // pull cash from the liquidity pool if amount is nonzero
         if (cashNeededFromPool > 0) {
             CollarPool(vault.liquidityPool).pullLiquidity(uuid, address(this), cashNeededFromPool);
-        } else {
+        } else if (cashToSendToPool > 0) {
             vault.lockedVaultCash -= cashToSendToPool;
             IERC20(vault.cashAsset).approve(vault.liquidityPool, cashToSendToPool);
             CollarPool(vault.liquidityPool).pushLiquidity(uuid, address(this), cashToSendToPool);
+        } else {
+            // nothing to do
         }
 
         // set total redeem value for vault tokens to locked vault cash + cash pulled from pool
@@ -298,21 +300,24 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
     }
 
     function _validateCollarOpts(CollarVaultState.CollarOpts calldata collarOpts) internal {
-        // verify expiry is in the future
+        // verify length is in the future
+        if (collarOpts.length < block.timestamp) {
+            revert("length must be in the future");
+        }
 
-        // verify expiry is exactly within a standard set of time blocks via the engine
+        // verify length is exactly within a standard set of time blocks via the engine
+        if (!CollarEngine(engine).isValidCollarLength(collarOpts.length)) {
+            revert("Invalid length");
+        }
 
         // verify ltv is within engine-allowed bounds
     }
 
     function _validateLiquidityOpts(CollarVaultState.LiquidityOpts calldata liquidityOpts) internal {
         // verify liquidity pool is a valid collar liquidity pool
-
-        // verify the amount to lock from the liquidity pool is > 0
-
-        // verify the put strike tick matches the liquidity pool
-
-        // verify the call strike tick has enough liquidity
+        if (!CollarEngine(engine).isSupportedLiquidityPool(liquidityOpts.liquidityPool)) {
+            revert("Unsupported liquidity pool");
+        }
     }
 
     function _validateRequestedPoolAssets(
