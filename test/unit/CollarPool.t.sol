@@ -389,16 +389,16 @@ contract CollarPoolTest is Test, ICollarPoolState {
         startHoax(user1);
 
         pool.addLiquidity(111, 25_000);
+
+        startHoax(address(manager));
         
         pool.pushLiquidity(keccak256(abi.encodePacked(user1)), user1, 25_000);
 
-        assertEq(IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1)))), 25_000);
-
-        startHoax(address(manager));
+        assertEq(token1.balanceOf(address(pool)), 50_000);
 
         pool.pullLiquidity(keccak256(abi.encodePacked(user1)), user1, 25_000);
 
-        assertEq(IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1)))), 0);
+        assertEq(token1.balanceOf(address(pool)), 25_000);
     }
 
     function test_vaultPullLiquidity_Auth() public {
@@ -412,11 +412,9 @@ contract CollarPoolTest is Test, ICollarPoolState {
         
         pool.pushLiquidity(keccak256(abi.encodePacked(user1)), user1, 25_000);
 
-        assertEq(IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1)))), 25_000);
-
         startHoax(user2);
 
-        vm.expectRevert("Not authorized");
+        vm.expectRevert("Only vaults can pull liquidity");
         pool.pullLiquidity(keccak256(abi.encodePacked(user1)), user1, 25_000);
     }
 
@@ -427,21 +425,33 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         pool.addLiquidity(111, 25_000);
         
-        vm.expectRevert("Not authorized");
+        vm.expectRevert("Only vaults can push liquidity");
         pool.pushLiquidity(keccak256(abi.encodePacked(user1)), user1, 25_000);
     }
 
     function test_vaultPushLiquidity() public {
-        revert("TODO");
+        mintTokensToUserAndApprovePool(user1);
+
+        startHoax(user1);
+
+        pool.addLiquidity(111, 25_000);
+
+        startHoax(address(manager));
+        
+        pool.pushLiquidity(keccak256(abi.encodePacked(user1)), user1, 25_000);
+
+        assertEq(token1.balanceOf(address(pool)), 50_000);
     }
 
     function test_vaultPushLiquidity_InvalidAmount() public {
+        startHoax(address(manager));
         vm.expectRevert("Cannot push 0 amount of liquidity");
         pool.pushLiquidity(bytes32(0), user1, 0);
     }
 
     function test_vaultPullLiquidity_InvalidAmount() public {
-        vm.expectRevert("Cannot push 0 amount of liquidity");
+        startHoax(address(manager));
+        vm.expectRevert("Cannot pull 0 amount of liquidity");
         pool.pullLiquidity(bytes32(0), user1, 0);
     }
 

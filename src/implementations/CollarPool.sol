@@ -160,6 +160,10 @@ contract CollarPool is ICollarPool, Constants {
             revert("Only vaults can pull liquidity");
         }
 
+        if (amount == 0) {
+            revert("Cannot pull 0 amount of liquidity");
+        }
+
         // update the amount of total cash tokens for that vault
         pTokens[uuid].totalRedeemableCash -= amount;
 
@@ -171,6 +175,10 @@ contract CollarPool is ICollarPool, Constants {
         // verify caller via engine
         if (!CollarEngine(engine).isVaultManager(msg.sender)) {
             revert("Only vaults can push liquidity");
+        }
+
+        if (amount == 0) {
+            revert("Cannot push 0 amount of liquidity");
         }
 
         // update the amount of total cash tokens for that vault
