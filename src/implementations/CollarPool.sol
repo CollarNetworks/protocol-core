@@ -156,8 +156,8 @@ contract CollarPool is ICollarPool, Constants {
 
     function pullLiquidity(bytes32 uuid, address receiver, uint256 amount) external override {
         // verify caller via engine
-        if (msg.sender != engine) {
-            //revert("Only engine can pull liquidity");
+        if (!CollarEngine(engine).isVaultManager(msg.sender)) {
+            revert("Only vaults can pull liquidity");
         }
 
         // update the amount of total cash tokens for that vault
@@ -169,8 +169,8 @@ contract CollarPool is ICollarPool, Constants {
 
     function pushLiquidity(bytes32 uuid, address sender, uint256 amount) external override {
         // verify caller via engine
-        if (msg.sender != engine) {
-            //revert("Only engine can push liquidity");
+        if (!CollarEngine(engine).isVaultManager(msg.sender)) {
+            revert("Only vaults can push liquidity");
         }
 
         // update the amount of total cash tokens for that vault

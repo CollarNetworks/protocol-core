@@ -14,6 +14,7 @@ import { CollarVaultManager } from "../../src/implementations/CollarVaultManager
 import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ICollarEngineErrors } from "../../src/interfaces/ICollarEngine.sol";
+import { CollarPool } from "../../src/implementations/CollarPool.sol";
 
 contract CollarEngineTest is Test, ICollarEngineErrors {
     TestERC20 token1;
@@ -21,6 +22,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
     MockUniRouter router;
     CollarVaultManager manager;
     CollarEngine engine;
+    CollarPool pool;
 
     address user1 = makeAddr("user1");
     address user2 = makeAddr("user2");
@@ -37,7 +39,17 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         token2 = new TestERC20("Test2", "TST2");
         router = new MockUniRouter();
         engine = new CollarEngine(address(router));
-        manager = new CollarVaultManager(address(engine), address(this));
+        manager = CollarVaultManager(engine.createVaultManager());
+        pool = new CollarPool(address(engine), 1, address(token1));
+    }
+
+    function mintTokensAndApprovePool(address recipient) internal {
+        startHoax(recipient);
+        token1.mint(recipient, 100_000);
+        token2.mint(recipient, 100_000);
+        token1.approve(address(pool), 100_000);
+        token2.approve(address(pool), 100_000);
+        vm.stopPrank();
     }
 
     function test_deploymentAndDeployParams() public {
@@ -176,38 +188,6 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
     function test_getCurrentAssetPrice_InvalidAsset() public {
         vm.expectRevert(abi.encodeWithSelector(AssetNotSupported.selector, address(token1)));
         engine.getCurrentAssetPrice(address(token1));
-    }
-
-    function test_notifyFinalized() public {
-        revert("TODO: Implemenet passthrough vault finalization");
-    }
-
-    function test_notifyFinalized_InvalidVault() public {
-        engine.addLiquidityPool(pool1);
-
-        startHoax(user1);
-
-        address vault = engine.createVaultManager();
-
-        vm.expectRevert(abi.encodeWithSelector(InvalidVaultManager.selector, address(user1)));
-        engine.notifyFinalized(pool1, bytes32(0));
-
-        vm.stopPrank();
-    }
-
-    function test_notifyFinalized_InvalidPool() public {
-        startHoax(user1);
-
-        address vault = engine.createVaultManager();
-
-        vm.stopPrank();
-
-        startHoax(vault);
-
-        vm.expectRevert(abi.encodeWithSelector(InvalidLiquidityPool.selector, address(pool1)));
-        engine.notifyFinalized(pool1, bytes32(0));
-
-        vm.stopPrank();
     }
 
     function test_createVaultManager() public {

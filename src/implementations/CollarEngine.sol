@@ -38,7 +38,7 @@ contract CollarEngine is ICollarEngine, Ownable {
     }
 
     modifier ensureValidCashAsset(address asset) {
-        if (!supportedCollateralAssets.contains(asset)) revert CashAssetNotSupported(asset);
+        if (!supportedCashAssets.contains(asset)) revert CashAssetNotSupported(asset);
         _;
     }
 

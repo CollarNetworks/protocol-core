@@ -394,17 +394,41 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         assertEq(IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1)))), 25_000);
 
+        startHoax(address(manager));
+
         pool.pullLiquidity(keccak256(abi.encodePacked(user1)), user1, 25_000);
 
         assertEq(IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1)))), 0);
     }
 
     function test_vaultPullLiquidity_Auth() public {
-        revert("TODO: Add in auth checks for vault via engine passthru");
+        mintTokensToUserAndApprovePool(user1);
+
+        startHoax(user1);
+
+        pool.addLiquidity(111, 25_000);
+
+        startHoax(address(manager));
+        
+        pool.pushLiquidity(keccak256(abi.encodePacked(user1)), user1, 25_000);
+
+        assertEq(IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1)))), 25_000);
+
+        startHoax(user2);
+
+        vm.expectRevert("Not authorized");
+        pool.pullLiquidity(keccak256(abi.encodePacked(user1)), user1, 25_000);
     }
 
     function test_vaultPushLiquidity_Auth() public {
-        revert("TODO: Add in auth checks for vault via engine passthru");
+        mintTokensToUserAndApprovePool(user1);
+
+        startHoax(user1);
+
+        pool.addLiquidity(111, 25_000);
+        
+        vm.expectRevert("Not authorized");
+        pool.pushLiquidity(keccak256(abi.encodePacked(user1)), user1, 25_000);
     }
 
     function test_vaultPushLiquidity() public {
@@ -560,7 +584,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }
 
     function test_previewRedeem_VaultNotFinalized() public {
-        revert("In-progress viewing of preview amount not yet implemented");
+        revert("TODO: In-progress viewing of preview amount not yet implemented");
     }
 
     function test_previewRedeem_VaultNotValid() public {
