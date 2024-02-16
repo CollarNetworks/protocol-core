@@ -117,14 +117,17 @@ contract DeployInitializedProtocol is Script {
         vm.stopBroadcast();
         vm.startBroadcast(testWallet1.addr);
 
-        address user1VaultManager = address(new CollarVaultManager(engine, testWallet1.addr));
+        address user1VaultManager = address(CollarEngine(engine).createVaultManager());
 
         vm.stopBroadcast();
         vm.startBroadcast(testWallet2.addr);
 
-        address user2VaultManager = address(new CollarVaultManager(engine, testWallet2.addr));
+        address user2VaultManager = address(CollarEngine(engine).createVaultManager());
 
         vm.stopBroadcast();
+
+        require(CollarEngine(engine).addressToVaultManager(testWallet1.addr) == user1VaultManager);
+        require(CollarEngine(engine).addressToVaultManager(testWallet2.addr) == user2VaultManager);
 
         console.log("\n --- Dev Environment Deployed ---");
         console.log("\n # Dev Deployer Address: %x", deployer.addr);
@@ -136,11 +139,11 @@ contract DeployInitializedProtocol is Script {
         console.log(" - Mock Engine - - - - - - - ", engine);
         console.log(" - Collar Pool - - - - - - - ", pool);
         console.log("\n # Test Users\n");
-        console.log(" - User 1 Address: %x", testWallet1.addr);
+        console.log(" - User 1 Address: %s", testWallet1.addr);
         console.log(" - User 1 Privkey: %x", testWallet1.privateKey);
-        console.log(" - User 2 Address: %x", testWallet2.addr);
+        console.log(" - User 2 Address: %s", testWallet2.addr);
         console.log(" - User 2 Privkey: %x", testWallet2.privateKey);
-        console.log(" - User 3 Address: %x", testWallet3.addr);
+        console.log(" - User 3 Address: %s", testWallet3.addr);
         console.log(" - User 3 Privkey: %x", testWallet3.privateKey);
         console.log("\n # Vault Managers\n");
         console.log(" - User 1 Vault Manager: ", user1VaultManager);
