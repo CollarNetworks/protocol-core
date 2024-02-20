@@ -51,6 +51,9 @@ contract CollarPool is ICollarPool, Constants {
             _allocate(slotIndex, msg.sender, amount);
         }
 
+        freeLiquidity += amount;
+        totalLiquidity += amount;
+
         // transfer collateral from provider to pool
         IERC20(cashAsset).transferFrom(msg.sender, address(this), amount);
     }
@@ -62,6 +65,9 @@ contract CollarPool is ICollarPool, Constants {
         if (liquidity < amount) {
             revert("Not enough liquidity");
         }
+
+        freeLiquidity -= amount;
+        totalLiquidity -= amount;
 
         _reAllocate(msg.sender, slot, UNALLOCATED_SLOT, amount);
     }
@@ -112,6 +118,10 @@ contract CollarPool is ICollarPool, Constants {
         // decrement available liquidity in slot
         slot.liquidity -= amount;
 
+        // update global liquidity amounts
+        lockedLiquidity += amount;
+        freeLiquidity -= amount;
+
         // finally, store the info about the pToken
         pTokens[uuid] = pToken({ redeemable: false, totalRedeemableCash: amount });
     }
@@ -131,6 +141,10 @@ contract CollarPool is ICollarPool, Constants {
 
         // adjust total redeemable cash
         pTokens[uuid].totalRedeemableCash -= redeemValue;
+
+        // upddate global liquidity amounts
+        lockedLiquidity -= redeemValue;
+        totalLiquidity -= redeemValue;
 
         // redeem to user & burn tokens
         _burn(msg.sender, uint256(uuid), amount);
@@ -169,6 +183,10 @@ contract CollarPool is ICollarPool, Constants {
 
         // transfer liquidity
         IERC20(cashAsset).transfer(receiver, amount);
+
+        // Update the amount of locked & total liquidity available
+        lockedLiquidity -= amount;
+        totalLiquidity -= amount;
     }
 
     function pushLiquidity(bytes32 uuid, address sender, uint256 amount) external override {
@@ -186,6 +204,10 @@ contract CollarPool is ICollarPool, Constants {
 
         // transfer liquidity
         IERC20(cashAsset).transferFrom(sender, address(this), amount);
+
+        // Update the amount of locked liquidity & total liquidity available
+        lockedLiquidity += amount;
+        totalLiquidity += amount;
     }
 
     function finalizeToken(bytes32 uuid) external override {

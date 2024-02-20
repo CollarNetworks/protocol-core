@@ -48,6 +48,15 @@ abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
     /// @notice The address of the cash asset is set upon pool creation (and verified with the engine as allowed)
     address public immutable cashAsset;
 
+    /// @notice The total amount of liquidity in the pool
+    uint256 public totalLiquidity;
+
+    /// @notice The amount of locked liquidity in the pool
+    uint256 public lockedLiquidity;
+
+    /// @notice The amount of free liquidity in the pool
+    uint256 public freeLiquidity;
+
     constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset) {
         tickScaleFactor = _tickScaleFactor;
         engine = _engine;
