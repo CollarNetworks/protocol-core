@@ -120,6 +120,7 @@ contract DeployInitializedProtocol is Script {
         address user1VaultManager = address(CollarEngine(engine).createVaultManager());
 
         vm.stopBroadcast();
+        
         vm.startBroadcast(testWallet2.addr);
 
         address user2VaultManager = address(CollarEngine(engine).createVaultManager());
