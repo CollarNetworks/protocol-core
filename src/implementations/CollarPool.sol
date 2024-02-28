@@ -46,7 +46,7 @@ contract CollarPool is ICollarPool, Constants {
         LiquiditySlot storage slot = slots[slotIndex];
 
         // If this slot isn't initialized, add to the initialized list - we're initializing it now
-        if (_isSlotInitialized(slotIndex)) {
+        if (!_isSlotInitialized(slotIndex)) {
             initializedSlots.add(slotIndex);
         }
 
