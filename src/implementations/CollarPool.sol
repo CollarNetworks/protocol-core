@@ -26,6 +26,16 @@ contract CollarPool is ICollarPool, Constants {
         return initializedSlots.values();
     }
 
+    function getLiquidityForSlots(uint256[] calldata slotIndices) external view override returns (uint256[] memory) {
+        uint256[] memory liquidity = new uint256[](slotIndices.length);
+
+        for (uint256 i = 0; i < slotIndices.length; i++) {
+            liquidity[i] = slots[slotIndices[i]].liquidity;
+        }
+
+        return liquidity;
+    }
+
     function getSlotLiquidity(uint256 slotIndex) external view override returns (uint256) {
         return slots[slotIndex].liquidity;
     }

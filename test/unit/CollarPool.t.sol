@@ -109,6 +109,27 @@ contract CollarPoolTest is Test, ICollarPoolState {
         vm.stopPrank();
     }
 
+    function test_getLiquidityForSlots() public {
+        mintTokensToUserAndApprovePool(user1);
+
+        // add liquidity to 2 slots and check the plural slots liquidity function
+        startHoax(user1);
+
+        pool.addLiquidity(111, 25_000);
+        pool.addLiquidity(222, 50_000);
+
+        uint256[] memory slotIds = new uint256[](2);
+        slotIds[0] = 111;
+        slotIds[1] = 222;
+
+        uint256[] memory liquidity = pool.getLiquidityForSlots(slotIds);
+
+        assertEq(liquidity[0], 25_000);
+        assertEq(liquidity[1], 50_000);
+
+        assertEq(liquidity.length, 2);
+    }
+
     function test_getInitializedSlots() public {
         mintTokensToUserAndApprovePool(user1);
         mintTokensToUserAndApprovePool(user2);

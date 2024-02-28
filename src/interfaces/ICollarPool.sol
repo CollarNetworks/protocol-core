@@ -70,6 +70,10 @@ abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
     /// @notice Gets the ids of initialized slots
     function getInitializedSlots() external view virtual returns (uint256[] calldata);
 
+    /// @notice Gets the liquidity for a set of slots
+    /// @param slotIds The ids of the slots to get the liquidity for
+    function getLiquidityForSlots(uint256[] calldata slotIds) external view virtual returns (uint256[] calldata);
+
     /// @notice Gets the amount of liquidity in a particular slot
     /// @param slotIndex The index of the slot to get the state of
     function getSlotLiquidity(uint256 slotIndex) external virtual returns (uint256);
