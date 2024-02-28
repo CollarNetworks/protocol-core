@@ -109,6 +109,50 @@ contract CollarPoolTest is Test, ICollarPoolState {
         vm.stopPrank();
     }
 
+    function test_getInitializedSlots() public {
+        mintTokensToUserAndApprovePool(user1);
+        mintTokensToUserAndApprovePool(user2);
+
+        // grab the active liquidity slots in the pool - should be empty
+        assertEq(pool.totalLiquidity(), 0);
+        assertEq(pool.getInitializedSlots().length, 0);
+
+        // add liquidity, and then grab again - should have 1 slot
+        hoax(user1);
+        pool.addLiquidity(111, 1000);
+        
+        uint256[] memory iSlots = pool.getInitializedSlots();
+
+        assertEq(iSlots.length, 1);
+        assertEq(iSlots[0], 111);
+
+        // add liquidity to another slot, and then grab again, should return 2 slots
+        hoax(user2);
+        pool.addLiquidity(222, 2000);
+
+        iSlots = pool.getInitializedSlots();
+
+        assertEq(iSlots.length, 2);
+        assertEq(iSlots[0], 111);
+        assertEq(iSlots[1], 222);
+
+        // remove liquidity from one slot, and then query again, should return 1 slot
+        hoax(user1);
+        pool.removeLiquidity(111, 1000);
+
+        iSlots = pool.getInitializedSlots();
+
+        assertEq(iSlots.length, 1);
+        assertEq(iSlots[0], 222);
+
+        // remove liquidity from the other slot, and then query again, should return 0 slots
+        hoax(user2);
+        pool.removeLiquidity(222, 2000);
+
+        iSlots = pool.getInitializedSlots();
+        assertEq(iSlots.length, 0);
+    }
+
     function test_addLiquidity_FillEntireSlot() public {
         mintTokensToUserAndApprovePool(user1);
         mintTokensToUserAndApprovePool(user2);

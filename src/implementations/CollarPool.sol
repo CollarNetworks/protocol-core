@@ -11,14 +11,20 @@ import { ICollarPool } from "../interfaces/ICollarPool.sol";
 import { Constants, CollarVaultState } from "../libs/CollarLibs.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { CollarEngine } from "./CollarEngine.sol";
 import { CollarVaultManager } from "./CollarVaultManager.sol";
 import { IERC6909WithSupply } from "../../src/interfaces/IERC6909WithSupply.sol";
 
 contract CollarPool is ICollarPool, Constants {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
+    using EnumerableSet for EnumerableSet.UintSet;
 
     constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset) ICollarPool(_engine, _tickScaleFactor, _cashAsset) { }
+
+    function getInitializedSlots() external view override returns (uint256[] memory) {
+        return initializedSlots.values();
+    }
 
     function getSlotLiquidity(uint256 slotIndex) external view override returns (uint256) {
         return slots[slotIndex].liquidity;
@@ -38,6 +44,11 @@ contract CollarPool is ICollarPool, Constants {
 
     function addLiquidity(uint256 slotIndex, uint256 amount) public virtual override {
         LiquiditySlot storage slot = slots[slotIndex];
+
+        // If this slot isn't initialized, add to the initialized list - we're initializing it now
+        if (_isSlotInitialized(slotIndex)) {
+            initializedSlots.add(slotIndex);
+        }
 
         if (slot.providers.contains(msg.sender) || !_isSlotFull(slotIndex)) {
             _allocate(slotIndex, msg.sender, amount);
@@ -70,6 +81,11 @@ contract CollarPool is ICollarPool, Constants {
         totalLiquidity -= amount;
 
         _reAllocate(msg.sender, slot, UNALLOCATED_SLOT, amount);
+
+        // If slot has no more liquidity, remove from the initialized list
+        if (slots[slot].liquidity == 0) {
+            initializedSlots.remove(slot);
+        }
     }
 
     function reallocateLiquidity(uint256 sourceSlotIndex, uint256 destinationSlotIndex, uint256 amount) external virtual override {
@@ -124,6 +140,11 @@ contract CollarPool is ICollarPool, Constants {
 
         // finally, store the info about the pToken
         pTokens[uuid] = pToken({ redeemable: false, totalRedeemableCash: amount });
+
+        // also, check to see if we need to un-initalize this slot
+        if (slot.liquidity == 0) {
+            initializedSlots.remove(slotId);
+        }
     }
 
     function redeem(bytes32 uuid, uint256 amount) external override {
@@ -142,7 +163,7 @@ contract CollarPool is ICollarPool, Constants {
         // adjust total redeemable cash
         pTokens[uuid].totalRedeemableCash -= redeemValue;
 
-        // upddate global liquidity amounts
+        // update global liquidity amounts
         lockedLiquidity -= redeemValue;
         totalLiquidity -= redeemValue;
 
@@ -218,6 +239,10 @@ contract CollarPool is ICollarPool, Constants {
 
         // set the pToken as redeemable
         pTokens[uuid].redeemable = true;
+    }
+
+    function _isSlotInitialized(uint256 slotID) internal view returns (bool) {
+        return initializedSlots.contains(slotID);
     }
 
     function _isSlotFull(uint256 slotID) internal view returns (bool full) {

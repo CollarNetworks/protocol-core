@@ -9,15 +9,19 @@ pragma solidity ^0.8.18;
 
 import { IERC6909WithSupply } from "../interfaces/IERC6909WithSupply.sol";
 import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 abstract contract ICollarPoolState {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
+    using EnumerableSet for EnumerableSet.UintSet;
 
     // represents one partitioned slice of the liquidity pool, its providers, and the amount they provide
     struct LiquiditySlot {
         uint256 liquidity;
         EnumerableMap.AddressToUintMap providers;
     }
+
+    EnumerableSet.UintSet internal initializedSlots;
 
     /// @notice Records the state of each slot (see LiquiditySlot struct above)
     mapping(uint256 slotId => LiquiditySlot slot) internal slots;
@@ -62,6 +66,9 @@ abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
         engine = _engine;
         cashAsset = _cashAsset;
     }
+
+    /// @notice Gets the ids of initialized slots
+    function getInitializedSlots() external view virtual returns (uint256[] calldata);
 
     /// @notice Gets the amount of liquidity in a particular slot
     /// @param slotIndex The index of the slot to get the state of
