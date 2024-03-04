@@ -45,8 +45,8 @@ contract DeployEmptyProtocol is Script {
         CollarEngine(engine).addSupportedCashAsset(cashTestToken);
         CollarEngine(engine).addSupportedCollateralAsset(collateralTestToken);
 
-        TestERC20(cashTestToken).mint(router, 1_000_000);
-        TestERC20(collateralTestToken).mint(router, 1_000_000);
+        TestERC20(cashTestToken).mint(router, 1000000e18);
+        TestERC20(collateralTestToken).mint(router, 1000000e18);
 
         vm.stopBroadcast();
 
@@ -101,16 +101,16 @@ contract DeployInitializedProtocol is Script {
         CollarEngine(engine).addSupportedCashAsset(cashTestToken);
         CollarEngine(engine).addSupportedCollateralAsset(collateralTestToken);
 
-        TestERC20(cashTestToken).mint(router, 1_000_000);
-        TestERC20(collateralTestToken).mint(router, 1_000_000);
+        TestERC20(cashTestToken).mint(router, 1000000e18);
+        TestERC20(collateralTestToken).mint(router, 1000000e18);
 
-        TestERC20(cashTestToken).mint(testWallet1.addr, 100_000);
-        TestERC20(cashTestToken).mint(testWallet2.addr, 100_000);
-        TestERC20(cashTestToken).mint(testWallet3.addr, 100_000);
+        TestERC20(cashTestToken).mint(testWallet1.addr, 100000e18);
+        TestERC20(cashTestToken).mint(testWallet2.addr, 100000e18);
+        TestERC20(cashTestToken).mint(testWallet3.addr, 100000e18);
 
-        TestERC20(collateralTestToken).mint(testWallet1.addr, 100_000);
-        TestERC20(collateralTestToken).mint(testWallet2.addr, 100_000);
-        TestERC20(collateralTestToken).mint(testWallet3.addr, 100_000);
+        TestERC20(collateralTestToken).mint(testWallet1.addr, 100000e18);
+        TestERC20(collateralTestToken).mint(testWallet2.addr, 100000e18);
+        TestERC20(collateralTestToken).mint(testWallet3.addr, 100000e18);
 
         MockEngine(engine).setCurrentAssetPrice(collateralTestToken, 1e18);
 
