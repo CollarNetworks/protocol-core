@@ -8,8 +8,9 @@
 pragma solidity ^0.8.18;
 
 import { ICollarEngine } from "../interfaces/ICollarEngine.sol";
-import { CollarVaultManager } from "./CollarVaultManager.sol";
 import { CollarPool } from "./CollarPool.sol";
+import { CollarVaultManager } from "./CollarVaultManager.sol";
+
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
