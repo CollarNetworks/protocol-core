@@ -311,7 +311,6 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
         }
 
         // verify ltv is within engine-allowed bounds
-        
     }
 
     function _validateLiquidityOpts(CollarVaultState.LiquidityOpts calldata liquidityOpts) internal {

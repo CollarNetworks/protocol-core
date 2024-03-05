@@ -78,7 +78,7 @@ contract CollarEngine is ICollarEngine, Ownable {
     EnumerableSet.AddressSet internal supportedCollateralAssets;
     EnumerableSet.AddressSet internal supportedCashAssets;
     EnumerableSet.UintSet internal validCollarLengths;
-    
+
     mapping(bytes32 uuid => bool) public isVaultFinalized;
 
     constructor(address _dexRouter) ICollarEngine(_dexRouter) Ownable(msg.sender) { }

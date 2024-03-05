@@ -8,6 +8,5 @@
     "solidity.packageDefaultDependenciesContractsDirectory": "contracts",
     "solidity.compileUsingLocalVersion": "/home/caleb/protocol-core/soljson-v0.8.24+commit.e11b9ed9.js",
     "solidity.remappings": [],
-    "solidity.linter": "solhint",
-    "solidity.solhintRules": { "avoid-sha3": "warn" }
+    "solidity.linter": "solhint"
 }

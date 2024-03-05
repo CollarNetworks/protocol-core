@@ -141,7 +141,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         // add liquidity, and then grab again - should have 1 slot
         hoax(user1);
         pool.addLiquidity(111, 1000);
-        
+
         uint256[] memory iSlots = pool.getInitializedSlots();
 
         assertEq(iSlots.length, 1);
@@ -441,7 +441,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         pool.addLiquidity(111, 25_000);
 
         startHoax(address(manager));
-        
+
         pool.pushLiquidity(keccak256(abi.encodePacked(user1)), user1, 25_000);
 
         assertEq(token1.balanceOf(address(pool)), 50_000);
@@ -459,7 +459,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         pool.addLiquidity(111, 25_000);
 
         startHoax(address(manager));
-        
+
         pool.pushLiquidity(keccak256(abi.encodePacked(user1)), user1, 25_000);
 
         startHoax(user2);
@@ -474,7 +474,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         startHoax(user1);
 
         pool.addLiquidity(111, 25_000);
-        
+
         vm.expectRevert("Only vaults can push liquidity");
         pool.pushLiquidity(keccak256(abi.encodePacked(user1)), user1, 25_000);
     }
@@ -487,7 +487,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         pool.addLiquidity(111, 25_000);
 
         startHoax(address(manager));
-        
+
         pool.pushLiquidity(keccak256(abi.encodePacked(user1)), user1, 25_000);
 
         assertEq(token1.balanceOf(address(pool)), 50_000);
@@ -515,7 +515,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         startHoax(address(manager));
         pool.mint(keccak256(abi.encodePacked(user1)), 111, 100_000);
 
-        uint userTokens = IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+        uint256 userTokens = IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
 
         assertEq(userTokens, 100_000);
     }
