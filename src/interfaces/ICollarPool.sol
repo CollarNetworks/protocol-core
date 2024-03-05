@@ -7,6 +7,8 @@
 
 pragma solidity ^0.8.18;
 
+// ----- IMPORTS
+
 import { IERC6909WithSupply } from "../interfaces/IERC6909WithSupply.sol";
 import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";

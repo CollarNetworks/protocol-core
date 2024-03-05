@@ -7,35 +7,93 @@
 
 pragma solidity ^0.8.18;
 
-abstract contract ICollarEngineErrors {
-    error VaultManagerAlreadyExists(address user, address vaultManager);
-    error LiquidityPoolAlreadyAdded(address pool);
-    error CollateralAssetNotSupported(address asset);
-    error CashAssetNotSupported(address asset);
-    error CollateralAssetAlreadySupported(address asset);
-    error CashAssetAlreadySupported(address asset);
-    error InvalidZeroAddress(address addr);
-    error InvalidCashAmount(uint256 amount);
-    error InvalidCollateralAmount(uint256 amount);
-    error InvalidLiquidityPool(address pool);
-    error CollarLengthNotSupported(uint256 length);
-    error InvalidLiquidityOpts();
-    error AssetNotSupported(address asset);
-    error AssetAlreadySupported(address asset);
-    error InvalidVaultManager(address vaultManager);
-}
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { ICollarEngineErrors } from "./ICollarEngineErrors.sol";
 
 abstract contract ICollarEngine is ICollarEngineErrors {
+    // -- lib delcarations --
+    using EnumerableSet for EnumerableSet.AddressSet;
+    using EnumerableSet for EnumerableSet.UintSet;
+
+    // -- modifiers --
+    modifier ensureValidVaultManager(address vaultManager) {
+        if (vaultManagers.contains(vaultManager) == false) revert InvalidVaultManager(vaultManager);
+        _;
+    }
+
+    modifier ensureValidLiquidityPool(address pool) {
+        if (!collarLiquidityPools.contains(pool)) revert InvalidLiquidityPool(pool);
+        _;
+    }
+
+    modifier ensureNotValidLiquidityPool(address pool) {
+        if (collarLiquidityPools.contains(pool)) revert LiquidityPoolAlreadyAdded(pool);
+        _;
+    }
+
+    modifier ensureValidCollateralAsset(address asset) {
+        if (!supportedCollateralAssets.contains(asset)) revert CollateralAssetNotSupported(asset);
+        _;
+    }
+
+    modifier ensureValidCashAsset(address asset) {
+        if (!supportedCashAssets.contains(asset)) revert CashAssetNotSupported(asset);
+        _;
+    }
+
+    modifier ensureValidAsset(address asset) {
+        if (!supportedCashAssets.contains(asset) && !supportedCollateralAssets.contains(asset)) revert AssetNotSupported(asset);
+        _;
+    }
+
+    modifier ensureNotValidCollateralAsset(address asset) {
+        if (supportedCollateralAssets.contains(asset)) revert CollateralAssetAlreadySupported(asset);
+        _;
+    }
+
+    modifier ensureNotValidCashAsset(address asset) {
+        if (supportedCashAssets.contains(asset)) revert CashAssetAlreadySupported(asset);
+        _;
+    }
+
+    modifier ensureNotValidAsset(address asset) {
+        if (supportedCollateralAssets.contains(asset) || supportedCashAssets.contains(asset)) revert AssetAlreadySupported(asset);
+        _;
+    }
+
+    modifier ensureSupportedCollarLength(uint256 length) {
+        if (!validCollarLengths.contains(length)) revert CollarLengthNotSupported(length);
+        _;
+    }
+
+    modifier ensureNotSupportedCollarLength(uint256 length) {
+        if (validCollarLengths.contains(length)) revert CollarLengthNotSupported(length);
+        _;
+    }
+
+    // -- public state variables ---
+
     address public immutable dexRouter;
+
+    /// @notice todo fill me out please
+    /// @dev also fill me out todo please thanks
+    mapping(bytes32 uuid => bool) public isVaultFinalized;
 
     /// @notice This mapping stores the address of the vault contract per user (or market maker)
     /// @dev This will be zero if the user has not yet created a vault
     mapping(address => address) public addressToVaultManager;
 
-    /// @notice Initializes the engine.
+    // -- internal state variables ---
+    EnumerableSet.AddressSet internal vaultManagers;
+    EnumerableSet.AddressSet internal collarLiquidityPools;
+    EnumerableSet.AddressSet internal supportedCollateralAssets;
+    EnumerableSet.AddressSet internal supportedCashAssets;
+    EnumerableSet.UintSet internal validCollarLengths;
+
     constructor(address _dexRouter) {
         dexRouter = _dexRouter;
     }
+
 
     /// @notice Adds a liquidity pool to the list of supported pools
     /// @param pool The address of the pool to add
