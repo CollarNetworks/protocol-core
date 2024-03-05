@@ -13,6 +13,8 @@ import { TestERC20 } from "../test/utils/TestERC20.sol";
 import { MockUniRouter } from "../test/utils/MockUniRouter.sol";
 import { MockEngine } from "../test/utils/MockEngine.sol";
 
+import { Multicall3 } from "../lib/other/multicall3.sol";
+
 contract DeployEmptyProtocol is Script {
     address cashTestToken;
     address collateralTestToken;
@@ -21,6 +23,8 @@ contract DeployEmptyProtocol is Script {
 
     address router;
     address engine;
+
+    address multicall3;
 
     function run() external {
         VmSafe.Wallet memory deployer = vm.createWallet(vm.envUint("PRIVKEY_DEV_DEPLOYER"));
@@ -41,6 +45,8 @@ contract DeployEmptyProtocol is Script {
         engine = address(new MockEngine(router));
         pool = address(new CollarPool(engine, 1, cashTestToken));
 
+        multicall3 = address(new Multicall3());
+
         CollarEngine(engine).addLiquidityPool(pool);
         CollarEngine(engine).addSupportedCashAsset(cashTestToken);
         CollarEngine(engine).addSupportedCollateralAsset(collateralTestToken);
@@ -53,6 +59,7 @@ contract DeployEmptyProtocol is Script {
         console.log("\n --- Dev Environment Deployed ---");
         console.log("\n # Dev Deployer Address: %x", deployer.addr);
         console.log("\n # Dev Deployer Key:     %x", deployer.privateKey);
+        console.log("\n # Multicall3 Contract:  %x", multicall3);
         console.log("\n # Contract Addresses\n");
         console.log(" - Cash Test ERC20 - - - - - ", cashTestToken);
         console.log(" - Collateral Test ERC20 - - ", collateralTestToken);
@@ -78,6 +85,8 @@ contract DeployInitializedProtocol is Script {
     address router;
     address engine;
 
+    address multicall3;
+
     function run() external {
         VmSafe.Wallet memory deployer = vm.createWallet(vm.envUint("PRIVKEY_DEV_DEPLOYER"));
         VmSafe.Wallet memory testWallet1 = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST1"));
@@ -96,6 +105,8 @@ contract DeployInitializedProtocol is Script {
         router = address(new MockUniRouter());
         engine = address(new MockEngine(router));
         pool = address(new CollarPool(engine, 1, cashTestToken));
+
+        multicall3 = address(new Multicall3());
 
         CollarEngine(engine).addLiquidityPool(pool);
         CollarEngine(engine).addSupportedCashAsset(cashTestToken);
@@ -125,6 +136,8 @@ contract DeployInitializedProtocol is Script {
 
         address user2VaultManager = address(CollarEngine(engine).createVaultManager());
 
+        
+
         vm.stopBroadcast();
 
         require(CollarEngine(engine).addressToVaultManager(testWallet1.addr) == user1VaultManager);
@@ -133,6 +146,7 @@ contract DeployInitializedProtocol is Script {
         console.log("\n --- Dev Environment Deployed ---");
         console.log("\n # Dev Deployer Address: %x", deployer.addr);
         console.log("\n # Dev Deployer Key:     %x", deployer.privateKey);
+        console.log("\n # Multicall3 Contract:  %x", multicall3);
         console.log("\n # Contract Addresses\n");
         console.log(" - Cash Test ERC20 - - - - - ", cashTestToken);
         console.log(" - Collateral Test ERC20 - - ", collateralTestToken);
