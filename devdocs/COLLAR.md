@@ -89,7 +89,7 @@ When a user creates a new vault, the following occurs:
 The engine keeps tracks of a set of canonical liquidity pool smart contracts, where market makers may deposit liquidity
 to be used for vaults, and indicate at what callstrike and putstrike ranges their liquidity may be used for.
 
-Liquidity pools are each their own deployed smart contract; one per cash asset (USDC, DAI, etc), per pustrike value (80%, 85%, etc), per vault length (1 month, 3 months, etc).
+Liquidity pools are each their own deployed smart contract; one per collateral asset (this feature is wip), one per cash asset (USDC, DAI, etc), per putstrike value (80%, 85%, etc), per vault length (1 month, 3 months, etc).
 
 Thus a theoretical set of liquidity pools may look like this:
 
