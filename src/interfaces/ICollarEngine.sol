@@ -94,6 +94,11 @@ abstract contract ICollarEngine is ICollarEngineErrors {
         dexRouter = _dexRouter;
     }
 
+    // ----- state changing transactions
+
+    /// @notice Creates a vault manager contract for the user that calls this function, if it does not already exist
+    /// @dev This function is called by the user when they want to create a new vault if they haven't done so in the past
+    function createVaultManager() external virtual returns (address);
 
     /// @notice Adds a liquidity pool to the list of supported pools
     /// @param pool The address of the pool to add
@@ -102,10 +107,6 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     /// @notice Removes a liquidity pool from the list of supported pools
     /// @param pool The address of the pool to remove
     function removeLiquidityPool(address pool) external virtual;
-
-    /// @notice Creates a vault manager contract for the user that calls this function, if it does not already exist
-    /// @dev This function is called by the user when they want to create a new vault if they haven't done so in the past
-    function createVaultManager() external virtual returns (address);
 
     /// @notice Adds an asset to the list of supported collateral assets
     /// @param asset The address of the asset to add
@@ -131,6 +132,24 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     /// @param length The length to remove, in seconds
     function removeCollarLength(uint256 length) external virtual;
 
+    /// @notice Allows a valid vault to notify the engine that it is finalized
+    /// @param pool The address of the pool that the vault is for
+    /// @param uuid The UUID of the vault to finalized
+    function notifyFinalized(address pool, bytes32 uuid) external virtual;
+
+    // ----- view functions
+
+    /// @notice Checks if an address is a vault manager
+    /// @param vaultManager The address to check
+    function isVaultManager(address vaultManager) external view virtual returns (bool);
+
+    /// @notice Gets the number of vault managers in the list
+    function vaultManagersLength() external view virtual returns (uint256);
+
+    /// @notice Gets the address of a vault manager at a particular index
+    /// @param index The index of the vault manager to get the address of
+    function getVaultManager(uint256 index) external view virtual returns (address);
+
     /// @notice Gets the price of a particular asset at a particular timestamp
     /// @param asset The address of the asset to get the price of
     /// @param timestamp The timestamp to get the price at
@@ -140,7 +159,46 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     /// @param asset The address of the asset to get the price of
     function getCurrentAssetPrice(address asset) external view virtual returns (uint256);
 
-    /// @notice Allows a valid vault to notify the engine that it is finalized
-    /// @param uuid The UUID of the vault to finalize
-    function notifyFinalized(address pool, bytes32 uuid) external virtual;
+    /// @notice Checks if an asset is supported as a cash asset in the engine
+    /// @param asset The address of the asset to check
+    function isSupportedCashAsset(address asset) external view virtual returns (bool);
+
+    /// @notice Gets the number of supported cash assets in the engine
+    function supportedCashAssetsLength() external view virtual returns (uint256);
+
+    /// @notice Gets the address of a supported cash asset at a particular index
+    /// @param index The index of the asset to get the address of
+    function getSupportedCashAsset(uint256 index) external view virtual returns (address);
+
+    /// @notice Checks if an asset is supported as a collateral asset in the engine
+    /// @param asset The address of the asset to check
+    function isSupportedCollateralAsset(address asset) external view virtual returns (bool);
+
+    /// @notice Gets the number of supported collateral assets in the engine
+    function supportedCollateralAssetsLength() external view virtual returns (uint256);
+
+    /// @notice Gets the address of a supported collateral asset at a particular index
+    function getSupportedCollateralAsset(uint256 index) external view virtual returns (address);
+
+    /// @notice Checks if a liquidity pool is supported in the engine
+    /// @param pool The address of the pool to check
+    function isSupportedLiquidityPool(address pool) external view virtual returns (bool);
+
+    /// @notice Gets the number of supported liquidity pools in the engine
+    function supportedLiquidityPoolsLength() external view virtual returns (uint256);
+
+    /// @notice Gets the address of a supported liquidity pool at a particular index
+    /// @param index The index of the pool to get the address of
+    function getSupportedLiquidityPool(uint256 index) external view virtual returns (address);
+
+    /// @notice Checks to see if a particular collar length is supported
+    /// @param length The length to check
+    function isValidCollarLength(uint256 length) external view virtual returns (bool);
+
+    /// @notice Gets the number of supported collar lengths in the engine
+    function validCollarLengthsLength() external view virtual returns (uint256);
+
+    /// @notice Gets the collar length at a particular index
+    /// @param index The index of the collar length to get
+    function getValidCollarLength(uint256 index) external view virtual returns (uint256);
 }
