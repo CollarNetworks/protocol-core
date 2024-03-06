@@ -53,7 +53,7 @@ contract CollarPool is ICollarPool, Constants {
     }
 
     function addLiquidity(uint256 slotIndex, uint256 amount) public virtual override {
-        LiquiditySlot storage slot = slots[slotIndex];
+        Slot storage slot = slots[slotIndex];
 
         // If this slot isn't initialized, add to the initialized list - we're initializing it now
         if (!_isSlotInitialized(slotIndex)) {
@@ -110,7 +110,7 @@ contract CollarPool is ICollarPool, Constants {
         }
 
         // grab the slot
-        LiquiditySlot storage slot = slots[slotId];
+        Slot storage slot = slots[slotId];
         uint256 numProviders = slot.providers.length();
 
         // if no providers, revert
@@ -267,7 +267,7 @@ contract CollarPool is ICollarPool, Constants {
         if (!_isSlotFull(slotID)) {
             return address(0);
         } else {
-            LiquiditySlot storage slot = slots[slotID];
+            Slot storage slot = slots[slotID];
             uint256 smallestAmount = type(uint256).max;
 
             for (uint256 i = 0; i < 5; i++) {
@@ -282,7 +282,7 @@ contract CollarPool is ICollarPool, Constants {
     }
 
     function _allocate(uint256 slotID, address provider, uint256 amount) internal {
-        LiquiditySlot storage slot = slots[slotID];
+        Slot storage slot = slots[slotID];
 
         if (slot.providers.contains(provider)) {
             uint256 providerAmount = slot.providers.get(provider);
@@ -295,7 +295,7 @@ contract CollarPool is ICollarPool, Constants {
     }
 
     function _unallocate(uint256 slotID, address provider, uint256 amount) internal {
-        LiquiditySlot storage slot = slots[slotID];
+        Slot storage slot = slots[slotID];
 
         uint256 sourceAmount = slot.providers.get(provider);
 

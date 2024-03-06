@@ -18,24 +18,32 @@ abstract contract ICollarPoolState {
     using EnumerableSet for EnumerableSet.UintSet;
 
     // represents one partitioned slice of the liquidity pool, its providers, and the amount they provide
-    struct LiquiditySlot {
-        uint256 liquidity;
+    struct Slot {
+        uint256 liquidity;      // <-- total liquidity in the slot
         EnumerableMap.AddressToUintMap providers;
     }
-
-    EnumerableSet.UintSet internal initializedSlots;
-
-    /// @notice Records the state of each slot (see LiquiditySlot struct above)
-    mapping(uint256 slotId => LiquiditySlot slot) internal slots;
-
-    // pToken = token representing an opened vault for the *pool* (as opposed to the vault's version of this, which is a vToken)
-    struct pToken {
-        bool redeemable;
-        uint256 totalRedeemableCash;
+        
+    // a Position is a financial instrument that:
+    //  - can be entered into, and eventually exited
+    //  - can gain or lose value over time
+    //  - has a static initial value (principal)
+    //  - has a dynamic/calculable current value
+    //  - has a defined time horizon
+    //  - carries inherent risk
+    struct Position {
+        uint256 expiration;   // <-- defined time horizon --- does not change
+        uint256 principal;    // <-- static initial value --- does not change
+        uint256 withdrawable; // <-- zero until close, then set to settlement value
     }
 
-    /// @notice Records the state of each pToken (see pToken struct above)
-    mapping(bytes32 uuid => pToken pToken) public pTokens;
+    /// @notice Records the state of each slot (see Slot struct above)
+    mapping(uint256 index => Slot) internal slots;
+
+    /// @notice Records the state of each Position by their UUID
+    mapping(bytes32 uuid => Position) public Positions;
+
+    /// @notice Records the set of all initialized slots
+    EnumerableSet.UintSet internal initializedSlotIndices;
 }
 
 abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
@@ -70,36 +78,48 @@ abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
     }
 
     /// @notice Gets the ids of initialized slots
-    function getInitializedSlots() external view virtual returns (uint256[] calldata);
+    function getInitializedSlotIndices() external view virtual returns (uint256[] calldata);
 
     /// @notice Gets the liquidity for a set of slots
-    /// @param slotIds The ids of the slots to get the liquidity for
-    function getLiquidityForSlots(uint256[] calldata slotIds) external view virtual returns (uint256[] calldata);
+    /// @param slotIndices The indices of the slots to get the liquidity for
+    function getLiquidityForSlots(uint256[] calldata slotIndices) external view virtual returns (uint256[] calldata amounts);
 
     /// @notice Gets the amount of liquidity in a particular slot
     /// @param slotIndex The index of the slot to get the state of
-    function getSlotLiquidity(uint256 slotIndex) external virtual returns (uint256);
+    function getLiquidityForSlot(uint256 slotIndex) external virtual returns (uint256 amount);
 
     /// @notice Gets the number of providers in a particular slot
     /// @param slotIndex The index of the slot to get the state of
-    function getSlotProviderLength(uint256 slotIndex) external virtual returns (uint256);
+    function getNumProvidersInSlot(uint256 slotIndex) external virtual returns (uint256 amount);
 
-    /// @notice Gets the address & liquidity amount of the provider at a particular index in a particular slot
+    /// @notice Gets the address & free liquidity amount of the provider at a particular index in a particular slot
     /// @param slotIndex The index of the slot to get the state of
-    /// @param providerIndex The index of the provider to get the state of
-    function getSlotProviderInfoAt(uint256 slotIndex, uint256 providerIndex) external virtual returns (address, uint256);
+    /// @param providerIndex The index of the provider to get the state of within the overall slot
+    function getSlotProviderInfoAtIndex(uint256 slotIndex, uint256 providerIndex) external virtual returns (address provider, uint256 amount);
 
-    /// @notice Gets the address & liquidity amount of the provider in a particular slot
-    function getSlotProviderInfo(uint256 slotIndex, address provider) external virtual returns (uint256);
+    /// @notice Gets the free liquidity amount of the specified provider in a particular slot
+    /// @param slotIndex The index of the slot to get the state of
+    /// @param provider The address of the provider to get the state of within the overall slot
+    function getSlotProviderInfoForAddress(uint256 slotIndex, address provider) external virtual returns (uint256 amount);
 
     /// @notice Adds liquidity to a given slot
+    /// @param slot The index of the slot to add liquidity to
+    /// @param amount The amount of liquidity to add
     function addLiquidity(uint256 slot, uint256 amount) external virtual;
 
     /// @notice Removes liquidity from a given slot
+    /// @param slot The index of the slot to remove liquidity from
+    /// @param amount The amount of liquidity to remove
     function removeLiquidity(uint256 slot, uint256 amount) external virtual;
 
-    /// @notice Reallocates liquidity from one slot to another
-    function reallocateLiquidity(uint256 sourceSlot, uint256 destinationSlot, uint256 amount) external virtual;
+    /// @notice Reallocates free liquidity from one slot to another
+    /// @param source The index of the slot to remove liquidity from
+    /// @param destination The index of the slot to add liquidity to
+    /// @param amount The amount of liquidity to reallocate
+    function moveLiquidity(uint256 source, uint256 destination, uint256 amount) external virtual;
+
+    /// @TODO refactor stopped here 3/5/24
+    /// @TODO plz continue from here. kthxbye.
 
     /// @notice Allows a valid vault to pull liquidity from the pool on finalization
     function pullLiquidity(bytes32 uuid, address receiver, uint256 amount) external virtual;
