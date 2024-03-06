@@ -44,7 +44,7 @@ contract CollarVaultManagerTest is Test {
         router = new MockUniRouter();
         engine = new MockEngine(address(router));
 
-        pool = new CollarPool(address(engine), 1, address(token2));
+        pool = new CollarPool(address(engine), 1, address(token2), address(token1));
 
         hoax(user1);
         manager = CollarVaultManager(engine.createVaultManager());
@@ -98,7 +98,7 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApprovePool(user2);
 
         hoax(user2);
-        pool.addLiquidity(11_000, 25_000);
+        pool.addLiquidityToSlot(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
@@ -149,7 +149,7 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApprovePool(user2);
 
         hoax(user2);
-        pool.addLiquidity(11_000, 25_000);
+        pool.addLiquidityToSlot(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory invalidCollatAddr = CollarVaultState.AssetSpecifiers({
             collateralAsset: address(token2),
@@ -206,7 +206,7 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApprovePool(user2);
 
         hoax(user2);
-        pool.addLiquidity(11_000, 25_000);
+        pool.addLiquidityToSlot(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
@@ -233,7 +233,7 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApprovePool(user2);
 
         hoax(user2);
-        pool.addLiquidity(11_000, 25_000);
+        pool.addLiquidityToSlot(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
@@ -265,7 +265,7 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApprovePool(user2);
 
         hoax(user2);
-        pool.addLiquidity(11_000, 25_000);
+        pool.addLiquidityToSlot(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
@@ -295,7 +295,7 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApprovePool(user2);
 
         hoax(user2);
-        pool.addLiquidity(11_000, 25_000);
+        pool.addLiquidityToSlot(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
@@ -350,7 +350,7 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApprovePool(user2);
 
         hoax(user2);
-        pool.addLiquidity(11_000, 25_000);
+        pool.addLiquidityToSlot(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
@@ -405,7 +405,7 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApprovePool(user2);
 
         hoax(user2);
-        pool.addLiquidity(11_000, 25_000);
+        pool.addLiquidityToSlot(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
@@ -460,7 +460,7 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApprovePool(user2);
 
         hoax(user2);
-        pool.addLiquidity(11_000, 25_000);
+        pool.addLiquidityToSlot(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
@@ -499,7 +499,7 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApprovePool(user2);
 
         hoax(user2);
-        pool.addLiquidity(11_000, 25_000);
+        pool.addLiquidityToSlot(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
@@ -533,7 +533,7 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApprovePool(user2);
 
         hoax(user2);
-        pool.addLiquidity(11_000, 25_000);
+        pool.addLiquidityToSlot(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
@@ -602,7 +602,7 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApprovePool(user2);
 
         hoax(user2);
-        pool.addLiquidity(11_000, 25_000);
+        pool.addLiquidityToSlot(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
@@ -643,7 +643,7 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApprovePool(user2);
 
         hoax(user2);
-        pool.addLiquidity(11_000, 25_000);
+        pool.addLiquidityToSlot(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
@@ -671,7 +671,7 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApprovePool(user2);
 
         hoax(user2);
-        pool.addLiquidity(11_000, 25_000);
+        pool.addLiquidityToSlot(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
@@ -736,7 +736,7 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApprovePool(user2);
 
         hoax(user2);
-        pool.addLiquidity(11_000, 25_000);
+        pool.addLiquidityToSlot(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
@@ -765,7 +765,7 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApprovePool(user2);
 
         hoax(user2);
-        pool.addLiquidity(11_000, 25_000);
+        pool.addLiquidityToSlot(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
@@ -793,7 +793,7 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApprovePool(user2);
 
         hoax(user2);
-        pool.addLiquidity(11_000, 25_000);
+        pool.addLiquidityToSlot(11_000, 25_000);
 
         CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
