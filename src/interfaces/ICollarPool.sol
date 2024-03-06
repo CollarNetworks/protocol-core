@@ -49,6 +49,8 @@ abstract contract ICollarPoolState {
 abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
 
+    // ----- IMMUTABLES ----- //
+
     /// @notice This is the ID of the slot that is unallocated to any particular call strike percentage
     uint256 public constant UNALLOCATED_SLOT = type(uint256).max;
 
@@ -62,6 +64,11 @@ abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
     /// @notice The address of the cash asset is set upon pool creation (and verified with the engine as allowed)
     address public immutable cashAsset;
 
+    /// @notice The address of the collateral asset is set upon pool creation (and verified with the engine as allowed)
+    address public immutable collateralAsset;
+
+    // ----- STATE VARIABLES ----- //
+
     /// @notice The total amount of liquidity in the pool
     uint256 public totalLiquidity;
 
@@ -71,11 +78,16 @@ abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
     /// @notice The amount of free liquidity in the pool
     uint256 public freeLiquidity;
 
-    constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset) {
+    // ----- CONSTRUCTOR ----- //
+
+    constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset, address _collateraLAsset) {
         tickScaleFactor = _tickScaleFactor;
         engine = _engine;
         cashAsset = _cashAsset;
+        collateralAsset = _collateraLAsset;
     }
+
+    // ----- VIEW FUNCTIONS ----- //
 
     /// @notice Gets the ids of initialized slots
     function getInitializedSlotIndices() external view virtual returns (uint256[] calldata);
@@ -102,39 +114,36 @@ abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
     /// @param provider The address of the provider to get the state of within the overall slot
     function getSlotProviderInfoForAddress(uint256 slotIndex, address provider) external virtual returns (uint256 amount);
 
+    // ----- STATE CHANGING FUNCTIONS ----- //
+
     /// @notice Adds liquidity to a given slot
     /// @param slot The index of the slot to add liquidity to
     /// @param amount The amount of liquidity to add
-    function addLiquidity(uint256 slot, uint256 amount) external virtual;
+    function addLiquidityToSlot(uint256 slot, uint256 amount) external virtual;
 
     /// @notice Removes liquidity from a given slot
     /// @param slot The index of the slot to remove liquidity from
     /// @param amount The amount of liquidity to remove
-    function removeLiquidity(uint256 slot, uint256 amount) external virtual;
+    function removeLiquidityFromSlot(uint256 slot, uint256 amount) external virtual;
 
     /// @notice Reallocates free liquidity from one slot to another
     /// @param source The index of the slot to remove liquidity from
     /// @param destination The index of the slot to add liquidity to
     /// @param amount The amount of liquidity to reallocate
-    function moveLiquidity(uint256 source, uint256 destination, uint256 amount) external virtual;
-
-    /// @notice Allows a vault to pull liquidity from the pool on finalization of a position
-    /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
-    /// @param receiver The address to send the liquidity to (should be the vault)
-    /// @param amount The amount of liquidity to pull from the pool
-    function subtractFromPosition(bytes32 uuid, address receiver, uint256 amount) external virtual;
-
-    /// @notice Allows a vault to push liquidity to the pool on finalization of a position
-    /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
-    /// @param sender The address that is sending the liquidity (should be the vault)
-    /// @param amount The amount of liquidity to push to the pool
-    function addToPosition(bytes32 uuid, address sender, uint256 amount) external virtual;
+    function moveLiquidityFromSlot(uint256 source, uint256 destination, uint256 amount) external virtual;
 
     /// @notice Opens a new position
     /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
     /// @param slot The index of the slot to open the position in in the pool
     /// @param amount The amount of liquidity to open the position with
     function openPosition(bytes32 uuid, uint256 slot, uint256 amount) external virtual;
+
+    /// @notice Allows the engine to finalize a position & mark as redeemable
+    /// @dev Internally, the positionNet param allows us to decide whether or not to push or pull from a vault
+    /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
+    /// @param vaultManager The address of the vault manager
+    /// @param positionNet The net pnl of the position, from the perspective of the vault
+    function finalizePosition(bytes32 uuid, address vaultManager, int256 positionNet) external virtual;
 
     /// @notice Allows previewing of what would be received when redeeming an amount of token for a Position
     /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
@@ -145,8 +154,4 @@ abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
     /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
     /// @param amount The amount of liquidity to redeem
     function redeem(bytes32 uuid, uint256 amount) external virtual;
-
-    /// @notice Allows the engine to finalize a position
-    /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
-    function finalizePosition(bytes32 uuid) external virtual;
 }
