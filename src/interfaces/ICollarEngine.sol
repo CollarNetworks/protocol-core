@@ -132,11 +132,6 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     /// @param length The length to remove, in seconds
     function removeCollarLength(uint256 length) external virtual;
 
-    /// @notice Allows a valid vault to notify the engine that it is finalized
-    /// @param pool The address of the pool that the vault is for
-    /// @param uuid The UUID of the vault to finalized
-    function notifyFinalized(address pool, bytes32 uuid) external virtual;
-
     // ----- view functions
 
     /// @notice Checks if an address is a vault manager

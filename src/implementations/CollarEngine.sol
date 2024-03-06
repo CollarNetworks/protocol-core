@@ -66,12 +66,6 @@ contract CollarEngine is ICollarEngine, Ownable {
         validCollarLengths.remove(length);
     }
 
-    function notifyFinalized(address pool, bytes32 uuid) external override ensureValidVaultManager(msg.sender) {
-        isVaultFinalized[uuid] = true;
-
-        CollarPool(pool).finalizeToken(uuid);
-    }
-
     // ----- view functions (see ICollarEngine for documentation) -----
 
     function isVaultManager(address vaultManager) external view override returns (bool) {

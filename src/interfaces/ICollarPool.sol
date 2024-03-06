@@ -142,7 +142,8 @@ abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
     /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
     /// @param slotIndex The index of the slot to open the position in in the pool
     /// @param amount The amount of liquidity to open the position with
-    function openPosition(bytes32 uuid, uint256 slotIndex, uint256 amount) external virtual;
+    /// @param expiration The expiration timestamp of the position
+    function openPosition(bytes32 uuid, uint256 slotIndex, uint256 amount, uint256 expiration) external virtual;
 
     /// @notice Allows the engine to finalize a position & mark as redeemable
     /// @dev Internally, the positionNet param allows us to decide whether or not to push or pull from a vault

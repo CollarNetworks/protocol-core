@@ -131,7 +131,9 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
         _mint(user, uint256(uuid), cashReceivedFromSwap);
 
         // mint liquidity pool tokens
-        CollarPool(liquidityOpts.liquidityPool).openPosition(uuid, liquidityOpts.callStrikeTick, poolLiquidityToLock);
+        CollarPool(liquidityOpts.liquidityPool).openPosition(
+            uuid, liquidityOpts.callStrikeTick, poolLiquidityToLock, vaultsByUUID[uuid].expiresAt
+        );
 
         // set Vault Specific stuff
         vaultsByUUID[uuid].loanBalance = (collarOpts.ltv * cashReceivedFromSwap) / ONE_HUNDRED_PERCENT;

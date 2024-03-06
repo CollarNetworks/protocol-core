@@ -22,7 +22,9 @@ contract CollarPool is ICollarPool, Constants {
 
     // ----- CONSTRUCTOR ----- //
 
-    constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset) ICollarPool(_engine, _tickScaleFactor, _cashAsset) { }
+    constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset, address _collateralAsset)
+        ICollarPool(_engine, _tickScaleFactor, _cashAsset, _collateralAsset)
+    { }
 
     // ----- VIEW FUNCTIONS ----- //
 
@@ -64,7 +66,7 @@ contract CollarPool is ICollarPool, Constants {
             // if finalized, calculate final redeem value
             // grab collateral asset value @ exact vault expiration time
 
-            uint256 _totalTokenCashSupply = _position.totalRedeemableCash;
+            uint256 _totalTokenCashSupply = _position.withdrawable;
             uint256 _totalTokenSupply = totalTokenSupply[uint256(uuid)];
 
             cashReceived = (_totalTokenCashSupply * amount) / _totalTokenSupply;
@@ -126,7 +128,7 @@ contract CollarPool is ICollarPool, Constants {
         addLiquidityToSlot(destinationSlotIndex, amount);
     }
 
-    function openPosition(bytes32 uuid, uint256 slotIndex, uint256 amount) external override {
+    function openPosition(bytes32 uuid, uint256 slotIndex, uint256 amount, uint256 expiration) external override {
         // ensure this is a valid vault calling us - it must call through the engine
         if (!CollarEngine(engine).isVaultManager(msg.sender)) {
             revert("Only registered vaults can mint");
@@ -172,7 +174,7 @@ contract CollarPool is ICollarPool, Constants {
         freeLiquidity -= amount;
 
         // finally, store the info about the Position
-        positions[uuid] = Position({ redeemable: false, totalRedeemableCash: amount });
+        positions[uuid] = Position({ expiration: expiration, principal: amount, withdrawable: 0 });
 
         // also, check to see if we need to un-initalize this slot
         if (slot.liquidity == 0) {
@@ -187,12 +189,12 @@ contract CollarPool is ICollarPool, Constants {
         }
 
         // either case, we need to set the withdrawable amount to principle + positionNet
-        positions[uuid].withdrawableAmount = positions[uuid].principal + positionNet;
+        positions[uuid].withdrawable = uint256(int256(positions[uuid].principal) + positionNet);
 
         // update global liquidity amounts
         totalLiquidity += uint256(positionNet);
-        freeLiquidity += positions[uuid].withdrawableAmount;
-        lockedLiquidity -= positions[uuid].withdrawableAmount;
+        freeLiquidity += positions[uuid].withdrawable;
+        lockedLiquidity -= positions[uuid].withdrawable;
 
         if (positionNet < 0) {
             // we owe the vault some tokens
@@ -219,7 +221,7 @@ contract CollarPool is ICollarPool, Constants {
         uint256 redeemValue = previewRedeem(uuid, amount);
 
         // adjust total redeemable cash
-        positions[uuid].totalRedeemableCash -= redeemValue;
+        positions[uuid].withdrawable -= redeemValue;
 
         // update global liquidity amounts
         lockedLiquidity -= redeemValue;
