@@ -118,24 +118,35 @@ abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
     /// @param amount The amount of liquidity to reallocate
     function moveLiquidity(uint256 source, uint256 destination, uint256 amount) external virtual;
 
-    /// @TODO refactor stopped here 3/5/24
-    /// @TODO plz continue from here. kthxbye.
+    /// @notice Allows a vault to pull liquidity from the pool on finalization of a position
+    /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
+    /// @param receiver The address to send the liquidity to (should be the vault)
+    /// @param amount The amount of liquidity to pull from the pool
+    function subtractFromPosition(bytes32 uuid, address receiver, uint256 amount) external virtual;
 
-    /// @notice Allows a valid vault to pull liquidity from the pool on finalization
-    function pullLiquidity(bytes32 uuid, address receiver, uint256 amount) external virtual;
+    /// @notice Allows a vault to push liquidity to the pool on finalization of a position
+    /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
+    /// @param sender The address that is sending the liquidity (should be the vault)
+    /// @param amount The amount of liquidity to push to the pool
+    function addToPosition(bytes32 uuid, address sender, uint256 amount) external virtual;
 
-    /// @notice Allows a valid vault to push liquidity to the pool on finalization
-    function pushLiquidity(bytes32 uuid, address sender, uint256 amount) external virtual;
+    /// @notice Opens a new position
+    /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
+    /// @param slot The index of the slot to open the position in in the pool
+    /// @param amount The amount of liquidity to open the position with
+    function openPosition(bytes32 uuid, uint256 slot, uint256 amount) external virtual;
 
-    /// @notice Allows a vault to mint tokens once liquidity is locked upon vault creation
-    function mint(bytes32 uuid, uint256 slot, uint256 amount) external virtual;
+    /// @notice Allows previewing of what would be received when redeeming an amount of token for a Position
+    /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
+    /// @param amount The amount of liquidity to redeem
+    function previewRedeem(bytes32 uuid, uint256 amount) external virtual returns (uint256);
 
-    /// @notice Allows liquidity providers to redeem liquidity-pool tokens corresponding to a particular vault
+    /// @notice Allows liquidity providers to redeem tokens corresponding to a particular Position
+    /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
+    /// @param amount The amount of liquidity to redeem
     function redeem(bytes32 uuid, uint256 amount) external virtual;
 
-    /// @notice Allows the engine to finalize a vault token
-    function finalizeToken(bytes32 uuid) external virtual;
-
-    /// @notice Allows liquidity providers to preview the amount of cash they would receive upon redeeming for a particular vault token
-    function previewRedeem(bytes32 uuid, uint256 amount) external virtual returns (uint256);
+    /// @notice Allows the engine to finalize a position
+    /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
+    function finalizePosition(bytes32 uuid) external virtual;
 }
