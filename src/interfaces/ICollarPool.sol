@@ -7,8 +7,6 @@
 
 pragma solidity ^0.8.18;
 
-// ----- IMPORTS
-
 import { IERC6909WithSupply } from "../interfaces/IERC6909WithSupply.sol";
 import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -40,7 +38,7 @@ abstract contract ICollarPoolState {
     mapping(uint256 index => Slot) internal slots;
 
     /// @notice Records the state of each Position by their UUID
-    mapping(bytes32 uuid => Position) public Positions;
+    mapping(bytes32 uuid => Position) public positions;
 
     /// @notice Records the set of all initialized slots
     EnumerableSet.UintSet internal initializedSlotIndices;
@@ -137,9 +135,9 @@ abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
 
     /// @notice Opens a new position
     /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
-    /// @param slot The index of the slot to open the position in in the pool
+    /// @param slotIndex The index of the slot to open the position in in the pool
     /// @param amount The amount of liquidity to open the position with
-    function openPosition(bytes32 uuid, uint256 slot, uint256 amount) external virtual;
+    function openPosition(bytes32 uuid, uint256 slotIndex, uint256 amount) external virtual;
 
     /// @notice Allows the engine to finalize a position & mark as redeemable
     /// @dev Internally, the positionNet param allows us to decide whether or not to push or pull from a vault

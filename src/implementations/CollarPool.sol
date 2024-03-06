@@ -20,10 +20,14 @@ contract CollarPool is ICollarPool, Constants {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
     using EnumerableSet for EnumerableSet.UintSet;
 
+    // ----- CONSTRUCTOR ----- //
+
     constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset) ICollarPool(_engine, _tickScaleFactor, _cashAsset) { }
 
-    function getInitializedSlots() external view override returns (uint256[] memory) {
-        return initializedSlots.values();
+    // ----- VIEW FUNCTIONS ----- //
+
+    function getInitializedSlotIndices() external view override returns (uint256[] memory) {
+        return initializedSlotIndices.values();
     }
 
     function getLiquidityForSlots(uint256[] calldata slotIndices) external view override returns (uint256[] memory) {
@@ -36,28 +40,30 @@ contract CollarPool is ICollarPool, Constants {
         return liquidity;
     }
 
-    function getSlotLiquidity(uint256 slotIndex) external view override returns (uint256) {
+    function getLiquidityForSlot(uint256 slotIndex) external view override returns (uint256) {
         return slots[slotIndex].liquidity;
     }
 
-    function getSlotProviderLength(uint256 slotIndex) external view override returns (uint256) {
+    function getNumProvidersInSlot(uint256 slotIndex) external view override returns (uint256) {
         return slots[slotIndex].providers.length();
     }
 
-    function getSlotProviderInfoAt(uint256 slotIndex, uint256 providerIndex) external view override returns (address, uint256) {
+    function getSlotProviderInfoAtIndex(uint256 slotIndex, uint256 providerIndex) external view override returns (address, uint256) {
         return slots[slotIndex].providers.at(providerIndex);
     }
 
-    function getSlotProviderInfo(uint256 slotIndex, address provider) external view override returns (uint256) {
+    function getSlotProviderInfoForAddress(uint256 slotIndex, address provider) external view override returns (uint256) {
         return slots[slotIndex].providers.get(provider);
     }
 
-    function addLiquidity(uint256 slotIndex, uint256 amount) public virtual override {
+    // ----- STATE CHANGING FUNCTIONS ----- //
+
+    function addLiquidityToSlot(uint256 slotIndex, uint256 amount) public virtual override {
         Slot storage slot = slots[slotIndex];
 
         // If this slot isn't initialized, add to the initialized list - we're initializing it now
         if (!_isSlotInitialized(slotIndex)) {
-            initializedSlots.add(slotIndex);
+            initializedSlotIndices.add(slotIndex);
         }
 
         if (slot.providers.contains(msg.sender) || !_isSlotFull(slotIndex)) {
@@ -79,7 +85,7 @@ contract CollarPool is ICollarPool, Constants {
         IERC20(cashAsset).transferFrom(msg.sender, address(this), amount);
     }
 
-    function removeLiquidity(uint256 slot, uint256 amount) public virtual override {
+    function removeLiquidityFromSlot(uint256 slot, uint256 amount) public virtual override {
         // verify sender has enough liquidity in slot
         uint256 liquidity = slots[slot].providers.get(msg.sender);
 
@@ -94,23 +100,23 @@ contract CollarPool is ICollarPool, Constants {
 
         // If slot has no more liquidity, remove from the initialized list
         if (slots[slot].liquidity == 0) {
-            initializedSlots.remove(slot);
+            initializedSlotIndices.remove(slot);
         }
     }
 
-    function reallocateLiquidity(uint256 sourceSlotIndex, uint256 destinationSlotIndex, uint256 amount) external virtual override {
-        removeLiquidity(sourceSlotIndex, amount);
-        addLiquidity(destinationSlotIndex, amount);
+    function moveLiquidityFromSlot(uint256 sourceSlotIndex, uint256 destinationSlotIndex, uint256 amount) external virtual override {
+        removeLiquidityFromSlot(sourceSlotIndex, amount);
+        addLiquidityToSlot(destinationSlotIndex, amount);
     }
 
-    function mint(bytes32 uuid, uint256 slotId, uint256 amount) external override {
+    function openPosition(bytes32 uuid, uint256 slotIndex, uint256 amount) external override {
         // ensure this is a valid vault calling us - it must call through the engine
         if (!CollarEngine(engine).isVaultManager(msg.sender)) {
             revert("Only registered vaults can mint");
         }
 
         // grab the slot
-        Slot storage slot = slots[slotId];
+        Slot storage slot = slots[slotIndex];
         uint256 numProviders = slot.providers.length();
 
         // if no providers, revert
@@ -148,12 +154,29 @@ contract CollarPool is ICollarPool, Constants {
         lockedLiquidity += amount;
         freeLiquidity -= amount;
 
-        // finally, store the info about the pToken
-        pTokens[uuid] = pToken({ redeemable: false, totalRedeemableCash: amount });
+        // finally, store the info about the Position
+        positions[uuid] = Position({ redeemable: false, totalRedeemableCash: amount });
 
         // also, check to see if we need to un-initalize this slot
         if (slot.liquidity == 0) {
-            initializedSlots.remove(slotId);
+            initializedSlotIndices.remove(slotIndex);
+        }
+    }
+
+    function previewRedeem(bytes32 uuid, uint256 amount) public view override returns (uint256 cashReceived) {
+        // grab the info for this particular Position
+        Position storage _position = positions[uuid];
+
+        if (_position.expiration > block.timestamp) {
+            // if finalized, calculate final redeem value
+            // grab collateral asset value @ exact vault expiration time
+
+            uint256 _totalTokenCashSupply = _position.totalRedeemableCash;
+            uint256 _totalTokenSupply = totalTokenSupply[uint256(uuid)];
+
+            cashReceived = (_totalTokenCashSupply * amount) / _totalTokenSupply;
+        } else {
+            revert("Not implemented");
         }
     }
 
@@ -171,7 +194,7 @@ contract CollarPool is ICollarPool, Constants {
         uint256 redeemValue = previewRedeem(uuid, amount);
 
         // adjust total redeemable cash
-        pTokens[uuid].totalRedeemableCash -= redeemValue;
+        positions[uuid].totalRedeemableCash -= redeemValue;
 
         // update global liquidity amounts
         lockedLiquidity -= redeemValue;
@@ -182,23 +205,9 @@ contract CollarPool is ICollarPool, Constants {
         IERC20(cashAsset).transfer(msg.sender, redeemValue);
     }
 
-    function previewRedeem(bytes32 uuid, uint256 amount) public view override returns (uint256 cashReceived) {
-        // grab the info for this particular pToken
-        pToken storage pToken = pTokens[uuid];
 
-        if (pToken.redeemable) {
-            // if finalized, calculate final redeem value
-            // grab collateral asset value @ exact vault expiration time
 
-            uint256 _totalTokenCashSupply = pToken.totalRedeemableCash;
-            uint256 _totalTokenSupply = totalTokenSupply[uint256(uuid)];
-
-            cashReceived = (_totalTokenCashSupply * amount) / _totalTokenSupply;
-        } else {
-            revert("Not implemented");
-        }
-    }
-
+/*
     function pullLiquidity(bytes32 uuid, address receiver, uint256 amount) external override {
         // verify caller via engine
         if (!CollarEngine(engine).isVaultManager(msg.sender)) {
@@ -210,7 +219,7 @@ contract CollarPool is ICollarPool, Constants {
         }
 
         // update the amount of total cash tokens for that vault
-        pTokens[uuid].totalRedeemableCash -= amount;
+        positions[uuid].totalRedeemableCash -= amount;
 
         // transfer liquidity
         IERC20(cashAsset).transfer(receiver, amount);
@@ -219,6 +228,9 @@ contract CollarPool is ICollarPool, Constants {
         lockedLiquidity -= amount;
         totalLiquidity -= amount;
     }
+    */
+
+    /*
 
     function pushLiquidity(bytes32 uuid, address sender, uint256 amount) external override {
         // verify caller via engine
@@ -231,7 +243,7 @@ contract CollarPool is ICollarPool, Constants {
         }
 
         // update the amount of total cash tokens for that vault
-        pTokens[uuid].totalRedeemableCash += amount;
+        positions[uuid].totalRedeemableCash += amount;
 
         // transfer liquidity
         IERC20(cashAsset).transferFrom(sender, address(this), amount);
@@ -240,19 +252,22 @@ contract CollarPool is ICollarPool, Constants {
         lockedLiquidity += amount;
         totalLiquidity += amount;
     }
+    */
 
-    function finalizeToken(bytes32 uuid) external override {
+    function finalizePosition(bytes32 uuid, address vaultManager, int256 positionNet) external override {
         // verify caller via engine
         if (msg.sender != engine) {
             revert("Only engine can finalize token");
         }
 
         // set the pToken as redeemable
-        pTokens[uuid].redeemable = true;
+        positions[uuid].redeemable = true;
     }
 
+    // ----- INTERNAL FUNCTIONS ----- //
+
     function _isSlotInitialized(uint256 slotID) internal view returns (bool) {
-        return initializedSlots.contains(slotID);
+        return initializedSlotIndices.contains(slotID);
     }
 
     function _isSlotFull(uint256 slotID) internal view returns (bool full) {
