@@ -19,10 +19,10 @@ abstract contract ICollarPoolState {
 
     // represents one partitioned slice of the liquidity pool, its providers, and the amount they provide
     struct Slot {
-        uint256 liquidity;      // <-- total liquidity in the slot
+        uint256 liquidity; // <-- total liquidity in the slot
         EnumerableMap.AddressToUintMap providers;
     }
-        
+
     // a Position is a financial instrument that:
     //  - can be entered into, and eventually exited
     //  - can gain or lose value over time
@@ -31,8 +31,8 @@ abstract contract ICollarPoolState {
     //  - has a defined time horizon
     //  - carries inherent risk
     struct Position {
-        uint256 expiration;   // <-- defined time horizon --- does not change
-        uint256 principal;    // <-- static initial value --- does not change
+        uint256 expiration; // <-- defined time horizon --- does not change
+        uint256 principal; // <-- static initial value --- does not change
         uint256 withdrawable; // <-- zero until close, then set to settlement value
     }
 
@@ -107,7 +107,10 @@ abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
     /// @notice Gets the address & free liquidity amount of the provider at a particular index in a particular slot
     /// @param slotIndex The index of the slot to get the state of
     /// @param providerIndex The index of the provider to get the state of within the overall slot
-    function getSlotProviderInfoAtIndex(uint256 slotIndex, uint256 providerIndex) external virtual returns (address provider, uint256 amount);
+    function getSlotProviderInfoAtIndex(uint256 slotIndex, uint256 providerIndex)
+        external
+        virtual
+        returns (address provider, uint256 amount);
 
     /// @notice Gets the free liquidity amount of the specified provider in a particular slot
     /// @param slotIndex The index of the slot to get the state of

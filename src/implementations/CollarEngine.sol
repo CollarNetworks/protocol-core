@@ -141,5 +141,4 @@ contract CollarEngine is ICollarEngine, Ownable {
     function getValidCollarLength(uint256 index) external view override returns (uint256) {
         return validCollarLengths.at(index);
     }
-
 }
