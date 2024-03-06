@@ -35,6 +35,10 @@ abstract contract ICollarVaultManager is IERC6909WithSupply, Ownable {
 
     // ----- VIEW FUNCTIONS ----- //
 
+    /// @notice Whether or not the vault is expired
+    /// @param uuid UUID of the vault to check
+    function isVaultExpired(bytes32 uuid) external view virtual returns (bool);
+
     /// @notice Get the entire vault state as bytes
     /// @param uuid UUID of the vault to get state for
     function vaultInfo(bytes32 uuid) external view virtual returns (bytes calldata data);
