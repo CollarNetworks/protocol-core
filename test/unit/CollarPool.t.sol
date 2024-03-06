@@ -590,6 +590,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         startHoax(user1);
 
-        /*uint256 previewAmount =*/ pool.previewRedeem(keccak256(abi.encodePacked(user1)), 110_000);
+        /*uint256 previewAmount =*/
+        pool.previewRedeem(keccak256(abi.encodePacked(user1)), 110_000);
     }
 }
