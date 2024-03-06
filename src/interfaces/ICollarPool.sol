@@ -115,7 +115,6 @@ abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
     /// @param provider The address of the provider to get the state of within the overall slot
     function getSlotProviderInfoForAddress(uint256 slotIndex, address provider) external virtual returns (uint256 amount);
 
-    
     /// @notice Allows previewing of what would be received when redeeming an amount of token for a Position
     /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
     /// @param amount The amount of liquidity to redeem

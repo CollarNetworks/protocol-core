@@ -16,7 +16,6 @@ import { TickCalculations } from "../libs/TickCalculations.sol";
 import { CollarPool } from "./CollarPool.sol";
 
 contract CollarVaultManager is ICollarVaultManager, Constants {
-
     // ----- CONSTRUCTOR ----- //
 
     constructor(address _engine, address _owner) ICollarVaultManager(_engine, _owner) { }

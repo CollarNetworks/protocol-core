@@ -12,7 +12,6 @@ import { IERC6909WithSupply } from "../interfaces/IERC6909WithSupply.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 abstract contract ICollarVaultManager is IERC6909WithSupply, Ownable {
-
     // ----- IMMUTABLES ----- //
 
     address public immutable user;
