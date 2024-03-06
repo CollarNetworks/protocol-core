@@ -115,6 +115,12 @@ abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
     /// @param provider The address of the provider to get the state of within the overall slot
     function getSlotProviderInfoForAddress(uint256 slotIndex, address provider) external virtual returns (uint256 amount);
 
+    
+    /// @notice Allows previewing of what would be received when redeeming an amount of token for a Position
+    /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
+    /// @param amount The amount of liquidity to redeem
+    function previewRedeem(bytes32 uuid, uint256 amount) external virtual returns (uint256);
+
     // ----- STATE CHANGING FUNCTIONS ----- //
 
     /// @notice Adds liquidity to a given slot
@@ -145,11 +151,6 @@ abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
     /// @param vaultManager The address of the vault manager
     /// @param positionNet The net pnl of the position, from the perspective of the vault
     function finalizePosition(bytes32 uuid, address vaultManager, int256 positionNet) external virtual;
-
-    /// @notice Allows previewing of what would be received when redeeming an amount of token for a Position
-    /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
-    /// @param amount The amount of liquidity to redeem
-    function previewRedeem(bytes32 uuid, uint256 amount) external virtual returns (uint256);
 
     /// @notice Allows liquidity providers to redeem tokens corresponding to a particular Position
     /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault

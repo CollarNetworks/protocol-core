@@ -56,6 +56,23 @@ contract CollarPool is ICollarPool, Constants {
         return slots[slotIndex].providers.get(provider);
     }
 
+    function previewRedeem(bytes32 uuid, uint256 amount) public view override returns (uint256 cashReceived) {
+        // grab the info for this particular Position
+        Position storage _position = positions[uuid];
+
+        if (_position.expiration > block.timestamp) {
+            // if finalized, calculate final redeem value
+            // grab collateral asset value @ exact vault expiration time
+
+            uint256 _totalTokenCashSupply = _position.totalRedeemableCash;
+            uint256 _totalTokenSupply = totalTokenSupply[uint256(uuid)];
+
+            cashReceived = (_totalTokenCashSupply * amount) / _totalTokenSupply;
+        } else {
+            revert("Not implemented");
+        }
+    }
+
     // ----- STATE CHANGING FUNCTIONS ----- //
 
     function addLiquidityToSlot(uint256 slotIndex, uint256 amount) public virtual override {
@@ -163,20 +180,28 @@ contract CollarPool is ICollarPool, Constants {
         }
     }
 
-    function previewRedeem(bytes32 uuid, uint256 amount) public view override returns (uint256 cashReceived) {
-        // grab the info for this particular Position
-        Position storage _position = positions[uuid];
+    function finalizePosition(bytes32 uuid, address vaultManager, int256 positionNet) external override {
+        // verify caller via engine
+        if (msg.sender != engine) {
+            revert("Only engine can finalize token");
+        }
 
-        if (_position.expiration > block.timestamp) {
-            // if finalized, calculate final redeem value
-            // grab collateral asset value @ exact vault expiration time
+        // either case, we need to set the withdrawable amount to principle + positionNet
+        positions[uuid].withdrawableAmount = positions[uuid].principal + positionNet;
 
-            uint256 _totalTokenCashSupply = _position.totalRedeemableCash;
-            uint256 _totalTokenSupply = totalTokenSupply[uint256(uuid)];
+        // update global liquidity amounts
+        totalLiquidity += uint256(positionNet);
+        freeLiquidity += positions[uuid].withdrawableAmount;
+        lockedLiquidity -= positions[uuid].withdrawableAmount;
 
-            cashReceived = (_totalTokenCashSupply * amount) / _totalTokenSupply;
+        if (positionNet < 0) {
+            // we owe the vault some tokens
+            IERC20(cashAsset).transfer(vaultManager, uint256(-positionNet));
+        } else if (positionNet > 0) {
+            // the vault owes us some tokens
+            IERC20(cashAsset).transferFrom(vaultManager, address(this), uint256(positionNet));
         } else {
-            revert("Not implemented");
+            // impressive. most impressive.
         }
     }
 
@@ -203,65 +228,6 @@ contract CollarPool is ICollarPool, Constants {
         // redeem to user & burn tokens
         _burn(msg.sender, uint256(uuid), amount);
         IERC20(cashAsset).transfer(msg.sender, redeemValue);
-    }
-
-
-
-/*
-    function pullLiquidity(bytes32 uuid, address receiver, uint256 amount) external override {
-        // verify caller via engine
-        if (!CollarEngine(engine).isVaultManager(msg.sender)) {
-            revert("Only vaults can pull liquidity");
-        }
-
-        if (amount == 0) {
-            revert("Cannot pull 0 amount of liquidity");
-        }
-
-        // update the amount of total cash tokens for that vault
-        positions[uuid].totalRedeemableCash -= amount;
-
-        // transfer liquidity
-        IERC20(cashAsset).transfer(receiver, amount);
-
-        // Update the amount of locked & total liquidity available
-        lockedLiquidity -= amount;
-        totalLiquidity -= amount;
-    }
-    */
-
-    /*
-
-    function pushLiquidity(bytes32 uuid, address sender, uint256 amount) external override {
-        // verify caller via engine
-        if (!CollarEngine(engine).isVaultManager(msg.sender)) {
-            revert("Only vaults can push liquidity");
-        }
-
-        if (amount == 0) {
-            revert("Cannot push 0 amount of liquidity");
-        }
-
-        // update the amount of total cash tokens for that vault
-        positions[uuid].totalRedeemableCash += amount;
-
-        // transfer liquidity
-        IERC20(cashAsset).transferFrom(sender, address(this), amount);
-
-        // Update the amount of locked liquidity & total liquidity available
-        lockedLiquidity += amount;
-        totalLiquidity += amount;
-    }
-    */
-
-    function finalizePosition(bytes32 uuid, address vaultManager, int256 positionNet) external override {
-        // verify caller via engine
-        if (msg.sender != engine) {
-            revert("Only engine can finalize token");
-        }
-
-        // set the pToken as redeemable
-        positions[uuid].redeemable = true;
     }
 
     // ----- INTERNAL FUNCTIONS ----- //
