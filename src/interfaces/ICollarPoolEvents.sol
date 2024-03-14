@@ -7,8 +7,8 @@
 
 pragma solidity ^0.8.18;
 
-import { ERC6909 } from "@solmate/tokens/ERC6909.sol";
+import { ICollarCommonErrors } from "./ICollarCommonErrors.sol";
 
-abstract contract IERC6909WithSupply is ERC6909 {
-    mapping(uint256 id => uint256) public totalTokenSupply;
+interface ICollarPoolEvents is ICollarCommonErrors {
+    
 }

@@ -17,3 +17,5 @@ lib/uni-v3-periphery-solc-v0.8:@uniswap/v3-core/contracts/=lib/uni-v3-core-solc-
 lib/uni-v3-core-solc-v0.8:@uniswap/v3-periphery/contracts/=lib/uni-v3-core-solc-v0.8/
 
 @solmate=lib/solmate/src/
+
+@erc6909/=lib/ERC6909-jtriley/

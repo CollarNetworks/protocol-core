@@ -7,11 +7,13 @@
 
 pragma solidity ^0.8.18;
 
-import { CollarVaultState } from "../libs/CollarLibs.sol";
-import { IERC6909WithSupply } from "../interfaces/IERC6909WithSupply.sol";
+import { ICollarVaultManagerEvents } from "./ICollarVaultManagerEvents.sol";
+import { ICollarVaultManagerErrors } from "./ICollarVaultManagerErrors.sol";
+import { ICollarVaultState } from "./ICollarVaultState.sol";
+import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-abstract contract ICollarVaultManager is IERC6909WithSupply, Ownable {
+abstract contract ICollarVaultManager is ICollarVaultManagerErrors, ICollarVaultManagerEvents, ERC6909TokenSupply, Ownable {
     // ----- IMMUTABLES ----- //
 
     address public immutable user;
@@ -21,7 +23,7 @@ abstract contract ICollarVaultManager is IERC6909WithSupply, Ownable {
 
     uint256 public vaultCount;
 
-    mapping(bytes32 uuid => CollarVaultState.Vault vault) internal vaultsByUUID;
+    mapping(bytes32 uuid => ICollarVaultState.Vault vault) internal vaultsByUUID;
     mapping(bytes32 => uint256) public vaultTokenCashSupply;
 
     // ----- CONSTRUCTOR ----- //
@@ -54,9 +56,9 @@ abstract contract ICollarVaultManager is IERC6909WithSupply, Ownable {
     /// @param collarOpts Data about the collar (expiry & ltv)
     /// @param liquidityOpts Data about the liquidity (pool address, callstrike & amount to lock there, putstrike)
     function openVault(
-        CollarVaultState.AssetSpecifiers calldata assets, // addresses & amounts of collateral & cash assets
-        CollarVaultState.CollarOpts calldata collarOpts, // expiry & ltv
-        CollarVaultState.LiquidityOpts calldata liquidityOpts // pool address, callstrike & amount to lock there, putstrike
+        ICollarVaultState.AssetSpecifiers calldata assets, // addresses & amounts of collateral & cash assets
+        ICollarVaultState.CollarOpts calldata collarOpts, // expiry & ltv
+        ICollarVaultState.LiquidityOpts calldata liquidityOpts // pool address, callstrike & amount to lock there, putstrike
     ) external virtual returns (bytes32 uuid);
 
     /// @notice Closes a vault - expiry must have passed

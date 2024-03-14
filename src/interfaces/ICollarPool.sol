@@ -7,11 +7,13 @@
 
 pragma solidity ^0.8.18;
 
-import { IERC6909WithSupply } from "../interfaces/IERC6909WithSupply.sol";
+import { ICollarPoolErrors } from "./ICollarPoolErrors.sol";
+import { ICollarPoolEvents } from "./ICollarPoolEvents.sol";
+import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-abstract contract ICollarPoolState {
+abstract contract ICollarPoolState is ICollarPoolErrors, ICollarPoolEvents {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
     using EnumerableSet for EnumerableSet.UintSet;
 

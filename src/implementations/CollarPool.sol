@@ -14,9 +14,9 @@ import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableM
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { CollarEngine } from "./CollarEngine.sol";
 import { CollarVaultManager } from "./CollarVaultManager.sol";
-import { IERC6909WithSupply } from "../../src/interfaces/IERC6909WithSupply.sol";
+import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 
-contract CollarPool is ICollarPool, Constants {
+contract CollarPool is ICollarPool, ERC6909TokenSupply, Constants {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
     using EnumerableSet for EnumerableSet.UintSet;
 
