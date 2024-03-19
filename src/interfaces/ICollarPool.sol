@@ -46,7 +46,7 @@ abstract contract ICollarPoolState is ICollarPoolErrors, ICollarPoolEvents {
     EnumerableSet.UintSet internal initializedSlotIndices;
 }
 
-abstract contract ICollarPool is IERC6909WithSupply, ICollarPoolState {
+abstract contract ICollarPool is ICollarPoolState {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
 
     // ----- IMMUTABLES ----- //

@@ -8,15 +8,16 @@
 pragma solidity ^0.8.18;
 
 import { ICollarPool } from "../interfaces/ICollarPool.sol";
-import { Constants, CollarVaultState } from "../libs/CollarLibs.sol";
+import { ICollarVaultState } from "../interfaces/ICollarVaultState.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { CollarEngine } from "./CollarEngine.sol";
 import { CollarVaultManager } from "./CollarVaultManager.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
+import { ICollarPoolErrors } from "../interfaces/ICollarPoolErrors.sol";
 
-contract CollarPool is ICollarPool, ERC6909TokenSupply, Constants {
+contract CollarPool is ICollarPool, ERC6909TokenSupply {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
     using EnumerableSet for EnumerableSet.UintSet;
 
@@ -67,7 +68,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply, Constants {
             // grab collateral asset value @ exact vault expiration time
 
             uint256 _totalTokenCashSupply = _position.withdrawable;
-            uint256 _totalTokenSupply = totalTokenSupply[uint256(uuid)];
+            uint256 _totalTokenSupply = totalSupply[uint256(uuid)];
 
             cashReceived = (_totalTokenCashSupply * amount) / _totalTokenSupply;
         } else {
@@ -109,7 +110,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply, Constants {
         uint256 liquidity = slots[slot].providers.get(msg.sender);
 
         if (liquidity < amount) {
-            revert("Not enough liquidity");
+            revert NotEnoughLiquidity();
         }
 
         freeLiquidity -= amount;
@@ -213,7 +214,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply, Constants {
         }
 
         // ensure that the user has enough tokens
-        if (IERC6909WithSupply(address(this)).balanceOf(msg.sender, uint256(uuid)) < amount) {
+        if (ERC6909TokenSupply(address(this)).balanceOf(msg.sender, uint256(uuid)) < amount) {
             revert("Not enough tokens");
         }
 
@@ -293,17 +294,13 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply, Constants {
         _allocate(destinationSlotID, provider, amount);
     }
 
-    function _mint(address account, uint256 id, uint256 amount) internal override {
-        // update total supply of token
-        totalTokenSupply[id] += amount;
-
-        super._mint(account, id, amount);
+    function _mint(address account, uint256 id, uint256 amount) internal {
+        balanceOf[account][id] += amount;
+        totalSupply[id] += amount;
     }
 
-    function _burn(address account, uint256 id, uint256 amount) internal override {
-        // update total supply of token
-        totalTokenSupply[id] -= amount;
-
-        super._burn(account, id, amount);
+    function _burn(address account, uint256 id, uint256 amount) internal {
+        balanceOf[account][id] -= amount;
+        totalSupply[id] -= amount;
     }
 }

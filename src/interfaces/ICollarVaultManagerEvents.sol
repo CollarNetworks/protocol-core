@@ -7,9 +7,7 @@
 
 pragma solidity ^0.8.18;
 
-import { ICollarCommonErrors } from "./ICollarCommonErrors.sol";
-
-interface ICollarVaultManagerEvents is ICollarCommonErrors {
+interface ICollarVaultManagerEvents {
     
 }
 

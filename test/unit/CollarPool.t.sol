@@ -15,8 +15,8 @@ import { MockEngine } from "../../test/utils/MockEngine.sol";
 import { CollarPool } from "../../src/implementations/CollarPool.sol";
 import { ICollarPoolState } from "../../src/interfaces/ICollarPool.sol";
 import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
-import { IERC6909WithSupply } from "../../src/interfaces/IERC6909WithSupply.sol";
 import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
+import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 
 contract CollarPoolTest is Test, ICollarPoolState {
     TestERC20 token1;
@@ -443,7 +443,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         startHoax(address(manager));
         pool.openPosition(keccak256(abi.encodePacked(user1)), 111, 100_000, block.timestamp + 100);
 
-        uint256 userTokens = IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+        uint256 userTokens = ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
 
         assertEq(userTokens, 100_000);
     }
@@ -483,7 +483,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         startHoax(address(manager));
         pool.openPosition(keccak256(abi.encodePacked(user1)), 111, 100_000, block.timestamp + 100);
 
-        IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
 
         startHoax(user1);
 
@@ -500,7 +500,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         startHoax(address(manager));
         pool.openPosition(keccak256(abi.encodePacked(user1)), 111, 100_000, block.timestamp + 100);
 
-        IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
 
         startHoax(user1);
 
@@ -518,7 +518,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         startHoax(address(manager));
         pool.openPosition(keccak256(abi.encodePacked(user1)), 111, 100_000, block.timestamp + 100);
 
-        IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
 
         startHoax(user1);
 
@@ -536,7 +536,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         startHoax(address(manager));
         pool.openPosition(keccak256(abi.encodePacked(user1)), 111, 100_000, block.timestamp + 100);
 
-        IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
 
         startHoax(user1);
 
@@ -554,7 +554,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         startHoax(address(manager));
         pool.openPosition(keccak256(abi.encodePacked(user1)), 111, 100_000, block.timestamp + 100);
 
-        IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
 
         startHoax(user1);
 
@@ -573,7 +573,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         startHoax(address(manager));
         pool.openPosition(keccak256(abi.encodePacked(user1)), 111, 100_000, block.timestamp + 100);
 
-        IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
     }
 
     function test_previewRedeem_InvalidAmount() public {
@@ -586,7 +586,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         startHoax(address(manager));
         pool.openPosition(keccak256(abi.encodePacked(user1)), 111, 100_000, block.timestamp + 100);
 
-        IERC6909WithSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
 
         startHoax(user1);
 

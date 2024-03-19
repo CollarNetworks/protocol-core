@@ -14,10 +14,10 @@ import { MockUniRouter } from "../utils/MockUniRouter.sol";
 import { MockEngine } from "../../test/utils/MockEngine.sol";
 import { CollarPool } from "../../src/implementations/CollarPool.sol";
 import { ICollarPoolState } from "../../src/interfaces/ICollarPool.sol";
-import { CollarVaultState } from "../../src/libs/CollarLibs.sol";
+import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 import { ICollarVaultManager } from "../../src/interfaces/ICollarVaultManager.sol";
 import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
-import { IERC6909WithSupply } from "../../src/interfaces/IERC6909WithSupply.sol";
+import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 
 contract CollarVaultManagerTest is Test {
     TestERC20 token1;
@@ -100,17 +100,17 @@ contract CollarVaultManagerTest is Test {
         hoax(user2);
         pool.addLiquidityToSlot(11_000, 25_000);
 
-        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+        ICollarVaultState.AssetSpecifiers memory assets =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
             collateralAmount: 100,
             cashAsset: address(token2),
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+       ICollarVaultState.LiquidityOpts memory liquidityOpts =
+           ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
@@ -123,7 +123,7 @@ contract CollarVaultManagerTest is Test {
 
         // grab the vault state & check all the values
 
-        CollarVaultState.Vault memory vault = abi.decode(vaultInfo, (CollarVaultState.Vault));
+       ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
 
         assertEq(vault.active, true);
         assertEq(vault.openedAt, 1);
@@ -151,38 +151,38 @@ contract CollarVaultManagerTest is Test {
         hoax(user2);
         pool.addLiquidityToSlot(11_000, 25_000);
 
-        CollarVaultState.AssetSpecifiers memory invalidCollatAddr = CollarVaultState.AssetSpecifiers({
+       ICollarVaultState.AssetSpecifiers memory invalidCollatAddr =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token2),
             collateralAmount: 100,
             cashAsset: address(token2),
             cashAmount: 100
         });
 
-        CollarVaultState.AssetSpecifiers memory invalidCollatAmount = CollarVaultState.AssetSpecifiers({
+       ICollarVaultState.AssetSpecifiers memory invalidCollatAmount =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
             collateralAmount: 0,
             cashAsset: address(token2),
             cashAmount: 100
         });
 
-        CollarVaultState.AssetSpecifiers memory invalidCashAmount = CollarVaultState.AssetSpecifiers({
+       ICollarVaultState.AssetSpecifiers memory invalidCashAmount =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
             collateralAmount: 100,
             cashAsset: address(token2),
             cashAmount: 0
         });
 
-        CollarVaultState.AssetSpecifiers memory invalidCashAddr = CollarVaultState.AssetSpecifiers({
+       ICollarVaultState.AssetSpecifiers memory invalidCashAddr =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
             collateralAmount: 100,
             cashAsset: address(token1),
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+       ICollarVaultState.LiquidityOpts memory liquidityOpts =
+           ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
@@ -208,17 +208,17 @@ contract CollarVaultManagerTest is Test {
         hoax(user2);
         pool.addLiquidityToSlot(11_000, 25_000);
 
-        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+       ICollarVaultState.AssetSpecifiers memory assets =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
             collateralAmount: 100,
             cashAsset: address(token2),
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory invalidlength = CollarVaultState.CollarOpts({ length: 99, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory invalidlength =ICollarVaultState.CollarOpts({ length: 99, ltv: 9000 });
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+       ICollarVaultState.LiquidityOpts memory liquidityOpts =
+           ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
@@ -235,23 +235,23 @@ contract CollarVaultManagerTest is Test {
         hoax(user2);
         pool.addLiquidityToSlot(11_000, 25_000);
 
-        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+       ICollarVaultState.AssetSpecifiers memory assets =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
             collateralAmount: 100,
             cashAsset: address(token2),
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
 
-        CollarVaultState.LiquidityOpts memory invalidPool =
-            CollarVaultState.LiquidityOpts({ liquidityPool: address(token1), putStrikeTick: 9000, callStrikeTick: 11_000 });
+       ICollarVaultState.LiquidityOpts memory invalidPool =
+           ICollarVaultState.LiquidityOpts({ liquidityPool: address(token1), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
-        CollarVaultState.LiquidityOpts memory invalidPutStrike =
-            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 900_000, callStrikeTick: 11_000 });
+       ICollarVaultState.LiquidityOpts memory invalidPutStrike =
+           ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 900_000, callStrikeTick: 11_000 });
 
-        CollarVaultState.LiquidityOpts memory invalidCallStrike =
-            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 110 });
+       ICollarVaultState.LiquidityOpts memory invalidCallStrike =
+           ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 110 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
@@ -267,17 +267,17 @@ contract CollarVaultManagerTest is Test {
         hoax(user2);
         pool.addLiquidityToSlot(11_000, 25_000);
 
-        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+       ICollarVaultState.AssetSpecifiers memory assets =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
             collateralAmount: 100,
             cashAsset: address(token2),
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+       ICollarVaultState.LiquidityOpts memory liquidityOpts =
+           ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
@@ -297,17 +297,17 @@ contract CollarVaultManagerTest is Test {
         hoax(user2);
         pool.addLiquidityToSlot(11_000, 25_000);
 
-        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+       ICollarVaultState.AssetSpecifiers memory assets =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
             collateralAmount: 100,
             cashAsset: address(token2),
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+       ICollarVaultState.LiquidityOpts memory liquidityOpts =
+           ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
@@ -323,7 +323,7 @@ contract CollarVaultManagerTest is Test {
         bytes memory vaultInfo = manager.vaultInfo(uuid);
 
         // check vault info
-        CollarVaultState.Vault memory vault = abi.decode(vaultInfo, (CollarVaultState.Vault));
+       ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
 
         assertEq(vault.active, false);
         assertEq(vault.openedAt, 1);
@@ -352,17 +352,17 @@ contract CollarVaultManagerTest is Test {
         hoax(user2);
         pool.addLiquidityToSlot(11_000, 25_000);
 
-        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+       ICollarVaultState.AssetSpecifiers memory assets =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
             collateralAmount: 100,
             cashAsset: address(token2),
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+       ICollarVaultState.LiquidityOpts memory liquidityOpts =
+           ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
@@ -378,7 +378,7 @@ contract CollarVaultManagerTest is Test {
         bytes memory vaultInfo = manager.vaultInfo(uuid);
 
         // check vault info
-        CollarVaultState.Vault memory vault = abi.decode(vaultInfo, (CollarVaultState.Vault));
+       ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
 
         assertEq(vault.active, false);
         assertEq(vault.openedAt, 1);
@@ -407,17 +407,17 @@ contract CollarVaultManagerTest is Test {
         hoax(user2);
         pool.addLiquidityToSlot(11_000, 25_000);
 
-        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+       ICollarVaultState.AssetSpecifiers memory assets =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
             collateralAmount: 100,
             cashAsset: address(token2),
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+       ICollarVaultState.LiquidityOpts memory liquidityOpts =
+           ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
@@ -433,7 +433,7 @@ contract CollarVaultManagerTest is Test {
         bytes memory vaultInfo = manager.vaultInfo(uuid);
 
         // check vault info
-        CollarVaultState.Vault memory vault = abi.decode(vaultInfo, (CollarVaultState.Vault));
+       ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
 
         assertEq(vault.active, false);
         assertEq(vault.openedAt, 1);
@@ -462,17 +462,17 @@ contract CollarVaultManagerTest is Test {
         hoax(user2);
         pool.addLiquidityToSlot(11_000, 25_000);
 
-        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+       ICollarVaultState.AssetSpecifiers memory assets =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
             collateralAmount: 100,
             cashAsset: address(token2),
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+       ICollarVaultState.LiquidityOpts memory liquidityOpts =
+           ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
@@ -501,17 +501,17 @@ contract CollarVaultManagerTest is Test {
         hoax(user2);
         pool.addLiquidityToSlot(11_000, 25_000);
 
-        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+       ICollarVaultState.AssetSpecifiers memory assets =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
             collateralAmount: 100,
             cashAsset: address(token2),
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+       ICollarVaultState.LiquidityOpts memory liquidityOpts =
+           ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token2), 1e18);
 
@@ -535,17 +535,17 @@ contract CollarVaultManagerTest is Test {
         hoax(user2);
         pool.addLiquidityToSlot(11_000, 25_000);
 
-        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+       ICollarVaultState.AssetSpecifiers memory assets =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
             collateralAmount: 100,
             cashAsset: address(token2),
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+       ICollarVaultState.LiquidityOpts memory liquidityOpts =
+           ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
@@ -553,7 +553,7 @@ contract CollarVaultManagerTest is Test {
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
         bytes memory vaultInfo = manager.vaultInfo(uuid);
-        CollarVaultState.Vault memory vault = abi.decode(vaultInfo, (CollarVaultState.Vault));
+        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
 
         assertEq(vault.lockedVaultCash, 10);
         assertEq(vault.lockedPoolCash, 10);
@@ -564,12 +564,12 @@ contract CollarVaultManagerTest is Test {
 
         manager.closeVault(uuid);
 
-        IERC6909WithSupply token = IERC6909WithSupply(manager);
+        ERC6909TokenSupply token = ERC6909TokenSupply(manager);
 
         vaultInfo = manager.vaultInfo(uuid);
-        vault = abi.decode(vaultInfo, (CollarVaultState.Vault));
+        vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
 
-        assertEq(token.totalTokenSupply(uint256(uuid)), 100);
+        assertEq(token.totalSupply(uint256(uuid)), 100);
         assertEq(token.balanceOf(user1, uint256(uuid)), 100);
 
         assertEq(manager.vaultTokenCashSupply(uuid), 20);
@@ -586,7 +586,7 @@ contract CollarVaultManagerTest is Test {
         assertEq(token2.balanceOf(address(manager)), 90);
 
         vaultInfo = manager.vaultInfo(uuid);
-        vault = abi.decode(vaultInfo, (CollarVaultState.Vault));
+        vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
 
         assertEq(vault.lockedVaultCash, 0);
         assertEq(vault.loanBalance, 90);
@@ -604,17 +604,17 @@ contract CollarVaultManagerTest is Test {
         hoax(user2);
         pool.addLiquidityToSlot(11_000, 25_000);
 
-        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+       ICollarVaultState.AssetSpecifiers memory assets =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
             collateralAmount: 100,
             cashAsset: address(token2),
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+       ICollarVaultState.LiquidityOpts memory liquidityOpts =
+           ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
@@ -622,7 +622,7 @@ contract CollarVaultManagerTest is Test {
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
         bytes memory vaultInfo = manager.vaultInfo(uuid);
-        CollarVaultState.Vault memory vault = abi.decode(vaultInfo, (CollarVaultState.Vault));
+       ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
 
         assertEq(vault.lockedVaultCash, 10);
         assertEq(vault.lockedPoolCash, 10);
@@ -645,17 +645,17 @@ contract CollarVaultManagerTest is Test {
         hoax(user2);
         pool.addLiquidityToSlot(11_000, 25_000);
 
-        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+       ICollarVaultState.AssetSpecifiers memory assets =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
             collateralAmount: 100,
             cashAsset: address(token2),
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+       ICollarVaultState.LiquidityOpts memory liquidityOpts =
+           ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
@@ -673,17 +673,17 @@ contract CollarVaultManagerTest is Test {
         hoax(user2);
         pool.addLiquidityToSlot(11_000, 25_000);
 
-        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+       ICollarVaultState.AssetSpecifiers memory assets =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
             collateralAmount: 100,
             cashAsset: address(token2),
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+       ICollarVaultState.LiquidityOpts memory liquidityOpts =
+           ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
@@ -691,7 +691,7 @@ contract CollarVaultManagerTest is Test {
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
         bytes memory vaultInfo = manager.vaultInfo(uuid);
-        CollarVaultState.Vault memory vault = abi.decode(vaultInfo, (CollarVaultState.Vault));
+       ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
 
         assertEq(vault.lockedVaultCash, 10);
         assertEq(vault.lockedPoolCash, 10);
@@ -702,12 +702,12 @@ contract CollarVaultManagerTest is Test {
 
         manager.closeVault(uuid);
 
-        IERC6909WithSupply token = IERC6909WithSupply(manager);
+        ERC6909TokenSupply token = ERC6909TokenSupply(manager);
 
         vaultInfo = manager.vaultInfo(uuid);
-        vault = abi.decode(vaultInfo, (CollarVaultState.Vault));
+        vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
 
-        assertEq(token.totalTokenSupply(uint256(uuid)), 100);
+        assertEq(token.totalSupply(uint256(uuid)), 100);
         assertEq(token.balanceOf(user1, uint256(uuid)), 100);
 
         assertEq(manager.vaultTokenCashSupply(uuid), 20);
@@ -738,17 +738,17 @@ contract CollarVaultManagerTest is Test {
         hoax(user2);
         pool.addLiquidityToSlot(11_000, 25_000);
 
-        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+       ICollarVaultState.AssetSpecifiers memory assets =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
             collateralAmount: 100,
             cashAsset: address(token2),
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+       ICollarVaultState.LiquidityOpts memory liquidityOpts =
+           ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
@@ -767,17 +767,17 @@ contract CollarVaultManagerTest is Test {
         hoax(user2);
         pool.addLiquidityToSlot(11_000, 25_000);
 
-        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+       ICollarVaultState.AssetSpecifiers memory assets =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
             collateralAmount: 100,
             cashAsset: address(token2),
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+       ICollarVaultState.LiquidityOpts memory liquidityOpts =
+           ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
@@ -795,17 +795,17 @@ contract CollarVaultManagerTest is Test {
         hoax(user2);
         pool.addLiquidityToSlot(11_000, 25_000);
 
-        CollarVaultState.AssetSpecifiers memory assets = CollarVaultState.AssetSpecifiers({
+       ICollarVaultState.AssetSpecifiers memory assets =ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(token1),
             collateralAmount: 100,
             cashAsset: address(token2),
             cashAmount: 100
         });
 
-        CollarVaultState.CollarOpts memory collarOpts = CollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
 
-        CollarVaultState.LiquidityOpts memory liquidityOpts =
-            CollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+       ICollarVaultState.LiquidityOpts memory liquidityOpts =
+           ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
