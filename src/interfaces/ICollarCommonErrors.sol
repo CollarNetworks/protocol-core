@@ -12,4 +12,6 @@ interface ICollarCommonErrors {
     error NotCollarVaultManager(address caller);
     error NotCollarPool(address caller);
     error NotCollarEngine(address caller);
+
+    error AmountCannotBeZero();
 }

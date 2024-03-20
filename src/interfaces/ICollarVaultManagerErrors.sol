@@ -10,18 +10,27 @@ pragma solidity ^0.8.18;
 import { ICollarCommonErrors } from "./ICollarCommonErrors.sol";
 
 interface ICollarVaultManagerErrors is ICollarCommonErrors {
-    
+    /// @notice Indicates that, upon attempting to open a vault, a trade was not able to be executed
+    error TradeNotViable();
+
+    /// @notice Indicates that the vault specified does not exist
+    error NonExistentVault();
+
+    /// @notice Indicates that someone other than the authorized user has attempted access
+    error OnlyUser();
+
+    /// @notice Indicates that the vault is inactive
+    error InactiveVault();
+
 }
 
 /*
 
 /// @notice Errors for the vault manager
 library CollarVaultManagerErrors {
-    /// @notice Indicates that the vault specified does not exist
-    error NonExistentVault(bytes32 vaultUUID);
+    
 
-    /// @notice Indicates that the vault is inactive
-    error InactiveVault(bytes32 vaultUUID);
+
 
     /// @notice Indicates that the vault is active
     error NotYetExpired(bytes32 vaultUUID);

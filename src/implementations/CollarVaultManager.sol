@@ -14,6 +14,7 @@ import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 import { CollarEngine } from "../implementations/CollarEngine.sol";
 import { TickCalculations } from "../libs/TickCalculations.sol";
 import { CollarPool } from "./CollarPool.sol";
+import { ICollarVaultManagerErrors } from "../interfaces/ICollarVaultManagerErrors.sol";
 
 contract CollarVaultManager is ICollarVaultManager {
     // ----- CONSTRUCTOR ----- //
@@ -28,16 +29,15 @@ contract CollarVaultManager is ICollarVaultManager {
 
     function vaultInfo(bytes32 uuid) external view override returns (bytes memory) {
         if (vaultsByUUID[uuid].openedAt == 0) {
-            revert("Vault does not exist");
+            revert NonExistentVault();
         }
 
-        bytes memory data = abi.encode(vaultsByUUID[uuid]);
-        return data;
+        return abi.encode(vaultsByUUID[uuid]);
     }
 
     function previewRedeem(bytes32 uuid, uint256 amount) public view override returns (uint256 cashReceived) {
-        if (amount == 0) revert("Amount cannot be 0");
-        if (vaultsByUUID[uuid].openedAt == 0) revert("Vault does not exist");
+        if (amount == 0) revert AmountCannotBeZero();
+        if (vaultsByUUID[uuid].openedAt == 0) revert NonExistentVault();
 
         bool finalized = !vaultsByUUID[uuid].active;
 
@@ -75,7 +75,7 @@ contract CollarVaultManager is ICollarVaultManager {
     ) external override returns (bytes32 uuid) {
         // only user is allowed to open vaults
         if (msg.sender != user) {
-            revert("Only user can open vaults");
+            revert OnlyUser();
         }
 
         // validate parameter data
@@ -146,12 +146,12 @@ contract CollarVaultManager is ICollarVaultManager {
     function closeVault(bytes32 uuid) external override {
         // ensure vault exists
         if (vaultsByUUID[uuid].openedAt == 0) {
-            revert("Vault does not exist");
+            revert NonExistentVault();
         }
 
         // ensure vault is active (not finalized) and finalizable (past length)
         if (!vaultsByUUID[uuid].active || vaultsByUUID[uuid].expiresAt > block.timestamp) {
-            revert("Vault not active or not finalizable");
+            revert InactiveVault();
         }
 
         // cache vault storage pointer
@@ -249,7 +249,7 @@ contract CollarVaultManager is ICollarVaultManager {
     function redeem(bytes32 uuid, uint256 amount) external override {
         // ensure vault exists
         if (vaultsByUUID[uuid].openedAt == 0) {
-            revert("Vault does not exist");
+            revert NonExistentVault();
         }
 
         // ensure vault is finalized
@@ -354,7 +354,7 @@ contract CollarVaultManager is ICollarVaultManager {
 
         // revert if minimum not met
         if (cashReceived < assets.cashAmount) {
-            revert("Insufficient cash received");
+            revert TradeNotViable();
         }
     }
 
