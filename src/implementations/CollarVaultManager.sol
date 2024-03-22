@@ -90,7 +90,8 @@ contract CollarVaultManager is ICollarVaultManager {
         // set Basic Vault Info
         vaultsByUUID[uuid].active = true;
         vaultsByUUID[uuid].openedAt = block.timestamp;
-        vaultsByUUID[uuid].expiresAt = block.timestamp + collarOpts.length;
+        vaultsByUUID[uuid].expiresAt = block.timestamp + collarOpts.duration;
+        vaultsByUUID[uuid].duration = collarOpts.duration;
         vaultsByUUID[uuid].ltv = collarOpts.ltv;
 
         // set Asset Specific Info
@@ -113,8 +114,9 @@ contract CollarVaultManager is ICollarVaultManager {
         uint256 poolLiquidityToLock = ((callStrikePercentBps - 10_000) * cashReceivedFromSwap * 1e18)
             / (10_000) / 1e18;
 
-        // grab the current collateral price so that we can record it
-        uint256 initialCollateralPrice = CollarEngine(engine).getCurrentAssetPrice(assetData.collateralAsset);
+        // calculate the initial collateral price from the swap execution fill
+        // this is stored as "unit price times 1e18"
+        uint256 initialCollateralPrice = (assetData.collateralAmount * 1e18) / cashReceivedFromSwap;
 
         // set Liquidity Pool Stuff
         vaultsByUUID[uuid].liquidityPool = liquidityOpts.liquidityPool;
@@ -135,7 +137,7 @@ contract CollarVaultManager is ICollarVaultManager {
             uuid, liquidityOpts.callStrikeTick, poolLiquidityToLock, vaultsByUUID[uuid].expiresAt
         );
 
-        // set Vault Specific stuff
+        // set vault specific stuff
         vaultsByUUID[uuid].loanBalance = (collarOpts.ltv * cashReceivedFromSwap) / 10_000;
         vaultsByUUID[uuid].lockedVaultCash = ((10_000 - collarOpts.ltv) * cashReceivedFromSwap) / 10_000;
 
@@ -306,23 +308,21 @@ contract CollarVaultManager is ICollarVaultManager {
     }
 
     function _validateCollarOpts(ICollarVaultState.CollarOpts calldata collarOpts) internal {
-        // verify length is in the future
-        if (collarOpts.length < block.timestamp) {
-            revert("length must be in the future");
+        // verify length is valid per engine
+        if (!CollarEngine(engine).isValidCollarDuration(collarOpts.duration)) {
+            revert InvalidDuration();
         }
 
-        // verify length is exactly within a standard set of time blocks via the engine
-        if (!CollarEngine(engine).isValidCollarLength(collarOpts.length)) {
-            revert("Invalid length");
+        // verify ltv is valid
+        if (!CollarEngine(engine).isValidLTV(collarOpts.ltv)) {
+            revert InvalidLTV();
         }
-
-        // verify ltv is within engine-allowed bounds
     }
 
     function _validateLiquidityOpts(ICollarVaultState.LiquidityOpts calldata liquidityOpts) internal {
         // verify liquidity pool is a valid collar liquidity pool
         if (!CollarEngine(engine).isSupportedLiquidityPool(liquidityOpts.liquidityPool)) {
-            revert("Unsupported liquidity pool");
+            revert InvalidPool();
         }
     }
 

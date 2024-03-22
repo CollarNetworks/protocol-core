@@ -13,14 +13,20 @@ interface ICollarVaultManagerErrors is ICollarCommonErrors {
     /// @notice Indicates that, upon attempting to open a vault, a trade was not able to be executed
     error TradeNotViable();
 
+    /// @notice Indicates that the supplied liquidity pool is not valid per the Engine
+    error InvalidPool();
+
     /// @notice Indicates that the vault specified does not exist
     error NonExistentVault();
 
-    /// @notice Indicates that someone other than the authorized user has attempted access
-    error OnlyUser();
-
     /// @notice Indicates that the vault is inactive
     error InactiveVault();
+
+    /// @notice Indicates that the LTV parameter provided is not valid per the Engine
+    error InvalidLTV();
+
+    /// @notice Indicates that someone other than the authorized user has attempted access
+    error OnlyUser();
 
 }
 

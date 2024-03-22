@@ -16,58 +16,71 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     using EnumerableSet for EnumerableSet.UintSet;
 
     // -- modifiers --
-    modifier ensureValidVaultManager(address vaultManager) {
+
+    // vaults
+
+    modifier ensureVaultManagerIsValid(address vaultManager) {
         if (vaultManagers.contains(vaultManager) == false) revert InvalidVaultManager(vaultManager);
         _;
     }
 
-    modifier ensureValidLiquidityPool(address pool) {
+    modifier ensureLiquidityPoolIsValid(address pool) {
         if (!collarLiquidityPools.contains(pool)) revert InvalidLiquidityPool(pool);
         _;
     }
 
-    modifier ensureNotValidLiquidityPool(address pool) {
+    // liquidity pools
+
+    modifier ensureLiquidityPoolIsNotValid(address pool) {
         if (collarLiquidityPools.contains(pool)) revert LiquidityPoolAlreadyAdded(pool);
         _;
     }
 
-    modifier ensureValidCollateralAsset(address asset) {
+    // collateral assets
+
+    modifier ensureCollateralAssetIsValid(address asset) {
         if (!supportedCollateralAssets.contains(asset)) revert CollateralAssetNotSupported(asset);
         _;
     }
 
-    modifier ensureValidCashAsset(address asset) {
-        if (!supportedCashAssets.contains(asset)) revert CashAssetNotSupported(asset);
-        _;
-    }
-
-    modifier ensureValidAsset(address asset) {
-        if (!supportedCashAssets.contains(asset) && !supportedCollateralAssets.contains(asset)) revert AssetNotSupported(asset);
-        _;
-    }
-
-    modifier ensureNotValidCollateralAsset(address asset) {
+    modifier ensureCollateralAssetIsNotValid(address asset) {
         if (supportedCollateralAssets.contains(asset)) revert CollateralAssetAlreadySupported(asset);
         _;
     }
 
-    modifier ensureNotValidCashAsset(address asset) {
+    // cash assets
+
+    modifier ensureCashAssetIsValid(address asset) {
+        if (!supportedCashAssets.contains(asset)) revert CashAssetNotSupported(asset);
+        _;
+    }
+
+    modifier ensureCashAssetIsNotValid(address asset) {
         if (supportedCashAssets.contains(asset)) revert CashAssetAlreadySupported(asset);
         _;
     }
 
-    modifier ensureNotValidAsset(address asset) {
-        if (supportedCollateralAssets.contains(asset) || supportedCashAssets.contains(asset)) revert AssetAlreadySupported(asset);
+    // collar durations
+
+    modifier ensureDurationIsValid(uint256 length) {
+        if (!validCollarDurations.contains(length)) revert CollarLengthNotSupported(length);
         _;
     }
 
-    modifier ensureSupportedCollarLength(uint256 length) {
-        if (!validCollarLengths.contains(length)) revert CollarLengthNotSupported(length);
+    modifier ensureDurationIsNotValid(uint256 length) {
+        if (validCollarDurations.contains(length)) revert CollarLengthNotSupported(length);
         _;
     }
 
-    modifier ensureNotSupportedCollarLength(uint256 length) {
-        if (validCollarLengths.contains(length)) revert CollarLengthNotSupported(length);
+    // ltvs
+
+    modifier ensureLTVIsValid(uint256 ltv) {
+        if (!validLTVs.contains(ltv)) revert LTVNotSupported(ltv);
+        _;
+    }
+
+    modifier ensureLTVIsNotValid(uint256 ltv) {
+        if (validLTVs.contains(ltv)) revert LTVAlreadySupported(ltv);
         _;
     }
 
@@ -88,7 +101,8 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     EnumerableSet.AddressSet internal collarLiquidityPools;
     EnumerableSet.AddressSet internal supportedCollateralAssets;
     EnumerableSet.AddressSet internal supportedCashAssets;
-    EnumerableSet.UintSet internal validCollarLengths;
+    EnumerableSet.UintSet internal validLTVs;
+    EnumerableSet.UintSet internal validCollarDurations;
 
     constructor(address _dexRouter) {
         dexRouter = _dexRouter;
@@ -100,6 +114,8 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     /// @dev This function is called by the user when they want to create a new vault if they haven't done so in the past
     function createVaultManager() external virtual returns (address);
 
+    // liquidity pools
+
     /// @notice Adds a liquidity pool to the list of supported pools
     /// @param pool The address of the pool to add
     function addLiquidityPool(address pool) external virtual;
@@ -107,6 +123,8 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     /// @notice Removes a liquidity pool from the list of supported pools
     /// @param pool The address of the pool to remove
     function removeLiquidityPool(address pool) external virtual;
+
+    // collateral assets
 
     /// @notice Adds an asset to the list of supported collateral assets
     /// @param asset The address of the asset to add
@@ -116,6 +134,8 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     /// @param asset The address of the asset to remove
     function removeSupportedCollateralAsset(address asset) external virtual;
 
+    // cash assets
+
     /// @notice Adds an asset to the list of supported cash assets
     /// @param asset The address of the asset to add
     function addSupportedCashAsset(address asset) external virtual;
@@ -124,15 +144,29 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     /// @param asset The address of the asset to remove
     function removeSupportedCashAsset(address asset) external virtual;
 
-    /// @notice Adds a collar length to the list of supported collar lengths
-    /// @param length The length to add, in seconds
-    function addCollarLength(uint256 length) external virtual;
+    // collar lengths
 
-    /// @notice Removes a collar length from the list of supported collar lengths
-    /// @param length The length to remove, in seconds
-    function removeCollarLength(uint256 length) external virtual;
+    /// @notice Adds a collar length to the list of supported collar lengths
+    /// @param duration The length to add, in seconds
+    function addCollarDuration(uint256 duration) external virtual;
+
+    /// @notice Removes a collar duration from the list of supported collar lengths
+    /// @param duration The length to remove, in seconds
+    function removeCollarDuration(uint256 duration) external virtual;
+
+    // ltvs
+
+    /// @notice Adds an LTV to the list of supported LTVs
+    /// @param ltv The LTV to add, in basis points
+    function addLTV(uint256 ltv) external virtual;
+
+    /// @notice Removes an LTV from the list of supported LTVs
+    /// @param ltv The LTV to remove, in basis points
+    function removeLTV(uint256 ltv) external virtual;
 
     // ----- view functions
+
+    // vault managers
 
     /// @notice Checks if an address is a vault manager
     /// @param vaultManager The address to check
@@ -145,14 +179,7 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     /// @param index The index of the vault manager to get the address of
     function getVaultManager(uint256 index) external view virtual returns (address);
 
-    /// @notice Gets the price of a particular asset at a particular timestamp
-    /// @param asset The address of the asset to get the price of
-    /// @param timestamp The timestamp to get the price at
-    function getHistoricalAssetPrice(address asset, uint256 timestamp) external view virtual returns (uint256);
-
-    /// @notice Gets the current price of 1e18 of a particular asset
-    /// @param asset The address of the asset to get the price of
-    function getCurrentAssetPrice(address asset) external view virtual returns (uint256);
+    // cash assets
 
     /// @notice Checks if an asset is supported as a cash asset in the engine
     /// @param asset The address of the asset to check
@@ -165,6 +192,8 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     /// @param index The index of the asset to get the address of
     function getSupportedCashAsset(uint256 index) external view virtual returns (address);
 
+    // collateral assets
+
     /// @notice Checks if an asset is supported as a collateral asset in the engine
     /// @param asset The address of the asset to check
     function isSupportedCollateralAsset(address asset) external view virtual returns (bool);
@@ -174,6 +203,8 @@ abstract contract ICollarEngine is ICollarEngineErrors {
 
     /// @notice Gets the address of a supported collateral asset at a particular index
     function getSupportedCollateralAsset(uint256 index) external view virtual returns (address);
+
+    // liquidity pools
 
     /// @notice Checks if a liquidity pool is supported in the engine
     /// @param pool The address of the pool to check
@@ -186,14 +217,40 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     /// @param index The index of the pool to get the address of
     function getSupportedLiquidityPool(uint256 index) external view virtual returns (address);
 
-    /// @notice Checks to see if a particular collar length is supported
-    /// @param length The length to check
-    function isValidCollarLength(uint256 length) external view virtual returns (bool);
+    // collar durations
+
+    /// @notice Checks to see if a particular collar duration is supported
+    /// @param duration The duration to check
+    function isValidCollarDuration(uint256 duration) external view virtual returns (bool);
 
     /// @notice Gets the number of supported collar lengths in the engine
-    function validCollarLengthsLength() external view virtual returns (uint256);
+    function validCollarDurationsLength() external view virtual returns (uint256);
 
-    /// @notice Gets the collar length at a particular index
-    /// @param index The index of the collar length to get
-    function getValidCollarLength(uint256 index) external view virtual returns (uint256);
+    /// @notice Gets the collar duration at a particular index
+    /// @param index The index of the collar duration to get
+    function getValidCollarDuration(uint256 index) external view virtual returns (uint256);
+
+    // ltvs
+
+    /// @notice Checks to see if a particular LTV is supported
+    /// @param ltv The LTV to check
+    function isValidLTV(uint256 ltv) external view virtual returns (bool);
+
+    /// @notice Gets the number of supported LTVs in the engine
+    function validLTVsLength() external view virtual returns (uint256);
+
+    /// @notice Gets the LTV at a particular index
+    /// @param index The index of the LTV to get
+    function getValidLTV(uint256 index) external view virtual returns (uint256);
+
+    // asset pricing
+
+    /// @notice Gets the price of a particular asset at a particular timestamp
+    /// @param asset The address of the asset to get the price of
+    /// @param timestamp The timestamp to get the price at
+    function getHistoricalAssetPrice(address asset, uint256 timestamp) external view virtual returns (uint256);
+
+    /// @notice Gets the current price of 1e18 of a particular asset
+    /// @param asset The address of the asset to get the price of
+    function getCurrentAssetPrice(address asset) external view virtual returns (uint256);
 }

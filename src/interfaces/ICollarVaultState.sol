@@ -22,10 +22,10 @@ interface ICollarVaultState {
     }
 
     /// @notice This struct contains information about the collar options for each vault
-    /// @param length The length of the options express as a unix timestamp
-    /// @param ltv The maximjum loan-to-value ratio of loans taken out of this vault, expressed as bps of the collateral value
+    /// @param duration The length of the vault, expressed as a unix timestamp
+    /// @param ltv The maximum loan-to-value ratio of loans taken out of this vault, expressed as bps of the collateral value
     struct CollarOpts {
-        uint256 length;
+        uint256 duration;
         uint256 ltv;
     }
 
@@ -57,14 +57,11 @@ interface ICollarVaultState {
     /// @param loanBalance amount of cash that is currently unlocked (withdrawable); this is the only state var that changes during a vault's lifetime
     /// @param lockedVaultCash The amount of cash that is currently locked (unwithdrawable)
     struct Vault {
-        // todo: denote which of these values are supplied by user on vault creation
-        // and which of them are derived values; we must carefully verify supplied values,
-        // but derived values can be naively trusted
-
         /* ----- Basic Vault Info ----- */
         bool active;
         uint256 openedAt;
         uint256 expiresAt;
+        uint256 duration;
         uint256 ltv;
         /* ---- Asset Specific Info ----- */
         address collateralAsset;

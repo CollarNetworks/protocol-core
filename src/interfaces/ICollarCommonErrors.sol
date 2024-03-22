@@ -13,5 +13,9 @@ interface ICollarCommonErrors {
     error NotCollarPool(address caller);
     error NotCollarEngine(address caller);
 
+    // parameter errors shared across contracts
+    error InvalidDuration();
+
+    // generic arg errors
     error AmountCannotBeZero();
 }

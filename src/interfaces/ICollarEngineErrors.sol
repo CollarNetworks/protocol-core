@@ -23,4 +23,6 @@ abstract contract ICollarEngineErrors {
     error AssetNotSupported(address asset);
     error AssetAlreadySupported(address asset);
     error InvalidVaultManager(address vaultManager);
+    error LTVNotSupported(uint256 ltv);
+    error LTVAlreadySupported(uint256 ltv);
 }

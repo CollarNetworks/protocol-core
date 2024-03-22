@@ -23,9 +23,9 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
     // ----- CONSTRUCTOR ----- //
 
-    constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset, address _collateralAsset)
-        ICollarPool(_engine, _tickScaleFactor, _cashAsset, _collateralAsset)
-    { }
+    constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset, address _collateralAsset, uint256 _duration, uint256 _ltv)
+        ICollarPool(_engine, _tickScaleFactor, _cashAsset, _collateralAsset, _duration, _ltv);
+    }
 
     // ----- VIEW FUNCTIONS ----- //
 
@@ -185,8 +185,8 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
     function finalizePosition(bytes32 uuid, address vaultManager, int256 positionNet) external override {
         // verify caller via engine
-        if (msg.sender != engine) {
-            revert("Only engine can finalize token");
+        if (!CollarEngine(engine).isVaultManager(msg.sender)) {
+            revert NotCollarVaultManager(msg.sender);
         }
 
         // either case, we need to set the withdrawable amount to principle + positionNet

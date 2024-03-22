@@ -34,39 +34,59 @@ contract CollarEngine is ICollarEngine, Ownable {
         return vaultManager;
     }
 
-    function addLiquidityPool(address pool) external override onlyOwner ensureNotValidLiquidityPool(pool) {
+    // liquidity pools
+
+    function addLiquidityPool(address pool) external override onlyOwner ensureLiquidityPoolIsNotValid(pool) {
         collarLiquidityPools.add(pool);
     }
 
-    function removeLiquidityPool(address pool) external override onlyOwner ensureValidLiquidityPool(pool) {
+    function removeLiquidityPool(address pool) external override onlyOwner ensureLiquidityPoolIsValid(pool) {
         collarLiquidityPools.remove(pool);
     }
 
-    function addSupportedCollateralAsset(address asset) external override onlyOwner ensureNotValidCollateralAsset(asset) {
+    // collateral assets
+
+    function addSupportedCollateralAsset(address asset) external override onlyOwner ensureCollateralAssetIsNotValid(asset) {
         supportedCollateralAssets.add(asset);
     }
 
-    function removeSupportedCollateralAsset(address asset) external override onlyOwner ensureValidCollateralAsset(asset) {
+    function removeSupportedCollateralAsset(address asset) external override onlyOwner ensureCollateralAssetIsValid(asset) {
         supportedCollateralAssets.remove(asset);
     }
 
-    function addSupportedCashAsset(address asset) external override onlyOwner ensureNotValidCashAsset(asset) {
+    // cash assets
+
+    function addSupportedCashAsset(address asset) external override onlyOwner ensureCashAssetIsNotValid(asset) {
         supportedCashAssets.add(asset);
     }
 
-    function removeSupportedCashAsset(address asset) external override onlyOwner ensureValidCashAsset(asset) {
+    function removeSupportedCashAsset(address asset) external override onlyOwner ensureCashAssetIsValid(asset) {
         supportedCashAssets.remove(asset);
     }
 
-    function addCollarLength(uint256 length) external override onlyOwner ensureNotSupportedCollarLength(length) {
-        validCollarLengths.add(length);
+    // durations
+
+    function addCollarDuration(uint256 duration) external override onlyOwner ensureDurationIsNotValid(duration) {
+        validCollarDurations.add(duration);
     }
 
-    function removeCollarLength(uint256 length) external override onlyOwner ensureSupportedCollarLength(length) {
-        validCollarLengths.remove(length);
+    function removeCollarDuration(uint256 duration) external override onlyOwner ensureDurationIsValid(duration) {
+        validCollarDurations.remove(duration);
+    }
+
+    // ltvs
+
+    function addLTV(uint256 ltv) external override onlyOwner ensureLTVIsNotValid(ltv) {
+        validLTVs.add(ltv);
+    }
+
+    function removeLTV(uint256 ltv) external override onlyOwner ensureLTVIsValid(ltv) {
+        validLTVs.remove(ltv);
     }
 
     // ----- view functions (see ICollarEngine for documentation) -----
+
+    // vault managers
 
     function isVaultManager(address vaultManager) external view override returns (bool) {
         return vaultManagers.contains(vaultManager);
@@ -80,13 +100,7 @@ contract CollarEngine is ICollarEngine, Ownable {
         return vaultManagers.at(index);
     }
 
-    function getHistoricalAssetPrice(address, /*asset*/ uint256 /*timestamp*/ ) external view virtual override returns (uint256) {
-        revert("Method not yet implemented");
-    }
-
-    function getCurrentAssetPrice(address asset) external view virtual override ensureValidAsset(asset) returns (uint256) {
-        revert("Method not yet implemented");
-    }
+    // cash assets
 
     function isSupportedCashAsset(address asset) external view override returns (bool) {
         return supportedCashAssets.contains(asset);
@@ -100,6 +114,8 @@ contract CollarEngine is ICollarEngine, Ownable {
         return supportedCashAssets.at(index);
     }
 
+    // collateral assets
+
     function isSupportedCollateralAsset(address asset) external view override returns (bool) {
         return supportedCollateralAssets.contains(asset);
     }
@@ -111,6 +127,8 @@ contract CollarEngine is ICollarEngine, Ownable {
     function getSupportedCollateralAsset(uint256 index) external view override returns (address) {
         return supportedCollateralAssets.at(index);
     }
+
+    // liquidity pools
 
     function isSupportedLiquidityPool(address pool) external view override returns (bool) {
         return collarLiquidityPools.contains(pool);
@@ -124,15 +142,41 @@ contract CollarEngine is ICollarEngine, Ownable {
         return collarLiquidityPools.at(index);
     }
 
-    function isValidCollarLength(uint256 length) external view override returns (bool) {
-        return validCollarLengths.contains(length);
+    // collar durations
+
+    function isValidCollarDuration(uint256 duration) external view override returns (bool) {
+        return validCollarDurations.contains(duration);
     }
 
-    function validCollarLengthsLength() external view override returns (uint256) {
-        return validCollarLengths.length();
+    function validCollarDurationsLength() external view override returns (uint256) {
+        return validCollarDurations.length();
     }
 
-    function getValidCollarLength(uint256 index) external view override returns (uint256) {
-        return validCollarLengths.at(index);
+    function getValidCollarDuration(uint256 index) external view override returns (uint256) {
+        return validCollarDurations.at(index);
+    }
+
+    // ltvs
+
+    function isValidLTV(uint256 ltv) external view override returns (bool) {
+        return validLTVs.contains(ltv);
+    }
+
+    function validLTVsLength() external view override returns (uint256) {
+        return validLTVs.length();
+    }
+
+    function getValidLTV(uint256 index) external view override returns (uint256) {
+        return validLTVs.at(index);
+    }
+
+    // asset pricing
+
+    function getHistoricalAssetPrice(address, /*asset*/ uint256 /*timestamp*/ ) external view virtual override returns (uint256) {
+        revert("Method not yet implemented");
+    }
+
+    function getCurrentAssetPrice(address asset) external view virtual override returns (uint256) {
+        revert("Method not yet implemented");
     }
 }

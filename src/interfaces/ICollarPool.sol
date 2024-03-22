@@ -67,6 +67,12 @@ abstract contract ICollarPool is ICollarPoolState {
     /// @notice The address of the collateral asset is set upon pool creation (and verified with the engine as allowed)
     address public immutable collateralAsset;
 
+    /// @notice The duration of collars to be opened against this pool
+    uint256 public immutable duration;
+
+    /// @notice The LTV of collars to be opened against this pool
+    uint256 public immutable ltv;
+
     // ----- STATE VARIABLES ----- //
 
     /// @notice The total amount of liquidity in the pool
@@ -80,11 +86,13 @@ abstract contract ICollarPool is ICollarPoolState {
 
     // ----- CONSTRUCTOR ----- //
 
-    constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset, address _collateraLAsset) {
+    constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset, address _collateraLAsset, uint256 _duration, uint256 _ltv) {
         tickScaleFactor = _tickScaleFactor;
         engine = _engine;
         cashAsset = _cashAsset;
         collateralAsset = _collateraLAsset;
+        duration = _duration;
+        ltv = _ltv;
     }
 
     // ----- VIEW FUNCTIONS ----- //
