@@ -9,27 +9,73 @@ pragma solidity ^0.8.18;
 
 import { ICollarVaultManager } from "../interfaces/ICollarVaultManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { Constants, CollarVaultState } from "../libs/CollarLibs.sol";
+import { ICollarVaultState } from "../interfaces/ICollarVaultState.sol";
 import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 import { CollarEngine } from "../implementations/CollarEngine.sol";
 import { TickCalculations } from "../libs/TickCalculations.sol";
 import { CollarPool } from "./CollarPool.sol";
+import { ICollarVaultManagerErrors } from "../interfaces/ICollarVaultManagerErrors.sol";
 
-contract CollarVaultManager is ICollarVaultManager, Constants {
+contract CollarVaultManager is ICollarVaultManager {
+    // ----- CONSTRUCTOR ----- //
+
     constructor(address _engine, address _owner) ICollarVaultManager(_engine, _owner) { }
 
-    function isVaultExpired(bytes32 uuid) external view returns (bool) {
+    // ----- VIEW FUNCTIONS ----- //
+
+    function isVaultExpired(bytes32 uuid) external view override returns (bool) {
         return vaultsByUUID[uuid].expiresAt < block.timestamp;
     }
 
+    function vaultInfo(bytes32 uuid) external view override returns (bytes memory) {
+        if (vaultsByUUID[uuid].openedAt == 0) {
+            revert NonExistentVault();
+        }
+
+        return abi.encode(vaultsByUUID[uuid]);
+    }
+
+    function previewRedeem(bytes32 uuid, uint256 amount) public view override returns (uint256 cashReceived) {
+        if (amount == 0) revert AmountCannotBeZero();
+        if (vaultsByUUID[uuid].openedAt == 0) revert NonExistentVault();
+
+        bool finalized = !vaultsByUUID[uuid].active;
+
+        if (finalized) {
+            // if finalized, calculate final redeem value
+            // grab collateral asset value @ exact vault expiration time
+
+            uint256 totalTokenCashSupply = vaultTokenCashSupply[uuid];
+            uint256 totalTokenSupplyLocal = totalSupply[uint256(uuid)];
+
+            if (totalTokenCashSupply == 0) {
+                revert("Vault has no redeemable cash");
+            }
+
+            if (totalTokenSupplyLocal == 0) {
+                revert("Vault has no tokens");
+            }
+
+            cashReceived = (totalTokenCashSupply * amount) / totalTokenSupplyLocal;
+        } else {
+            // calculate redeem value based on current price of asset
+
+            uint256 currentCollateralPrice = CollarEngine(engine).getCurrentAssetPrice(vaultsByUUID[uuid].collateralAsset);
+
+            revert("Not implemented");
+        }
+    }
+
+    // ----- STATE CHANGING FUNCTIONS ----- //
+
     function openVault(
-        CollarVaultState.AssetSpecifiers calldata assetData, // addresses & amounts of collateral & cash assets
-        CollarVaultState.CollarOpts calldata collarOpts, // length & ltv
-        CollarVaultState.LiquidityOpts calldata liquidityOpts // pool address, callstrike & amount to lock there, putstrike
+        ICollarVaultState.AssetSpecifiers calldata assetData, // addresses & amounts of collateral & cash assets
+        ICollarVaultState.CollarOpts calldata collarOpts, // length & ltv
+        ICollarVaultState.LiquidityOpts calldata liquidityOpts // pool address, callstrike & amount to lock there, putstrike
     ) external override returns (bytes32 uuid) {
         // only user is allowed to open vaults
         if (msg.sender != user) {
-            revert("Only user can open vaults");
+            revert OnlyUser();
         }
 
         // validate parameter data
@@ -44,7 +90,8 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
         // set Basic Vault Info
         vaultsByUUID[uuid].active = true;
         vaultsByUUID[uuid].openedAt = block.timestamp;
-        vaultsByUUID[uuid].expiresAt = block.timestamp + collarOpts.length;
+        vaultsByUUID[uuid].expiresAt = block.timestamp + collarOpts.duration;
+        vaultsByUUID[uuid].duration = collarOpts.duration;
         vaultsByUUID[uuid].ltv = collarOpts.ltv;
 
         // set Asset Specific Info
@@ -64,11 +111,12 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
         // first, grab the call strike percent from the call strike tick supplied
         uint256 tickScaleFactor = CollarPool(liquidityOpts.liquidityPool).tickScaleFactor();
         uint256 callStrikePercentBps = TickCalculations.tickToBps(liquidityOpts.callStrikeTick, tickScaleFactor);
-        uint256 poolLiquidityToLock = ((callStrikePercentBps - ONE_HUNDRED_PERCENT) * cashReceivedFromSwap * PRECISION_MULTIPLIER)
-            / (ONE_HUNDRED_PERCENT) / PRECISION_MULTIPLIER;
+        uint256 poolLiquidityToLock = ((callStrikePercentBps - 10_000) * cashReceivedFromSwap * 1e18)
+            / (10_000) / 1e18;
 
-        // grab the current collateral price so that we can record it
-        uint256 initialCollateralPrice = CollarEngine(engine).getCurrentAssetPrice(assetData.collateralAsset);
+        // calculate the initial collateral price from the swap execution fill
+        // this is stored as "unit price times 1e18"
+        uint256 initialCollateralPrice = (assetData.collateralAmount * 1e18) / cashReceivedFromSwap;
 
         // set Liquidity Pool Stuff
         vaultsByUUID[uuid].liquidityPool = liquidityOpts.liquidityPool;
@@ -85,11 +133,13 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
         _mint(user, uint256(uuid), cashReceivedFromSwap);
 
         // mint liquidity pool tokens
-        CollarPool(liquidityOpts.liquidityPool).mint(uuid, liquidityOpts.callStrikeTick, poolLiquidityToLock);
+        CollarPool(liquidityOpts.liquidityPool).openPosition(
+            uuid, liquidityOpts.callStrikeTick, poolLiquidityToLock, vaultsByUUID[uuid].expiresAt
+        );
 
-        // set Vault Specific stuff
-        vaultsByUUID[uuid].loanBalance = (collarOpts.ltv * cashReceivedFromSwap) / ONE_HUNDRED_PERCENT;
-        vaultsByUUID[uuid].lockedVaultCash = ((ONE_HUNDRED_PERCENT - collarOpts.ltv) * cashReceivedFromSwap) / ONE_HUNDRED_PERCENT;
+        // set vault specific stuff
+        vaultsByUUID[uuid].loanBalance = (collarOpts.ltv * cashReceivedFromSwap) / 10_000;
+        vaultsByUUID[uuid].lockedVaultCash = ((10_000 - collarOpts.ltv) * cashReceivedFromSwap) / 10_000;
 
         // approve the pool
         IERC20(assetData.cashAsset).approve(liquidityOpts.liquidityPool, vaultsByUUID[uuid].lockedVaultCash);
@@ -98,16 +148,16 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
     function closeVault(bytes32 uuid) external override {
         // ensure vault exists
         if (vaultsByUUID[uuid].openedAt == 0) {
-            revert("Vault does not exist");
+            revert NonExistentVault();
         }
 
         // ensure vault is active (not finalized) and finalizable (past length)
         if (!vaultsByUUID[uuid].active || vaultsByUUID[uuid].expiresAt > block.timestamp) {
-            revert("Vault not active or not finalizable");
+            revert InactiveVault();
         }
 
         // cache vault storage pointer
-        CollarVaultState.Vault storage vault = vaultsByUUID[uuid];
+        ICollarVaultState.Vault storage vault = vaultsByUUID[uuid];
 
         // grab all price info
         uint256 startingPrice = vault.initialCollateralPrice;
@@ -181,15 +231,12 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
             revert("Vault is in an invalid state");
         }
 
-        // pull cash from the liquidity pool if amount is nonzero
-        if (cashNeededFromPool > 0) {
-            CollarPool(vault.liquidityPool).pullLiquidity(uuid, address(this), cashNeededFromPool);
-        } else if (cashToSendToPool > 0) {
+        int256 poolProfit = cashToSendToPool > 0 ? int256(cashToSendToPool) : -int256(cashNeededFromPool);
+        CollarPool(vault.liquidityPool).finalizePosition(uuid, address(this), poolProfit);
+
+        if (cashToSendToPool > 0) {
             vault.lockedVaultCash -= cashToSendToPool;
             IERC20(vault.cashAsset).approve(vault.liquidityPool, cashToSendToPool);
-            CollarPool(vault.liquidityPool).pushLiquidity(uuid, address(this), cashToSendToPool);
-        } else {
-            // nothing to do
         }
 
         // set total redeem value for vault tokens to locked vault cash + cash pulled from pool
@@ -199,13 +246,12 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
 
         // mark vault as finalized
         vault.active = false;
-        CollarEngine(engine).notifyFinalized(vault.liquidityPool, uuid);
     }
 
     function redeem(bytes32 uuid, uint256 amount) external override {
         // ensure vault exists
         if (vaultsByUUID[uuid].openedAt == 0) {
-            revert("Vault does not exist");
+            revert NonExistentVault();
         }
 
         // ensure vault is finalized
@@ -224,37 +270,6 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
         IERC20(vaultsByUUID[uuid].cashAsset).transfer(msg.sender, redeemValue);
     }
 
-    function previewRedeem(bytes32 uuid, uint256 amount) public view override returns (uint256 cashReceived) {
-        if (amount == 0) revert("Amount cannot be 0");
-        if (vaultsByUUID[uuid].openedAt == 0) revert("Vault does not exist");
-
-        bool finalized = !vaultsByUUID[uuid].active;
-
-        if (finalized) {
-            // if finalized, calculate final redeem value
-            // grab collateral asset value @ exact vault expiration time
-
-            uint256 totalTokenCashSupply = vaultTokenCashSupply[uuid];
-            uint256 totalTokenSupplyLocal = totalTokenSupply[uint256(uuid)];
-
-            if (totalTokenCashSupply == 0) {
-                revert("Vault has no redeemable cash");
-            }
-
-            if (totalTokenSupplyLocal == 0) {
-                revert("Vault has no tokens");
-            }
-
-            cashReceived = (totalTokenCashSupply * amount) / totalTokenSupplyLocal;
-        } else {
-            // calculate redeem value based on current price of asset
-
-            uint256 currentCollateralPrice = CollarEngine(engine).getCurrentAssetPrice(vaultsByUUID[uuid].collateralAsset);
-
-            revert("Not implemented");
-        }
-    }
-
     function withdraw(bytes32 uuid, uint256 amount) external override {
         if (msg.sender != user) revert("Only user can withdraw");
         if (vaultsByUUID[uuid].openedAt == 0) revert("Vault does not exist");
@@ -270,16 +285,9 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
         }
     }
 
-    function vaultInfo(bytes32 uuid) external view override returns (bytes memory) {
-        if (vaultsByUUID[uuid].openedAt == 0) {
-            revert("Vault does not exist");
-        }
+    // ----- INTERNAL FUNCTIONS ----- //
 
-        bytes memory data = abi.encode(vaultsByUUID[uuid]);
-        return data;
-    }
-
-    function _validateAssetData(CollarVaultState.AssetSpecifiers calldata assetData) internal {
+    function _validateAssetData(ICollarVaultState.AssetSpecifiers calldata assetData) internal {
         // verify cash & collateral assets against engine for validity
         if (!CollarEngine(engine).isSupportedCashAsset(assetData.cashAsset)) {
             revert("Unsupported cash asset");
@@ -299,35 +307,33 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
         }
     }
 
-    function _validateCollarOpts(CollarVaultState.CollarOpts calldata collarOpts) internal {
-        // verify length is in the future
-        if (collarOpts.length < block.timestamp) {
-            revert("length must be in the future");
+    function _validateCollarOpts(ICollarVaultState.CollarOpts calldata collarOpts) internal {
+        // verify length is valid per engine
+        if (!CollarEngine(engine).isValidCollarDuration(collarOpts.duration)) {
+            revert InvalidDuration();
         }
 
-        // verify length is exactly within a standard set of time blocks via the engine
-        if (!CollarEngine(engine).isValidCollarLength(collarOpts.length)) {
-            revert("Invalid length");
+        // verify ltv is valid
+        if (!CollarEngine(engine).isValidLTV(collarOpts.ltv)) {
+            revert InvalidLTV();
         }
-
-        // verify ltv is within engine-allowed bounds
     }
 
-    function _validateLiquidityOpts(CollarVaultState.LiquidityOpts calldata liquidityOpts) internal {
+    function _validateLiquidityOpts(ICollarVaultState.LiquidityOpts calldata liquidityOpts) internal {
         // verify liquidity pool is a valid collar liquidity pool
         if (!CollarEngine(engine).isSupportedLiquidityPool(liquidityOpts.liquidityPool)) {
-            revert("Unsupported liquidity pool");
+            revert InvalidPool();
         }
     }
 
     function _validateRequestedPoolAssets(
-        CollarVaultState.AssetSpecifiers calldata assetData,
-        CollarVaultState.LiquidityOpts calldata liquidityOpts
+        ICollarVaultState.AssetSpecifiers calldata assetData,
+        ICollarVaultState.LiquidityOpts calldata liquidityOpts
     ) internal pure {
         // calculate the amount of locked pool liquidity needed and ensure that exactly that much has been requested
     }
 
-    function _swap(CollarVaultState.AssetSpecifiers calldata assets) internal returns (uint256 cashReceived) {
+    function _swap(ICollarVaultState.AssetSpecifiers calldata assets) internal returns (uint256 cashReceived) {
         // approve the dex router so we can swap the collateral to cash
         IERC20(assets.collateralAsset).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount);
 
@@ -348,21 +354,17 @@ contract CollarVaultManager is ICollarVaultManager, Constants {
 
         // revert if minimum not met
         if (cashReceived < assets.cashAmount) {
-            revert("Insufficient cash received");
+            revert TradeNotViable();
         }
     }
 
-    function _mint(address account, uint256 id, uint256 amount) internal override {
-        // update total supply of token
-        totalTokenSupply[id] += amount;
-
-        super._mint(account, id, amount);
+    function _mint(address account, uint256 id, uint256 amount) internal {
+        balanceOf[account][id] += amount;
+        totalSupply[id] += amount;
     }
 
-    function _burn(address account, uint256 id, uint256 amount) internal override {
-        // update total supply of token
-        totalTokenSupply[id] -= amount;
-
-        super._burn(account, id, amount);
+    function _burn(address account, uint256 id, uint256 amount) internal {
+        balanceOf[account][id] -= amount;
+        totalSupply[id] -= amount;
     }
 }

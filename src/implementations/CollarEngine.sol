@@ -10,138 +10,16 @@ pragma solidity ^0.8.18;
 import { ICollarEngine } from "../interfaces/ICollarEngine.sol";
 import { CollarPool } from "./CollarPool.sol";
 import { CollarVaultManager } from "./CollarVaultManager.sol";
-
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 contract CollarEngine is ICollarEngine, Ownable {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;
 
-    modifier ensureValidVaultManager(address vaultManager) {
-        if (vaultManagers.contains(vaultManager) == false) revert InvalidVaultManager(vaultManager);
-        _;
-    }
-
-    modifier ensureValidLiquidityPool(address pool) {
-        if (!collarLiquidityPools.contains(pool)) revert InvalidLiquidityPool(pool);
-        _;
-    }
-
-    modifier ensureNotValidLiquidityPool(address pool) {
-        if (collarLiquidityPools.contains(pool)) revert LiquidityPoolAlreadyAdded(pool);
-        _;
-    }
-
-    modifier ensureValidCollateralAsset(address asset) {
-        if (!supportedCollateralAssets.contains(asset)) revert CollateralAssetNotSupported(asset);
-        _;
-    }
-
-    modifier ensureValidCashAsset(address asset) {
-        if (!supportedCashAssets.contains(asset)) revert CashAssetNotSupported(asset);
-        _;
-    }
-
-    modifier ensureValidAsset(address asset) {
-        if (!supportedCashAssets.contains(asset) && !supportedCollateralAssets.contains(asset)) revert AssetNotSupported(asset);
-        _;
-    }
-
-    modifier ensureNotValidCollateralAsset(address asset) {
-        if (supportedCollateralAssets.contains(asset)) revert CollateralAssetAlreadySupported(asset);
-        _;
-    }
-
-    modifier ensureNotValidCashAsset(address asset) {
-        if (supportedCashAssets.contains(asset)) revert CashAssetAlreadySupported(asset);
-        _;
-    }
-
-    modifier ensureNotValidAsset(address asset) {
-        if (supportedCollateralAssets.contains(asset) || supportedCashAssets.contains(asset)) revert AssetAlreadySupported(asset);
-        _;
-    }
-
-    modifier ensureSupportedCollarLength(uint256 length) {
-        if (!validCollarLengths.contains(length)) revert CollarLengthNotSupported(length);
-        _;
-    }
-
-    modifier ensureNotSupportedCollarLength(uint256 length) {
-        if (validCollarLengths.contains(length)) revert CollarLengthNotSupported(length);
-        _;
-    }
-
-    EnumerableSet.AddressSet internal vaultManagers;
-    EnumerableSet.AddressSet internal collarLiquidityPools;
-    EnumerableSet.AddressSet internal supportedCollateralAssets;
-    EnumerableSet.AddressSet internal supportedCashAssets;
-    EnumerableSet.UintSet internal validCollarLengths;
-
-    mapping(bytes32 uuid => bool) public isVaultFinalized;
-
     constructor(address _dexRouter) ICollarEngine(_dexRouter) Ownable(msg.sender) { }
 
-    function isVaultManager(address vaultManager) external view returns (bool) {
-        return vaultManagers.contains(vaultManager);
-    }
-
-    function vaultManagersLength() external view returns (uint256) {
-        return vaultManagers.length();
-    }
-
-    function getVaultManager(uint256 index) external view returns (address) {
-        return vaultManagers.at(index);
-    }
-
-    function isSupportedCashAsset(address asset) external view returns (bool) {
-        return supportedCashAssets.contains(asset);
-    }
-
-    function supportedCashAssetsLength() external view returns (uint256) {
-        return supportedCashAssets.length();
-    }
-
-    function getSupportedCashAsset(uint256 index) external view returns (address) {
-        return supportedCashAssets.at(index);
-    }
-
-    function isSupportedCollateralAsset(address asset) external view returns (bool) {
-        return supportedCollateralAssets.contains(asset);
-    }
-
-    function supportedCollateralAssetsLength() external view returns (uint256) {
-        return supportedCollateralAssets.length();
-    }
-
-    function getSupportedCollateralAsset(uint256 index) external view returns (address) {
-        return supportedCollateralAssets.at(index);
-    }
-
-    function isSupportedLiquidityPool(address pool) external view returns (bool) {
-        return collarLiquidityPools.contains(pool);
-    }
-
-    function supportedLiquidityPoolsLength() external view returns (uint256) {
-        return collarLiquidityPools.length();
-    }
-
-    function getSupportedLiquidityPool(uint256 index) external view returns (address) {
-        return collarLiquidityPools.at(index);
-    }
-
-    function isValidCollarLength(uint256 length) external view returns (bool) {
-        return validCollarLengths.contains(length);
-    }
-
-    function validCollarLengthsLength() external view returns (uint256) {
-        return validCollarLengths.length();
-    }
-
-    function getValidCollarLength(uint256 index) external view returns (uint256) {
-        return validCollarLengths.at(index);
-    }
+    // ----- state-changing functions (see ICollarEngine for documentation) -----
 
     function createVaultManager() external override returns (address _vaultManager) {
         if (addressToVaultManager[msg.sender] != address(0)) {
@@ -156,49 +34,149 @@ contract CollarEngine is ICollarEngine, Ownable {
         return vaultManager;
     }
 
-    function addLiquidityPool(address pool) external override onlyOwner ensureNotValidLiquidityPool(pool) {
+    // liquidity pools
+
+    function addLiquidityPool(address pool) external override onlyOwner ensureLiquidityPoolIsNotValid(pool) {
         collarLiquidityPools.add(pool);
     }
 
-    function removeLiquidityPool(address pool) external override onlyOwner ensureValidLiquidityPool(pool) {
+    function removeLiquidityPool(address pool) external override onlyOwner ensureLiquidityPoolIsValid(pool) {
         collarLiquidityPools.remove(pool);
     }
 
-    function addSupportedCollateralAsset(address asset) external override onlyOwner ensureNotValidCollateralAsset(asset) {
+    // collateral assets
+
+    function addSupportedCollateralAsset(address asset) external override onlyOwner ensureCollateralAssetIsNotValid(asset) {
         supportedCollateralAssets.add(asset);
     }
 
-    function removeSupportedCollateralAsset(address asset) external override onlyOwner ensureValidCollateralAsset(asset) {
+    function removeSupportedCollateralAsset(address asset) external override onlyOwner ensureCollateralAssetIsValid(asset) {
         supportedCollateralAssets.remove(asset);
     }
 
-    function addSupportedCashAsset(address asset) external override onlyOwner ensureNotValidCashAsset(asset) {
+    // cash assets
+
+    function addSupportedCashAsset(address asset) external override onlyOwner ensureCashAssetIsNotValid(asset) {
         supportedCashAssets.add(asset);
     }
 
-    function removeSupportedCashAsset(address asset) external override onlyOwner ensureValidCashAsset(asset) {
+    function removeSupportedCashAsset(address asset) external override onlyOwner ensureCashAssetIsValid(asset) {
         supportedCashAssets.remove(asset);
     }
 
-    function addCollarLength(uint256 length) external override onlyOwner ensureNotSupportedCollarLength(length) {
-        validCollarLengths.add(length);
+    // durations
+
+    function addCollarDuration(uint256 duration) external override onlyOwner ensureDurationIsNotValid(duration) {
+        validCollarDurations.add(duration);
     }
 
-    function removeCollarLength(uint256 length) external override onlyOwner ensureSupportedCollarLength(length) {
-        validCollarLengths.remove(length);
+    function removeCollarDuration(uint256 duration) external override onlyOwner ensureDurationIsValid(duration) {
+        validCollarDurations.remove(duration);
     }
+
+    // ltvs
+
+    function addLTV(uint256 ltv) external override onlyOwner ensureLTVIsNotValid(ltv) {
+        validLTVs.add(ltv);
+    }
+
+    function removeLTV(uint256 ltv) external override onlyOwner ensureLTVIsValid(ltv) {
+        validLTVs.remove(ltv);
+    }
+
+    // ----- view functions (see ICollarEngine for documentation) -----
+
+    // vault managers
+
+    function isVaultManager(address vaultManager) external view override returns (bool) {
+        return vaultManagers.contains(vaultManager);
+    }
+
+    function vaultManagersLength() external view override returns (uint256) {
+        return vaultManagers.length();
+    }
+
+    function getVaultManager(uint256 index) external view override returns (address) {
+        return vaultManagers.at(index);
+    }
+
+    // cash assets
+
+    function isSupportedCashAsset(address asset) external view override returns (bool) {
+        return supportedCashAssets.contains(asset);
+    }
+
+    function supportedCashAssetsLength() external view override returns (uint256) {
+        return supportedCashAssets.length();
+    }
+
+    function getSupportedCashAsset(uint256 index) external view override returns (address) {
+        return supportedCashAssets.at(index);
+    }
+
+    // collateral assets
+
+    function isSupportedCollateralAsset(address asset) external view override returns (bool) {
+        return supportedCollateralAssets.contains(asset);
+    }
+
+    function supportedCollateralAssetsLength() external view override returns (uint256) {
+        return supportedCollateralAssets.length();
+    }
+
+    function getSupportedCollateralAsset(uint256 index) external view override returns (address) {
+        return supportedCollateralAssets.at(index);
+    }
+
+    // liquidity pools
+
+    function isSupportedLiquidityPool(address pool) external view override returns (bool) {
+        return collarLiquidityPools.contains(pool);
+    }
+
+    function supportedLiquidityPoolsLength() external view override returns (uint256) {
+        return collarLiquidityPools.length();
+    }
+
+    function getSupportedLiquidityPool(uint256 index) external view override returns (address) {
+        return collarLiquidityPools.at(index);
+    }
+
+    // collar durations
+
+    function isValidCollarDuration(uint256 duration) external view override returns (bool) {
+        return validCollarDurations.contains(duration);
+    }
+
+    function validCollarDurationsLength() external view override returns (uint256) {
+        return validCollarDurations.length();
+    }
+
+    function getValidCollarDuration(uint256 index) external view override returns (uint256) {
+        return validCollarDurations.at(index);
+    }
+
+    // ltvs
+
+    function isValidLTV(uint256 ltv) external view override returns (bool) {
+        return validLTVs.contains(ltv);
+    }
+
+    function validLTVsLength() external view override returns (uint256) {
+        return validLTVs.length();
+    }
+
+    function getValidLTV(uint256 index) external view override returns (uint256) {
+        return validLTVs.at(index);
+    }
+
+    // asset pricing
 
     function getHistoricalAssetPrice(address, /*asset*/ uint256 /*timestamp*/ ) external view virtual override returns (uint256) {
         revert("Method not yet implemented");
     }
 
-    function getCurrentAssetPrice(address asset) external view virtual override ensureValidAsset(asset) returns (uint256) {
+    function getCurrentAssetPrice(address asset) external view virtual override returns (uint256) {
         revert("Method not yet implemented");
-    }
-
-    function notifyFinalized(address pool, bytes32 uuid) external override ensureValidVaultManager(msg.sender) {
-        isVaultFinalized[uuid] = true;
-
-        CollarPool(pool).finalizeToken(uuid);
     }
 }

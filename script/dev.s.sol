@@ -4,7 +4,7 @@ pragma solidity ^0.8.18;
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
 
-import { CollarVaultState } from "../src/libs/CollarLibs.sol";
+import { ICollarVaultState } from "../src/interfaces/ICollarVaultState.sol";
 import { CollarPool } from "../src/implementations/CollarPool.sol";
 import { CollarVaultManager } from "../src/implementations/CollarVaultManager.sol";
 import { CollarEngine } from "../src/implementations/CollarEngine.sol";
@@ -43,7 +43,7 @@ contract DeployEmptyProtocol is Script {
         collateralTestToken = address(new TestERC20("CollateralTestToken", "COL-TST"));
         router = address(new MockUniRouter());
         engine = address(new MockEngine(router));
-        pool = address(new CollarPool(engine, 1, cashTestToken));
+        pool = address(new CollarPool(engine, 1, cashTestToken, collateralTestToken, 100, 9_000));
 
         multicall3 = address(new Multicall3());
 
@@ -51,8 +51,8 @@ contract DeployEmptyProtocol is Script {
         CollarEngine(engine).addSupportedCashAsset(cashTestToken);
         CollarEngine(engine).addSupportedCollateralAsset(collateralTestToken);
 
-        TestERC20(cashTestToken).mint(router, 1000000e18);
-        TestERC20(collateralTestToken).mint(router, 1000000e18);
+        TestERC20(cashTestToken).mint(router, 1_000_000e18);
+        TestERC20(collateralTestToken).mint(router, 1_000_000e18);
 
         vm.stopBroadcast();
 
@@ -104,7 +104,7 @@ contract DeployInitializedProtocol is Script {
         collateralTestToken = address(new TestERC20("CollateralTestToken", "COL-TST"));
         router = address(new MockUniRouter());
         engine = address(new MockEngine(router));
-        pool = address(new CollarPool(engine, 1, cashTestToken));
+        pool = address(new CollarPool(engine, 1, cashTestToken, collateralTestToken, 100, 9_000));
 
         multicall3 = address(new Multicall3());
 
@@ -112,16 +112,16 @@ contract DeployInitializedProtocol is Script {
         CollarEngine(engine).addSupportedCashAsset(cashTestToken);
         CollarEngine(engine).addSupportedCollateralAsset(collateralTestToken);
 
-        TestERC20(cashTestToken).mint(router, 1000000e18);
-        TestERC20(collateralTestToken).mint(router, 1000000e18);
+        TestERC20(cashTestToken).mint(router, 1_000_000e18);
+        TestERC20(collateralTestToken).mint(router, 1_000_000e18);
 
-        TestERC20(cashTestToken).mint(testWallet1.addr, 100000e18);
-        TestERC20(cashTestToken).mint(testWallet2.addr, 100000e18);
-        TestERC20(cashTestToken).mint(testWallet3.addr, 100000e18);
+        TestERC20(cashTestToken).mint(testWallet1.addr, 100_000e18);
+        TestERC20(cashTestToken).mint(testWallet2.addr, 100_000e18);
+        TestERC20(cashTestToken).mint(testWallet3.addr, 100_000e18);
 
-        TestERC20(collateralTestToken).mint(testWallet1.addr, 100000e18);
-        TestERC20(collateralTestToken).mint(testWallet2.addr, 100000e18);
-        TestERC20(collateralTestToken).mint(testWallet3.addr, 100000e18);
+        TestERC20(collateralTestToken).mint(testWallet1.addr, 100_000e18);
+        TestERC20(collateralTestToken).mint(testWallet2.addr, 100_000e18);
+        TestERC20(collateralTestToken).mint(testWallet3.addr, 100_000e18);
 
         MockEngine(engine).setCurrentAssetPrice(collateralTestToken, 1e18);
 
@@ -131,12 +131,10 @@ contract DeployInitializedProtocol is Script {
         address user1VaultManager = address(CollarEngine(engine).createVaultManager());
 
         vm.stopBroadcast();
-        
+
         vm.startBroadcast(testWallet2.addr);
 
         address user2VaultManager = address(CollarEngine(engine).createVaultManager());
-
-        
 
         vm.stopBroadcast();
 
