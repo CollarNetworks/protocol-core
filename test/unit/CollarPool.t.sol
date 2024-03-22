@@ -52,7 +52,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         engine.forceRegisterVaultManager(user1, address(manager));
 
-        pool = new CollarPool(address(engine), 1, address(token1), address(token2));
+        pool = new CollarPool(address(engine), 1, address(token1), address(token2), 100, 9_000);
 
         vm.label(address(token1), "Test Token 1 // Pool Cash Token");
         vm.label(address(token2), "Test Token 2 // Collateral");
@@ -159,7 +159,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         // remove liquidity from one slot, and then query again, should return 1 slot
         hoax(user1);
-        pool.removeLiquidityFromSlot(111, 1000);
+        pool.withdrawLiquidityFromSlot(111, 1000);
 
         iSlots = pool.getInitializedSlotIndices();
 
@@ -168,7 +168,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         // remove liquidity from the other slot, and then query again, should return 0 slots
         hoax(user2);
-        pool.removeLiquidityFromSlot(222, 2000);
+        pool.withdrawLiquidityFromSlot(222, 2000);
 
         iSlots = pool.getInitializedSlotIndices();
         assertEq(iSlots.length, 0);
@@ -315,7 +315,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         startHoax(user1);
 
         pool.addLiquidityToSlot(111, 25_000);
-        pool.removeLiquidityFromSlot(111, 10_000);
+        pool.withdrawLiquidityFromSlot(111, 10_000);
 
         assertEq(pool.getLiquidityForSlot(111), 15_000);
 
@@ -341,7 +341,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         pool.addLiquidityToSlot(111, 25_000);
 
         vm.expectRevert(abi.encodeWithSelector(EnumerableMapNonexistentKey.selector, user1));
-        pool.removeLiquidityFromSlot(110, 10_000);
+        pool.withdrawLiquidityFromSlot(110, 10_000);
     }
 
     function test_removeLiquidity_AmountTooHigh() public {
@@ -352,7 +352,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         pool.addLiquidityToSlot(111, 25_000);
 
         vm.expectRevert("Not enough liquidity");
-        pool.removeLiquidityFromSlot(111, 26_000);
+        pool.withdrawLiquidityFromSlot(111, 26_000);
     }
 
     function test_moveLiquidityFromSlot() public {

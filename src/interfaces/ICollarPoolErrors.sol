@@ -10,5 +10,5 @@ pragma solidity ^0.8.18;
 import { ICollarCommonErrors } from "./ICollarCommonErrors.sol";
 
 interface ICollarPoolErrors is ICollarCommonErrors {
-    error NotEnoughLiquidity();    
+    error NotEnoughLiquidity();
 }

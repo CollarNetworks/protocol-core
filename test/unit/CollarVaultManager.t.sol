@@ -44,7 +44,7 @@ contract CollarVaultManagerTest is Test {
         router = new MockUniRouter();
         engine = new MockEngine(address(router));
 
-        pool = new CollarPool(address(engine), 1, address(token2), address(token1));
+        pool = new CollarPool(address(engine), 1, address(token2), address(token1), 100, 9_000);
 
         hoax(user1);
         manager = CollarVaultManager(engine.createVaultManager());
@@ -52,7 +52,7 @@ contract CollarVaultManagerTest is Test {
         engine.addLiquidityPool(address(pool));
         engine.addSupportedCollateralAsset(address(token1));
         engine.addSupportedCashAsset(address(token2));
-        engine.addCollarLength(100);
+        engine.addCollarDuration(100);
 
         token1.mint(address(router), 100_000);
         token2.mint(address(router), 100_000);
@@ -107,7 +107,7 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
        ICollarVaultState.LiquidityOpts memory liquidityOpts =
            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
@@ -179,7 +179,7 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
        ICollarVaultState.LiquidityOpts memory liquidityOpts =
            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
@@ -215,7 +215,7 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-       ICollarVaultState.CollarOpts memory invalidlength =ICollarVaultState.CollarOpts({ length: 99, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory invalidlength =ICollarVaultState.CollarOpts({ duration: 99, ltv: 9000 });
 
        ICollarVaultState.LiquidityOpts memory liquidityOpts =
            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
@@ -242,7 +242,7 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
        ICollarVaultState.LiquidityOpts memory invalidPool =
            ICollarVaultState.LiquidityOpts({ liquidityPool: address(token1), putStrikeTick: 9000, callStrikeTick: 11_000 });
@@ -274,7 +274,7 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
        ICollarVaultState.LiquidityOpts memory liquidityOpts =
            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
@@ -304,7 +304,7 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
        ICollarVaultState.LiquidityOpts memory liquidityOpts =
            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
@@ -359,7 +359,7 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
        ICollarVaultState.LiquidityOpts memory liquidityOpts =
            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
@@ -414,7 +414,7 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
        ICollarVaultState.LiquidityOpts memory liquidityOpts =
            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
@@ -469,7 +469,7 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
        ICollarVaultState.LiquidityOpts memory liquidityOpts =
            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
@@ -508,7 +508,7 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
        ICollarVaultState.LiquidityOpts memory liquidityOpts =
            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
@@ -542,7 +542,7 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
        ICollarVaultState.LiquidityOpts memory liquidityOpts =
            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
@@ -611,7 +611,7 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
        ICollarVaultState.LiquidityOpts memory liquidityOpts =
            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
@@ -652,7 +652,7 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
        ICollarVaultState.LiquidityOpts memory liquidityOpts =
            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
@@ -680,7 +680,7 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
        ICollarVaultState.LiquidityOpts memory liquidityOpts =
            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
@@ -745,7 +745,7 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
        ICollarVaultState.LiquidityOpts memory liquidityOpts =
            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
@@ -774,7 +774,7 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
        ICollarVaultState.LiquidityOpts memory liquidityOpts =
            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
@@ -802,7 +802,7 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ length: 100, ltv: 9000 });
+       ICollarVaultState.CollarOpts memory collarOpts =ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
        ICollarVaultState.LiquidityOpts memory liquidityOpts =
            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });

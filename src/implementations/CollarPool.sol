@@ -24,8 +24,8 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
     // ----- CONSTRUCTOR ----- //
 
     constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset, address _collateralAsset, uint256 _duration, uint256 _ltv)
-        ICollarPool(_engine, _tickScaleFactor, _cashAsset, _collateralAsset, _duration, _ltv);
-    }
+        ICollarPool(_engine, _tickScaleFactor, _cashAsset, _collateralAsset, _duration, _ltv) 
+    { }
 
     // ----- VIEW FUNCTIONS ----- //
 
@@ -105,7 +105,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         IERC20(cashAsset).transferFrom(msg.sender, address(this), amount);
     }
 
-    function removeLiquidityFromSlot(uint256 slot, uint256 amount) public virtual override {
+    function withdrawLiquidityFromSlot(uint256 slot, uint256 amount) public virtual override {
         // verify sender has enough liquidity in slot
         uint256 liquidity = slots[slot].providers.get(msg.sender);
 
@@ -116,23 +116,23 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         freeLiquidity -= amount;
         totalLiquidity -= amount;
 
-        _reAllocate(msg.sender, slot, UNALLOCATED_SLOT, amount);
-
         // If slot has no more liquidity, remove from the initialized list
         if (slots[slot].liquidity == 0) {
             initializedSlotIndices.remove(slot);
         }
+
+        // finally, transfer the liquidity to the provider
+        IERC20(cashAsset).transfer(msg.sender, amount);
     }
 
     function moveLiquidityFromSlot(uint256 sourceSlotIndex, uint256 destinationSlotIndex, uint256 amount) external virtual override {
-        removeLiquidityFromSlot(sourceSlotIndex, amount);
-        addLiquidityToSlot(destinationSlotIndex, amount);
+        _reAllocate(msg.sender, sourceSlotIndex, destinationSlotIndex, amount);
     }
 
     function openPosition(bytes32 uuid, uint256 slotIndex, uint256 amount, uint256 expiration) external override {
         // ensure this is a valid vault calling us - it must call through the engine
         if (!CollarEngine(engine).isVaultManager(msg.sender)) {
-            revert("Only registered vaults can mint");
+            revert NotCollarVaultManager(msg.sender);
         }
 
         // grab the slot
@@ -141,12 +141,12 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
         // if no providers, revert
         if (numProviders == 0) {
-            revert("No providers in slot");
+            revert NotEnoughLiquidity();
         }
 
         // if not enough liquidity, revert
         if (slot.liquidity < amount) {
-            revert("Not enough liquidity in slot");
+            revert NotEnoughLiquidity();
         }
 
         for (uint256 i = 0; i < numProviders; i++) {

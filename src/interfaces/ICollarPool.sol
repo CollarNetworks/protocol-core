@@ -140,7 +140,7 @@ abstract contract ICollarPool is ICollarPoolState {
     /// @notice Removes liquidity from a given slot
     /// @param slot The index of the slot to remove liquidity from
     /// @param amount The amount of liquidity to remove
-    function removeLiquidityFromSlot(uint256 slot, uint256 amount) external virtual;
+    function withdrawLiquidityFromSlot(uint256 slot, uint256 amount) external virtual;
 
     /// @notice Reallocates free liquidity from one slot to another
     /// @param source The index of the slot to remove liquidity from

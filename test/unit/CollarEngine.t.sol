@@ -40,7 +40,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         router = new MockUniRouter();
         engine = new CollarEngine(address(router));
         manager = CollarVaultManager(engine.createVaultManager());
-        pool = new CollarPool(address(engine), 1, address(token1), address(token2));
+        pool = new CollarPool(address(engine), 1, address(token1), address(token2), 100, 9_000);
     }
 
     function mintTokensAndApprovePool(address recipient) internal {
@@ -159,29 +159,29 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         vm.stopPrank();
     }
 
-    function test_addCollarLength() public {
-        assertFalse(engine.isValidCollarLength(1));
-        engine.addCollarLength(1);
-        assertTrue(engine.isValidCollarLength(1));
+    function test_addCollarDuration() public {
+        assertFalse(engine.isValidCollarDuration(1));
+        engine.addCollarDuration(1);
+        assertTrue(engine.isValidCollarDuration(1));
     }
 
-    function test_addCollarLength_NoAuth() public {
+    function test_addCollarDuration_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
-        engine.addCollarLength(1);
+        engine.addCollarDuration(1);
         vm.stopPrank();
     }
 
-    function test_removeCollarLength() public {
-        engine.addCollarLength(1);
-        engine.removeCollarLength(1);
-        assertFalse(engine.isValidCollarLength(1));
+    function test_removeCollarDuration() public {
+        engine.addCollarDuration(1);
+        engine.removeCollarDuration(1);
+        assertFalse(engine.isValidCollarDuration(1));
     }
 
-    function test_removeCollarLength_NoAuth() public {
+    function test_removeCollarDuration_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
-        engine.removeCollarLength(1);
+        engine.removeCollarDuration(1);
         vm.stopPrank();
     }
 
