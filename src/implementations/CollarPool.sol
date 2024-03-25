@@ -72,6 +72,11 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
             cashReceived = (_totalTokenCashSupply * amount) / _totalTokenSupply;
         } else {
+            // if not yet finalized, calculate redeem value as if we were to finalize now
+            // thus we need the current price of the asset
+
+            
+            
             revert("Not implemented");
         }
     }
