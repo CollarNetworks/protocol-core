@@ -92,7 +92,7 @@ contract FillLiquidityPoolSlots is Script {
         require(CollarEngine(engine).addressToVaultManager(testWallet2.addr) == user2VaultManager);
 
         require(CollarPool(pool).getLiquidityForSlot(111) == 10_000 ether);
-        require(CollarPool(pool).getLiquidityForSlot(112) == 15_000 ether);
+        require(CollarPool(pool).getLiquidityForSlot(112) == 25_000 ether);
         require(CollarPool(pool).getLiquidityForSlot(115) == 17_500 ether);
         require(CollarPool(pool).getLiquidityForSlot(120) == 20_000 ether);
 
