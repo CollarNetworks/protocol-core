@@ -12,10 +12,10 @@ interface ICollarCommonErrors {
     error InvalidState();
 
     // auth
-    error NotCollarVaultManager(address caller);
-    error NotCollarPool(address caller);
-    error NotCollarEngine(address caller);
-    error NotCollarVaultOwner(address caller);
+    error NotCollarVaultManager();
+    error NotCollarPool();
+    error NotCollarEngine();
+    error NotCollarVaultOwner();
 
     // parameter errors shared across contracts
     error InvalidDuration();

@@ -145,7 +145,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
     function openPosition(bytes32 uuid, uint256 slotIndex, uint256 amount, uint256 expiration) external override {
         // ensure this is a valid vault calling us - it must call through the engine
         if (!CollarEngine(engine).isVaultManager(msg.sender)) {
-            revert NotCollarVaultManager(msg.sender);
+            revert NotCollarVaultManager();
         }
 
         // grab the slot
@@ -203,7 +203,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
     function finalizePosition(bytes32 uuid, address vaultManager, int256 positionNet) external override {
         // verify caller via engine
         if (!CollarEngine(engine).isVaultManager(msg.sender)) {
-            revert NotCollarVaultManager(msg.sender);
+            revert NotCollarVaultManager();
         }
 
         // either case, we need to set the withdrawable amount to principle + positionNet

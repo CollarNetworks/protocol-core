@@ -602,6 +602,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_redeem_InvalidVault() public {
+        startHoax(user1);
         vm.expectRevert(ICollarCommonErrors.InvalidVault.selector);
         manager.redeem(bytes32(0), 100);
     }
