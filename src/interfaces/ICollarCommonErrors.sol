@@ -15,14 +15,26 @@ interface ICollarCommonErrors {
     error NotCollarVaultManager(address caller);
     error NotCollarPool(address caller);
     error NotCollarEngine(address caller);
+    error NotCollarVaultOwner(address caller);
 
     // parameter errors shared across contracts
     error InvalidDuration();
-
-    // generic arg errors
-    error AmountCannotBeZero();
     error InvalidCashAsset();
     error InvalidCollateralAsset();
     error InvalidCashAmount();
     error InvalidCollateralAmount();
+    error InvalidVaultManager();
+    error InvalidVault();
+    error InvalidLiquidityPool();
+    error InvalidAssetPrice();
+    error InactiveVault();
+
+    // state-related errors shared across contracts
+    error VaultNotFinalized();
+    error VaultNotActive();
+
+    // generic arg errors
+    error AddressCannotBeZero();
+    error AmountCannotBeZero();
+    error InvalidAmount();
 }

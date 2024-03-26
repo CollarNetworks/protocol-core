@@ -116,7 +116,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         uint256 liquidity = slots[slot].providers.get(msg.sender);
 
         if (liquidity < amount) {
-            revert NotEnoughLiquidity();
+            revert InvalidAmount();
         }
 
         freeLiquidity -= amount;
@@ -147,12 +147,12 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
         // if no providers, revert
         if (numProviders == 0) {
-            revert NotEnoughLiquidity();
+            revert InvalidAmount();
         }
 
         // if not enough liquidity, revert
         if (slot.liquidity < amount) {
-            revert NotEnoughLiquidity();
+            revert InvalidAmount();
         }
 
         for (uint256 i = 0; i < numProviders; i++) {

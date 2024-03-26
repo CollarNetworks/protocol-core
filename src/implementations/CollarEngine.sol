@@ -176,7 +176,7 @@ contract CollarEngine is ICollarEngine, Ownable {
         revert("Method not yet implemented");
     }
 
-    function getCurrentAssetPrice(address asset) external view virtual override returns (uint256) {
+    function getCurrentAssetPrice(address /*asset*/) external view virtual override returns (uint256) {
         revert("Method not yet implemented");
     }
 }

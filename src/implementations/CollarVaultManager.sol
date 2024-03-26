@@ -29,7 +29,7 @@ contract CollarVaultManager is ICollarVaultManager {
 
     function vaultInfo(bytes32 uuid) external view override returns (bytes memory) {
         if (vaultsByUUID[uuid].openedAt == 0) {
-            revert NonExistentVault();
+            revert InvalidVault();
         }
 
         return abi.encode(vaultsByUUID[uuid]);
@@ -37,7 +37,7 @@ contract CollarVaultManager is ICollarVaultManager {
 
     function previewRedeem(bytes32 uuid, uint256 amount) public view override returns (uint256 cashReceived) {
         if (amount == 0) revert AmountCannotBeZero();
-        if (vaultsByUUID[uuid].openedAt == 0) revert NonExistentVault();
+        if (vaultsByUUID[uuid].openedAt == 0) revert InvalidVault();
 
         bool finalized = !vaultsByUUID[uuid].active;
 
@@ -53,7 +53,7 @@ contract CollarVaultManager is ICollarVaultManager {
             }
 
             if (tokenSupply < amount) {
-                revert ExceedsTokenSupply();
+                revert InvalidAmount();
             }
 
             cashReceived = (vaultCash * amount) / tokenSupply;
@@ -77,7 +77,7 @@ contract CollarVaultManager is ICollarVaultManager {
     ) external override returns (bytes32 uuid) {
         // only user is allowed to open vaults
         if (msg.sender != user) {
-            revert OnlyUser();
+            revert NotCollarVaultOwner(msg.sender);
         }
 
         // validate parameter data
@@ -149,7 +149,7 @@ contract CollarVaultManager is ICollarVaultManager {
     function closeVault(bytes32 uuid) external override {
         // ensure vault exists
         if (vaultsByUUID[uuid].openedAt == 0) {
-            revert NonExistentVault();
+            revert InvalidVault();
         }
 
         // ensure vault is active (not finalized) and finalizable (past length)
@@ -252,7 +252,7 @@ contract CollarVaultManager is ICollarVaultManager {
     function redeem(bytes32 uuid, uint256 amount) external override {
         // ensure vault exists
         if (vaultsByUUID[uuid].openedAt == 0) {
-            revert NonExistentVault();
+            revert InvalidVault();
         }
 
         // ensure vault is finalized
@@ -269,8 +269,8 @@ contract CollarVaultManager is ICollarVaultManager {
     }
 
     function withdraw(bytes32 uuid, uint256 amount) external override {
-        if (msg.sender != user) revert OnlyUser();
-        if (vaultsByUUID[uuid].openedAt == 0) revert NonExistentVault();
+        if (msg.sender != user) revert NotCollarVaultOwner(msg.sender);
+        if (vaultsByUUID[uuid].openedAt == 0) revert InvalidVault();
 
         uint256 loanBalance = vaultsByUUID[uuid].loanBalance;
 
@@ -320,7 +320,7 @@ contract CollarVaultManager is ICollarVaultManager {
     function _validateLiquidityOpts(ICollarVaultState.LiquidityOpts calldata liquidityOpts) internal view {
         // verify liquidity pool is a valid collar liquidity pool
         if (!CollarEngine(engine).isSupportedLiquidityPool(liquidityOpts.liquidityPool)) {
-            revert InvalidPool();
+            revert InvalidLiquidityPool();
         }
     }
     

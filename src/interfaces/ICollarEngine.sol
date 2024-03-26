@@ -20,12 +20,12 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     // vaults
 
     modifier ensureVaultManagerIsValid(address vaultManager) {
-        if (vaultManagers.contains(vaultManager) == false) revert InvalidVaultManager(vaultManager);
+        if (vaultManagers.contains(vaultManager) == false) revert InvalidVaultManager();
         _;
     }
 
     modifier ensureLiquidityPoolIsValid(address pool) {
-        if (!collarLiquidityPools.contains(pool)) revert InvalidLiquidityPool(pool);
+        if (!collarLiquidityPools.contains(pool)) revert InvalidLiquidityPool();
         _;
     }
 
@@ -62,13 +62,13 @@ abstract contract ICollarEngine is ICollarEngineErrors {
 
     // collar durations
 
-    modifier ensureDurationIsValid(uint256 length) {
-        if (!validCollarDurations.contains(length)) revert CollarLengthNotSupported(length);
+    modifier ensureDurationIsValid(uint256 duration) {
+        if (!validCollarDurations.contains(duration)) revert CollarDurationNotSupported();
         _;
     }
 
-    modifier ensureDurationIsNotValid(uint256 length) {
-        if (validCollarDurations.contains(length)) revert CollarLengthNotSupported(length);
+    modifier ensureDurationIsNotValid(uint256 duration) {
+        if (validCollarDurations.contains(duration)) revert CollarDurationNotSupported();
         _;
     }
 
