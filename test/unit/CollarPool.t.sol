@@ -52,7 +52,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         engine.forceRegisterVaultManager(user1, address(manager));
 
-        pool = new CollarPool(address(engine), 1, address(token1), address(token2), 100, 9_000);
+        pool = new CollarPool(address(engine), 1, address(token1), address(token2), 100, 9000);
 
         vm.label(address(token1), "Test Token 1 // Pool Cash Token");
         vm.label(address(token2), "Test Token 2 // Collateral");

@@ -40,7 +40,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         router = new MockUniRouter();
         engine = new CollarEngine(address(router));
         manager = CollarVaultManager(engine.createVaultManager());
-        pool = new CollarPool(address(engine), 1, address(token1), address(token2), 100, 9_000);
+        pool = new CollarPool(address(engine), 1, address(token1), address(token2), 100, 9000);
     }
 
     function mintTokensAndApprovePool(address recipient) internal {

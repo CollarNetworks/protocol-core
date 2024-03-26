@@ -27,8 +27,6 @@ contract CollarEngine is ICollarEngine, Ownable {
             revert VaultManagerAlreadyExists(msg.sender, addressToVaultManager[msg.sender]);
         }
 
-        
-
         address vaultManager = address(new CollarVaultManager(address(this), msg.sender));
 
         vaultManagers.add(vaultManager);
@@ -43,13 +41,13 @@ contract CollarEngine is ICollarEngine, Ownable {
 
     function addLiquidityPool(address pool) external override onlyOwner ensureLiquidityPoolIsNotValid(pool) {
         emit LiquidityPoolAdded(pool);
-        
+
         collarLiquidityPools.add(pool);
     }
 
     function removeLiquidityPool(address pool) external override onlyOwner ensureLiquidityPoolIsValid(pool) {
         emit LiquidityPoolRemoved(pool);
-        
+
         collarLiquidityPools.remove(pool);
     }
 
@@ -57,13 +55,13 @@ contract CollarEngine is ICollarEngine, Ownable {
 
     function addSupportedCollateralAsset(address asset) external override onlyOwner ensureCollateralAssetIsNotValid(asset) {
         emit CollateralAssetAdded(asset);
-        
+
         supportedCollateralAssets.add(asset);
     }
 
     function removeSupportedCollateralAsset(address asset) external override onlyOwner ensureCollateralAssetIsValid(asset) {
         emit CollateralAssetRemoved(asset);
-        
+
         supportedCollateralAssets.remove(asset);
     }
 
@@ -77,7 +75,7 @@ contract CollarEngine is ICollarEngine, Ownable {
 
     function removeSupportedCashAsset(address asset) external override onlyOwner ensureCashAssetIsValid(asset) {
         emit CashAssetRemoved(asset);
-        
+
         supportedCashAssets.remove(asset);
     }
 
@@ -85,7 +83,7 @@ contract CollarEngine is ICollarEngine, Ownable {
 
     function addCollarDuration(uint256 duration) external override onlyOwner ensureDurationIsNotValid(duration) {
         emit CollarDurationAdded(duration);
-        
+
         validCollarDurations.add(duration);
     }
 
@@ -99,13 +97,13 @@ contract CollarEngine is ICollarEngine, Ownable {
 
     function addLTV(uint256 ltv) external override onlyOwner ensureLTVIsNotValid(ltv) {
         emit LTVAdded(ltv);
-        
+
         validLTVs.add(ltv);
     }
 
     function removeLTV(uint256 ltv) external override onlyOwner ensureLTVIsValid(ltv) {
         emit LTVRemoved(ltv);
-        
+
         validLTVs.remove(ltv);
     }
 
@@ -201,7 +199,7 @@ contract CollarEngine is ICollarEngine, Ownable {
         revert("Method not yet implemented");
     }
 
-    function getCurrentAssetPrice(address /*asset*/) external view virtual override returns (uint256) {
+    function getCurrentAssetPrice(address /*asset*/ ) external view virtual override returns (uint256) {
         revert("Method not yet implemented");
     }
 }

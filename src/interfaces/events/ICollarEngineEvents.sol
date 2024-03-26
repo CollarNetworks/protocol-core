@@ -10,7 +10,7 @@ pragma solidity ^0.8.18;
 interface ICollarEngineEvents {
     // regular user actions
     event VaultManagerCreated(address indexed vaultManager, address indexed owner);
-    
+
     // auth'd actions
     event LiquidityPoolAdded(address indexed liquidityPool);
     event LiquidityPoolRemoved(address indexed liquidityPool);

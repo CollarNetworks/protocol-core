@@ -8,7 +8,6 @@
 pragma solidity ^0.8.18;
 
 interface ICollarPoolEvents {
-    
     // regular user actions
     event LiquidityAdded(address indexed provider, uint256 indexed slotIndex, uint256 liquidity);
     event LiquidityWithdrawn(address indexed provider, uint256 indexed slotIndex, uint256 liquidity);

@@ -10,7 +10,7 @@ pragma solidity ^0.8.18;
 interface ICollarCommonErrors {
     // execution flow error
     error InvalidState();
-    
+
     // auth
     error NotCollarVaultManager(address caller);
     error NotCollarPool(address caller);

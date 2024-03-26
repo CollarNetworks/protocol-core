@@ -9,7 +9,6 @@ pragma solidity ^0.8.18;
 
 /// @notice Various constants used throughout the system
 abstract contract Constants {
-
     // one hundred percent, in basis points
     uint256 public constant ONE_HUNDRED_PERCENT = 10_000;
 

@@ -64,7 +64,7 @@ contract CollarVaultManager is ICollarVaultManager {
 
             // this is very complicated to implement - basically have to recreate
             // the entire closeVault function, but without changing state
-            
+
             revert VaultNotFinalized();
         }
     }
@@ -113,8 +113,7 @@ contract CollarVaultManager is ICollarVaultManager {
         // first, grab the call strike percent from the call strike tick supplied
         uint256 tickScaleFactor = CollarPool(liquidityOpts.liquidityPool).tickScaleFactor();
         uint256 callStrikePercentBps = TickCalculations.tickToBps(liquidityOpts.callStrikeTick, tickScaleFactor);
-        uint256 poolLiquidityToLock = ((callStrikePercentBps - 10_000) * cashReceivedFromSwap * 1e18)
-            / (10_000) / 1e18;
+        uint256 poolLiquidityToLock = ((callStrikePercentBps - 10_000) * cashReceivedFromSwap * 1e18) / (10_000) / 1e18;
 
         // calculate the initial collateral price from the swap execution fill
         // this is stored as "unit price times 1e18"
@@ -268,7 +267,7 @@ contract CollarVaultManager is ICollarVaultManager {
         // calculate cash redeem value
         uint256 redeemValue = previewRedeem(uuid, amount);
 
-        emit Redemption(msg.sender, uuid, amount, redeemValue); 
+        emit Redemption(msg.sender, uuid, amount, redeemValue);
 
         // redeem to user & burn tokens
         _burn(msg.sender, uint256(uuid), amount);
@@ -332,7 +331,7 @@ contract CollarVaultManager is ICollarVaultManager {
             revert InvalidLiquidityPool();
         }
     }
-    
+
     function _swap(ICollarVaultState.AssetSpecifiers calldata assets) internal returns (uint256 cashReceived) {
         // approve the dex router so we can swap the collateral to cash
         IERC20(assets.collateralAsset).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount);

@@ -25,7 +25,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
     // ----- CONSTRUCTOR ----- //
 
     constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset, address _collateralAsset, uint256 _duration, uint256 _ltv)
-        ICollarPool(_engine, _tickScaleFactor, _cashAsset, _collateralAsset, _duration, _ltv) 
+        ICollarPool(_engine, _tickScaleFactor, _cashAsset, _collateralAsset, _duration, _ltv)
     { }
 
     // ----- VIEW FUNCTIONS ----- //
@@ -78,7 +78,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
             // this is very complicated to implement - basically have to recreate
             // the entire closeVault function, but without changing state
-            
+
             revert VaultNotFinalized();
         }
     }
@@ -138,7 +138,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
     function moveLiquidityFromSlot(uint256 sourceSlotIndex, uint256 destinationSlotIndex, uint256 amount) external virtual override {
         emit LiquidityMoved(msg.sender, sourceSlotIndex, destinationSlotIndex, amount);
-        
+
         _reAllocate(msg.sender, sourceSlotIndex, destinationSlotIndex, amount);
     }
 
