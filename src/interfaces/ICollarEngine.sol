@@ -8,9 +8,10 @@
 pragma solidity ^0.8.18;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import { ICollarEngineErrors } from "./ICollarEngineErrors.sol";
+import { ICollarEngineErrors } from "./errors/ICollarEngineErrors.sol";
+import { ICollarEngineEvents } from "./events/ICollarEngineEvents.sol";
 
-abstract contract ICollarEngine is ICollarEngineErrors {
+abstract contract ICollarEngine is ICollarEngineErrors, ICollarEngineEvents {
     // -- lib delcarations --
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;

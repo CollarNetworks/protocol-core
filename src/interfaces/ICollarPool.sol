@@ -7,8 +7,8 @@
 
 pragma solidity ^0.8.18;
 
-import { ICollarPoolErrors } from "./ICollarPoolErrors.sol";
-import { ICollarPoolEvents } from "./ICollarPoolEvents.sol";
+import { ICollarPoolErrors } from "./errors/ICollarPoolErrors.sol";
+import { ICollarPoolEvents } from "./events/ICollarPoolEvents.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
@@ -148,7 +148,7 @@ abstract contract ICollarPool is ICollarPoolState {
     /// @param amount The amount of liquidity to reallocate
     function moveLiquidityFromSlot(uint256 source, uint256 destination, uint256 amount) external virtual;
 
-    /// @notice Opens a new position
+    /// @notice Opens a new position (collar) in the pool (called by the vault manager)
     /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
     /// @param slotIndex The index of the slot to open the position in in the pool
     /// @param amount The amount of liquidity to open the position with

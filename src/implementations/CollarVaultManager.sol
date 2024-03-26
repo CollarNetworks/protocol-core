@@ -14,7 +14,8 @@ import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 import { CollarEngine } from "../implementations/CollarEngine.sol";
 import { TickCalculations } from "../libs/TickCalculations.sol";
 import { CollarPool } from "./CollarPool.sol";
-import { ICollarVaultManagerErrors } from "../interfaces/ICollarVaultManagerErrors.sol";
+import { ICollarVaultManagerErrors } from "../interfaces/errors/ICollarVaultManagerErrors.sol";
+import { ICollarVaultManagerEvents } from "../interfaces/events/ICollarVaultManagerEvents.sol";
 
 contract CollarVaultManager is ICollarVaultManager {
     // ----- CONSTRUCTOR ----- //
@@ -142,6 +143,8 @@ contract CollarVaultManager is ICollarVaultManager {
         vaultsByUUID[uuid].loanBalance = (collarOpts.ltv * cashReceivedFromSwap) / 10_000;
         vaultsByUUID[uuid].lockedVaultCash = ((10_000 - collarOpts.ltv) * cashReceivedFromSwap) / 10_000;
 
+        emit VaultOpened(msg.sender, address(this), uuid);
+
         // approve the pool
         IERC20(assetData.cashAsset).approve(liquidityOpts.liquidityPool, vaultsByUUID[uuid].lockedVaultCash);
     }
@@ -247,6 +250,8 @@ contract CollarVaultManager is ICollarVaultManager {
 
         // mark vault as finalized
         vault.active = false;
+
+        emit VaultClosed(msg.sender, address(this), uuid);
     }
 
     function redeem(bytes32 uuid, uint256 amount) external override {
@@ -262,6 +267,8 @@ contract CollarVaultManager is ICollarVaultManager {
 
         // calculate cash redeem value
         uint256 redeemValue = previewRedeem(uuid, amount);
+
+        emit Redemption(msg.sender, uuid, amount, redeemValue); 
 
         // redeem to user & burn tokens
         _burn(msg.sender, uint256(uuid), amount);
@@ -281,6 +288,8 @@ contract CollarVaultManager is ICollarVaultManager {
             vaultsByUUID[uuid].loanBalance -= amount;
             IERC20(vaultsByUUID[uuid].cashAsset).transfer(msg.sender, amount);
         }
+
+        emit Withdrawal(user, address(this), uuid, amount, vaultsByUUID[uuid].loanBalance);
     }
 
     // ----- INTERNAL FUNCTIONS ----- //

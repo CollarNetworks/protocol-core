@@ -12,6 +12,7 @@ import { CollarPool } from "./CollarPool.sol";
 import { CollarVaultManager } from "./CollarVaultManager.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { ICollarEngineEvents } from "../interfaces/events/ICollarEngineEvents.sol";
 
 contract CollarEngine is ICollarEngine, Ownable {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -26,10 +27,14 @@ contract CollarEngine is ICollarEngine, Ownable {
             revert VaultManagerAlreadyExists(msg.sender, addressToVaultManager[msg.sender]);
         }
 
+        
+
         address vaultManager = address(new CollarVaultManager(address(this), msg.sender));
 
         vaultManagers.add(vaultManager);
         addressToVaultManager[msg.sender] = vaultManager;
+
+        emit VaultManagerCreated(vaultManager, msg.sender);
 
         return vaultManager;
     }
@@ -37,50 +42,70 @@ contract CollarEngine is ICollarEngine, Ownable {
     // liquidity pools
 
     function addLiquidityPool(address pool) external override onlyOwner ensureLiquidityPoolIsNotValid(pool) {
+        emit LiquidityPoolAdded(pool);
+        
         collarLiquidityPools.add(pool);
     }
 
     function removeLiquidityPool(address pool) external override onlyOwner ensureLiquidityPoolIsValid(pool) {
+        emit LiquidityPoolRemoved(pool);
+        
         collarLiquidityPools.remove(pool);
     }
 
     // collateral assets
 
     function addSupportedCollateralAsset(address asset) external override onlyOwner ensureCollateralAssetIsNotValid(asset) {
+        emit CollateralAssetAdded(asset);
+        
         supportedCollateralAssets.add(asset);
     }
 
     function removeSupportedCollateralAsset(address asset) external override onlyOwner ensureCollateralAssetIsValid(asset) {
+        emit CollateralAssetRemoved(asset);
+        
         supportedCollateralAssets.remove(asset);
     }
 
     // cash assets
 
     function addSupportedCashAsset(address asset) external override onlyOwner ensureCashAssetIsNotValid(asset) {
+        emit CashAssetAdded(asset);
+
         supportedCashAssets.add(asset);
     }
 
     function removeSupportedCashAsset(address asset) external override onlyOwner ensureCashAssetIsValid(asset) {
+        emit CashAssetRemoved(asset);
+        
         supportedCashAssets.remove(asset);
     }
 
     // durations
 
     function addCollarDuration(uint256 duration) external override onlyOwner ensureDurationIsNotValid(duration) {
+        emit CollarDurationAdded(duration);
+        
         validCollarDurations.add(duration);
     }
 
     function removeCollarDuration(uint256 duration) external override onlyOwner ensureDurationIsValid(duration) {
+        emit CollarDurationRemoved(duration);
+
         validCollarDurations.remove(duration);
     }
 
     // ltvs
 
     function addLTV(uint256 ltv) external override onlyOwner ensureLTVIsNotValid(ltv) {
+        emit LTVAdded(ltv);
+        
         validLTVs.add(ltv);
     }
 
     function removeLTV(uint256 ltv) external override onlyOwner ensureLTVIsValid(ltv) {
+        emit LTVRemoved(ltv);
+        
         validLTVs.remove(ltv);
     }
 
