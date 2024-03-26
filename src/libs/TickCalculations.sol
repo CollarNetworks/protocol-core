@@ -31,21 +31,24 @@ library TickCalculations {
         // 10 bps / tick @ tickScaleFactor 10
         // 10_000bps (100%) = tick # 1_000
 
+        // 100 bps / tick @ tickScaleFactor 100
+        // 10_000bps (100%) = tick # 100
+
         return tick * tickScaleFactor;
     }
 
-    /// @notice Given some tick and a specified starting price, returns the price at that tick
+    /// @notice Given some tick and a specified starting price (of collateral), returns the price at that tick
     /// @param tick The tick to convert to a price
     /// @param tickScaleFactor The tickScaleFactor to use for the conversion
-    /// @param startingPrice The price at which the tick starts
+    /// @param startingPrice The starting price of the collateral token (per unit)
     function tickToPrice(uint24 tick, uint256 tickScaleFactor, uint256 startingPrice) public pure returns (uint256) {
         return (startingPrice * tickToBps(tick, tickScaleFactor)) / (10_000 / tickScaleFactor);
     }
 
-    /// @notice Given some price and a specified starting price, returns the tick at that price
-    /// @param price The price to convert to a tick
+    /// @notice Given some (collateral) current price and a specified (collateral) starting price, returns the tick at that price
+    /// @param price The price (of the collateral token) to convert to a tick
     /// @param tickScaleFactor The tickScaleFactor to use for the conversion
-    /// @param startingPrice The price at which the tick starts
+    /// @param startingPrice The starting price of the collateral token (per unit)
     function priceToTick(uint256 price, uint256 tickScaleFactor, uint256 startingPrice) public pure returns (uint24) {
         return bpsToTick((price * (10_000 / tickScaleFactor)) / startingPrice, tickScaleFactor);
     }
