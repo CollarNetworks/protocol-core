@@ -15,7 +15,8 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 import { CollarEngine } from "./CollarEngine.sol";
 import { CollarVaultManager } from "./CollarVaultManager.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
-import { ICollarPoolErrors } from "../interfaces/ICollarPoolErrors.sol";
+import { ICollarPoolErrors } from "../interfaces/errors/ICollarPoolErrors.sol";
+import { ICollarPoolEvents } from "../interfaces/events/ICollarPoolEvents.sol";
 
 contract CollarPool is ICollarPool, ERC6909TokenSupply {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
@@ -72,12 +73,13 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
             cashReceived = (_totalTokenCashSupply * amount) / _totalTokenSupply;
         } else {
-            // if not yet finalized, calculate redeem value as if we were to finalize now
-            // thus we need the current price of the asset
+            // calculate redeem value based on current price of asset
+            // uint256 currentCollateralPrice = CollarEngine(engine).getCurrentAssetPrice(vaultsByUUID[uuid].collateralAsset);
 
+            // this is very complicated to implement - basically have to recreate
+            // the entire closeVault function, but without changing state
             
-            
-            revert("Not implemented");
+            revert VaultNotFinalized();
         }
     }
 
@@ -106,6 +108,8 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         freeLiquidity += amount;
         totalLiquidity += amount;
 
+        emit LiquidityAdded(msg.sender, slotIndex, amount);
+
         // transfer collateral from provider to pool
         IERC20(cashAsset).transferFrom(msg.sender, address(this), amount);
     }
@@ -115,7 +119,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         uint256 liquidity = slots[slot].providers.get(msg.sender);
 
         if (liquidity < amount) {
-            revert NotEnoughLiquidity();
+            revert InvalidAmount();
         }
 
         freeLiquidity -= amount;
@@ -126,11 +130,15 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
             initializedSlotIndices.remove(slot);
         }
 
+        emit LiquidityWithdrawn(msg.sender, slot, amount);
+
         // finally, transfer the liquidity to the provider
         IERC20(cashAsset).transfer(msg.sender, amount);
     }
 
     function moveLiquidityFromSlot(uint256 sourceSlotIndex, uint256 destinationSlotIndex, uint256 amount) external virtual override {
+        emit LiquidityMoved(msg.sender, sourceSlotIndex, destinationSlotIndex, amount);
+        
         _reAllocate(msg.sender, sourceSlotIndex, destinationSlotIndex, amount);
     }
 
@@ -146,12 +154,12 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
         // if no providers, revert
         if (numProviders == 0) {
-            revert NotEnoughLiquidity();
+            revert InvalidAmount();
         }
 
         // if not enough liquidity, revert
         if (slot.liquidity < amount) {
-            revert NotEnoughLiquidity();
+            revert InvalidAmount();
         }
 
         for (uint256 i = 0; i < numProviders; i++) {
@@ -170,6 +178,8 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
             // mint to this provider
             _mint(thisProvider, uint256(uuid), amountFromThisProvider);
+
+            emit PoolTokensIssued(thisProvider, expiration, thisLiquidity);
         }
 
         // decrement available liquidity in slot
@@ -186,6 +196,8 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         if (slot.liquidity == 0) {
             initializedSlotIndices.remove(slotIndex);
         }
+
+        emit PositionOpened(msg.sender, uuid, expiration, amount);
     }
 
     function finalizePosition(bytes32 uuid, address vaultManager, int256 positionNet) external override {
@@ -211,16 +223,18 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         } else {
             // impressive. most impressive.
         }
+
+        emit PositionFinalized(vaultManager, uuid, positionNet);
     }
 
     function redeem(bytes32 uuid, uint256 amount) external override {
         if (!CollarEngine(engine).isVaultFinalized(uuid)) {
-            revert("Vault not finalized or invalid");
+            revert VaultNotFinalized();
         }
 
         // ensure that the user has enough tokens
         if (ERC6909TokenSupply(address(this)).balanceOf(msg.sender, uint256(uuid)) < amount) {
-            revert("Not enough tokens");
+            revert InvalidAmount();
         }
 
         // calculate cash redeem value
@@ -232,6 +246,8 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         // update global liquidity amounts
         lockedLiquidity -= redeemValue;
         totalLiquidity -= redeemValue;
+
+        emit Redemption(msg.sender, uuid, amount, redeemValue);
 
         // redeem to user & burn tokens
         _burn(msg.sender, uint256(uuid), amount);

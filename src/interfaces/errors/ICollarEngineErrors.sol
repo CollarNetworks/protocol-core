@@ -7,22 +7,21 @@
 
 pragma solidity ^0.8.18;
 
-abstract contract ICollarEngineErrors {
+import { ICollarCommonErrors } from "./ICollarCommonErrors.sol";
+
+interface ICollarEngineErrors is ICollarCommonErrors {
+    // pools & vault managers
     error VaultManagerAlreadyExists(address user, address vaultManager);
     error LiquidityPoolAlreadyAdded(address pool);
+
+    // assets
     error CollateralAssetNotSupported(address asset);
     error CashAssetNotSupported(address asset);
     error CollateralAssetAlreadySupported(address asset);
     error CashAssetAlreadySupported(address asset);
-    error InvalidZeroAddress(address addr);
-    error InvalidCashAmount(uint256 amount);
-    error InvalidCollateralAmount(uint256 amount);
-    error InvalidLiquidityPool(address pool);
-    error CollarLengthNotSupported(uint256 length);
-    error InvalidLiquidityOpts();
-    error AssetNotSupported(address asset);
-    error AssetAlreadySupported(address asset);
-    error InvalidVaultManager(address vaultManager);
+
+    // ltv & duration
     error LTVNotSupported(uint256 ltv);
     error LTVAlreadySupported(uint256 ltv);
+    error CollarDurationNotSupported();
 }

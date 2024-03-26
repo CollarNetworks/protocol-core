@@ -7,8 +7,8 @@
 
 pragma solidity ^0.8.18;
 
-import { ICollarVaultManagerEvents } from "./ICollarVaultManagerEvents.sol";
-import { ICollarVaultManagerErrors } from "./ICollarVaultManagerErrors.sol";
+import { ICollarVaultManagerEvents } from "./events/ICollarVaultManagerEvents.sol";
+import { ICollarVaultManagerErrors } from "./errors/ICollarVaultManagerErrors.sol";
 import { ICollarVaultState } from "./ICollarVaultState.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";

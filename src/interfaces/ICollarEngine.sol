@@ -8,9 +8,10 @@
 pragma solidity ^0.8.18;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import { ICollarEngineErrors } from "./ICollarEngineErrors.sol";
+import { ICollarEngineErrors } from "./errors/ICollarEngineErrors.sol";
+import { ICollarEngineEvents } from "./events/ICollarEngineEvents.sol";
 
-abstract contract ICollarEngine is ICollarEngineErrors {
+abstract contract ICollarEngine is ICollarEngineErrors, ICollarEngineEvents {
     // -- lib delcarations --
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;
@@ -20,12 +21,12 @@ abstract contract ICollarEngine is ICollarEngineErrors {
     // vaults
 
     modifier ensureVaultManagerIsValid(address vaultManager) {
-        if (vaultManagers.contains(vaultManager) == false) revert InvalidVaultManager(vaultManager);
+        if (vaultManagers.contains(vaultManager) == false) revert InvalidVaultManager();
         _;
     }
 
     modifier ensureLiquidityPoolIsValid(address pool) {
-        if (!collarLiquidityPools.contains(pool)) revert InvalidLiquidityPool(pool);
+        if (!collarLiquidityPools.contains(pool)) revert InvalidLiquidityPool();
         _;
     }
 
@@ -62,13 +63,13 @@ abstract contract ICollarEngine is ICollarEngineErrors {
 
     // collar durations
 
-    modifier ensureDurationIsValid(uint256 length) {
-        if (!validCollarDurations.contains(length)) revert CollarLengthNotSupported(length);
+    modifier ensureDurationIsValid(uint256 duration) {
+        if (!validCollarDurations.contains(duration)) revert CollarDurationNotSupported();
         _;
     }
 
-    modifier ensureDurationIsNotValid(uint256 length) {
-        if (validCollarDurations.contains(length)) revert CollarLengthNotSupported(length);
+    modifier ensureDurationIsNotValid(uint256 duration) {
+        if (validCollarDurations.contains(duration)) revert CollarDurationNotSupported();
         _;
     }
 
