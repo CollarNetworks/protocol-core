@@ -31,6 +31,7 @@ interface ICollarCommonErrors {
 
     // state-related errors shared across contracts
     error VaultNotFinalized();
+    error VaultNotFinalizable();
     error VaultNotActive();
 
     // generic arg errors

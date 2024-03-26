@@ -494,12 +494,12 @@ contract CollarVaultManagerTest is Test {
 
         manager.closeVault(uuid);
 
-        vm.expectRevert("Vault not active or not finalizable");
+        vm.expectRevert(ICollarCommonErrors.VaultNotActive.selector);
         manager.closeVault(uuid);
     }
 
     function test_closeVault_InvalidVault() public {
-        vm.expectRevert("Vault does not exist");
+        vm.expectRevert(ICollarCommonErrors.InvalidVault.selector);
         manager.closeVault(bytes32(0));
     }
 
@@ -527,13 +527,13 @@ contract CollarVaultManagerTest is Test {
         hoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
-        vm.expectRevert("Vault not active or not finalizable");
+        vm.expectRevert(ICollarCommonErrors.VaultNotFinalizable.selector);
         manager.closeVault(uuid);
 
         // advance some blocks, but not all of them!
         skip(25);
 
-        vm.expectRevert("Vault not active or not finalizable");
+        vm.expectRevert(ICollarCommonErrors.VaultNotFinalizable.selector);
         manager.closeVault(uuid);
     }
 
@@ -602,7 +602,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_redeem_InvalidVault() public {
-        vm.expectRevert("Vault does not exist");
+        vm.expectRevert(ICollarCommonErrors.InvalidVault.selector);
         manager.redeem(bytes32(0), 100);
     }
 
@@ -643,7 +643,7 @@ contract CollarVaultManagerTest is Test {
         startHoax(user1);
         manager.closeVault(uuid);
 
-        vm.expectRevert("Amount cannot be 0");
+        vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
         manager.redeem(uuid, 0);
     }
 
@@ -671,7 +671,7 @@ contract CollarVaultManagerTest is Test {
         startHoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
-        vm.expectRevert("Vault not finalized / still active!");
+        vm.expectRevert(ICollarCommonErrors.VaultNotFinalized.selector);
         manager.redeem(uuid, 100);
     }
 
@@ -731,12 +731,12 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_previewRedeem_InvalidVault() public {
-        vm.expectRevert("Vault does not exist");
+        vm.expectRevert(ICollarCommonErrors.InvalidVault.selector);
         manager.previewRedeem(bytes32(0), 100);
     }
 
     function test_previewRedeem_InvalidAmount() public {
-        vm.expectRevert("Amount cannot be 0");
+        vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
         manager.previewRedeem(bytes32(0), 0);
     }
 
@@ -793,7 +793,7 @@ contract CollarVaultManagerTest is Test {
         hoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
-        vm.expectRevert("Only user can withdraw");
+        vm.expectRevert(ICollarCommonErrors.NotCollarVaultOwner.selector);
         manager.withdraw(uuid, 90);
     }
 
@@ -821,18 +821,18 @@ contract CollarVaultManagerTest is Test {
         startHoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
-        vm.expectRevert("Insufficient loan balance");
+        vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
         manager.withdraw(uuid, 91);
     }
 
     function test_withdraw_InvalidVault() public {
         hoax(user1);
-        vm.expectRevert("Vault does not exist");
+        vm.expectRevert(ICollarCommonErrors.InvalidVault.selector);
         manager.withdraw(bytes32(0), 100);
     }
 
     function test_vaultInfo_InvalidVault() public {
-        vm.expectRevert("Vault does not exist");
+        vm.expectRevert(ICollarCommonErrors.InvalidVault.selector);
         manager.vaultInfo(bytes32(0));
     }
 }
