@@ -11,4 +11,7 @@ import { ICollarCommonErrors } from "./ICollarCommonErrors.sol";
 
 interface ICollarPoolErrors is ICollarCommonErrors {
     error NotEnoughLiquidity();
+    error VaultNotFinalized();
+    error InvalidAmount();
+
 }

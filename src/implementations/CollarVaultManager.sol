@@ -45,24 +45,26 @@ contract CollarVaultManager is ICollarVaultManager {
             // if finalized, calculate final redeem value
             // grab collateral asset value @ exact vault expiration time
 
-            uint256 totalTokenCashSupply = vaultTokenCashSupply[uuid];
-            uint256 totalTokenSupplyLocal = totalSupply[uint256(uuid)];
+            uint256 vaultCash = vaultTokenCashSupply[uuid];
+            uint256 tokenSupply = totalSupply[uint256(uuid)];
 
-            if (totalTokenCashSupply == 0) {
-                revert("Vault has no redeemable cash");
+            if (vaultCash == 0) {
+                return 0;
             }
 
-            if (totalTokenSupplyLocal == 0) {
-                revert("Vault has no tokens");
+            if (tokenSupply < amount) {
+                revert ExceedsTokenSupply();
             }
 
-            cashReceived = (totalTokenCashSupply * amount) / totalTokenSupplyLocal;
+            cashReceived = (vaultCash * amount) / tokenSupply;
         } else {
             // calculate redeem value based on current price of asset
+            // uint256 currentCollateralPrice = CollarEngine(engine).getCurrentAssetPrice(vaultsByUUID[uuid].collateralAsset);
 
-            uint256 currentCollateralPrice = CollarEngine(engine).getCurrentAssetPrice(vaultsByUUID[uuid].collateralAsset);
-
-            revert("Not implemented");
+            // this is very complicated to implement - basically have to recreate
+            // the entire closeVault function, but without changing state
+            
+            revert VaultNotFinalized();
         }
     }
 
@@ -82,7 +84,6 @@ contract CollarVaultManager is ICollarVaultManager {
         _validateAssetData(assetData);
         _validateCollarOpts(collarOpts);
         _validateLiquidityOpts(liquidityOpts);
-        _validateRequestedPoolAssets(assetData, liquidityOpts);
 
         // generate vault (and token) nonce
         uuid = keccak256(abi.encodePacked(user, ++vaultCount));
@@ -166,7 +167,7 @@ contract CollarVaultManager is ICollarVaultManager {
 
         uint256 finalPrice = CollarEngine(engine).getHistoricalAssetPrice(vault.collateralAsset, vault.expiresAt);
 
-        if (finalPrice == 0) revert("Asset price cannot be 0");
+        if (finalPrice == 0) revert InvalidAssetPrice();
 
         // vault can finalze in 4 possible states, depending on where the final price (P_1) ends up
         // relative to the put strike (PUT), the call strike (CAL), and the starting price (P_0)
@@ -223,12 +224,12 @@ contract CollarVaultManager is ICollarVaultManager {
 
             // ???
         } else {
-            revert("This really should not be possible!");
+            revert InvalidState();
         }
 
         // sanity check
         if (cashNeededFromPool > 0 && cashToSendToPool > 0) {
-            revert("Vault is in an invalid state");
+            revert InvalidState();
         }
 
         int256 poolProfit = cashToSendToPool > 0 ? int256(cashToSendToPool) : -int256(cashNeededFromPool);
@@ -256,11 +257,8 @@ contract CollarVaultManager is ICollarVaultManager {
 
         // ensure vault is finalized
         if (vaultsByUUID[uuid].active) {
-            revert("Vault not finalized / still active!");
+            revert VaultNotFinalized();
         }
-
-        // check auth just in case
-        if (user != msg.sender) revert("Only user can redeem tokens");
 
         // calculate cash redeem value
         uint256 redeemValue = previewRedeem(uuid, amount);
@@ -271,14 +269,14 @@ contract CollarVaultManager is ICollarVaultManager {
     }
 
     function withdraw(bytes32 uuid, uint256 amount) external override {
-        if (msg.sender != user) revert("Only user can withdraw");
-        if (vaultsByUUID[uuid].openedAt == 0) revert("Vault does not exist");
+        if (msg.sender != user) revert OnlyUser();
+        if (vaultsByUUID[uuid].openedAt == 0) revert NonExistentVault();
 
         uint256 loanBalance = vaultsByUUID[uuid].loanBalance;
 
         // withdraw from user's loan balance
         if (amount > loanBalance) {
-            revert("Insufficient loan balance");
+            revert InvalidAmount();
         } else {
             vaultsByUUID[uuid].loanBalance -= amount;
             IERC20(vaultsByUUID[uuid].cashAsset).transfer(msg.sender, amount);
@@ -287,27 +285,27 @@ contract CollarVaultManager is ICollarVaultManager {
 
     // ----- INTERNAL FUNCTIONS ----- //
 
-    function _validateAssetData(ICollarVaultState.AssetSpecifiers calldata assetData) internal {
+    function _validateAssetData(ICollarVaultState.AssetSpecifiers calldata assetData) internal view {
         // verify cash & collateral assets against engine for validity
         if (!CollarEngine(engine).isSupportedCashAsset(assetData.cashAsset)) {
-            revert("Unsupported cash asset");
+            revert InvalidCashAsset();
         }
 
         if (!CollarEngine(engine).isSupportedCollateralAsset(assetData.collateralAsset)) {
-            revert("Unsupported collateral asset");
+            revert InvalidCollateralAsset();
         }
 
         // verify cash & collateral amounts are > 0
         if (assetData.cashAmount == 0) {
-            revert("Cash amount must be > 0");
+            revert InvalidCashAmount();
         }
 
         if (assetData.collateralAmount == 0) {
-            revert("Collateral amount must be > 0");
+            revert InvalidCollateralAmount();
         }
     }
 
-    function _validateCollarOpts(ICollarVaultState.CollarOpts calldata collarOpts) internal {
+    function _validateCollarOpts(ICollarVaultState.CollarOpts calldata collarOpts) internal view {
         // verify length is valid per engine
         if (!CollarEngine(engine).isValidCollarDuration(collarOpts.duration)) {
             revert InvalidDuration();
@@ -319,20 +317,13 @@ contract CollarVaultManager is ICollarVaultManager {
         }
     }
 
-    function _validateLiquidityOpts(ICollarVaultState.LiquidityOpts calldata liquidityOpts) internal {
+    function _validateLiquidityOpts(ICollarVaultState.LiquidityOpts calldata liquidityOpts) internal view {
         // verify liquidity pool is a valid collar liquidity pool
         if (!CollarEngine(engine).isSupportedLiquidityPool(liquidityOpts.liquidityPool)) {
             revert InvalidPool();
         }
     }
-
-    function _validateRequestedPoolAssets(
-        ICollarVaultState.AssetSpecifiers calldata assetData,
-        ICollarVaultState.LiquidityOpts calldata liquidityOpts
-    ) internal pure {
-        // calculate the amount of locked pool liquidity needed and ensure that exactly that much has been requested
-    }
-
+    
     function _swap(ICollarVaultState.AssetSpecifiers calldata assets) internal returns (uint256 cashReceived) {
         // approve the dex router so we can swap the collateral to cash
         IERC20(assets.collateralAsset).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount);

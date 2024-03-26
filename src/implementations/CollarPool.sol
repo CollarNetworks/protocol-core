@@ -72,7 +72,13 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
             cashReceived = (_totalTokenCashSupply * amount) / _totalTokenSupply;
         } else {
-            revert("Not implemented");
+            // calculate redeem value based on current price of asset
+            // uint256 currentCollateralPrice = CollarEngine(engine).getCurrentAssetPrice(vaultsByUUID[uuid].collateralAsset);
+
+            // this is very complicated to implement - basically have to recreate
+            // the entire closeVault function, but without changing state
+            
+            revert VaultNotFinalized();
         }
     }
 
@@ -210,12 +216,12 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
     function redeem(bytes32 uuid, uint256 amount) external override {
         if (!CollarEngine(engine).isVaultFinalized(uuid)) {
-            revert("Vault not finalized or invalid");
+            revert VaultNotFinalized();
         }
 
         // ensure that the user has enough tokens
         if (ERC6909TokenSupply(address(this)).balanceOf(msg.sender, uint256(uuid)) < amount) {
-            revert("Not enough tokens");
+            revert InvalidAmount();
         }
 
         // calculate cash redeem value

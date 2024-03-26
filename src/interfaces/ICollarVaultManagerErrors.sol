@@ -28,6 +28,17 @@ interface ICollarVaultManagerErrors is ICollarCommonErrors {
     /// @notice Indicates that someone other than the authorized user has attempted access
     error OnlyUser();
 
+    /// @notice Indicates that the amount of tokens provided exceeds the supply
+    error ExceedsTokenSupply();
+
+    /// @notice Indicates that the vault isn't finalized yet
+    error VaultNotFinalized();
+
+    /// @notice Indicates that the asset price returned is invalid
+    error InvalidAssetPrice();
+
+    /// @notice Indicates the amount specified is invalid
+    error InvalidAmount();
 }
 
 /*
