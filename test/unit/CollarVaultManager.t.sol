@@ -18,6 +18,8 @@ import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 import { ICollarVaultManager } from "../../src/interfaces/ICollarVaultManager.sol";
 import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
+import { ICollarVaultManagerErrors } from "../../src/interfaces/errors/ICollarVaultManagerErrors.sol";
+import { ICollarCommonErrors } from "../../src/interfaces/errors/ICollarCommonErrors.sol";
 
 contract CollarVaultManagerTest is Test {
     TestERC20 token1;
@@ -53,6 +55,7 @@ contract CollarVaultManagerTest is Test {
         engine.addSupportedCollateralAsset(address(token1));
         engine.addSupportedCashAsset(address(token2));
         engine.addCollarDuration(100);
+        engine.addLTV(9000);
 
         token1.mint(address(router), 100_000);
         token2.mint(address(router), 100_000);
@@ -179,25 +182,25 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9_000 });
 
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9_000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
         startHoax(user1);
 
-        vm.expectRevert("Unsupported collateral asset");
+        vm.expectRevert(ICollarCommonErrors.InvalidCollateralAsset.selector);
         manager.openVault(invalidCollatAddr, collarOpts, liquidityOpts);
 
-        vm.expectRevert("Collateral amount must be > 0");
+        vm.expectRevert(ICollarCommonErrors.InvalidCollateralAmount.selector);
         manager.openVault(invalidCollatAmount, collarOpts, liquidityOpts);
 
-        vm.expectRevert("Unsupported cash asset");
+        vm.expectRevert(ICollarCommonErrors.InvalidCashAsset.selector);
         manager.openVault(invalidCashAddr, collarOpts, liquidityOpts);
 
-        vm.expectRevert("Cash amount must be > 0");
+        vm.expectRevert(ICollarCommonErrors.InvalidCashAmount.selector);
         manager.openVault(invalidCashAmount, collarOpts, liquidityOpts);
     }
 
@@ -215,16 +218,16 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-        ICollarVaultState.CollarOpts memory invalidlength = ICollarVaultState.CollarOpts({ duration: 99, ltv: 9000 });
+        ICollarVaultState.CollarOpts memory invalidlength = ICollarVaultState.CollarOpts({ duration: 99, ltv: 9_000 });
 
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9_000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
         startHoax(user1);
 
-        vm.expectRevert("Invalid length");
+        vm.expectRevert(ICollarCommonErrors.InvalidDuration.selector);
         manager.openVault(assets, invalidlength, liquidityOpts);
     }
 
@@ -242,23 +245,29 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9_000 });
 
         ICollarVaultState.LiquidityOpts memory invalidPool =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(token1), putStrikeTick: 9000, callStrikeTick: 11_000 });
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(token1), putStrikeTick: 9_000, callStrikeTick: 11_000 });
 
         ICollarVaultState.LiquidityOpts memory invalidPutStrike =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 900_000, callStrikeTick: 11_000 });
 
         ICollarVaultState.LiquidityOpts memory invalidCallStrike =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 110 });
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9_000, callStrikeTick: 110 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
         hoax(user1);
 
-        vm.expectRevert("Unsupported liquidity pool");
+        vm.expectRevert(ICollarCommonErrors.InvalidLiquidityPool.selector);
         manager.openVault(assets, collarOpts, invalidPool);
+
+        vm.expectRevert(ICollarVaultManagerErrors.InvalidPutStrike.selector);
+        manager.openVault(assets, collarOpts, invalidPutStrike);
+
+        vm.expectRevert(ICollarVaultManagerErrors.InvalidCallStrike.selector);
+        manager.openVault(assets, collarOpts, invalidCallStrike);
     }
 
     function test_openVault_NotEnoughAssets() public {
@@ -274,10 +283,10 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9_000 });
 
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9_000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
@@ -304,10 +313,10 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9_000 });
 
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9_000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
@@ -359,10 +368,10 @@ contract CollarVaultManagerTest is Test {
             cashAmount: 100
         });
 
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9_000 });
 
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9_000, callStrikeTick: 11_000 });
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 

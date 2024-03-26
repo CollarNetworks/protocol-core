@@ -163,15 +163,20 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         iSlots = pool.getInitializedSlotIndices();
 
-        assertEq(iSlots.length, 1);
-        assertEq(iSlots[0], 222);
+        // length stays the same
+        assertEq(iSlots.length, 2);
+        assertEq(iSlots[0], 0);
+        assertEq(iSlots[1], 222);
 
-        // remove liquidity from the other slot, and then query again, should return 0 slots
+        // remove liquidity from the other slot, and then query again, should return 1 slot
         hoax(user2);
         pool.withdrawLiquidityFromSlot(222, 2000);
 
+        // length stays the same
         iSlots = pool.getInitializedSlotIndices();
-        assertEq(iSlots.length, 0);
+        assertEq(iSlots.length, 2);
+        assertEq(iSlots[0], 0);
+        assertEq(iSlots[1], 0);
     }
 
     function test_addLiquidity_FillEntireSlot() public {

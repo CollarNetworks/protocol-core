@@ -330,6 +330,11 @@ contract CollarVaultManager is ICollarVaultManager {
         if (!CollarEngine(engine).isSupportedLiquidityPool(liquidityOpts.liquidityPool)) {
             revert InvalidLiquidityPool();
         }
+
+        // verify the put strike tick matches the put strike tick of the pool
+        if (CollarPool(liquidityOpts.liquidityPool).ltv() != liquidityOpts.putStrikeTick) {
+            revert InvalidPutStrike();
+        }
     }
 
     function _swap(ICollarVaultState.AssetSpecifiers calldata assets) internal returns (uint256 cashReceived) {
