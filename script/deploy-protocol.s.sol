@@ -111,6 +111,11 @@ contract DeployInitializedProtocol is Script {
         CollarEngine(engine).addLiquidityPool(pool);
         CollarEngine(engine).addSupportedCashAsset(cashTestToken);
         CollarEngine(engine).addSupportedCollateralAsset(collateralTestToken);
+        CollarEngine(engine).addCollarDuration(100 seconds);
+        CollarEngine(engine).addCollarDuration(1 hours);
+        CollarEngine(engine).addCollarDuration(1 days);
+        CollarEngine(engine).addCollarDuration(30 days);
+        CollarEngine(engine).addCollarDuration(180 days);
 
         TestERC20(cashTestToken).mint(router, 1_000_000e18);
         TestERC20(collateralTestToken).mint(router, 1_000_000e18);
