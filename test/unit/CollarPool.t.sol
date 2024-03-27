@@ -17,6 +17,8 @@ import { ICollarPoolState } from "../../src/interfaces/ICollarPool.sol";
 import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
 import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
+import { ICollarCommonErrors } from "../../src/interfaces/errors/ICollarCommonErrors.sol";
+import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 
 contract CollarPoolTest is Test, ICollarPoolState {
     TestERC20 token1;
@@ -76,6 +78,15 @@ contract CollarPoolTest is Test, ICollarPoolState {
         token2.mint(user, 100_000);
         token1.approve(address(pool), 100_000);
         token2.approve(address(pool), 100_000);
+        vm.stopPrank();
+    }
+
+    function mintTokensToUserAndApproveManager(address user) internal {
+        startHoax(user);
+        token1.mint(user, 100_000);
+        token2.mint(user, 100_000);
+        token1.approve(address(manager), 100_000);
+        token2.approve(address(manager), 100_000);
         vm.stopPrank();
     }
 
@@ -165,7 +176,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         // length stays the same
         assertEq(iSlots.length, 2);
-        assertEq(iSlots[0], 0);
+        assertEq(iSlots[0], 111);
         assertEq(iSlots[1], 222);
 
         // remove liquidity from the other slot, and then query again, should return 1 slot
@@ -175,8 +186,8 @@ contract CollarPoolTest is Test, ICollarPoolState {
         // length stays the same
         iSlots = pool.getInitializedSlotIndices();
         assertEq(iSlots.length, 2);
-        assertEq(iSlots[0], 0);
-        assertEq(iSlots[1], 0);
+        assertEq(iSlots[0], 111);
+        assertEq(iSlots[1], 222);
     }
 
     function test_addLiquidity_FillEntireSlot() public {
@@ -356,7 +367,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         pool.addLiquidityToSlot(111, 25_000);
 
-        vm.expectRevert("Not enough liquidity");
+        vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
         pool.withdrawLiquidityFromSlot(111, 26_000);
     }
 
@@ -403,7 +414,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         pool.addLiquidityToSlot(111, 25_000);
 
-        vm.expectRevert("Not enough liquidity");
+        vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
         pool.moveLiquidityFromSlot(111, 23, 26_000);
     }
 
@@ -461,7 +472,8 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         pool.addLiquidityToSlot(111, 100_000);
 
-        vm.expectRevert("Only registered vaults can mint");
+        vm.expectRevert(ICollarCommonErrors.NotCollarVaultManager.selector);
+
         pool.openPosition(keccak256(abi.encodePacked(user1)), 111, 100_000, block.timestamp + 100);
     }
 
@@ -474,25 +486,58 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         startHoax(address(manager));
 
-        vm.expectRevert("No providers in slot");
+        vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
         pool.openPosition(keccak256(abi.encodePacked(user1)), 112, 100_000, block.timestamp + 100);
     }
 
     function test_redeem() public {
-        mintTokensAndApprovePool(user1);
-        mintTokensAndApprovePool(address(manager));
+        mintTokensToUserAndApproveManager(user1);
+        mintTokensToUserAndApprovePool(user2);
+
+        startHoax(user2);
+        pool.addLiquidityToSlot(11_000, 25_000);
+
+        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
+            collateralAsset: address(token2),
+            collateralAmount: 100,
+            cashAsset: address(token1),
+            cashAmount: 100
+        });
+
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+
+        ICollarVaultState.LiquidityOpts memory liquidityOpts =
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+
+        engine.setCurrentAssetPrice(address(token2), 1e18);
 
         startHoax(user1);
-        pool.addLiquidityToSlot(111, 100_000);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
-        startHoax(address(manager));
-        pool.openPosition(keccak256(abi.encodePacked(user1)), 111, 100_000, block.timestamp + 100);
+        bytes memory vaultInfo = manager.vaultInfo(uuid);
+        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
 
-        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+        assertEq(vault.lockedVaultCash, 10);
+        assertEq(vault.lockedPoolCash, 10);
 
-        startHoax(user1);
+        skip(100);
 
-        pool.redeem(keccak256(abi.encodePacked(user1)), 100_000);
+        engine.setHistoricalAssetPrice(address(token2), vault.expiresAt, 2e18);
+
+        manager.closeVault(uuid);
+
+        ERC6909TokenSupply token = ERC6909TokenSupply(pool);
+
+        assertEq(token.totalSupply(uint256(uuid)), 100);
+        assertEq(token.balanceOf(user1, uint256(uuid)), 100);
+
+        uint256 toReceive = pool.previewRedeem(uuid, 100);
+        assertEq(toReceive, 20);
+
+        hoax(user1);
+        pool.redeem(uuid, 100);
+
+        assertEq(token1.balanceOf(user1), 100_020);
     }
 
     function test_redeem_InvalidAmount() public {
@@ -509,7 +554,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         startHoax(user1);
 
-        vm.expectRevert("Not enough tokens");
+        vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
         pool.redeem(keccak256(abi.encodePacked(user1)), 110_000);
     }
 
@@ -527,7 +572,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         startHoax(user1);
 
-        vm.expectRevert("Vault not finalized or invalid");
+        vm.expectRevert(ICollarCommonErrors.VaultNotFinalized.selector);
         pool.redeem(keccak256(abi.encodePacked(user1)), 100_000);
     }
 
@@ -545,7 +590,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         startHoax(user1);
 
-        vm.expectRevert("Vault not finalized or invalid");
+        vm.expectRevert(ICollarCommonErrors.VaultNotFinalized.selector);
         pool.redeem(keccak256(abi.encodePacked(user2)), 100_000);
     }
 

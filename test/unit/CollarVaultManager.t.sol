@@ -541,7 +541,7 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApproveManager(user1);
         mintTokensToUserAndApprovePool(user2);
 
-        hoax(user2);
+        startHoax(user2);
         pool.addLiquidityToSlot(11_000, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
@@ -558,7 +558,7 @@ contract CollarVaultManagerTest is Test {
 
         engine.setCurrentAssetPrice(address(token1), 1e18);
 
-        hoax(user1);
+        startHoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
         bytes memory vaultInfo = manager.vaultInfo(uuid);
