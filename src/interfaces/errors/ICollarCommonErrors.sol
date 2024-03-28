@@ -27,6 +27,7 @@ interface ICollarCommonErrors {
     error InvalidVault();
     error InvalidLiquidityPool();
     error InvalidAssetPrice();
+    error InvalidLTV();
     error InactiveVault();
 
     // state-related errors shared across contracts

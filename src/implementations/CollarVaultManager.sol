@@ -332,8 +332,13 @@ contract CollarVaultManager is ICollarVaultManager {
         }
 
         // verify the put strike tick matches the put strike tick of the pool
-        if (CollarPool(liquidityOpts.liquidityPool).ltv() != liquidityOpts.putStrikeTick) {
+        if (CollarPool(liquidityOpts.liquidityPool).ltv() != (liquidityOpts.putStrikeTick * CollarPool(liquidityOpts.liquidityPool).tickScaleFactor())) {
             revert InvalidPutStrike();
+        }
+
+        // verify the call strike tick is > 100%
+        if (TickCalculations.tickToBps(liquidityOpts.callStrikeTick, CollarPool(liquidityOpts.liquidityPool).tickScaleFactor()) < 10_000) {
+            revert InvalidCallStrike();
         }
     }
 

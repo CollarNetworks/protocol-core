@@ -11,7 +11,6 @@ import { ICollarCommonErrors } from "./ICollarCommonErrors.sol";
 
 interface ICollarVaultManagerErrors is ICollarCommonErrors {
     // parameter errors
-    error InvalidLTV();
     error InvalidCallStrike();
     error InvalidPutStrike();
 

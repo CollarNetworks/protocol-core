@@ -25,8 +25,12 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
     // ----- CONSTRUCTOR ----- //
 
     constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset, address _collateralAsset, uint256 _duration, uint256 _ltv)
-        ICollarPool(_engine, _tickScaleFactor, _cashAsset, _collateralAsset, _duration, _ltv)
-    { }
+        ICollarPool(_engine, _tickScaleFactor, _cashAsset, _collateralAsset, _duration, _ltv) {
+        
+        if (!CollarEngine(_engine).isValidLTV(_ltv)) {
+            revert InvalidLTV();
+        }
+    }
 
     // ----- VIEW FUNCTIONS ----- //
 
@@ -64,7 +68,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         // grab the info for this particular Position
         Position storage _position = positions[uuid];
 
-        if (_position.expiration > block.timestamp) {
+        if (_position.expiration <= block.timestamp) {
             // if finalized, calculate final redeem value
             // grab collateral asset value @ exact vault expiration time
 
@@ -212,7 +216,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         // update global liquidity amounts
         totalLiquidity += uint256(positionNet);
         freeLiquidity += positions[uuid].withdrawable;
-        lockedLiquidity -= positions[uuid].withdrawable;
+        lockedLiquidity -= positions[uuid].principal;
 
         if (positionNet < 0) {
             // we owe the vault some tokens
