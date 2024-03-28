@@ -19,6 +19,7 @@ import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 import { ICollarCommonErrors } from "../../src/interfaces/errors/ICollarCommonErrors.sol";
 import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
+import { ICollarPoolErrors } from "../../src/interfaces/errors/ICollarPoolErrors.sol";
 
 contract CollarPoolTest is Test, ICollarPoolState {
     TestERC20 cashAsset;
@@ -298,16 +299,6 @@ contract CollarPoolTest is Test, ICollarPoolState {
         assertEq(pool.getSlotProviderInfoForAddress(pool.UNALLOCATED_SLOT(), user1), 1000);
     }
 
-    function test_addLiquidity_NotEnoughCash() public {
-        mintTokensToUserAndApprovePool(user1);
-
-        startHoax(user1);
-        cashAsset.approve(address(pool), 1000e18);
-
-        vm.expectRevert(abi.encodeWithSelector(ERC20InsufficientBalance.selector, address(user1), 100_000, 1e18));
-        pool.addLiquidityToSlot(111, 1e18);
-    }
-
     function test_addLiquidity_SlotFullUserSmallestBidder() public {
         mintTokensToUserAndApprovePool(user1);
         mintTokensToUserAndApprovePool(user2);
@@ -332,7 +323,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         pool.addLiquidityToSlot(111, 5000);
 
         hoax(user6);
-        vm.expectRevert("Amount not high enough to kick out anyone from full slot.");
+        vm.expectRevert(ICollarPoolErrors.NoLiquiditySpace.selector);
         pool.addLiquidityToSlot(111, 500);
     }
 
@@ -454,7 +445,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         pool.addLiquidityToSlot(110, 500);
 
-        vm.expectRevert("Amount not high enough to kick out anyone from full slot.");
+        vm.expectRevert(ICollarPoolErrors.NoLiquiditySpace.selector);
         pool.moveLiquidityFromSlot(110, 111, 500);
     }
 

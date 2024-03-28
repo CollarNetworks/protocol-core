@@ -103,7 +103,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
             address smallestProvider = _getSmallestProvider(slotIndex);
             uint256 smallestAmount = slot.providers.get(smallestProvider);
 
-            if (smallestAmount > amount) revert("Amount not high enough to kick out anyone from full slot.");
+            if (smallestAmount > amount) revert NoLiquiditySpace();
 
             _reAllocate(smallestProvider, slotIndex, UNALLOCATED_SLOT, smallestAmount);
             _allocate(slotIndex, msg.sender, amount);
@@ -143,7 +143,8 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
     function moveLiquidityFromSlot(uint256 sourceSlotIndex, uint256 destinationSlotIndex, uint256 amount) external virtual override {
         emit LiquidityMoved(msg.sender, sourceSlotIndex, destinationSlotIndex, amount);
 
-        _reAllocate(msg.sender, sourceSlotIndex, destinationSlotIndex, amount);
+        withdrawLiquidityFromSlot(sourceSlotIndex, amount);
+        addLiquidityToSlot(destinationSlotIndex, amount);
     }
 
     function openPosition(bytes32 uuid, uint256 slotIndex, uint256 amount, uint256 expiration) external override {
@@ -215,7 +216,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
         // update global liquidity amounts
         totalLiquidity += uint256(positionNet);
-        freeLiquidity += positions[uuid].withdrawable;
+        freeLiquidity += uint256(positionNet);
         lockedLiquidity -= positions[uuid].principal;
 
         if (positionNet < 0) {
