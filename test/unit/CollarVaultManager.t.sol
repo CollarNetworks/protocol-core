@@ -22,8 +22,8 @@ import { ICollarVaultManagerErrors } from "../../src/interfaces/errors/ICollarVa
 import { ICollarCommonErrors } from "../../src/interfaces/errors/ICollarCommonErrors.sol";
 
 contract CollarVaultManagerTest is Test {
-    TestERC20 token1;
-    TestERC20 token2;
+    TestERC20 cashAsset;
+    TestERC20 collateralAsset;
     MockUniRouter router;
     MockEngine engine;
     CollarPool pool;
@@ -40,33 +40,33 @@ contract CollarVaultManagerTest is Test {
     bytes user1NotAuthorized = abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, address(user1));
 
     function setUp() public {
-        token1 = new TestERC20("Test1", "TST1");
-        token2 = new TestERC20("Test2", "TST2");
+        cashAsset = new TestERC20("Test1", "TST1");
+        collateralAsset = new TestERC20("Test2", "TST2");
 
         router = new MockUniRouter();
         engine = new MockEngine(address(router));
 
-        pool = new CollarPool(address(engine), 1, address(token2), address(token1), 100, 9000);
+        pool = new CollarPool(address(engine), 100, address(cashAsset), address(collateralAsset), 100, 90);
 
         hoax(user1);
         manager = CollarVaultManager(engine.createVaultManager());
 
         engine.addLiquidityPool(address(pool));
-        engine.addSupportedCollateralAsset(address(token1));
-        engine.addSupportedCashAsset(address(token2));
+        engine.addSupportedCollateralAsset(address(collateralAsset));
+        engine.addSupportedCashAsset(address(cashAsset));
         engine.addCollarDuration(100);
         engine.addLTV(9000);
 
-        token1.mint(address(router), 100_000);
-        token2.mint(address(router), 100_000);
+        cashAsset.mint(address(router), 100_000);
+        collateralAsset.mint(address(router), 100_000);
 
         // label everything to make reading the test errors easier
         vm.label(address(manager), "Vault Manager");
         vm.label(address(engine), "Collar Engine");
         vm.label(address(pool), "Collar Pool");
 
-        vm.label(address(token1), "Test Token 1 // Collateral");
-        vm.label(address(token2), "Test Token 2 // Cash");
+        vm.label(address(collateralAsset), "Test Token 1 // Collateral");
+        vm.label(address(cashAsset), "Test Token 2 // Cash");
 
         vm.label(user1, "Test User 1");
         vm.label(user2, "Test User 2");
@@ -74,19 +74,19 @@ contract CollarVaultManagerTest is Test {
 
     function mintTokensToUserAndApprovePool(address user) internal {
         startHoax(user);
-        token1.mint(user, 100_000);
-        token2.mint(user, 100_000);
-        token1.approve(address(pool), 100_000);
-        token2.approve(address(pool), 100_000);
+        collateralAsset.mint(user, 100_000);
+        cashAsset.mint(user, 100_000);
+        collateralAsset.approve(address(pool), 100_000);
+        cashAsset.approve(address(pool), 100_000);
         vm.stopPrank();
     }
 
     function mintTokensToUserAndApproveManager(address user) internal {
         startHoax(user);
-        token1.mint(user, 100_000);
-        token2.mint(user, 100_000);
-        token1.approve(address(manager), 100_000);
-        token2.approve(address(manager), 100_000);
+        collateralAsset.mint(user, 100_000);
+        cashAsset.mint(user, 100_000);
+        collateralAsset.approve(address(manager), 100_000);
+        cashAsset.approve(address(manager), 100_000);
         vm.stopPrank();
     }
 
@@ -94,6 +94,7 @@ contract CollarVaultManagerTest is Test {
         assertEq(manager.owner(), user1);
         assertEq(manager.engine(), address(engine));
         assertEq(manager.vaultCount(), 0);
+        assertEq(pool.tickScaleFactor(), 100);
     }
 
     function test_openVault() public {
@@ -101,21 +102,21 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApprovePool(user2);
 
         hoax(user2);
-        pool.addLiquidityToSlot(11_000, 25_000);
+        pool.addLiquidityToSlot(110, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token1),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 100,
-            cashAsset: address(token2),
+            cashAsset: address(cashAsset),
             cashAmount: 100
         });
 
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 90 });
 
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
 
-        engine.setCurrentAssetPrice(address(token1), 1e18);
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
@@ -131,18 +132,18 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.active, true);
         assertEq(vault.openedAt, 1);
         assertEq(vault.expiresAt, 101);
-        assertEq(vault.ltv, 9000);
-        assertEq(vault.collateralAsset, address(token1));
+        assertEq(vault.ltv, 90);
+        assertEq(vault.collateralAsset, address(collateralAsset));
         assertEq(vault.collateralAmount, 100);
-        assertEq(vault.cashAsset, address(token2));
+        assertEq(vault.cashAsset, address(cashAsset));
         assertEq(vault.cashAmount, 100);
         assertEq(vault.liquidityPool, address(pool));
         assertEq(vault.lockedPoolCash, 10);
         assertEq(vault.initialCollateralPrice, 1e18);
         assertEq(vault.putStrikePrice, 0.9e18);
         assertEq(vault.callStrikePrice, 1.1e18);
-        assertEq(vault.putStrikeTick, 9000);
-        assertEq(vault.callStrikeTick, 11_000);
+        assertEq(vault.putStrikeTick, 90);
+        assertEq(vault.callStrikeTick, 110);
         assertEq(vault.loanBalance, 90);
         assertEq(vault.lockedVaultCash, 10);
     }
@@ -155,30 +156,30 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidityToSlot(11_000, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory invalidCollatAddr = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token2),
+            collateralAsset: address(cashAsset),
             collateralAmount: 100,
-            cashAsset: address(token2),
+            cashAsset: address(cashAsset),
             cashAmount: 100
         });
 
         ICollarVaultState.AssetSpecifiers memory invalidCollatAmount = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token1),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 0,
-            cashAsset: address(token2),
+            cashAsset: address(cashAsset),
             cashAmount: 100
         });
 
         ICollarVaultState.AssetSpecifiers memory invalidCashAmount = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token1),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 100,
-            cashAsset: address(token2),
+            cashAsset: address(cashAsset),
             cashAmount: 0
         });
 
         ICollarVaultState.AssetSpecifiers memory invalidCashAddr = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token1),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 100,
-            cashAsset: address(token1),
+            cashAsset: address(collateralAsset),
             cashAmount: 100
         });
 
@@ -187,7 +188,7 @@ contract CollarVaultManagerTest is Test {
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9_000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token1), 1e18);
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         startHoax(user1);
 
@@ -212,9 +213,9 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidityToSlot(11_000, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token1),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 100,
-            cashAsset: address(token2),
+            cashAsset: address(cashAsset),
             cashAmount: 100
         });
 
@@ -223,7 +224,7 @@ contract CollarVaultManagerTest is Test {
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9_000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token1), 1e18);
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         startHoax(user1);
 
@@ -239,16 +240,16 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidityToSlot(11_000, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token1),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 100,
-            cashAsset: address(token2),
+            cashAsset: address(cashAsset),
             cashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9_000 });
 
         ICollarVaultState.LiquidityOpts memory invalidPool =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(token1), putStrikeTick: 9_000, callStrikeTick: 11_000 });
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(collateralAsset), putStrikeTick: 9_000, callStrikeTick: 11_000 });
 
         ICollarVaultState.LiquidityOpts memory invalidPutStrike =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 900_000, callStrikeTick: 11_000 });
@@ -256,7 +257,7 @@ contract CollarVaultManagerTest is Test {
         ICollarVaultState.LiquidityOpts memory invalidCallStrike =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9_000, callStrikeTick: 110 });
 
-        engine.setCurrentAssetPrice(address(token1), 1e18);
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
 
@@ -277,9 +278,9 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidityToSlot(11_000, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token1),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 100,
-            cashAsset: address(token2),
+            cashAsset: address(cashAsset),
             cashAmount: 100
         });
 
@@ -288,12 +289,12 @@ contract CollarVaultManagerTest is Test {
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9_000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token1), 1e18);
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         startHoax(user1);
 
-        token1.approve(address(pool), 100_000);
-        token1.approve(address(manager), 100_000);
+        collateralAsset.approve(address(pool), 100_000);
+        collateralAsset.approve(address(manager), 100_000);
 
         vm.expectRevert(abi.encodeWithSelector(ERC20InsufficientBalance.selector, address(user1), 0, 100));
         manager.openVault(assets, collarOpts, liquidityOpts);
@@ -307,9 +308,9 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidityToSlot(11_000, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token1),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 100,
-            cashAsset: address(token2),
+            cashAsset: address(cashAsset),
             cashAmount: 100
         });
 
@@ -318,14 +319,14 @@ contract CollarVaultManagerTest is Test {
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9_000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token1), 1e18);
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
         skip(100);
 
-        engine.setHistoricalAssetPrice(address(token1), 101, 1e18);
+        engine.setHistoricalAssetPrice(address(collateralAsset), 101, 1e18);
 
         manager.closeVault(uuid);
 
@@ -338,9 +339,9 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.openedAt, 1);
         assertEq(vault.expiresAt, 101);
         assertEq(vault.ltv, 9000);
-        assertEq(vault.collateralAsset, address(token1));
+        assertEq(vault.collateralAsset, address(collateralAsset));
         assertEq(vault.collateralAmount, 100);
-        assertEq(vault.cashAsset, address(token2));
+        assertEq(vault.cashAsset, address(cashAsset));
         assertEq(vault.cashAmount, 100);
         assertEq(vault.liquidityPool, address(pool));
         assertEq(vault.lockedPoolCash, 10);
@@ -351,7 +352,7 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.lockedVaultCash, 0);
 
         // check to make sure that the pool got the free 10 cash tokens as a reward
-        assertEq(token2.balanceOf(address(manager)), 100);
+        assertEq(cashAsset.balanceOf(address(manager)), 100);
     }
 
     function test_closeVaultNoCollateralPriceUp() public {
@@ -362,9 +363,9 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidityToSlot(11_000, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token1),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 100,
-            cashAsset: address(token2),
+            cashAsset: address(cashAsset),
             cashAmount: 100
         });
 
@@ -373,14 +374,14 @@ contract CollarVaultManagerTest is Test {
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9_000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token1), 1e18);
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
         skip(100);
 
-        engine.setHistoricalAssetPrice(address(token1), 101, 2e18);
+        engine.setHistoricalAssetPrice(address(collateralAsset), 101, 2e18);
 
         manager.closeVault(uuid);
 
@@ -393,9 +394,9 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.openedAt, 1);
         assertEq(vault.expiresAt, 101);
         assertEq(vault.ltv, 9000);
-        assertEq(vault.collateralAsset, address(token1));
+        assertEq(vault.collateralAsset, address(collateralAsset));
         assertEq(vault.collateralAmount, 100);
-        assertEq(vault.cashAsset, address(token2));
+        assertEq(vault.cashAsset, address(cashAsset));
         assertEq(vault.cashAmount, 100);
         assertEq(vault.liquidityPool, address(pool));
         assertEq(vault.lockedPoolCash, 10);
@@ -406,7 +407,7 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.lockedVaultCash, 0);
 
         // check to make sure that the vault got the free 10 cash tokens as a reward
-        assertEq(token2.balanceOf(address(manager)), 110);
+        assertEq(cashAsset.balanceOf(address(manager)), 110);
     }
 
     function test_closeVaultNoCollateralPriceDown() public {
@@ -417,9 +418,9 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidityToSlot(11_000, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token1),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 100,
-            cashAsset: address(token2),
+            cashAsset: address(cashAsset),
             cashAmount: 100
         });
 
@@ -428,14 +429,14 @@ contract CollarVaultManagerTest is Test {
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token1), 1e18);
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
         skip(100);
 
-        engine.setHistoricalAssetPrice(address(token1), 101, 1);
+        engine.setHistoricalAssetPrice(address(collateralAsset), 101, 1);
 
         manager.closeVault(uuid);
 
@@ -448,9 +449,9 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.openedAt, 1);
         assertEq(vault.expiresAt, 101);
         assertEq(vault.ltv, 9000);
-        assertEq(vault.collateralAsset, address(token1));
+        assertEq(vault.collateralAsset, address(collateralAsset));
         assertEq(vault.collateralAmount, 100);
-        assertEq(vault.cashAsset, address(token2));
+        assertEq(vault.cashAsset, address(cashAsset));
         assertEq(vault.cashAmount, 100);
         assertEq(vault.liquidityPool, address(pool));
         assertEq(vault.lockedPoolCash, 10);
@@ -461,7 +462,7 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.lockedVaultCash, 0);
 
         // check to make sure that the pool got the free 10 cash tokens as a reward
-        assertEq(token2.balanceOf(address(manager)), 90);
+        assertEq(cashAsset.balanceOf(address(manager)), 90);
     }
 
     function test_closeVault_AlreadyClosed() public {
@@ -472,9 +473,9 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidityToSlot(11_000, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token1),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 100,
-            cashAsset: address(token2),
+            cashAsset: address(cashAsset),
             cashAmount: 100
         });
 
@@ -483,14 +484,14 @@ contract CollarVaultManagerTest is Test {
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token1), 1e18);
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
         skip(100);
 
-        engine.setHistoricalAssetPrice(address(token1), 101, 1e18);
+        engine.setHistoricalAssetPrice(address(collateralAsset), 101, 1e18);
 
         manager.closeVault(uuid);
 
@@ -511,9 +512,9 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidityToSlot(11_000, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token1),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 100,
-            cashAsset: address(token2),
+            cashAsset: address(cashAsset),
             cashAmount: 100
         });
 
@@ -522,7 +523,7 @@ contract CollarVaultManagerTest is Test {
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token2), 1e18);
+        engine.setCurrentAssetPrice(address(cashAsset), 1e18);
 
         hoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
@@ -545,9 +546,9 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidityToSlot(11_000, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token1),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 100,
-            cashAsset: address(token2),
+            cashAsset: address(cashAsset),
             cashAmount: 100
         });
 
@@ -556,7 +557,7 @@ contract CollarVaultManagerTest is Test {
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token1), 1e18);
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         startHoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
@@ -569,7 +570,7 @@ contract CollarVaultManagerTest is Test {
 
         skip(100);
 
-        engine.setHistoricalAssetPrice(address(token1), vault.expiresAt, 2e18);
+        engine.setHistoricalAssetPrice(address(collateralAsset), vault.expiresAt, 2e18);
 
         manager.closeVault(uuid);
 
@@ -591,8 +592,8 @@ contract CollarVaultManagerTest is Test {
         hoax(user1);
         manager.redeem(uuid, 100);
 
-        assertEq(token2.balanceOf(user1), 100_020);
-        assertEq(token2.balanceOf(address(manager)), 90);
+        assertEq(cashAsset.balanceOf(user1), 100_020);
+        assertEq(cashAsset.balanceOf(address(manager)), 90);
 
         vaultInfo = manager.vaultInfo(uuid);
         vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
@@ -615,9 +616,9 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidityToSlot(11_000, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token1),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 100,
-            cashAsset: address(token2),
+            cashAsset: address(cashAsset),
             cashAmount: 100
         });
 
@@ -626,7 +627,7 @@ contract CollarVaultManagerTest is Test {
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token1), 1e18);
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
@@ -639,7 +640,7 @@ contract CollarVaultManagerTest is Test {
 
         skip(100);
 
-        engine.setHistoricalAssetPrice(address(token1), vault.expiresAt, 2e18);
+        engine.setHistoricalAssetPrice(address(collateralAsset), vault.expiresAt, 2e18);
 
         startHoax(user1);
         manager.closeVault(uuid);
@@ -656,9 +657,9 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidityToSlot(11_000, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token1),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 100,
-            cashAsset: address(token2),
+            cashAsset: address(cashAsset),
             cashAmount: 100
         });
 
@@ -667,7 +668,7 @@ contract CollarVaultManagerTest is Test {
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token1), 1e18);
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         startHoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
@@ -684,9 +685,9 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidityToSlot(11_000, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token1),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 100,
-            cashAsset: address(token2),
+            cashAsset: address(cashAsset),
             cashAmount: 100
         });
 
@@ -695,7 +696,7 @@ contract CollarVaultManagerTest is Test {
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token1), 1e18);
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
@@ -708,7 +709,7 @@ contract CollarVaultManagerTest is Test {
 
         skip(100);
 
-        engine.setHistoricalAssetPrice(address(token1), vault.expiresAt, 2e18);
+        engine.setHistoricalAssetPrice(address(collateralAsset), vault.expiresAt, 2e18);
 
         manager.closeVault(uuid);
 
@@ -749,9 +750,9 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidityToSlot(11_000, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token1),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 100,
-            cashAsset: address(token2),
+            cashAsset: address(cashAsset),
             cashAmount: 100
         });
 
@@ -760,14 +761,14 @@ contract CollarVaultManagerTest is Test {
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token1), 1e18);
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         startHoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
         manager.withdraw(uuid, 90);
 
-        assertEq(token2.balanceOf(user1), 100_090);
+        assertEq(cashAsset.balanceOf(user1), 100_090);
     }
 
     function test_withdraw_OnlyUser() public {
@@ -778,9 +779,9 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidityToSlot(11_000, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token1),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 100,
-            cashAsset: address(token2),
+            cashAsset: address(cashAsset),
             cashAmount: 100
         });
 
@@ -789,7 +790,7 @@ contract CollarVaultManagerTest is Test {
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token1), 1e18);
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
@@ -806,9 +807,9 @@ contract CollarVaultManagerTest is Test {
         pool.addLiquidityToSlot(11_000, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token1),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 100,
-            cashAsset: address(token2),
+            cashAsset: address(cashAsset),
             cashAmount: 100
         });
 
@@ -817,7 +818,7 @@ contract CollarVaultManagerTest is Test {
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token1), 1e18);
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         startHoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);

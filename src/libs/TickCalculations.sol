@@ -42,14 +42,14 @@ library TickCalculations {
     /// @param tickScaleFactor The tickScaleFactor to use for the conversion
     /// @param startingPrice The starting price of the collateral token (per unit)
     function tickToPrice(uint24 tick, uint256 tickScaleFactor, uint256 startingPrice) public pure returns (uint256) {
-        return (startingPrice * tickToBps(tick, tickScaleFactor)) / (10_000 / tickScaleFactor);
+        return (startingPrice * tick * tickScaleFactor) / (10_000);
     }
 
     /// @notice Given some (collateral) current price and a specified (collateral) starting price, returns the tick at that price
-    /// @param price The price (of the collateral token) to convert to a tick
+    /// @param currentPrice The current price (of the collateral token) to convert to a tick
     /// @param tickScaleFactor The tickScaleFactor to use for the conversion
     /// @param startingPrice The starting price of the collateral token (per unit)
-    function priceToTick(uint256 price, uint256 tickScaleFactor, uint256 startingPrice) public pure returns (uint24) {
-        return bpsToTick((price * (10_000 / tickScaleFactor)) / startingPrice, tickScaleFactor);
+    function priceToTick(uint256 currentPrice, uint256 tickScaleFactor, uint256 startingPrice) public pure returns (uint24) {
+        return uint24((currentPrice * (10_000 / tickScaleFactor)) / (startingPrice));
     }
 }

@@ -21,8 +21,8 @@ import { ICollarCommonErrors } from "../../src/interfaces/errors/ICollarCommonEr
 import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 
 contract CollarPoolTest is Test, ICollarPoolState {
-    TestERC20 token1;
-    TestERC20 token2;
+    TestERC20 cashAsset;
+    TestERC20 collateralAsset;
     MockUniRouter router;
     MockEngine engine;
     CollarPool pool;
@@ -44,8 +44,8 @@ contract CollarPoolTest is Test, ICollarPoolState {
     bytes user1NotAuthorized = abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, address(user1));
 
     function setUp() public {
-        token1 = new TestERC20("Test1", "TST1");
-        token2 = new TestERC20("Test2", "TST2");
+        cashAsset = new TestERC20("Test1", "TST1");
+        collateralAsset = new TestERC20("Test2", "TST2");
 
         router = new MockUniRouter();
         engine = new MockEngine(address(router));
@@ -54,10 +54,10 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         engine.forceRegisterVaultManager(user1, address(manager));
 
-        pool = new CollarPool(address(engine), 1, address(token1), address(token2), 100, 9000);
+        pool = new CollarPool(address(engine), 100, address(cashAsset), address(collateralAsset), 100, 9000);
 
-        vm.label(address(token1), "Test Token 1 // Pool Cash Token");
-        vm.label(address(token2), "Test Token 2 // Collateral");
+        vm.label(address(cashAsset), "Test Token 1 // Pool Cash Token");
+        vm.label(address(collateralAsset), "Test Token 2 // Collateral");
 
         vm.label(address(pool), "CollarPool");
         vm.label(address(engine), "CollarEngine");
@@ -65,35 +65,35 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
     function mintTokensAndApprovePool(address recipient) internal {
         startHoax(recipient);
-        token1.mint(recipient, 100_000);
-        token2.mint(recipient, 100_000);
-        token1.approve(address(pool), 100_000);
-        token2.approve(address(pool), 100_000);
+        cashAsset.mint(recipient, 100_000);
+        collateralAsset.mint(recipient, 100_000);
+        cashAsset.approve(address(pool), 100_000);
+        collateralAsset.approve(address(pool), 100_000);
         vm.stopPrank();
     }
 
     function mintTokensToUserAndApprovePool(address user) internal {
         startHoax(user);
-        token1.mint(user, 100_000);
-        token2.mint(user, 100_000);
-        token1.approve(address(pool), 100_000);
-        token2.approve(address(pool), 100_000);
+        cashAsset.mint(user, 100_000);
+        collateralAsset.mint(user, 100_000);
+        cashAsset.approve(address(pool), 100_000);
+        collateralAsset.approve(address(pool), 100_000);
         vm.stopPrank();
     }
 
     function mintTokensToUserAndApproveManager(address user) internal {
         startHoax(user);
-        token1.mint(user, 100_000);
-        token2.mint(user, 100_000);
-        token1.approve(address(manager), 100_000);
-        token2.approve(address(manager), 100_000);
+        cashAsset.mint(user, 100_000);
+        collateralAsset.mint(user, 100_000);
+        cashAsset.approve(address(manager), 100_000);
+        collateralAsset.approve(address(manager), 100_000);
         vm.stopPrank();
     }
 
     function test_deploymentAndDeployParams() public {
         assertEq(pool.engine(), address(engine));
-        assertEq(pool.cashAsset(), address(token1));
-        assertEq(pool.tickScaleFactor(), 1);
+        assertEq(pool.cashAsset(), address(cashAsset));
+        assertEq(pool.tickScaleFactor(), 100);
     }
 
     function test_addLiquidityToSlot() public {
@@ -291,7 +291,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         mintTokensToUserAndApprovePool(user1);
 
         startHoax(user1);
-        token1.approve(address(pool), 1000e18);
+        cashAsset.approve(address(pool), 1000e18);
 
         vm.expectRevert(abi.encodeWithSelector(ERC20InsufficientBalance.selector, address(user1), 100_000, 1e18));
         pool.addLiquidityToSlot(111, 1e18);
@@ -325,7 +325,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         pool.addLiquidityToSlot(111, 500);
     }
 
-    function test_removeLiquidityFromSlot() public {
+    function test_withdrawLiquidityFromSlot() public {
         mintTokensToUserAndApprovePool(user1);
 
         startHoax(user1);
@@ -349,12 +349,10 @@ contract CollarPoolTest is Test, ICollarPoolState {
         vm.stopPrank();
     }
 
-    function test_removeLiquidity_InvalidSlot() public {
+    function test_withdrawLiquidity_InvalidSlot() public {
         mintTokensToUserAndApprovePool(user1);
 
         startHoax(user1);
-
-        pool.addLiquidityToSlot(111, 25_000);
 
         vm.expectRevert(abi.encodeWithSelector(EnumerableMapNonexistentKey.selector, user1));
         pool.withdrawLiquidityFromSlot(110, 10_000);
@@ -498,9 +496,9 @@ contract CollarPoolTest is Test, ICollarPoolState {
         pool.addLiquidityToSlot(11_000, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(token2),
+            collateralAsset: address(collateralAsset),
             collateralAmount: 100,
-            cashAsset: address(token1),
+            cashAsset: address(cashAsset),
             cashAmount: 100
         });
 
@@ -509,7 +507,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
 
-        engine.setCurrentAssetPrice(address(token2), 1e18);
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         startHoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
@@ -522,7 +520,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         skip(100);
 
-        engine.setHistoricalAssetPrice(address(token2), vault.expiresAt, 2e18);
+        engine.setHistoricalAssetPrice(address(collateralAsset), vault.expiresAt, 2e18);
 
         manager.closeVault(uuid);
 
@@ -537,7 +535,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         hoax(user1);
         pool.redeem(uuid, 100);
 
-        assertEq(token1.balanceOf(user1), 100_020);
+        assertEq(cashAsset.balanceOf(user1), 100_020);
     }
 
     function test_redeem_InvalidAmount() public {
