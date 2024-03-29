@@ -155,8 +155,12 @@ contract CollarVaultManager is ICollarVaultManager {
         }
 
         // ensure vault is active (not finalized) and finalizable (past length)
-        if (!vaultsByUUID[uuid].active || vaultsByUUID[uuid].expiresAt > block.timestamp) {
-            revert InactiveVault();
+        if (!vaultsByUUID[uuid].active) {
+            revert VaultNotActive();
+        }
+
+        if ( vaultsByUUID[uuid].expiresAt > block.timestamp) {
+            revert VaultNotFinalizable();
         }
 
         // cache vault storage pointer

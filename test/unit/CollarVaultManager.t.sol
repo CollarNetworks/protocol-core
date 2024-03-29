@@ -594,7 +594,7 @@ contract CollarVaultManagerTest is Test {
         uint256 toReceive = manager.previewRedeem(uuid, 100);
         assertEq(toReceive, 20);
 
-        hoax(user1);
+        startHoax(user1);
         manager.redeem(uuid, 100);
 
         assertEq(cashAsset.balanceOf(user1), 100_020);
@@ -743,7 +743,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_previewRedeem_InvalidAmount() public {
-        vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
+        vm.expectRevert(ICollarCommonErrors.AmountCannotBeZero.selector);
         manager.previewRedeem(bytes32(0), 0);
     }
 

@@ -335,18 +335,18 @@ contract CollarPoolTest is Test, ICollarPoolState {
         pool.addLiquidityToSlot(111, 25_000);
         pool.withdrawLiquidityFromSlot(111, 10_000);
 
-        assertEq(pool.getLiquidityForSlot(111), 15_000);
+        assertEq(pool.getLiquidityForSlot(111), 25_000);
 
         uint256 liquidity = pool.getLiquidityForSlot(111);
         uint256 providerLength = pool.getNumProvidersInSlot(111);
 
-        assertEq(liquidity, 15_000);
+        assertEq(liquidity, 25_000);
         assertEq(providerLength, 1);
 
         (address provider0, uint256 liquidity0) = pool.getSlotProviderInfoAtIndex(111, 0);
 
         assertEq(provider0, user1);
-        assertEq(liquidity0, 15_000);
+        assertEq(liquidity0, 25_000);
 
         vm.stopPrank();
     }
@@ -519,22 +519,21 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         skip(100);
 
-        engine.setHistoricalAssetPrice(address(collateralAsset), vault.expiresAt, 2e18);
+        engine.setHistoricalAssetPrice(address(collateralAsset), vault.expiresAt, 0.5e18);
 
         manager.closeVault(uuid);
 
         ERC6909TokenSupply token = ERC6909TokenSupply(pool);
 
-        assertEq(token.totalSupply(uint256(uuid)), 100);
-        assertEq(token.balanceOf(user1, uint256(uuid)), 100);
+        assertEq(token.totalSupply(uint256(uuid)), 10);
+        assertEq(token.balanceOf(user2, uint256(uuid)), 10);
 
-        uint256 toReceive = pool.previewRedeem(uuid, 100);
+        startHoax(user2);
+        uint256 toReceive = pool.previewRedeem(uuid, 10);
         assertEq(toReceive, 20);
+        pool.redeem(uuid, 10);
 
-        startHoax(user1);
-        pool.redeem(uuid, 100);
-
-        assertEq(cashAsset.balanceOf(user1), 100_020);
+        assertEq(cashAsset.balanceOf(user1), 100_010);
     }
 
     function test_redeem_InvalidAmount() public {

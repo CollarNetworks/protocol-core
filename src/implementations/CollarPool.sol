@@ -114,7 +114,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
         emit LiquidityAdded(msg.sender, slotIndex, amount);
 
-        // transfer collateral from provider to pool
+        // transfer collateral from provider to pool`
         IERC20(cashAsset).transferFrom(msg.sender, address(this), amount);
     }
 
@@ -184,7 +184,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
             // mint to this provider
             _mint(thisProvider, uint256(uuid), amountFromThisProvider);
 
-            emit PoolTokensIssued(thisProvider, expiration, thisLiquidity);
+            emit PoolTokensIssued(thisProvider, expiration, amountFromThisProvider);
         }
 
         // decrement available liquidity in slot
@@ -217,6 +217,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         // update global liquidity amounts
         totalLiquidity = uint256(int256(totalLiquidity) + positionNet);
         freeLiquidity += positions[uuid].withdrawable;
+
         lockedLiquidity -= positions[uuid].principal;
 
         if (positionNet < 0) {
@@ -233,7 +234,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
     }
 
     function redeem(bytes32 uuid, uint256 amount) external override {
-        if (positions[uuid].expiration <= block.timestamp) {
+        if (positions[uuid].expiration < block.timestamp) {
             revert VaultNotFinalized();
         }
 
