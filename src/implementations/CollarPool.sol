@@ -25,8 +25,12 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
     // ----- CONSTRUCTOR ----- //
 
     constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset, address _collateralAsset, uint256 _duration, uint256 _ltv)
-        ICollarPool(_engine, _tickScaleFactor, _cashAsset, _collateralAsset, _duration, _ltv)
-    { }
+        ICollarPool(_engine, _tickScaleFactor, _cashAsset, _collateralAsset, _duration, _ltv) {
+        
+        if (!CollarEngine(_engine).isValidLTV(_ltv)) {
+            revert InvalidLTV();
+        }
+    }
 
     // ----- VIEW FUNCTIONS ----- //
 
@@ -64,7 +68,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         // grab the info for this particular Position
         Position storage _position = positions[uuid];
 
-        if (_position.expiration > block.timestamp) {
+        if (_position.expiration <= block.timestamp) {
             // if finalized, calculate final redeem value
             // grab collateral asset value @ exact vault expiration time
 
@@ -99,7 +103,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
             address smallestProvider = _getSmallestProvider(slotIndex);
             uint256 smallestAmount = slot.providers.get(smallestProvider);
 
-            if (smallestAmount > amount) revert("Amount not high enough to kick out anyone from full slot.");
+            if (smallestAmount > amount) revert NoLiquiditySpace();
 
             _reAllocate(smallestProvider, slotIndex, UNALLOCATED_SLOT, smallestAmount);
             _allocate(slotIndex, msg.sender, amount);
@@ -110,7 +114,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
         emit LiquidityAdded(msg.sender, slotIndex, amount);
 
-        // transfer collateral from provider to pool
+        // transfer collateral from provider to pool`
         IERC20(cashAsset).transferFrom(msg.sender, address(this), amount);
     }
 
@@ -139,13 +143,14 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
     function moveLiquidityFromSlot(uint256 sourceSlotIndex, uint256 destinationSlotIndex, uint256 amount) external virtual override {
         emit LiquidityMoved(msg.sender, sourceSlotIndex, destinationSlotIndex, amount);
 
-        _reAllocate(msg.sender, sourceSlotIndex, destinationSlotIndex, amount);
+        withdrawLiquidityFromSlot(sourceSlotIndex, amount);
+        addLiquidityToSlot(destinationSlotIndex, amount);
     }
 
     function openPosition(bytes32 uuid, uint256 slotIndex, uint256 amount, uint256 expiration) external override {
         // ensure this is a valid vault calling us - it must call through the engine
         if (!CollarEngine(engine).isVaultManager(msg.sender)) {
-            revert NotCollarVaultManager(msg.sender);
+            revert NotCollarVaultManager();
         }
 
         // grab the slot
@@ -179,7 +184,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
             // mint to this provider
             _mint(thisProvider, uint256(uuid), amountFromThisProvider);
 
-            emit PoolTokensIssued(thisProvider, expiration, thisLiquidity);
+            emit PoolTokensIssued(thisProvider, expiration, amountFromThisProvider);
         }
 
         // decrement available liquidity in slot
@@ -203,16 +208,17 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
     function finalizePosition(bytes32 uuid, address vaultManager, int256 positionNet) external override {
         // verify caller via engine
         if (!CollarEngine(engine).isVaultManager(msg.sender)) {
-            revert NotCollarVaultManager(msg.sender);
+            revert NotCollarVaultManager();
         }
 
         // either case, we need to set the withdrawable amount to principle + positionNet
         positions[uuid].withdrawable = uint256(int256(positions[uuid].principal) + positionNet);
 
         // update global liquidity amounts
-        totalLiquidity += uint256(positionNet);
+        totalLiquidity = uint256(int256(totalLiquidity) + positionNet);
         freeLiquidity += positions[uuid].withdrawable;
-        lockedLiquidity -= positions[uuid].withdrawable;
+
+        lockedLiquidity -= positions[uuid].principal;
 
         if (positionNet < 0) {
             // we owe the vault some tokens
@@ -228,7 +234,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
     }
 
     function redeem(bytes32 uuid, uint256 amount) external override {
-        if (!CollarEngine(engine).isVaultFinalized(uuid)) {
+        if (positions[uuid].expiration < block.timestamp) {
             revert VaultNotFinalized();
         }
 

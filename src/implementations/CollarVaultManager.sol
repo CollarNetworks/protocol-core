@@ -78,7 +78,7 @@ contract CollarVaultManager is ICollarVaultManager {
     ) external override returns (bytes32 uuid) {
         // only user is allowed to open vaults
         if (msg.sender != user) {
-            revert NotCollarVaultOwner(msg.sender);
+            revert NotCollarVaultOwner();
         }
 
         // validate parameter data
@@ -155,8 +155,12 @@ contract CollarVaultManager is ICollarVaultManager {
         }
 
         // ensure vault is active (not finalized) and finalizable (past length)
-        if (!vaultsByUUID[uuid].active || vaultsByUUID[uuid].expiresAt > block.timestamp) {
-            revert InactiveVault();
+        if (!vaultsByUUID[uuid].active) {
+            revert VaultNotActive();
+        }
+
+        if ( vaultsByUUID[uuid].expiresAt > block.timestamp) {
+            revert VaultNotFinalizable();
         }
 
         // cache vault storage pointer
@@ -275,7 +279,7 @@ contract CollarVaultManager is ICollarVaultManager {
     }
 
     function withdraw(bytes32 uuid, uint256 amount) external override {
-        if (msg.sender != user) revert NotCollarVaultOwner(msg.sender);
+        if (msg.sender != user) revert NotCollarVaultOwner();
         if (vaultsByUUID[uuid].openedAt == 0) revert InvalidVault();
 
         uint256 loanBalance = vaultsByUUID[uuid].loanBalance;
@@ -329,6 +333,16 @@ contract CollarVaultManager is ICollarVaultManager {
         // verify liquidity pool is a valid collar liquidity pool
         if (!CollarEngine(engine).isSupportedLiquidityPool(liquidityOpts.liquidityPool)) {
             revert InvalidLiquidityPool();
+        }
+
+        // verify the put strike tick matches the put strike tick of the pool
+        if (CollarPool(liquidityOpts.liquidityPool).ltv() != (liquidityOpts.putStrikeTick * CollarPool(liquidityOpts.liquidityPool).tickScaleFactor())) {
+            revert InvalidPutStrike();
+        }
+
+        // verify the call strike tick is > 100%
+        if (TickCalculations.tickToBps(liquidityOpts.callStrikeTick, CollarPool(liquidityOpts.liquidityPool).tickScaleFactor()) < 10_000) {
+            revert InvalidCallStrike();
         }
     }
 
