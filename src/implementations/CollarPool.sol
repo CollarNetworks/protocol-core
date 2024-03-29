@@ -215,8 +215,8 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         positions[uuid].withdrawable = uint256(int256(positions[uuid].principal) + positionNet);
 
         // update global liquidity amounts
-        totalLiquidity += uint256(positionNet);
-        freeLiquidity += uint256(positionNet);
+        totalLiquidity = uint256(int256(totalLiquidity) + positionNet);
+        freeLiquidity += positions[uuid].withdrawable;
         lockedLiquidity -= positions[uuid].principal;
 
         if (positionNet < 0) {
@@ -233,7 +233,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
     }
 
     function redeem(bytes32 uuid, uint256 amount) external override {
-        if (!CollarEngine(engine).isVaultFinalized(uuid)) {
+        if (positions[uuid].expiration <= block.timestamp) {
             revert VaultNotFinalized();
         }
 

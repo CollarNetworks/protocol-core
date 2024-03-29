@@ -89,10 +89,6 @@ abstract contract ICollarEngine is ICollarEngineErrors, ICollarEngineEvents {
 
     address public immutable dexRouter;
 
-    /// @notice todo fill me out please
-    /// @dev also fill me out todo please thanks
-    mapping(bytes32 uuid => bool) public isVaultFinalized;
-
     /// @notice This mapping stores the address of the vault contract per user (or market maker)
     /// @dev This will be zero if the user has not yet created a vault
     mapping(address => address) public addressToVaultManager;

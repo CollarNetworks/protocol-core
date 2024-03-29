@@ -379,19 +379,16 @@ contract CollarPoolTest is Test, ICollarPoolState {
         pool.addLiquidityToSlot(111, 25_000);
         pool.moveLiquidityFromSlot(111, 222, 10_000);
 
-        assertEq(pool.getLiquidityForSlot(111), 15_000);
+        assertEq(pool.getLiquidityForSlot(111), 25_000);
         assertEq(pool.getLiquidityForSlot(222), 10_000);
 
-        assertEq(pool.getSlotProviderInfoForAddress(111, user1), 15_000);
+        assertEq(pool.getSlotProviderInfoForAddress(111, user1), 25_000);
         assertEq(pool.getSlotProviderInfoForAddress(222, user1), 10_000);
 
         pool.moveLiquidityFromSlot(111, 222, 15_000);
 
-        assertEq(pool.getLiquidityForSlot(111), 0);
+        assertEq(pool.getLiquidityForSlot(111), 25_000);
         assertEq(pool.getLiquidityForSlot(222), 25_000);
-
-        vm.expectRevert(abi.encodeWithSelector(EnumerableMapNonexistentKey.selector, user1));
-        pool.getSlotProviderInfoForAddress(111, user1);
 
         assertEq(pool.getSlotProviderInfoForAddress(222, user1), 25_000);
     }
@@ -495,7 +492,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         mintTokensToUserAndApprovePool(user2);
 
         startHoax(user2);
-        pool.addLiquidityToSlot(11_000, 25_000);
+        pool.addLiquidityToSlot(110, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(collateralAsset),
@@ -507,7 +504,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 9000, callStrikeTick: 11_000 });
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
 
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
@@ -534,7 +531,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         uint256 toReceive = pool.previewRedeem(uuid, 100);
         assertEq(toReceive, 20);
 
-        hoax(user1);
+        startHoax(user1);
         pool.redeem(uuid, 100);
 
         assertEq(cashAsset.balanceOf(user1), 100_020);

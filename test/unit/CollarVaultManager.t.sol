@@ -651,7 +651,7 @@ contract CollarVaultManagerTest is Test {
         manager.closeVault(uuid);
 
         vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
-        manager.redeem(uuid, 0);
+        manager.redeem(uuid, 100_000 ether);
     }
 
     function test_redeem_NotFinalized() public {
