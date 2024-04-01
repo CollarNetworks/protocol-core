@@ -19,11 +19,15 @@ https://book.getfoundry.sh/tutorials/solidity-scripting
 
  To deploy a completely empty protocol with only the engine, test tokens, and a single liquidity pool: 
  
- `> forge script script/dev.s.sol --fork-url http://localhost:8545 --broadcast --tc DeployEmptyProtocol --sender 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720`
-    
+`> forge script script/deploy-protocol.s.sol --fork-url http://localhost:8545 --broadcast --tc DeployEmptyProtocol --sender 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720`
+
  To deploy a protocol preloaded with two test users and their vault managers already created: 
  
- `> forge script script/dev.s.sol --fork-url http://localhost:8545 --broadcast --tc DeployInitializedProtocol --sender 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720`
+`> forge script script/deploy-protocol.s.sol --fork-url http://localhost:8545 --broadcast --tc DeployInitializedProtocol --sender 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720`
+
+ To deploy a protocol preloaded with two test users, their vault managers already created, and pools filled (recommended): 
+
+ `> forge script script/fill-liquidity-pool-slots.s.sol --fork-url http://localhost:8545 --broadcast --tc FillLiquidityPoolSlots --sender 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720`
 
 ## Interfacing with the deployed contracts
 
