@@ -22,7 +22,6 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
     MockUniRouter router;
     CollarVaultManager manager;
     CollarEngine engine;
-    CollarPool pool;
 
     address user1 = makeAddr("user1");
     address user2 = makeAddr("user2");
@@ -43,15 +42,15 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
 
         engine.addLTV(9000);
     
-        pool = new CollarPool(address(engine), 1, address(token1), address(token2), 100, 9000);
+        pool1 = address(new CollarPool(address(engine), 1, address(token1), address(token2), 100, 9000));
     }
 
     function mintTokensAndApprovePool(address recipient) internal {
         startHoax(recipient);
         token1.mint(recipient, 100_000);
         token2.mint(recipient, 100_000);
-        token1.approve(address(pool), 100_000);
-        token2.approve(address(pool), 100_000);
+        token1.approve(address(pool1), 100_000);
+        token2.approve(address(pool1), 100_000);
         vm.stopPrank();
     }
 
@@ -67,8 +66,9 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
     }
 
     function test_supportedLiquidityPoolsLength() public {
+        engine.addLiquidityPool(address(pool1));
         assertEq(engine.supportedLiquidityPoolsLength(), 1);
-        engine.removeLiquidityPool(address(pool));
+        engine.removeLiquidityPool(address(pool1));
         assertEq(engine.supportedLiquidityPoolsLength(), 0);
     }
 
