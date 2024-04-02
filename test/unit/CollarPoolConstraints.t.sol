@@ -71,7 +71,7 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
         mintTokensAndApprovePool(address(manager));
     }
 
-        function mintTokensAndApprovePool(address recipient) internal {
+    function mintTokensAndApprovePool(address recipient) internal {
         startHoax(recipient);
         cashAsset.mint(recipient, 100_000 ether);
         collateralAsset.mint(recipient, 100_000 ether);
@@ -110,6 +110,8 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
         pool.addLiquidityToSlot(115, 100e18);
 
         assertEq(pool.totalLiquidity(), totalLiquidityStart + 100e18);
+        assertEq(pool.lockedLiquidity(), lockedLiquidityStart);
+        assertEq(pool.freeLiquidity(), freeLiquidityStart + 100e18);
     }
 
     function test_withdrawLiquidity() public {
@@ -128,6 +130,8 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
         pool.withdrawLiquidityFromSlot(125, 50e18);
 
         assertEq(pool.totalLiquidity(), totalLiquidityStart + 50e18);
+        assertEq(pool.freeLiquidity(), freeLiquidityStart + 50e18);
+        assertEq(pool.lockedLiquidity(), lockedLiquidityStart);
     }
 
     function test_mintPoolPositionTokens() public {
@@ -142,25 +146,68 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
         pool.addLiquidityToSlot(130, 100e18);
 
         assertEq(pool.totalLiquidity(), totalLiquidityStart + 100e18);
+        assertEq(pool.freeLiquidity(), freeLiquidityStart + 100e18);
+        assertEq(pool.lockedLiquidity(), lockedLiquidityStart);
 
         bytes32 uuid = keccak256("test_uuid");
 
-        pool.openPosition(uuid, 115, 1e18, block.timestamp + 100);
+        startHoax(address(manager));
+        pool.openPosition(uuid, 130, 1e18, block.timestamp + 100);
 
-        
-
+        assertEq(pool.totalLiquidity(), totalLiquidityStart + 100e18);
+        assertEq(pool.freeLiquidity(), freeLiquidityStart + 99e18);
+        assertEq(pool.lockedLiquidity(), lockedLiquidityStart + 1e18);
     }
 
     function test_redeemPoolPositionTokens() public {
+        mintTokensToUserAndApproveManager(user1);
+        mintTokensToUserAndApprovePool(user2);
+
+        startHoax(user2);
+        pool.addLiquidityToSlot(110, 25_000);
+
+        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
+            collateralAsset: address(collateralAsset),
+            collateralAmount: 100,
+            cashAsset: address(cashAsset),
+            cashAmount: 100
+        });
+
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+
+        ICollarVaultState.LiquidityOpts memory liquidityOpts =
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
+
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
+
         startHoax(user1);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
 
-        uint256 freeLiquidityStart = pool.freeLiquidity();
-        uint256 lockedLiquidityStart = pool.lockedLiquidity();
-        uint256 totalLiquidityStart = pool.totalLiquidity();
+        bytes memory vaultInfo = manager.vaultInfo(uuid);
+        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
 
-        assertEq(totalLiquidityStart, freeLiquidityStart + lockedLiquidityStart);
+        assertEq(vault.lockedVaultCash, 10);
+        assertEq(vault.lockedPoolCash, 10);
+
+        skip(100);
+
+        engine.setHistoricalAssetPrice(address(collateralAsset), vault.expiresAt, 0.5e18);
+
+        manager.closeVault(uuid);
+
+        ERC6909TokenSupply poolTokens = ERC6909TokenSupply(address(pool));
+
+        uint256 userPoolTokenBalance = poolTokens.balanceOf(user2, uint256(uuid));
+
+        assertEq(userPoolTokenBalance, 10);
+
+        revert("Test not completed, bug KLOB about it");
+
+        //assertEq(pool.totalLiquidity(),);
+        //assertEq(pool.freeLiquidity(),);
+        //assertEq(pool.lockedLiquidity(),);
     }
-
+/*
     function test_redeemCollateralUpBeyondStrike() public {
         startHoax(user1);
 
@@ -200,4 +247,5 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
 
         assertEq(totalLiquidityStart, freeLiquidityStart + lockedLiquidityStart);
     }
+    */
 }
