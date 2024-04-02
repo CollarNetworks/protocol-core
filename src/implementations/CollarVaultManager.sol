@@ -36,6 +36,19 @@ contract CollarVaultManager is ICollarVaultManager {
         return abi.encode(vaultsByUUID[uuid]);
     }
 
+    function vaultInfoByNonce(uint256 vaultNonce) external view override returns (bytes memory) {
+        bytes32 uuid = vaultsByNonce[vaultNonce];
+        if (vaultsByUUID[uuid].openedAt == 0) {
+            revert InvalidVault();
+        }
+
+        return abi.encode(vaultsByUUID[uuid]);
+    }
+
+    function getVaultUUID(uint256 vaultNonce) external view override returns (bytes32 uuid) {
+        return vaultsByNonce[vaultNonce];
+    }
+ 
     function previewRedeem(bytes32 uuid, uint256 amount) public view override returns (uint256 cashReceived) {
         if (amount == 0) revert AmountCannotBeZero();
         if (vaultsByUUID[uuid].openedAt == 0) revert InvalidVault();

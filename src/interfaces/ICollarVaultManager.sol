@@ -24,6 +24,7 @@ abstract contract ICollarVaultManager is ICollarVaultManagerErrors, ICollarVault
     uint256 public vaultCount;
 
     mapping(bytes32 uuid => ICollarVaultState.Vault vault) internal vaultsByUUID;
+    mapping(uint256 vaultNonce => bytes32 UUID) internal vaultsByNonce;
     mapping(bytes32 => uint256) public vaultTokenCashSupply;
 
     // ----- CONSTRUCTOR ----- //
@@ -43,6 +44,14 @@ abstract contract ICollarVaultManager is ICollarVaultManagerErrors, ICollarVault
     /// @notice Get the entire vault state as bytes
     /// @param uuid UUID of the vault to get state for
     function vaultInfo(bytes32 uuid) external view virtual returns (bytes calldata data);
+
+    /// @notice Get the n-th vault state
+    /// @param vaultNonce Nonce of the vault to get state for
+    function vaultInfoByNonce(uint256 vaultNonce) external view virtual returns (bytes calldata data);
+
+    /// @notice Get the UUID of a vault by its nonce
+    /// @param vaultNonce Nonce of the vault to get the UUID for
+    function getVaultUUID(uint256 vaultNonce) external view virtual returns (bytes32 uuid);
 
     /// @notice Preview the cash amount redeemable for a given amount of tokens for a particular vault
     /// @param uuid UUID of the vault to redeem from

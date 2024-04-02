@@ -66,6 +66,12 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         assertTrue(engine.isSupportedLiquidityPool(address(pool1)));
     }
 
+    function test_supportedLiquidityPoolsLength() public {
+        assertEq(engine.supportedLiquidityPoolsLength(), 1);
+        engine.removeLiquidityPool(address(pool));
+        assertEq(engine.supportedLiquidityPoolsLength(), 0);
+    }
+
     function test_removeLiquidityPool() public {
         engine.addLiquidityPool(address(pool1));
         engine.removeLiquidityPool(address(pool1));

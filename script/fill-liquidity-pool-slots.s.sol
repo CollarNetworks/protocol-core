@@ -89,20 +89,20 @@ contract FillLiquidityPoolSlots is Script {
 
         TestERC20(cashTestToken).approve(pool, 100_000 ether);
 
-        CollarPool(pool).addLiquidityToSlot(111, 10_000 ether);
-        CollarPool(pool).addLiquidityToSlot(112, 25_000 ether);
-        CollarPool(pool).addLiquidityToSlot(115, 17_500 ether);
-        CollarPool(pool).addLiquidityToSlot(120, 20_000 ether);
+        CollarPool(pool).addLiquidityToSlot(11100, 10_000 ether);
+        CollarPool(pool).addLiquidityToSlot(11200, 25_000 ether);
+        CollarPool(pool).addLiquidityToSlot(11500, 17_500 ether);
+        CollarPool(pool).addLiquidityToSlot(12000, 20_000 ether);
 
         vm.stopBroadcast();
 
         require(CollarEngine(engine).addressToVaultManager(testWallet1.addr) == user1VaultManager);
         require(CollarEngine(engine).addressToVaultManager(testWallet2.addr) == user2VaultManager);
 
-        require(CollarPool(pool).getLiquidityForSlot(111) == 10_000 ether);
-        require(CollarPool(pool).getLiquidityForSlot(112) == 25_000 ether);
-        require(CollarPool(pool).getLiquidityForSlot(115) == 17_500 ether);
-        require(CollarPool(pool).getLiquidityForSlot(120) == 20_000 ether);
+        require(CollarPool(pool).getLiquidityForSlot(11100) == 10_000 ether);
+        require(CollarPool(pool).getLiquidityForSlot(11200) == 25_000 ether);
+        require(CollarPool(pool).getLiquidityForSlot(11500) == 17_500 ether);
+        require(CollarPool(pool).getLiquidityForSlot(12000) == 20_000 ether);
 
         console.log("\n --- Dev Environment Deployed ---");
         console.log("\n # Dev Deployer Address: %x", deployer.addr);

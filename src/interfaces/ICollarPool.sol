@@ -86,11 +86,11 @@ abstract contract ICollarPool is ICollarPoolState, ICollarPoolErrors, ICollarPoo
 
     // ----- CONSTRUCTOR ----- //
 
-    constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset, address _collateraLAsset, uint256 _duration, uint256 _ltv) {
+    constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset, address _collateralAsset, uint256 _duration, uint256 _ltv) {
         tickScaleFactor = _tickScaleFactor;
         engine = _engine;
         cashAsset = _cashAsset;
-        collateralAsset = _collateraLAsset;
+        collateralAsset = _collateralAsset;
         duration = _duration;
         ltv = _ltv;
     }

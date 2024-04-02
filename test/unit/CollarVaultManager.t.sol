@@ -95,6 +95,76 @@ contract CollarVaultManagerTest is Test {
         vm.stopPrank();
     }
 
+    function test_getVaultUUID() internal {
+        mintTokensToUserAndApproveManager(user1);
+        mintTokensToUserAndApprovePool(user2);
+
+        hoax(user2);
+        pool.addLiquidityToSlot(110, 25_000);
+
+        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
+            collateralAsset: address(collateralAsset),
+            collateralAmount: 100,
+            cashAsset: address(cashAsset),
+            cashAmount: 100
+        });
+
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+
+        ICollarVaultState.LiquidityOpts memory liquidityOpts =
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
+
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
+
+        hoax(user1);
+
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+
+        assertEq(manager.vaultCount(), 1);
+
+        bytes32 nonceUUID0 = manager.getVaultUUID(0);
+        bytes32 nonceUUID1 = manager.getVaultUUID(1);
+
+        assertEq(uuid, nonceUUID0);
+        assertEq(nonceUUID1, 0);
+    }
+
+    function test_vaultInfoByNonce() internal {
+        mintTokensToUserAndApproveManager(user1);
+        mintTokensToUserAndApprovePool(user2);
+
+        hoax(user2);
+        pool.addLiquidityToSlot(110, 25_000);
+
+        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
+            collateralAsset: address(collateralAsset),
+            collateralAmount: 100,
+            cashAsset: address(cashAsset),
+            cashAmount: 100
+        });
+
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+
+        ICollarVaultState.LiquidityOpts memory liquidityOpts =
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
+
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
+
+        hoax(user1);
+
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+
+        assertEq(manager.vaultCount(), 1);
+
+        bytes memory vaultInfoViaUUID = manager.vaultInfo(uuid);
+        bytes memory vaultInfoViaNonce = manager.vaultInfoByNonce(0);
+        
+        ICollarVaultState.Vault memory infoViaUUID = abi.decode(vaultInfoViaUUID, (ICollarVaultState.Vault));
+        ICollarVaultState.Vault memory infoViaNonce = abi.decode(vaultInfoViaNonce, (ICollarVaultState.Vault));
+
+        assertEq(infoViaUUID.expiresAt, infoViaNonce.expiresAt);
+    }
+
     function test_deploymentAndDeployParams() public {
         assertEq(manager.owner(), user1);
         assertEq(manager.engine(), address(engine));
