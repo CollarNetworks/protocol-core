@@ -228,7 +228,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         // update global liquidity amounts
         // free liquidity unchanged
         totalLiquidity += uint256(int256(positionNet));
-        lockedLiquidity -= uint256(int256(positionNet));
+        lockedLiquidity -= positions[uuid].principal;
         redeemableLiquidity += positionNet > 0 ? uint256(int256(positionNet)) : 0;
 
         if (positionNet < 0) {
@@ -261,8 +261,11 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         positions[uuid].withdrawable -= redeemValue;
 
         // update global liquidity amounts
+        // locked liquidity unchanged
+        // free liquidity unchanged
         totalLiquidity -= redeemValue;
-
+        redeemableLiquidity -= redeemValue;
+        
         emit Redemption(msg.sender, uuid, amount, redeemValue);
 
         // redeem to user & burn tokens
