@@ -164,6 +164,11 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
         mintTokensToUserAndApprovePool(user2);
 
         startHoax(user2);
+
+        uint256 freeLiquidityStart = pool.freeLiquidity();
+        uint256 lockedLiquidityStart = pool.lockedLiquidity();
+        uint256 totalLiquidityStart = pool.totalLiquidity();
+
         pool.addLiquidityToSlot(110, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
@@ -193,6 +198,8 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
 
         engine.setHistoricalAssetPrice(address(collateralAsset), vault.expiresAt, 0.5e18);
 
+        startHoax(user2);
+
         manager.closeVault(uuid);
 
         ERC6909TokenSupply poolTokens = ERC6909TokenSupply(address(pool));
@@ -201,7 +208,12 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
 
         assertEq(userPoolTokenBalance, 10);
 
-        revert("Test not completed, bug KLOB about it");
+        vm.roll(100);
+
+        CollarPool(pool).redeem(uuid, 10);
+
+        assertEq(pool.totalLiquidity(), totalLiquidityStart + 25_000);
+        assertEq(pool.freeLiquidity(), freeLiquidityStart + 25_000);
 
         //assertEq(pool.totalLiquidity(),);
         //assertEq(pool.freeLiquidity(),);

@@ -76,6 +76,7 @@ abstract contract ICollarPool is ICollarPoolState, ICollarPoolErrors, ICollarPoo
     // ----- STATE VARIABLES ----- //
 
     /// @notice The total amount of liquidity in the pool
+    /// @dev Total liquidity = locked + free + redeemable
     uint256 public totalLiquidity;
 
     /// @notice The amount of locked liquidity in the pool
@@ -83,6 +84,9 @@ abstract contract ICollarPool is ICollarPoolState, ICollarPoolErrors, ICollarPoo
 
     /// @notice The amount of free liquidity in the pool
     uint256 public freeLiquidity;
+
+    /// @notice The amount of redeemable liquidity in the pool
+    uint256 public redeemableLiquidity;
 
     // ----- CONSTRUCTOR ----- //
 

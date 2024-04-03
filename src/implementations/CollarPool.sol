@@ -109,12 +109,14 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
             _allocate(slotIndex, msg.sender, amount);
         }
 
+        // lockedLiquidity unchanged
+        // redeemLiquidity unchanged
         freeLiquidity += amount;
         totalLiquidity += amount;
 
         emit LiquidityAdded(msg.sender, slotIndex, amount);
 
-        // transfer collateral from provider to pool`
+        // transfer collateral from provider to pool
         IERC20(cashAsset).transferFrom(msg.sender, address(this), amount);
     }
 
@@ -126,6 +128,8 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
             revert InvalidAmount();
         }
 
+        // lockedLiquidity unchanged
+        // redeemLiquidity unchanged
         freeLiquidity -= amount;
         totalLiquidity -= amount;
 
@@ -142,6 +146,11 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
     function moveLiquidityFromSlot(uint256 sourceSlotIndex, uint256 destinationSlotIndex, uint256 amount) external virtual override {
         emit LiquidityMoved(msg.sender, sourceSlotIndex, destinationSlotIndex, amount);
+
+        // lockedLiquidity unchanged
+        // redeemLiquidity unchanged
+        // freeLiquidity unchanged
+        // totalLiquidity unchanged
 
         withdrawLiquidityFromSlot(sourceSlotIndex, amount);
         addLiquidityToSlot(destinationSlotIndex, amount);
@@ -191,6 +200,8 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         slot.liquidity -= amount;
 
         // update global liquidity amounts
+        // total liquidity unchanged
+        // redeemable liquidity unchanged
         lockedLiquidity += amount;
         freeLiquidity -= amount;
 
@@ -215,10 +226,10 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         positions[uuid].withdrawable = uint256(int256(positions[uuid].principal) + positionNet);
 
         // update global liquidity amounts
-        totalLiquidity = uint256(int256(totalLiquidity) + positionNet);
-        freeLiquidity += positions[uuid].withdrawable;
-
-        lockedLiquidity -= positions[uuid].principal;
+        // free liquidity unchanged
+        totalLiquidity += uint256(int256(positionNet));
+        lockedLiquidity -= uint256(int256(positionNet));
+        redeemableLiquidity += positionNet > 0 ? uint256(int256(positionNet)) : 0;
 
         if (positionNet < 0) {
             // we owe the vault some tokens
@@ -250,7 +261,6 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         positions[uuid].withdrawable -= redeemValue;
 
         // update global liquidity amounts
-        lockedLiquidity -= redeemValue;
         totalLiquidity -= redeemValue;
 
         emit Redemption(msg.sender, uuid, amount, redeemValue);
