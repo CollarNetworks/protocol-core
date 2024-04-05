@@ -618,7 +618,7 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApprovePool(user2);
 
         startHoax(user2);
-        pool.addLiquidityToSlot(11_000, 25_000);
+        pool.addLiquidityToSlot(110, 25_000);
 
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(collateralAsset),

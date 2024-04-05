@@ -168,6 +168,7 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
         uint256 freeLiquidityStart = pool.freeLiquidity();
         uint256 lockedLiquidityStart = pool.lockedLiquidity();
         uint256 totalLiquidityStart = pool.totalLiquidity();
+        uint256 redeemLiquidityStart = pool.redeemableLiquidity();
 
         pool.addLiquidityToSlot(110, 25_000);
 
@@ -212,8 +213,10 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
 
         CollarPool(pool).redeem(uuid, 10);
 
-        assertEq(pool.totalLiquidity(), totalLiquidityStart + 25_000);
-        assertEq(pool.freeLiquidity(), freeLiquidityStart + 25_000);
+        assertEq(pool.totalLiquidity(), totalLiquidityStart + 24_990);
+        assertEq(pool.freeLiquidity(), freeLiquidityStart + 24_990);
+        assertEq(pool.lockedLiquidity(), lockedLiquidityStart);
+        assertEq(pool.redeemableLiquidity(), redeemLiquidityStart);
 
         //assertEq(pool.totalLiquidity(),);
         //assertEq(pool.freeLiquidity(),);

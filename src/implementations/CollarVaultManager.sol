@@ -7,6 +7,8 @@
 
 pragma solidity ^0.8.18;
 
+import "forge-std/console.sol";
+import "forge-std/Test.sol";
 import { ICollarVaultManager } from "../interfaces/ICollarVaultManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ICollarVaultState } from "../interfaces/ICollarVaultState.sol";
@@ -216,26 +218,36 @@ contract CollarVaultManager is ICollarVaultManager {
 
         // CASE 1 - all vault cash to liquidity pool
         if (finalPrice <= putStrikePrice) {
+            console.log("closeVault - case 1");
+
             cashToSendToPool = vault.lockedVaultCash;
 
-            // CASE 2 - all vault cash to user, all locked pool cash to user
+        // CASE 2 - all vault cash to user, all locked pool cash to user
         } else if (finalPrice >= callStrikePrice) {
+            console.log("closeVault - case 2");
+
             cashNeededFromPool = vault.lockedPoolCash;
 
-            // CASE 3 - all vault cash to user
+        // CASE 3 - all vault cash to user
         } else if (finalPrice == startingPrice) {
+            console.log("closeVault - case 3");
+
             // no need to update any vars here
 
-            // CASE 4 - proportional vault cash to user
+        // CASE 4 - proportional vault cash to user
         } else if (putStrikePrice < finalPrice && finalPrice < startingPrice) {
+            console.log("closeVault - case 4");
+
             uint256 vaultCashToPool =
                 ((vault.lockedVaultCash * (startingPrice - finalPrice) * 1e32) / (startingPrice - putStrikePrice)) / 1e32;
             // uint256 vaultCashToUser = vault.lockedVaultCash - vaultCashToPool;
 
             cashToSendToPool = vaultCashToPool;
 
-            // CASE 5 - all vault cash to user, proportional locked pool cash to user
+        // CASE 5 - all vault cash to user, proportional locked pool cash to user
         } else if (callStrikePrice > finalPrice && finalPrice > startingPrice) {
+            console.log("closeVault - case 5");
+
             uint256 poolCashToUser =
                 ((vault.lockedPoolCash * (finalPrice - startingPrice) * 1e32) / (callStrikePrice - startingPrice)) / 1e32;
 
@@ -252,7 +264,13 @@ contract CollarVaultManager is ICollarVaultManager {
         }
 
         int256 poolProfit = cashToSendToPool > 0 ? int256(cashToSendToPool) : -int256(cashNeededFromPool);
+        console.logInt(poolProfit);
+
+        IERC20 cashToken = IERC20(vault.cashAsset);
+
+        console.logUint(cashToken.balanceOf(address(this)));
         CollarPool(vault.liquidityPool).finalizePosition(uuid, address(this), poolProfit);
+        console.logUint(cashToken.balanceOf(address(this)));
 
         if (cashToSendToPool > 0) {
             vault.lockedVaultCash -= cashToSendToPool;

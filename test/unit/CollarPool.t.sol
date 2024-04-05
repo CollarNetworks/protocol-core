@@ -487,7 +487,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         pool.openPosition(keccak256(abi.encodePacked(user1)), 112, 100_000, block.timestamp + 100);
     }
 
-    function test_redeem() public {
+    function test_redeem_normal() public {
         mintTokensToUserAndApproveManager(user1);
         mintTokensToUserAndApprovePool(user2);
 
@@ -506,10 +506,15 @@ contract CollarPoolTest is Test, ICollarPoolState {
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
 
+        // price starts at "1e18"
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
+
+        console.log("User 1 Cash Test Token Balance - Before Open Vault: ", cashAsset.balanceOf(user1));
 
         startHoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+
+        console.log("User 1 Cash Test Token Balance - After Open Vault: ", cashAsset.balanceOf(user1));
 
         bytes memory vaultInfo = manager.vaultInfo(uuid);
         ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
@@ -519,6 +524,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         skip(100);
 
+        // price closes at 50% of start
         engine.setHistoricalAssetPrice(address(collateralAsset), vault.expiresAt, 0.5e18);
 
         manager.closeVault(uuid);
@@ -533,7 +539,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         assertEq(toReceive, 20);
         pool.redeem(uuid, 10);
 
-        assertEq(cashAsset.balanceOf(user1), 100_010);
+        assertEq(cashAsset.balanceOf(user1), 100_000e18);
     }
 
     function test_redeem_InvalidAmount() public {
@@ -590,7 +596,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         pool.redeem(keccak256(abi.encodePacked(user2)), 100_000);
     }
 
-    function test_previewRedeem() public {
+    function test_previewRedeem_same_person() public {
         mintTokensAndApprovePool(user1);
         mintTokensAndApprovePool(user2);
         mintTokensAndApprovePool(address(manager));
@@ -635,9 +641,59 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         manager.closeVault(uuid);
 
-        uint256 previewAmount = pool.previewRedeem(uuid, 100_000);
+        uint256 previewAmount = pool.previewRedeem(uuid, 10);
 
-        assertEq(previewAmount, 200_000);
+        assertEq(previewAmount, 20);
+    }
+
+    function test_previewRedeem_different_people() public {
+        mintTokensAndApprovePool(user1);
+        mintTokensAndApprovePool(user2);
+        mintTokensAndApprovePool(address(manager));
+
+        hoax(user2);
+
+        pool.addLiquidityToSlot(110, 100_000);
+
+        hoax(address(manager));
+
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
+
+        startHoax(user1);
+
+        collateralAsset.approve(address(manager), 100_000 ether);
+
+        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
+            collateralAsset: address(collateralAsset),
+            collateralAmount: 100,
+            cashAsset: address(cashAsset),
+            cashAmount: 100
+        });
+
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+
+        ICollarVaultState.LiquidityOpts memory liquidityOpts =
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
+
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
+
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+
+        bytes memory vaultInfo = manager.vaultInfo(uuid);
+
+        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+
+        startHoax(user2);
+
+        skip(101);
+
+        engine.setHistoricalAssetPrice(address(collateralAsset), vault.expiresAt, 0.5e18);
+
+        manager.closeVault(uuid);
+
+        uint256 previewAmount = pool.previewRedeem(uuid, 10);
+
+        assertEq(previewAmount, 20);
     }
 
     function test_previewRedeem_VaultNotValid() public {
