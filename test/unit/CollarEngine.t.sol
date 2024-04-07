@@ -41,7 +41,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         manager = CollarVaultManager(engine.createVaultManager());
 
         engine.addLTV(9000);
-    
+
         pool1 = address(new CollarPool(address(engine), 1, address(token1), address(token2), 100, 9000));
     }
 

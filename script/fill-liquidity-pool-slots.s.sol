@@ -44,9 +44,9 @@ contract FillLiquidityPoolSlots is Script {
         router = address(new MockUniRouter());
         engine = address(new MockEngine(router));
 
-        CollarEngine(engine).addLTV(9_000);
+        CollarEngine(engine).addLTV(9000);
 
-        pool = address(new CollarPool(engine, 1, cashTestToken, collateralTestToken, 100, 9_000));
+        pool = address(new CollarPool(engine, 1, cashTestToken, collateralTestToken, 100, 9000));
 
         multicall3 = address(new Multicall3());
 
@@ -89,20 +89,20 @@ contract FillLiquidityPoolSlots is Script {
 
         TestERC20(cashTestToken).approve(pool, 100_000 ether);
 
-        CollarPool(pool).addLiquidityToSlot(11100, 10_000 ether);
-        CollarPool(pool).addLiquidityToSlot(11200, 25_000 ether);
-        CollarPool(pool).addLiquidityToSlot(11500, 17_500 ether);
-        CollarPool(pool).addLiquidityToSlot(12000, 20_000 ether);
+        CollarPool(pool).addLiquidityToSlot(11_100, 10_000 ether);
+        CollarPool(pool).addLiquidityToSlot(11_200, 25_000 ether);
+        CollarPool(pool).addLiquidityToSlot(11_500, 17_500 ether);
+        CollarPool(pool).addLiquidityToSlot(12_000, 20_000 ether);
 
         vm.stopBroadcast();
 
         require(CollarEngine(engine).addressToVaultManager(testWallet1.addr) == user1VaultManager);
         require(CollarEngine(engine).addressToVaultManager(testWallet2.addr) == user2VaultManager);
 
-        require(CollarPool(pool).getLiquidityForSlot(11100) == 10_000 ether);
-        require(CollarPool(pool).getLiquidityForSlot(11200) == 25_000 ether);
-        require(CollarPool(pool).getLiquidityForSlot(11500) == 17_500 ether);
-        require(CollarPool(pool).getLiquidityForSlot(12000) == 20_000 ether);
+        require(CollarPool(pool).getLiquidityForSlot(11_100) == 10_000 ether);
+        require(CollarPool(pool).getLiquidityForSlot(11_200) == 25_000 ether);
+        require(CollarPool(pool).getLiquidityForSlot(11_500) == 17_500 ether);
+        require(CollarPool(pool).getLiquidityForSlot(12_000) == 20_000 ether);
 
         console.log("\n --- Dev Environment Deployed ---");
         console.log("\n # Dev Deployer Address: %x", deployer.addr);

@@ -22,7 +22,6 @@ import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 import { ICollarPoolErrors } from "../../src/interfaces/errors/ICollarPoolErrors.sol";
 
 contract CollarPoolConstraintsTest is Test, ICollarPoolState {
-
     TestERC20 cashAsset;
     TestERC20 collateralAsset;
     MockUniRouter router;
@@ -51,12 +50,12 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
 
         engine.forceRegisterVaultManager(user1, address(manager));
         engine.addLTV(9000);
-        
+
         engine.addSupportedCashAsset(address(cashAsset));
         engine.addSupportedCollateralAsset(address(collateralAsset));
 
         engine.addCollarDuration(100);
-        
+
         pool = new CollarPool(address(engine), 100, address(cashAsset), address(collateralAsset), 100, 9000);
 
         engine.addLiquidityPool(address(pool));
@@ -141,7 +140,7 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
         uint256 lockedLiquidityStart = pool.lockedLiquidity();
         uint256 totalLiquidityStart = pool.totalLiquidity();
 
-        assertEq(totalLiquidityStart, freeLiquidityStart + lockedLiquidityStart); 
+        assertEq(totalLiquidityStart, freeLiquidityStart + lockedLiquidityStart);
 
         pool.addLiquidityToSlot(130, 100e18);
 
@@ -222,7 +221,7 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
         //assertEq(pool.freeLiquidity(),);
         //assertEq(pool.lockedLiquidity(),);
     }
-/*
+    /*
     function test_redeemCollateralUpBeyondStrike() public {
         startHoax(user1);
 

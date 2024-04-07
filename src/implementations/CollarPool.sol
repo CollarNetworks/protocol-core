@@ -26,8 +26,8 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
     // ----- CONSTRUCTOR ----- //
 
     constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset, address _collateralAsset, uint256 _duration, uint256 _ltv)
-        ICollarPool(_engine, _tickScaleFactor, _cashAsset, _collateralAsset, _duration, _ltv) {
-        
+        ICollarPool(_engine, _tickScaleFactor, _cashAsset, _collateralAsset, _duration, _ltv)
+    {
         if (!CollarEngine(_engine).isValidLTV(_ltv)) {
             revert InvalidLTV();
         }

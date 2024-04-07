@@ -50,7 +50,7 @@ contract CollarVaultManager is ICollarVaultManager {
     function getVaultUUID(uint256 vaultNonce) external view override returns (bytes32 uuid) {
         return vaultsByNonce[vaultNonce];
     }
- 
+
     function previewRedeem(bytes32 uuid, uint256 amount) public view override returns (uint256 cashReceived) {
         if (amount == 0) revert AmountCannotBeZero();
         if (vaultsByUUID[uuid].openedAt == 0) revert InvalidVault();
@@ -174,7 +174,7 @@ contract CollarVaultManager is ICollarVaultManager {
             revert VaultNotActive();
         }
 
-        if ( vaultsByUUID[uuid].expiresAt > block.timestamp) {
+        if (vaultsByUUID[uuid].expiresAt > block.timestamp) {
             revert VaultNotFinalizable();
         }
 
@@ -222,19 +222,19 @@ contract CollarVaultManager is ICollarVaultManager {
 
             cashToSendToPool = vault.lockedVaultCash;
 
-        // CASE 2 - all vault cash to user, all locked pool cash to user
+            // CASE 2 - all vault cash to user, all locked pool cash to user
         } else if (finalPrice >= callStrikePrice) {
             console.log("closeVault - case 2");
 
             cashNeededFromPool = vault.lockedPoolCash;
 
-        // CASE 3 - all vault cash to user
+            // CASE 3 - all vault cash to user
         } else if (finalPrice == startingPrice) {
             console.log("closeVault - case 3");
 
             // no need to update any vars here
 
-        // CASE 4 - proportional vault cash to user
+            // CASE 4 - proportional vault cash to user
         } else if (putStrikePrice < finalPrice && finalPrice < startingPrice) {
             console.log("closeVault - case 4");
 
@@ -244,7 +244,7 @@ contract CollarVaultManager is ICollarVaultManager {
 
             cashToSendToPool = vaultCashToPool;
 
-        // CASE 5 - all vault cash to user, proportional locked pool cash to user
+            // CASE 5 - all vault cash to user, proportional locked pool cash to user
         } else if (callStrikePrice > finalPrice && finalPrice > startingPrice) {
             console.log("closeVault - case 5");
 
@@ -367,7 +367,10 @@ contract CollarVaultManager is ICollarVaultManager {
         }
 
         // verify the put strike tick matches the put strike tick of the pool
-        if (CollarPool(liquidityOpts.liquidityPool).ltv() != (liquidityOpts.putStrikeTick * CollarPool(liquidityOpts.liquidityPool).tickScaleFactor())) {
+        if (
+            CollarPool(liquidityOpts.liquidityPool).ltv()
+                != (liquidityOpts.putStrikeTick * CollarPool(liquidityOpts.liquidityPool).tickScaleFactor())
+        ) {
             revert InvalidPutStrike();
         }
 

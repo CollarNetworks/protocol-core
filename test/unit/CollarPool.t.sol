@@ -58,12 +58,12 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         engine.forceRegisterVaultManager(user1, address(manager));
         engine.addLTV(9000);
-        
+
         engine.addSupportedCashAsset(address(cashAsset));
         engine.addSupportedCollateralAsset(address(collateralAsset));
 
         engine.addCollarDuration(100);
-        
+
         pool = new CollarPool(address(engine), 100, address(cashAsset), address(collateralAsset), 100, 9000);
 
         engine.addLiquidityPool(address(pool));

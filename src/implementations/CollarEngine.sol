@@ -158,8 +158,6 @@ contract CollarEngine is ICollarEngine, Ownable {
     }
 
     function supportedLiquidityPoolsLength() external view override returns (uint256) {
-        
-
         return collarLiquidityPools.length();
     }
 

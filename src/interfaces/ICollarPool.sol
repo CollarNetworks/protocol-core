@@ -13,7 +13,7 @@ import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-abstract contract ICollarPoolState{
+abstract contract ICollarPoolState {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
     using EnumerableSet for EnumerableSet.UintSet;
 
@@ -46,7 +46,7 @@ abstract contract ICollarPoolState{
     EnumerableSet.UintSet internal initializedSlotIndices;
 }
 
-abstract contract ICollarPool is ICollarPoolState, ICollarPoolErrors, ICollarPoolEvents  {
+abstract contract ICollarPool is ICollarPoolState, ICollarPoolErrors, ICollarPoolEvents {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
 
     // ----- IMMUTABLES ----- //
