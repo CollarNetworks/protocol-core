@@ -95,7 +95,7 @@ contract CollarVaultManagerTest is Test {
         vm.stopPrank();
     }
 
-    function test_getVaultUUID() internal {
+    function test_getVaultUUID() public {
         mintTokensToUserAndApproveManager(user1);
         mintTokensToUserAndApprovePool(user2);
 
@@ -118,15 +118,17 @@ contract CollarVaultManagerTest is Test {
 
         hoax(user1);
 
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        manager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint256(0)));
+
+        console.log("Calculated UUID");
+        console.logBytes32(calculatedUUID);
+
+        console.log("Actual UUID");
+        console.logBytes32(manager.vaultsByNonce(0));
 
         assertEq(manager.vaultCount(), 1);
-
-        bytes32 nonceUUID0 = manager.getVaultUUID(0);
-        bytes32 nonceUUID1 = manager.getVaultUUID(1);
-
-        assertEq(uuid, nonceUUID0);
-        assertEq(nonceUUID1, 0);
+        assertEq(calculatedUUID, manager.vaultsByNonce(0));
     }
 
     function test_vaultInfoByNonce() internal {
@@ -194,11 +196,14 @@ contract CollarVaultManagerTest is Test {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        manager.openVault(assets, collarOpts, liquidityOpts);
+
+        bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint256(0)));
 
         assertEq(manager.vaultCount(), 1);
+        assertEq(manager.vaultsByNonce(0), calculatedUUID);
 
-        bytes memory vaultInfo = manager.vaultInfo(uuid);
+        bytes memory vaultInfo = manager.vaultInfo(calculatedUUID);
 
         // grab the vault state & check all the values
 

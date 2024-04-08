@@ -24,7 +24,7 @@ abstract contract ICollarVaultManager is ICollarVaultManagerErrors, ICollarVault
     uint256 public vaultCount;
 
     mapping(bytes32 uuid => ICollarVaultState.Vault vault) internal vaultsByUUID;
-    mapping(uint256 vaultNonce => bytes32 UUID) internal vaultsByNonce;
+    mapping(uint256 vaultNonce => bytes32 UUID) public vaultsByNonce;
     mapping(bytes32 => uint256) public vaultTokenCashSupply;
 
     // ----- CONSTRUCTOR ----- //

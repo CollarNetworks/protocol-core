@@ -102,7 +102,17 @@ contract CollarVaultManager is ICollarVaultManager {
         _validateLiquidityOpts(liquidityOpts);
 
         // generate vault (and token) nonce
-        uuid = keccak256(abi.encodePacked(user, ++vaultCount));
+        uuid = keccak256(abi.encodePacked(user, vaultCount));
+
+        vaultsByNonce[vaultCount] = keccak256(abi.encodePacked(user, vaultCount));
+
+        console.log("vaultCount is");
+        console.logUint(vaultCount);
+        console.log("uuid is");
+        console.logBytes32(uuid);
+
+        // increment vault
+        vaultCount++;
 
         // set Basic Vault Info
         vaultsByUUID[uuid].active = true;
