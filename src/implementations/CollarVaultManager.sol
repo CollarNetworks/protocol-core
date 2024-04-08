@@ -87,9 +87,9 @@ contract CollarVaultManager is ICollarVaultManager {
     // ----- STATE CHANGING FUNCTIONS ----- //
 
     function openVault(
-        ICollarVaultState.AssetSpecifiers calldata assetData, // addresses & amounts of collateral & cash assets
-        ICollarVaultState.CollarOpts calldata collarOpts, // length & ltv
-        ICollarVaultState.LiquidityOpts calldata liquidityOpts // pool address, callstrike & amount to lock there, putstrike
+        AssetSpecifiers calldata assetData, // addresses & amounts of collateral & cash assets
+        CollarOpts calldata collarOpts, // length & ltv
+        LiquidityOpts calldata liquidityOpts // pool address, callstrike & amount to lock there, putstrike
     ) external override returns (bytes32 uuid) {
         // only user is allowed to open vaults
         if (msg.sender != user) {
@@ -189,7 +189,7 @@ contract CollarVaultManager is ICollarVaultManager {
         }
 
         // cache vault storage pointer
-        ICollarVaultState.Vault storage vault = vaultsByUUID[uuid];
+        Vault storage vault = vaultsByUUID[uuid];
 
         // grab all price info
         uint256 startingPrice = vault.initialCollateralPrice;
@@ -338,7 +338,7 @@ contract CollarVaultManager is ICollarVaultManager {
 
     // ----- INTERNAL FUNCTIONS ----- //
 
-    function _validateAssetData(ICollarVaultState.AssetSpecifiers calldata assetData) internal view {
+    function _validateAssetData(AssetSpecifiers calldata assetData) internal view {
         // verify cash & collateral assets against engine for validity
         if (!CollarEngine(engine).isSupportedCashAsset(assetData.cashAsset)) {
             revert InvalidCashAsset();
@@ -358,7 +358,7 @@ contract CollarVaultManager is ICollarVaultManager {
         }
     }
 
-    function _validateCollarOpts(ICollarVaultState.CollarOpts calldata collarOpts) internal view {
+    function _validateCollarOpts(CollarOpts calldata collarOpts) internal view {
         // verify length is valid per engine
         if (!CollarEngine(engine).isValidCollarDuration(collarOpts.duration)) {
             revert InvalidDuration();
@@ -370,7 +370,7 @@ contract CollarVaultManager is ICollarVaultManager {
         }
     }
 
-    function _validateLiquidityOpts(ICollarVaultState.LiquidityOpts calldata liquidityOpts) internal view {
+    function _validateLiquidityOpts(LiquidityOpts calldata liquidityOpts) internal view {
         // verify liquidity pool is a valid collar liquidity pool
         if (!CollarEngine(engine).isSupportedLiquidityPool(liquidityOpts.liquidityPool)) {
             revert InvalidLiquidityPool();
@@ -390,7 +390,7 @@ contract CollarVaultManager is ICollarVaultManager {
         }
     }
 
-    function _swap(ICollarVaultState.AssetSpecifiers calldata assets) internal returns (uint256 cashReceived) {
+    function _swap(AssetSpecifiers calldata assets) internal returns (uint256 cashReceived) {
         // approve the dex router so we can swap the collateral to cash
         IERC20(assets.collateralAsset).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount);
 

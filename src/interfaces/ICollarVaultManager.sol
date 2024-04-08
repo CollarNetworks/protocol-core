@@ -13,17 +13,20 @@ import { ICollarVaultState } from "./ICollarVaultState.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-abstract contract ICollarVaultManager is ICollarVaultManagerErrors, ICollarVaultManagerEvents, ERC6909TokenSupply, Ownable {
+abstract contract ICollarVaultManager is ICollarVaultState, ICollarVaultManagerErrors, ICollarVaultManagerEvents, ERC6909TokenSupply, Ownable {
     // ----- IMMUTABLES ----- //
 
     address public immutable user;
     address public immutable engine;
 
+    // ----- SO THAT THE ABI PICKS UP THE VAULT STRUCT ----- // 
+    event VaultForABI(Vault vault);
+
     // ----- STATE VARIABLES ----- //
 
     uint256 public vaultCount;
 
-    mapping(bytes32 uuid => ICollarVaultState.Vault vault) internal vaultsByUUID;
+    mapping(bytes32 uuid => Vault vault) internal vaultsByUUID;
     mapping(uint256 vaultNonce => bytes32 UUID) public vaultsByNonce;
     mapping(bytes32 => uint256) public vaultTokenCashSupply;
 
@@ -65,9 +68,9 @@ abstract contract ICollarVaultManager is ICollarVaultManagerErrors, ICollarVault
     /// @param collarOpts Data about the collar (expiry & ltv)
     /// @param liquidityOpts Data about the liquidity (pool address, callstrike & amount to lock there, putstrike)
     function openVault(
-        ICollarVaultState.AssetSpecifiers calldata assets, // addresses & amounts of collateral & cash assets
-        ICollarVaultState.CollarOpts calldata collarOpts, // expiry & ltv
-        ICollarVaultState.LiquidityOpts calldata liquidityOpts // pool address, callstrike & amount to lock there, putstrike
+        AssetSpecifiers calldata assets, // addresses & amounts of collateral & cash assets
+        CollarOpts calldata collarOpts, // expiry & ltv
+        LiquidityOpts calldata liquidityOpts // pool address, callstrike & amount to lock there, putstrike
     ) external virtual returns (bytes32 uuid);
 
     /// @notice Closes a vault - expiry must have passed
