@@ -13,13 +13,19 @@ import { ICollarVaultState } from "./ICollarVaultState.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-abstract contract ICollarVaultManager is ICollarVaultState, ICollarVaultManagerErrors, ICollarVaultManagerEvents, ERC6909TokenSupply, Ownable {
+abstract contract ICollarVaultManager is
+    ICollarVaultState,
+    ICollarVaultManagerErrors,
+    ICollarVaultManagerEvents,
+    ERC6909TokenSupply,
+    Ownable
+{
     // ----- IMMUTABLES ----- //
 
     address public immutable user;
     address public immutable engine;
 
-    // ----- SO THAT THE ABI PICKS UP THE VAULT STRUCT ----- // 
+    // ----- SO THAT THE ABI PICKS UP THE VAULT STRUCT ----- //
     event VaultForABI(Vault vault);
 
     // ----- STATE VARIABLES ----- //
