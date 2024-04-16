@@ -34,6 +34,6 @@ jobs:
 
       - name: Build Contracts & Run Tests
         run: |
-    NO_COLOR=1 forge test 2>&1 | tee -a $GITHUB_STEP_SUMMARY
-    test_exit_status=${PIPESTATUS[0]}
-    exit $test_exit_status
+              NO_COLOR=1 forge test 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+              test_exit_status=${PIPESTATUS[0]}
+              exit $test_exit_status
