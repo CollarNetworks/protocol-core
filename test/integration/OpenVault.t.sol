@@ -165,6 +165,35 @@ contract CollarOpenVaultIntegrationTest is Test {
         bytes memory rawVault = vaultManager.vaultInfo(uuid);
         ICollarVaultState.Vault memory vault = abi.decode(rawVault, (ICollarVaultState.Vault));
 
+        console.log("-- Vault Opened --");
+        console.log("");
+        console.log(" BASIC INFO ");
+        console.log("Active:                    ", vault.active);
+        console.log("Opened At:                 ", vault.openedAt);
+        console.log("Expires At:                ", vault.expiresAt);
+        console.log("Duration:                  ", vault.duration);
+        console.log("LTV:                       ", vault.ltv);
+        console.log("");
+        console.log(" ASSET SPECIFIC INFO ");
+        console.log("Collateral Asset:          ", vault.collateralAsset);
+        console.log("Cash Asset:                ", vault.cashAsset);
+        console.log("Collateral Amount:         ", vault.collateralAmount);
+        console.log("Cash Amount:               ", vault.cashAmount);
+        console.log("Initial Collateral Price:  ", vault.initialCollateralPrice);
+        console.log("");
+        console.log(" LIQUIDITY POOL INFO ");
+        console.log("Liquidity Pool:            ", vault.liquidityPool);
+        console.log("Locked Pool Cash:          ", vault.lockedPoolCash);
+        console.log("Put Strike Tick:           ", vault.putStrikeTick);
+        console.log("Call Strike Tick:          ", vault.callStrikeTick);
+        console.log("Put Strike Price:          ", vault.putStrikePrice);
+        console.log("Call Strike Price:         ", vault.callStrikePrice);
+        console.log("");
+        console.log(" VAULT SPECIFIC INFO ");
+        console.log("Loan Balance:              ", vault.loanBalance);
+        console.log("Locked Vault Cash:         ", vault.lockedVaultCash);
+        console.log("");
+
         // check basic vault info
         assertEq(vault.active, true);
         assertEq(vault.openedAt, block.timestamp);
@@ -175,19 +204,21 @@ contract CollarOpenVaultIntegrationTest is Test {
         // check asset specific info
         assertEq(vault.collateralAsset, WMaticAddress);
         assertEq(vault.cashAsset, USDCAddress);
-        assertEq(vault.collateralAmount, 100 ether);
-        assertEq(vault.cashAmount, 100e6);
-
+        assertEq(vault.collateralAmount, 1000e18);   // we use 1000 "ether" here (it's actually wmatic, but still 18 decimals)
+        assertEq(vault.cashAmount, 739504999);          // the price of wmatic is around ~73 cents at this time (specifically: $0.739504999)
+                                                        // (which converts to about 739 when considering USDC has 6 decimals and we swapped 1000 wmatic)
+        
         // check liquidity pool stuff
         assertEq(vault.liquidityPool, address(pool));
-        assertEq(vault.lockedPoolCash, 10e6);
-        assertEq(vault.putStrikeTick, 90);
+        assertEq(vault.lockedPoolCash, 73950499);       // callstrike is 110, so locked pool cash is going to be exactly 10% of the cash received from the swap above
+        assertEq(vault.putStrikeTick, 90);              
         assertEq(vault.callStrikeTick, 110);
-        assertEq(vault.putStrikePrice, 0.9e18);
-        assertEq(vault.callStrikePrice, 1.1e18);
+        assertEq(vault.initialCollateralPrice, 739504);       // the initial price of wmatic here is $0.739504
+        assertEq(vault.putStrikePrice, 665553);            // put strike is 90%, so putstrike price is just 0.9 * original price
+        assertEq(vault.callStrikePrice, 813454);           // same math for callstrike price, just using 1.1 instead
 
         // check vault specific stuff
-        assertEq(vault.loanBalance, 90e6);
-        assertEq(vault.lockedVaultCash, 10e6);
+        assertEq(vault.loanBalance, 665554499);               // the vault loan balance should be 0.9 * cashAmount
+        assertEq(vault.lockedVaultCash, 73950499);            // the vault locked balance should be 0.1 * cashAmount
     }
 }

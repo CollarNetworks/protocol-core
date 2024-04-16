@@ -135,7 +135,7 @@ contract CollarVaultManager is ICollarVaultManager {
 
         // calculate the initial collateral price from the swap execution fill
         // this is stored as "unit price times 1e18"
-        uint256 initialCollateralPrice = (assetData.collateralAmount * 1e18) / cashReceivedFromSwap;
+        uint256 initialCollateralPrice = (cashReceivedFromSwap * 1e18) / (assetData.collateralAmount);
 
         // set Liquidity Pool Stuff
         vaultsByUUID[uuid].liquidityPool = liquidityOpts.liquidityPool;
