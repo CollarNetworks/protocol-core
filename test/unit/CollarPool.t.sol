@@ -509,12 +509,8 @@ contract CollarPoolTest is Test, ICollarPoolState {
         // price starts at "1e18"
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
-        console.log("User 1 Cash Test Token Balance - Before Open Vault: ", cashAsset.balanceOf(user1));
-
         startHoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
-
-        console.log("User 1 Cash Test Token Balance - After Open Vault: ", cashAsset.balanceOf(user1));
 
         bytes memory vaultInfo = manager.vaultInfo(uuid);
         ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));

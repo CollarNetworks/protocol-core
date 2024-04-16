@@ -17,7 +17,6 @@ import { CollarVaultManager } from "./CollarVaultManager.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 import { ICollarPoolErrors } from "../interfaces/errors/ICollarPoolErrors.sol";
 import { ICollarPoolEvents } from "../interfaces/events/ICollarPoolEvents.sol";
-import "forge-std/console.sol";
 
 contract CollarPool is ICollarPool, ERC6909TokenSupply {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
@@ -228,32 +227,20 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
             revert NotCollarVaultManager();
         }
 
-        console.log("checkpoint 1");
-
         // either case, we need to set the withdrawable amount to principle + positionNet
         positions[uuid].withdrawable = uint256(int256(positions[uuid].principal) + positionNet);
 
         // update global liquidity amounts
         // free liquidity unchanged
 
-        console.log("checkpoint 2");
-
         totalLiquidity = uint256(int256(totalLiquidity) + positionNet);
-
-        console.log("checkpoint 2.1");
 
         lockedLiquidity -= positions[uuid].principal;
 
-        console.log("checkpoint 2.2");
-
         redeemableLiquidity = uint256(int256(positions[uuid].principal) + positionNet);
-        //redeemableLiquidity = positionNet > 0 ? uint256(int256(positionNet)) : 0;
-
-        console.log("checkpoint 3");
 
         if (positionNet < 0) {
             // we owe the vault some tokens
-            console.log(uint256(-positionNet));
             IERC20(cashAsset).transfer(vaultManager, uint256(-positionNet));
         } else if (positionNet > 0) {
             // the vault owes us some tokens
@@ -286,7 +273,6 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         // free liquidity unchangedd
         totalLiquidity -= redeemValue;
 
-        console.logUint(redeemableLiquidity);
         redeemableLiquidity -= redeemValue;
 
         emit Redemption(msg.sender, uuid, amount, redeemValue);

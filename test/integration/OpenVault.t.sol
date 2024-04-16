@@ -11,6 +11,7 @@ import "forge-std/Test.sol";
 import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
 import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
 import { CollarPool } from "../../src/implementations/CollarPool.sol";
+import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 
@@ -64,22 +65,18 @@ contract CollarOpenVaultIntegrationTest is Test {
 
     function setUp() public {
         string memory forkRPC = vm.envString("POLYGON_MAINNET_RPC");
-        vm.createSelectFork(forkRPC, 53810000); // same fork block number as the scripts
-        assertEq(block.number, 53810000);
+        vm.createSelectFork(forkRPC, 55000000);
+        assertEq(block.number, 55000000);
 
         engine = new CollarEngine(swapRouterAddress);
+        engine.addLTV(9000);
+
         pool = new CollarPool(address(engine), 100, USDCAddress, WETHAddress, 1 days, 9000);
     
-        engine.addLTV(9000);
         engine.addSupportedCashAsset(USDCAddress);
         engine.addSupportedCollateralAsset(WETHAddress);
         engine.addCollarDuration(1 days);
         engine.addLiquidityPool(address(pool));
-
-        deal(USDCAddress, user, 100_000 ether);
-        deal(WETHAddress, user, 100_000 ether);
-        deal(USDCAddress, provider, 100_000 ether);
-        deal(WETHAddress, provider, 100_000 ether);
 
         vm.label(user, "USER");
         vm.label(provider, "LIQUIDITY PROVIDER");
@@ -88,6 +85,11 @@ contract CollarOpenVaultIntegrationTest is Test {
         vm.label(swapRouterAddress, "SWAP ROUTER 02");
         vm.label(USDCAddress, "USDC");
         vm.label(WETHAddress, "WETH");
+
+        deal(USDCAddress, user, 100_000 ether);
+        deal(WETHAddress, user, 100_000 ether);
+        deal(USDCAddress, provider, 100_000 ether);
+        deal(WETHAddress, provider, 100_000 ether);
 
         startHoax(user);
 
@@ -126,10 +128,54 @@ contract CollarOpenVaultIntegrationTest is Test {
     }
 
     function test_openVault() public {
-        
-        
-        // todo: finish
+        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
+            collateralAsset: WETHAddress,
+            collateralAmount: 1 ether,
+            cashAsset: USDCAddress,
+            cashAmount: 100e6
+        });
 
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ 
+            duration: 1 days, 
+            ltv: 9000 
+        });
+
+        ICollarVaultState.LiquidityOpts memory liquidityOpts = ICollarVaultState.LiquidityOpts({ 
+            liquidityPool: address(pool), 
+            putStrikeTick: 90, 
+            callStrikeTick: 110 
+        });
         
+        startHoax(user);
+
+        vaultManager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = vaultManager.getVaultUUID(0);
+        bytes memory rawVault = vaultManager.vaultInfo(uuid);
+        ICollarVaultState.Vault memory vault = abi.decode(rawVault, (ICollarVaultState.Vault));
+
+        // check basic vault info
+        assertEq(vault.active, true);
+        assertEq(vault.openedAt, block.timestamp);
+        assertEq(vault.expiresAt, block.timestamp + 1 days);
+        assertEq(vault.duration, 1 days);
+        assertEq(vault.ltv, 9000);
+
+        // check asset specific info
+        assertEq(vault.collateralAsset, WETHAddress);
+        assertEq(vault.cashAsset, USDCAddress);
+        assertEq(vault.collateralAmount, 100 ether);
+        assertEq(vault.cashAmount, 100 ether);
+
+        // check liquidity pool stuff
+        assertEq(vault.liquidityPool, address(pool));
+        assertEq(vault.lockedPoolCash, 10 ether);
+        assertEq(vault.putStrikeTick, 90);
+        assertEq(vault.callStrikeTick, 110);
+        assertEq(vault.putStrikePrice, 0.9e18);
+        assertEq(vault.callStrikePrice, 1.1e18);
+
+        // check vault specific stuff
+        assertEq(vault.loanBalance, 90 ether);
+        assertEq(vault.lockedVaultCash, 10 ether);
     }
 }

@@ -7,12 +7,10 @@
 
 pragma solidity ^0.8.18;
 
-import "forge-std/console.sol";
-import "forge-std/Test.sol";
 import { ICollarVaultManager } from "../interfaces/ICollarVaultManager.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ICollarVaultState } from "../interfaces/ICollarVaultState.sol";
-import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
+import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRouter.sol";
 import { CollarEngine } from "../implementations/CollarEngine.sol";
 import { TickCalculations } from "../libs/TickCalculations.sol";
 import { CollarPool } from "./CollarPool.sol";
@@ -106,11 +104,6 @@ contract CollarVaultManager is ICollarVaultManager {
 
         vaultsByNonce[vaultCount] = keccak256(abi.encodePacked(user, vaultCount));
 
-        console.log("vaultCount is");
-        console.logUint(vaultCount);
-        console.log("uuid is");
-        console.logBytes32(uuid);
-
         // increment vault
         vaultCount++;
 
@@ -133,7 +126,7 @@ contract CollarVaultManager is ICollarVaultManager {
         uint256 cashReceivedFromSwap = _swap(assetData);
         vaultsByUUID[uuid].cashAmount = cashReceivedFromSwap;
 
-        // calculate exactly how much cash to lock from the liquidity poolj
+        // calculate exactly how much cash to lock from the liquidity pool
         // this is equal to (callstrikePercent - 100%) * totalCashReceivedFromSwap
         // first, grab the call strike percent from the call strike tick supplied
         uint256 tickScaleFactor = CollarPool(liquidityOpts.liquidityPool).tickScaleFactor();
@@ -228,25 +221,21 @@ contract CollarVaultManager is ICollarVaultManager {
 
         // CASE 1 - all vault cash to liquidity pool
         if (finalPrice <= putStrikePrice) {
-            console.log("closeVault - case 1");
 
             cashToSendToPool = vault.lockedVaultCash;
 
             // CASE 2 - all vault cash to user, all locked pool cash to user
         } else if (finalPrice >= callStrikePrice) {
-            console.log("closeVault - case 2");
 
             cashNeededFromPool = vault.lockedPoolCash;
 
             // CASE 3 - all vault cash to user
         } else if (finalPrice == startingPrice) {
-            console.log("closeVault - case 3");
 
             // no need to update any vars here
 
             // CASE 4 - proportional vault cash to user
         } else if (putStrikePrice < finalPrice && finalPrice < startingPrice) {
-            console.log("closeVault - case 4");
 
             uint256 vaultCashToPool =
                 ((vault.lockedVaultCash * (startingPrice - finalPrice) * 1e32) / (startingPrice - putStrikePrice)) / 1e32;
@@ -256,7 +245,6 @@ contract CollarVaultManager is ICollarVaultManager {
 
             // CASE 5 - all vault cash to user, proportional locked pool cash to user
         } else if (callStrikePrice > finalPrice && finalPrice > startingPrice) {
-            console.log("closeVault - case 5");
 
             uint256 poolCashToUser =
                 ((vault.lockedPoolCash * (finalPrice - startingPrice) * 1e32) / (callStrikePrice - startingPrice)) / 1e32;
@@ -274,13 +262,8 @@ contract CollarVaultManager is ICollarVaultManager {
         }
 
         int256 poolProfit = cashToSendToPool > 0 ? int256(cashToSendToPool) : -int256(cashNeededFromPool);
-        console.logInt(poolProfit);
 
-        IERC20 cashToken = IERC20(vault.cashAsset);
-
-        console.logUint(cashToken.balanceOf(address(this)));
         CollarPool(vault.liquidityPool).finalizePosition(uuid, address(this), poolProfit);
-        console.logUint(cashToken.balanceOf(address(this)));
 
         if (cashToSendToPool > 0) {
             vault.lockedVaultCash -= cashToSendToPool;
@@ -395,19 +378,18 @@ contract CollarVaultManager is ICollarVaultManager {
         IERC20(assets.collateralAsset).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount);
 
         // build the swap transaction
-        ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter.ExactInputSingleParams({
+        IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
             tokenIn: assets.collateralAsset,
             tokenOut: assets.cashAsset,
             fee: 3000,
             recipient: address(this),
-            deadline: block.timestamp,
             amountIn: assets.collateralAmount,
             amountOutMinimum: assets.cashAmount,
             sqrtPriceLimitX96: 0
         });
 
         // cache the amount of cash received
-        cashReceived = ISwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
+        cashReceived = IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
 
         // revert if minimum not met
         if (cashReceived < assets.cashAmount) {

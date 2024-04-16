@@ -121,12 +121,6 @@ contract CollarVaultManagerTest is Test {
         manager.openVault(assets, collarOpts, liquidityOpts);
         bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint256(0)));
 
-        console.log("Calculated UUID");
-        console.logBytes32(calculatedUUID);
-
-        console.log("Actual UUID");
-        console.logBytes32(manager.vaultsByNonce(0));
-
         assertEq(manager.vaultCount(), 1);
         assertEq(calculatedUUID, manager.vaultsByNonce(0));
     }
