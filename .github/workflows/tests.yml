@@ -33,4 +33,4 @@ jobs:
         run: forge install
 
       - name: Build Contracts & Run Tests
-        run: NO_COLOR=1 forge test &>> $GITHUB_STEP_SUMMARY
+        run: NO_COLOR=1 forge test -vvv &>> $GITHUB_STEP_SUMMARY
