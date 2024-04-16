@@ -3,7 +3,7 @@ on: [push, pull_request]
 
 env:
   FOUNDRY_PROFILE: ci
-  POLYGON_MAINNET_RPC: ${{ secrets.DISCORD_WEBHOOK }}
+  POLYGON_MAINNET_RPC: ${{ secrets.POLYGON_MAINNET_RPC }}
 
 jobs:
   test:
