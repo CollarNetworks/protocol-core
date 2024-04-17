@@ -35,11 +35,6 @@ contract CollarOpenVaultIntegrationTest is Test {
     IERC20 WMatic = IERC20(WMaticAddress);
     IERC20 USDC = IERC20(USDCAddress);
 
-    // We have to impersonate a top holder of USDC, because `vm.deal` oddly fails when trying to cheat a balance here
-    // It seems to be because `vm.deal` can't find the storage slot when it comes to the FiatTokenProxy contract type
-    // (it works fine with the UERC20ChildProxy type, which is what most other proxy-tokens use!)
-    address USDCTopHolder = address(0x2C2301FDB0bfA06EAABaA0122CbCEb2265337C25);
-
     ISwapRouter swapRouter = ISwapRouter(swapRouterAddress);
 
     CollarEngine engine;
@@ -94,14 +89,8 @@ contract CollarOpenVaultIntegrationTest is Test {
         deal(WMaticAddress, user, 100_000 ether);
         deal(WMaticAddress, provider, 100_000 ether);
 
-        // see comment above about the `vm.deal` issue
-        //deal(USDCAddress, user, 100_000 ether);
-        //deal(USDCAddress, provider, 100_000 ether);
-
-        startHoax(USDCTopHolder);
-
-        USDC.transfer(user, 100_000e6);
-        USDC.transfer(provider, 100_000e6);
+        deal(USDCAddress, user, 100_000 ether);
+        deal(USDCAddress, provider, 100_000 ether);
 
         startHoax(user);
 
