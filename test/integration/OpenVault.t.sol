@@ -15,15 +15,17 @@ import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 
-// Polygon Addresses for UniswapV3
+// Polygon Addresses for Uniswap V3
 
 // QuoterV2 - - - - - - - - - - - - 0x61fFE014bA17989E743c5F6cB21bF9697530B21e
 // SwapRouter02 - - - - - - - - - - 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45
 // UniversalRouter  - - - - - - - - 0xec7BE89e9d109e7e3Fec59c222CF297125FEFda2
 // NonFungiblePositionManager - - - 0xC36442b4a4522E871399CD717aBDD847Ab11FE88
 // TickLens - - - - - - - - - - - - 0xbfd8137f7d1516D3ea5cA83523914859ec47F573
-// WMatic - - - - - - - - - - - - - - 0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619
+// WMatic - - - - - - - - - - - - - 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270
 // USDC - - - - - - - - - - - - - - 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
+// Uniswap v3 Factory - - - - - - - 0x1F98431c8aD98523631AE4a59f267346ea31F984
+// WMatic / USDC UniV3 Pool - - - - 0x2DB87C4831B2fec2E35591221455834193b50D1B
 
 contract CollarOpenVaultIntegrationTest is Test {
     address user = makeAddr("user1");       // the person who will be opening a vault
