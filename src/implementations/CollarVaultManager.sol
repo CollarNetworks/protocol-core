@@ -221,22 +221,18 @@ contract CollarVaultManager is ICollarVaultManager {
 
         // CASE 1 - all vault cash to liquidity pool
         if (finalPrice <= putStrikePrice) {
-
             cashToSendToPool = vault.lockedVaultCash;
 
             // CASE 2 - all vault cash to user, all locked pool cash to user
         } else if (finalPrice >= callStrikePrice) {
-
             cashNeededFromPool = vault.lockedPoolCash;
 
             // CASE 3 - all vault cash to user
         } else if (finalPrice == startingPrice) {
-
             // no need to update any vars here
 
             // CASE 4 - proportional vault cash to user
         } else if (putStrikePrice < finalPrice && finalPrice < startingPrice) {
-
             uint256 vaultCashToPool =
                 ((vault.lockedVaultCash * (startingPrice - finalPrice) * 1e32) / (startingPrice - putStrikePrice)) / 1e32;
             // uint256 vaultCashToUser = vault.lockedVaultCash - vaultCashToPool;
@@ -245,7 +241,6 @@ contract CollarVaultManager is ICollarVaultManager {
 
             // CASE 5 - all vault cash to user, proportional locked pool cash to user
         } else if (callStrikePrice > finalPrice && finalPrice > startingPrice) {
-
             uint256 poolCashToUser =
                 ((vault.lockedPoolCash * (finalPrice - startingPrice) * 1e32) / (callStrikePrice - startingPrice)) / 1e32;
 

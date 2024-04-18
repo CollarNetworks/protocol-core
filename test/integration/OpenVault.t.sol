@@ -28,8 +28,8 @@ import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 // WMatic / USDC UniV3 Pool - - - - 0x2DB87C4831B2fec2E35591221455834193b50D1B
 
 contract CollarOpenVaultIntegrationTest is Test {
-    address user = makeAddr("user1");       // the person who will be opening a vault
-    address provider = makeAddr("user2");   // the person who will be providing liquidity
+    address user = makeAddr("user1"); // the person who will be opening a vault
+    address provider = makeAddr("user2"); // the person who will be providing liquidity
     address swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
     address WMaticAddress = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
     address USDCAddress = address(0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359);
@@ -67,14 +67,14 @@ contract CollarOpenVaultIntegrationTest is Test {
 
     function setUp() public {
         string memory forkRPC = vm.envString("POLYGON_MAINNET_RPC");
-        vm.createSelectFork(forkRPC, 55850000);
-        assertEq(block.number, 55850000);
+        vm.createSelectFork(forkRPC, 55_850_000);
+        assertEq(block.number, 55_850_000);
 
         engine = new CollarEngine(swapRouterAddress);
         engine.addLTV(9000);
 
         pool = new CollarPool(address(engine), 100, USDCAddress, WMaticAddress, 1 days, 9000);
-    
+
         engine.addSupportedCashAsset(USDCAddress);
         engine.addSupportedCollateralAsset(WMaticAddress);
         engine.addCollarDuration(1 days);
@@ -114,14 +114,14 @@ contract CollarOpenVaultIntegrationTest is Test {
 
         vm.stopPrank();
 
-        assertEq(engine.isValidCollarDuration(1 days), true);        
+        assertEq(engine.isValidCollarDuration(1 days), true);
         assertEq(engine.isValidLTV(9000), true);
         assertEq(engine.isSupportedCashAsset(USDCAddress), true);
         assertEq(engine.isSupportedCollateralAsset(WMaticAddress), true);
         assertEq(engine.addressToVaultManager(user), address(vaultManager));
         assertEq(engine.supportedLiquidityPoolsLength(), 1);
         assertEq(engine.isSupportedLiquidityPool(address(pool)), true);
-    
+
         assertEq(pool.getLiquidityForSlot(110), 10_000e6);
         assertEq(pool.getLiquidityForSlot(111), 11_000e6);
         assertEq(pool.getLiquidityForSlot(112), 12_000e6);
@@ -138,17 +138,11 @@ contract CollarOpenVaultIntegrationTest is Test {
             cashAmount: 100e6
         });
 
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ 
-            duration: 1 days, 
-            ltv: 9000 
-        });
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 1 days, ltv: 9000 });
 
-        ICollarVaultState.LiquidityOpts memory liquidityOpts = ICollarVaultState.LiquidityOpts({ 
-            liquidityPool: address(pool), 
-            putStrikeTick: 90, 
-            callStrikeTick: 110 
-        });
-        
+        ICollarVaultState.LiquidityOpts memory liquidityOpts =
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
+
         startHoax(user);
 
         vaultManager.openVault(assets, collarOpts, liquidityOpts);
@@ -195,21 +189,21 @@ contract CollarOpenVaultIntegrationTest is Test {
         // check asset specific info
         assertEq(vault.collateralAsset, WMaticAddress);
         assertEq(vault.cashAsset, USDCAddress);
-        assertEq(vault.collateralAmount, 1000e18);   // we use 1000 "ether" here (it's actually wmatic, but still 18 decimals)
-        assertEq(vault.cashAmount, 739504999);          // the price of wmatic is around ~73 cents at this time (specifically: $0.739504999)
-                                                        // (which converts to about 739 when considering USDC has 6 decimals and we swapped 1000 wmatic)
-        
+        assertEq(vault.collateralAmount, 1000e18); // we use 1000 "ether" here (it's actually wmatic, but still 18 decimals)
+        assertEq(vault.cashAmount, 739_504_999); // the price of wmatic is around ~73 cents at this time (specifically: $0.739504999)
+            // (which converts to about 739 when considering USDC has 6 decimals and we swapped 1000 wmatic)
+
         // check liquidity pool stuff
         assertEq(vault.liquidityPool, address(pool));
-        assertEq(vault.lockedPoolCash, 73950499);       // callstrike is 110, so locked pool cash is going to be exactly 10% of the cash received from the swap above
-        assertEq(vault.putStrikeTick, 90);              
+        assertEq(vault.lockedPoolCash, 73_950_499); // callstrike is 110, so locked pool cash is going to be exactly 10% of the cash received from the swap above
+        assertEq(vault.putStrikeTick, 90);
         assertEq(vault.callStrikeTick, 110);
-        assertEq(vault.initialCollateralPrice, 739504);       // the initial price of wmatic here is $0.739504
-        assertEq(vault.putStrikePrice, 665553);            // put strike is 90%, so putstrike price is just 0.9 * original price
-        assertEq(vault.callStrikePrice, 813454);           // same math for callstrike price, just using 1.1 instead
+        assertEq(vault.initialCollateralPrice, 739_504); // the initial price of wmatic here is $0.739504
+        assertEq(vault.putStrikePrice, 665_553); // put strike is 90%, so putstrike price is just 0.9 * original price
+        assertEq(vault.callStrikePrice, 813_454); // same math for callstrike price, just using 1.1 instead
 
         // check vault specific stuff
-        assertEq(vault.loanBalance, 665554499);               // the vault loan balance should be 0.9 * cashAmount
-        assertEq(vault.lockedVaultCash, 73950499);            // the vault locked balance should be 0.1 * cashAmount
+        assertEq(vault.loanBalance, 665_554_499); // the vault loan balance should be 0.9 * cashAmount
+        assertEq(vault.lockedVaultCash, 73_950_499); // the vault locked balance should be 0.1 * cashAmount
     }
 }
