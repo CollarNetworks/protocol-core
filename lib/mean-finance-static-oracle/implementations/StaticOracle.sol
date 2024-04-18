@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-pragma solidity =0.7.6;
-pragma abicoder v2;
+pragma solidity ^0.8.18;
 
 import '@openzeppelin/contracts/utils/Address.sol';
 import '@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol';
@@ -38,7 +37,14 @@ contract StaticOracle is IStaticOracle {
     uint256 _length = _knownFeeTiers.length;
     for (uint256 i; i < _length; ++i) {
       address _pool = PoolAddress.computeAddress(address(UNISWAP_V3_FACTORY), PoolAddress.getPoolKey(_tokenA, _tokenB, _knownFeeTiers[i]));
-      if (Address.isContract(_pool)) {
+      
+      uint size;
+      
+      assembly {
+        size := extcodesize(_pool)
+      }
+      
+      if (size > 0) {
         return true;
       }
     }
@@ -251,7 +257,14 @@ contract StaticOracle is IStaticOracle {
     uint256 _validPools;
     for (uint256 i; i < _feeTiers.length; i++) {
       address _pool = PoolAddress.computeAddress(address(UNISWAP_V3_FACTORY), PoolAddress.getPoolKey(_tokenA, _tokenB, _feeTiers[i]));
-      if (Address.isContract(_pool)) {
+      
+      uint size;
+
+      assembly {
+        size := extcodesize(_pool)
+      }
+
+      if (size > 0) {
         _pools[_validPools++] = _pool;
       }
     }
