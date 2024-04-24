@@ -7,6 +7,7 @@ import '@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol';
 import '@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol';
 import '../libraries/OracleLibraryPlus.sol';
 import '../interfaces/IStaticOracle.sol';
+import "forge-std/console.sol";
 
 /// @title Uniswap V3 Static Oracle
 /// @notice Oracle contract for price quoting against Uniswap V3 pools
@@ -258,6 +259,8 @@ contract StaticOracle is IStaticOracle {
     for (uint256 i; i < _feeTiers.length; i++) {
       address _pool = PoolAddress.computeAddress(address(UNISWAP_V3_FACTORY), PoolAddress.getPoolKey(_tokenA, _tokenB, _feeTiers[i]));
       
+      console.log("Computed pool address: ", _pool);
+
       uint size;
 
       assembly {
