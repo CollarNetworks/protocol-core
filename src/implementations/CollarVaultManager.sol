@@ -7,15 +7,16 @@
 
 pragma solidity ^0.8.18;
 
+import "forge-std/console.sol";
 import { ICollarVaultManager } from "../interfaces/ICollarVaultManager.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ICollarVaultState } from "../interfaces/ICollarVaultState.sol";
-import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRouter.sol";
-import { CollarEngine } from "../implementations/CollarEngine.sol";
-import { TickCalculations } from "../libs/TickCalculations.sol";
-import { CollarPool } from "./CollarPool.sol";
 import { ICollarVaultManagerErrors } from "../interfaces/errors/ICollarVaultManagerErrors.sol";
 import { ICollarVaultManagerEvents } from "../interfaces/events/ICollarVaultManagerEvents.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRouter.sol";
+import { CollarPool } from "./CollarPool.sol";
+import { CollarEngine } from "../implementations/CollarEngine.sol";
+import { TickCalculations } from "../libs/TickCalculations.sol";
 
 contract CollarVaultManager is ICollarVaultManager {
     // ----- CONSTRUCTOR ----- //
@@ -178,6 +179,8 @@ contract CollarVaultManager is ICollarVaultManager {
         }
 
         if (vaultsByUUID[uuid].expiresAt > block.timestamp) {
+            console.log("Vault expires at: ", vaultsByUUID[uuid].expiresAt);
+            console.log("Current time: ", block.timestamp);
             revert VaultNotFinalizable();
         }
 
@@ -189,7 +192,12 @@ contract CollarVaultManager is ICollarVaultManager {
         uint256 putStrikePrice = vault.putStrikePrice;
         uint256 callStrikePrice = vault.callStrikePrice;
 
-        uint256 finalPrice = CollarEngine(engine).getHistoricalAssetPrice(vault.collateralAsset, vault.expiresAt);
+        uint256 finalPrice = CollarEngine(engine).getHistoricalAssetPriceViaTWAP(
+            vault.collateralAsset,
+            vault.cashAsset,
+            uint32(vault.expiresAt), // @todo convert the vault data object to be a uint32 instead of a uint256, then we don't have to cast here
+            15 minutes
+        );
 
         if (finalPrice == 0) revert InvalidAssetPrice();
 

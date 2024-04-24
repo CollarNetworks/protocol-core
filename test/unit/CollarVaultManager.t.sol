@@ -44,7 +44,7 @@ contract CollarVaultManagerTest is Test {
         collateralAsset = new TestERC20("Test2", "TST2");
 
         router = new MockUniRouter();
-        engine = new MockEngine(address(router));
+        engine = new MockEngine(address(router), address(0xDEAD));
 
         engine.addLTV(9000);
 
