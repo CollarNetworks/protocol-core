@@ -203,6 +203,7 @@ contract CollarEngine is ICollarEngine, Ownable {
         // First, we calculate what the offset is to the *end* of the twap (aka offset to timeStampStart)
         // THEN, we factor in the twapLength to the timestamp that we actually want to start the twap from
         uint32 offset = (uint32(block.timestamp) - twapEndTimestamp) + twapLength;
+        console.log("Offset calculated as ", offset);
 
         (uint256 amountReceived,) = IStaticOracle(staticOracle).quoteSpecificFeeTiersWithOffsettedTimePeriod(
             1e18, // amount of token we're getting the price of

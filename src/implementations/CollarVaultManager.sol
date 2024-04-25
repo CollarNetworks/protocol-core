@@ -192,6 +192,9 @@ contract CollarVaultManager is ICollarVaultManager {
         uint256 putStrikePrice = vault.putStrikePrice;
         uint256 callStrikePrice = vault.callStrikePrice;
 
+        console.log("Vault expiration timestamp: ", vault.expiresAt);
+        console.log("Current timestamp: ", block.timestamp);
+
         uint256 finalPrice = CollarEngine(engine).getHistoricalAssetPriceViaTWAP(
             vault.collateralAsset,
             vault.cashAsset,
@@ -227,17 +230,30 @@ contract CollarVaultManager is ICollarVaultManager {
         uint256 cashNeededFromPool = 0;
         uint256 cashToSendToPool = 0;
 
+        console.log("CollarVaultManager::closeVault - final price: ", finalPrice);
+        console.log("CollarVaultManager::closeVault - put strike price: ", putStrikePrice);
+        console.log("CollarVaultManager::closeVault - call strike price: ", callStrikePrice);
+        console.log("CollarVaultManager::closeVault - starting price: ", startingPrice);
+
         // CASE 1 - all vault cash to liquidity pool
         if (finalPrice <= putStrikePrice) {
             cashToSendToPool = vault.lockedVaultCash;
+
+            console.log("CollarVaultManager::closeVault - CASE 1 ALL VAULT CASH TO LIQUIDITY POOL");
+            console.log("CollarVaultManager::closeVault - cashToSendToPool: ", cashToSendToPool);
 
             // CASE 2 - all vault cash to user, all locked pool cash to user
         } else if (finalPrice >= callStrikePrice) {
             cashNeededFromPool = vault.lockedPoolCash;
 
+            console.log("CollarVaultManager::closeVault - CASE 2 ALL VAULT CASH TO USER, ALL LOCKED POOL CASH TO USER");
+            console.log("CollarVaultManager::closeVault - cashNeededFromPool: ", cashNeededFromPool);
+
             // CASE 3 - all vault cash to user
         } else if (finalPrice == startingPrice) {
             // no need to update any vars here
+
+            console.log("CollarVaultManager::closeVault - CASE 3 ALL VAULT CASH TO USER");
 
             // CASE 4 - proportional vault cash to user
         } else if (putStrikePrice < finalPrice && finalPrice < startingPrice) {
@@ -247,12 +263,18 @@ contract CollarVaultManager is ICollarVaultManager {
 
             cashToSendToPool = vaultCashToPool;
 
+            console.log("CollarVaultManager::closeVault - CASE 4 PROPORTIONAL VAULT CASH TO USER");
+            console.log("CollarVaultManager::closeVault - cashToSendToPool: ", cashToSendToPool);
+
             // CASE 5 - all vault cash to user, proportional locked pool cash to user
         } else if (callStrikePrice > finalPrice && finalPrice > startingPrice) {
             uint256 poolCashToUser =
                 ((vault.lockedPoolCash * (finalPrice - startingPrice) * 1e32) / (callStrikePrice - startingPrice)) / 1e32;
 
             cashNeededFromPool = poolCashToUser;
+
+            console.log("CollarVaultManager::closeVault - CASE 5 ALL VAULT CASH TO USER, PROPORTIONAL LOCKED POOL CASH TO USER");
+            console.log("CollarVaultManager::closeVault - cashNeededFromPool: ", cashNeededFromPool);
 
             // ???
         } else {

@@ -14,6 +14,9 @@ import { CollarPool } from "../../src/implementations/CollarPool.sol";
 import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
+import { IStaticOracle } from "@mean-finance/interfaces/IStaticOracle.sol";
+import { StaticOracle } from "@mean-finance/implementations/StaticOracle.sol";
+import { IUniswapV3Factory } from '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 
 // Polygon Addresses for Uniswap V3
 
@@ -34,7 +37,11 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test {
     address swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
     address WMaticAddress = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
     address USDCAddress = address(0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359);
-    address polygonStaticOracleAddress = address(0xB210CE856631EeEB767eFa666EC7C1C57738d438);
+    address uniV3Factory = address(0x1F98431c8aD98523631AE4a59f267346ea31F984);
+
+    IStaticOracle oracle;
+
+    //address polygonStaticOracleAddress = address(0xB210CE856631EeEB767eFa666EC7C1C57738d438);
 
     IERC20 WMatic = IERC20(WMaticAddress);
     IERC20 USDC = IERC20(USDCAddress);
@@ -72,7 +79,9 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test {
         vm.createSelectFork(forkRPC, 55_850_000);
         assertEq(block.number, 55_850_000);
 
-        engine = new CollarEngine(swapRouterAddress, polygonStaticOracleAddress); // @todo make this non-polygon-exclusive
+        oracle = new StaticOracle(IUniswapV3Factory(uniV3Factory), 30);
+
+        engine = new CollarEngine(swapRouterAddress, address(oracle)); // @todo make this non-polygon-exclusive
         engine.addLTV(9000);
 
         pool = new CollarPool(address(engine), 100, USDCAddress, WMaticAddress, 1 days, 9000);
@@ -209,10 +218,13 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test {
         assertEq(vault.loanBalance, 665_554_499); // the vault loan balance should be 0.9 * cashAmount
         assertEq(vault.lockedVaultCash, 73_950_499); // the vault locked balance should be 0.1 * cashAmount
 
-        vm.roll(1 days);
-        skip(1 days);
+        vm.roll(block.number + 43200);
+        skip(1.5 days);
 
         // close the vault
         vaultManager.closeVault(uuid);
+
+        // check the numbers
+        
     }
 }

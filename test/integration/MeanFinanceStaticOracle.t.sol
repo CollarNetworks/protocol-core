@@ -83,6 +83,69 @@ contract MeanFinanceStaticOracleTest is Test {
         );
 
         console.log("Amount of USDC received for 1e18 wMatic: ", result);
-        //console.log("Pools Queried: ", poolsQueried[0]);
+    }
+
+    function test_staticOracleAfterForkingAndFastForwarding() public {
+        // first, deploy the static oracle
+        // two args: uni v3 factory and cardinality
+        // the uni v3 factory on polygon is 0x1F98431c8aD98523631AE4a59f267346ea31F984
+        // the cardinality used to deploy v1 is 30, so we'll just that for now
+
+        IStaticOracle oracle = new StaticOracle(IUniswapV3Factory(uniV3Factory), 30);
+
+        // tries to quote 1e18 of wMatic in USDC via pool with fee tier 0.3%,
+        // via TWAP of 15 minutes long starting 30 minutes ago
+
+        uint24[] memory feeTiers = new uint24[](1);
+        feeTiers[0] = 3000;
+
+        uint256 result;
+        
+        // this time we roll the blockchain forward a bit
+        vm.roll(block.number + 450); // polygon block time = 2 seconds per block, so we skip forward (15 minutes in seconds / 2) blocks
+        skip(15 minutes);
+
+        (result, /*poolsQueried*/) = oracle.quoteSpecificFeeTiersWithOffsettedTimePeriod(
+            1e18,
+            wMatic,
+            usdc,
+            feeTiers,
+            15 minutes,
+            30 minutes
+        );
+
+        console.log("Amount of USDC received for 1e18 wMatic: ", result);
+    }
+
+    function test_staticOracleAfterForkingAndFastForwardingALot() public {
+        // first, deploy the static oracle
+        // two args: uni v3 factory and cardinality
+        // the uni v3 factory on polygon is 0x1F98431c8aD98523631AE4a59f267346ea31F984
+        // the cardinality used to deploy v1 is 30, so we'll just that for now
+
+        IStaticOracle oracle = new StaticOracle(IUniswapV3Factory(uniV3Factory), 30);
+
+        // tries to quote 1e18 of wMatic in USDC via pool with fee tier 0.3%,
+        // via TWAP of 15 minutes long starting 30 minutes ago
+
+        uint24[] memory feeTiers = new uint24[](1);
+        feeTiers[0] = 3000;
+
+        uint256 result;
+        
+        // this time we roll the blockchain forward a few days
+        vm.roll(block.number + 129600); // polygon block time = 2 seconds per block, so we skip forward (3 days in seconds / 2) blocks
+        skip(3 days);
+
+        (result, /*poolsQueried*/) = oracle.quoteSpecificFeeTiersWithOffsettedTimePeriod(
+            1e18,
+            wMatic,
+            usdc,
+            feeTiers,
+            15 minutes,
+            30 minutes
+        );
+
+        console.log("Amount of USDC received for 1e18 wMatic: ", result);
     }
 }
