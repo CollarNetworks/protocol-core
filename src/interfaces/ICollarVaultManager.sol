@@ -74,9 +74,12 @@ abstract contract ICollarVaultManager is
     /// @param collarOpts Data about the collar (expiry & ltv)
     /// @param liquidityOpts Data about the liquidity (pool address, callstrike & amount to lock there, putstrike)
     function openVault(
-        AssetSpecifiers calldata assets, // addresses & amounts of collateral & cash assets
-        CollarOpts calldata collarOpts, // expiry & ltv
-        LiquidityOpts calldata liquidityOpts // pool address, callstrike & amount to lock there, putstrike
+        // addresses & amounts of collateral & cash assets
+        AssetSpecifiers calldata assets,
+        // expiry & ltv
+        CollarOpts calldata collarOpts,
+        // pool address, callstrike & amount to lock there, putstrike
+        LiquidityOpts calldata liquidityOpts 
     ) external virtual returns (bytes32 uuid);
 
     /// @notice Closes a vault - expiry must have passed

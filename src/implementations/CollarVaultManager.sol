@@ -288,12 +288,12 @@ contract CollarVaultManager is ICollarVaultManager {
 
         int256 poolProfit = cashToSendToPool > 0 ? int256(cashToSendToPool) : -int256(cashNeededFromPool);
 
-        CollarPool(vault.liquidityPool).finalizePosition(uuid, address(this), poolProfit);
-
         if (cashToSendToPool > 0) {
             vault.lockedVaultCash -= cashToSendToPool;
             IERC20(vault.cashAsset).approve(vault.liquidityPool, cashToSendToPool);
         }
+
+        CollarPool(vault.liquidityPool).finalizePosition(uuid, address(this), poolProfit);
 
         // set total redeem value for vault tokens to locked vault cash + cash pulled from pool
         // also null out the locked vault cash

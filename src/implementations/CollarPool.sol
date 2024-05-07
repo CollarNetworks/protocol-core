@@ -8,6 +8,8 @@
 pragma solidity ^0.8.18;
 
 import { ICollarPool } from "../interfaces/ICollarPool.sol";
+import { ICollarPoolErrors } from "../interfaces/errors/ICollarPoolErrors.sol";
+import { ICollarPoolEvents } from "../interfaces/events/ICollarPoolEvents.sol";
 import { ICollarVaultState } from "../interfaces/ICollarVaultState.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
@@ -15,8 +17,7 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 import { CollarEngine } from "./CollarEngine.sol";
 import { CollarVaultManager } from "./CollarVaultManager.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
-import { ICollarPoolErrors } from "../interfaces/errors/ICollarPoolErrors.sol";
-import { ICollarPoolEvents } from "../interfaces/events/ICollarPoolEvents.sol";
+
 
 contract CollarPool is ICollarPool, ERC6909TokenSupply {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
@@ -121,7 +122,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
         emit LiquidityAdded(msg.sender, slotIndex, amount);
 
-        // transfer collateral from provider to pool
+        // transfer CASH from provider to pool
         IERC20(cashAsset).transferFrom(msg.sender, address(this), amount);
     }
 
@@ -156,6 +157,10 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         // redeemLiquidity unchanged
         // freeLiquidity unchanged
         // totalLiquidity unchanged
+
+        // @TODO: short circuit the below two functions; they transfer tokens OUT of the smart
+        // contract to the msg.sender of this transaction, and then try to pull it back into this 
+        // smart contract, which is pretty ******** stupid
 
         withdrawLiquidityFromSlot(sourceSlotIndex, amount);
         addLiquidityToSlot(destinationSlotIndex, amount);
@@ -192,10 +197,10 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
             // (providerLiquidity * amount) / totalSlotLiquidity
             uint256 amountFromThisProvider = (thisLiquidity * amount) / slot.liquidity;
 
-            // pull liquidity from provider
+            // decrement the amount of free liquidity that this provider has, in this slot
             slot.providers.set(thisProvider, thisLiquidity - amountFromThisProvider);
 
-            // mint to this provider
+            // mint tokens representing the provider's share in this vault to this provider
             _mint(thisProvider, uint256(uuid), amountFromThisProvider);
 
             emit PoolTokensIssued(thisProvider, expiration, amountFromThisProvider);
@@ -209,6 +214,12 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         // redeemable liquidity unchanged
         lockedLiquidity += amount;
         freeLiquidity -= amount;
+
+        /*
+
+            ! IMPORTANTLY: THERE IS *ONE* POSITION PER VAULT (1:1) !
+
+        */
 
         // finally, store the info about the Position
         positions[uuid] = Position({ expiration: expiration, principal: amount, withdrawable: 0 });

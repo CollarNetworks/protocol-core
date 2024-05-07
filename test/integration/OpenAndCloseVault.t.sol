@@ -224,7 +224,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test {
         // close the vault
         vaultManager.closeVault(uuid);
 
-        // check the numbers
-        
+        // check the numbers on both pool & liquidity sides
+        // since the price
     }
 }

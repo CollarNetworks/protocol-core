@@ -23,6 +23,20 @@ abstract contract ICollarPoolState {
         EnumerableMap.AddressToUintMap providers;
     }
 
+    // 1 - user opens a vault against a single slot
+    // 2 - provider liquidity is locked proportionally against user vaults,
+    //     pro rata according to how much liquidity the provider has provided
+    // 3 - for *EACH* provider that has had liquidity locked for said vault,
+    //     we store a "Position" (see below)
+
+    /*
+
+        IMPORTANT: When a user opens a vault and chooses a slot to lock liquidity from,
+        *all providers in the slot* have their liquidity locked (but proportionally to how much
+        they have provided)
+
+    */   
+
     // a Position is a financial instrument that:
     //  - can be entered into, and eventually exited
     //  - can gain or lose value over time
@@ -56,6 +70,7 @@ abstract contract ICollarPool is ICollarPoolState, ICollarPoolErrors, ICollarPoo
 
     /// @notice This is the factor by which the slot ID is scaled to get the actual bps value
     /// @dev A tick scale factor of 1 means that slot 10_000 = 100% = 1 bps per tick, and so on
+    
     uint256 public immutable tickScaleFactor;
 
     /// @notice The address of the engine is set upon pool creation (and registered with the engine)
