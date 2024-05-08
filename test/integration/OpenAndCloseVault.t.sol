@@ -18,6 +18,7 @@ import { IStaticOracle } from "@mean-finance/interfaces/IStaticOracle.sol";
 import { StaticOracle } from "@mean-finance/implementations/StaticOracle.sol";
 import { IUniswapV3Factory } from '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
 import { PrintVaultStatsUtility } from "../utils/PrintVaultStats.sol";
+import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRouter.sol";
 
 // Polygon Addresses for Uniswap V3
 
@@ -142,7 +143,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(pool.getLiquidityForSlot(115), 11_000e6);
     }
 
-    function test_openAndCloseVault() public {
+    function test_openAndCloseVaultUpSlightly() public {
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
             collateralAsset: WMaticAddress,
             collateralAmount: 1000 ether,
@@ -197,6 +198,94 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
 
         // close the vault
         vaultManager.closeVault(uuid);
+
+        PrintVaultStatsUtility(address(this)).printVaultStats(rawVault, "VAULT CLOSED");
+
+        // check the numbers on both pool & liquidity sides
+        // since the price
+    }
+
+    function test_openAndCloseVaultUpALot() public {
+        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
+            collateralAsset: WMaticAddress,
+            collateralAmount: 1000 ether,
+            cashAsset: USDCAddress,
+            cashAmount: 100e6
+        });
+
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 1 days, ltv: 9000 });
+
+        ICollarVaultState.LiquidityOpts memory liquidityOpts =
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
+
+        startHoax(user);
+
+        vaultManager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = vaultManager.getVaultUUID(0);
+        bytes memory rawVault = vaultManager.vaultInfo(uuid);
+        ICollarVaultState.Vault memory vault = abi.decode(rawVault, (ICollarVaultState.Vault));
+
+        PrintVaultStatsUtility(address(this)).printVaultStats(rawVault, "VAULT OPENED");
+
+        // check basic vault info
+        assertEq(vault.active, true);
+        assertEq(vault.openedAt, block.timestamp);
+        assertEq(vault.expiresAt, block.timestamp + 1 days);
+        assertEq(vault.duration, 1 days);
+        assertEq(vault.ltv, 9000);
+
+        // check asset specific info
+        assertEq(vault.collateralAsset, WMaticAddress);
+        assertEq(vault.cashAsset, USDCAddress);
+        assertEq(vault.collateralAmount, 1000e18); // we use 1000 "ether" here (it's actually wmatic, but still 18 decimals)
+        assertEq(vault.cashAmount, 739_504_999);
+        // for the assert directly above this line, we need to consider that the price of wmatic is 73 cents at this time; (specifically: $0.739504999)
+        // (which converts to about 739 when considering USDC has 6 decimals and we swapped 1000 wmatic)
+
+        // check liquidity pool stuff
+        assertEq(vault.liquidityPool, address(pool));
+        assertEq(vault.lockedPoolCash, 73_950_499); // callstrike is 110, so locked pool cash is going to be exactly 10% of the cash received from the swap above
+        assertEq(vault.putStrikeTick, 90);
+        assertEq(vault.callStrikeTick, 110);
+        assertEq(vault.initialCollateralPrice, 739_504); // the initial price of wmatic here is $0.739504
+        assertEq(vault.putStrikePrice, 665_553); // put strike is 90%, so putstrike price is just 0.9 * original price
+        assertEq(vault.callStrikePrice, 813_454); // same math for callstrike price, just using 1.1 instead
+
+        // check vault specific stuff
+        assertEq(vault.loanBalance, 665_554_499); // the vault loan balance should be 0.9 * cashAmount
+        assertEq(vault.lockedVaultCash, 73_950_499); // the vault locked balance should be 0.1 * cashAmount
+
+        // Trade on Uniswap to make the price go up
+        // @TODO: currently this will fail because we don't have enough of the collateral asset to actually trade
+        // so we need to impersonate a large holder of the asset, or fake the balance
+        // but this is a forked chain, so can we actually do that?
+        // Probably easier to impersonate.
+        // Tired - committing and coming back to this after some chores.
+        
+        // approve the dex router so we can swap the collateral to cash
+        IERC20(assets.collateralAsset).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount * 100);
+
+        // build the swap transaction
+        IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
+            tokenIn: assets.collateralAsset,
+            tokenOut: assets.cashAsset,
+            fee: 3000,
+            recipient: address(this),
+            amountIn: assets.collateralAmount * 100,
+            amountOutMinimum: assets.cashAmount,
+            sqrtPriceLimitX96: 0
+        });
+
+        // execute the swap
+        IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
+        
+        vm.roll(block.number + 43200);
+        skip(1.5 days);
+
+        // close the vault
+        vaultManager.closeVault(uuid);
+
+        PrintVaultStatsUtility(address(this)).printVaultStats(rawVault, "VAULT CLOSED");
 
         // check the numbers on both pool & liquidity sides
         // since the price
