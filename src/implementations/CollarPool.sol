@@ -248,7 +248,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
         lockedLiquidity -= positions[uuid].principal;
 
-        redeemableLiquidity = uint256(int256(positions[uuid].principal) + positionNet);
+        redeemableLiquidity += uint256(int256(positions[uuid].principal) + positionNet);
 
         if (positionNet < 0) {
             // we owe the vault some tokens
