@@ -17,6 +17,7 @@ import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 import { IStaticOracle } from "@mean-finance/interfaces/IStaticOracle.sol";
 import { StaticOracle } from "@mean-finance/implementations/StaticOracle.sol";
 import { IUniswapV3Factory } from '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
+import { PrintVaultStatsUtility } from "../utils/PrintVaultStats.sol";
 
 // Polygon Addresses for Uniswap V3
 
@@ -31,7 +32,7 @@ import { IUniswapV3Factory } from '@uniswap/v3-core/contracts/interfaces/IUniswa
 // WMatic / USDC UniV3 Pool - - - - - - 0x2DB87C4831B2fec2E35591221455834193b50D1B
 // Mean Finance Polygon Static Oracle - 0xB210CE856631EeEB767eFa666EC7C1C57738d438
 
-contract CollarOpenAndCloseVaultIntegrationTest is Test {
+contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility {
     address user = makeAddr("user1"); // the person who will be opening a vault
     address provider = makeAddr("user2"); // the person who will be providing liquidity
     address swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
@@ -161,34 +162,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test {
         bytes memory rawVault = vaultManager.vaultInfo(uuid);
         ICollarVaultState.Vault memory vault = abi.decode(rawVault, (ICollarVaultState.Vault));
 
-        console.log("-- Vault Opened --");
-        console.log("");
-        console.log(" BASIC INFO ");
-        console.log("Active:                    ", vault.active);
-        console.log("Opened At:                 ", vault.openedAt);
-        console.log("Expires At:                ", vault.expiresAt);
-        console.log("Duration:                  ", vault.duration);
-        console.log("LTV:                       ", vault.ltv);
-        console.log("");
-        console.log(" ASSET SPECIFIC INFO ");
-        console.log("Collateral Asset:          ", vault.collateralAsset);
-        console.log("Cash Asset:                ", vault.cashAsset);
-        console.log("Collateral Amount:         ", vault.collateralAmount);
-        console.log("Cash Amount:               ", vault.cashAmount);
-        console.log("Initial Collateral Price:  ", vault.initialCollateralPrice);
-        console.log("");
-        console.log(" LIQUIDITY POOL INFO ");
-        console.log("Liquidity Pool:            ", vault.liquidityPool);
-        console.log("Locked Pool Cash:          ", vault.lockedPoolCash);
-        console.log("Put Strike Tick:           ", vault.putStrikeTick);
-        console.log("Call Strike Tick:          ", vault.callStrikeTick);
-        console.log("Put Strike Price:          ", vault.putStrikePrice);
-        console.log("Call Strike Price:         ", vault.callStrikePrice);
-        console.log("");
-        console.log(" VAULT SPECIFIC INFO ");
-        console.log("Loan Balance:              ", vault.loanBalance);
-        console.log("Locked Vault Cash:         ", vault.lockedVaultCash);
-        console.log("");
+        PrintVaultStatsUtility(address(this)).printVaultStats(rawVault, "VAULT OPENED");
 
         // check basic vault info
         assertEq(vault.active, true);
