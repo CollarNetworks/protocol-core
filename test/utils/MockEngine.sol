@@ -42,7 +42,7 @@ contract MockEngine is CollarEngine {
         override
         returns (uint256)
     {
-        return 0;
+        return historicalAssetPrices[baseToken][timeStampStart];
     }
 
     function forceRegisterVaultManager(address user, address vaultManager) external {
