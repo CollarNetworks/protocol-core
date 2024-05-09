@@ -79,7 +79,7 @@ abstract contract ICollarVaultManager is
         // expiry & ltv
         CollarOpts calldata collarOpts,
         // pool address, callstrike & amount to lock there, putstrike
-        LiquidityOpts calldata liquidityOpts 
+        LiquidityOpts calldata liquidityOpts
     ) external virtual returns (bytes32 uuid);
 
     /// @notice Closes a vault - expiry must have passed

@@ -18,7 +18,6 @@ import { CollarEngine } from "./CollarEngine.sol";
 import { CollarVaultManager } from "./CollarVaultManager.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 
-
 contract CollarPool is ICollarPool, ERC6909TokenSupply {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
     using EnumerableSet for EnumerableSet.UintSet;
@@ -159,7 +158,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         // totalLiquidity unchanged
 
         // @TODO: short circuit the below two functions; they transfer tokens OUT of the smart
-        // contract to the msg.sender of this transaction, and then try to pull it back into this 
+        // contract to the msg.sender of this transaction, and then try to pull it back into this
         // smart contract, which is pretty ******** stupid
 
         withdrawLiquidityFromSlot(sourceSlotIndex, amount);

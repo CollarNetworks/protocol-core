@@ -9,7 +9,7 @@ pragma solidity ^0.8.18;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import { IUniswapV3Factory } from '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
+import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import { IStaticOracle } from "@mean-finance/interfaces/IStaticOracle.sol";
 import { StaticOracle } from "@mean-finance/implementations/StaticOracle.sol";
 
@@ -49,11 +49,11 @@ contract MeanFinanceStaticOracleTest is Test {
     address uniV3Factory = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
 
     //IStaticOracle oracle = IStaticOracle(0xB210CE856631EeEB767eFa666EC7C1C57738d438);
-    
+
     function setUp() public {
         string memory forkRPC = vm.envString("POLYGON_MAINNET_RPC");
         vm.createSelectFork(forkRPC, 55_850_000);
-        assertEq(block.number, 55_850_000);    
+        assertEq(block.number, 55_850_000);
     }
 
     function test_staticOracleAfterForking() public {
@@ -73,14 +73,8 @@ contract MeanFinanceStaticOracleTest is Test {
         uint256 result;
         //address[] memory poolsQueried;
 
-        (result, /*poolsQueried*/) = oracle.quoteSpecificFeeTiersWithOffsettedTimePeriod(
-            1e18,
-            wMatic,
-            usdc,
-            feeTiers,
-            15 minutes,
-            30 minutes
-        );
+        (result, /*poolsQueried*/ ) =
+            oracle.quoteSpecificFeeTiersWithOffsettedTimePeriod(1e18, wMatic, usdc, feeTiers, 15 minutes, 30 minutes);
 
         console.log("Amount of USDC received for 1e18 wMatic: ", result);
     }
@@ -100,19 +94,13 @@ contract MeanFinanceStaticOracleTest is Test {
         feeTiers[0] = 3000;
 
         uint256 result;
-        
+
         // this time we roll the blockchain forward a bit
         vm.roll(block.number + 450); // polygon block time = 2 seconds per block, so we skip forward (15 minutes in seconds / 2) blocks
         skip(15 minutes);
 
-        (result, /*poolsQueried*/) = oracle.quoteSpecificFeeTiersWithOffsettedTimePeriod(
-            1e18,
-            wMatic,
-            usdc,
-            feeTiers,
-            15 minutes,
-            30 minutes
-        );
+        (result, /*poolsQueried*/ ) =
+            oracle.quoteSpecificFeeTiersWithOffsettedTimePeriod(1e18, wMatic, usdc, feeTiers, 15 minutes, 30 minutes);
 
         console.log("Amount of USDC received for 1e18 wMatic: ", result);
     }
@@ -132,19 +120,13 @@ contract MeanFinanceStaticOracleTest is Test {
         feeTiers[0] = 3000;
 
         uint256 result;
-        
+
         // this time we roll the blockchain forward a few days
-        vm.roll(block.number + 129600); // polygon block time = 2 seconds per block, so we skip forward (3 days in seconds / 2) blocks
+        vm.roll(block.number + 129_600); // polygon block time = 2 seconds per block, so we skip forward (3 days in seconds / 2) blocks
         skip(3 days);
 
-        (result, /*poolsQueried*/) = oracle.quoteSpecificFeeTiersWithOffsettedTimePeriod(
-            1e18,
-            wMatic,
-            usdc,
-            feeTiers,
-            15 minutes,
-            30 minutes
-        );
+        (result, /*poolsQueried*/ ) =
+            oracle.quoteSpecificFeeTiersWithOffsettedTimePeriod(1e18, wMatic, usdc, feeTiers, 15 minutes, 30 minutes);
 
         console.log("Amount of USDC received for 1e18 wMatic: ", result);
     }

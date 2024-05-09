@@ -35,7 +35,7 @@ abstract contract ICollarPoolState {
         *all providers in the slot* have their liquidity locked (but proportionally to how much
         they have provided)
 
-    */   
+    */
 
     // a Position is a financial instrument that:
     //  - can be entered into, and eventually exited
@@ -70,7 +70,7 @@ abstract contract ICollarPool is ICollarPoolState, ICollarPoolErrors, ICollarPoo
 
     /// @notice This is the factor by which the slot ID is scaled to get the actual bps value
     /// @dev A tick scale factor of 1 means that slot 10_000 = 100% = 1 bps per tick, and so on
-    
+
     uint256 public immutable tickScaleFactor;
 
     /// @notice The address of the engine is set upon pool creation (and registered with the engine)
