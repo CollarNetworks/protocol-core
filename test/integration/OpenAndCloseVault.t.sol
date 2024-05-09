@@ -29,6 +29,7 @@ import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRout
 // TickLens - - - - - - - - - - - - - - 0xbfd8137f7d1516D3ea5cA83523914859ec47F573
 // WMatic - - - - - - - - - - - - - - - 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270
 // USDC - - - - - - - - - - - - - - - - 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
+// Binance-Hot-Wallet-2 - - - - - - - - 0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245
 // Uniswap v3 Factory - - - - - - - - - 0x1F98431c8aD98523631AE4a59f267346ea31F984
 // WMatic / USDC UniV3 Pool - - - - - - 0x2DB87C4831B2fec2E35591221455834193b50D1B
 // Mean Finance Polygon Static Oracle - 0xB210CE856631EeEB767eFa666EC7C1C57738d438
@@ -40,6 +41,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
     address WMaticAddress = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
     address USDCAddress = address(0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359);
     address uniV3Factory = address(0x1F98431c8aD98523631AE4a59f267346ea31F984);
+    address binanceHotWalletTwo = address(0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245);
 
     IStaticOracle oracle;
 
@@ -256,14 +258,33 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(vault.lockedVaultCash, 73_950_499); // the vault locked balance should be 0.1 * cashAmount
 
         // Trade on Uniswap to make the price go up
-        // @TODO: currently this will fail because we don't have enough of the collateral asset to actually trade
-        // so we need to impersonate a large holder of the asset, or fake the balance
-        // but this is a forked chain, so can we actually do that?
-        // Probably easier to impersonate.
-        // Tired - committing and coming back to this after some chores.
+        // Impersonate binance-hot-wallet 2 and give tokens to *this* contract
+        // so that it can swap on Uni and raise the price of the collateral (by a lot
+        // so that we hit our callstrike ceiling)
         
-        // approve the dex router so we can swap the collateral to cash
-        IERC20(assets.collateralAsset).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount * 100);
+        // @todo see below todo lol
+
+        // this doesn't work, right, because it's a FORK test? maybe?
+        // let's test that theory by impersonating instead of dealing.
+
+        // (I may have been wrong about ChatGPT not knowing forge well enough, though
+        // it probably does drastically depend on the exact phrasing of your statements)
+        // @todo find this our for sure and let JPaul know since I told him the opposite!
+
+        startHoax(binanceHotWalletTwo);
+
+        // @todo develop a little utility to quickly grab the price of a collateral asset
+        // in the uniswap pool so that we don't have to print it out as part of the 
+        // massive "PrintVaultStatsUtility" thing below
+
+        // q: is 1000 ether enough to actually raise the price past our callstrike?
+        // we could calculate, or let's actually just run a quick test & find out / binary search
+        
+        // approve the dex router for USDC not Wmatic since we know this address has THAT
+        // then swap our cash for Wmatic.
+
+        IERC20(USDCAddress).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount * 100);
+        IERC20(WMaticAddress).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount * 100);
 
         // build the swap transaction
         IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
@@ -271,18 +292,25 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
             tokenOut: assets.cashAsset,
             fee: 3000,
             recipient: address(this),
-            amountIn: assets.collateralAmount * 100,
-            amountOutMinimum: assets.cashAmount,
+            amountIn: assets.cashAmount * 100,
+            amountOutMinimum: 0,
             sqrtPriceLimitX96: 0
         });
 
         // execute the swap
+        // we're not worried about slippage here
+
         IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
         
+        // end that prank, keep pranking as `user`
+
+        startHoax(user);
+
         vm.roll(block.number + 43200);
         skip(1.5 days);
 
         // close the vault
+
         vaultManager.closeVault(uuid);
 
         PrintVaultStatsUtility(address(this)).printVaultStats(rawVault, "VAULT CLOSED");
