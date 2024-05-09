@@ -16,7 +16,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 import { IStaticOracle } from "@mean-finance/interfaces/IStaticOracle.sol";
 import { StaticOracle } from "@mean-finance/implementations/StaticOracle.sol";
-import { IUniswapV3Factory } from '@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol';
+import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import { PrintVaultStatsUtility } from "../utils/PrintVaultStats.sol";
 import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRouter.sol";
 
@@ -29,6 +29,7 @@ import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRout
 // TickLens - - - - - - - - - - - - - - 0xbfd8137f7d1516D3ea5cA83523914859ec47F573
 // WMatic - - - - - - - - - - - - - - - 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270
 // USDC - - - - - - - - - - - - - - - - 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
+// Binance-Hot-Wallet-2 - - - - - - - - 0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245
 // Uniswap v3 Factory - - - - - - - - - 0x1F98431c8aD98523631AE4a59f267346ea31F984
 // WMatic / USDC UniV3 Pool - - - - - - 0x2DB87C4831B2fec2E35591221455834193b50D1B
 // Mean Finance Polygon Static Oracle - 0xB210CE856631EeEB767eFa666EC7C1C57738d438
@@ -40,6 +41,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
     address WMaticAddress = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
     address USDCAddress = address(0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359);
     address uniV3Factory = address(0x1F98431c8aD98523631AE4a59f267346ea31F984);
+    address binanceHotWalletTwo = address(0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245);
 
     IStaticOracle oracle;
 
@@ -193,7 +195,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(vault.loanBalance, 665_554_499); // the vault loan balance should be 0.9 * cashAmount
         assertEq(vault.lockedVaultCash, 73_950_499); // the vault locked balance should be 0.1 * cashAmount
 
-        vm.roll(block.number + 43200);
+        vm.roll(block.number + 43_200);
         skip(1.5 days);
 
         // close the vault
@@ -256,14 +258,24 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(vault.lockedVaultCash, 73_950_499); // the vault locked balance should be 0.1 * cashAmount
 
         // Trade on Uniswap to make the price go up
-        // @TODO: currently this will fail because we don't have enough of the collateral asset to actually trade
-        // so we need to impersonate a large holder of the asset, or fake the balance
-        // but this is a forked chain, so can we actually do that?
-        // Probably easier to impersonate.
-        // Tired - committing and coming back to this after some chores.
-        
-        // approve the dex router so we can swap the collateral to cash
-        IERC20(assets.collateralAsset).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount * 100);
+        // Impersonate binance-hot-wallet 2 and give tokens to *this* contract
+        // so that it can swap on Uni and raise the price of the collateral (by a lot
+        // so that we hit our callstrike ceiling)
+
+        startHoax(binanceHotWalletTwo);
+
+        // @todo develop a little utility to quickly grab the price of a collateral asset
+        // in the uniswap pool so that we don't have to print it out as part of the
+        // massive "PrintVaultStatsUtility" thing below
+
+        // q: is 1000 ether enough to actually raise the price past our callstrike?
+        // we could calculate, or let's actually just run a quick test & find out / binary search
+
+        // approve the dex router for USDC not Wmatic since we know this address has THAT
+        // then swap our cash for Wmatic.
+
+        IERC20(USDCAddress).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount * 100);
+        IERC20(WMaticAddress).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount * 100);
 
         // build the swap transaction
         IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
@@ -271,18 +283,75 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
             tokenOut: assets.cashAsset,
             fee: 3000,
             recipient: address(this),
-            amountIn: assets.collateralAmount * 100,
-            amountOutMinimum: assets.cashAmount,
+            amountIn: assets.cashAmount * 100,
+            amountOutMinimum: 0,
             sqrtPriceLimitX96: 0
         });
 
         // execute the swap
-        IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
-        
-        vm.roll(block.number + 43200);
+        // we're not worried about slippage here
+
+        uint256 swapOutput = IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
+        console.log("Amount of the output token received: %d", swapOutput);
+        console.log("Swap intput token: %s", assets.collateralAsset);
+        console.log("Swap output token: %s", assets.cashAsset);
+
+        // @todo: we need to make sure we're swapping on the right pool.
+        // @todo: carlos can you try to figure this out if you have a chance?
+        // @todo: issue description, will try to keep it as detailed as possible for you:
+
+        // What I'm trying to do, overall: finish filling out the google drive "Collar Math" sheet in the
+        // https://docs.google.com/spreadsheets/d/18e5ola3JJ2HKRQyAoPNmVrV4fnRcLdckOhQIxrN_hwY/edit?usp=sharing
+        // there's the link to it.
+
+        // in this sheet, on the second tab, you'll see a lot of stuff. here's what you need to pay attention to:
+        // the spreadsheet is subdivided into the following sections:
+        // - VAULT STATUS - AFTER OPENING
+        // - VAULT STATUS - AFTER FINALIZATION / CLOSING
+        // - VAULT STATUS - AFTER TOKEN REDEMPTION
+
+        // under each of these statuses (stati?) there are variables and their values
+        // the goal here is to, via the console output that prints *when we run the tests*
+        // make sure the the outputs are correct (this will of course involved manually calculating all
+        // of these things, but I don't see a way around that!)
+
+        // in particular, right now, pay attention to this set of output you should see repeated for *EACH* of the above major categories
+
+        /*
+            CollarVaultManager::closeVault - final price:  741201
+            CollarVaultManager::closeVault - put strike price:  665553
+            CollarVaultManager::closeVault - call strike price:  813454
+            CollarVaultManager::closeVault - starting price:  739504
+            CollarVaultManager::closeVault - CASE 5 ALL VAULT CASH TO USER, PROPORTIONAL LOCKED POOL CASH TO USER
+            CollarVaultManager::closeVault - cashNeededFromPool:  1697011
+        */
+
+        // the "closeVault" *should* be replaced with whatever major step you're on, as described above
+        // look at: final price. that's the price of "the asset" (but which asset, specifically? please figure that out)
+
+        // theoretically, the price of "the asset" should go up - you can see in the code for the test
+
+        // "test_openAndCloseVaultUpALot" that we attempt to swap on Uniswap to raise the price
+        // but the output says that's not happening?
+        // because here's the output for closeVault:
+
+        //  CollarVaultManager::closeVault - starting price:  739504
+
+        // which *appears* to be the same output for this test (test_openAndCloseVaultUpALot)
+        // and is *also* the same for the other test? (test_openAndCloseVaultUpSlightly)
+
+        // check all assumptions here if you get stuck: I'd do that now. but done for the day.
+        // thanks - Caleb.
+
+        // end that prank, keep pranking as `user`
+
+        startHoax(user);
+
+        vm.roll(block.number + 43_200);
         skip(1.5 days);
 
         // close the vault
+
         vaultManager.closeVault(uuid);
 
         PrintVaultStatsUtility(address(this)).printVaultStats(rawVault, "VAULT CLOSED");
