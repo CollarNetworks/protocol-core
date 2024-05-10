@@ -41,6 +41,8 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
     address WMaticAddress = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
     address USDCAddress = address(0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359);
     address uniV3Factory = address(0x1F98431c8aD98523631AE4a59f267346ea31F984);
+    address uniV3Pool = address(0x2DB87C4831B2fec2E35591221455834193b50D1B);
+    address wMATICWhale = address(0x6d80113e533a2C0fe82EaBD35f1875DcEA89Ea97);
     address binanceHotWalletTwo = address(0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245);
 
     IStaticOracle oracle;
@@ -262,7 +264,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         // so that it can swap on Uni and raise the price of the collateral (by a lot
         // so that we hit our callstrike ceiling)
 
-        startHoax(binanceHotWalletTwo);
+        startHoax(wMATICWhale);
 
         // @todo develop a little utility to quickly grab the price of a collateral asset
         // in the uniswap pool so that we don't have to print it out as part of the
@@ -274,27 +276,47 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         // approve the dex router for USDC not Wmatic since we know this address has THAT
         // then swap our cash for Wmatic.
 
-        IERC20(USDCAddress).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount * 100);
-        IERC20(WMaticAddress).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount * 100);
+        uint256 walletBalanceWMATIC = WMatic.balanceOf(wMATICWhale);
+        uint256 thisWalletBalanceUSDC = USDC.balanceOf(address(this));
+        uint256 poolBalanceWMATIC = WMatic.balanceOf(uniV3Pool);
+        uint256 poolBalanceUSDC = USDC.balanceOf(uniV3Pool);
+        console.log("this address", address(this));
+        console.log("Pool balance of WMATIC: %d", poolBalanceWMATIC);
+        console.log("Pool balance of USDC: %d", poolBalanceUSDC);
+        console.log("this wallet balance of USDC: %d", thisWalletBalanceUSDC);
+        console.log("Wallet balance of WMATIC: %d", walletBalanceWMATIC);
+        IERC20(USDCAddress).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount * 10_000);
+        IERC20(WMaticAddress).approve(CollarEngine(engine).dexRouter(), walletBalanceWMATIC / 2);
 
+        uint256 amountIn = walletBalanceWMATIC / 2;
+        console.log("Amount of the input token sent: %d", amountIn);
         // build the swap transaction
         IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
             tokenIn: assets.collateralAsset,
             tokenOut: assets.cashAsset,
             fee: 3000,
             recipient: address(this),
-            amountIn: assets.cashAmount * 100,
-            amountOutMinimum: 0,
+            amountIn: 10_000_000e18,
+            amountOutMinimum: 100,
             sqrtPriceLimitX96: 0
         });
 
         // execute the swap
         // we're not worried about slippage here
-
         uint256 swapOutput = IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
         console.log("Amount of the output token received: %d", swapOutput);
-        console.log("Swap intput token: %s", assets.collateralAsset);
-        console.log("Swap output token: %s", assets.cashAsset);
+        // console.log("Swap intput token: %s", assets.collateralAsset);
+        // console.log("Swap output token: %s", assets.cashAsset);
+        vm.roll(block.number + 43_200);
+        skip(1.5 days);
+        uint256 walletBalanceWMATIC2 = WMatic.balanceOf(wMATICWhale);
+        uint256 thisWalletBalanceUSDC2 = USDC.balanceOf(address(this));
+        uint256 poolBalanceWMATIC2 = WMatic.balanceOf(uniV3Pool);
+        uint256 poolBalanceUSDC2 = USDC.balanceOf(uniV3Pool);
+        console.log("Pool balance of WMATIC after swap : %d", poolBalanceWMATIC2);
+        console.log("pool balance of USDC after swap : %d", poolBalanceUSDC2);
+        console.log("this wallet balance of USDC after swap : %d", thisWalletBalanceUSDC2);
+        console.log("Wallet balance of WMATIC after swap : %d", walletBalanceWMATIC2);
 
         // @todo: we need to make sure we're swapping on the right pool.
         // @todo: carlos can you try to figure this out if you have a chance?
@@ -330,13 +352,10 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         // look at: final price. that's the price of "the asset" (but which asset, specifically? please figure that out)
 
         // theoretically, the price of "the asset" should go up - you can see in the code for the test
-
         // "test_openAndCloseVaultUpALot" that we attempt to swap on Uniswap to raise the price
         // but the output says that's not happening?
         // because here's the output for closeVault:
-
         //  CollarVaultManager::closeVault - starting price:  739504
-
         // which *appears* to be the same output for this test (test_openAndCloseVaultUpALot)
         // and is *also* the same for the other test? (test_openAndCloseVaultUpSlightly)
 
@@ -346,9 +365,6 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         // end that prank, keep pranking as `user`
 
         startHoax(user);
-
-        vm.roll(block.number + 43_200);
-        skip(1.5 days);
 
         // close the vault
 

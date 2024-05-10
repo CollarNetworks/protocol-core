@@ -227,3 +227,15 @@ contract CollarEngine is ICollarEngine, Ownable {
         revert("Method not yet implemented");
     }
 }
+
+/**
+ * Vault expiration timestamp:  1713267958
+ *   Current timestamp:  1713440758
+ *   Offset calculated as  173700
+ *   Computed pool address:  0x2DB87C4831B2fec2E35591221455834193b50D1B
+ *   baseToken is  0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270
+ *   quoteToken is  0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
+ *   timeStampStart is  1713267958
+ *   twapLength is  900
+ *   Amount baseToken received for 1e18 quoteToken:  741201
+ */
