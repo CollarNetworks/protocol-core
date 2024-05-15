@@ -13,14 +13,16 @@ import { ICollarEngineEvents } from "../interfaces/events/ICollarEngineEvents.so
 import { CollarPool } from "./CollarPool.sol";
 import { CollarVaultManager } from "./CollarVaultManager.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { IStaticOracle } from "@mean-finance/interfaces/IStaticOracle.sol";
+import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
+import "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
 import "forge-std/console.sol";
 
 contract CollarEngine is ICollarEngine, Ownable {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;
 
-    constructor(address _dexRouter, address _staticOracle) ICollarEngine(_dexRouter, _staticOracle) Ownable(msg.sender) { }
+    constructor(address _dexRouter, address _uniswapV3Factory) ICollarEngine(_dexRouter, _uniswapV3Factory) Ownable(msg.sender) { }
 
     // ----- state-changing functions (see ICollarEngine for documentation) -----
 
@@ -187,43 +189,53 @@ contract CollarEngine is ICollarEngine, Ownable {
 
     // asset pricing
 
-    function getHistoricalAssetPriceViaTWAP(address baseToken, address quoteToken, uint32 twapEndTimestamp, uint32 twapLength)
+    function getHistoricalAssetPriceViaTWAP(address baseToken, address quoteToken, uint32 twapStartTimestamp, uint32 twapLength)
         external
         view
         virtual
         override
-        returns (uint256)
+        returns (uint256 price)
     {
-        // @TODO replace this with parameter data
-        uint24[] memory feeTiers = new uint24[](1);
-        feeTiers[0] = 3000;
+        address poolToUse = _getPoolForTokenPair(baseToken, quoteToken);
+        IUniswapV3Pool pool = IUniswapV3Pool(poolToUse);
+        int24 tick;
+        if (twapLength == 0) {
+            // return the current price if twapInterval == 0
+            (, tick,,,,,) = pool.slot0();
+        } else {
+            uint32[] memory _secondsAgos = new uint32[](2);
+            // Calculate *how long ago* the timestamp passed in as a parameter is,
+            // so that we can use this in the "offset" part
+            // First, we calculate what the offset is to the *end* of the twap (aka offset to timeStampStart)
+            // THEN, we factor in the twapLength to the timestamp that we actually want to start the twap from
+            uint32 offset = (uint32(block.timestamp) - twapStartTimestamp) + twapLength;
+            _secondsAgos[0] = twapLength + offset;
+            _secondsAgos[1] = offset;
+            (int56[] memory tickCumulatives,) = pool.observe(_secondsAgos);
+            console.log("Tick Cumulatives[0]: ");
+            console.logInt(tickCumulatives[0]);
+            int56 tickCumulativesDelta = tickCumulatives[1] - tickCumulatives[0];
+            int56 period = int56(int32(twapLength));
+            // Always round to negative infinity
+            if (tickCumulativesDelta < 0 && (tickCumulativesDelta % period != 0)) tick--;
+            tick = int24(tickCumulativesDelta / period);
+        }
 
-        // Calculate *how long ago* the timestamp passed in as a parameter is,
-        // so that we can use this in the "offset" part
-        // First, we calculate what the offset is to the *end* of the twap (aka offset to timeStampStart)
-        // THEN, we factor in the twapLength to the timestamp that we actually want to start the twap from
-        uint32 offset = (uint32(block.timestamp) - twapEndTimestamp) + twapLength;
-        console.log("Offset calculated as ", offset);
-
-        (uint256 amountReceived,) = IStaticOracle(staticOracle).quoteSpecificFeeTiersWithOffsettedTimePeriod(
-            1e18, // amount of token we're getting the price of
-            baseToken, // token we're getting the price of
-            quoteToken, // token we want to know how many of we'd get
-            feeTiers, // fee tier(s) of the pool we're going to get the quote from
-            twapLength, // how long the twap should be
-            offset // how long ago to *start* the twap period
-        );
-
-        console.log("baseToken is ", baseToken);
-        console.log("quoteToken is ", quoteToken);
-        console.log("timeStampStart is ", twapEndTimestamp);
-        console.log("twapLength is ", twapLength);
-        console.log("Amount baseToken received for 1e18 quoteToken: ", amountReceived);
-
-        return amountReceived;
+        price = OracleLibrary.getQuoteAtTick(tick, 1e18, baseToken, quoteToken);
+        console.log("Price of baseToken in quoteToken: ", price);
     }
 
     function getCurrentAssetPrice(address /*asset*/ ) external view virtual override returns (uint256) {
         revert("Method not yet implemented");
+    }
+
+    /**
+     * pulled from mean finance static oracle
+     */
+
+    /// @notice Takes a pair and some fee tiers, and returns pool
+    function _getPoolForTokenPair(address _tokenA, address _tokenB) internal view virtual returns (address _pool) {
+        _pool = PoolAddress.computeAddress(address(uniswapV3Factory), PoolAddress.getPoolKey(_tokenA, _tokenB, 3000));
+        console.log("Computed pool address: ", _pool);
     }
 }

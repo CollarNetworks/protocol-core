@@ -37,7 +37,9 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         token1 = new TestERC20("Test1", "TST1");
         token2 = new TestERC20("Test2", "TST2");
         router = new MockUniRouter();
-        engine = new CollarEngine(address(router), address(0xDEAD));
+        address uniV3Factory = address(0x1F98431c8aD98523631AE4a59f267346ea31F984);
+
+        engine = new CollarEngine(address(router), uniV3Factory);
         manager = CollarVaultManager(engine.createVaultManager());
 
         engine.addLTV(9000);

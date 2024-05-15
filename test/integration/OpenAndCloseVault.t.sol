@@ -14,8 +14,6 @@ import { CollarPool } from "../../src/implementations/CollarPool.sol";
 import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
-import { IStaticOracle } from "@mean-finance/interfaces/IStaticOracle.sol";
-import { StaticOracle } from "@mean-finance/implementations/StaticOracle.sol";
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import { PrintVaultStatsUtility } from "../utils/PrintVaultStats.sol";
 import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRouter.sol";
@@ -42,8 +40,6 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
     address USDCAddress = address(0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359);
     address uniV3Factory = address(0x1F98431c8aD98523631AE4a59f267346ea31F984);
     address binanceHotWalletTwo = address(0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245);
-
-    IStaticOracle oracle;
 
     //address polygonStaticOracleAddress = address(0xB210CE856631EeEB767eFa666EC7C1C57738d438);
 
@@ -83,9 +79,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         vm.createSelectFork(forkRPC, 55_850_000);
         assertEq(block.number, 55_850_000);
 
-        oracle = new StaticOracle(IUniswapV3Factory(uniV3Factory), 30);
-
-        engine = new CollarEngine(swapRouterAddress, address(oracle)); // @todo make this non-polygon-exclusive
+        engine = new CollarEngine(swapRouterAddress, uniV3Factory); // @todo make this non-polygon-exclusive
         engine.addLTV(9000);
 
         pool = new CollarPool(address(engine), 100, USDCAddress, WMaticAddress, 1 days, 9000);

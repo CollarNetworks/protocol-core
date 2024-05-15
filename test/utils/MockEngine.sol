@@ -17,7 +17,7 @@ contract MockEngine is CollarEngine {
     mapping(address => uint256) public currentAssetPrices;
     mapping(address => mapping(uint256 => uint256)) public historicalAssetPrices;
 
-    constructor(address _dexRouter, address _staticOracle) CollarEngine(_dexRouter, _staticOracle) { }
+    constructor(address _dexRouter, address _uniV3Factory) CollarEngine(_dexRouter, _uniV3Factory) { }
 
     function setHistoricalAssetPrice(address asset, uint256 timestamp, uint256 value) external {
         historicalAssetPrices[asset][timestamp] = value;
@@ -42,7 +42,7 @@ contract MockEngine is CollarEngine {
         override
         returns (uint256)
     {
-        return 0;
+        return historicalAssetPrices[baseToken][timeStampStart];
     }
 
     function forceRegisterVaultManager(address user, address vaultManager) external {
