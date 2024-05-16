@@ -14,6 +14,21 @@ import { MockUniRouter } from "../test/utils/MockUniRouter.sol";
 import { MockEngine } from "../test/utils/MockEngine.sol";
 
 import { Multicall3 } from "../lib/other/multicall3.sol";
+/**
+ * 1. deploys the following contracts:
+ * cashTestToken: test ERC20 cash asset for the collar pool
+ * collateralTestToken : test ERC20 colaterall asset for the collar pool
+ * router: mock uniswap router for the engine
+ * engine: Mock collar engine
+ * oneDayPool: Collar pool with 1 day duration
+ * oneWeekPool: Collar pool with 7 days duration
+ * multicall3
+ * 2. adds liquidity pools,assets and durations to the engine
+ * 3. mints a million of each asset to the router
+ * 4. mints 100k and 200k to test addresses
+ * 5. creates vault managers for two test addresses
+ * 6. adds liquidity to the slots `11_100,11_200,11_500,12_000` for both pools
+ */
 
 contract DeployInitializedDevnetProtocol is Script {
     address cashTestToken;
