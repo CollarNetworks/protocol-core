@@ -195,6 +195,23 @@ contract CollarVaultManager is ICollarVaultManager {
         console.log("Vault expiration timestamp: ", vault.expiresAt);
         console.log("Current timestamp: ", block.timestamp);
 
+        /*
+
+        todo:
+
+        1) check that the engine address is the forreal engine (deployed by us on the fork-devnet)
+        2) check order of parameters
+        3) check accuracy of parameters
+        4) check the uint32 conversion of vault.expiresAt
+        5) check that the vault.expiresAt is correct
+        6) check that the 15 minutes is correct
+
+        7) recurse into function
+        8) go to line 196 and keep going up.
+
+        */
+ 
+
         uint256 finalPrice = CollarEngine(engine).getHistoricalAssetPriceViaTWAP(
             vault.collateralAsset,
             vault.cashAsset,
