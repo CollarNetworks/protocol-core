@@ -125,7 +125,7 @@ contract CollarVaultManagerTest is Test {
         assertEq(calculatedUUID, manager.vaultsByNonce(0));
     }
 
-    function test_vaultInfoByNonce() internal {
+    function test_vaultInfoByNonce() public {
         mintTokensToUserAndApproveManager(user1);
         mintTokensToUserAndApprovePool(user2);
 
@@ -910,5 +910,38 @@ contract CollarVaultManagerTest is Test {
     function test_vaultInfo_InvalidVault() public {
         vm.expectRevert(ICollarCommonErrors.InvalidVault.selector);
         manager.vaultInfo(bytes32(0));
+    }
+
+    function test_isVaultExpired() public {
+        mintTokensToUserAndApproveManager(user1);
+        mintTokensToUserAndApprovePool(user2);
+
+        hoax(user2);
+        pool.addLiquidityToSlot(11_000, 25_000);
+
+        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
+            collateralAsset: address(collateralAsset),
+            collateralAmount: 100,
+            cashAsset: address(cashAsset),
+            cashAmount: 100
+        });
+
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+
+        ICollarVaultState.LiquidityOpts memory liquidityOpts =
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
+
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
+
+        hoax(user1);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+
+        bool isVaultExpired = manager.isVaultExpired(uuid);
+        assertEq(isVaultExpired, false);
+
+        skip(101);
+
+        bool isVaultExpiredAfterTime = manager.isVaultExpired(uuid);
+        assertEq(isVaultExpiredAfterTime, true);
     }
 }
