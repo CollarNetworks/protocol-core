@@ -13,9 +13,9 @@ import { ICollarEngineEvents } from "../interfaces/events/ICollarEngineEvents.so
 import { CollarPool } from "./CollarPool.sol";
 import { CollarVaultManager } from "./CollarVaultManager.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
-import "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
+import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
+import { OracleLibrary } from "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
 import "forge-std/console.sol";
 
 contract CollarEngine is ICollarEngine, Ownable {
