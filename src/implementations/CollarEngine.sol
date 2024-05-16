@@ -235,7 +235,8 @@ contract CollarEngine is ICollarEngine, Ownable {
 
     /// @notice Takes a pair and some fee tiers, and returns pool
     function _getPoolForTokenPair(address _tokenA, address _tokenB) internal view virtual returns (address _pool) {
-        _pool = PoolAddress.computeAddress(address(uniswapV3Factory), PoolAddress.getPoolKey(_tokenA, _tokenB, 3000));
+        PoolAddress.PoolKey memory _poolKey = PoolAddress.getPoolKey(_tokenA, _tokenB, 3000);
+        _pool = PoolAddress.computeAddress(address(uniswapV3Factory), _poolKey);
         console.log("Computed pool address: ", _pool);
     }
 }
