@@ -704,4 +704,62 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
     }
+
+    function test_previewRedeem_InvalidAmount() public {
+        mintTokensAndApprovePool(user1);
+        mintTokensAndApprovePool(user2);
+        mintTokensAndApprovePool(address(manager));
+
+        hoax(user1);
+
+        pool.addLiquidityToSlot(110, 100_000);
+
+        hoax(address(manager));
+
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
+
+        startHoax(user1);
+
+        collateralAsset.approve(address(manager), 100_000 ether);
+
+        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
+            collateralAsset: address(collateralAsset),
+            collateralAmount: 100,
+            cashAsset: address(cashAsset),
+            cashAmount: 100
+        });
+
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+
+        ICollarVaultState.LiquidityOpts memory liquidityOpts =
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
+
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
+
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+
+        bytes memory vaultInfo = manager.vaultInfo(uuid);
+
+        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+
+        startHoax(user1);
+
+        skip(101);
+
+        engine.setHistoricalAssetPrice(address(collateralAsset), vault.expiresAt, 0.5e18);
+
+        manager.closeVault(uuid);
+
+        vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
+        pool.previewRedeem(uuid, 11);
+    }
+
+    function test_constructor() public {
+        CollarPool testPool = new CollarPool(address(engine), 100, address(cashAsset), address(collateralAsset), 100, 9000);
+        assertEq(testPool.engine(), address(engine));
+        assertEq(testPool.cashAsset(), address(cashAsset));
+        assertEq(testPool.collateralAsset(), address(collateralAsset));
+        assertEq(testPool.duration(), 100);
+        assertEq(testPool.ltv(), 9000);
+    }
 }

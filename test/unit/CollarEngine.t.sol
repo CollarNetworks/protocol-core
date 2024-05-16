@@ -231,4 +231,91 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
 
         vm.stopPrank();
     }
+
+    function test_removeLTV() public {
+        engine.removeLTV(9000);
+        assertFalse(engine.isValidLTV(9000));
+    }
+
+    function test_vaultManagersLength() public {
+        vm.startPrank(user1);
+        engine.createVaultManager();
+        vm.stopPrank();
+        vm.startPrank(user2);
+        engine.createVaultManager();
+        vm.stopPrank();
+        assertEq(engine.vaultManagersLength(), 3);
+    }
+
+    function test_getVaultManager() public {
+        vm.startPrank(user1);
+        uint256 vaultManagerCount = engine.vaultManagersLength();
+        engine.createVaultManager();
+        address vaultManager = engine.getVaultManager(vaultManagerCount);
+
+        assertEq(vaultManager, engine.addressToVaultManager(user1));
+        vm.stopPrank();
+    }
+
+    function testFail_getVaultManager() public {
+        address vaultManager = engine.getVaultManager(1);
+    }
+
+    function test_supportedCashAssetsLength() public {
+        engine.addSupportedCashAsset(address(token1));
+        assertEq(engine.supportedCashAssetsLength(), 1);
+        engine.removeSupportedCashAsset(address(token1));
+        assertEq(engine.supportedCashAssetsLength(), 0);
+    }
+
+    function test_getSupportedCashAsset() public {
+        engine.addSupportedCashAsset(address(token1));
+        assertEq(engine.getSupportedCashAsset(0), address(token1));
+    }
+
+    function test_supportedCollateralAssetsLength() public {
+        engine.addSupportedCollateralAsset(address(token1));
+        assertEq(engine.supportedCollateralAssetsLength(), 1);
+        engine.removeSupportedCollateralAsset(address(token1));
+        assertEq(engine.supportedCollateralAssetsLength(), 0);
+    }
+
+    function test_getSupportedCollateralAsset() public {
+        engine.addSupportedCollateralAsset(address(token1));
+        assertEq(engine.getSupportedCollateralAsset(0), address(token1));
+    }
+
+    function test_getSupportedLiquidityPool() public {
+        engine.addLiquidityPool(address(pool1));
+        assertEq(engine.getSupportedLiquidityPool(0), address(pool1));
+    }
+
+    function test_validCollarDurationsLength() public {
+        engine.addCollarDuration(1);
+        assertEq(engine.validCollarDurationsLength(), 1);
+        engine.removeCollarDuration(1);
+        assertEq(engine.validCollarDurationsLength(), 0);
+    }
+
+    function test_getValidCollarDuration() public {
+        engine.addCollarDuration(1);
+        assertEq(engine.getValidCollarDuration(0), 1);
+    }
+
+    function test_validLTVsLength() public {
+        engine.addLTV(8000);
+        assertEq(engine.validLTVsLength(), 2);
+        engine.removeLTV(8000);
+        assertEq(engine.validLTVsLength(), 1);
+    }
+
+    function test_getValidLTV() public {
+        engine.addLTV(8000);
+        assertEq(engine.getValidLTV(1), 8000);
+    }
+
+    function test_getCurrentAssetPrice() public {
+        vm.expectRevert("Method not yet implemented");
+        engine.getCurrentAssetPrice(address(token1));
+    }
 }
