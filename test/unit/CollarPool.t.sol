@@ -686,7 +686,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         engine.setHistoricalAssetPrice(address(collateralAsset), vault.expiresAt, 0.5e18);
 
         manager.closeVault(uuid);
-        console.log("vault closed");
+
         uint256 previewAmount = pool.previewRedeem(uuid, 10);
 
         assertEq(previewAmount, 20);
@@ -705,7 +705,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
     }
 
-    function testFail_previewRedeem_InvalidAmount() public {
+    function test_previewRedeem_InvalidAmount() public {
         mintTokensAndApprovePool(user1);
         mintTokensAndApprovePool(user2);
         mintTokensAndApprovePool(address(manager));
@@ -750,9 +750,8 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         manager.closeVault(uuid);
 
-        uint256 previewAmount = pool.previewRedeem(uuid, 11);
-
-        assertEq(previewAmount, 20);
+        vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
+        pool.previewRedeem(uuid, 11);
     }
 
     function test_constructor() public {
