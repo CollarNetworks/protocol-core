@@ -42,7 +42,7 @@ contract FillLiquidityPoolSlots is Script {
         cashTestToken = address(new TestERC20("CashTestToken", "CSH-TST"));
         collateralTestToken = address(new TestERC20("CollateralTestToken", "COL-TST"));
         router = address(new MockUniRouter());
-        engine = address(new MockEngine(router, address(0xDEAD)));
+        engine = address(new MockEngine(router));
 
         CollarEngine(engine).addLTV(9000);
 

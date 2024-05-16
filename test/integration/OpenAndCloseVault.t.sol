@@ -38,7 +38,6 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
     address swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
     address WMaticAddress = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
     address USDCAddress = address(0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359);
-    address uniV3Factory = address(0x1F98431c8aD98523631AE4a59f267346ea31F984);
     address binanceHotWalletTwo = address(0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245);
 
     //address polygonStaticOracleAddress = address(0xB210CE856631EeEB767eFa666EC7C1C57738d438);
@@ -79,7 +78,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         vm.createSelectFork(forkRPC, 55_850_000);
         assertEq(block.number, 55_850_000);
 
-        engine = new CollarEngine(swapRouterAddress, uniV3Factory); // @todo make this non-polygon-exclusive
+        engine = new CollarEngine(swapRouterAddress); // @todo make this non-polygon-exclusive
         engine.addLTV(9000);
 
         pool = new CollarPool(address(engine), 100, USDCAddress, WMaticAddress, 1 days, 9000);

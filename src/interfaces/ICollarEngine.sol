@@ -89,7 +89,6 @@ abstract contract ICollarEngine is ICollarEngineErrors, ICollarEngineEvents {
     // -- public state variables ---
 
     address public immutable dexRouter;
-    address public immutable uniswapV3Factory;
 
     /// @notice This mapping stores the address of the vault contract per user (or market maker)
     /// @dev This will be zero if the user has not yet created a vault
@@ -103,9 +102,8 @@ abstract contract ICollarEngine is ICollarEngineErrors, ICollarEngineEvents {
     EnumerableSet.UintSet internal validLTVs;
     EnumerableSet.UintSet internal validCollarDurations;
 
-    constructor(address _dexRouter, address _uniswapV3Factory) {
+    constructor(address _dexRouter) {
         dexRouter = _dexRouter;
-        uniswapV3Factory = _uniswapV3Factory;
     }
 
     // ----- state changing transactions

@@ -48,9 +48,7 @@ contract DeployWithUniswapIntegrationOnPolygonFork is Script {
         cashTestToken = address(new TestERC20("CashTestToken", "CSH-TST"));
         collateralTestToken = address(new TestERC20("CollateralTestToken", "COL-TST"));
         router = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
-        address uniV3Factory = address(0x1F98431c8aD98523631AE4a59f267346ea31F984);
-
-        engine = address(new CollarEngine(router, uniV3Factory));
+        engine = address(new CollarEngine(router));
 
         CollarEngine(engine).addLTV(9000);
 

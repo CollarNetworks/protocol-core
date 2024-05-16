@@ -21,7 +21,7 @@ contract CollarEngine is ICollarEngine, Ownable {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;
 
-    constructor(address _dexRouter, address _uniswapV3Factory) ICollarEngine(_dexRouter, _uniswapV3Factory) Ownable(msg.sender) { }
+    constructor(address _dexRouter) ICollarEngine(_dexRouter) Ownable(msg.sender) { }
 
     // ----- state-changing functions (see ICollarEngine for documentation) -----
 
