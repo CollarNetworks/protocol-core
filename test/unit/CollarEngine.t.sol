@@ -240,8 +240,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
     function test_vaultManagersLength() public {
         vm.startPrank(user1);
         engine.createVaultManager();
-        vm.stopPrank();
-        vm.startPrank(user2);
+        changePrank(user2);
         engine.createVaultManager();
         vm.stopPrank();
         assertEq(engine.vaultManagersLength(), 3);
