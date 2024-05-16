@@ -257,6 +257,7 @@ abstract contract ICollarEngine is ICollarEngineErrors, ICollarEngineEvents {
         returns (uint256);
 
     /// @notice Gets the current price of 1e18 of a particular asset
-    /// @param asset The address of the asset to get the price of
-    function getCurrentAssetPrice(address asset) external view virtual returns (uint256);
+    /// @param baseToken The address of the asset to get the price of
+    /// @param quoteToken The address of the asset to quote the price in
+    function getCurrentAssetPrice(address baseToken, address quoteToken) external view virtual returns (uint256 price);
 }
