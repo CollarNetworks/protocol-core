@@ -222,6 +222,63 @@ contract CollarVaultManagerTest is Test {
         assertEq(vault.lockedVaultCash, 10);
     }
 
+    function test_openVaultAndWithdraw() public {
+        mintTokensToUserAndApproveManager(user1);
+        mintTokensToUserAndApprovePool(user2);
+        uint256 initialUserCashBalance = cashAsset.balanceOf(user1);
+        console.log("Initial User Cash Balance: ", initialUserCashBalance);
+        hoax(user2);
+        pool.addLiquidityToSlot(110, 25_000);
+
+        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
+            collateralAsset: address(collateralAsset),
+            collateralAmount: 100,
+            cashAsset: address(cashAsset),
+            cashAmount: 100
+        });
+
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+
+        ICollarVaultState.LiquidityOpts memory liquidityOpts =
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
+
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
+
+        hoax(user1);
+        manager.openVaultAndWithdrawAll(assets, collarOpts, liquidityOpts);
+
+        bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint256(0)));
+
+        assertEq(manager.vaultCount(), 1);
+        assertEq(manager.vaultsByNonce(0), calculatedUUID);
+
+        bytes memory vaultInfo = manager.vaultInfo(calculatedUUID);
+        uint256 userCashBalance = cashAsset.balanceOf(user1);
+        assertEq(userCashBalance, initialUserCashBalance + 90);
+        // grab the vault state & check all the values
+        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        assertEq(vault.active, true);
+        assertEq(vault.openedAt, 1);
+        assertEq(vault.expiresAt, 101);
+        assertEq(vault.ltv, 9000);
+        assertEq(vault.collateralAsset, address(collateralAsset));
+        assertEq(vault.collateralAmount, 100);
+        assertEq(vault.cashAsset, address(cashAsset));
+        assertEq(vault.cashAmount, 100);
+        assertEq(vault.liquidityPool, address(pool));
+        assertEq(vault.lockedPoolCash, 10);
+        assertEq(vault.initialCollateralPrice, 1e18);
+        assertEq(vault.putStrikePrice, 0.9e18);
+        assertEq(vault.callStrikePrice, 1.1e18);
+        assertEq(vault.putStrikeTick, 90);
+        assertEq(vault.callStrikeTick, 110);
+        /**
+         * loan balance 0 cause we withdrew it all
+         */
+        assertEq(vault.loanBalance, 0);
+        assertEq(vault.lockedVaultCash, 10);
+    }
+
     function test_openVault_InvalidAssetSpecifiers() public {
         mintTokensToUserAndApproveManager(user1);
         mintTokensToUserAndApprovePool(user2);
