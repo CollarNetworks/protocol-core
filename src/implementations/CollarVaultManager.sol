@@ -89,7 +89,7 @@ contract CollarVaultManager is ICollarVaultManager {
         AssetSpecifiers calldata assetData, // addresses & amounts of collateral & cash assets
         CollarOpts calldata collarOpts, // length & ltv
         LiquidityOpts calldata liquidityOpts // pool address, callstrike & amount to lock there, putstrike
-    ) external override returns (bytes32 uuid) {
+    ) public override returns (bytes32 uuid) {
         // only user is allowed to open vaults
         if (msg.sender != user) {
             revert NotCollarVaultOwner();
@@ -165,6 +165,18 @@ contract CollarVaultManager is ICollarVaultManager {
 
         // approve the pool
         IERC20(assetData.cashAsset).approve(liquidityOpts.liquidityPool, vaultsByUUID[uuid].lockedVaultCash);
+    }
+
+    function openVaultAndWithdrawAll(
+        AssetSpecifiers calldata assetData, // addresses & amounts of collateral & cash assets
+        CollarOpts calldata collarOpts, // length & ltv
+        LiquidityOpts calldata liquidityOpts // pool address, callstrike & amount to lock there, putstrike
+    ) external override returns (bytes32 uuid, uint256 amount) {
+        // open the vault
+        uuid = openVault(assetData, collarOpts, liquidityOpts);
+        // withdraw the full loan amount
+        amount = vaultsByUUID[uuid].loanBalance;
+        withdraw(uuid, amount);
     }
 
     function closeVault(bytes32 uuid) external override {
@@ -327,7 +339,7 @@ contract CollarVaultManager is ICollarVaultManager {
         IERC20(vaultsByUUID[uuid].cashAsset).transfer(msg.sender, redeemValue);
     }
 
-    function withdraw(bytes32 uuid, uint256 amount) external override {
+    function withdraw(bytes32 uuid, uint256 amount) public override {
         if (msg.sender != user) revert NotCollarVaultOwner();
         if (vaultsByUUID[uuid].openedAt == 0) revert InvalidVault();
 
