@@ -45,7 +45,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         pool1 = address(new CollarPool(address(engine), 1, address(token1), address(token2), 100, 9000));
     }
 
-    function mintTokensAndApprovePool(address recipient) internal {
+    function mintTokensAndApprovePool(address recipient) public {
         startHoax(recipient);
         token1.mint(recipient, 100_000);
         token2.mint(recipient, 100_000);

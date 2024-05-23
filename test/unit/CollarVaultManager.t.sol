@@ -77,7 +77,7 @@ contract CollarVaultManagerTest is Test {
         vm.label(user2, "Test User 2");
     }
 
-    function mintTokensToUserAndApprovePool(address user) internal {
+    function mintTokensToUserAndApprovePool(address user) public {
         startHoax(user);
         collateralAsset.mint(user, 100_000);
         cashAsset.mint(user, 100_000);
@@ -86,7 +86,7 @@ contract CollarVaultManagerTest is Test {
         vm.stopPrank();
     }
 
-    function mintTokensToUserAndApproveManager(address user) internal {
+    function mintTokensToUserAndApproveManager(address user) public {
         startHoax(user);
         collateralAsset.mint(user, 100_000);
         cashAsset.mint(user, 100_000);
