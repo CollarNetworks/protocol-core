@@ -186,7 +186,7 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         startHoax(user1);
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
         bytes memory vaultInfo = manager.vaultInfo(uuid);
         ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));

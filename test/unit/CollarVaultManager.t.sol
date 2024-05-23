@@ -118,7 +118,7 @@ contract CollarVaultManagerTest is Test {
 
         hoax(user1);
 
-        manager.openVault(assets, collarOpts, liquidityOpts);
+        manager.openVault(assets, collarOpts, liquidityOpts, false);
         bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint256(0)));
 
         assertEq(manager.vaultCount(), 1);
@@ -148,7 +148,7 @@ contract CollarVaultManagerTest is Test {
 
         hoax(user1);
 
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
         assertEq(manager.vaultCount(), 1);
 
@@ -190,7 +190,7 @@ contract CollarVaultManagerTest is Test {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
-        manager.openVault(assets, collarOpts, liquidityOpts);
+        manager.openVault(assets, collarOpts, liquidityOpts, false);
 
         bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint256(0)));
 
@@ -245,7 +245,7 @@ contract CollarVaultManagerTest is Test {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
-        manager.openVaultAndWithdrawAll(assets, collarOpts, liquidityOpts);
+        manager.openVault(assets, collarOpts, liquidityOpts, true);
 
         bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint256(0)));
 
@@ -324,16 +324,16 @@ contract CollarVaultManagerTest is Test {
         startHoax(user1);
 
         vm.expectRevert(ICollarCommonErrors.InvalidCollateralAsset.selector);
-        manager.openVault(invalidCollatAddr, collarOpts, liquidityOpts);
+        manager.openVault(invalidCollatAddr, collarOpts, liquidityOpts, false);
 
         vm.expectRevert(ICollarCommonErrors.InvalidCollateralAmount.selector);
-        manager.openVault(invalidCollatAmount, collarOpts, liquidityOpts);
+        manager.openVault(invalidCollatAmount, collarOpts, liquidityOpts, false);
 
         vm.expectRevert(ICollarCommonErrors.InvalidCashAsset.selector);
-        manager.openVault(invalidCashAddr, collarOpts, liquidityOpts);
+        manager.openVault(invalidCashAddr, collarOpts, liquidityOpts, false);
 
         vm.expectRevert(ICollarCommonErrors.InvalidCashAmount.selector);
-        manager.openVault(invalidCashAmount, collarOpts, liquidityOpts);
+        manager.openVault(invalidCashAmount, collarOpts, liquidityOpts, false);
     }
 
     function test_openVault_InvalidCollarOpts() public {
@@ -360,7 +360,7 @@ contract CollarVaultManagerTest is Test {
         startHoax(user1);
 
         vm.expectRevert(ICollarCommonErrors.InvalidDuration.selector);
-        manager.openVault(assets, invalidlength, liquidityOpts);
+        manager.openVault(assets, invalidlength, liquidityOpts, false);
     }
 
     function test_openVault_InvalidLiquidityOpts() public {
@@ -393,13 +393,13 @@ contract CollarVaultManagerTest is Test {
         startHoax(user1);
 
         vm.expectRevert(ICollarCommonErrors.InvalidLiquidityPool.selector);
-        manager.openVault(assets, collarOpts, invalidPool);
+        manager.openVault(assets, collarOpts, invalidPool, false);
 
         vm.expectRevert(ICollarVaultManagerErrors.InvalidPutStrike.selector);
-        manager.openVault(assets, collarOpts, invalidPutStrike);
+        manager.openVault(assets, collarOpts, invalidPutStrike, false);
 
         vm.expectRevert(ICollarVaultManagerErrors.InvalidCallStrike.selector);
-        manager.openVault(assets, collarOpts, invalidCallStrike);
+        manager.openVault(assets, collarOpts, invalidCallStrike, false);
     }
 
     function test_openVault_NotEnoughAssets() public {
@@ -428,7 +428,7 @@ contract CollarVaultManagerTest is Test {
         collateralAsset.approve(address(manager), 100_000);
 
         vm.expectRevert(abi.encodeWithSelector(ERC20InsufficientBalance.selector, address(user1), 0, 100));
-        manager.openVault(assets, collarOpts, liquidityOpts);
+        manager.openVault(assets, collarOpts, liquidityOpts, false);
     }
 
     function test_closeVaultNoPriceChange() public {
@@ -453,7 +453,7 @@ contract CollarVaultManagerTest is Test {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
         skip(100);
 
@@ -508,7 +508,7 @@ contract CollarVaultManagerTest is Test {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
         skip(100);
 
@@ -563,7 +563,7 @@ contract CollarVaultManagerTest is Test {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
         skip(100);
 
@@ -618,7 +618,7 @@ contract CollarVaultManagerTest is Test {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
         skip(100);
 
@@ -657,7 +657,7 @@ contract CollarVaultManagerTest is Test {
         engine.setCurrentAssetPrice(address(cashAsset), 1e18);
 
         hoax(user1);
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
         vm.expectRevert(ICollarCommonErrors.VaultNotFinalizable.selector);
         manager.closeVault(uuid);
@@ -691,7 +691,7 @@ contract CollarVaultManagerTest is Test {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         startHoax(user1);
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
         bytes memory vaultInfo = manager.vaultInfo(uuid);
         ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
@@ -761,7 +761,7 @@ contract CollarVaultManagerTest is Test {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
         bytes memory vaultInfo = manager.vaultInfo(uuid);
         ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
@@ -802,7 +802,7 @@ contract CollarVaultManagerTest is Test {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         startHoax(user1);
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
         vm.expectRevert(ICollarCommonErrors.VaultNotFinalized.selector);
         manager.redeem(uuid, 100);
@@ -830,7 +830,7 @@ contract CollarVaultManagerTest is Test {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
         bytes memory vaultInfo = manager.vaultInfo(uuid);
         ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
@@ -895,7 +895,7 @@ contract CollarVaultManagerTest is Test {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         startHoax(user1);
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
         manager.withdraw(uuid, 90);
 
@@ -924,7 +924,7 @@ contract CollarVaultManagerTest is Test {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
         vm.expectRevert(ICollarCommonErrors.NotCollarVaultOwner.selector);
         manager.withdraw(uuid, 90);
@@ -952,7 +952,7 @@ contract CollarVaultManagerTest is Test {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         startHoax(user1);
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
         vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
         manager.withdraw(uuid, 91);
@@ -991,7 +991,7 @@ contract CollarVaultManagerTest is Test {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
         bool isVaultExpired = manager.isVaultExpired(uuid);
         assertEq(isVaultExpired, false);

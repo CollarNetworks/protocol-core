@@ -147,7 +147,7 @@ contract CollarOpenVaultIntegrationTest is Test {
 
         startHoax(user);
 
-        vaultManager.openVault(assets, collarOpts, liquidityOpts);
+        vaultManager.openVault(assets, collarOpts, liquidityOpts, false);
         bytes32 uuid = vaultManager.getVaultUUID(0);
         bytes memory rawVault = vaultManager.vaultInfo(uuid);
         ICollarVaultState.Vault memory vault = abi.decode(rawVault, (ICollarVaultState.Vault));
