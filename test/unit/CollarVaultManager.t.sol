@@ -123,29 +123,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_getVaultUUID() public {
-        mintTokensToUserAndApproveManager(user1);
-        mintTokensToUserAndApprovePool(user2);
-
-        hoax(user2);
-        pool.addLiquidityToSlot(110, 25_000);
-
-        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(collateralAsset),
-            collateralAmount: 100,
-            cashAsset: address(cashAsset),
-            cashAmount: 100
-        });
-
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
-
-        ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
-
-        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
-
-        hoax(user1);
-
-        manager.openVault(assets, collarOpts, liquidityOpts, false);
+        mintTokensAddLiquidityAndOpenVault(false);
         bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint256(0)));
 
         assertEq(manager.vaultCount(), 1);
@@ -153,29 +131,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_vaultInfoByNonce() public {
-        mintTokensToUserAndApproveManager(user1);
-        mintTokensToUserAndApprovePool(user2);
-
-        hoax(user2);
-        pool.addLiquidityToSlot(110, 25_000);
-
-        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(collateralAsset),
-            collateralAmount: 100,
-            cashAsset: address(cashAsset),
-            cashAmount: 100
-        });
-
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
-
-        ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
-
-        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
-
-        hoax(user1);
-
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
+        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
         assertEq(manager.vaultCount(), 1);
 
@@ -193,7 +149,7 @@ contract CollarVaultManagerTest is Test {
         manager.vaultInfoByNonce(0);
     }
 
-    function test_deploymentAndDeployParams() public {
+    function test_deploymentAndDeployParams() public view {
         assertEq(manager.owner(), user1);
         assertEq(manager.engine(), address(engine));
         assertEq(manager.vaultCount(), 0);
@@ -201,7 +157,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_openVault() public {
-        mintTokensAddLiquidityAndOpenVault();
+        mintTokensAddLiquidityAndOpenVault(false);
 
         bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint256(0)));
 
@@ -235,28 +191,9 @@ contract CollarVaultManagerTest is Test {
 
     function test_openVaultAndWithdraw() public {
         mintTokensToUserAndApproveManager(user1);
-        mintTokensToUserAndApprovePool(user2);
         uint256 initialUserCashBalance = cashAsset.balanceOf(user1);
-        console.log("Initial User Cash Balance: ", initialUserCashBalance);
-        hoax(user2);
-        pool.addLiquidityToSlot(110, 25_000);
-
-        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(collateralAsset),
-            collateralAmount: 100,
-            cashAsset: address(cashAsset),
-            cashAmount: 100
-        });
-
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
-
-        ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
-
-        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
-
-        hoax(user1);
-        manager.openVault(assets, collarOpts, liquidityOpts, true);
+        addLiquidityToPoolAsUser(user2);
+        openVaultAsUser(user1, true);
 
         bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint256(0)));
 
@@ -470,7 +407,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_openVaultNotManagerOwner() public {
-        mintTokensAddLiquidityAndOpenVault();
+        mintTokensAddLiquidityAndOpenVault(false);
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
@@ -491,7 +428,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_openVaultTradeNotViable() public {
-        mintTokensAddLiquidityAndOpenVault();
+        mintTokensAddLiquidityAndOpenVault(false);
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
@@ -512,7 +449,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_closeVaultNoPriceChange() public {
-        bytes32 uuid = mintTokensAddLiquidityAndOpenVault();
+        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
         skip(100);
 
@@ -546,7 +483,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_closeVaultNoCollateralPriceUp() public {
-        bytes32 uuid = mintTokensAddLiquidityAndOpenVault();
+        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
         skip(100);
 
@@ -576,7 +513,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_closeVaultInvalidPrice() public {
-        bytes32 uuid = mintTokensAddLiquidityAndOpenVault();
+        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
         skip(100);
         engine.setHistoricalAssetPrice(address(collateralAsset), 101, 0);
         vm.expectRevert(ICollarCommonErrors.InvalidAssetPrice.selector);
@@ -585,7 +522,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_closeVaultPartialPriceDown() public {
-        bytes32 uuid = mintTokensAddLiquidityAndOpenVault();
+        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
         skip(100);
 
@@ -596,7 +533,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_closeVaultPartialPriceUp() public {
-        bytes32 uuid = mintTokensAddLiquidityAndOpenVault();
+        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
         skip(100);
 
@@ -607,7 +544,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_closeVaultNoCollateralPriceDown() public {
-        bytes32 uuid = mintTokensAddLiquidityAndOpenVault();
+        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
         skip(100);
 
@@ -639,7 +576,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_closeVault_AlreadyClosed() public {
-        bytes32 uuid = mintTokensAddLiquidityAndOpenVault();
+        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
         skip(100);
 
@@ -657,28 +594,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_closeVault_NotExpired() public {
-        mintTokensToUserAndApproveManager(user1);
-        mintTokensToUserAndApprovePool(user2);
-
-        hoax(user2);
-        pool.addLiquidityToSlot(11_000, 25_000);
-
-        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(collateralAsset),
-            collateralAmount: 100,
-            cashAsset: address(cashAsset),
-            cashAmount: 100
-        });
-
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
-
-        ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
-
-        engine.setCurrentAssetPrice(address(cashAsset), 1e18);
-
-        hoax(user1);
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
+        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
         vm.expectRevert(ICollarCommonErrors.VaultNotFinalizable.selector);
         manager.closeVault(uuid);
@@ -691,28 +607,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_redeem() public {
-        mintTokensToUserAndApproveManager(user1);
-        mintTokensToUserAndApprovePool(user2);
-
-        startHoax(user2);
-        pool.addLiquidityToSlot(110, 25_000);
-
-        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(collateralAsset),
-            collateralAmount: 100,
-            cashAsset: address(cashAsset),
-            cashAmount: 100
-        });
-
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
-
-        ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
-
-        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
-
-        startHoax(user1);
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
+        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
         bytes memory vaultInfo = manager.vaultInfo(uuid);
         ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
@@ -759,7 +654,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_redeem_InvalidAmount() public {
-        bytes32 uuid = mintTokensAddLiquidityAndOpenVault();
+        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
         bytes memory vaultInfo = manager.vaultInfo(uuid);
         ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
@@ -779,14 +674,14 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_redeem_NotFinalized() public {
-        bytes32 uuid = mintTokensAddLiquidityAndOpenVault();
+        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
         vm.expectRevert(ICollarCommonErrors.VaultNotFinalized.selector);
         manager.redeem(uuid, 100);
     }
 
     function test_previewRedeem() public {
-        bytes32 uuid = mintTokensAddLiquidityAndOpenVault();
+        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
         ERC6909TokenSupply token = ERC6909TokenSupply(manager);
         bytes memory vaultInfo = manager.vaultInfo(uuid);
         ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
@@ -825,7 +720,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_previewRedeem_Zero_Cash() public {
-        bytes32 uuid = mintTokensAddLiquidityAndOpenVault();
+        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
         skip(100);
         closeVaultUserLosesCase(user1, uuid, 101);
         hoax(user1);
@@ -835,13 +730,13 @@ contract CollarVaultManagerTest is Test {
 
     function test_previewRedeem_VaultNotFinalized() public {
         // Assuming there is a function to create a vault for testing purposes
-        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(); // Create a vault with some test data
+        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false); // Create a vault with some test data
         vm.expectRevert(ICollarCommonErrors.VaultNotFinalized.selector);
         manager.previewRedeem(uuid, 1);
     }
 
     function test_withdraw() public {
-        bytes32 uuid = mintTokensAddLiquidityAndOpenVault();
+        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
         hoax(user1);
         manager.withdraw(uuid, 90);
 
@@ -849,14 +744,14 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_withdraw_OnlyUser() public {
-        bytes32 uuid = mintTokensAddLiquidityAndOpenVault();
+        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
         vm.expectRevert(ICollarCommonErrors.NotCollarVaultOwner.selector);
         manager.withdraw(uuid, 90);
     }
 
     function test_withdraw_TooMuch() public {
-        bytes32 uuid = mintTokensAddLiquidityAndOpenVault();
+        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
         vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
         hoax(user1);
@@ -875,7 +770,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_isVaultExpired() public {
-        bytes32 uuid = mintTokensAddLiquidityAndOpenVault();
+        bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
         bool isVaultExpired = manager.isVaultExpired(uuid);
         assertEq(isVaultExpired, false);
@@ -886,7 +781,7 @@ contract CollarVaultManagerTest is Test {
         assertEq(isVaultExpiredAfterTime, true);
     }
 
-    function openVaultAsUser(address user) internal returns (bytes32 uuid) {
+    function openVaultAsUser(address user, bool withdraw) internal returns (bytes32 uuid) {
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
@@ -902,16 +797,19 @@ contract CollarVaultManagerTest is Test {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user);
-        uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
+        uuid = manager.openVault(assets, collarOpts, liquidityOpts, withdraw);
     }
 
-    function mintTokensAddLiquidityAndOpenVault() internal returns (bytes32 uuid) {
-        mintTokensToUserAndApproveManager(user1);
-        mintTokensToUserAndApprovePool(user2);
-
-        hoax(user2);
+    function addLiquidityToPoolAsUser(address user) internal {
+        mintTokensToUserAndApprovePool(user);
+        hoax(user);
         pool.addLiquidityToSlot(11_000, 25_000);
-        uuid = openVaultAsUser(user1);
+    }
+
+    function mintTokensAddLiquidityAndOpenVault(bool withdraw) internal returns (bytes32 uuid) {
+        mintTokensToUserAndApproveManager(user1);
+        addLiquidityToPoolAsUser(user2);
+        uuid = openVaultAsUser(user1, withdraw);
     }
 
     function closeVaultUserWinsCase(address user, bytes32 uuid, uint32 timestamp) internal {
