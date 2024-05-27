@@ -499,6 +499,36 @@ contract CollarPoolTest is Test, ICollarPoolState {
         pool.openPosition(keccak256(abi.encodePacked(user1)), 112, 100_000, block.timestamp + 100);
     }
 
+    function test_openPosition_InvalidSlotLiquidityAmount() public {
+        mintTokensAndApprovePool(user1);
+        mintTokensAndApprovePool(address(manager));
+
+        startHoax(user1);
+        pool.addLiquidityToSlot(111, 100_000);
+
+        startHoax(address(manager));
+
+        vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
+        pool.openPosition(keccak256(abi.encodePacked(user1)), 111, 100_001, block.timestamp + 100);
+    }
+
+    function test_finalizePositionNotVaultManager() public {
+        mintTokensAndApprovePool(user1);
+        mintTokensAndApprovePool(user2);
+
+        startHoax(user1);
+        pool.addLiquidityToSlot(111, 100_000);
+
+        startHoax(address(manager));
+        pool.openPosition(keccak256(abi.encodePacked(user1)), 111, 100_000, block.timestamp + 100);
+
+        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+
+        startHoax(user1);
+        vm.expectRevert(ICollarCommonErrors.NotCollarVaultManager.selector);
+        pool.finalizePosition(keccak256(abi.encodePacked(user1)), user2, 100);
+    }
+
     function test_redeem_normal() public {
         mintTokensToUserAndApproveManager(user1);
         mintTokensToUserAndApprovePool(user2);
