@@ -118,7 +118,7 @@ contract CollarEngine is ICollarEngine, Ownable {
 
     // cash assets
 
-    function isSupportedCashAsset(address asset) external view override returns (bool) {
+    function isSupportedCashAsset(address asset) public view override returns (bool) {
         return supportedCashAssets.contains(asset);
     }
 
@@ -132,7 +132,7 @@ contract CollarEngine is ICollarEngine, Ownable {
 
     // collateral assets
 
-    function isSupportedCollateralAsset(address asset) external view override returns (bool) {
+    function isSupportedCollateralAsset(address asset) public view override returns (bool) {
         return supportedCollateralAssets.contains(asset);
     }
 
@@ -188,6 +188,11 @@ contract CollarEngine is ICollarEngine, Ownable {
 
     // asset pricing
 
+    function validateAssetsIsSupported(address token) internal view {
+        bool isSupportedBase = isSupportedCashAsset(token) || isSupportedCollateralAsset(token);
+        if (!isSupportedBase) revert CollateralAssetNotSupported(token);
+    }
+
     function getHistoricalAssetPriceViaTWAP(address baseToken, address quoteToken, uint32 twapStartTimestamp, uint32 twapLength)
         external
         view
@@ -195,12 +200,16 @@ contract CollarEngine is ICollarEngine, Ownable {
         override
         returns (uint256 price)
     {
+        validateAssetsIsSupported(baseToken);
+        validateAssetsIsSupported(quoteToken);
         address uniV3Factory = IPeripheryImmutableState(dexRouter).factory();
         console.log("uniV3Factory: ", uniV3Factory);
         price = CollarOracle.getTWAP(baseToken, quoteToken, twapStartTimestamp, twapLength, uniV3Factory);
     }
 
     function getCurrentAssetPrice(address baseToken, address quoteToken) external view virtual override returns (uint256 price) {
+        validateAssetsIsSupported(baseToken);
+        validateAssetsIsSupported(quoteToken);
         address uniV3Factory = IPeripheryImmutableState(dexRouter).factory();
         console.log("uniV3Factory: ", uniV3Factory);
         /**
