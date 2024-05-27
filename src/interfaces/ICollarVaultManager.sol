@@ -79,8 +79,9 @@ abstract contract ICollarVaultManager is
         // expiry & ltv
         CollarOpts calldata collarOpts,
         // pool address, callstrike & amount to lock there, putstrike
-        LiquidityOpts calldata liquidityOpts
-    ) external virtual returns (bytes32 uuid);
+        LiquidityOpts calldata liquidityOpts,
+        bool withdrawLoan
+    ) public virtual returns (bytes32 uuid);
 
     /// @notice Closes a vault - expiry must have passed
     /// @param uuid UUID of the vault to close
@@ -94,5 +95,5 @@ abstract contract ICollarVaultManager is
     /// @notice Withdraws cash from a vault loan
     /// @param uuid UUID of the vault to withdraw from
     /// @param amount Amount of cash to withdraw
-    function withdraw(bytes32 uuid, uint256 amount) external virtual;
+    function withdraw(bytes32 uuid, uint256 amount) public virtual;
 }

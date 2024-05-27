@@ -59,9 +59,9 @@ interface ICollarVaultState {
     struct Vault {
         /* ----- Basic Vault Info ----- */
         bool active;
-        uint256 openedAt;
-        uint256 expiresAt;
-        uint256 duration;
+        uint32 openedAt;
+        uint32 expiresAt;
+        uint32 duration;
         uint256 ltv;
         /* ---- Asset Specific Info ----- */
         address collateralAsset;

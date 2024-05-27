@@ -17,6 +17,7 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 import { CollarEngine } from "./CollarEngine.sol";
 import { CollarVaultManager } from "./CollarVaultManager.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
+import "forge-std/console.sol";
 
 contract CollarPool is ICollarPool, ERC6909TokenSupply {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
@@ -125,10 +126,13 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         IERC20(cashAsset).transferFrom(msg.sender, address(this), amount);
     }
 
-    function withdrawLiquidityFromSlot(uint256 slot, uint256 amount) public virtual override {
-        // verify sender has enough liquidity in slot
-        uint256 liquidity = slots[slot].providers.get(msg.sender);
+    function withdrawLiquidityFromSlot(uint256 slotIndex, uint256 amount) public virtual override {
+        console.log("withdraw liquidity from slot %d , amount  %d", slotIndex, amount);
+        Slot storage slot = slots[slotIndex];
 
+        uint256 liquidity = slot.providers.get(msg.sender);
+
+        // verify sender has enough liquidity in slot
         if (liquidity < amount) {
             revert InvalidAmount();
         }
@@ -137,32 +141,55 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         // redeemLiquidity unchanged
         freeLiquidity -= amount;
         totalLiquidity -= amount;
-
+        _unallocate(slotIndex, msg.sender, amount);
         // If slot has no more liquidity, remove from the initialized list
-        if (slots[slot].liquidity == 0) {
-            initializedSlotIndices.remove(slot);
+        if (slot.liquidity == 0) {
+            initializedSlotIndices.remove(slotIndex);
         }
 
-        emit LiquidityWithdrawn(msg.sender, slot, amount);
+        emit LiquidityWithdrawn(msg.sender, slotIndex, amount);
 
         // finally, transfer the liquidity to the provider
         IERC20(cashAsset).transfer(msg.sender, amount);
     }
 
     function moveLiquidityFromSlot(uint256 sourceSlotIndex, uint256 destinationSlotIndex, uint256 amount) external virtual override {
-        emit LiquidityMoved(msg.sender, sourceSlotIndex, destinationSlotIndex, amount);
-
         // lockedLiquidity unchanged
         // redeemLiquidity unchanged
         // freeLiquidity unchanged
         // totalLiquidity unchanged
 
-        // @TODO: short circuit the below two functions; they transfer tokens OUT of the smart
-        // contract to the msg.sender of this transaction, and then try to pull it back into this
-        // smart contract, which is pretty ******** stupid
+        // withdrawLiquidityFromSlot(sourceSlotIndex, amount);
+        // verify sender has enough liquidity in slot
+        Slot storage sourceSlot = slots[sourceSlotIndex];
+        uint256 liquidity = sourceSlot.providers.get(msg.sender);
+        if (liquidity < amount) {
+            revert InvalidAmount();
+        }
+        _unallocate(sourceSlotIndex, msg.sender, amount);
+        // If slot has no more liquidity, remove from the initialized list
+        if (sourceSlot.liquidity == 0) {
+            initializedSlotIndices.remove(sourceSlotIndex);
+        }
+        // add
+        Slot storage destinationSlot = slots[destinationSlotIndex];
 
-        withdrawLiquidityFromSlot(sourceSlotIndex, amount);
-        addLiquidityToSlot(destinationSlotIndex, amount);
+        // If this slot isn't initialized, add to the initialized list - we're initializing it now
+        if (!_isSlotInitialized(destinationSlotIndex)) {
+            initializedSlotIndices.add(destinationSlotIndex);
+        }
+        if (destinationSlot.providers.contains(msg.sender) || !_isSlotFull(destinationSlotIndex)) {
+            _allocate(destinationSlotIndex, msg.sender, amount);
+        } else {
+            address smallestProvider = _getSmallestProvider(destinationSlotIndex);
+            uint256 smallestAmount = destinationSlot.providers.get(smallestProvider);
+
+            if (smallestAmount > amount) revert NoLiquiditySpace();
+
+            _reAllocate(smallestProvider, destinationSlotIndex, UNALLOCATED_SLOT, smallestAmount);
+            _allocate(destinationSlotIndex, msg.sender, amount);
+        }
+        emit LiquidityMoved(msg.sender, sourceSlotIndex, destinationSlotIndex, amount);
     }
 
     function openPosition(bytes32 uuid, uint256 slotIndex, uint256 amount, uint256 expiration) external override {

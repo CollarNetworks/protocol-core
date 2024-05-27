@@ -28,13 +28,13 @@ import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 // WMatic / USDC UniV3 Pool - - - - 0x2DB87C4831B2fec2E35591221455834193b50D1B
 // Polygon Static Oracle Address  - 0xB210CE856631EeEB767eFa666EC7C1C57738d438
 
-contract CollarOpenVaultIntegrationTest is Test {
+contract CollarOpenVaultAndWithdrawIntegrationTest is Test {
     address user = makeAddr("user1"); // the person who will be opening a vault
     address provider = makeAddr("user2"); // the person who will be providing liquidity
     address swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
     address WMaticAddress = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
-
     address USDCAddress = address(0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359);
+    address polygonStaticOracleAddress = address(0xB210CE856631EeEB767eFa666EC7C1C57738d438);
 
     IERC20 WMatic = IERC20(WMaticAddress);
     IERC20 USDC = IERC20(USDCAddress);
@@ -72,7 +72,7 @@ contract CollarOpenVaultIntegrationTest is Test {
         vm.createSelectFork(forkRPC, 55_850_000);
         assertEq(block.number, 55_850_000);
 
-        engine = new CollarEngine(swapRouterAddress);
+        engine = new CollarEngine(swapRouterAddress, polygonStaticOracleAddress);
         engine.addLTV(9000);
 
         pool = new CollarPool(address(engine), 100, USDCAddress, WMaticAddress, 1 days, 9000);
@@ -132,7 +132,7 @@ contract CollarOpenVaultIntegrationTest is Test {
         assertEq(pool.getLiquidityForSlot(115), 11_000e6);
     }
 
-    function test_openVault() public {
+    function test_openVaultAndWithdraw() public {
         ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
             collateralAsset: WMaticAddress,
             collateralAmount: 1000 ether,
@@ -146,12 +146,12 @@ contract CollarOpenVaultIntegrationTest is Test {
             ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
 
         startHoax(user);
-
-        vaultManager.openVault(assets, collarOpts, liquidityOpts, false);
+        uint256 initialUserCashBalance = USDC.balanceOf(user);
+        vaultManager.openVault(assets, collarOpts, liquidityOpts, true);
         bytes32 uuid = vaultManager.getVaultUUID(0);
         bytes memory rawVault = vaultManager.vaultInfo(uuid);
         ICollarVaultState.Vault memory vault = abi.decode(rawVault, (ICollarVaultState.Vault));
-
+        uint256 userCashBalance = USDC.balanceOf(user);
         console.log("-- Vault Opened --");
         console.log("");
         console.log(" BASIC INFO ");
@@ -180,6 +180,9 @@ contract CollarOpenVaultIntegrationTest is Test {
         console.log("Loan Balance:              ", vault.loanBalance);
         console.log("Locked Vault Cash:         ", vault.lockedVaultCash);
         console.log("");
+        console.log("USER CASH INFO");
+        console.log("Initial Cash Balance ", initialUserCashBalance);
+        console.log("Cash Balance after open vault and withdraw loan", userCashBalance);
 
         // check basic vault info
         assertEq(vault.active, true);
@@ -205,7 +208,11 @@ contract CollarOpenVaultIntegrationTest is Test {
         assertEq(vault.callStrikePrice, 813_454); // same math for callstrike price, just using 1.1 instead
 
         // check vault specific stuff
-        assertEq(vault.loanBalance, 665_554_499); // the vault loan balance should be 0.9 * cashAmount
+        assertEq(vault.loanBalance, 0); // the vault loan balance should be 0 (all has been withdrawn)
         assertEq(vault.lockedVaultCash, 73_950_499); // the vault locked balance should be 0.1 * cashAmount
+
+        // check user cash asset
+
+        assertEq(userCashBalance, initialUserCashBalance + 665_554_499); // the user cash balance should be (userInitialBalance + (0.9 * cashAmount))
     }
 }

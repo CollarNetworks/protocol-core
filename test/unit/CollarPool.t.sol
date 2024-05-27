@@ -75,7 +75,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         vm.label(address(engine), "CollarEngine");
     }
 
-    function mintTokensAndApprovePool(address recipient) internal {
+    function mintTokensAndApprovePool(address recipient) public {
         startHoax(recipient);
         cashAsset.mint(recipient, 100_000 ether);
         collateralAsset.mint(recipient, 100_000 ether);
@@ -84,7 +84,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         vm.stopPrank();
     }
 
-    function mintTokensToUserAndApprovePool(address user) internal {
+    function mintTokensToUserAndApprovePool(address user) public {
         startHoax(user);
         cashAsset.mint(user, 100_000 ether);
         collateralAsset.mint(user, 100_000 ether);
@@ -93,7 +93,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         vm.stopPrank();
     }
 
-    function mintTokensToUserAndApproveManager(address user) internal {
+    function mintTokensToUserAndApproveManager(address user) public {
         startHoax(user);
         cashAsset.mint(user, 100_000 ether);
         collateralAsset.mint(user, 100_000 ether);
@@ -181,25 +181,29 @@ contract CollarPoolTest is Test, ICollarPoolState {
         assertEq(iSlots[1], 222);
 
         // remove liquidity from one slot, and then query again, should return 1 slot
+        uint256 userBalanceBefore = cashAsset.balanceOf(user1);
+        uint256 slotLiquidityBefore = pool.getLiquidityForSlot(111);
+        console.log("slotLiquidityBefore: ", slotLiquidityBefore);
+        console.log("userBalanceBefore: ", userBalanceBefore);
         hoax(user1);
         pool.withdrawLiquidityFromSlot(111, 1000);
-
+        uint256 userBalanceAfter = cashAsset.balanceOf(user1);
+        uint256 slotLiquidityAfter = pool.getLiquidityForSlot(111);
+        console.log("slotLiquidityAfter: ", slotLiquidityAfter);
+        console.log("userBalanceAfter: ", userBalanceAfter);
         iSlots = pool.getInitializedSlotIndices();
 
-        // length stays the same
-        assertEq(iSlots.length, 2);
-        assertEq(iSlots[0], 111);
-        assertEq(iSlots[1], 222);
+        // length get reduced by 1 (all liquidity from slot 111 gets removed )
+        assertEq(iSlots.length, 1);
+        assertEq(iSlots[0], 222);
 
-        // remove liquidity from the other slot, and then query again, should return 1 slot
+        // remove liquidity from the other slot, and then query again, should return no slots
         hoax(user2);
         pool.withdrawLiquidityFromSlot(222, 2000);
 
         // length stays the same
         iSlots = pool.getInitializedSlotIndices();
-        assertEq(iSlots.length, 2);
-        assertEq(iSlots[0], 111);
-        assertEq(iSlots[1], 222);
+        assertEq(iSlots.length, 0);
     }
 
     function test_addLiquidity_FillEntireSlot() public {
@@ -333,20 +337,28 @@ contract CollarPoolTest is Test, ICollarPoolState {
         startHoax(user1);
 
         pool.addLiquidityToSlot(111, 25_000);
+        uint256 userBalanceBefore = cashAsset.balanceOf(user1);
+        uint256 slotLiquidityBefore = pool.getLiquidityForSlot(111);
+        console.log("slotLiquidityBefore: ", slotLiquidityBefore);
+        console.log("userBalanceBefore: ", userBalanceBefore);
         pool.withdrawLiquidityFromSlot(111, 10_000);
 
-        assertEq(pool.getLiquidityForSlot(111), 25_000);
+        uint256 userBalanceAfter = cashAsset.balanceOf(user1);
+        uint256 slotLiquidityAfter = pool.getLiquidityForSlot(111);
+        console.log("slotLiquidityAfter: ", slotLiquidityAfter);
+        console.log("userBalanceAfter: ", userBalanceAfter);
+        assertEq(pool.getLiquidityForSlot(111), 15_000);
 
         uint256 liquidity = pool.getLiquidityForSlot(111);
         uint256 providerLength = pool.getNumProvidersInSlot(111);
 
-        assertEq(liquidity, 25_000);
+        assertEq(liquidity, 15_000);
         assertEq(providerLength, 1);
 
         (address provider0, uint256 liquidity0) = pool.getSlotProviderInfoAtIndex(111, 0);
 
         assertEq(provider0, user1);
-        assertEq(liquidity0, 25_000);
+        assertEq(liquidity0, 15_000);
 
         vm.stopPrank();
     }
@@ -379,15 +391,15 @@ contract CollarPoolTest is Test, ICollarPoolState {
         pool.addLiquidityToSlot(111, 25_000);
         pool.moveLiquidityFromSlot(111, 222, 10_000);
 
-        assertEq(pool.getLiquidityForSlot(111), 25_000);
+        assertEq(pool.getLiquidityForSlot(111), 15_000);
         assertEq(pool.getLiquidityForSlot(222), 10_000);
 
-        assertEq(pool.getSlotProviderInfoForAddress(111, user1), 25_000);
+        assertEq(pool.getSlotProviderInfoForAddress(111, user1), 15_000);
         assertEq(pool.getSlotProviderInfoForAddress(222, user1), 10_000);
 
         pool.moveLiquidityFromSlot(111, 222, 15_000);
 
-        assertEq(pool.getLiquidityForSlot(111), 25_000);
+        assertEq(pool.getLiquidityForSlot(111), 0);
         assertEq(pool.getLiquidityForSlot(222), 25_000);
 
         assertEq(pool.getSlotProviderInfoForAddress(222, user1), 25_000);
@@ -510,7 +522,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         startHoax(user1);
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
         bytes memory vaultInfo = manager.vaultInfo(uuid);
         ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
@@ -623,7 +635,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
         bytes memory vaultInfo = manager.vaultInfo(uuid);
 
@@ -673,7 +685,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts);
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
         bytes memory vaultInfo = manager.vaultInfo(uuid);
 
@@ -703,5 +715,63 @@ contract CollarPoolTest is Test, ICollarPoolState {
         pool.openPosition(keccak256(abi.encodePacked(user1)), 111, 100_000, block.timestamp + 100);
 
         ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+    }
+
+    function test_previewRedeem_InvalidAmount() public {
+        mintTokensAndApprovePool(user1);
+        mintTokensAndApprovePool(user2);
+        mintTokensAndApprovePool(address(manager));
+
+        hoax(user1);
+
+        pool.addLiquidityToSlot(110, 100_000);
+
+        hoax(address(manager));
+
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
+
+        startHoax(user1);
+
+        collateralAsset.approve(address(manager), 100_000 ether);
+
+        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
+            collateralAsset: address(collateralAsset),
+            collateralAmount: 100,
+            cashAsset: address(cashAsset),
+            cashAmount: 100
+        });
+
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+
+        ICollarVaultState.LiquidityOpts memory liquidityOpts =
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
+
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
+
+        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
+
+        bytes memory vaultInfo = manager.vaultInfo(uuid);
+
+        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+
+        startHoax(user1);
+
+        skip(101);
+
+        engine.setHistoricalAssetPrice(address(collateralAsset), vault.expiresAt, 0.5e18);
+
+        manager.closeVault(uuid);
+
+        vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
+        pool.previewRedeem(uuid, 11);
+    }
+
+    function test_constructor() public {
+        CollarPool testPool = new CollarPool(address(engine), 100, address(cashAsset), address(collateralAsset), 100, 9000);
+        assertEq(testPool.engine(), address(engine));
+        assertEq(testPool.cashAsset(), address(cashAsset));
+        assertEq(testPool.collateralAsset(), address(collateralAsset));
+        assertEq(testPool.duration(), 100);
+        assertEq(testPool.ltv(), 9000);
     }
 }
