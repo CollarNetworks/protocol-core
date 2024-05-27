@@ -111,9 +111,9 @@ contract CollarVaultManager is ICollarVaultManager {
 
         // set Basic Vault Info
         vaultsByUUID[uuid].active = true;
-        vaultsByUUID[uuid].openedAt = block.timestamp;
-        vaultsByUUID[uuid].expiresAt = block.timestamp + collarOpts.duration;
-        vaultsByUUID[uuid].duration = collarOpts.duration;
+        vaultsByUUID[uuid].openedAt = uint32(block.timestamp);
+        vaultsByUUID[uuid].expiresAt = uint32(block.timestamp + collarOpts.duration);
+        vaultsByUUID[uuid].duration = uint32(collarOpts.duration);
         vaultsByUUID[uuid].ltv = collarOpts.ltv;
 
         // set Asset Specific Info
@@ -200,12 +200,8 @@ contract CollarVaultManager is ICollarVaultManager {
         console.log("Vault expiration timestamp: ", vault.expiresAt);
         console.log("Current timestamp: ", block.timestamp);
 
-        uint256 finalPrice = CollarEngine(engine).getHistoricalAssetPriceViaTWAP(
-            vault.collateralAsset,
-            vault.cashAsset,
-            uint32(vault.expiresAt), // @todo convert the vault data object to be a uint32 instead of a uint256, then we don't have to cast here
-            15 minutes
-        );
+        uint256 finalPrice =
+            CollarEngine(engine).getHistoricalAssetPriceViaTWAP(vault.collateralAsset, vault.cashAsset, vault.expiresAt, 15 minutes);
 
         if (finalPrice == 0) revert InvalidAssetPrice();
 
