@@ -58,7 +58,7 @@ contract DeployInitializedDevnetProtocol is Script {
         cashTestToken = address(new TestERC20("CashTestToken", "CSH-TST"));
         collateralTestToken = address(new TestERC20("CollateralTestToken", "COL-TST"));
         router = address(new MockUniRouter());
-        engine = address(new MockEngine(router, address(0xDEAD)));
+        engine = address(new MockEngine(router));
         CollarEngine(engine).addLTV(9000);
 
         oneDayPool = address(new CollarPool(engine, 1, cashTestToken, collateralTestToken, 1 days, 9000));

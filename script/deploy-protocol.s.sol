@@ -42,7 +42,7 @@ contract DeployEmptyProtocol is Script {
         cashTestToken = address(new TestERC20("CashTestToken", "CSH-TST"));
         collateralTestToken = address(new TestERC20("CollateralTestToken", "COL-TST"));
         router = address(new MockUniRouter());
-        engine = address(new MockEngine(router, address(0xDEAD)));
+        engine = address(new MockEngine(router));
         pool = address(new CollarPool(engine, 1, cashTestToken, collateralTestToken, 100, 9000));
 
         multicall3 = address(new Multicall3());
@@ -103,7 +103,7 @@ contract DeployInitializedProtocol is Script {
         cashTestToken = address(new TestERC20("CashTestToken", "CSH-TST"));
         collateralTestToken = address(new TestERC20("CollateralTestToken", "COL-TST"));
         router = address(new MockUniRouter());
-        engine = address(new MockEngine(router, address(0xDEAD)));
+        engine = address(new MockEngine(router));
         pool = address(new CollarPool(engine, 1, cashTestToken, collateralTestToken, 100, 9000));
 
         multicall3 = address(new Multicall3());

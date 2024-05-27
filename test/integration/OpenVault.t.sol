@@ -33,8 +33,8 @@ contract CollarOpenVaultIntegrationTest is Test {
     address provider = makeAddr("user2"); // the person who will be providing liquidity
     address swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
     address WMaticAddress = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
+
     address USDCAddress = address(0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359);
-    address polygonStaticOracleAddress = address(0xB210CE856631EeEB767eFa666EC7C1C57738d438);
 
     IERC20 WMatic = IERC20(WMaticAddress);
     IERC20 USDC = IERC20(USDCAddress);
@@ -72,7 +72,7 @@ contract CollarOpenVaultIntegrationTest is Test {
         vm.createSelectFork(forkRPC, 55_850_000);
         assertEq(block.number, 55_850_000);
 
-        engine = new CollarEngine(swapRouterAddress, polygonStaticOracleAddress);
+        engine = new CollarEngine(swapRouterAddress);
         engine.addLTV(9000);
 
         pool = new CollarPool(address(engine), 100, USDCAddress, WMaticAddress, 1 days, 9000);

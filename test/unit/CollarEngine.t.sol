@@ -37,7 +37,8 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         token1 = new TestERC20("Test1", "TST1");
         token2 = new TestERC20("Test2", "TST2");
         router = new MockUniRouter();
-        engine = new CollarEngine(address(router), address(0xDEAD));
+
+        engine = new CollarEngine(address(router));
         manager = CollarVaultManager(engine.createVaultManager());
 
         engine.addLTV(9000);
@@ -54,7 +55,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         vm.stopPrank();
     }
 
-    function test_deploymentAndDeployParams() public {
+    function test_deploymentAndDeployParams() public view {
         assertEq(address(engine.dexRouter()), address(router));
         assertEq(engine.owner(), address(this));
     }
@@ -195,9 +196,8 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
     }
 
     function test_getCurrentAssetPrice_InvalidAsset() public {
-        // todo fix
-        //vm.expectRevert();//abi.encodeWithSelector(AssetNotSupported.selector, address(token1)));
-        //engine.getCurrentAssetPrice(address(token1));
+        vm.expectRevert();
+        engine.getCurrentAssetPrice(address(token1), address(token2));
     }
 
     function test_createVaultManager() public {
@@ -257,7 +257,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
         vm.stopPrank();
     }
 
-    function testFail_getVaultManager() public {
+    function testFail_getVaultManager() public view {
         address vaultManager = engine.getVaultManager(1);
     }
 
@@ -312,10 +312,5 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
     function test_getValidLTV() public {
         engine.addLTV(8000);
         assertEq(engine.getValidLTV(1), 8000);
-    }
-
-    function test_getCurrentAssetPrice() public {
-        vm.expectRevert("Method not yet implemented");
-        engine.getCurrentAssetPrice(address(token1));
     }
 }

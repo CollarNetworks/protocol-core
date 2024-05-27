@@ -13,14 +13,15 @@ import { ICollarEngineEvents } from "../interfaces/events/ICollarEngineEvents.so
 import { CollarPool } from "./CollarPool.sol";
 import { CollarVaultManager } from "./CollarVaultManager.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { IStaticOracle } from "@mean-finance/interfaces/IStaticOracle.sol";
+import { CollarOracle } from "../libs/CollarLibs.sol";
+import { IPeripheryImmutableState } from "@uni-v3-periphery/interfaces/IPeripheryImmutableState.sol";
 import "forge-std/console.sol";
 
 contract CollarEngine is ICollarEngine, Ownable {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;
 
-    constructor(address _dexRouter, address _staticOracle) ICollarEngine(_dexRouter, _staticOracle) Ownable(msg.sender) { }
+    constructor(address _dexRouter) ICollarEngine(_dexRouter) Ownable(msg.sender) { }
 
     // ----- state-changing functions (see ICollarEngine for documentation) -----
 
@@ -117,7 +118,7 @@ contract CollarEngine is ICollarEngine, Ownable {
 
     // cash assets
 
-    function isSupportedCashAsset(address asset) external view override returns (bool) {
+    function isSupportedCashAsset(address asset) public view override returns (bool) {
         return supportedCashAssets.contains(asset);
     }
 
@@ -131,7 +132,7 @@ contract CollarEngine is ICollarEngine, Ownable {
 
     // collateral assets
 
-    function isSupportedCollateralAsset(address asset) external view override returns (bool) {
+    function isSupportedCollateralAsset(address asset) public view override returns (bool) {
         return supportedCollateralAssets.contains(asset);
     }
 
@@ -187,43 +188,33 @@ contract CollarEngine is ICollarEngine, Ownable {
 
     // asset pricing
 
-    function getHistoricalAssetPriceViaTWAP(address baseToken, address quoteToken, uint32 twapEndTimestamp, uint32 twapLength)
+    function validateAssetsIsSupported(address token) internal view {
+        bool isSupportedBase = isSupportedCashAsset(token) || isSupportedCollateralAsset(token);
+        if (!isSupportedBase) revert CollateralAssetNotSupported(token);
+    }
+
+    function getHistoricalAssetPriceViaTWAP(address baseToken, address quoteToken, uint32 twapStartTimestamp, uint32 twapLength)
         external
         view
         virtual
         override
-        returns (uint256)
+        returns (uint256 price)
     {
-        // @TODO replace this with parameter data
-        uint24[] memory feeTiers = new uint24[](1);
-        feeTiers[0] = 3000;
-
-        // Calculate *how long ago* the timestamp passed in as a parameter is,
-        // so that we can use this in the "offset" part
-        // First, we calculate what the offset is to the *end* of the twap (aka offset to timeStampStart)
-        // THEN, we factor in the twapLength to the timestamp that we actually want to start the twap from
-        uint32 offset = (uint32(block.timestamp) - twapEndTimestamp) + twapLength;
-        console.log("Offset calculated as ", offset);
-
-        (uint256 amountReceived,) = IStaticOracle(staticOracle).quoteSpecificFeeTiersWithOffsettedTimePeriod(
-            1e18, // amount of token we're getting the price of
-            baseToken, // token we're getting the price of
-            quoteToken, // token we want to know how many of we'd get
-            feeTiers, // fee tier(s) of the pool we're going to get the quote from
-            twapLength, // how long the twap should be
-            offset // how long ago to *start* the twap period
-        );
-
-        console.log("baseToken is ", baseToken);
-        console.log("quoteToken is ", quoteToken);
-        console.log("timeStampStart is ", twapEndTimestamp);
-        console.log("twapLength is ", twapLength);
-        console.log("Amount baseToken received for 1e18 quoteToken: ", amountReceived);
-
-        return amountReceived;
+        validateAssetsIsSupported(baseToken);
+        validateAssetsIsSupported(quoteToken);
+        address uniV3Factory = IPeripheryImmutableState(dexRouter).factory();
+        console.log("uniV3Factory: ", uniV3Factory);
+        price = CollarOracle.getTWAP(baseToken, quoteToken, twapStartTimestamp, twapLength, uniV3Factory);
     }
 
-    function getCurrentAssetPrice(address /*asset*/ ) external view virtual override returns (uint256) {
-        revert("Method not yet implemented");
+    function getCurrentAssetPrice(address baseToken, address quoteToken) external view virtual override returns (uint256 price) {
+        validateAssetsIsSupported(baseToken);
+        validateAssetsIsSupported(quoteToken);
+        address uniV3Factory = IPeripheryImmutableState(dexRouter).factory();
+        console.log("uniV3Factory: ", uniV3Factory);
+        /**
+         * @dev pass in 0,0 to get price at current tick
+         */
+        price = CollarOracle.getTWAP(baseToken, quoteToken, 0, 0, uniV3Factory);
     }
 }

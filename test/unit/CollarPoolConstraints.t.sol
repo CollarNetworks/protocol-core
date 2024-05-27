@@ -41,7 +41,7 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
         collateralAsset = new TestERC20("Test2", "TST2");
 
         router = new MockUniRouter();
-        engine = new MockEngine(address(router), address(0xDEAD));
+        engine = new MockEngine(address(router));
 
         cashAsset.mint(address(router), 100_000 ether);
         collateralAsset.mint(address(router), 100_000 ether);

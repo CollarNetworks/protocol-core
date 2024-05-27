@@ -22,8 +22,6 @@ import { Multicall3 } from "../lib/other/multicall3.sol";
 // Polygon Static Oracle Address - 0xB210CE856631EeEB767eFa666EC7C1C57738d438
 
 contract DeployWithUniswapIntegrationOnPolygonFork is Script {
-    address polygonStaticOracleAddress = 0xB210CE856631EeEB767eFa666EC7C1C57738d438;
-
     address cashTestToken;
     address collateralTestToken;
 
@@ -50,7 +48,7 @@ contract DeployWithUniswapIntegrationOnPolygonFork is Script {
         cashTestToken = address(new TestERC20("CashTestToken", "CSH-TST"));
         collateralTestToken = address(new TestERC20("CollateralTestToken", "COL-TST"));
         router = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
-        engine = address(new CollarEngine(router, polygonStaticOracleAddress));
+        engine = address(new CollarEngine(router));
 
         CollarEngine(engine).addLTV(9000);
 

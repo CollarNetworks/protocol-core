@@ -11,14 +11,11 @@ import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 import "forge-std/console.sol";
 
 contract PrintVaultStatsHelper {
+// function printVaultStats(ICollarVaultState _vault) external {
 
-    function printVaultStats(ICollarVaultState _vault) external {
+// }
 
-    }
-
-
-    function getVaultDiffA(ICollarVaultState _vault) external(uint256) {
-        
-    }
-
+// function getVaultDiffA(ICollarVaultState _vault) external(uint256) {
+//     return 0;
+// }
 }
