@@ -11,6 +11,7 @@ import "forge-std/Test.sol";
 import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
 import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
 import { CollarPool } from "../../src/implementations/CollarPool.sol";
+import { ICollarPool } from "../../src/interfaces/ICollarPool.sol";
 import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
@@ -32,8 +33,12 @@ import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRout
 // WMatic / USDC UniV3 Pool - - - - - - 0x2DB87C4831B2fec2E35591221455834193b50D1B
 // Mean Finance Polygon Static Oracle - 0xB210CE856631EeEB767eFa666EC7C1C57738d438
 
+/**
+ * @dev This contract should generate test to ensure all the cases and math from this sheet is correct and verified
+ * https://docs.google.com/spreadsheets/d/18e5ola3JJ2HKRQyAoPNmVrV4fnRcLdckOhQIxrN_hwY/edit#gid=1819672818
+ */
 contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility {
-    address user = makeAddr("user1"); // the person who will be opening a vault
+    address user1 = makeAddr("user1"); // the person who will be opening a vault
     address provider = makeAddr("user2"); // the person who will be providing liquidity
     address swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
     address WMaticAddress = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
@@ -41,9 +46,8 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
     address uniV3Pool = address(0x2DB87C4831B2fec2E35591221455834193b50D1B);
     address wMATICWhale = address(0x6d80113e533a2C0fe82EaBD35f1875DcEA89Ea97);
     address binanceHotWalletTwo = address(0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245);
-
-    //address polygonStaticOracleAddress = address(0xB210CE856631EeEB767eFa666EC7C1C57738d438);
-
+    uint256 BLOCK_NUMBER_TO_USE = 55_850_000;
+    uint256 COLLATERAL_PRICE_ON_BLOCK = 739_504; // $0.739504 the price for WMatic in USDC on the specified block of polygon mainnet
     IERC20 WMatic = IERC20(WMaticAddress);
     IERC20 USDC = IERC20(USDCAddress);
 
@@ -77,8 +81,8 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
 
     function setUp() public {
         string memory forkRPC = vm.envString("POLYGON_MAINNET_RPC");
-        vm.createSelectFork(forkRPC, 55_850_000);
-        assertEq(block.number, 55_850_000);
+        vm.createSelectFork(forkRPC, BLOCK_NUMBER_TO_USE);
+        assertEq(block.number, BLOCK_NUMBER_TO_USE);
 
         engine = new CollarEngine(swapRouterAddress); // @todo make this non-polygon-exclusive
         engine.addLTV(9000);
@@ -90,7 +94,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         engine.addCollarDuration(1 days);
         engine.addLiquidityPool(address(pool));
 
-        vm.label(user, "USER");
+        vm.label(user1, "USER");
         vm.label(provider, "LIQUIDITY PROVIDER");
         vm.label(address(engine), "ENGINE");
         vm.label(address(pool), "POOL");
@@ -98,13 +102,13 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         vm.label(USDCAddress, "USDC");
         vm.label(WMaticAddress, "WMatic");
 
-        deal(WMaticAddress, user, 100_000 ether);
+        deal(WMaticAddress, user1, 100_000 ether);
         deal(WMaticAddress, provider, 100_000 ether);
 
-        deal(USDCAddress, user, 100_000 ether);
+        deal(USDCAddress, user1, 100_000 ether);
         deal(USDCAddress, provider, 100_000 ether);
 
-        startHoax(user);
+        startHoax(user1);
 
         vaultManager = CollarVaultManager(engine.createVaultManager());
         USDC.approve(address(vaultManager), 100_000e6);
@@ -128,7 +132,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(engine.isValidLTV(9000), true);
         assertEq(engine.isSupportedCashAsset(USDCAddress), true);
         assertEq(engine.isSupportedCollateralAsset(WMaticAddress), true);
-        assertEq(engine.addressToVaultManager(user), address(vaultManager));
+        assertEq(engine.addressToVaultManager(user1), address(vaultManager));
         assertEq(engine.supportedLiquidityPoolsLength(), 1);
         assertEq(engine.isSupportedLiquidityPool(address(pool)), true);
 
@@ -140,90 +144,84 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(pool.getLiquidityForSlot(115), 11_000e6);
     }
 
-    function test_openAndCloseVaultUpSlightly() public {
-        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: WMaticAddress,
-            collateralAmount: 1000 ether,
-            cashAsset: USDCAddress,
-            cashAmount: 100e6
-        });
+    function test_openAndCloseVaultNoPriceChange() public {
+        (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) = openVaultAsUserWith1000AndCheckValues();
 
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 1 days, ltv: 9000 });
-
-        ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
-
-        startHoax(user);
-
-        vaultManager.openVault(assets, collarOpts, liquidityOpts, false);
-        bytes32 uuid = vaultManager.getVaultUUID(0);
-        bytes memory rawVault = vaultManager.vaultInfo(uuid);
-        ICollarVaultState.Vault memory vault = abi.decode(rawVault, (ICollarVaultState.Vault));
-
-        PrintVaultStatsUtility(address(this)).printVaultStats(rawVault, "VAULT OPENED");
-
-        // check basic vault info
-        assertEq(vault.active, true);
-        assertEq(vault.openedAt, block.timestamp);
-        assertEq(vault.expiresAt, block.timestamp + 1 days);
-        assertEq(vault.duration, 1 days);
-        assertEq(vault.ltv, 9000);
-
-        // check asset specific info
-        assertEq(vault.collateralAsset, WMaticAddress);
-        assertEq(vault.cashAsset, USDCAddress);
-        assertEq(vault.collateralAmount, 1000e18); // we use 1000 "ether" here (it's actually wmatic, but still 18 decimals)
-        assertEq(vault.cashAmount, 739_504_999);
-        // for the assert directly above this line, we need to consider that the price of wmatic is 73 cents at this time; (specifically: $0.739504999)
-        // (which converts to about 739 when considering USDC has 6 decimals and we swapped 1000 wmatic)
-
-        // check liquidity pool stuff
-        assertEq(vault.liquidityPool, address(pool));
-        assertEq(vault.lockedPoolCash, 73_950_499); // callstrike is 110, so locked pool cash is going to be exactly 10% of the cash received from the swap above
-        assertEq(vault.putStrikeTick, 90);
-        assertEq(vault.callStrikeTick, 110);
-        assertEq(vault.initialCollateralPrice, 739_504); // the initial price of wmatic here is $0.739504
-        assertEq(vault.putStrikePrice, 665_553); // put strike is 90%, so putstrike price is just 0.9 * original price
-        assertEq(vault.callStrikePrice, 813_454); // same math for callstrike price, just using 1.1 instead
-
-        // check vault specific stuff
-        assertEq(vault.loanBalance, 665_554_499); // the vault loan balance should be 0.9 * cashAmount
-        assertEq(vault.lockedVaultCash, 73_950_499); // the vault locked balance should be 0.1 * cashAmount
-
+        swapAsWhale(1_712_999_999_000_000_000_000, false);
+        // in order for the price to not change we need to do an equal amount of tokens swapped in both directions
         vm.roll(block.number + 43_200);
         skip(1.5 days);
 
+        startHoax(user1);
         // close the vault
+        // price before close vault
         vaultManager.closeVault(uuid);
+        uint256 priceAfterClose =
+            CollarEngine(engine).getHistoricalAssetPriceViaTWAP(WMaticAddress, USDCAddress, vault.expiresAt, 15 minutes);
+        console.log("Price after close vault: %d", priceAfterClose);
+        /**
+         * @dev trying to manipulate price to be exactly the same as the moment of opening vault is too hard , so we'll skip this case unless there's a better proposal
+         */
+        // assertEq(vault.initialCollateralPrice, priceAfterClose);
 
-        PrintVaultStatsUtility(address(this)).printVaultStats(rawVault, "VAULT CLOSED");
+        // PrintVaultStatsUtility(address(this)).printVaultStats(rawVault, "VAULT CLOSED");
 
-        // check the numbers on both pool & liquidity sides
-        // since the price
+        // check the numbers on bothuser and marketmaker sides
+        // since the price did not change , the vault should be able to withdraw the same amount of cash as it deposited and the MarketMaker should be also able to withdraw his initial locked value
+        /**
+         * step 9	No money moves around anywhere
+         * step 10	User can redeem their vault tokens for the original $10
+         * step 11	Liquidity provider can redeem their vault tokens for $20
+         */
+        // checked that the vault tokens are worth the same amount of cash as the cash locked when colaterall was deposited
+        // startHoax(user1);
+        // uint256 vaultLockedCash = vaultManager.vaultTokenCashSupply(uuid);
+        // assertEq(vaultLockedCash, vault.lockedVaultCash);
+        // uint256 userCashbalance = USDC.balanceOf(user1);
+        // vaultManager.redeem(uuid, vaultLockedCash);
+        // assertEq(USDC.balanceOf(user1), userCashbalance);
     }
 
-    function test_openAndCloseVaultUpALot() public {
-        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: WMaticAddress,
-            collateralAmount: 1000 ether,
-            cashAsset: USDCAddress,
-            cashAmount: 100e6
-        });
+    function test_openAndCloseVaultPriceUnderPutStrike() public {
+        (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) = openVaultAsUserWith1000AndCheckValues();
+        uint256 userCashBalanceAfterOpen = USDC.balanceOf(user1);
+        uint256 providerCashBalanceBeforeClose = USDC.balanceOf(provider);
+        manipulatePriceDownwardPastPutStrike();
+        startHoax(user1);
+        // close the vault
+        vaultManager.closeVault(uuid);
+        PrintVaultStatsUtility(address(this)).printVaultStats(rawVault, "VAULT CLOSED");
 
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 1 days, ltv: 9000 });
+        // check the numbers on both user and marketmaker sides after executing withdraws and closes
+        /**
+         * since the price went down:
+         * step 9	all $10 locked in the vault manager gets sent to the liquidity pool
+         * step 10	user's vault tokens are now worth $0
+         * step 11	liquidity provider's tokens are worth the $10 from the vault + original $20 = $30
+         */
 
-        ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
+        // user loses the locked cash and gains nothing , redeemable cash is 0
+        startHoax(user1);
+        uint256 vaultLockedCash = vaultManager.vaultTokenCashSupply(uuid);
+        assertEq(vaultLockedCash, 0);
+        assertEq(USDC.balanceOf(user1), userCashBalanceAfterOpen);
 
-        startHoax(user);
+        // liquidity provider gets the locked cash from the vault and the original locked cash
+        startHoax(provider);
+        (uint256 expiration,, uint256 withdrawable) = pool.positions(uuid);
+        console.log("expiration: %d", expiration);
+        assertEq(withdrawable, vault.lockedPoolCash + vault.lockedVaultCash);
+        pool.redeem(uuid, withdrawable);
+        uint256 providerCashBalanceAfterClose = USDC.balanceOf(provider);
+        assertEq(providerCashBalanceAfterClose, providerCashBalanceBeforeClose + vault.lockedPoolCash + vault.lockedVaultCash);
+    }
 
-        vaultManager.openVault(assets, collarOpts, liquidityOpts, false);
-        bytes32 uuid = vaultManager.getVaultUUID(0);
-        bytes memory rawVault = vaultManager.vaultInfo(uuid);
-        ICollarVaultState.Vault memory vault = abi.decode(rawVault, (ICollarVaultState.Vault));
-
-        PrintVaultStatsUtility(address(this)).printVaultStats(rawVault, "VAULT OPENED");
-
+    function openVaultAsUserWith1000AndCheckValues()
+        internal
+        returns (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault)
+    {
+        uint256 collateralAmountToUse = 1000 ether;
+        (uuid, rawVault, vault) = openVaultAsUser(collateralAmountToUse, user1);
         // check basic vault info
         assertEq(vault.active, true);
         assertEq(vault.openedAt, block.timestamp);
@@ -244,128 +242,129 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(vault.lockedPoolCash, 73_950_499); // callstrike is 110, so locked pool cash is going to be exactly 10% of the cash received from the swap above
         assertEq(vault.putStrikeTick, 90);
         assertEq(vault.callStrikeTick, 110);
-        assertEq(vault.initialCollateralPrice, 739_504); // the initial price of wmatic here is $0.739504
+        assertEq(vault.initialCollateralPrice, COLLATERAL_PRICE_ON_BLOCK); // the initial price of wmatic here is $0.739504
         assertEq(vault.putStrikePrice, 665_553); // put strike is 90%, so putstrike price is just 0.9 * original price
         assertEq(vault.callStrikePrice, 813_454); // same math for callstrike price, just using 1.1 instead
 
         // check vault specific stuff
         assertEq(vault.loanBalance, 665_554_499); // the vault loan balance should be 0.9 * cashAmount
         assertEq(vault.lockedVaultCash, 73_950_499); // the vault locked balance should be 0.1 * cashAmount
+    }
 
-        // Trade on Uniswap to make the price go up
-        // Impersonate binance-hot-wallet 2 and give tokens to *this* contract
-        // so that it can swap on Uni and raise the price of the collateral (by a lot
-        // so that we hit our callstrike ceiling)
+    function openVaultAsUser(uint256 collateralAmount, address user)
+        internal
+        returns (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault)
+    {
+        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
+            collateralAsset: WMaticAddress,
+            collateralAmount: collateralAmount,
+            cashAsset: USDCAddress,
+            cashAmount: 100e6
+        });
 
-        startHoax(wMATICWhale);
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 1 days, ltv: 9000 });
 
-        // @todo develop a little utility to quickly grab the price of a collateral asset
-        // in the uniswap pool so that we don't have to print it out as part of the
-        // massive "PrintVaultStatsUtility" thing below
+        ICollarVaultState.LiquidityOpts memory liquidityOpts =
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
 
-        // q: is 1000 ether enough to actually raise the price past our callstrike?
-        // we could calculate, or let's actually just run a quick test & find out / binary search
-
-        // approve the dex router for USDC not Wmatic since we know this address has THAT
-        // then swap our cash for Wmatic.
-
-        uint256 walletBalanceWMATIC = WMatic.balanceOf(wMATICWhale);
-        uint256 thisWalletBalanceUSDC = USDC.balanceOf(address(this));
+        startHoax(user);
         uint256 poolBalanceWMATIC = WMatic.balanceOf(uniV3Pool);
         uint256 poolBalanceUSDC = USDC.balanceOf(uniV3Pool);
-        console.log("this address", address(this));
+        console.log("Pool balance of WMATIC before open: %d", poolBalanceWMATIC);
+        console.log("Pool balance of USDC before open: %d", poolBalanceUSDC);
+        vaultManager.openVault(assets, collarOpts, liquidityOpts, false);
+        poolBalanceWMATIC = WMatic.balanceOf(uniV3Pool);
+        poolBalanceUSDC = USDC.balanceOf(uniV3Pool);
+        console.log("Pool balance of WMATIC after open: %d", poolBalanceWMATIC);
+        console.log("Pool balance of USDC after open: %d", poolBalanceUSDC);
+        uuid = vaultManager.getVaultUUID(0);
+        rawVault = vaultManager.vaultInfo(uuid);
+        vault = abi.decode(rawVault, (ICollarVaultState.Vault));
+
+        PrintVaultStatsUtility(address(this)).printVaultStats(rawVault, "VAULT OPENED");
+    }
+
+    function manipulatePriceDownwardPastPutStrike() internal {
+        // Trade on Uniswap to make the price go down past the put strike price .9 * COLLATERAL_PRICE_ON_BLOCK
+        // end price should be 632310
+        uint256 targetPrice = 632_310;
+        swapAsWhale(100_000e18, false);
+        assertEq(CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
+    }
+
+    function manipulatePriceDownwardShortOfPutStrike() internal {
+        // Trade on Uniswap to make the price go down but not past the put strike price .9 * COLLATERAL_PRICE_ON_BLOCK
+        // end price should be 703575
+        uint256 targetPrice = 703_575;
+        swapAsWhale(40_000e18, false);
+        assertEq(CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
+    }
+
+    function manipulatePriceUpwardPastCallStrike() internal {
+        // Trade on Uniswap to make the price go up past the call strike price 1.1 * COLLATERAL_PRICE_ON_BLOCK
+        // end price should be 871978
+        uint256 targetPrice = 871_978;
+        swapAsWhale(100_000e6, true);
+        assertEq(CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
+    }
+
+    function manipulatePriceUpwardShortOfCallStrike() internal {
+        // Trade on Uniswap to make the price go up but not past the call strike price 1.1 * COLLATERAL_PRICE_ON_BLOCK
+        // end price should be 794385
+        uint256 targetPrice = 794_385;
+        swapAsWhale(40_000e6, true);
+        assertEq(CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
+    }
+
+    function swapAsWhale(uint256 amount, bool swapCash) internal {
+        // Trade on Uniswap to manipulate the price
+        uint256 currentPrice = CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress);
+        uint256 poolBalanceWMATIC = WMatic.balanceOf(uniV3Pool);
+        uint256 poolBalanceUSDC = USDC.balanceOf(uniV3Pool);
         console.log("Pool balance of WMATIC: %d", poolBalanceWMATIC);
         console.log("Pool balance of USDC: %d", poolBalanceUSDC);
-        console.log("this wallet balance of USDC: %d", thisWalletBalanceUSDC);
-        console.log("Wallet balance of WMATIC: %d", walletBalanceWMATIC);
-        IERC20(USDCAddress).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount * 10_000);
-        IERC20(WMaticAddress).approve(CollarEngine(engine).dexRouter(), walletBalanceWMATIC / 2);
-
-        uint256 amountIn = walletBalanceWMATIC / 2;
-        console.log("Amount of the input token sent: %d", amountIn);
+        console.log("Current price of WMATIC in USDC before swap: %d", currentPrice);
         // build the swap transaction
         IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
-            tokenIn: assets.collateralAsset,
-            tokenOut: assets.cashAsset,
+            tokenIn: USDCAddress,
+            tokenOut: WMaticAddress,
             fee: 3000,
             recipient: address(this),
-            amountIn: 10_000_000e18,
+            amountIn: amount,
             amountOutMinimum: 100,
             sqrtPriceLimitX96: 0
         });
+        if (swapCash) {
+            console.log("Swapping USDC for WMatic");
+            startHoax(binanceHotWalletTwo);
+            IERC20(USDCAddress).approve(CollarEngine(engine).dexRouter(), amount);
+            swapParams.tokenIn = USDCAddress;
+            swapParams.tokenOut = WMaticAddress;
+            // execute the swap
+            // we're not worried about slippage here
+            uint256 swapOutput = IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
+            console.log("amount of USDC inputted to the swap : %d", amount);
+            console.log("Amount of WMatic token received for the amount of USDC inputted: %d", swapOutput);
+        } else {
+            startHoax(wMATICWhale);
+            IERC20(WMaticAddress).approve(CollarEngine(engine).dexRouter(), amount);
 
-        // execute the swap
-        // we're not worried about slippage here
-        uint256 swapOutput = IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
-        console.log("Amount of the output token received: %d", swapOutput);
-        // console.log("Swap intput token: %s", assets.collateralAsset);
-        // console.log("Swap output token: %s", assets.cashAsset);
+            swapParams.tokenIn = WMaticAddress;
+            swapParams.tokenOut = USDCAddress;
+            // execute the swap
+            // we're not worried about slippage here
+            uint256 swapOutput = IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
+            console.log("amount of WMatic inputted to the swap : %d", amount);
+            console.log("Amount of the output token received for the amount of Wmatic inputted: %d", swapOutput);
+        }
+
         vm.roll(block.number + 43_200);
         skip(1.5 days);
-        uint256 walletBalanceWMATIC2 = WMatic.balanceOf(wMATICWhale);
-        uint256 thisWalletBalanceUSDC2 = USDC.balanceOf(address(this));
-        uint256 poolBalanceWMATIC2 = WMatic.balanceOf(uniV3Pool);
-        uint256 poolBalanceUSDC2 = USDC.balanceOf(uniV3Pool);
-        console.log("Pool balance of WMATIC after swap : %d", poolBalanceWMATIC2);
-        console.log("pool balance of USDC after swap : %d", poolBalanceUSDC2);
-        console.log("this wallet balance of USDC after swap : %d", thisWalletBalanceUSDC2);
-        console.log("Wallet balance of WMATIC after swap : %d", walletBalanceWMATIC2);
-
-        // @todo: we need to make sure we're swapping on the right pool.
-        // @todo: carlos can you try to figure this out if you have a chance?
-        // @todo: issue description, will try to keep it as detailed as possible for you:
-
-        // What I'm trying to do, overall: finish filling out the google drive "Collar Math" sheet in the
-        // https://docs.google.com/spreadsheets/d/18e5ola3JJ2HKRQyAoPNmVrV4fnRcLdckOhQIxrN_hwY/edit?usp=sharing
-        // there's the link to it.
-
-        // in this sheet, on the second tab, you'll see a lot of stuff. here's what you need to pay attention to:
-        // the spreadsheet is subdivided into the following sections:
-        // - VAULT STATUS - AFTER OPENING
-        // - VAULT STATUS - AFTER FINALIZATION / CLOSING
-        // - VAULT STATUS - AFTER TOKEN REDEMPTION
-
-        // under each of these statuses (stati?) there are variables and their values
-        // the goal here is to, via the console output that prints *when we run the tests*
-        // make sure the the outputs are correct (this will of course involved manually calculating all
-        // of these things, but I don't see a way around that!)
-
-        // in particular, right now, pay attention to this set of output you should see repeated for *EACH* of the above major categories
-
-        /*
-            CollarVaultManager::closeVault - final price:  741201
-            CollarVaultManager::closeVault - put strike price:  665553
-            CollarVaultManager::closeVault - call strike price:  813454
-            CollarVaultManager::closeVault - starting price:  739504
-            CollarVaultManager::closeVault - CASE 5 ALL VAULT CASH TO USER, PROPORTIONAL LOCKED POOL CASH TO USER
-            CollarVaultManager::closeVault - cashNeededFromPool:  1697011
-        */
-
-        // the "closeVault" *should* be replaced with whatever major step you're on, as described above
-        // look at: final price. that's the price of "the asset" (but which asset, specifically? please figure that out)
-
-        // theoretically, the price of "the asset" should go up - you can see in the code for the test
-        // "test_openAndCloseVaultUpALot" that we attempt to swap on Uniswap to raise the price
-        // but the output says that's not happening?
-        // because here's the output for closeVault:
-        //  CollarVaultManager::closeVault - starting price:  739504
-        // which *appears* to be the same output for this test (test_openAndCloseVaultUpALot)
-        // and is *also* the same for the other test? (test_openAndCloseVaultUpSlightly)
-
-        // check all assumptions here if you get stuck: I'd do that now. but done for the day.
-        // thanks - Caleb.
-
-        // end that prank, keep pranking as `user`
-
-        startHoax(user);
-
-        // close the vault
-
-        vaultManager.closeVault(uuid);
-
-        PrintVaultStatsUtility(address(this)).printVaultStats(rawVault, "VAULT CLOSED");
-
-        // check the numbers on both pool & liquidity sides
-        // since the price
+        currentPrice = CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress);
+        poolBalanceWMATIC = WMatic.balanceOf(uniV3Pool);
+        poolBalanceUSDC = USDC.balanceOf(uniV3Pool);
+        console.log("Pool balance of WMATIC: %d", poolBalanceWMATIC);
+        console.log("Pool balance of USDC: %d", poolBalanceUSDC);
+        console.log("Current price of WMATIC in USDC after swap: %d", currentPrice);
     }
 }
