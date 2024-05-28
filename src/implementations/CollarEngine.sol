@@ -203,7 +203,6 @@ contract CollarEngine is ICollarEngine, Ownable {
         validateAssetsIsSupported(baseToken);
         validateAssetsIsSupported(quoteToken);
         address uniV3Factory = IPeripheryImmutableState(dexRouter).factory();
-        console.log("uniV3Factory: ", uniV3Factory);
         price = CollarOracle.getTWAP(baseToken, quoteToken, twapStartTimestamp, twapLength, uniV3Factory);
     }
 
@@ -211,7 +210,6 @@ contract CollarEngine is ICollarEngine, Ownable {
         validateAssetsIsSupported(baseToken);
         validateAssetsIsSupported(quoteToken);
         address uniV3Factory = IPeripheryImmutableState(dexRouter).factory();
-        console.log("uniV3Factory: ", uniV3Factory);
         /**
          * @dev pass in 0,0 to get price at current tick
          */

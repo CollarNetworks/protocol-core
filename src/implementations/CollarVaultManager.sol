@@ -184,8 +184,6 @@ contract CollarVaultManager is ICollarVaultManager {
         }
 
         if (vaultsByUUID[uuid].expiresAt > block.timestamp) {
-            console.log("Vault expires at: ", vaultsByUUID[uuid].expiresAt);
-            console.log("Current time: ", block.timestamp);
             revert VaultNotFinalizable();
         }
 
@@ -196,9 +194,6 @@ contract CollarVaultManager is ICollarVaultManager {
         uint256 startingPrice = vault.initialCollateralPrice;
         uint256 putStrikePrice = vault.putStrikePrice;
         uint256 callStrikePrice = vault.callStrikePrice;
-
-        console.log("Vault expiration timestamp: ", vault.expiresAt);
-        console.log("Current timestamp: ", block.timestamp);
 
         uint256 finalPrice =
             CollarEngine(engine).getHistoricalAssetPriceViaTWAP(vault.collateralAsset, vault.cashAsset, vault.expiresAt, 15 minutes);
@@ -298,6 +293,8 @@ contract CollarVaultManager is ICollarVaultManager {
 
         // set total redeem value for vault tokens to locked vault cash + cash pulled from pool
         // also null out the locked vault cash
+        console.log("cash needed from pool: ", cashNeededFromPool);
+        console.log("cashToSendToPool: ", cashToSendToPool);
         vaultTokenCashSupply[uuid] = vault.lockedVaultCash + cashNeededFromPool;
         vault.lockedVaultCash = 0;
 

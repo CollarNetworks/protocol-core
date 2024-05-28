@@ -43,7 +43,6 @@ library CollarOracle {
             _secondsAgos[0] = twapLength + offset;
             _secondsAgos[1] = offset;
             (int56[] memory tickCumulatives,) = pool.observe(_secondsAgos);
-            console.log("Tick Cumulatives[0]: ");
             console.logInt(tickCumulatives[0]);
             int56 tickCumulativesDelta = tickCumulatives[1] - tickCumulatives[0];
             int56 period = int56(int32(twapLength));
@@ -65,9 +64,8 @@ library CollarOracle {
      */
 
     /// @notice Takes a pair and some fee tiers, and returns pool
-    function _getPoolForTokenPair(address _tokenA, address _tokenB, address uniswapV3Factory) internal view returns (address _pool) {
+    function _getPoolForTokenPair(address _tokenA, address _tokenB, address uniswapV3Factory) internal pure returns (address _pool) {
         PoolAddress.PoolKey memory _poolKey = PoolAddress.getPoolKey(_tokenA, _tokenB, 3000);
         _pool = PoolAddress.computeAddress(address(uniswapV3Factory), _poolKey);
-        console.log("Computed pool address: ", _pool);
     }
 }

@@ -44,21 +44,13 @@ library OracleLibrary {
     /// @return quoteAmount Amount of quoteToken received for baseAmount of baseToken
     function getQuoteAtTick(int24 tick, uint128 baseAmount, address baseToken, address quoteToken)
         internal
-        view
+        pure
         returns (uint256 quoteAmount)
     {
         uint160 sqrtRatioX96 = TickMath.getSqrtRatioAtTick(tick);
-        console.log("sqrtRatioX96: ", sqrtRatioX96);
-        console.log("condition: ", sqrtRatioX96 <= type(uint128).max);
-        console.log("check:", FixedPoint96.Q96 == 1 << 192);
-        uint256 valueX96 = FullMath.mulDiv(sqrtRatioX96, sqrtRatioX96, FixedPoint96.Q96);
-        console.log("valueX96: ", valueX96);
-        uint256 finalPrice = FullMath.mulDiv(valueX96, 1e18, FixedPoint96.Q96);
-        console.log("price hack:", finalPrice);
         // Calculate quoteAmount with better precision if it doesn't overflow when multiplied by itself
         if (sqrtRatioX96 <= type(uint128).max) {
             uint256 ratioX192 = uint256(sqrtRatioX96) * sqrtRatioX96;
-            console.log("ratioX192: ", ratioX192);
             quoteAmount =
                 baseToken < quoteToken ? FullMath.mulDiv(ratioX192, baseAmount, 1 << 192) : FullMath.mulDiv(1 << 192, baseAmount, ratioX192);
         } else {
