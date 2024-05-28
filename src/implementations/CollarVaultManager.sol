@@ -416,7 +416,6 @@ contract CollarVaultManager is ICollarVaultManager {
 
         // cache the amount of cash received
         cashReceived = IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
-
         // revert if minimum not met
         if (cashReceived < assets.cashAmount) {
             revert TradeNotViable();
