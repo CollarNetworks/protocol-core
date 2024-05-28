@@ -88,8 +88,9 @@ contract CollarVaultManager is ICollarVaultManager {
     function openVault(
         AssetSpecifiers calldata assetData, // addresses & amounts of collateral & cash assets
         CollarOpts calldata collarOpts, // length & ltv
-        LiquidityOpts calldata liquidityOpts // pool address, callstrike & amount to lock there, putstrike
-    ) external override returns (bytes32 uuid) {
+        LiquidityOpts calldata liquidityOpts, // pool address, callstrike & amount to lock there, putstrike
+        bool withdrawLoan
+    ) public override returns (bytes32 uuid) {
         // only user is allowed to open vaults
         if (msg.sender != user) {
             revert NotCollarVaultOwner();
@@ -110,9 +111,9 @@ contract CollarVaultManager is ICollarVaultManager {
 
         // set Basic Vault Info
         vaultsByUUID[uuid].active = true;
-        vaultsByUUID[uuid].openedAt = block.timestamp;
-        vaultsByUUID[uuid].expiresAt = block.timestamp + collarOpts.duration;
-        vaultsByUUID[uuid].duration = collarOpts.duration;
+        vaultsByUUID[uuid].openedAt = uint32(block.timestamp);
+        vaultsByUUID[uuid].expiresAt = uint32(block.timestamp + collarOpts.duration);
+        vaultsByUUID[uuid].duration = uint32(collarOpts.duration);
         vaultsByUUID[uuid].ltv = collarOpts.ltv;
 
         // set Asset Specific Info
@@ -165,6 +166,10 @@ contract CollarVaultManager is ICollarVaultManager {
 
         // approve the pool
         IERC20(assetData.cashAsset).approve(liquidityOpts.liquidityPool, vaultsByUUID[uuid].lockedVaultCash);
+
+        if (withdrawLoan) {
+            withdraw(uuid, vaultsByUUID[uuid].loanBalance);
+        }
     }
 
     function closeVault(bytes32 uuid) external override {
@@ -195,29 +200,8 @@ contract CollarVaultManager is ICollarVaultManager {
         console.log("Vault expiration timestamp: ", vault.expiresAt);
         console.log("Current timestamp: ", block.timestamp);
 
-        /*
-
-        todo:
-
-        1) check that the engine address is the forreal engine (deployed by us on the fork-devnet)
-        2) check order of parameters
-        3) check accuracy of parameters
-        4) check the uint32 conversion of vault.expiresAt
-        5) check that the vault.expiresAt is correct
-        6) check that the 15 minutes is correct
-
-        7) recurse into function
-        8) go to line 196 and keep going up.
-
-        */
- 
-
-        uint256 finalPrice = CollarEngine(engine).getHistoricalAssetPriceViaTWAP(
-            vault.collateralAsset,
-            vault.cashAsset,
-            uint32(vault.expiresAt), // @todo convert the vault data object to be a uint32 instead of a uint256, then we don't have to cast here
-            15 minutes
-        );
+        uint256 finalPrice =
+            CollarEngine(engine).getHistoricalAssetPriceViaTWAP(vault.collateralAsset, vault.cashAsset, vault.expiresAt, 15 minutes);
 
         if (finalPrice == 0) revert InvalidAssetPrice();
 
@@ -344,7 +328,7 @@ contract CollarVaultManager is ICollarVaultManager {
         IERC20(vaultsByUUID[uuid].cashAsset).transfer(msg.sender, redeemValue);
     }
 
-    function withdraw(bytes32 uuid, uint256 amount) external override {
+    function withdraw(bytes32 uuid, uint256 amount) public override {
         if (msg.sender != user) revert NotCollarVaultOwner();
         if (vaultsByUUID[uuid].openedAt == 0) revert InvalidVault();
 
