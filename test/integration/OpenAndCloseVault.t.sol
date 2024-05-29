@@ -151,7 +151,6 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         // in order for the price to not change we need to do an equal amount of tokens swapped in both directions
         vm.roll(block.number + 43_200);
         skip(1.5 days);
-
         startHoax(user1);
         // close the vault
         // price before close vault
@@ -186,7 +185,10 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) = openVaultAsUserWith1000AndCheckValues();
         uint256 userCashBalanceAfterOpen = USDC.balanceOf(user1);
         uint256 providerCashBalanceBeforeClose = USDC.balanceOf(provider);
+
         manipulatePriceDownwardPastPutStrike();
+        vm.roll(block.number + 43_200);
+        skip(1.5 days);
         startHoax(user1);
         // close the vault
         vaultManager.closeVault(uuid);
@@ -206,10 +208,12 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(vaultLockedCash, 0);
         assertEq(USDC.balanceOf(user1), userCashBalanceAfterOpen);
 
-        // liquidity provider gets the locked cash from the vault and the original locked cash
+        // liquidity provider gets the locked cash from the vault plus the original locked cash on the pool position
         startHoax(provider);
         (uint256 expiration,, uint256 withdrawable) = pool.positions(uuid);
         console.log("expiration: %d", expiration);
+        console.log("vault expiration : %d", vault.expiresAt);
+        console.log("current block timestamp : %d", block.timestamp);
         assertEq(withdrawable, vault.lockedPoolCash + vault.lockedVaultCash);
         pool.redeem(uuid, withdrawable);
         uint256 providerCashBalanceAfterClose = USDC.balanceOf(provider);
@@ -358,8 +362,6 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
             console.log("Amount of the output token received for the amount of Wmatic inputted: %d", swapOutput);
         }
 
-        vm.roll(block.number + 43_200);
-        skip(1.5 days);
         currentPrice = CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress);
         poolBalanceWMATIC = WMatic.balanceOf(uniV3Pool);
         poolBalanceUSDC = USDC.balanceOf(uniV3Pool);
