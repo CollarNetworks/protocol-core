@@ -10,7 +10,6 @@ pragma solidity ^0.8.18;
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 import { OracleLibrary } from "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
-import "forge-std/console.sol";
 
 /// @notice Various constants used throughout the system
 abstract contract Constants {
@@ -43,7 +42,6 @@ library CollarOracle {
             _secondsAgos[0] = twapLength + offset;
             _secondsAgos[1] = offset;
             (int56[] memory tickCumulatives,) = pool.observe(_secondsAgos);
-            console.logInt(tickCumulatives[0]);
             int56 tickCumulativesDelta = tickCumulatives[1] - tickCumulatives[0];
             int56 period = int56(int32(twapLength));
             // Always round to negative infinity
@@ -52,7 +50,6 @@ library CollarOracle {
         }
 
         price = OracleLibrary.getQuoteAtTick(tick, 1e18, baseToken, quoteToken);
-        console.log("Price of baseToken in quoteToken: ", price);
     }
 
     // function getCurrentAssetPrice(address /*asset*/ ) external view virtual override returns (uint256) {

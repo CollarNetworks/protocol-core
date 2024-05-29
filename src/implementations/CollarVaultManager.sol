@@ -226,11 +226,6 @@ contract CollarVaultManager is ICollarVaultManager {
         uint256 cashNeededFromPool = 0;
         uint256 cashToSendToPool = 0;
 
-        console.log("CollarVaultManager::closeVault - final price: ", finalPrice);
-        console.log("CollarVaultManager::closeVault - put strike price: ", putStrikePrice);
-        console.log("CollarVaultManager::closeVault - call strike price: ", callStrikePrice);
-        console.log("CollarVaultManager::closeVault - starting price: ", startingPrice);
-
         // CASE 1 - all vault cash to liquidity pool
         if (finalPrice <= putStrikePrice) {
             cashToSendToPool = vault.lockedVaultCash;
@@ -293,8 +288,6 @@ contract CollarVaultManager is ICollarVaultManager {
 
         // set total redeem value for vault tokens to locked vault cash + cash pulled from pool
         // also null out the locked vault cash
-        console.log("cash needed from pool: ", cashNeededFromPool);
-        console.log("cashToSendToPool: ", cashToSendToPool);
         vaultTokenCashSupply[uuid] = vault.lockedVaultCash + cashNeededFromPool;
         vault.lockedVaultCash = 0;
 

@@ -160,7 +160,6 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         vaultManager.closeVault(uuid);
         uint256 priceAfterClose =
             CollarEngine(engine).getHistoricalAssetPriceViaTWAP(WMaticAddress, USDCAddress, vault.expiresAt, 15 minutes);
-        console.log("Price after close vault: %d", priceAfterClose);
         /**
          * @dev trying to manipulate price to be exactly the same as the moment of opening vault is too hard , so we'll skip this case unless there's a better proposal
          */
@@ -418,13 +417,9 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         startHoax(user);
         uint256 poolBalanceWMATIC = WMatic.balanceOf(uniV3Pool);
         uint256 poolBalanceUSDC = USDC.balanceOf(uniV3Pool);
-        console.log("Pool balance of WMATIC before open: %d", poolBalanceWMATIC);
-        console.log("Pool balance of USDC before open: %d", poolBalanceUSDC);
         vaultManager.openVault(assets, collarOpts, liquidityOpts, false);
         poolBalanceWMATIC = WMatic.balanceOf(uniV3Pool);
         poolBalanceUSDC = USDC.balanceOf(uniV3Pool);
-        console.log("Pool balance of WMATIC after open: %d", poolBalanceWMATIC);
-        console.log("Pool balance of USDC after open: %d", poolBalanceUSDC);
         uuid = vaultManager.getVaultUUID(0);
         rawVault = vaultManager.vaultInfo(uuid);
         vault = abi.decode(rawVault, (ICollarVaultState.Vault));
@@ -467,11 +462,10 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
     function swapAsWhale(uint256 amount, bool swapCash) internal {
         // Trade on Uniswap to manipulate the price
         uint256 currentPrice = CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress);
+        console.log("Current price of WMATIC in USDC before swap: %d", currentPrice);
+
         uint256 poolBalanceWMATIC = WMatic.balanceOf(uniV3Pool);
         uint256 poolBalanceUSDC = USDC.balanceOf(uniV3Pool);
-        console.log("Pool balance of WMATIC: %d", poolBalanceWMATIC);
-        console.log("Pool balance of USDC: %d", poolBalanceUSDC);
-        console.log("Current price of WMATIC in USDC before swap: %d", currentPrice);
         // build the swap transaction
         IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
             tokenIn: USDCAddress,
@@ -483,16 +477,13 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
             sqrtPriceLimitX96: 0
         });
         if (swapCash) {
-            console.log("Swapping USDC for WMatic");
             startHoax(binanceHotWalletTwo);
             IERC20(USDCAddress).approve(CollarEngine(engine).dexRouter(), amount);
             swapParams.tokenIn = USDCAddress;
             swapParams.tokenOut = WMaticAddress;
             // execute the swap
             // we're not worried about slippage here
-            uint256 swapOutput = IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
-            console.log("amount of USDC inputted to the swap : %d", amount);
-            console.log("Amount of WMatic token received for the amount of USDC inputted: %d", swapOutput);
+            IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
         } else {
             startHoax(wMATICWhale);
             IERC20(WMaticAddress).approve(CollarEngine(engine).dexRouter(), amount);
@@ -501,16 +492,12 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
             swapParams.tokenOut = USDCAddress;
             // execute the swap
             // we're not worried about slippage here
-            uint256 swapOutput = IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
-            console.log("amount of WMatic inputted to the swap : %d", amount);
-            console.log("Amount of the output token received for the amount of Wmatic inputted: %d", swapOutput);
+            IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
         }
 
         currentPrice = CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress);
         poolBalanceWMATIC = WMatic.balanceOf(uniV3Pool);
         poolBalanceUSDC = USDC.balanceOf(uniV3Pool);
-        console.log("Pool balance of WMATIC: %d", poolBalanceWMATIC);
-        console.log("Pool balance of USDC: %d", poolBalanceUSDC);
         console.log("Current price of WMATIC in USDC after swap: %d", currentPrice);
     }
 }
