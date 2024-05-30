@@ -50,7 +50,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
     address binanceHotWalletTwo = address(0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245);
     uint256 BLOCK_NUMBER_TO_USE = 55_850_000;
     uint256 COLLATERAL_PRICE_ON_BLOCK = 739_504; // $0.739504 the price for WMatic in USDC on the specified block of polygon mainnet
-    uint24 CALL_STRIKE_TICK = 110;
+    uint24 CALL_STRIKE_TICK = 120;
     IERC20 WMatic = IERC20(WMaticAddress);
     IERC20 USDC = IERC20(USDCAddress);
 
@@ -325,7 +325,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         PrintVaultStatsUtility(address(this)).printVaultStats(rawVault, "VAULT CLOSED");
         // check the numbers on both user and marketmaker sides after executing withdraws and closes
         uint256 amountToVault = (
-            (vault.lockedVaultCash * (finalPrice - vault.initialCollateralPrice) * 1e32)
+            (vault.lockedPoolCash * (finalPrice - vault.initialCollateralPrice) * 1e32)
                 / (vault.callStrikePrice - vault.initialCollateralPrice)
         ) / 1e32;
         console.log("Amount to vault: %d", amountToVault);
