@@ -51,6 +51,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
     uint256 BLOCK_NUMBER_TO_USE = 55_850_000;
     uint256 COLLATERAL_PRICE_ON_BLOCK = 739_504; // $0.739504 the price for WMatic in USDC on the specified block of polygon mainnet
     uint24 CALL_STRIKE_TICK = 120;
+
     IERC20 WMatic = IERC20(WMaticAddress);
     IERC20 USDC = IERC20(USDCAddress);
 
@@ -108,26 +109,28 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         deal(WMaticAddress, user1, 100_000 ether);
         deal(WMaticAddress, provider, 100_000 ether);
 
+        deal(WMaticAddress, binanceHotWalletTwo, 1_000_000 ether);
+        deal(USDCAddress, binanceHotWalletTwo, 1_000_000 ether);
+
         deal(USDCAddress, user1, 100_000 ether);
         deal(USDCAddress, provider, 100_000 ether);
 
         startHoax(user1);
-
         vaultManager = CollarVaultManager(engine.createVaultManager());
-        USDC.approve(address(vaultManager), 100_000e6);
-        WMatic.approve(address(vaultManager), 100_000 ether);
+        USDC.approve(address(vaultManager), type(uint256).max);
+        WMatic.approve(address(vaultManager), type(uint256).max);
 
         startHoax(provider);
 
-        USDC.approve(address(pool), 100_000e6);
-        WMatic.approve(address(pool), 100_000 ether);
+        USDC.approve(address(pool), type(uint256).max);
+        WMatic.approve(address(pool), type(uint256).max);
 
         pool.addLiquidityToSlot(110, 10_000e6);
-        pool.addLiquidityToSlot(111, 11_000e6);
-        pool.addLiquidityToSlot(112, 12_000e6);
-        pool.addLiquidityToSlot(115, 15_000e6);
-        pool.addLiquidityToSlot(120, 12_000e6);
-        pool.addLiquidityToSlot(130, 13_000e6);
+        pool.addLiquidityToSlot(111, 10_000e6);
+        pool.addLiquidityToSlot(112, 10_000e6);
+        pool.addLiquidityToSlot(115, 10_000e6);
+        pool.addLiquidityToSlot(120, 10_000e6);
+        pool.addLiquidityToSlot(130, 10_000e6);
 
         vm.stopPrank();
 
@@ -140,15 +143,23 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(engine.isSupportedLiquidityPool(address(pool)), true);
 
         assertEq(pool.getLiquidityForSlot(110), 10_000e6);
-        assertEq(pool.getLiquidityForSlot(111), 11_000e6);
-        assertEq(pool.getLiquidityForSlot(112), 12_000e6);
-        assertEq(pool.getLiquidityForSlot(115), 15_000e6);
-        assertEq(pool.getLiquidityForSlot(120), 12_000e6);
-        assertEq(pool.getLiquidityForSlot(130), 13_000e6);
+        assertEq(pool.getLiquidityForSlot(111), 10_000e6);
+        assertEq(pool.getLiquidityForSlot(112), 10_000e6);
+        assertEq(pool.getLiquidityForSlot(115), 10_000e6);
+        assertEq(pool.getLiquidityForSlot(120), 10_000e6);
+        assertEq(pool.getLiquidityForSlot(130), 10_000e6);
+    }
+
+    modifier assumeFuzzValues(uint256 collateralAmount, uint24 tick) {
+        vm.assume(
+            collateralAmount > 1 ether && collateralAmount < 20_000 ether && (tick == 110 || tick == 115 || tick == 120 || tick == 130)
+        );
+        _;
     }
 
     function test_openAndCloseVaultNoPriceChange() public {
-        (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) = openVaultAsUserWith1000AndCheckValues();
+        (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) =
+            openVaultAsUserWith1000AndCheckValues(user1, CALL_STRIKE_TICK);
 
         swapAsWhale(1_712_999_999_000_000_000_000, false);
         // in order for the price to not change we need to do an equal amount of tokens swapped in both directions
@@ -183,12 +194,15 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         // assertEq(USDC.balanceOf(user1), userCashbalance);
     }
 
-    function test_openAndCloseVaultPriceUnderPutStrike() public {
-        (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) = openVaultAsUserWith1000AndCheckValues();
-        uint256 userCashBalanceAfterOpen = USDC.balanceOf(user1);
-        uint256 providerCashBalanceBeforeClose = USDC.balanceOf(provider);
+    uint24[] public fixtureTick = [110, 115, 120, 130];
 
-        manipulatePriceDownwardPastPutStrike();
+    function checkPriceUnderPutStrikeValues(
+        bytes32 uuid,
+        bytes memory rawVault,
+        ICollarVaultState.Vault memory vault,
+        uint256 userCashBalanceAfterOpen,
+        uint256 providerCashBalanceBeforeClose
+    ) internal {
         vm.roll(block.number + 43_200);
         skip(1.5 days);
         startHoax(user1);
@@ -223,11 +237,37 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(providerCashBalanceAfterRedeem, providerCashBalanceBeforeClose + vault.lockedPoolCash + vault.lockedVaultCash);
     }
 
-    function test_openAndCloseVaultPriceDownShortOfPutStrike() public {
-        (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) = openVaultAsUserWith1000AndCheckValues();
+    function testFuzz_openAndCloseVaultPriceUnderPutStrike(uint256 collateralAmount, uint24 tick)
+        public
+        assumeFuzzValues(collateralAmount, tick)
+    {
+        (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) =
+            openVaultAsUserAndCheckValues(collateralAmount, user1, tick);
         uint256 userCashBalanceAfterOpen = USDC.balanceOf(user1);
         uint256 providerCashBalanceBeforeClose = USDC.balanceOf(provider);
-        uint256 finalPrice = manipulatePriceDownwardShortOfPutStrike();
+
+        manipulatePriceDownwardPastPutStrike(true);
+        checkPriceUnderPutStrikeValues(uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose);
+    }
+
+    function test_openAndCloseVaultPriceUnderPutStrike() public {
+        (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) =
+            openVaultAsUserWith1000AndCheckValues(user1, CALL_STRIKE_TICK);
+        uint256 userCashBalanceAfterOpen = USDC.balanceOf(user1);
+        uint256 providerCashBalanceBeforeClose = USDC.balanceOf(provider);
+
+        manipulatePriceDownwardPastPutStrike(false);
+        checkPriceUnderPutStrikeValues(uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose);
+    }
+
+    function checkPriceDownShortOfPutStrikeValues(
+        bytes32 uuid,
+        bytes memory rawVault,
+        ICollarVaultState.Vault memory vault,
+        uint256 userCashBalanceAfterOpen,
+        uint256 providerCashBalanceBeforeClose,
+        uint256 finalPrice
+    ) internal {
         vm.roll(block.number + 43_200);
         skip(1.5 days);
         startHoax(user1);
@@ -270,11 +310,34 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(providerCashBalanceAfterRedeem, providerCashBalanceBeforeClose + withdrawable);
     }
 
-    function test_openAndCloseVaultPriceUpPastCallStrike() public {
-        (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) = openVaultAsUserWith1000AndCheckValues();
+    function testFuzz_openAndCloseVaultPriceDownShortOfPutStrike(uint256 collateralAmount, uint24 tick)
+        public
+        assumeFuzzValues(collateralAmount, tick)
+    {
+        (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) =
+            openVaultAsUserAndCheckValues(collateralAmount, user1, tick);
         uint256 userCashBalanceAfterOpen = USDC.balanceOf(user1);
         uint256 providerCashBalanceBeforeClose = USDC.balanceOf(provider);
-        manipulatePriceUpwardPastCallStrike();
+        uint256 finalPrice = manipulatePriceDownwardShortOfPutStrike(true);
+        checkPriceDownShortOfPutStrikeValues(uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose, finalPrice);
+    }
+
+    function test_openAndCloseVaultPriceDownShortOfPutStrike() public {
+        (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) =
+            openVaultAsUserWith1000AndCheckValues(user1, CALL_STRIKE_TICK);
+        uint256 userCashBalanceAfterOpen = USDC.balanceOf(user1);
+        uint256 providerCashBalanceBeforeClose = USDC.balanceOf(provider);
+        uint256 finalPrice = manipulatePriceDownwardShortOfPutStrike(false);
+        checkPriceDownShortOfPutStrikeValues(uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose, finalPrice);
+    }
+
+    function checkPriceUpPastCallStrikeValues(
+        bytes32 uuid,
+        bytes memory rawVault,
+        ICollarVaultState.Vault memory vault,
+        uint256 userCashBalanceAfterOpen,
+        uint256 providerCashBalanceBeforeClose
+    ) internal {
         vm.roll(block.number + 43_200);
         skip(1.5 days);
         startHoax(user1);
@@ -312,11 +375,35 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(providerCashBalanceAfterRedeem, providerCashBalanceBeforeClose);
     }
 
-    function test_openAndCloseVaultPriceUpShortOfCallStrike() public {
-        (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) = openVaultAsUserWith1000AndCheckValues();
+    function testFuzz_openAndCloseVaultPriceUpPastCallStrike(uint256 collateralAmount, uint24 tick)
+        public
+        assumeFuzzValues(collateralAmount, tick)
+    {
+        (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) =
+            openVaultAsUserAndCheckValues(collateralAmount, user1, tick);
         uint256 userCashBalanceAfterOpen = USDC.balanceOf(user1);
         uint256 providerCashBalanceBeforeClose = USDC.balanceOf(provider);
-        uint256 finalPrice = manipulatePriceUpwardShortOfCallStrike();
+        manipulatePriceUpwardPastCallStrike(true);
+        checkPriceUpPastCallStrikeValues(uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose);
+    }
+
+    function test_openAndCloseVaultPriceUpPastCallStrike() public {
+        (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) =
+            openVaultAsUserWith1000AndCheckValues(user1, CALL_STRIKE_TICK);
+        uint256 userCashBalanceAfterOpen = USDC.balanceOf(user1);
+        uint256 providerCashBalanceBeforeClose = USDC.balanceOf(provider);
+        manipulatePriceUpwardPastCallStrike(false);
+        checkPriceUpPastCallStrikeValues(uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose);
+    }
+
+    function checkPriceUpShortOfCallStrikeValues(
+        bytes32 uuid,
+        bytes memory rawVault,
+        ICollarVaultState.Vault memory vault,
+        uint256 userCashBalanceAfterOpen,
+        uint256 providerCashBalanceBeforeClose,
+        uint256 finalPrice
+    ) internal {
         vm.roll(block.number + 43_200);
         skip(1.5 days);
         startHoax(user1);
@@ -358,12 +445,56 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(providerCashBalanceAfterRedeem, providerCashBalanceBeforeClose + withdrawable);
     }
 
-    function openVaultAsUserWith1000AndCheckValues()
+    function testFuzz_openAndCloseVaultPriceUpShortOfCallStrike(uint256 collateralAmount, uint24 tick)
+        public
+        assumeFuzzValues(collateralAmount, tick)
+    {
+        (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) =
+            openVaultAsUserAndCheckValues(collateralAmount, user1, tick);
+        uint256 userCashBalanceAfterOpen = USDC.balanceOf(user1);
+        uint256 providerCashBalanceBeforeClose = USDC.balanceOf(provider);
+        uint256 finalPrice = manipulatePriceUpwardShortOfCallStrike(true);
+        checkPriceUpShortOfCallStrikeValues(uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose, finalPrice);
+    }
+
+    function test_openAndCloseVaultPriceUpShortOfCallStrike() public {
+        (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) =
+            openVaultAsUserWith1000AndCheckValues(user1, CALL_STRIKE_TICK);
+        uint256 userCashBalanceAfterOpen = USDC.balanceOf(user1);
+        uint256 providerCashBalanceBeforeClose = USDC.balanceOf(provider);
+        uint256 finalPrice = manipulatePriceUpwardShortOfCallStrike(false);
+        checkPriceUpShortOfCallStrikeValues(uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose, finalPrice);
+    }
+
+    function openVaultAsUserAndCheckValues(uint256 amount, address user, uint24 tick)
+        internal
+        returns (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault)
+    {
+        (uuid, rawVault, vault) = openVaultAsUser(amount, user, tick);
+        // check basic vault info
+        assertEq(vault.active, true);
+        assertEq(vault.openedAt, block.timestamp);
+        assertEq(vault.expiresAt, block.timestamp + 1 days);
+        assertEq(vault.duration, 1 days);
+        assertEq(vault.ltv, 9000);
+
+        // check asset specific info
+        assertEq(vault.collateralAsset, WMaticAddress);
+        assertEq(vault.cashAsset, USDCAddress);
+        // for the assert directly above this line, we need to consider that the price of wmatic is 73 cents at this time; (specifically: $0.739504999)
+        // (which converts to about 739 when considering USDC has 6 decimals and we swapped 1000 wmatic)
+
+        // check liquidity pool stuff
+        assertEq(vault.liquidityPool, address(pool));
+        assertEq(vault.putStrikeTick, 90);
+    }
+
+    function openVaultAsUserWith1000AndCheckValues(address user, uint24 tick)
         internal
         returns (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault)
     {
         uint256 collateralAmountToUse = 1000 ether;
-        (uuid, rawVault, vault) = openVaultAsUser(collateralAmountToUse, user1);
+        (uuid, rawVault, vault) = openVaultAsUser(collateralAmountToUse, user, tick);
         // check basic vault info
         assertEq(vault.active, true);
         assertEq(vault.openedAt, block.timestamp);
@@ -398,7 +529,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(vault.lockedVaultCash, 73_950_499); // the vault locked balance should be 0.1 * cashAmount
     }
 
-    function openVaultAsUser(uint256 collateralAmount, address user)
+    function openVaultAsUser(uint256 collateralAmount, address user, uint24 tick)
         internal
         returns (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault)
     {
@@ -406,13 +537,13 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
             collateralAsset: WMaticAddress,
             collateralAmount: collateralAmount,
             cashAsset: USDCAddress,
-            cashAmount: 100e6
+            cashAmount: 0.3e6
         });
 
         ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 1 days, ltv: 9000 });
 
         ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: CALL_STRIKE_TICK });
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: tick });
 
         startHoax(user);
         uint256 poolBalanceWMATIC = WMatic.balanceOf(uniV3Pool);
@@ -427,36 +558,48 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         PrintVaultStatsUtility(address(this)).printVaultStats(rawVault, "VAULT OPENED");
     }
 
-    function manipulatePriceDownwardPastPutStrike() internal {
+    function manipulatePriceDownwardPastPutStrike(bool isFuzzTest) internal {
         // Trade on Uniswap to make the price go down past the put strike price .9 * COLLATERAL_PRICE_ON_BLOCK
         // end price should be 632310
         uint256 targetPrice = 632_310;
         swapAsWhale(100_000e18, false);
-        assertEq(CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
+        if (!isFuzzTest) {
+            assertEq(CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
+        }
     }
 
-    function manipulatePriceDownwardShortOfPutStrike() internal returns (uint256 targetPrice) {
+    function manipulatePriceDownwardShortOfPutStrike(bool isFuzzTest) internal returns (uint256 finalPrice) {
         // Trade on Uniswap to make the price go down but not past the put strike price .9 * COLLATERAL_PRICE_ON_BLOCK
         // end price should be 703575
-        targetPrice = 703_575;
+        uint256 targetPrice = 703_575;
         swapAsWhale(40_000e18, false);
-        assertEq(CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
+        finalPrice = CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress);
+        if (!isFuzzTest) {
+            assertEq(CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
+        } else {
+            console.log("Current price of WMATIC in USDC after swap: %d", targetPrice);
+        }
     }
 
-    function manipulatePriceUpwardPastCallStrike() internal {
+    function manipulatePriceUpwardPastCallStrike(bool isFuzzTest) internal {
         // Trade on Uniswap to make the price go up past the call strike price 1.1 * COLLATERAL_PRICE_ON_BLOCK
         // end price should be 871978
-        uint256 targetPrice = 894_230;
-        swapAsWhale(120_000e6, true);
-        assertEq(CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
+        uint256 targetPrice = 987_778;
+        swapAsWhale(200_000e6, true);
+        if (!isFuzzTest) {
+            assertEq(CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
+        }
     }
 
-    function manipulatePriceUpwardShortOfCallStrike() internal returns (uint256 targetPrice) {
+    function manipulatePriceUpwardShortOfCallStrike(bool isFuzzTest) internal returns (uint256 finalPrice) {
         // Trade on Uniswap to make the price go up but not past the call strike price 1.1 * COLLATERAL_PRICE_ON_BLOCK
         // end price should be 794385
-        targetPrice = 794_385;
+        uint256 targetPrice = 794_385;
         swapAsWhale(40_000e6, true);
-        assertEq(CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
+        finalPrice = CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress);
+        if (!isFuzzTest) {
+            assertEq(CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
+        }
     }
 
     function swapAsWhale(uint256 amount, bool swapCash) internal {
@@ -476,8 +619,8 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
             amountOutMinimum: 100,
             sqrtPriceLimitX96: 0
         });
+        startHoax(binanceHotWalletTwo);
         if (swapCash) {
-            startHoax(binanceHotWalletTwo);
             IERC20(USDCAddress).approve(CollarEngine(engine).dexRouter(), amount);
             swapParams.tokenIn = USDCAddress;
             swapParams.tokenOut = WMaticAddress;
@@ -485,7 +628,6 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
             // we're not worried about slippage here
             IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
         } else {
-            startHoax(wMATICWhale);
             IERC20(WMaticAddress).approve(CollarEngine(engine).dexRouter(), amount);
 
             swapParams.tokenIn = WMaticAddress;
