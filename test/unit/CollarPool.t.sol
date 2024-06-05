@@ -181,16 +181,8 @@ contract CollarPoolTest is Test, ICollarPoolState {
         assertEq(iSlots[1], 222);
 
         // remove liquidity from one slot, and then query again, should return 1 slot
-        uint256 userBalanceBefore = cashAsset.balanceOf(user1);
-        uint256 slotLiquidityBefore = pool.getLiquidityForSlot(111);
-        console.log("slotLiquidityBefore: ", slotLiquidityBefore);
-        console.log("userBalanceBefore: ", userBalanceBefore);
         hoax(user1);
         pool.withdrawLiquidityFromSlot(111, 1000);
-        uint256 userBalanceAfter = cashAsset.balanceOf(user1);
-        uint256 slotLiquidityAfter = pool.getLiquidityForSlot(111);
-        console.log("slotLiquidityAfter: ", slotLiquidityAfter);
-        console.log("userBalanceAfter: ", userBalanceAfter);
         iSlots = pool.getInitializedSlotIndices();
 
         // length get reduced by 1 (all liquidity from slot 111 gets removed )
@@ -337,16 +329,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         startHoax(user1);
 
         pool.addLiquidityToSlot(111, 25_000);
-        uint256 userBalanceBefore = cashAsset.balanceOf(user1);
-        uint256 slotLiquidityBefore = pool.getLiquidityForSlot(111);
-        console.log("slotLiquidityBefore: ", slotLiquidityBefore);
-        console.log("userBalanceBefore: ", userBalanceBefore);
         pool.withdrawLiquidityFromSlot(111, 10_000);
-
-        uint256 userBalanceAfter = cashAsset.balanceOf(user1);
-        uint256 slotLiquidityAfter = pool.getLiquidityForSlot(111);
-        console.log("slotLiquidityAfter: ", slotLiquidityAfter);
-        console.log("userBalanceAfter: ", userBalanceAfter);
         assertEq(pool.getLiquidityForSlot(111), 15_000);
 
         uint256 liquidity = pool.getLiquidityForSlot(111);
@@ -459,14 +442,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }
 
     function test_openPosition() public {
-        mintTokensAndApprovePool(user1);
-        mintTokensAndApprovePool(address(manager));
-
-        startHoax(user1);
-        pool.addLiquidityToSlot(111, 100_000);
-
-        startHoax(address(manager));
-        pool.openPosition(keccak256(abi.encodePacked(user1)), 111, 100_000, block.timestamp + 100);
+        mintAndOpenPosition(user1);
 
         uint256 userTokens = ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
 
@@ -474,12 +450,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }
 
     function test_openPosition_InvalidVault() public {
-        mintTokensAndApprovePool(user1);
-        mintTokensAndApprovePool(address(manager));
-
-        startHoax(user1);
-
-        pool.addLiquidityToSlot(111, 100_000);
+        mintTokensAndAddLiquidity(user1);
 
         vm.expectRevert(ICollarCommonErrors.NotCollarVaultManager.selector);
 
@@ -487,16 +458,32 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }
 
     function test_openPosition_InvalidSlot() public {
-        mintTokensAndApprovePool(user1);
-        mintTokensAndApprovePool(address(manager));
-
-        startHoax(user1);
-        pool.addLiquidityToSlot(111, 100_000);
+        mintTokensAndAddLiquidity(user1);
 
         startHoax(address(manager));
 
         vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
         pool.openPosition(keccak256(abi.encodePacked(user1)), 112, 100_000, block.timestamp + 100);
+    }
+
+    function test_openPosition_InvalidSlotLiquidityAmount() public {
+        mintTokensAndAddLiquidity(user1);
+
+        startHoax(address(manager));
+
+        vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
+        pool.openPosition(keccak256(abi.encodePacked(user1)), 111, 100_001, block.timestamp + 100);
+    }
+
+    function test_finalizePositionNotVaultManager() public {
+        mintTokensAndApprovePool(user2);
+        mintAndOpenPosition(user1);
+
+        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+
+        startHoax(user1);
+        vm.expectRevert(ICollarCommonErrors.NotCollarVaultManager.selector);
+        pool.finalizePosition(keccak256(abi.encodePacked(user1)), user2, 100);
     }
 
     function test_redeem_normal() public {
@@ -551,14 +538,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }
 
     function test_redeem_InvalidAmount() public {
-        mintTokensAndApprovePool(user1);
-        mintTokensAndApprovePool(address(manager));
-
-        startHoax(user1);
-        pool.addLiquidityToSlot(111, 100_000);
-
-        startHoax(address(manager));
-        pool.openPosition(keccak256(abi.encodePacked(user1)), 111, 100_000, block.timestamp + 100);
+        mintAndOpenPosition(user1);
 
         ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
         // forward time:
@@ -570,14 +550,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }
 
     function test_redeem_VaultNotFinalized() public {
-        mintTokensAndApprovePool(user1);
-        mintTokensAndApprovePool(address(manager));
-
-        startHoax(user1);
-        pool.addLiquidityToSlot(111, 100_000);
-
-        startHoax(address(manager));
-        pool.openPosition(keccak256(abi.encodePacked(user1)), 111, 100_000, block.timestamp + 100);
+        mintAndOpenPosition(user1);
 
         ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
 
@@ -588,14 +561,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }
 
     function test_redeem_VaultNotValid() public {
-        mintTokensAndApprovePool(user1);
-        mintTokensAndApprovePool(address(manager));
-
-        startHoax(user1);
-        pool.addLiquidityToSlot(111, 100_000);
-
-        startHoax(address(manager));
-        pool.openPosition(keccak256(abi.encodePacked(user1)), 111, 100_000, block.timestamp + 100);
+        mintAndOpenPosition(user1);
 
         ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
         // forward time:
@@ -621,29 +587,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         startHoax(user1);
 
-        collateralAsset.approve(address(manager), 100_000 ether);
-
-        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(collateralAsset),
-            collateralAmount: 100,
-            cashAsset: address(cashAsset),
-            cashAmount: 100
-        });
-
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
-
-        ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
-
-        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
-
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
-
-        bytes memory vaultInfo = manager.vaultInfo(uuid);
-
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
-
-        startHoax(user1);
+        (bytes32 uuid, ICollarVaultState.Vault memory vault) = setPriceAndOpenVault();
 
         skip(101);
 
@@ -671,27 +615,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         startHoax(user1);
 
-        collateralAsset.approve(address(manager), 100_000 ether);
-
-        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(collateralAsset),
-            collateralAmount: 100,
-            cashAsset: address(cashAsset),
-            cashAmount: 100
-        });
-
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
-
-        ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
-
-        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
-
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
-
-        bytes memory vaultInfo = manager.vaultInfo(uuid);
-
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        (bytes32 uuid, ICollarVaultState.Vault memory vault) = setPriceAndOpenVault();
 
         startHoax(user2);
 
@@ -707,14 +631,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }
 
     function test_previewRedeem_VaultNotValid() public {
-        mintTokensAndApprovePool(user1);
-        mintTokensAndApprovePool(address(manager));
-
-        startHoax(user1);
-        pool.addLiquidityToSlot(111, 100_000);
-
-        startHoax(address(manager));
-        pool.openPosition(keccak256(abi.encodePacked(user1)), 111, 100_000, block.timestamp + 100);
+        mintAndOpenPosition(user1);
 
         ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
     }
@@ -734,29 +651,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         startHoax(user1);
 
-        collateralAsset.approve(address(manager), 100_000 ether);
-
-        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
-            collateralAsset: address(collateralAsset),
-            collateralAmount: 100,
-            cashAsset: address(cashAsset),
-            cashAmount: 100
-        });
-
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
-
-        ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
-
-        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
-
-        bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
-
-        bytes memory vaultInfo = manager.vaultInfo(uuid);
-
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
-
-        startHoax(user1);
+        (bytes32 uuid, ICollarVaultState.Vault memory vault) = setPriceAndOpenVault();
 
         skip(101);
 
@@ -775,5 +670,50 @@ contract CollarPoolTest is Test, ICollarPoolState {
         assertEq(testPool.collateralAsset(), address(collateralAsset));
         assertEq(testPool.duration(), 100);
         assertEq(testPool.ltv(), 9000);
+    }
+
+    function mintTokensForUser(address user) internal {
+        mintTokensAndApprovePool(user);
+        mintTokensAndApprovePool(address(manager));
+    }
+
+    function mintTokensAndAddLiquidity(address user) internal {
+        mintTokensForUser(user);
+        startHoax(user);
+        pool.addLiquidityToSlot(111, 100_000);
+    }
+
+    function mintAndOpenPosition(address user) internal {
+        mintTokensForUser(user);
+
+        startHoax(user);
+        pool.addLiquidityToSlot(111, 100_000);
+
+        startHoax(address(manager));
+        pool.openPosition(keccak256(abi.encodePacked(user)), 111, 100_000, block.timestamp + 100);
+    }
+
+    function setPriceAndOpenVault() internal returns (bytes32 uuid, ICollarVaultState.Vault memory vault) {
+        collateralAsset.approve(address(manager), 100_000 ether);
+
+        ICollarVaultState.AssetSpecifiers memory assets = ICollarVaultState.AssetSpecifiers({
+            collateralAsset: address(collateralAsset),
+            collateralAmount: 100,
+            cashAsset: address(cashAsset),
+            cashAmount: 100
+        });
+
+        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+
+        ICollarVaultState.LiquidityOpts memory liquidityOpts =
+            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
+
+        engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
+
+        uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
+
+        bytes memory vaultInfo = manager.vaultInfo(uuid);
+
+        vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
     }
 }
