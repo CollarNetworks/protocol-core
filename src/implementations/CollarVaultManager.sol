@@ -250,7 +250,6 @@ contract CollarVaultManager is ICollarVaultManager {
         } else if (putStrikePrice < finalPrice && finalPrice < startingPrice) {
             uint256 vaultCashToPool =
                 ((vault.lockedVaultCash * (startingPrice - finalPrice) * 1e32) / (startingPrice - putStrikePrice)) / 1e32;
-            // uint256 vaultCashToUser = vault.lockedVaultCash - vaultCashToPool;
 
             cashToSendToPool = vaultCashToPool;
 
