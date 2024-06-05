@@ -4,18 +4,27 @@
 
 @oz-v4.9.3/=lib/oz-v4.9.3/
 @oz-v5.0.0/=lib/oz-v5.0.0/
+
 @openzeppelin/contracts/=lib/oz-v5.0.0/
 openzeppelin/=lib/oz-v5.0.0/
 
 @uniswap/v3-core/contracts/=lib/uni-v3-core-solc-v0.8/
 @uniswap/v3-periphery/contracts/=lib/uni-v3-periphery-solc-v0.8/
+@uniswap/v3-swap-contracts/=lib/uni-v3-swap-router-contracts/
+
 @uni-v3-periphery/=lib/uni-v3-periphery-solc-v0.8/
 @uni-v3-core/=lib/uni-v3-core-solc-v0.8/
+@uni-v3-swap-contracts/=lib/uni-v3-swap-router-contracts/
+
 lib/uni-v3-periphery-solc-v0.8:@openzeppelin/contracts=lib/oz-v4.9.3/
 lib/uni-v3-core-solc-v0.8:@openzeppelin/contracts=lib/oz-v4.9.3/
 lib/uni-v3-periphery-solc-v0.8:@uniswap/v3-core/contracts/=lib/uni-v3-core-solc-v0.8/
 lib/uni-v3-core-solc-v0.8:@uniswap/v3-periphery/contracts/=lib/uni-v3-core-solc-v0.8/
+lib/uni-v3-swap-router-contracts:@uniswap/v3-swap-contracts/=lib/uni-v3-swap-router-contracts/
 
 @solmate=lib/solmate/src/
 
 @erc6909/=lib/ERC6909-jtriley/
+
+@mean-finance/=lib/mean-finance-static-oracle/
+mean-finance/=lib/mean-finance-static-oracle/

@@ -8,6 +8,8 @@
 pragma solidity ^0.8.18;
 
 import { ICollarPool } from "../interfaces/ICollarPool.sol";
+import { ICollarPoolErrors } from "../interfaces/errors/ICollarPoolErrors.sol";
+import { ICollarPoolEvents } from "../interfaces/events/ICollarPoolEvents.sol";
 import { ICollarVaultState } from "../interfaces/ICollarVaultState.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
@@ -15,8 +17,6 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 import { CollarEngine } from "./CollarEngine.sol";
 import { CollarVaultManager } from "./CollarVaultManager.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
-import { ICollarPoolErrors } from "../interfaces/errors/ICollarPoolErrors.sol";
-import { ICollarPoolEvents } from "../interfaces/events/ICollarPoolEvents.sol";
 import "forge-std/console.sol";
 
 contract CollarPool is ICollarPool, ERC6909TokenSupply {
@@ -122,14 +122,17 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
         emit LiquidityAdded(msg.sender, slotIndex, amount);
 
-        // transfer collateral from provider to pool
+        // transfer CASH from provider to pool
         IERC20(cashAsset).transferFrom(msg.sender, address(this), amount);
     }
 
-    function withdrawLiquidityFromSlot(uint256 slot, uint256 amount) public virtual override {
-        // verify sender has enough liquidity in slot
-        uint256 liquidity = slots[slot].providers.get(msg.sender);
+    function withdrawLiquidityFromSlot(uint256 slotIndex, uint256 amount) public virtual override {
+        console.log("withdraw liquidity from slot %d , amount  %d", slotIndex, amount);
+        Slot storage slot = slots[slotIndex];
 
+        uint256 liquidity = slot.providers.get(msg.sender);
+
+        // verify sender has enough liquidity in slot
         if (liquidity < amount) {
             revert InvalidAmount();
         }
@@ -138,28 +141,55 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         // redeemLiquidity unchanged
         freeLiquidity -= amount;
         totalLiquidity -= amount;
-
+        _unallocate(slotIndex, msg.sender, amount);
         // If slot has no more liquidity, remove from the initialized list
-        if (slots[slot].liquidity == 0) {
-            initializedSlotIndices.remove(slot);
+        if (slot.liquidity == 0) {
+            initializedSlotIndices.remove(slotIndex);
         }
 
-        emit LiquidityWithdrawn(msg.sender, slot, amount);
+        emit LiquidityWithdrawn(msg.sender, slotIndex, amount);
 
         // finally, transfer the liquidity to the provider
         IERC20(cashAsset).transfer(msg.sender, amount);
     }
 
     function moveLiquidityFromSlot(uint256 sourceSlotIndex, uint256 destinationSlotIndex, uint256 amount) external virtual override {
-        emit LiquidityMoved(msg.sender, sourceSlotIndex, destinationSlotIndex, amount);
-
         // lockedLiquidity unchanged
         // redeemLiquidity unchanged
         // freeLiquidity unchanged
         // totalLiquidity unchanged
 
-        withdrawLiquidityFromSlot(sourceSlotIndex, amount);
-        addLiquidityToSlot(destinationSlotIndex, amount);
+        // withdrawLiquidityFromSlot(sourceSlotIndex, amount);
+        // verify sender has enough liquidity in slot
+        Slot storage sourceSlot = slots[sourceSlotIndex];
+        uint256 liquidity = sourceSlot.providers.get(msg.sender);
+        if (liquidity < amount) {
+            revert InvalidAmount();
+        }
+        _unallocate(sourceSlotIndex, msg.sender, amount);
+        // If slot has no more liquidity, remove from the initialized list
+        if (sourceSlot.liquidity == 0) {
+            initializedSlotIndices.remove(sourceSlotIndex);
+        }
+        // add
+        Slot storage destinationSlot = slots[destinationSlotIndex];
+
+        // If this slot isn't initialized, add to the initialized list - we're initializing it now
+        if (!_isSlotInitialized(destinationSlotIndex)) {
+            initializedSlotIndices.add(destinationSlotIndex);
+        }
+        if (destinationSlot.providers.contains(msg.sender) || !_isSlotFull(destinationSlotIndex)) {
+            _allocate(destinationSlotIndex, msg.sender, amount);
+        } else {
+            address smallestProvider = _getSmallestProvider(destinationSlotIndex);
+            uint256 smallestAmount = destinationSlot.providers.get(smallestProvider);
+
+            if (smallestAmount > amount) revert NoLiquiditySpace();
+
+            _reAllocate(smallestProvider, destinationSlotIndex, UNALLOCATED_SLOT, smallestAmount);
+            _allocate(destinationSlotIndex, msg.sender, amount);
+        }
+        emit LiquidityMoved(msg.sender, sourceSlotIndex, destinationSlotIndex, amount);
     }
 
     function openPosition(bytes32 uuid, uint256 slotIndex, uint256 amount, uint256 expiration) external override {
@@ -193,10 +223,10 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
             // (providerLiquidity * amount) / totalSlotLiquidity
             uint256 amountFromThisProvider = (thisLiquidity * amount) / slot.liquidity;
 
-            // pull liquidity from provider
+            // decrement the amount of free liquidity that this provider has, in this slot
             slot.providers.set(thisProvider, thisLiquidity - amountFromThisProvider);
 
-            // mint to this provider
+            // mint tokens representing the provider's share in this vault to this provider
             _mint(thisProvider, uint256(uuid), amountFromThisProvider);
 
             emit PoolTokensIssued(thisProvider, expiration, amountFromThisProvider);
@@ -210,6 +240,12 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         // redeemable liquidity unchanged
         lockedLiquidity += amount;
         freeLiquidity -= amount;
+
+        /*
+
+            ! IMPORTANTLY: THERE IS *ONE* POSITION PER VAULT (1:1) !
+
+        */
 
         // finally, store the info about the Position
         positions[uuid] = Position({ expiration: expiration, principal: amount, withdrawable: 0 });
@@ -228,32 +264,20 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
             revert NotCollarVaultManager();
         }
 
-        console.log("checkpoint 1");
-
         // either case, we need to set the withdrawable amount to principle + positionNet
         positions[uuid].withdrawable = uint256(int256(positions[uuid].principal) + positionNet);
 
         // update global liquidity amounts
         // free liquidity unchanged
 
-        console.log("checkpoint 2");
-
         totalLiquidity = uint256(int256(totalLiquidity) + positionNet);
-
-        console.log("checkpoint 2.1");
 
         lockedLiquidity -= positions[uuid].principal;
 
-        console.log("checkpoint 2.2");
-
-        redeemableLiquidity = uint256(int256(positions[uuid].principal) + positionNet);
-        //redeemableLiquidity = positionNet > 0 ? uint256(int256(positionNet)) : 0;
-
-        console.log("checkpoint 3");
+        redeemableLiquidity += uint256(int256(positions[uuid].principal) + positionNet);
 
         if (positionNet < 0) {
             // we owe the vault some tokens
-            console.log(uint256(-positionNet));
             IERC20(cashAsset).transfer(vaultManager, uint256(-positionNet));
         } else if (positionNet > 0) {
             // the vault owes us some tokens
@@ -266,7 +290,12 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
     }
 
     function redeem(bytes32 uuid, uint256 amount) external override {
-        if (positions[uuid].expiration < block.timestamp) {
+        // validate position exists
+        if (positions[uuid].expiration == 0) {
+            revert InvalidVault();
+        }
+
+        if (positions[uuid].expiration > block.timestamp) {
             revert VaultNotFinalized();
         }
 
@@ -286,7 +315,6 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         // free liquidity unchangedd
         totalLiquidity -= redeemValue;
 
-        console.logUint(redeemableLiquidity);
         redeemableLiquidity -= redeemValue;
 
         emit Redemption(msg.sender, uuid, amount, redeemValue);

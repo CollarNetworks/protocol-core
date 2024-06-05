@@ -3,6 +3,7 @@ on: [push, pull_request]
 
 env:
   FOUNDRY_PROFILE: ci
+  POLYGON_MAINNET_RPC: ${{ secrets.POLYGON_MAINNET_RPC }}
 
 jobs:
   test:
@@ -33,4 +34,7 @@ jobs:
         run: forge install
 
       - name: Build Contracts & Run Tests
-        run: NO_COLOR=1 forge test >> $GITHUB_STEP_SUMMARY
+        run: |
+              NO_COLOR=1 forge test 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+              test_exit_status=${PIPESTATUS[0]}
+              exit $test_exit_status

@@ -19,3 +19,6 @@ bracket_spacing = true
 title = "Collar Protocol Documentation"
 repository = "https://github.com/CollarNetworks/protocol-core"
 out = "docs-temp"
+
+[fuzz]
+runs= 500

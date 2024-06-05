@@ -8,16 +8,15 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/console.sol";
-import "forge-std/Test.sol";
 import { ICollarVaultManager } from "../interfaces/ICollarVaultManager.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ICollarVaultState } from "../interfaces/ICollarVaultState.sol";
-import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
-import { CollarEngine } from "../implementations/CollarEngine.sol";
-import { TickCalculations } from "../libs/TickCalculations.sol";
-import { CollarPool } from "./CollarPool.sol";
 import { ICollarVaultManagerErrors } from "../interfaces/errors/ICollarVaultManagerErrors.sol";
 import { ICollarVaultManagerEvents } from "../interfaces/events/ICollarVaultManagerEvents.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRouter.sol";
+import { CollarPool } from "./CollarPool.sol";
+import { CollarEngine } from "../implementations/CollarEngine.sol";
+import { TickCalculations } from "../libs/TickCalculations.sol";
 
 contract CollarVaultManager is ICollarVaultManager {
     // ----- CONSTRUCTOR ----- //
@@ -89,8 +88,9 @@ contract CollarVaultManager is ICollarVaultManager {
     function openVault(
         AssetSpecifiers calldata assetData, // addresses & amounts of collateral & cash assets
         CollarOpts calldata collarOpts, // length & ltv
-        LiquidityOpts calldata liquidityOpts // pool address, callstrike & amount to lock there, putstrike
-    ) external override returns (bytes32 uuid) {
+        LiquidityOpts calldata liquidityOpts, // pool address, callstrike & amount to lock there, putstrike
+        bool withdrawLoan
+    ) public override returns (bytes32 uuid) {
         // only user is allowed to open vaults
         if (msg.sender != user) {
             revert NotCollarVaultOwner();
@@ -106,19 +106,14 @@ contract CollarVaultManager is ICollarVaultManager {
 
         vaultsByNonce[vaultCount] = keccak256(abi.encodePacked(user, vaultCount));
 
-        console.log("vaultCount is");
-        console.logUint(vaultCount);
-        console.log("uuid is");
-        console.logBytes32(uuid);
-
         // increment vault
         vaultCount++;
 
         // set Basic Vault Info
         vaultsByUUID[uuid].active = true;
-        vaultsByUUID[uuid].openedAt = block.timestamp;
-        vaultsByUUID[uuid].expiresAt = block.timestamp + collarOpts.duration;
-        vaultsByUUID[uuid].duration = collarOpts.duration;
+        vaultsByUUID[uuid].openedAt = uint32(block.timestamp);
+        vaultsByUUID[uuid].expiresAt = uint32(block.timestamp + collarOpts.duration);
+        vaultsByUUID[uuid].duration = uint32(collarOpts.duration);
         vaultsByUUID[uuid].ltv = collarOpts.ltv;
 
         // set Asset Specific Info
@@ -133,7 +128,7 @@ contract CollarVaultManager is ICollarVaultManager {
         uint256 cashReceivedFromSwap = _swap(assetData);
         vaultsByUUID[uuid].cashAmount = cashReceivedFromSwap;
 
-        // calculate exactly how much cash to lock from the liquidity poolj
+        // calculate exactly how much cash to lock from the liquidity pool
         // this is equal to (callstrikePercent - 100%) * totalCashReceivedFromSwap
         // first, grab the call strike percent from the call strike tick supplied
         uint256 tickScaleFactor = CollarPool(liquidityOpts.liquidityPool).tickScaleFactor();
@@ -142,7 +137,7 @@ contract CollarVaultManager is ICollarVaultManager {
 
         // calculate the initial collateral price from the swap execution fill
         // this is stored as "unit price times 1e18"
-        uint256 initialCollateralPrice = (assetData.collateralAmount * 1e18) / cashReceivedFromSwap;
+        uint256 initialCollateralPrice = (cashReceivedFromSwap * 1e18) / (assetData.collateralAmount);
 
         // set Liquidity Pool Stuff
         vaultsByUUID[uuid].liquidityPool = liquidityOpts.liquidityPool;
@@ -171,6 +166,10 @@ contract CollarVaultManager is ICollarVaultManager {
 
         // approve the pool
         IERC20(assetData.cashAsset).approve(liquidityOpts.liquidityPool, vaultsByUUID[uuid].lockedVaultCash);
+
+        if (withdrawLoan) {
+            withdraw(uuid, vaultsByUUID[uuid].loanBalance);
+        }
     }
 
     function closeVault(bytes32 uuid) external override {
@@ -196,7 +195,8 @@ contract CollarVaultManager is ICollarVaultManager {
         uint256 putStrikePrice = vault.putStrikePrice;
         uint256 callStrikePrice = vault.callStrikePrice;
 
-        uint256 finalPrice = CollarEngine(engine).getHistoricalAssetPrice(vault.collateralAsset, vault.expiresAt);
+        uint256 finalPrice =
+            CollarEngine(engine).getHistoricalAssetPriceViaTWAP(vault.collateralAsset, vault.cashAsset, vault.expiresAt, 15 minutes);
 
         if (finalPrice == 0) revert InvalidAssetPrice();
 
@@ -228,40 +228,43 @@ contract CollarVaultManager is ICollarVaultManager {
 
         // CASE 1 - all vault cash to liquidity pool
         if (finalPrice <= putStrikePrice) {
-            console.log("closeVault - case 1");
-
             cashToSendToPool = vault.lockedVaultCash;
+
+            console.log("CollarVaultManager::closeVault - CASE 1 ALL VAULT CASH TO LIQUIDITY POOL");
+            console.log("CollarVaultManager::closeVault - cashToSendToPool: ", cashToSendToPool);
 
             // CASE 2 - all vault cash to user, all locked pool cash to user
         } else if (finalPrice >= callStrikePrice) {
-            console.log("closeVault - case 2");
-
             cashNeededFromPool = vault.lockedPoolCash;
+
+            console.log("CollarVaultManager::closeVault - CASE 2 ALL VAULT CASH TO USER, ALL LOCKED POOL CASH TO USER");
+            console.log("CollarVaultManager::closeVault - cashNeededFromPool: ", cashNeededFromPool);
 
             // CASE 3 - all vault cash to user
         } else if (finalPrice == startingPrice) {
-            console.log("closeVault - case 3");
-
             // no need to update any vars here
+
+            console.log("CollarVaultManager::closeVault - CASE 3 ALL VAULT CASH TO USER");
 
             // CASE 4 - proportional vault cash to user
         } else if (putStrikePrice < finalPrice && finalPrice < startingPrice) {
-            console.log("closeVault - case 4");
-
             uint256 vaultCashToPool =
                 ((vault.lockedVaultCash * (startingPrice - finalPrice) * 1e32) / (startingPrice - putStrikePrice)) / 1e32;
-            // uint256 vaultCashToUser = vault.lockedVaultCash - vaultCashToPool;
 
             cashToSendToPool = vaultCashToPool;
 
+            console.log("CollarVaultManager::closeVault - CASE 4 PROPORTIONAL VAULT CASH TO USER");
+            console.log("CollarVaultManager::closeVault - cashToSendToPool: ", cashToSendToPool);
+
             // CASE 5 - all vault cash to user, proportional locked pool cash to user
         } else if (callStrikePrice > finalPrice && finalPrice > startingPrice) {
-            console.log("closeVault - case 5");
-
             uint256 poolCashToUser =
                 ((vault.lockedPoolCash * (finalPrice - startingPrice) * 1e32) / (callStrikePrice - startingPrice)) / 1e32;
 
             cashNeededFromPool = poolCashToUser;
+
+            console.log("CollarVaultManager::closeVault - CASE 5 ALL VAULT CASH TO USER, PROPORTIONAL LOCKED POOL CASH TO USER");
+            console.log("CollarVaultManager::closeVault - cashNeededFromPool: ", cashNeededFromPool);
 
             // ???
         } else {
@@ -274,18 +277,13 @@ contract CollarVaultManager is ICollarVaultManager {
         }
 
         int256 poolProfit = cashToSendToPool > 0 ? int256(cashToSendToPool) : -int256(cashNeededFromPool);
-        console.logInt(poolProfit);
-
-        IERC20 cashToken = IERC20(vault.cashAsset);
-
-        console.logUint(cashToken.balanceOf(address(this)));
-        CollarPool(vault.liquidityPool).finalizePosition(uuid, address(this), poolProfit);
-        console.logUint(cashToken.balanceOf(address(this)));
 
         if (cashToSendToPool > 0) {
             vault.lockedVaultCash -= cashToSendToPool;
             IERC20(vault.cashAsset).approve(vault.liquidityPool, cashToSendToPool);
         }
+
+        CollarPool(vault.liquidityPool).finalizePosition(uuid, address(this), poolProfit);
 
         // set total redeem value for vault tokens to locked vault cash + cash pulled from pool
         // also null out the locked vault cash
@@ -319,7 +317,7 @@ contract CollarVaultManager is ICollarVaultManager {
         IERC20(vaultsByUUID[uuid].cashAsset).transfer(msg.sender, redeemValue);
     }
 
-    function withdraw(bytes32 uuid, uint256 amount) external override {
+    function withdraw(bytes32 uuid, uint256 amount) public override {
         if (msg.sender != user) revert NotCollarVaultOwner();
         if (vaultsByUUID[uuid].openedAt == 0) revert InvalidVault();
 
@@ -395,20 +393,18 @@ contract CollarVaultManager is ICollarVaultManager {
         IERC20(assets.collateralAsset).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount);
 
         // build the swap transaction
-        ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter.ExactInputSingleParams({
+        IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
             tokenIn: assets.collateralAsset,
             tokenOut: assets.cashAsset,
             fee: 3000,
             recipient: address(this),
-            deadline: block.timestamp,
             amountIn: assets.collateralAmount,
             amountOutMinimum: assets.cashAmount,
             sqrtPriceLimitX96: 0
         });
 
         // cache the amount of cash received
-        cashReceived = ISwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
-
+        cashReceived = IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
         // revert if minimum not met
         if (cashReceived < assets.cashAmount) {
             revert TradeNotViable();

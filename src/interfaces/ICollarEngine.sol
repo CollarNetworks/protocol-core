@@ -8,6 +8,7 @@
 pragma solidity ^0.8.18;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { IStaticOracle } from "@mean-finance/interfaces/IStaticOracle.sol";
 import { ICollarEngineErrors } from "./errors/ICollarEngineErrors.sol";
 import { ICollarEngineEvents } from "./events/ICollarEngineEvents.sol";
 
@@ -243,11 +244,18 @@ abstract contract ICollarEngine is ICollarEngineErrors, ICollarEngineEvents {
     // asset pricing
 
     /// @notice Gets the price of a particular asset at a particular timestamp
-    /// @param asset The address of the asset to get the price of
-    /// @param timestamp The timestamp to get the price at
-    function getHistoricalAssetPrice(address asset, uint256 timestamp) external view virtual returns (uint256);
+    /// @param baseToken The address of the asset to get the price of
+    /// @param quoteToken The address of the asset to quote the price in
+    /// @param twapEndTimestamp The timestamp to END the TWAP at
+    /// @param twapLength The length of the TWAP to calculate
+    function getHistoricalAssetPriceViaTWAP(address baseToken, address quoteToken, uint32 twapEndTimestamp, uint32 twapLength)
+        external
+        view
+        virtual
+        returns (uint256);
 
     /// @notice Gets the current price of 1e18 of a particular asset
-    /// @param asset The address of the asset to get the price of
-    function getCurrentAssetPrice(address asset) external view virtual returns (uint256);
+    /// @param baseToken The address of the asset to get the price of
+    /// @param quoteToken The address of the asset to quote the price in
+    function getCurrentAssetPrice(address baseToken, address quoteToken) external view virtual returns (uint256 price);
 }

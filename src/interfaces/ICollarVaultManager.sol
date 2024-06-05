@@ -13,13 +13,19 @@ import { ICollarVaultState } from "./ICollarVaultState.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-abstract contract ICollarVaultManager is ICollarVaultState, ICollarVaultManagerErrors, ICollarVaultManagerEvents, ERC6909TokenSupply, Ownable {
+abstract contract ICollarVaultManager is
+    ICollarVaultState,
+    ICollarVaultManagerErrors,
+    ICollarVaultManagerEvents,
+    ERC6909TokenSupply,
+    Ownable
+{
     // ----- IMMUTABLES ----- //
 
     address public immutable user;
     address public immutable engine;
 
-    // ----- SO THAT THE ABI PICKS UP THE VAULT STRUCT ----- // 
+    // ----- SO THAT THE ABI PICKS UP THE VAULT STRUCT ----- //
     event VaultForABI(Vault vault);
 
     // ----- STATE VARIABLES ----- //
@@ -68,10 +74,14 @@ abstract contract ICollarVaultManager is ICollarVaultState, ICollarVaultManagerE
     /// @param collarOpts Data about the collar (expiry & ltv)
     /// @param liquidityOpts Data about the liquidity (pool address, callstrike & amount to lock there, putstrike)
     function openVault(
-        AssetSpecifiers calldata assets, // addresses & amounts of collateral & cash assets
-        CollarOpts calldata collarOpts, // expiry & ltv
-        LiquidityOpts calldata liquidityOpts // pool address, callstrike & amount to lock there, putstrike
-    ) external virtual returns (bytes32 uuid);
+        // addresses & amounts of collateral & cash assets
+        AssetSpecifiers calldata assets,
+        // expiry & ltv
+        CollarOpts calldata collarOpts,
+        // pool address, callstrike & amount to lock there, putstrike
+        LiquidityOpts calldata liquidityOpts,
+        bool withdrawLoan
+    ) public virtual returns (bytes32 uuid);
 
     /// @notice Closes a vault - expiry must have passed
     /// @param uuid UUID of the vault to close
@@ -85,5 +95,5 @@ abstract contract ICollarVaultManager is ICollarVaultState, ICollarVaultManagerE
     /// @notice Withdraws cash from a vault loan
     /// @param uuid UUID of the vault to withdraw from
     /// @param amount Amount of cash to withdraw
-    function withdraw(bytes32 uuid, uint256 amount) external virtual;
+    function withdraw(bytes32 uuid, uint256 amount) public virtual;
 }
