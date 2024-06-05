@@ -290,7 +290,12 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
     }
 
     function redeem(bytes32 uuid, uint256 amount) external override {
-        if (positions[uuid].expiration < block.timestamp) {
+        // validate position exists
+        if (positions[uuid].expiration == 0) {
+            revert InvalidVault();
+        }
+
+        if (positions[uuid].expiration > block.timestamp) {
             revert VaultNotFinalized();
         }
 

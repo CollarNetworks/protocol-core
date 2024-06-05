@@ -203,7 +203,6 @@ contract CollarEngine is ICollarEngine, Ownable {
         validateAssetsIsSupported(baseToken);
         validateAssetsIsSupported(quoteToken);
         address uniV3Factory = IPeripheryImmutableState(dexRouter).factory();
-        console.log("uniV3Factory: ", uniV3Factory);
         price = CollarOracle.getTWAP(baseToken, quoteToken, twapStartTimestamp, twapLength, uniV3Factory);
     }
 
@@ -211,10 +210,21 @@ contract CollarEngine is ICollarEngine, Ownable {
         validateAssetsIsSupported(baseToken);
         validateAssetsIsSupported(quoteToken);
         address uniV3Factory = IPeripheryImmutableState(dexRouter).factory();
-        console.log("uniV3Factory: ", uniV3Factory);
         /**
          * @dev pass in 0,0 to get price at current tick
          */
         price = CollarOracle.getTWAP(baseToken, quoteToken, 0, 0, uniV3Factory);
     }
 }
+
+/**
+ * Vault expiration timestamp:  1713267958
+ *   Current timestamp:  1713440758
+ *   Offset calculated as  173700
+ *   Computed pool address:  0x2DB87C4831B2fec2E35591221455834193b50D1B
+ *   baseToken is  0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270
+ *   quoteToken is  0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359
+ *   timeStampStart is  1713267958
+ *   twapLength is  900
+ *   Amount baseToken received for 1e18 quoteToken:  741201
+ */

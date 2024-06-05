@@ -541,7 +541,8 @@ contract CollarPoolTest is Test, ICollarPoolState {
         mintAndOpenPosition(user1);
 
         ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
-
+        // forward time:
+        skip(101);
         startHoax(user1);
 
         vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
@@ -563,10 +564,11 @@ contract CollarPoolTest is Test, ICollarPoolState {
         mintAndOpenPosition(user1);
 
         ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
-
+        // forward time:
+        skip(101);
         startHoax(user1);
 
-        vm.expectRevert(ICollarCommonErrors.VaultNotFinalized.selector);
+        vm.expectRevert(ICollarCommonErrors.InvalidVault.selector);
         pool.redeem(keccak256(abi.encodePacked(user2)), 100_000);
     }
 

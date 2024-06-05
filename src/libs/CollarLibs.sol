@@ -10,7 +10,6 @@ pragma solidity ^0.8.18;
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 import { OracleLibrary } from "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
-import "forge-std/console.sol";
 
 /// @notice Various constants used throughout the system
 abstract contract Constants {
@@ -43,8 +42,6 @@ library CollarOracle {
             _secondsAgos[0] = twapLength + offset;
             _secondsAgos[1] = offset;
             (int56[] memory tickCumulatives,) = pool.observe(_secondsAgos);
-            console.log("Tick Cumulatives[0]: ");
-            console.logInt(tickCumulatives[0]);
             int56 tickCumulativesDelta = tickCumulatives[1] - tickCumulatives[0];
             int56 period = int56(int32(twapLength));
             // Always round to negative infinity
@@ -53,7 +50,6 @@ library CollarOracle {
         }
 
         price = OracleLibrary.getQuoteAtTick(tick, 1e18, baseToken, quoteToken);
-        console.log("Price of baseToken in quoteToken: ", price);
     }
 
     // function getCurrentAssetPrice(address /*asset*/ ) external view virtual override returns (uint256) {
@@ -65,9 +61,8 @@ library CollarOracle {
      */
 
     /// @notice Takes a pair and some fee tiers, and returns pool
-    function _getPoolForTokenPair(address _tokenA, address _tokenB, address uniswapV3Factory) internal view returns (address _pool) {
+    function _getPoolForTokenPair(address _tokenA, address _tokenB, address uniswapV3Factory) internal pure returns (address _pool) {
         PoolAddress.PoolKey memory _poolKey = PoolAddress.getPoolKey(_tokenA, _tokenB, 3000);
         _pool = PoolAddress.computeAddress(address(uniswapV3Factory), _poolKey);
-        console.log("Computed pool address: ", _pool);
     }
 }
