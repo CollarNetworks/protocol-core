@@ -28,7 +28,7 @@ library CollarOracle {
         uint32 twapLength,
         address uniswapV3Factory
     )
-        external
+        internal
         view
         returns (uint price)
     {
