@@ -14,28 +14,20 @@ contract MockEngine is CollarEngine {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;
 
-    mapping(address => uint256) public currentAssetPrices;
-    mapping(address => mapping(uint256 => uint256)) public historicalAssetPrices;
+    mapping(address => uint) public currentAssetPrices;
+    mapping(address => mapping(uint => uint)) public historicalAssetPrices;
 
     constructor(address _dexRouter) CollarEngine(_dexRouter) { }
 
-    function setHistoricalAssetPrice(address asset, uint256 timestamp, uint256 value) external {
+    function setHistoricalAssetPrice(address asset, uint timestamp, uint value) external {
         historicalAssetPrices[asset][timestamp] = value;
     }
 
-    function getHistoricalAssetPrice(
-        address asset,
-        uint256 timestamp
-    )
-        external
-        view
-        virtual
-        returns (uint256)
-    {
+    function getHistoricalAssetPrice(address asset, uint timestamp) external view virtual returns (uint) {
         return historicalAssetPrices[asset][timestamp];
     }
 
-    function setCurrentAssetPrice(address asset, uint256 price) external {
+    function setCurrentAssetPrice(address asset, uint price) external {
         currentAssetPrices[asset] = price;
     }
 
@@ -47,7 +39,7 @@ contract MockEngine is CollarEngine {
         view
         virtual
         override
-        returns (uint256)
+        returns (uint)
     {
         return currentAssetPrices[baseToken];
     }
@@ -62,7 +54,7 @@ contract MockEngine is CollarEngine {
         view
         virtual
         override
-        returns (uint256)
+        returns (uint)
     {
         return historicalAssetPrices[baseToken][timeStampStart];
     }

@@ -70,7 +70,7 @@ contract MeanFinanceStaticOracleTest is Test {
         uint24[] memory feeTiers = new uint24[](1);
         feeTiers[0] = 3000;
 
-        uint256 result;
+        uint result;
         //address[] memory poolsQueried;
 
         (result, /*poolsQueried*/ ) = oracle.quoteSpecificFeeTiersWithOffsettedTimePeriod(
@@ -94,7 +94,7 @@ contract MeanFinanceStaticOracleTest is Test {
         uint24[] memory feeTiers = new uint24[](1);
         feeTiers[0] = 3000;
 
-        uint256 result;
+        uint result;
 
         // this time we roll the blockchain forward a bit
         vm.roll(block.number + 450); // polygon block time = 2 seconds per block, so we skip forward (15
@@ -122,7 +122,7 @@ contract MeanFinanceStaticOracleTest is Test {
         uint24[] memory feeTiers = new uint24[](1);
         feeTiers[0] = 3000;
 
-        uint256 result;
+        uint result;
 
         // this time we roll the blockchain forward a few days
         vm.roll(block.number + 129_600); // polygon block time = 2 seconds per block, so we skip forward (3

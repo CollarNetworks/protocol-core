@@ -99,9 +99,9 @@ contract CollarPoolConstraintsTest is Test {
     function test_addLiquidity() public {
         startHoax(user1);
 
-        uint256 freeLiquidityStart = pool.freeLiquidity();
-        uint256 lockedLiquidityStart = pool.lockedLiquidity();
-        uint256 totalLiquidityStart = pool.totalLiquidity();
+        uint freeLiquidityStart = pool.freeLiquidity();
+        uint lockedLiquidityStart = pool.lockedLiquidity();
+        uint totalLiquidityStart = pool.totalLiquidity();
 
         assertEq(totalLiquidityStart, freeLiquidityStart + lockedLiquidityStart);
 
@@ -115,9 +115,9 @@ contract CollarPoolConstraintsTest is Test {
     function test_withdrawLiquidity() public {
         startHoax(user1);
 
-        uint256 freeLiquidityStart = pool.freeLiquidity();
-        uint256 lockedLiquidityStart = pool.lockedLiquidity();
-        uint256 totalLiquidityStart = pool.totalLiquidity();
+        uint freeLiquidityStart = pool.freeLiquidity();
+        uint lockedLiquidityStart = pool.lockedLiquidity();
+        uint totalLiquidityStart = pool.totalLiquidity();
 
         assertEq(totalLiquidityStart, freeLiquidityStart + lockedLiquidityStart);
 
@@ -135,9 +135,9 @@ contract CollarPoolConstraintsTest is Test {
     function test_mintPoolPositionTokens() public {
         startHoax(user1);
 
-        uint256 freeLiquidityStart = pool.freeLiquidity();
-        uint256 lockedLiquidityStart = pool.lockedLiquidity();
-        uint256 totalLiquidityStart = pool.totalLiquidity();
+        uint freeLiquidityStart = pool.freeLiquidity();
+        uint lockedLiquidityStart = pool.lockedLiquidity();
+        uint totalLiquidityStart = pool.totalLiquidity();
 
         assertEq(totalLiquidityStart, freeLiquidityStart + lockedLiquidityStart);
 
@@ -163,10 +163,10 @@ contract CollarPoolConstraintsTest is Test {
 
         startHoax(user2);
 
-        uint256 freeLiquidityStart = pool.freeLiquidity();
-        uint256 lockedLiquidityStart = pool.lockedLiquidity();
-        uint256 totalLiquidityStart = pool.totalLiquidity();
-        uint256 redeemLiquidityStart = pool.redeemableLiquidity();
+        uint freeLiquidityStart = pool.freeLiquidity();
+        uint lockedLiquidityStart = pool.lockedLiquidity();
+        uint totalLiquidityStart = pool.totalLiquidity();
+        uint redeemLiquidityStart = pool.redeemableLiquidity();
 
         pool.addLiquidityToSlot(110, 25_000);
 
@@ -207,7 +207,7 @@ contract CollarPoolConstraintsTest is Test {
 
         ERC6909TokenSupply poolTokens = ERC6909TokenSupply(address(pool));
 
-        uint256 userPoolTokenBalance = poolTokens.balanceOf(user2, uint256(uuid));
+        uint userPoolTokenBalance = poolTokens.balanceOf(user2, uint(uuid));
 
         assertEq(userPoolTokenBalance, 10);
 

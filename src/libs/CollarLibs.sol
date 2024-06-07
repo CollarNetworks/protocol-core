@@ -14,10 +14,10 @@ import { OracleLibrary } from "@uniswap/v3-periphery/contracts/libraries/OracleL
 /// @notice Various constants used throughout the system
 abstract contract Constants {
     // one hundred percent, in basis points
-    uint256 public constant ONE_HUNDRED_PERCENT = 10_000;
+    uint public constant ONE_HUNDRED_PERCENT = 10_000;
 
     // precision multiplier to be used when expanding small numbers before division, etc
-    uint256 public constant PRECISION_MULTIPLIER = 1e18;
+    uint public constant PRECISION_MULTIPLIER = 1e18;
 }
 
 library CollarOracle {
@@ -30,7 +30,7 @@ library CollarOracle {
     )
         external
         view
-        returns (uint256 price)
+        returns (uint price)
     {
         address poolToUse = _getPoolForTokenPair(baseToken, quoteToken, uniswapV3Factory);
         IUniswapV3Pool pool = IUniswapV3Pool(poolToUse);

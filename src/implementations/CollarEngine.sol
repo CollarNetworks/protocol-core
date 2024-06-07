@@ -88,24 +88,24 @@ contract CollarEngine is ICollarEngine, Ownable {
 
     // collar durations
 
-    modifier ensureDurationIsValid(uint256 duration) {
+    modifier ensureDurationIsValid(uint duration) {
         if (!validCollarDurations.contains(duration)) revert CollarDurationNotSupported();
         _;
     }
 
-    modifier ensureDurationIsNotValid(uint256 duration) {
+    modifier ensureDurationIsNotValid(uint duration) {
         if (validCollarDurations.contains(duration)) revert CollarDurationNotSupported();
         _;
     }
 
     // ltvs
 
-    modifier ensureLTVIsValid(uint256 ltv) {
+    modifier ensureLTVIsValid(uint ltv) {
         if (!validLTVs.contains(ltv)) revert LTVNotSupported(ltv);
         _;
     }
 
-    modifier ensureLTVIsNotValid(uint256 ltv) {
+    modifier ensureLTVIsNotValid(uint ltv) {
         if (validLTVs.contains(ltv)) revert LTVAlreadySupported(ltv);
         _;
     }
@@ -185,7 +185,7 @@ contract CollarEngine is ICollarEngine, Ownable {
 
     // durations
 
-    function addCollarDuration(uint256 duration)
+    function addCollarDuration(uint duration)
         external
         override
         onlyOwner
@@ -195,7 +195,7 @@ contract CollarEngine is ICollarEngine, Ownable {
         validCollarDurations.add(duration);
     }
 
-    function removeCollarDuration(uint256 duration)
+    function removeCollarDuration(uint duration)
         external
         override
         onlyOwner
@@ -207,12 +207,12 @@ contract CollarEngine is ICollarEngine, Ownable {
 
     // ltvs
 
-    function addLTV(uint256 ltv) external override onlyOwner ensureLTVIsNotValid(ltv) {
+    function addLTV(uint ltv) external override onlyOwner ensureLTVIsNotValid(ltv) {
         emit LTVAdded(ltv);
         validLTVs.add(ltv);
     }
 
-    function removeLTV(uint256 ltv) external override onlyOwner ensureLTVIsValid(ltv) {
+    function removeLTV(uint ltv) external override onlyOwner ensureLTVIsValid(ltv) {
         emit LTVRemoved(ltv);
         validLTVs.remove(ltv);
     }
@@ -225,11 +225,11 @@ contract CollarEngine is ICollarEngine, Ownable {
         return vaultManagers.contains(vaultManager);
     }
 
-    function vaultManagersLength() external view override returns (uint256) {
+    function vaultManagersLength() external view override returns (uint) {
         return vaultManagers.length();
     }
 
-    function getVaultManager(uint256 index) external view override returns (address) {
+    function getVaultManager(uint index) external view override returns (address) {
         return vaultManagers.at(index);
     }
 
@@ -239,11 +239,11 @@ contract CollarEngine is ICollarEngine, Ownable {
         return supportedCashAssets.contains(asset);
     }
 
-    function supportedCashAssetsLength() external view override returns (uint256) {
+    function supportedCashAssetsLength() external view override returns (uint) {
         return supportedCashAssets.length();
     }
 
-    function getSupportedCashAsset(uint256 index) external view override returns (address) {
+    function getSupportedCashAsset(uint index) external view override returns (address) {
         return supportedCashAssets.at(index);
     }
 
@@ -253,11 +253,11 @@ contract CollarEngine is ICollarEngine, Ownable {
         return supportedCollateralAssets.contains(asset);
     }
 
-    function supportedCollateralAssetsLength() external view override returns (uint256) {
+    function supportedCollateralAssetsLength() external view override returns (uint) {
         return supportedCollateralAssets.length();
     }
 
-    function getSupportedCollateralAsset(uint256 index) external view override returns (address) {
+    function getSupportedCollateralAsset(uint index) external view override returns (address) {
         return supportedCollateralAssets.at(index);
     }
 
@@ -267,39 +267,39 @@ contract CollarEngine is ICollarEngine, Ownable {
         return collarLiquidityPools.contains(pool);
     }
 
-    function supportedLiquidityPoolsLength() external view override returns (uint256) {
+    function supportedLiquidityPoolsLength() external view override returns (uint) {
         return collarLiquidityPools.length();
     }
 
-    function getSupportedLiquidityPool(uint256 index) external view override returns (address) {
+    function getSupportedLiquidityPool(uint index) external view override returns (address) {
         return collarLiquidityPools.at(index);
     }
 
     // collar durations
 
-    function isValidCollarDuration(uint256 duration) external view override returns (bool) {
+    function isValidCollarDuration(uint duration) external view override returns (bool) {
         return validCollarDurations.contains(duration);
     }
 
-    function validCollarDurationsLength() external view override returns (uint256) {
+    function validCollarDurationsLength() external view override returns (uint) {
         return validCollarDurations.length();
     }
 
-    function getValidCollarDuration(uint256 index) external view override returns (uint256) {
+    function getValidCollarDuration(uint index) external view override returns (uint) {
         return validCollarDurations.at(index);
     }
 
     // ltvs
 
-    function isValidLTV(uint256 ltv) external view override returns (bool) {
+    function isValidLTV(uint ltv) external view override returns (bool) {
         return validLTVs.contains(ltv);
     }
 
-    function validLTVsLength() external view override returns (uint256) {
+    function validLTVsLength() external view override returns (uint) {
         return validLTVs.length();
     }
 
-    function getValidLTV(uint256 index) external view override returns (uint256) {
+    function getValidLTV(uint index) external view override returns (uint) {
         return validLTVs.at(index);
     }
 
@@ -320,7 +320,7 @@ contract CollarEngine is ICollarEngine, Ownable {
         view
         virtual
         override
-        returns (uint256 price)
+        returns (uint price)
     {
         validateAssetsIsSupported(baseToken);
         validateAssetsIsSupported(quoteToken);
@@ -336,7 +336,7 @@ contract CollarEngine is ICollarEngine, Ownable {
         view
         virtual
         override
-        returns (uint256 price)
+        returns (uint price)
     {
         validateAssetsIsSupported(baseToken);
         validateAssetsIsSupported(quoteToken);

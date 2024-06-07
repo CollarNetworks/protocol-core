@@ -17,9 +17,9 @@ interface ICollarVaultState {
     /// @param cashAmount The minimum amount of the cash asset to swap the collateral for
     struct AssetSpecifiers {
         address collateralAsset;
-        uint256 collateralAmount;
+        uint collateralAmount;
         address cashAsset;
-        uint256 cashAmount;
+        uint cashAmount;
     }
 
     /// @notice This struct contains information about the collar options for each vault
@@ -27,8 +27,8 @@ interface ICollarVaultState {
     /// @param ltv The maximum loan-to-value ratio of loans taken out of this vault, expressed as bps of the
     /// collateral value
     struct CollarOpts {
-        uint256 duration;
-        uint256 ltv;
+        uint duration;
+        uint ltv;
     }
 
     /// @notice This struct contains information about how to source the liquidity for each vault
@@ -67,22 +67,22 @@ interface ICollarVaultState {
         uint32 openedAt;
         uint32 expiresAt;
         uint32 duration;
-        uint256 ltv;
+        uint ltv;
         /* ---- Asset Specific Info ----- */
         address collateralAsset;
         address cashAsset;
-        uint256 collateralAmount;
-        uint256 cashAmount;
+        uint collateralAmount;
+        uint cashAmount;
         /* ----- Liquidity Pool Stuff ----- */
         address liquidityPool;
-        uint256 lockedPoolCash;
-        uint256 initialCollateralPrice;
-        uint256 putStrikePrice;
-        uint256 callStrikePrice;
+        uint lockedPoolCash;
+        uint initialCollateralPrice;
+        uint putStrikePrice;
+        uint callStrikePrice;
         uint24 putStrikeTick;
         uint24 callStrikeTick;
         /* ----- Vault Specific Stuff ----- */
-        uint256 loanBalance;
-        uint256 lockedVaultCash;
+        uint loanBalance;
+        uint lockedVaultCash;
     }
 }

@@ -252,7 +252,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
 
     function test_getVaultManager() public {
         vm.startPrank(user1);
-        uint256 vaultManagerCount = engine.vaultManagersLength();
+        uint vaultManagerCount = engine.vaultManagersLength();
         engine.createVaultManager();
         address vaultManager = engine.getVaultManager(vaultManagerCount);
 
