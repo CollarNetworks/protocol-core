@@ -8,15 +8,17 @@
 pragma solidity ^0.8.18;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { IPeripheryImmutableState } from "@uni-v3-periphery/interfaces/IPeripheryImmutableState.sol";
+// internal imports
 import { ICollarEngine } from "../interfaces/ICollarEngine.sol";
 import { CollarPool } from "./CollarPool.sol";
 import { CollarVaultManager } from "./CollarVaultManager.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { CollarOracle } from "../libs/CollarLibs.sol";
-import { IPeripheryImmutableState } from "@uni-v3-periphery/interfaces/IPeripheryImmutableState.sol";
+import { CollarOracleLib } from "../libs/CollarOracleLib.sol";
+
 import "forge-std/console.sol";
 
-contract CollarEngine is ICollarEngine, Ownable {
+contract CollarEngine is Ownable, ICollarEngine {
     // -- lib delcarations --
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;
@@ -325,7 +327,7 @@ contract CollarEngine is ICollarEngine, Ownable {
         validateAssetsIsSupported(baseToken);
         validateAssetsIsSupported(quoteToken);
         address uniV3Factory = IPeripheryImmutableState(dexRouter).factory();
-        price = CollarOracle.getTWAP(baseToken, quoteToken, twapStartTimestamp, twapLength, uniV3Factory);
+        price = CollarOracleLib.getTWAP(baseToken, quoteToken, twapStartTimestamp, twapLength, uniV3Factory);
     }
 
     function getCurrentAssetPrice(
@@ -344,7 +346,7 @@ contract CollarEngine is ICollarEngine, Ownable {
         /**
          * @dev pass in 0,0 to get price at current tick
          */
-        price = CollarOracle.getTWAP(baseToken, quoteToken, 0, 0, uniV3Factory);
+        price = CollarOracleLib.getTWAP(baseToken, quoteToken, 0, 0, uniV3Factory);
     }
 }
 

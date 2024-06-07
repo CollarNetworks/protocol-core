@@ -19,7 +19,7 @@ import { TickCalculations } from "../libs/TickCalculations.sol";
 
 import "forge-std/console.sol";
 
-contract CollarVaultManager is ERC6909TokenSupply, Ownable, ICollarVaultManager {
+contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager {
     // ----- IMMUTABLES ----- //
 
     address public immutable user;

@@ -11,16 +11,7 @@ import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3
 import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 import { OracleLibrary } from "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
 
-/// @notice Various constants used throughout the system
-abstract contract Constants {
-    // one hundred percent, in basis points
-    uint public constant ONE_HUNDRED_PERCENT = 10_000;
-
-    // precision multiplier to be used when expanding small numbers before division, etc
-    uint public constant PRECISION_MULTIPLIER = 1e18;
-}
-
-library CollarOracle {
+library CollarOracleLib {
     function getTWAP(
         address baseToken,
         address quoteToken,

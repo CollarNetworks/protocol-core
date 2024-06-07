@@ -7,15 +7,15 @@
 
 pragma solidity ^0.8.18;
 
-import { ICollarPool } from "../interfaces/ICollarPool.sol";
-import { ICollarPoolErrors } from "../interfaces/errors/ICollarPoolErrors.sol";
-import { ICollarVaultState } from "../interfaces/ICollarVaultState.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
+// internal imports
 import { CollarEngine } from "./CollarEngine.sol";
 import { CollarVaultManager } from "./CollarVaultManager.sol";
-import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
+import { ICollarPool } from "../interfaces/ICollarPool.sol";
+
 import "forge-std/console.sol";
 
 // TODO: this is a temp place, move / rename / refactor this somewhere where it makes sense
