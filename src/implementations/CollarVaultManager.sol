@@ -7,21 +7,42 @@
 
 pragma solidity ^0.8.18;
 
-import "forge-std/console.sol";
-import { ICollarVaultManager } from "../interfaces/ICollarVaultManager.sol";
-import { ICollarVaultState } from "../interfaces/ICollarVaultState.sol";
-import { ICollarVaultManagerErrors } from "../interfaces/errors/ICollarVaultManagerErrors.sol";
-import { ICollarVaultManagerEvents } from "../interfaces/events/ICollarVaultManagerEvents.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRouter.sol";
+import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+// internal imports
+import { ICollarVaultManager } from "../interfaces/ICollarVaultManager.sol";
 import { CollarPool } from "./CollarPool.sol";
 import { CollarEngine } from "../implementations/CollarEngine.sol";
 import { TickCalculations } from "../libs/TickCalculations.sol";
 
-contract CollarVaultManager is ICollarVaultManager {
+import "forge-std/console.sol";
+
+contract CollarVaultManager is  ERC6909TokenSupply, Ownable, ICollarVaultManager {
+    // ----- IMMUTABLES ----- //
+
+    address public immutable user;
+    address public immutable engine;
+
+    // ----- SO THAT THE ABI PICKS UP THE VAULT STRUCT ----- //
+    event VaultForABI(Vault vault);
+
+    // ----- STATE VARIABLES ----- //
+
+    uint256 public vaultCount;
+
+    mapping(bytes32 uuid => Vault vault) internal vaultsByUUID;
+    mapping(uint256 vaultNonce => bytes32 UUID) public vaultsByNonce;
+    mapping(bytes32 => uint256) public vaultTokenCashSupply;
+
     // ----- CONSTRUCTOR ----- //
 
-    constructor(address _engine, address _owner) ICollarVaultManager(_engine, _owner) { }
+    constructor(address _engine, address _owner) Ownable(_owner) {
+        user = _owner;
+        engine = _engine;
+        vaultCount = 0;
+    }
 
     // ----- VIEW FUNCTIONS ----- //
 
