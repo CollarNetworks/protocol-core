@@ -41,7 +41,6 @@ contract CollarEngine is ICollarEngine, Ownable {
         dexRouter = _dexRouter;
     }
 
-
     // -- modifiers --
 
     // vaults
@@ -111,7 +110,6 @@ contract CollarEngine is ICollarEngine, Ownable {
         _;
     }
 
-
     // ----- state-changing functions (see ICollarEngine for documentation) -----
 
     function createVaultManager() external override returns (address _vaultManager) {
@@ -143,36 +141,66 @@ contract CollarEngine is ICollarEngine, Ownable {
 
     // collateral assets
 
-    function addSupportedCollateralAsset(address asset) external override onlyOwner ensureCollateralAssetIsNotValid(asset) {
+    function addSupportedCollateralAsset(address asset)
+        external
+        override
+        onlyOwner
+        ensureCollateralAssetIsNotValid(asset)
+    {
         emit CollateralAssetAdded(asset);
         supportedCollateralAssets.add(asset);
     }
 
-    function removeSupportedCollateralAsset(address asset) external override onlyOwner ensureCollateralAssetIsValid(asset) {
+    function removeSupportedCollateralAsset(address asset)
+        external
+        override
+        onlyOwner
+        ensureCollateralAssetIsValid(asset)
+    {
         emit CollateralAssetRemoved(asset);
         supportedCollateralAssets.remove(asset);
     }
 
     // cash assets
 
-    function addSupportedCashAsset(address asset) external override onlyOwner ensureCashAssetIsNotValid(asset) {
+    function addSupportedCashAsset(address asset)
+        external
+        override
+        onlyOwner
+        ensureCashAssetIsNotValid(asset)
+    {
         emit CashAssetAdded(asset);
         supportedCashAssets.add(asset);
     }
 
-    function removeSupportedCashAsset(address asset) external override onlyOwner ensureCashAssetIsValid(asset) {
+    function removeSupportedCashAsset(address asset)
+        external
+        override
+        onlyOwner
+        ensureCashAssetIsValid(asset)
+    {
         emit CashAssetRemoved(asset);
         supportedCashAssets.remove(asset);
     }
 
     // durations
 
-    function addCollarDuration(uint256 duration) external override onlyOwner ensureDurationIsNotValid(duration) {
+    function addCollarDuration(uint256 duration)
+        external
+        override
+        onlyOwner
+        ensureDurationIsNotValid(duration)
+    {
         emit CollarDurationAdded(duration);
         validCollarDurations.add(duration);
     }
 
-    function removeCollarDuration(uint256 duration) external override onlyOwner ensureDurationIsValid(duration) {
+    function removeCollarDuration(uint256 duration)
+        external
+        override
+        onlyOwner
+        ensureDurationIsValid(duration)
+    {
         emit CollarDurationRemoved(duration);
         validCollarDurations.remove(duration);
     }
@@ -282,7 +310,12 @@ contract CollarEngine is ICollarEngine, Ownable {
         if (!isSupportedBase) revert CollateralAssetNotSupported(token);
     }
 
-    function getHistoricalAssetPriceViaTWAP(address baseToken, address quoteToken, uint32 twapStartTimestamp, uint32 twapLength)
+    function getHistoricalAssetPriceViaTWAP(
+        address baseToken,
+        address quoteToken,
+        uint32 twapStartTimestamp,
+        uint32 twapLength
+    )
         external
         view
         virtual
@@ -295,7 +328,16 @@ contract CollarEngine is ICollarEngine, Ownable {
         price = CollarOracle.getTWAP(baseToken, quoteToken, twapStartTimestamp, twapLength, uniV3Factory);
     }
 
-    function getCurrentAssetPrice(address baseToken, address quoteToken) external view virtual override returns (uint256 price) {
+    function getCurrentAssetPrice(
+        address baseToken,
+        address quoteToken
+    )
+        external
+        view
+        virtual
+        override
+        returns (uint256 price)
+    {
         validateAssetsIsSupported(baseToken);
         validateAssetsIsSupported(quoteToken);
         address uniV3Factory = IPeripheryImmutableState(dexRouter).factory();

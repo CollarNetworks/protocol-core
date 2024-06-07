@@ -8,7 +8,7 @@ solc_version = "0.8.21"
 revert_string = "debug"
 
 [fmt]
-line_length = 140
+line_length = 110
 tab_width = 4
 int_types = "long"
 number_underscore = "thousands"

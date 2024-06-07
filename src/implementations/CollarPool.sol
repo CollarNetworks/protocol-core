@@ -85,10 +85,12 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
     /// @notice The address of the engine is set upon pool creation (and registered with the engine)
     address public immutable engine;
 
-    /// @notice The address of the cash asset is set upon pool creation (and verified with the engine as allowed)
+    /// @notice The address of the cash asset is set upon pool creation (and verified with the engine as
+    /// allowed)
     address public immutable cashAsset;
 
-    /// @notice The address of the collateral asset is set upon pool creation (and verified with the engine as allowed)
+    /// @notice The address of the collateral asset is set upon pool creation (and verified with the engine as
+    /// allowed)
     address public immutable collateralAsset;
 
     /// @notice The duration of collars to be opened against this pool
@@ -114,8 +116,14 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
 
     // ----- CONSTRUCTOR ----- //
 
-    constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset, address _collateralAsset, uint256 _duration, uint256 _ltv)
-    {
+    constructor(
+        address _engine,
+        uint256 _tickScaleFactor,
+        address _cashAsset,
+        address _collateralAsset,
+        uint256 _duration,
+        uint256 _ltv
+    ) {
         if (!CollarEngine(_engine).isValidLTV(_ltv)) {
             revert InvalidLTV();
         }
@@ -134,7 +142,12 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         return initializedSlotIndices.values();
     }
 
-    function getLiquidityForSlots(uint256[] calldata slotIndices) external view override returns (uint256[] memory) {
+    function getLiquidityForSlots(uint256[] calldata slotIndices)
+        external
+        view
+        override
+        returns (uint256[] memory)
+    {
         uint256[] memory liquidity = new uint256[](slotIndices.length);
 
         for (uint256 i = 0; i < slotIndices.length; i++) {
@@ -152,15 +165,39 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         return slots[slotIndex].providers.length();
     }
 
-    function getSlotProviderInfoAtIndex(uint256 slotIndex, uint256 providerIndex) external view override returns (address, uint256) {
+    function getSlotProviderInfoAtIndex(
+        uint256 slotIndex,
+        uint256 providerIndex
+    )
+        external
+        view
+        override
+        returns (address, uint256)
+    {
         return slots[slotIndex].providers.at(providerIndex);
     }
 
-    function getSlotProviderInfoForAddress(uint256 slotIndex, address provider) external view override returns (uint256) {
+    function getSlotProviderInfoForAddress(
+        uint256 slotIndex,
+        address provider
+    )
+        external
+        view
+        override
+        returns (uint256)
+    {
         return slots[slotIndex].providers.get(provider);
     }
 
-    function previewRedeem(bytes32 uuid, uint256 amount) public view override returns (uint256 cashReceived) {
+    function previewRedeem(
+        bytes32 uuid,
+        uint256 amount
+    )
+        public
+        view
+        override
+        returns (uint256 cashReceived)
+    {
         // verify that the user has enough tokens for this to even work
         if (ERC6909TokenSupply(address(this)).balanceOf(msg.sender, uint256(uuid)) < amount) {
             revert InvalidAmount();
@@ -179,7 +216,8 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
             cashReceived = (_totalTokenCashSupply * amount) / _totalTokenSupply;
         } else {
             // calculate redeem value based on current price of asset
-            // uint256 currentCollateralPrice = CollarEngine(engine).getCurrentAssetPrice(vaultsByUUID[uuid].collateralAsset);
+            // uint256 currentCollateralPrice =
+            // CollarEngine(engine).getCurrentAssetPrice(vaultsByUUID[uuid].collateralAsset);
 
             // this is very complicated to implement - basically have to recreate
             // the entire closeVault function, but without changing state
@@ -248,7 +286,15 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         IERC20(cashAsset).transfer(msg.sender, amount);
     }
 
-    function moveLiquidityFromSlot(uint256 sourceSlotIndex, uint256 destinationSlotIndex, uint256 amount) external virtual override {
+    function moveLiquidityFromSlot(
+        uint256 sourceSlotIndex,
+        uint256 destinationSlotIndex,
+        uint256 amount
+    )
+        external
+        virtual
+        override
+    {
         // lockedLiquidity unchanged
         // redeemLiquidity unchanged
         // freeLiquidity unchanged
@@ -287,7 +333,15 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         emit LiquidityMoved(msg.sender, sourceSlotIndex, destinationSlotIndex, amount);
     }
 
-    function openPosition(bytes32 uuid, uint256 slotIndex, uint256 amount, uint256 expiration) external override {
+    function openPosition(
+        bytes32 uuid,
+        uint256 slotIndex,
+        uint256 amount,
+        uint256 expiration
+    )
+        external
+        override
+    {
         // ensure this is a valid vault calling us - it must call through the engine
         if (!CollarEngine(engine).isVaultManager(msg.sender)) {
             revert NotCollarVaultManager();
@@ -308,7 +362,8 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         }
 
         for (uint256 i = 0; i < numProviders; i++) {
-            // calculate how much to pull from provider based off of their proportional ownership of liquidity in this slot
+            // calculate how much to pull from provider based off of their proportional ownership of liquidity
+            // in this slot
 
             (address thisProvider, uint256 thisLiquidity) = slot.providers.at(i);
 
@@ -475,7 +530,14 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         slot.liquidity -= amount;
     }
 
-    function _reAllocate(address provider, uint256 sourceSlotID, uint256 destinationSlotID, uint256 amount) internal {
+    function _reAllocate(
+        address provider,
+        uint256 sourceSlotID,
+        uint256 destinationSlotID,
+        uint256 amount
+    )
+        internal
+    {
         _unallocate(sourceSlotID, provider, amount);
         _allocate(destinationSlotID, provider, amount);
     }

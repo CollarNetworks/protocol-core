@@ -11,15 +11,20 @@ import { ICollarVaultManagerErrors } from "./errors/ICollarVaultManagerErrors.so
 import { ICollarVaultState } from "./ICollarVaultState.sol";
 
 interface ICollarVaultManager is ICollarVaultState, ICollarVaultManagerErrors {
-
     // ----- EVENTS ----- //
 
     // regular user actions
     event VaultOpened(address indexed user, address indexed vaultManager, bytes32 indexed uuid);
     event VaultClosed(address indexed user, address indexed vaultManager, bytes32 indexed uuid);
-    event Redemption(address indexed redeemer, bytes32 indexed uuid, uint256 amountRedeemed, uint256 amountReceived);
+    event Redemption(
+        address indexed redeemer, bytes32 indexed uuid, uint256 amountRedeemed, uint256 amountReceived
+    );
     event Withdrawal(
-        address indexed user, address indexed vaultManager, bytes32 indexed uuid, uint256 amountWithdrawn, uint256 amountRemaining
+        address indexed user,
+        address indexed vaultManager,
+        bytes32 indexed uuid,
+        uint256 amountWithdrawn,
+        uint256 amountRemaining
     );
 
     // ----- VIEW FUNCTIONS ----- //
@@ -50,7 +55,8 @@ interface ICollarVaultManager is ICollarVaultState, ICollarVaultManagerErrors {
     /// @notice Opens a new vault
     /// @param assets Data about the assets in the vault & amounts of each
     /// @param collarOpts Data about the collar (expiry & ltv)
-    /// @param liquidityOpts Data about the liquidity (pool address, callstrike & amount to lock there, putstrike)
+    /// @param liquidityOpts Data about the liquidity (pool address, callstrike & amount to lock there,
+    /// putstrike)
     function openVault(
         // addresses & amounts of collateral & cash assets
         AssetSpecifiers calldata assets,
@@ -59,7 +65,10 @@ interface ICollarVaultManager is ICollarVaultState, ICollarVaultManagerErrors {
         // pool address, callstrike & amount to lock there, putstrike
         LiquidityOpts calldata liquidityOpts,
         bool withdrawLoan
-    ) external virtual returns (bytes32 uuid);
+    )
+        external
+        virtual
+        returns (bytes32 uuid);
 
     /// @notice Closes a vault - expiry must have passed
     /// @param uuid UUID of the vault to close

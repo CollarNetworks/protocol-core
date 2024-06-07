@@ -36,7 +36,8 @@ import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRout
  * @todo add fuzz testing that runs these with multiple collateral amounts and call strike ticks
  */
 /**
- * @dev This contract should generate test to ensure all the cases and math from this sheet is correct and verified
+ * @dev This contract should generate test to ensure all the cases and math from this sheet is correct and
+ * verified
  * https://docs.google.com/spreadsheets/d/18e5ola3JJ2HKRQyAoPNmVrV4fnRcLdckOhQIxrN_hwY/edit#gid=1819672818
  */
 contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility {
@@ -49,7 +50,9 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
     address wMATICWhale = address(0x6d80113e533a2C0fe82EaBD35f1875DcEA89Ea97);
     address binanceHotWalletTwo = address(0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245);
     uint256 BLOCK_NUMBER_TO_USE = 55_850_000;
-    uint256 COLLATERAL_PRICE_ON_BLOCK = 739_504; // $0.739504 the price for WMatic in USDC on the specified block of polygon mainnet
+    uint256 COLLATERAL_PRICE_ON_BLOCK = 739_504; // $0.739504 the price for WMatic in USDC on the specified
+        // block
+        // of polygon mainnet
     uint24 CALL_STRIKE_TICK = 120;
 
     IERC20 WMatic = IERC20(WMaticAddress);
@@ -152,7 +155,8 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
 
     modifier assumeFuzzValues(uint256 collateralAmount, uint24 tick) {
         vm.assume(
-            collateralAmount > 1 ether && collateralAmount < 20_000 ether && (tick == 110 || tick == 115 || tick == 120 || tick == 130)
+            collateralAmount > 1 ether && collateralAmount < 20_000 ether
+                && (tick == 110 || tick == 115 || tick == 120 || tick == 130)
         );
         _;
     }
@@ -162,30 +166,35 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
             openVaultAsUserWith1000AndCheckValues(user1, CALL_STRIKE_TICK);
 
         swapAsWhale(1_712_999_999_000_000_000_000, false);
-        // in order for the price to not change we need to do an equal amount of tokens swapped in both directions
+        // in order for the price to not change we need to do an equal amount of tokens swapped in both
+        // directions
         vm.roll(block.number + 43_200);
         skip(1.5 days);
         startHoax(user1);
         // close the vault
         // price before close vault
         vaultManager.closeVault(uuid);
-        uint256 priceAfterClose =
-            CollarEngine(engine).getHistoricalAssetPriceViaTWAP(WMaticAddress, USDCAddress, vault.expiresAt, 15 minutes);
+        uint256 priceAfterClose = CollarEngine(engine).getHistoricalAssetPriceViaTWAP(
+            WMaticAddress, USDCAddress, vault.expiresAt, 15 minutes
+        );
         /**
-         * @dev trying to manipulate price to be exactly the same as the moment of opening vault is too hard , so we'll skip this case unless there's a better proposal
+         * @dev trying to manipulate price to be exactly the same as the moment of opening vault is too hard ,
+         * so we'll skip this case unless there's a better proposal
          */
         // assertEq(vault.initialCollateralPrice, priceAfterClose);
 
         // PrintVaultStatsUtility(address(this)).printVaultStats(rawVault, "VAULT CLOSED");
 
         // check the numbers on bothuser and marketmaker sides
-        // since the price did not change , the vault should be able to withdraw the same amount of cash as it deposited and the MarketMaker should be also able to withdraw his initial locked value
+        // since the price did not change , the vault should be able to withdraw the same amount of cash as it
+        // deposited and the MarketMaker should be also able to withdraw his initial locked value
         /**
          * step 9	No money moves around anywhere
          * step 10	User can redeem their vault tokens for the original $10
          * step 11	Liquidity provider can redeem their vault tokens for $20
          */
-        // checked that the vault tokens are worth the same amount of cash as the cash locked when colaterall was deposited
+        // checked that the vault tokens are worth the same amount of cash as the cash locked when colaterall
+        // was deposited
         // startHoax(user1);
         // uint256 vaultLockedCash = vaultManager.vaultTokenCashSupply(uuid);
         // assertEq(vaultLockedCash, vault.lockedVaultCash);
@@ -202,7 +211,9 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         ICollarVaultState.Vault memory vault,
         uint256 userCashBalanceAfterOpen,
         uint256 providerCashBalanceBeforeClose
-    ) internal {
+    )
+        internal
+    {
         vm.roll(block.number + 43_200);
         skip(1.5 days);
         startHoax(user1);
@@ -222,7 +233,8 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         uint256 vaultLockedCash = vaultManager.vaultTokenCashSupply(uuid);
         assertEq(vaultLockedCash, 0);
         assertEq(USDC.balanceOf(user1), userCashBalanceAfterOpen);
-        // liquidity provider gets the locked cash from the vault plus the original locked cash on the pool position
+        // liquidity provider gets the locked cash from the vault plus the original locked cash on the pool
+        // position
         (,, uint256 withdrawable) = pool.positions(uuid);
         uint256 totalSupply = pool.totalSupply(uint256(uuid));
         // supply from vault is equal to the locked pool cash
@@ -234,10 +246,16 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         pool.redeem(uuid, providerShares);
         uint256 providerCashBalanceAfterRedeem = USDC.balanceOf(provider);
         // liquidity providers new cash balance is previous balance + withdrawable liquidity
-        assertEq(providerCashBalanceAfterRedeem, providerCashBalanceBeforeClose + vault.lockedPoolCash + vault.lockedVaultCash);
+        assertEq(
+            providerCashBalanceAfterRedeem,
+            providerCashBalanceBeforeClose + vault.lockedPoolCash + vault.lockedVaultCash
+        );
     }
 
-    function testFuzz_openAndCloseVaultPriceUnderPutStrike(uint256 collateralAmount, uint24 tick)
+    function testFuzz_openAndCloseVaultPriceUnderPutStrike(
+        uint256 collateralAmount,
+        uint24 tick
+    )
         public
         assumeFuzzValues(collateralAmount, tick)
     {
@@ -247,7 +265,9 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         uint256 providerCashBalanceBeforeClose = USDC.balanceOf(provider);
 
         manipulatePriceDownwardPastPutStrike(true);
-        checkPriceUnderPutStrikeValues(uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose);
+        checkPriceUnderPutStrikeValues(
+            uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose
+        );
     }
 
     function test_openAndCloseVaultPriceUnderPutStrike() public {
@@ -257,7 +277,9 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         uint256 providerCashBalanceBeforeClose = USDC.balanceOf(provider);
 
         manipulatePriceDownwardPastPutStrike(false);
-        checkPriceUnderPutStrikeValues(uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose);
+        checkPriceUnderPutStrikeValues(
+            uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose
+        );
     }
 
     function checkPriceDownShortOfPutStrikeValues(
@@ -267,7 +289,9 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         uint256 userCashBalanceAfterOpen,
         uint256 providerCashBalanceBeforeClose,
         uint256 finalPrice
-    ) internal {
+    )
+        internal
+    {
         vm.roll(block.number + 43_200);
         skip(1.5 days);
         startHoax(user1);
@@ -281,11 +305,15 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         ) / 1e32;
         console.log("Amount to provider: %d", amountToProvider);
         /**
-         * step 9	a partial amount (amountToProvider) from the Vault manager gets transferred to the liquidity pool
-         * step 10	user can now redeem their vault tokens for a total of  originalCashLock - partial amount (amountToProvider)
-         * step 11	liquidity provider's tokens can now be redeemed for initial Lock + partial amount from vault manager (amountToProvider)
+         * step 9	a partial amount (amountToProvider) from the Vault manager gets transferred to the liquidity
+         * pool
+         * step 10	user can now redeem their vault tokens for a total of  originalCashLock - partial amount
+         * (amountToProvider)
+         * step 11	liquidity provider's tokens can now be redeemed for initial Lock + partial amount from
+         * vault manager (amountToProvider)
          */
-        // user loses a partial amount of the locked cash and gains the rest , redeemable cash is the difference between the locked cash and the partial amount
+        // user loses a partial amount of the locked cash and gains the rest , redeemable cash is the
+        // difference between the locked cash and the partial amount
         uint256 vaultLockedCash = vaultManager.vaultTokenCashSupply(uuid);
         assertEq(vaultLockedCash, vault.lockedVaultCash - amountToProvider);
         uint256 vaultSharesBalance = vaultManager.totalSupply(uint256(uuid));
@@ -295,12 +323,14 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(USDC.balanceOf(user1), userCashBalanceAfterOpen + vaultLockedCash);
 
         startHoax(provider);
-        // liquidity provider gets the partial locked cash from the vault plus the original locked cash on the pool position
+        // liquidity provider gets the partial locked cash from the vault plus the original locked cash on the
+        // pool position
         (,, uint256 withdrawable) = pool.positions(uuid);
         uint256 totalSupply = pool.totalSupply(uint256(uuid));
         // supply from vault must be equal to the locked pool cash + partial amount from locked vault cash
         assertEq(totalSupply, vault.lockedPoolCash);
-        // withdrawable liquidity is equal to the locked value from provider + partial locked value from vault (since shares are 1:1)
+        // withdrawable liquidity is equal to the locked value from provider + partial locked value from vault
+        // (since shares are 1:1)
         assertEq(withdrawable, totalSupply + amountToProvider);
         uint256 providerShares = pool.balanceOf(provider, uint256(uuid));
         startHoax(provider);
@@ -310,7 +340,10 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(providerCashBalanceAfterRedeem, providerCashBalanceBeforeClose + withdrawable);
     }
 
-    function testFuzz_openAndCloseVaultPriceDownShortOfPutStrike(uint256 collateralAmount, uint24 tick)
+    function testFuzz_openAndCloseVaultPriceDownShortOfPutStrike(
+        uint256 collateralAmount,
+        uint24 tick
+    )
         public
         assumeFuzzValues(collateralAmount, tick)
     {
@@ -319,7 +352,9 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         uint256 userCashBalanceAfterOpen = USDC.balanceOf(user1);
         uint256 providerCashBalanceBeforeClose = USDC.balanceOf(provider);
         uint256 finalPrice = manipulatePriceDownwardShortOfPutStrike(true);
-        checkPriceDownShortOfPutStrikeValues(uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose, finalPrice);
+        checkPriceDownShortOfPutStrikeValues(
+            uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose, finalPrice
+        );
     }
 
     function test_openAndCloseVaultPriceDownShortOfPutStrike() public {
@@ -328,7 +363,9 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         uint256 userCashBalanceAfterOpen = USDC.balanceOf(user1);
         uint256 providerCashBalanceBeforeClose = USDC.balanceOf(provider);
         uint256 finalPrice = manipulatePriceDownwardShortOfPutStrike(false);
-        checkPriceDownShortOfPutStrikeValues(uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose, finalPrice);
+        checkPriceDownShortOfPutStrikeValues(
+            uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose, finalPrice
+        );
     }
 
     function checkPriceUpPastCallStrikeValues(
@@ -337,7 +374,9 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         ICollarVaultState.Vault memory vault,
         uint256 userCashBalanceAfterOpen,
         uint256 providerCashBalanceBeforeClose
-    ) internal {
+    )
+        internal
+    {
         vm.roll(block.number + 43_200);
         skip(1.5 days);
         startHoax(user1);
@@ -347,7 +386,8 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         // check the numbers on both user and marketmaker sides after executing withdraws and closes
         /**
          * step 9	all cash locked in the liquidity pool gets sent to the vault manager
-         * step 10	user can now redeem their vault tokens for a total of their cash locked in vault + the liquidity provider's locked in pool
+         * step 10	user can now redeem their vault tokens for a total of their cash locked in vault + the
+         * liquidity provider's locked in pool
          * step 11	liquidity provider's tokens are worth 0
          */
 
@@ -375,7 +415,10 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(providerCashBalanceAfterRedeem, providerCashBalanceBeforeClose);
     }
 
-    function testFuzz_openAndCloseVaultPriceUpPastCallStrike(uint256 collateralAmount, uint24 tick)
+    function testFuzz_openAndCloseVaultPriceUpPastCallStrike(
+        uint256 collateralAmount,
+        uint24 tick
+    )
         public
         assumeFuzzValues(collateralAmount, tick)
     {
@@ -384,7 +427,9 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         uint256 userCashBalanceAfterOpen = USDC.balanceOf(user1);
         uint256 providerCashBalanceBeforeClose = USDC.balanceOf(provider);
         manipulatePriceUpwardPastCallStrike(true);
-        checkPriceUpPastCallStrikeValues(uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose);
+        checkPriceUpPastCallStrikeValues(
+            uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose
+        );
     }
 
     function test_openAndCloseVaultPriceUpPastCallStrike() public {
@@ -393,7 +438,9 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         uint256 userCashBalanceAfterOpen = USDC.balanceOf(user1);
         uint256 providerCashBalanceBeforeClose = USDC.balanceOf(provider);
         manipulatePriceUpwardPastCallStrike(false);
-        checkPriceUpPastCallStrikeValues(uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose);
+        checkPriceUpPastCallStrikeValues(
+            uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose
+        );
     }
 
     function checkPriceUpShortOfCallStrikeValues(
@@ -403,7 +450,9 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         uint256 userCashBalanceAfterOpen,
         uint256 providerCashBalanceBeforeClose,
         uint256 finalPrice
-    ) internal {
+    )
+        internal
+    {
         vm.roll(block.number + 43_200);
         skip(1.5 days);
         startHoax(user1);
@@ -417,9 +466,12 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         ) / 1e32;
         console.log("Amount to vault: %d", amountToVault);
         /**
-         * step 9	a partial amount (amountToVault) from the liquidity pool gets transferred to the Vault manager
-         * step 10	user can now redeem their vault tokens for a total of  originalCashLock + partial amount (amountToVault)
-         * step 11	liquidity provider's tokens can now be redeemed for initial Lock - partial amount sent to vault manager (amountToVault)
+         * step 9	a partial amount (amountToVault) from the liquidity pool gets transferred to the Vault
+         * manager
+         * step 10	user can now redeem their vault tokens for a total of  originalCashLock + partial amount
+         * (amountToVault)
+         * step 11	liquidity provider's tokens can now be redeemed for initial Lock - partial amount sent to
+         * vault manager (amountToVault)
          */
         // user gets the locked cash from the vault plus the partial amount from locked cash in the pool
         uint256 vaultLockedCash = vaultManager.vaultTokenCashSupply(uuid);
@@ -430,12 +482,14 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         vaultManager.redeem(uuid, vaultSharesBalance);
         assertEq(USDC.balanceOf(user1), userCashBalanceAfterOpen + vaultLockedCash);
 
-        // liquidity provider gets the locked cash from pool minus the partial amount sent to the vault manager
+        // liquidity provider gets the locked cash from pool minus the partial amount sent to the vault
+        // manager
         (,, uint256 withdrawable) = pool.positions(uuid);
         uint256 totalSupply = pool.totalSupply(uint256(uuid));
         // total supply from vault must be equal to the locked pool cash
         assertEq(totalSupply, vault.lockedPoolCash);
-        // withdrawable liquidity is equal to the locked value from provider minus the partial amount sent to the vault manager
+        // withdrawable liquidity is equal to the locked value from provider minus the partial amount sent to
+        // the vault manager
         assertEq(withdrawable, totalSupply - amountToVault);
         uint256 providerShares = pool.balanceOf(provider, uint256(uuid));
         startHoax(provider);
@@ -445,7 +499,10 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(providerCashBalanceAfterRedeem, providerCashBalanceBeforeClose + withdrawable);
     }
 
-    function testFuzz_openAndCloseVaultPriceUpShortOfCallStrike(uint256 collateralAmount, uint24 tick)
+    function testFuzz_openAndCloseVaultPriceUpShortOfCallStrike(
+        uint256 collateralAmount,
+        uint24 tick
+    )
         public
         assumeFuzzValues(collateralAmount, tick)
     {
@@ -454,7 +511,9 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         uint256 userCashBalanceAfterOpen = USDC.balanceOf(user1);
         uint256 providerCashBalanceBeforeClose = USDC.balanceOf(provider);
         uint256 finalPrice = manipulatePriceUpwardShortOfCallStrike(true);
-        checkPriceUpShortOfCallStrikeValues(uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose, finalPrice);
+        checkPriceUpShortOfCallStrikeValues(
+            uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose, finalPrice
+        );
     }
 
     function test_openAndCloseVaultPriceUpShortOfCallStrike() public {
@@ -463,10 +522,16 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         uint256 userCashBalanceAfterOpen = USDC.balanceOf(user1);
         uint256 providerCashBalanceBeforeClose = USDC.balanceOf(provider);
         uint256 finalPrice = manipulatePriceUpwardShortOfCallStrike(false);
-        checkPriceUpShortOfCallStrikeValues(uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose, finalPrice);
+        checkPriceUpShortOfCallStrikeValues(
+            uuid, rawVault, vault, userCashBalanceAfterOpen, providerCashBalanceBeforeClose, finalPrice
+        );
     }
 
-    function openVaultAsUserAndCheckValues(uint256 amount, address user, uint24 tick)
+    function openVaultAsUserAndCheckValues(
+        uint256 amount,
+        address user,
+        uint24 tick
+    )
         internal
         returns (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault)
     {
@@ -481,7 +546,8 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         // check asset specific info
         assertEq(vault.collateralAsset, WMaticAddress);
         assertEq(vault.cashAsset, USDCAddress);
-        // for the assert directly above this line, we need to consider that the price of wmatic is 73 cents at this time; (specifically: $0.739504999)
+        // for the assert directly above this line, we need to consider that the price of wmatic is 73 cents
+        // at this time; (specifically: $0.739504999)
         // (which converts to about 739 when considering USDC has 6 decimals and we swapped 1000 wmatic)
 
         // check liquidity pool stuff
@@ -489,7 +555,10 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(vault.putStrikeTick, 90);
     }
 
-    function openVaultAsUserWith1000AndCheckValues(address user, uint24 tick)
+    function openVaultAsUserWith1000AndCheckValues(
+        address user,
+        uint24 tick
+    )
         internal
         returns (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault)
     {
@@ -505,23 +574,30 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         // check asset specific info
         assertEq(vault.collateralAsset, WMaticAddress);
         assertEq(vault.cashAsset, USDCAddress);
-        assertEq(vault.collateralAmount, 1000e18); // we use 1000 "ether" here (it's actually wmatic, but still 18 decimals)
+        assertEq(vault.collateralAmount, 1000e18); // we use 1000 "ether" here (it's actually wmatic, but
+            // still 18 decimals)
         assertEq(vault.cashAmount, 739_504_999);
-        // for the assert directly above this line, we need to consider that the price of wmatic is 73 cents at this time; (specifically: $0.739504999)
+        // for the assert directly above this line, we need to consider that the price of wmatic is 73 cents
+        // at this time; (specifically: $0.739504999)
         // (which converts to about 739 when considering USDC has 6 decimals and we swapped 1000 wmatic)
 
         // check liquidity pool stuff
         assertEq(vault.liquidityPool, address(pool));
         assertEq(vault.putStrikeTick, 90);
-        assertEq(vault.initialCollateralPrice, COLLATERAL_PRICE_ON_BLOCK); // the initial price of wmatic here is $0.739504
+        assertEq(vault.initialCollateralPrice, COLLATERAL_PRICE_ON_BLOCK); // the initial price of wmatic here
+            // is $0.739504
         /**
-         * @dev the following asserts are dependant of the tick , and will only be correct if the tick is 110 , the tests should run on any tick
+         * @dev the following asserts are dependant of the tick , and will only be correct if the tick is 110 ,
+         * the tests should run on any tick
          */
         if (CALL_STRIKE_TICK == 110) {
-            assertEq(vault.lockedPoolCash, 73_950_499); // callstrike is 110, so locked pool cash is going to be exactly 10% of the cash received from the swap above
+            assertEq(vault.lockedPoolCash, 73_950_499); // callstrike is 110, so locked pool cash is going to
+                // be exactly 10% of the cash received from the swap above
             assertEq(vault.callStrikeTick, 110);
-            assertEq(vault.putStrikePrice, 665_553); // put strike is 90%, so putstrike price is just 0.9 * original price
-            assertEq(vault.callStrikePrice, 813_454); // same math for callstrike price, just using 1.1 instead
+            assertEq(vault.putStrikePrice, 665_553); // put strike is 90%, so putstrike price is just 0.9 *
+                // original price
+            assertEq(vault.callStrikePrice, 813_454); // same math for callstrike price, just using 1.1
+                // instead
         }
 
         // check vault specific stuff
@@ -529,7 +605,11 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(vault.lockedVaultCash, 73_950_499); // the vault locked balance should be 0.1 * cashAmount
     }
 
-    function openVaultAsUser(uint256 collateralAmount, address user, uint24 tick)
+    function openVaultAsUser(
+        uint256 collateralAmount,
+        address user,
+        uint24 tick
+    )
         internal
         returns (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault)
     {
@@ -540,10 +620,14 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
             cashAmount: 0.3e6
         });
 
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 1 days, ltv: 9000 });
+        ICollarVaultState.CollarOpts memory collarOpts =
+            ICollarVaultState.CollarOpts({ duration: 1 days, ltv: 9000 });
 
-        ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: tick });
+        ICollarVaultState.LiquidityOpts memory liquidityOpts = ICollarVaultState.LiquidityOpts({
+            liquidityPool: address(pool),
+            putStrikeTick: 90,
+            callStrikeTick: tick
+        });
 
         startHoax(user);
         uint256 poolBalanceWMATIC = WMatic.balanceOf(uniV3Pool);
@@ -569,7 +653,8 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
     }
 
     function manipulatePriceDownwardShortOfPutStrike(bool isFuzzTest) internal returns (uint256 finalPrice) {
-        // Trade on Uniswap to make the price go down but not past the put strike price .9 * COLLATERAL_PRICE_ON_BLOCK
+        // Trade on Uniswap to make the price go down but not past the put strike price .9 *
+        // COLLATERAL_PRICE_ON_BLOCK
         // end price should be 703575
         uint256 targetPrice = 703_575;
         swapAsWhale(40_000e18, false);
@@ -592,7 +677,8 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
     }
 
     function manipulatePriceUpwardShortOfCallStrike(bool isFuzzTest) internal returns (uint256 finalPrice) {
-        // Trade on Uniswap to make the price go up but not past the call strike price 1.1 * COLLATERAL_PRICE_ON_BLOCK
+        // Trade on Uniswap to make the price go up but not past the call strike price 1.1 *
+        // COLLATERAL_PRICE_ON_BLOCK
         // end price should be 794385
         uint256 targetPrice = 794_385;
         swapAsWhale(40_000e6, true);

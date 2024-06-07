@@ -19,7 +19,7 @@ import { TickCalculations } from "../libs/TickCalculations.sol";
 
 import "forge-std/console.sol";
 
-contract CollarVaultManager is  ERC6909TokenSupply, Ownable, ICollarVaultManager {
+contract CollarVaultManager is ERC6909TokenSupply, Ownable, ICollarVaultManager {
     // ----- IMMUTABLES ----- //
 
     address public immutable user;
@@ -71,7 +71,15 @@ contract CollarVaultManager is  ERC6909TokenSupply, Ownable, ICollarVaultManager
         return vaultsByNonce[vaultNonce];
     }
 
-    function previewRedeem(bytes32 uuid, uint256 amount) public view override returns (uint256 cashReceived) {
+    function previewRedeem(
+        bytes32 uuid,
+        uint256 amount
+    )
+        public
+        view
+        override
+        returns (uint256 cashReceived)
+    {
         if (amount == 0) revert AmountCannotBeZero();
         if (vaultsByUUID[uuid].openedAt == 0) revert InvalidVault();
 
@@ -95,7 +103,8 @@ contract CollarVaultManager is  ERC6909TokenSupply, Ownable, ICollarVaultManager
             cashReceived = (vaultCash * amount) / tokenSupply;
         } else {
             // calculate redeem value based on current price of asset
-            // uint256 currentCollateralPrice = CollarEngine(engine).getCurrentAssetPrice(vaultsByUUID[uuid].collateralAsset);
+            // uint256 currentCollateralPrice =
+            // CollarEngine(engine).getCurrentAssetPrice(vaultsByUUID[uuid].collateralAsset);
 
             // this is very complicated to implement - basically have to recreate
             // the entire closeVault function, but without changing state
@@ -111,7 +120,11 @@ contract CollarVaultManager is  ERC6909TokenSupply, Ownable, ICollarVaultManager
         CollarOpts calldata collarOpts, // length & ltv
         LiquidityOpts calldata liquidityOpts, // pool address, callstrike & amount to lock there, putstrike
         bool withdrawLoan
-    ) public override returns (bytes32 uuid) {
+    )
+        public
+        override
+        returns (bytes32 uuid)
+    {
         // only user is allowed to open vaults
         if (msg.sender != user) {
             revert NotCollarVaultOwner();
@@ -153,8 +166,10 @@ contract CollarVaultManager is  ERC6909TokenSupply, Ownable, ICollarVaultManager
         // this is equal to (callstrikePercent - 100%) * totalCashReceivedFromSwap
         // first, grab the call strike percent from the call strike tick supplied
         uint256 tickScaleFactor = CollarPool(liquidityOpts.liquidityPool).tickScaleFactor();
-        uint256 callStrikePercentBps = TickCalculations.tickToBps(liquidityOpts.callStrikeTick, tickScaleFactor);
-        uint256 poolLiquidityToLock = ((callStrikePercentBps - 10_000) * cashReceivedFromSwap * 1e18) / (10_000) / 1e18;
+        uint256 callStrikePercentBps =
+            TickCalculations.tickToBps(liquidityOpts.callStrikeTick, tickScaleFactor);
+        uint256 poolLiquidityToLock =
+            ((callStrikePercentBps - 10_000) * cashReceivedFromSwap * 1e18) / (10_000) / 1e18;
 
         // calculate the initial collateral price from the swap execution fill
         // this is stored as "unit price times 1e18"
@@ -166,8 +181,9 @@ contract CollarVaultManager is  ERC6909TokenSupply, Ownable, ICollarVaultManager
         vaultsByUUID[uuid].initialCollateralPrice = initialCollateralPrice;
         vaultsByUUID[uuid].putStrikePrice =
             TickCalculations.tickToPrice(liquidityOpts.putStrikeTick, tickScaleFactor, initialCollateralPrice);
-        vaultsByUUID[uuid].callStrikePrice =
-            TickCalculations.tickToPrice(liquidityOpts.callStrikeTick, tickScaleFactor, initialCollateralPrice);
+        vaultsByUUID[uuid].callStrikePrice = TickCalculations.tickToPrice(
+            liquidityOpts.callStrikeTick, tickScaleFactor, initialCollateralPrice
+        );
         vaultsByUUID[uuid].putStrikeTick = liquidityOpts.putStrikeTick;
         vaultsByUUID[uuid].callStrikeTick = liquidityOpts.callStrikeTick;
 
@@ -216,8 +232,9 @@ contract CollarVaultManager is  ERC6909TokenSupply, Ownable, ICollarVaultManager
         uint256 putStrikePrice = vault.putStrikePrice;
         uint256 callStrikePrice = vault.callStrikePrice;
 
-        uint256 finalPrice =
-            CollarEngine(engine).getHistoricalAssetPriceViaTWAP(vault.collateralAsset, vault.cashAsset, vault.expiresAt, 15 minutes);
+        uint256 finalPrice = CollarEngine(engine).getHistoricalAssetPriceViaTWAP(
+            vault.collateralAsset, vault.cashAsset, vault.expiresAt, 15 minutes
+        );
 
         if (finalPrice == 0) revert InvalidAssetPrice();
 
@@ -258,7 +275,9 @@ contract CollarVaultManager is  ERC6909TokenSupply, Ownable, ICollarVaultManager
         } else if (finalPrice >= callStrikePrice) {
             cashNeededFromPool = vault.lockedPoolCash;
 
-            console.log("CollarVaultManager::closeVault - CASE 2 ALL VAULT CASH TO USER, ALL LOCKED POOL CASH TO USER");
+            console.log(
+                "CollarVaultManager::closeVault - CASE 2 ALL VAULT CASH TO USER, ALL LOCKED POOL CASH TO USER"
+            );
             console.log("CollarVaultManager::closeVault - cashNeededFromPool: ", cashNeededFromPool);
 
             // CASE 3 - all vault cash to user
@@ -269,8 +288,10 @@ contract CollarVaultManager is  ERC6909TokenSupply, Ownable, ICollarVaultManager
 
             // CASE 4 - proportional vault cash to user
         } else if (putStrikePrice < finalPrice && finalPrice < startingPrice) {
-            uint256 vaultCashToPool =
-                ((vault.lockedVaultCash * (startingPrice - finalPrice) * 1e32) / (startingPrice - putStrikePrice)) / 1e32;
+            uint256 vaultCashToPool = (
+                (vault.lockedVaultCash * (startingPrice - finalPrice) * 1e32)
+                    / (startingPrice - putStrikePrice)
+            ) / 1e32;
 
             cashToSendToPool = vaultCashToPool;
 
@@ -279,12 +300,16 @@ contract CollarVaultManager is  ERC6909TokenSupply, Ownable, ICollarVaultManager
 
             // CASE 5 - all vault cash to user, proportional locked pool cash to user
         } else if (callStrikePrice > finalPrice && finalPrice > startingPrice) {
-            uint256 poolCashToUser =
-                ((vault.lockedPoolCash * (finalPrice - startingPrice) * 1e32) / (callStrikePrice - startingPrice)) / 1e32;
+            uint256 poolCashToUser = (
+                (vault.lockedPoolCash * (finalPrice - startingPrice) * 1e32)
+                    / (callStrikePrice - startingPrice)
+            ) / 1e32;
 
             cashNeededFromPool = poolCashToUser;
 
-            console.log("CollarVaultManager::closeVault - CASE 5 ALL VAULT CASH TO USER, PROPORTIONAL LOCKED POOL CASH TO USER");
+            console.log(
+                "CollarVaultManager::closeVault - CASE 5 ALL VAULT CASH TO USER, PROPORTIONAL LOCKED POOL CASH TO USER"
+            );
             console.log("CollarVaultManager::closeVault - cashNeededFromPool: ", cashNeededFromPool);
 
             // ???
@@ -404,7 +429,11 @@ contract CollarVaultManager is  ERC6909TokenSupply, Ownable, ICollarVaultManager
         }
 
         // verify the call strike tick is > 100%
-        if (TickCalculations.tickToBps(liquidityOpts.callStrikeTick, CollarPool(liquidityOpts.liquidityPool).tickScaleFactor()) < 10_000) {
+        if (
+            TickCalculations.tickToBps(
+                liquidityOpts.callStrikeTick, CollarPool(liquidityOpts.liquidityPool).tickScaleFactor()
+            ) < 10_000
+        ) {
             revert InvalidCallStrike();
         }
     }

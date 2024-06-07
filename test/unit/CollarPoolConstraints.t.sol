@@ -177,10 +177,14 @@ contract CollarPoolConstraintsTest is Test {
             cashAmount: 100
         });
 
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+        ICollarVaultState.CollarOpts memory collarOpts =
+            ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
-        ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
+        ICollarVaultState.LiquidityOpts memory liquidityOpts = ICollarVaultState.LiquidityOpts({
+            liquidityPool: address(pool),
+            putStrikeTick: 90,
+            callStrikeTick: 110
+        });
 
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 

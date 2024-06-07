@@ -27,7 +27,8 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
     address user1 = makeAddr("user1");
     address user2 = makeAddr("user2");
 
-    // below we copy error messages from contracts since they aren't by default "public" or otherwise accessible
+    // below we copy error messages from contracts since they aren't by default "public" or otherwise
+    // accessible
 
     error OwnableUnauthorizedAccount(address account);
 
@@ -226,7 +227,9 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
 
         address vaultManager = engine.createVaultManager();
 
-        vm.expectRevert(abi.encodeWithSelector(VaultManagerAlreadyExists.selector, user1, address(vaultManager)));
+        vm.expectRevert(
+            abi.encodeWithSelector(VaultManagerAlreadyExists.selector, user1, address(vaultManager))
+        );
         engine.createVaultManager();
 
         vm.stopPrank();
