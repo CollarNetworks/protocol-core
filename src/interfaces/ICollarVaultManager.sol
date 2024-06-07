@@ -17,14 +17,14 @@ interface ICollarVaultManager is ICollarVaultState, ICollarVaultManagerErrors {
     event VaultOpened(address indexed user, address indexed vaultManager, bytes32 indexed uuid);
     event VaultClosed(address indexed user, address indexed vaultManager, bytes32 indexed uuid);
     event Redemption(
-        address indexed redeemer, bytes32 indexed uuid, uint256 amountRedeemed, uint256 amountReceived
+        address indexed redeemer, bytes32 indexed uuid, uint amountRedeemed, uint amountReceived
     );
     event Withdrawal(
         address indexed user,
         address indexed vaultManager,
         bytes32 indexed uuid,
-        uint256 amountWithdrawn,
-        uint256 amountRemaining
+        uint amountWithdrawn,
+        uint amountRemaining
     );
 
     // ----- VIEW FUNCTIONS ----- //
@@ -39,16 +39,16 @@ interface ICollarVaultManager is ICollarVaultState, ICollarVaultManagerErrors {
 
     /// @notice Get the n-th vault state
     /// @param vaultNonce Nonce of the vault to get state for
-    function vaultInfoByNonce(uint256 vaultNonce) external view virtual returns (bytes calldata data);
+    function vaultInfoByNonce(uint vaultNonce) external view virtual returns (bytes calldata data);
 
     /// @notice Get the UUID of a vault by its nonce
     /// @param vaultNonce Nonce of the vault to get the UUID for
-    function getVaultUUID(uint256 vaultNonce) external view virtual returns (bytes32 uuid);
+    function getVaultUUID(uint vaultNonce) external view virtual returns (bytes32 uuid);
 
     /// @notice Preview the cash amount redeemable for a given amount of tokens for a particular vault
     /// @param uuid UUID of the vault to redeem from
     /// @param amount Amount of tokens to redeem
-    function previewRedeem(bytes32 uuid, uint256 amount) external virtual returns (uint256);
+    function previewRedeem(bytes32 uuid, uint amount) external virtual returns (uint);
 
     // ----- STATE CHANGING FUNCTIONS ----- //
 
@@ -77,10 +77,10 @@ interface ICollarVaultManager is ICollarVaultState, ICollarVaultManagerErrors {
     /// @notice Redeems a token for a particular vault - vault must be finalized
     /// @param uuid UUID of the vault to redeem from
     /// @param amount Amount of tokens to redeem
-    function redeem(bytes32 uuid, uint256 amount) external virtual;
+    function redeem(bytes32 uuid, uint amount) external virtual;
 
     /// @notice Withdraws cash from a vault loan
     /// @param uuid UUID of the vault to withdraw from
     /// @param amount Amount of cash to withdraw
-    function withdraw(bytes32 uuid, uint256 amount) external virtual;
+    function withdraw(bytes32 uuid, uint amount) external virtual;
 }

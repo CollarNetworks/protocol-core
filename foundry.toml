@@ -10,7 +10,7 @@ revert_string = "debug"
 [fmt]
 line_length = 110
 tab_width = 4
-int_types = "long"
+int_types = "short"
 number_underscore = "thousands"
 ignore = ["lib/"]
 bracket_spacing = true

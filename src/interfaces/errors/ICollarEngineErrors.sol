@@ -21,7 +21,7 @@ interface ICollarEngineErrors is ICollarCommonErrors {
     error CashAssetAlreadySupported(address asset);
 
     // ltv & duration
-    error LTVNotSupported(uint256 ltv);
-    error LTVAlreadySupported(uint256 ltv);
+    error LTVNotSupported(uint ltv);
+    error LTVAlreadySupported(uint ltv);
     error CollarDurationNotSupported();
 }

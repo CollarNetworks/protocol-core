@@ -149,12 +149,12 @@ contract CollarOpenVaultAndWithdrawIntegrationTest is Test {
         });
 
         startHoax(user);
-        uint256 initialUserCashBalance = USDC.balanceOf(user);
+        uint initialUserCashBalance = USDC.balanceOf(user);
         vaultManager.openVault(assets, collarOpts, liquidityOpts, true);
         bytes32 uuid = vaultManager.getVaultUUID(0);
         bytes memory rawVault = vaultManager.vaultInfo(uuid);
         ICollarVaultState.Vault memory vault = abi.decode(rawVault, (ICollarVaultState.Vault));
-        uint256 userCashBalance = USDC.balanceOf(user);
+        uint userCashBalance = USDC.balanceOf(user);
         console.log("-- Vault Opened --");
         console.log("");
         console.log(" BASIC INFO ");

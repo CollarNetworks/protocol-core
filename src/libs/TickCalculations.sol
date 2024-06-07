@@ -11,7 +11,7 @@ library TickCalculations {
     /// @notice Returns the tick matching the given bps
     /// @param bps The bps to convert to a tick
     /// @param tickScaleFactor The tickScaleFactor to use for the conversion
-    function bpsToTick(uint256 bps, uint256 tickScaleFactor) public pure returns (uint24) {
+    function bpsToTick(uint bps, uint tickScaleFactor) public pure returns (uint24) {
         // 1 bps / tick @ tickScaleFactor 1
         // 10_000bps (100%) = tick # 10_000
 
@@ -24,7 +24,7 @@ library TickCalculations {
     /// @notice Returns the bps matching the given tick
     /// @param tick The tick to convert to bps
     /// @param tickScaleFactor The tickScaleFactor to use for the conversion
-    function tickToBps(uint24 tick, uint256 tickScaleFactor) public pure returns (uint256) {
+    function tickToBps(uint24 tick, uint tickScaleFactor) public pure returns (uint) {
         // 1 bps / tick @ tickScaleFactor 1
         // 10_000bps (100%) = tick # 10_000
 
@@ -41,15 +41,7 @@ library TickCalculations {
     /// @param tick The tick to convert to a price
     /// @param tickScaleFactor The tickScaleFactor to use for the conversion
     /// @param startingPrice The starting price of the collateral token (per unit)
-    function tickToPrice(
-        uint24 tick,
-        uint256 tickScaleFactor,
-        uint256 startingPrice
-    )
-        public
-        pure
-        returns (uint256)
-    {
+    function tickToPrice(uint24 tick, uint tickScaleFactor, uint startingPrice) public pure returns (uint) {
         return (startingPrice * tick * tickScaleFactor) / (10_000);
     }
 
@@ -59,9 +51,9 @@ library TickCalculations {
     /// @param tickScaleFactor The tickScaleFactor to use for the conversion
     /// @param startingPrice The starting price of the collateral token (per unit)
     function priceToTick(
-        uint256 currentPrice,
-        uint256 tickScaleFactor,
-        uint256 startingPrice
+        uint currentPrice,
+        uint tickScaleFactor,
+        uint startingPrice
     )
         public
         pure

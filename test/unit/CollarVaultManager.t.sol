@@ -40,7 +40,7 @@ contract CollarVaultManagerTest is Test {
     // below we copy error messages from contracts since they aren't by default "public" or otherwise
     // accessible
     error OwnableUnauthorizedAccount(address account);
-    error ERC20InsufficientBalance(address sender, uint256 balance, uint256 needed);
+    error ERC20InsufficientBalance(address sender, uint balance, uint needed);
 
     bytes user1NotAuthorized = abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, address(user1));
 
@@ -125,7 +125,7 @@ contract CollarVaultManagerTest is Test {
 
     function test_getVaultUUID() public {
         mintTokensAddLiquidityAndOpenVault(false);
-        bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint256(0)));
+        bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint(0)));
 
         assertEq(manager.vaultCount(), 1);
         assertEq(calculatedUUID, manager.vaultsByNonce(0));
@@ -160,7 +160,7 @@ contract CollarVaultManagerTest is Test {
     function test_openVault() public {
         mintTokensAddLiquidityAndOpenVault(false);
 
-        bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint256(0)));
+        bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint(0)));
 
         assertEq(manager.vaultCount(), 1);
         assertEq(manager.vaultsByNonce(0), calculatedUUID);
@@ -192,17 +192,17 @@ contract CollarVaultManagerTest is Test {
 
     function test_openVaultAndWithdraw() public {
         mintTokensToUserAndApproveManager(user1);
-        uint256 initialUserCashBalance = cashAsset.balanceOf(user1);
+        uint initialUserCashBalance = cashAsset.balanceOf(user1);
         addLiquidityToPoolAsUser(user2);
         openVaultAsUser(user1, true);
 
-        bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint256(0)));
+        bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint(0)));
 
         assertEq(manager.vaultCount(), 1);
         assertEq(manager.vaultsByNonce(0), calculatedUUID);
 
         bytes memory vaultInfo = manager.vaultInfo(calculatedUUID);
-        uint256 userCashBalance = cashAsset.balanceOf(user1);
+        uint userCashBalance = cashAsset.balanceOf(user1);
         assertEq(userCashBalance, initialUserCashBalance + 90);
         // grab the vault state & check all the values
         ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
@@ -659,14 +659,14 @@ contract CollarVaultManagerTest is Test {
         vaultInfo = manager.vaultInfo(uuid);
         vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
 
-        assertEq(token.totalSupply(uint256(uuid)), 100);
-        assertEq(token.balanceOf(user1, uint256(uuid)), 100);
+        assertEq(token.totalSupply(uint(uuid)), 100);
+        assertEq(token.balanceOf(user1, uint(uuid)), 100);
 
         assertEq(manager.vaultTokenCashSupply(uuid), 20);
 
         assertEq(vault.lockedVaultCash, 0);
 
-        uint256 toReceive = manager.previewRedeem(uuid, 100);
+        uint toReceive = manager.previewRedeem(uuid, 100);
         assertEq(toReceive, 20);
 
         startHoax(user1);
@@ -730,14 +730,14 @@ contract CollarVaultManagerTest is Test {
         vaultInfo = manager.vaultInfo(uuid);
         vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
 
-        assertEq(token.totalSupply(uint256(uuid)), 100);
-        assertEq(token.balanceOf(user1, uint256(uuid)), 100);
+        assertEq(token.totalSupply(uint(uuid)), 100);
+        assertEq(token.balanceOf(user1, uint(uuid)), 100);
 
         assertEq(manager.vaultTokenCashSupply(uuid), 20);
 
         assertEq(vault.lockedVaultCash, 0);
 
-        uint256 toReceive = manager.previewRedeem(uuid, 100);
+        uint toReceive = manager.previewRedeem(uuid, 100);
         assertEq(toReceive, 20);
 
         toReceive = manager.previewRedeem(uuid, 50);
@@ -759,7 +759,7 @@ contract CollarVaultManagerTest is Test {
         skip(100);
         closeVaultUserLosesCase(user1, uuid, 101);
         hoax(user1);
-        uint256 amountToRedeem = manager.previewRedeem(uuid, 100);
+        uint amountToRedeem = manager.previewRedeem(uuid, 100);
         assertEq(amountToRedeem, 0);
     }
 

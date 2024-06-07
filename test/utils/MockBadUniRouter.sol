@@ -15,7 +15,7 @@ contract MockBadUniRouter {
 
     function exactInputSingle(ISwapRouter.ExactInputSingleParams memory params)
         external
-        returns (uint256 amountOut)
+        returns (uint amountOut)
     {
         amountOut = params.amountOutMinimum - 1;
 
