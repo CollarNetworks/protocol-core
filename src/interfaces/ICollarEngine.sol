@@ -7,104 +7,26 @@
 
 pragma solidity ^0.8.18;
 
-import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import { IStaticOracle } from "@mean-finance/interfaces/IStaticOracle.sol";
 import { ICollarEngineErrors } from "./errors/ICollarEngineErrors.sol";
-import { ICollarEngineEvents } from "./events/ICollarEngineEvents.sol";
 
-abstract contract ICollarEngine is ICollarEngineErrors, ICollarEngineEvents {
-    // -- lib delcarations --
-    using EnumerableSet for EnumerableSet.AddressSet;
-    using EnumerableSet for EnumerableSet.UintSet;
+interface ICollarEngine is ICollarEngineErrors {
 
-    // -- modifiers --
+    // EVENTS
 
-    // vaults
+    // regular user actions
+    event VaultManagerCreated(address indexed vaultManager, address indexed owner);
 
-    modifier ensureVaultManagerIsValid(address vaultManager) {
-        if (vaultManagers.contains(vaultManager) == false) revert InvalidVaultManager();
-        _;
-    }
-
-    modifier ensureLiquidityPoolIsValid(address pool) {
-        if (!collarLiquidityPools.contains(pool)) revert InvalidLiquidityPool();
-        _;
-    }
-
-    // liquidity pools
-
-    modifier ensureLiquidityPoolIsNotValid(address pool) {
-        if (collarLiquidityPools.contains(pool)) revert LiquidityPoolAlreadyAdded(pool);
-        _;
-    }
-
-    // collateral assets
-
-    modifier ensureCollateralAssetIsValid(address asset) {
-        if (!supportedCollateralAssets.contains(asset)) revert CollateralAssetNotSupported(asset);
-        _;
-    }
-
-    modifier ensureCollateralAssetIsNotValid(address asset) {
-        if (supportedCollateralAssets.contains(asset)) revert CollateralAssetAlreadySupported(asset);
-        _;
-    }
-
-    // cash assets
-
-    modifier ensureCashAssetIsValid(address asset) {
-        if (!supportedCashAssets.contains(asset)) revert CashAssetNotSupported(asset);
-        _;
-    }
-
-    modifier ensureCashAssetIsNotValid(address asset) {
-        if (supportedCashAssets.contains(asset)) revert CashAssetAlreadySupported(asset);
-        _;
-    }
-
-    // collar durations
-
-    modifier ensureDurationIsValid(uint256 duration) {
-        if (!validCollarDurations.contains(duration)) revert CollarDurationNotSupported();
-        _;
-    }
-
-    modifier ensureDurationIsNotValid(uint256 duration) {
-        if (validCollarDurations.contains(duration)) revert CollarDurationNotSupported();
-        _;
-    }
-
-    // ltvs
-
-    modifier ensureLTVIsValid(uint256 ltv) {
-        if (!validLTVs.contains(ltv)) revert LTVNotSupported(ltv);
-        _;
-    }
-
-    modifier ensureLTVIsNotValid(uint256 ltv) {
-        if (validLTVs.contains(ltv)) revert LTVAlreadySupported(ltv);
-        _;
-    }
-
-    // -- public state variables ---
-
-    address public immutable dexRouter;
-
-    /// @notice This mapping stores the address of the vault contract per user (or market maker)
-    /// @dev This will be zero if the user has not yet created a vault
-    mapping(address => address) public addressToVaultManager;
-
-    // -- internal state variables ---
-    EnumerableSet.AddressSet internal vaultManagers;
-    EnumerableSet.AddressSet internal collarLiquidityPools;
-    EnumerableSet.AddressSet internal supportedCollateralAssets;
-    EnumerableSet.AddressSet internal supportedCashAssets;
-    EnumerableSet.UintSet internal validLTVs;
-    EnumerableSet.UintSet internal validCollarDurations;
-
-    constructor(address _dexRouter) {
-        dexRouter = _dexRouter;
-    }
+    // auth'd actions
+    event LiquidityPoolAdded(address indexed liquidityPool);
+    event LiquidityPoolRemoved(address indexed liquidityPool);
+    event CollateralAssetAdded(address indexed collateralAsset);
+    event CollateralAssetRemoved(address indexed collateralAsset);
+    event CashAssetAdded(address indexed cashAsset);
+    event CashAssetRemoved(address indexed cashAsset);
+    event CollarDurationAdded(uint256 indexed duration);
+    event CollarDurationRemoved(uint256 indexed duration);
+    event LTVAdded(uint256 indexed ltv);
+    event LTVRemoved(uint256 indexed ltv);
 
     // ----- state changing transactions
 
