@@ -9,7 +9,6 @@ pragma solidity ^0.8.18;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { ICollarEngine } from "../interfaces/ICollarEngine.sol";
-import { ICollarEngineEvents } from "../interfaces/events/ICollarEngineEvents.sol";
 import { CollarPool } from "./CollarPool.sol";
 import { CollarVaultManager } from "./CollarVaultManager.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
@@ -18,10 +17,100 @@ import { IPeripheryImmutableState } from "@uni-v3-periphery/interfaces/IPeripher
 import "forge-std/console.sol";
 
 contract CollarEngine is ICollarEngine, Ownable {
+    // -- lib delcarations --
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;
 
-    constructor(address _dexRouter) ICollarEngine(_dexRouter) Ownable(msg.sender) { }
+    // -- public state variables ---
+
+    address public immutable dexRouter;
+
+    /// @notice This mapping stores the address of the vault contract per user (or market maker)
+    /// @dev This will be zero if the user has not yet created a vault
+    mapping(address => address) public addressToVaultManager;
+
+    // -- internal state variables ---
+    EnumerableSet.AddressSet internal vaultManagers;
+    EnumerableSet.AddressSet internal collarLiquidityPools;
+    EnumerableSet.AddressSet internal supportedCollateralAssets;
+    EnumerableSet.AddressSet internal supportedCashAssets;
+    EnumerableSet.UintSet internal validLTVs;
+    EnumerableSet.UintSet internal validCollarDurations;
+
+    constructor(address _dexRouter) Ownable(msg.sender) {
+        dexRouter = _dexRouter;
+    }
+
+
+    // -- modifiers --
+
+    // vaults
+
+    modifier ensureVaultManagerIsValid(address vaultManager) {
+        if (vaultManagers.contains(vaultManager) == false) revert InvalidVaultManager();
+        _;
+    }
+
+    modifier ensureLiquidityPoolIsValid(address pool) {
+        if (!collarLiquidityPools.contains(pool)) revert InvalidLiquidityPool();
+        _;
+    }
+
+    // liquidity pools
+
+    modifier ensureLiquidityPoolIsNotValid(address pool) {
+        if (collarLiquidityPools.contains(pool)) revert LiquidityPoolAlreadyAdded(pool);
+        _;
+    }
+
+    // collateral assets
+
+    modifier ensureCollateralAssetIsValid(address asset) {
+        if (!supportedCollateralAssets.contains(asset)) revert CollateralAssetNotSupported(asset);
+        _;
+    }
+
+    modifier ensureCollateralAssetIsNotValid(address asset) {
+        if (supportedCollateralAssets.contains(asset)) revert CollateralAssetAlreadySupported(asset);
+        _;
+    }
+
+    // cash assets
+
+    modifier ensureCashAssetIsValid(address asset) {
+        if (!supportedCashAssets.contains(asset)) revert CashAssetNotSupported(asset);
+        _;
+    }
+
+    modifier ensureCashAssetIsNotValid(address asset) {
+        if (supportedCashAssets.contains(asset)) revert CashAssetAlreadySupported(asset);
+        _;
+    }
+
+    // collar durations
+
+    modifier ensureDurationIsValid(uint256 duration) {
+        if (!validCollarDurations.contains(duration)) revert CollarDurationNotSupported();
+        _;
+    }
+
+    modifier ensureDurationIsNotValid(uint256 duration) {
+        if (validCollarDurations.contains(duration)) revert CollarDurationNotSupported();
+        _;
+    }
+
+    // ltvs
+
+    modifier ensureLTVIsValid(uint256 ltv) {
+        if (!validLTVs.contains(ltv)) revert LTVNotSupported(ltv);
+        _;
+    }
+
+    modifier ensureLTVIsNotValid(uint256 ltv) {
+        if (validLTVs.contains(ltv)) revert LTVAlreadySupported(ltv);
+        _;
+    }
+
 
     // ----- state-changing functions (see ICollarEngine for documentation) -----
 
