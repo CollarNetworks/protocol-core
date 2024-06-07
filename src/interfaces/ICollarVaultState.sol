@@ -8,6 +8,7 @@
 pragma solidity ^0.8.18;
 
 /// @notice Data structures for the vault manager
+// TODO: refactor into ICollarVaultManager. didn't refactor this to avoid touching many files
 interface ICollarVaultState {
     /// @notice This struct contains information about which assests (and how much of them) are in each vault
     /// @param collateralAsset The address of the collateral asset
