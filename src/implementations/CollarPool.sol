@@ -9,7 +9,6 @@ pragma solidity ^0.8.18;
 
 import { ICollarPool } from "../interfaces/ICollarPool.sol";
 import { ICollarPoolErrors } from "../interfaces/errors/ICollarPoolErrors.sol";
-import { ICollarPoolEvents } from "../interfaces/events/ICollarPoolEvents.sol";
 import { ICollarVaultState } from "../interfaces/ICollarVaultState.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
@@ -19,18 +18,114 @@ import { CollarVaultManager } from "./CollarVaultManager.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 import "forge-std/console.sol";
 
-contract CollarPool is ICollarPool, ERC6909TokenSupply {
+// TODO: this is a temp place, move / rename / refactor this somewhere where it makes sense
+abstract contract BaseCollarPoolState {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
     using EnumerableSet for EnumerableSet.UintSet;
+
+    // represents one partitioned slice of the liquidity pool, its providers, and the amount they provide
+    struct Slot {
+        uint256 liquidity; // <-- total liquidity in the slot
+        EnumerableMap.AddressToUintMap providers;
+    }
+
+    // 1 - user opens a vault against a single slot
+    // 2 - provider liquidity is locked proportionally against user vaults,
+    //     pro rata according to how much liquidity the provider has provided
+    // 3 - for *EACH* provider that has had liquidity locked for said vault,
+    //     we store a "Position" (see below)
+
+    /*
+
+        IMPORTANT: When a user opens a vault and chooses a slot to lock liquidity from,
+        *all providers in the slot* have their liquidity locked (but proportionally to how much
+        they have provided)
+
+    */
+
+    // a Position is a financial instrument that:
+    //  - can be entered into, and eventually exited
+    //  - can gain or lose value over time
+    //  - has a static initial value (principal)
+    //  - has a dynamic/calculable current value
+    //  - has a defined time horizon
+    //  - carries inherent risk
+    struct Position {
+        uint256 expiration; // <-- defined time horizon --- does not change
+        uint256 principal; // <-- static initial value --- does not change
+        uint256 withdrawable; // <-- zero until close, then set to settlement value
+    }
+
+    /// @notice Records the state of each slot (see Slot struct above)
+    mapping(uint256 index => Slot) internal slots;
+
+    /// @notice Records the state of each Position by their UUID
+    mapping(bytes32 uuid => Position) public positions;
+
+    /// @notice Records the set of all initialized slots
+    EnumerableSet.UintSet internal initializedSlotIndices;
+}
+
+contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
+    using EnumerableMap for EnumerableMap.AddressToUintMap;
+    using EnumerableSet for EnumerableSet.UintSet;
+
+    using EnumerableMap for EnumerableMap.AddressToUintMap;
+
+    // ----- IMMUTABLES ----- //
+
+    /// @notice This is the ID of the slot that is unallocated to any particular call strike percentage
+    uint256 public constant UNALLOCATED_SLOT = type(uint256).max;
+
+    /// @notice This is the factor by which the slot ID is scaled to get the actual bps value
+    /// @dev A tick scale factor of 1 means that slot 10_000 = 100% = 1 bps per tick, and so on
+
+    uint256 public immutable tickScaleFactor;
+
+    /// @notice The address of the engine is set upon pool creation (and registered with the engine)
+    address public immutable engine;
+
+    /// @notice The address of the cash asset is set upon pool creation (and verified with the engine as allowed)
+    address public immutable cashAsset;
+
+    /// @notice The address of the collateral asset is set upon pool creation (and verified with the engine as allowed)
+    address public immutable collateralAsset;
+
+    /// @notice The duration of collars to be opened against this pool
+    uint256 public immutable duration;
+
+    /// @notice The LTV of collars to be opened against this pool
+    uint256 public immutable ltv;
+
+    // ----- STATE VARIABLES ----- //
+
+    /// @notice The total amount of liquidity in the pool
+    /// @dev Total liquidity = locked + free + redeemable
+    uint256 public totalLiquidity;
+
+    /// @notice The amount of locked liquidity in the pool
+    uint256 public lockedLiquidity;
+
+    /// @notice The amount of free liquidity in the pool
+    uint256 public freeLiquidity;
+
+    /// @notice The amount of redeemable liquidity in the pool
+    uint256 public redeemableLiquidity;
 
     // ----- CONSTRUCTOR ----- //
 
     constructor(address _engine, uint256 _tickScaleFactor, address _cashAsset, address _collateralAsset, uint256 _duration, uint256 _ltv)
-        ICollarPool(_engine, _tickScaleFactor, _cashAsset, _collateralAsset, _duration, _ltv)
     {
         if (!CollarEngine(_engine).isValidLTV(_ltv)) {
             revert InvalidLTV();
         }
+
+        tickScaleFactor = _tickScaleFactor;
+        engine = _engine;
+        cashAsset = _cashAsset;
+        collateralAsset = _collateralAsset;
+        duration = _duration;
+        ltv = _ltv;
     }
 
     // ----- VIEW FUNCTIONS ----- //

@@ -14,7 +14,6 @@ import { MockUniRouter } from "../utils/MockUniRouter.sol";
 import { MockBadUniRouter } from "../utils/MockBadUniRouter.sol";
 import { MockEngine } from "../../test/utils/MockEngine.sol";
 import { CollarPool } from "../../src/implementations/CollarPool.sol";
-import { ICollarPoolState } from "../../src/interfaces/ICollarPool.sol";
 import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 import { ICollarVaultManager } from "../../src/interfaces/ICollarVaultManager.sol";
 import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
