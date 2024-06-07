@@ -35,7 +35,8 @@ contract CollarPoolTest is Test {
     address user5 = makeAddr("user5");
     address user6 = makeAddr("user6");
 
-    // below we copy error messages from contracts since they aren't by default "public" or otherwise accessible
+    // below we copy error messages from contracts since they aren't by default "public" or otherwise
+    // accessible
 
     error EnumerableMapNonexistentKey(bytes32 key);
     error OwnableUnauthorizedAccount(address account);
@@ -443,7 +444,8 @@ contract CollarPoolTest is Test {
     function test_openPosition() public {
         mintAndOpenPosition(user1);
 
-        uint256 userTokens = ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+        uint256 userTokens =
+            ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
 
         assertEq(userTokens, 100_000);
     }
@@ -499,10 +501,14 @@ contract CollarPoolTest is Test {
             cashAmount: 100
         });
 
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+        ICollarVaultState.CollarOpts memory collarOpts =
+            ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
-        ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
+        ICollarVaultState.LiquidityOpts memory liquidityOpts = ICollarVaultState.LiquidityOpts({
+            liquidityPool: address(pool),
+            putStrikeTick: 90,
+            callStrikeTick: 110
+        });
 
         // price starts at "1e18"
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
@@ -663,7 +669,8 @@ contract CollarPoolTest is Test {
     }
 
     function test_constructor() public {
-        CollarPool testPool = new CollarPool(address(engine), 100, address(cashAsset), address(collateralAsset), 100, 9000);
+        CollarPool testPool =
+            new CollarPool(address(engine), 100, address(cashAsset), address(collateralAsset), 100, 9000);
         assertEq(testPool.engine(), address(engine));
         assertEq(testPool.cashAsset(), address(cashAsset));
         assertEq(testPool.collateralAsset(), address(collateralAsset));
@@ -702,10 +709,14 @@ contract CollarPoolTest is Test {
             cashAmount: 100
         });
 
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+        ICollarVaultState.CollarOpts memory collarOpts =
+            ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
-        ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
+        ICollarVaultState.LiquidityOpts memory liquidityOpts = ICollarVaultState.LiquidityOpts({
+            liquidityPool: address(pool),
+            putStrikeTick: 90,
+            callStrikeTick: 110
+        });
 
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 

@@ -73,8 +73,9 @@ contract MeanFinanceStaticOracleTest is Test {
         uint256 result;
         //address[] memory poolsQueried;
 
-        (result, /*poolsQueried*/ ) =
-            oracle.quoteSpecificFeeTiersWithOffsettedTimePeriod(1e18, wMatic, usdc, feeTiers, 15 minutes, 30 minutes);
+        (result, /*poolsQueried*/ ) = oracle.quoteSpecificFeeTiersWithOffsettedTimePeriod(
+            1e18, wMatic, usdc, feeTiers, 15 minutes, 30 minutes
+        );
 
         console.log("Amount of USDC received for 1e18 wMatic: ", result);
     }
@@ -96,11 +97,13 @@ contract MeanFinanceStaticOracleTest is Test {
         uint256 result;
 
         // this time we roll the blockchain forward a bit
-        vm.roll(block.number + 450); // polygon block time = 2 seconds per block, so we skip forward (15 minutes in seconds / 2) blocks
+        vm.roll(block.number + 450); // polygon block time = 2 seconds per block, so we skip forward (15
+            // minutes in seconds / 2) blocks
         skip(15 minutes);
 
-        (result, /*poolsQueried*/ ) =
-            oracle.quoteSpecificFeeTiersWithOffsettedTimePeriod(1e18, wMatic, usdc, feeTiers, 15 minutes, 30 minutes);
+        (result, /*poolsQueried*/ ) = oracle.quoteSpecificFeeTiersWithOffsettedTimePeriod(
+            1e18, wMatic, usdc, feeTiers, 15 minutes, 30 minutes
+        );
 
         console.log("Amount of USDC received for 1e18 wMatic: ", result);
     }
@@ -122,11 +125,13 @@ contract MeanFinanceStaticOracleTest is Test {
         uint256 result;
 
         // this time we roll the blockchain forward a few days
-        vm.roll(block.number + 129_600); // polygon block time = 2 seconds per block, so we skip forward (3 days in seconds / 2) blocks
+        vm.roll(block.number + 129_600); // polygon block time = 2 seconds per block, so we skip forward (3
+            // days in seconds / 2) blocks
         skip(3 days);
 
-        (result, /*poolsQueried*/ ) =
-            oracle.quoteSpecificFeeTiersWithOffsettedTimePeriod(1e18, wMatic, usdc, feeTiers, 15 minutes, 30 minutes);
+        (result, /*poolsQueried*/ ) = oracle.quoteSpecificFeeTiersWithOffsettedTimePeriod(
+            1e18, wMatic, usdc, feeTiers, 15 minutes, 30 minutes
+        );
 
         console.log("Amount of USDC received for 1e18 wMatic: ", result);
     }

@@ -24,7 +24,8 @@ interface ICollarVaultState {
 
     /// @notice This struct contains information about the collar options for each vault
     /// @param duration The length of the vault, expressed as a unix timestamp
-    /// @param ltv The maximum loan-to-value ratio of loans taken out of this vault, expressed as bps of the collateral value
+    /// @param ltv The maximum loan-to-value ratio of loans taken out of this vault, expressed as bps of the
+    /// collateral value
     struct CollarOpts {
         uint256 duration;
         uint256 ltv;
@@ -49,13 +50,16 @@ interface ICollarVaultState {
     /// @param collateralAmount The amount of the collateral asset to be deposited when opening the vault
     /// @param cashAmount The amount of the cash asset received after swapping from collateral
     /// @param liquidityPool The address of the liquidity pool where cash is locked
-    /// @param lockedPoolCash The amount of cash that is currently locked in the liquidity pool for this particular vault
-    /// @param startingPrice The price of the cash asset in terms of 1e18 of the collateral asset at the time of opening the vault
+    /// @param lockedPoolCash The amount of cash that is currently locked in the liquidity pool for this
+    /// particular vault
+    /// @param startingPrice The price of the cash asset in terms of 1e18 of the collateral asset at the time
+    /// of opening the vault
     /// @param putStrikePrice The strike price of the put option in terms of 1e18 of the collateral asset
     /// @param callStrikePrice The strike price of the call option in terms of 1e18 of the collateral asset
     /// @param putStrikeTick The tick at which the put option is struck
     /// @param callStrikeTick The tick at which the call option is struck
-    /// @param loanBalance amount of cash that is currently unlocked (withdrawable); this is the only state var that changes during a vault's lifetime
+    /// @param loanBalance amount of cash that is currently unlocked (withdrawable); this is the only state
+    /// var that changes during a vault's lifetime
     /// @param lockedVaultCash The amount of cash that is currently locked (unwithdrawable)
     struct Vault {
         /* ----- Basic Vault Info ----- */

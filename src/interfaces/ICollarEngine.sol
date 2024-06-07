@@ -10,7 +10,6 @@ pragma solidity ^0.8.18;
 import { ICollarEngineErrors } from "./errors/ICollarEngineErrors.sol";
 
 interface ICollarEngine is ICollarEngineErrors {
-
     // EVENTS
 
     // regular user actions
@@ -30,8 +29,10 @@ interface ICollarEngine is ICollarEngineErrors {
 
     // ----- state changing transactions
 
-    /// @notice Creates a vault manager contract for the user that calls this function, if it does not already exist
-    /// @dev This function is called by the user when they want to create a new vault if they haven't done so in the past
+    /// @notice Creates a vault manager contract for the user that calls this function, if it does not already
+    /// exist
+    /// @dev This function is called by the user when they want to create a new vault if they haven't done so
+    /// in the past
     function createVaultManager() external virtual returns (address);
 
     // liquidity pools
@@ -170,7 +171,12 @@ interface ICollarEngine is ICollarEngineErrors {
     /// @param quoteToken The address of the asset to quote the price in
     /// @param twapEndTimestamp The timestamp to END the TWAP at
     /// @param twapLength The length of the TWAP to calculate
-    function getHistoricalAssetPriceViaTWAP(address baseToken, address quoteToken, uint32 twapEndTimestamp, uint32 twapLength)
+    function getHistoricalAssetPriceViaTWAP(
+        address baseToken,
+        address quoteToken,
+        uint32 twapEndTimestamp,
+        uint32 twapLength
+    )
         external
         view
         virtual
@@ -179,5 +185,12 @@ interface ICollarEngine is ICollarEngineErrors {
     /// @notice Gets the current price of 1e18 of a particular asset
     /// @param baseToken The address of the asset to get the price of
     /// @param quoteToken The address of the asset to quote the price in
-    function getCurrentAssetPrice(address baseToken, address quoteToken) external view virtual returns (uint256 price);
+    function getCurrentAssetPrice(
+        address baseToken,
+        address quoteToken
+    )
+        external
+        view
+        virtual
+        returns (uint256 price);
 }

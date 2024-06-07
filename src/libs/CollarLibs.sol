@@ -21,7 +21,13 @@ abstract contract Constants {
 }
 
 library CollarOracle {
-    function getTWAP(address baseToken, address quoteToken, uint32 twapStartTimestamp, uint32 twapLength, address uniswapV3Factory)
+    function getTWAP(
+        address baseToken,
+        address quoteToken,
+        uint32 twapStartTimestamp,
+        uint32 twapLength,
+        address uniswapV3Factory
+    )
         external
         view
         returns (uint256 price)
@@ -61,7 +67,15 @@ library CollarOracle {
      */
 
     /// @notice Takes a pair and some fee tiers, and returns pool
-    function _getPoolForTokenPair(address _tokenA, address _tokenB, address uniswapV3Factory) internal pure returns (address _pool) {
+    function _getPoolForTokenPair(
+        address _tokenA,
+        address _tokenB,
+        address uniswapV3Factory
+    )
+        internal
+        pure
+        returns (address _pool)
+    {
         PoolAddress.PoolKey memory _poolKey = PoolAddress.getPoolKey(_tokenA, _tokenB, 3000);
         _pool = PoolAddress.computeAddress(address(uniswapV3Factory), _poolKey);
     }
