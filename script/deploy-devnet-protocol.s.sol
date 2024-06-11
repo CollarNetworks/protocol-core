@@ -8,21 +8,18 @@ import { ICollarVaultState } from "../src/interfaces/ICollarVaultState.sol";
 import { CollarPool } from "../src/implementations/CollarPool.sol";
 import { CollarVaultManager } from "../src/implementations/CollarVaultManager.sol";
 import { CollarEngine } from "../src/implementations/CollarEngine.sol";
-
-import { TestERC20 } from "../test/utils/TestERC20.sol";
-import { MockUniRouter } from "../test/utils/MockUniRouter.sol";
-import { MockEngine } from "../test/utils/MockEngine.sol";
-
-import { Multicall3 } from "../lib/other/multicall3.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 /**
+ * THIS SCRIPT ASSUMES A POLYGON MAINNET FORK ENVIRONMENT
+ *
  * 1. deploys the following contracts:
- * cashTestToken: test ERC20 cash asset for the collar pool
- * collateralTestToken : test ERC20 colaterall asset for the collar pool
- * router: mock uniswap router for the engine
- * engine: Mock collar engine
+ * cashToken:  cash asset for the collar pool
+ * collateralToken :  colaterall asset for the collar pool
+ * router: uniswap router for the engine
+ * engine: collar engine
  * oneDayPool: Collar pool with 1 day duration
  * oneWeekPool: Collar pool with 7 days duration
- * multicall3
+ *
  * 2. adds liquidity pools,assets and durations to the engine
  * 3. mints a million of each asset to the router
  * 4. mints 100k and 200k to test addresses
@@ -31,8 +28,8 @@ import { Multicall3 } from "../lib/other/multicall3.sol";
  */
 
 contract DeployInitializedDevnetProtocol is Script {
-    address cashTestToken;
-    address collateralTestToken;
+    address cashToken;
+    address collateralToken;
 
     address oneDayPool;
     address oneWeekPool;
@@ -40,7 +37,10 @@ contract DeployInitializedDevnetProtocol is Script {
     address router;
     address engine;
 
-    address multicall3;
+    address USDC = 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359;
+    address WMATIC = 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270;
+    address swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
+    address uniV3Pool = address(0x2DB87C4831B2fec2E35591221455834193b50D1B);
 
     function run() external {
         VmSafe.Wallet memory deployer = vm.createWallet(vm.envUint("PRIVKEY_DEV_DEPLOYER"));
@@ -55,41 +55,25 @@ contract DeployInitializedDevnetProtocol is Script {
 
         vm.startBroadcast(deployer.addr);
 
-        cashTestToken = address(new TestERC20("CashTestToken", "CSH-TST"));
-        collateralTestToken = address(new TestERC20("CollateralTestToken", "COL-TST"));
-        router = address(new MockUniRouter());
-        engine = address(new MockEngine(router));
+        cashToken = USDC;
+        collateralToken = WMATIC;
+        router = swapRouterAddress;
+        engine = address(new CollarEngine(router));
         CollarEngine(engine).addLTV(9000);
 
-        oneDayPool = address(new CollarPool(engine, 1, cashTestToken, collateralTestToken, 1 days, 9000));
-        oneWeekPool = address(new CollarPool(engine, 1, cashTestToken, collateralTestToken, 7 days, 9000));
-
-        multicall3 = address(new Multicall3());
+        oneDayPool = address(new CollarPool(engine, 1, cashToken, collateralToken, 1 days, 9000));
+        oneWeekPool = address(new CollarPool(engine, 1, cashToken, collateralToken, 7 days, 9000));
 
         CollarEngine(engine).addLiquidityPool(oneDayPool);
         CollarEngine(engine).addLiquidityPool(oneWeekPool);
-        CollarEngine(engine).addSupportedCashAsset(cashTestToken);
-        CollarEngine(engine).addSupportedCollateralAsset(collateralTestToken);
+        CollarEngine(engine).addSupportedCashAsset(cashToken);
+        CollarEngine(engine).addSupportedCollateralAsset(collateralToken);
         CollarEngine(engine).addCollarDuration(100 seconds);
         CollarEngine(engine).addCollarDuration(1 hours);
         CollarEngine(engine).addCollarDuration(1 days);
         CollarEngine(engine).addCollarDuration(7 days);
         CollarEngine(engine).addCollarDuration(30 days);
         CollarEngine(engine).addCollarDuration(180 days);
-
-        TestERC20(cashTestToken).mint(router, 1_000_000e18);
-        TestERC20(collateralTestToken).mint(router, 1_000_000e18);
-
-        TestERC20(cashTestToken).mint(testWallet1.addr, 100_000e18);
-        TestERC20(cashTestToken).mint(testWallet2.addr, 100_000e18);
-        TestERC20(cashTestToken).mint(testWallet3.addr, 200_000e18);
-
-        TestERC20(collateralTestToken).mint(testWallet1.addr, 100_000e18);
-        TestERC20(collateralTestToken).mint(testWallet2.addr, 100_000e18);
-        TestERC20(collateralTestToken).mint(testWallet3.addr, 200_000e18);
-
-        MockEngine(engine).setCurrentAssetPrice(collateralTestToken, 1e18);
-
         vm.stopBroadcast();
         vm.startBroadcast(testWallet1.addr);
 
@@ -105,45 +89,14 @@ contract DeployInitializedDevnetProtocol is Script {
 
         require(CollarEngine(engine).addressToVaultManager(testWallet1.addr) == user1VaultManager);
         require(CollarEngine(engine).addressToVaultManager(testWallet2.addr) == user2VaultManager);
-        /**
-         * add liquidity to slots
-         */
-        vm.startBroadcast(testWallet3.addr);
-
-        TestERC20(cashTestToken).approve(oneDayPool, 100_000 ether);
-        TestERC20(cashTestToken).approve(oneWeekPool, 200_000 ether);
-
-        CollarPool(oneDayPool).addLiquidityToSlot(11_100, 10_000 ether);
-        CollarPool(oneDayPool).addLiquidityToSlot(11_200, 25_000 ether);
-        CollarPool(oneDayPool).addLiquidityToSlot(11_500, 17_500 ether);
-        CollarPool(oneDayPool).addLiquidityToSlot(12_000, 20_000 ether);
-        CollarPool(oneWeekPool).addLiquidityToSlot(11_100, 10_000 ether);
-        CollarPool(oneWeekPool).addLiquidityToSlot(11_200, 25_000 ether);
-        CollarPool(oneWeekPool).addLiquidityToSlot(11_500, 17_500 ether);
-        CollarPool(oneWeekPool).addLiquidityToSlot(12_000, 20_000 ether);
-
-        vm.stopBroadcast();
-
-        require(CollarEngine(engine).addressToVaultManager(testWallet1.addr) == user1VaultManager);
-        require(CollarEngine(engine).addressToVaultManager(testWallet2.addr) == user2VaultManager);
-
-        require(CollarPool(oneDayPool).getLiquidityForSlot(11_100) == 10_000 ether);
-        require(CollarPool(oneDayPool).getLiquidityForSlot(11_200) == 25_000 ether);
-        require(CollarPool(oneDayPool).getLiquidityForSlot(11_500) == 17_500 ether);
-        require(CollarPool(oneDayPool).getLiquidityForSlot(12_000) == 20_000 ether);
-        require(CollarPool(oneWeekPool).getLiquidityForSlot(11_100) == 10_000 ether);
-        require(CollarPool(oneWeekPool).getLiquidityForSlot(11_200) == 25_000 ether);
-        require(CollarPool(oneWeekPool).getLiquidityForSlot(11_500) == 17_500 ether);
-        require(CollarPool(oneWeekPool).getLiquidityForSlot(12_000) == 20_000 ether);
         console.log("\n --- Dev Environment Deployed ---");
         console.log("\n # Dev Deployer Address: %x", deployer.addr);
         console.log("\n # Dev Deployer Key:     %x", deployer.privateKey);
-        console.log("\n # Multicall3 Contract:  %x", multicall3);
         console.log("\n # Contract Addresses\n");
-        console.log(" - Cash Test ERC20 - - - - - ", cashTestToken);
-        console.log(" - Collateral Test ERC20 - - ", collateralTestToken);
-        console.log(" - Mock Router:  - - - - - - ", router);
-        console.log(" - Mock Engine - - - - - - - ", engine);
+        console.log(" - Cash ERC20 - - - - - ", cashToken);
+        console.log(" - Collateral ERC20 - - ", collateralToken);
+        console.log(" - Router:  - - - - - - ", router);
+        console.log(" - Engine - - - - - - - ", engine);
         console.log(" - Collar One day Pool - - - - - - - ", oneDayPool);
         console.log(" - Collar One week Pool - - - - - - - ", oneWeekPool);
         console.log("\n # Test Users\n");
