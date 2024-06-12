@@ -4,6 +4,13 @@ pragma abicoder v2;
 
 import '@uniswap/v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol';
 
+/**
+@dev this interface comes from
+    https://github.com/Uniswap/swap-router-contracts/blob/main/contracts/interfaces/IV3SwapRouter.sol
+    which should track actual router interface
+    and NOT from https://github.com/Uniswap/v3-periphery/blob/main/contracts/interfaces/ISwapRouter.sol
+    which is for some reason outdated
+*/
 /// @title Router token swapping functionality
 /// @notice Functions for swapping tokens via Uniswap V3
 interface IV3SwapRouter is IUniswapV3SwapCallback {
