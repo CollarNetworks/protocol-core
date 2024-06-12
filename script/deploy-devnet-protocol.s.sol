@@ -31,7 +31,7 @@ contract DeployInitializedDevnetProtocol is Script {
     address router;
     address engine;
 
-    address USDC = 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359;
+    address USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     address USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
     address WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
     address stETH = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
