@@ -145,8 +145,14 @@
   - Proposal 1: split by asset-config (cash + collateral) to isolate SC risks. So for an asset config
     - One borrow-side contract (manages borrow positions) - what is now vault manager, but for all users.
     - One provider-side contract (manages liquidity positions) - what is now pools, but for all strikes and expiries.
-  - Proposal 2 (recommended): keep the liquidity pools for simplicity, but unify borrower side (also, for simplicity, and for allowing unwinds via NFTs).
-
+  - Proposal 2: keep the liquidity pools for simplicity, but unify borrower side (also, for simplicity, and for allowing unwinds via NFTs).
+  - Proposal 3 (recommended): for allowing simple unwinds (full and partial) from both sides - "paired NFTs":
+    - BorrowPosition NFTs are paired 1:1 with LenderPosition NFTs.
+    - When user opens a position, it's minted as multiple NFT ids (e.g, [3,4,5]) to the user, each matching lender NFTs [3,4,5] which are minted to each lender.
+    - This way, each NFT on each side is transferrable, there's no share calculations, and position management is simplified for both sides. Redeems on each side accept an array of IDs and check ownership.
+    - "Unwind" takes a pair of NFTs (owned by same owner at that point), burns them, and releasing the funds.
+    - This way any lender can buy out their portion of user's position from the user or any user can buy out the lender portion from any lender.
+    - Rolls: a RollEscrow contract is created, where the user can escrow their borrow positions during a roll request. If the lenders take it, the escrow takes the lender's side burns the old, releases funds, and creates a new position sending the new position NFTs to original user and lender. If the deal doesn't go through, the user can take back their original position.
 
 # Style / best practices considerations
 
