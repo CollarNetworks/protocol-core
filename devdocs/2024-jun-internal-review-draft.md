@@ -11,7 +11,7 @@
 
 ### Depends on VaultManager refactor
 
-- [ ] Vault manager per user?
+- [ ] **Vault manager per user vs. single BorrowPositions contract**
   - [ ] #med `createVaultManager` allowing one manager per sender:
     - vault-manager is Ownable, so this limitation prevents users from being able to interact with protocol if they transfer their vault.
     - this also allows a user to at the same time own multiple managers by creating and transferring, so if one-manager-per-user is an important assumption, it can be violated.
@@ -21,16 +21,16 @@
     - Update: there's shouldn't mapping, use ownable, remove `user`  in vault. FE solution - use events (and later subgraph).
   - [ ] #low vault addresses are create1 so are known in advance and can be taken by anyone depending on transaction order. should use sender as create2 salt to avoid frontrunning risks (incorrectly predicting users' vault)
     - update: fix to create2
-- [ ] #low `uuid` is not necessarily unique, and is misleading name (since not universally unique). uuid will only unique if there's one factory and it continues restricting one per user, but both are not necessarily true from vault's POV (coupling)
-  - fix: to be unique can use its own contract address instead of user address
-  - even better: to not depend on id uniqueness in general if used accross several contracts, and instead per contract sequential ids can be used direclty (position / vault index)
+  - [ ] #low `uuid` is not necessarily unique, and is misleading name (since not universally unique). uuid will only unique if there's one factory and it continues restricting one per user, but both are not necessarily true from vault's POV (coupling)
+    - fix: to be unique can use its own contract address instead of user address
+    - even better: to not depend on id uniqueness in general if used accross several contracts, and instead per contract sequential ids can be used direclty (position / vault index)
   - [ ] #note `openVault` accepts a lot of parameters code/design smell
   - [ ] #low (pool) position doesn't store the opening vault-manager, and `finalizePosition` doesn't check the closing and opening manager is the same. position should store and check the "owner" vault?
   - [ ] #issue ERC6909TokenSupply / ERC6909 is the library audited / secure?
 
 ### Depends on LiquidityPool refactors
 
-- [ ] 5 providers per position limitation:
+- [ ] **5 providers per position limitation:**
   - [ ] #high `addLiquidityToSlot` can bump out anyone's liquidity and immediately remove it using `withdrawLiquidityFromSlot`
     - can do it while frontrunning an openVault to
     - 1. take the trade if it's good
@@ -43,39 +43,39 @@
       - [ ] #note if `type(uint).max` is actually provided, `address(0)` will be returned
       - fix: should revert on empty slot, should start `smallestAmount` at first index.
       - better: remove the need for this entirely
-- [ ] Slots design:
+- [ ] **Slots design:**
   - [ ] #med #design if provider is open to multiple slots, they must lock max liquidity in each slot - either capital inefficient or inflexible. instead of slots with locked liquidity allow provider to specify accepted ranges, and let users pick providers.
   - [ ] #note `tickScaleFactor` needs more documentation and explanation for why it's needed and why it has no decimals
     - it seems to be "abstraction leakage" or how internal "ranges" are translated to external prices / deviations.
-- [ ] #low (design) providers cannot control their "slippage" (must actively manage liquidity with price changes, and are exposed to oracle risk) accepting trades at any asset price from the vault. maybe worth to store acceptable price ranges per provider for opening positions?
-- [ ] #issue ERC6909TokenSupply / ERC6909 is the library audited / secure?
-- [ ] TickCalculations fixes:
-  - [ ] #low "slot/tick" and `tickScaleFactor` should be internal to pool contract instead of being a library in the vault. this creates unnecessary coupling and complexity (another lib, noise in the vault calculations). vault knows about external prices, but should ask pool about the pools internal "slots / ticks"
-  - [ ] #issue `priceToTick` and `bpsToTick` using unsafe casting + unused. should be removed?
-  - [ ] #low there is no real need to use `uint24` , and pool uses full uint anyway
+  - [ ] #low (design) providers cannot control their "slippage" (must actively manage liquidity with price changes, and are exposed to oracle risk) accepting trades at any asset price from the vault. maybe worth to store acceptable price ranges per provider for opening positions?
+  - [ ] #issue ERC6909TokenSupply / ERC6909 is the library audited / secure?
+  - [ ] TickCalculations fixes:
+    - [ ] #low "slot/tick" and `tickScaleFactor` should be internal to pool contract instead of being a library in the vault. this creates unnecessary coupling and complexity (another lib, noise in the vault calculations). vault knows about external prices, but should ask pool about the pools internal "slots / ticks"
+    - [ ] #issue `priceToTick` and `bpsToTick` using unsafe casting + unused. should be removed?
+    - [ ] #low there is no real need to use `uint24` , and pool uses full uint anyway
 
 ### Independent
 
-- [ ] Swapping fixes:
+- [ ] **Swapping fixes:**
   - [ ] #critical vault's `openVault` swap price (and so the price used for accounting) is at full user control (can sandwich themselves) so user can choose any price they like:
     - can be exploited by using low price - put the provider at a loss from the start
     - should use TWAP price when opening
   - [ ] #low `_swap` should do explicit balance check to avoid trusting the external implementation for the return value to match balance update
 
-- [ ] Fix TWAP usage & logic:
+- [ ] **Fix TWAP usage & logic:**
   - [ ] #med `getHistoricalAssetPriceViaTWAP` passes `expiresAt` as twapStart, but should be expiresAt - twapLength, or variable `getTWAP` should expect `twapEnd` instead
   - [ ] #high in `getTWAP` `twapLength` is added twice (and `twapStartTimestamp` is outside of the twap window). Both incorrect price (15 minutes in past), and incorrect window is used.
   - [ ] #low `factory.getPool` can be used instead of custom `_getPoolForTokenPair`
 
 
-- [ ] Remove non-TWAP price usage
+- [ ] **Remove non-TWAP price usage**
   - [ ] #med `getCurrentAssetPrice` is not used, but is not safe for pretty much anything onchain - should be removed:
     - [ ] Update: remove the whole path of instantaneous price
   - [ ] #med (oracle lib) `twapLength` 0 should not be allowed and slot0 (instaneous price) should not be used
     - should be removed, and instead use short twap around the right time
     - #low also `twapStartTimestamp` is ignored for `twapLength` 0, and will provide current price even the `twapStartTimestamp` is some specific time
 
-- [ ] Pool logic fixes:
+- [ ] **Pool logic fixes:**
   - [ ] `openPosition`
     - [ ] #high amount subtracted from provider is too little. providers can withdraw some "locked" liquidity - thus stealing from other providers.
     - [ ] #med amount reserved and minted not equal (minted < provided), should sum up provider liquidity.
@@ -87,17 +87,17 @@
     - [ ] #med depends on uuid being unique again and vault not being able to call twice (there's no flag for "finalized" for position), since overwrites `positions[uuid].withdrawable` and doesn't reduce `principal`
     - [ ] #low `vaultManager` is both argument and sender. it should not be possible to call for non-sender vault manager, since it will cause the vault to not be finalizable. remove argument?
 
-- [ ] Dependency management:
+- [ ] **Dependency management:**
   - [ ] #med https://github.com/CollarNetworks/uni-v3-periphery-solc-v0.8 copy is a strange approach - unaudited and  should not be used. Instead do something like https://github.com/euler-xyz/euler-price-oracle/blob/master/src/adapter/uniswap/UniswapV3Oracle.sol by importing SDK packages
 
-- [ ] Global / Recurring:
+- [ ] **Global / Recurring:**
   - [ ] #med use SafeERC20's transfer and approve methods
   - [ ] #med decimals:
     - Oracle lib `getQuoteAtTick` assumes `baseToken` is 1e18 decimals
   - [ ] #low Requires vs. Errors:
     - I prefer "requires" due to readability, brevity, easier logic, more informative messages. A lot of auditors prefer it. It's very common in large high quality codebases (even on L1) to stick to requires. Why bloat with 4 lines instead of 1, create and and import TrickyToNameAndAnnoyingToReadError, and have to think in double-negatives?
 
-- [ ] #naming:
+- [ ] **Naming issues**:
   - [ ] engine
     - [ ] `dexRouter` should have correct name (`unitV3router` or smth) because is later used with specific UniV3 interface (in vault manager)
     - [ ] "engine" is a misleading name - there's no logic really, only vault factory and config.
@@ -108,7 +108,7 @@
     - [ ] "slot" is an overloaded name (because of storage slots, `.slot`, and other various slots). Tick also already refers to a specific UniV3 things. So maybe "Range" / "offerRange" ?
     - [ ] `providers` should be `providersLiquidity` because it's a map
 
-- [ ] Vault lows and notes:
+- [ ] **Vault lows and notes**:
   - [ ] #low encoding structs to bytes makes no sense vaultInfo, vaultInfoByNonce.
   - [ ] #note `VaultForABI` event??
   - [ ] #note `vaultTokenCashSupply` should use named mapping parameters
@@ -134,7 +134,7 @@
   - [ ] #issue using ERC20 for vault position is weird since tokens for a UUID are only minted once. having multiple users use the vault is weird because only `user` can withdraw borrowed. why would user trade part of their ERC20 redeem tokens?
   - [ ] Perhaps should use NFTs for positions to allow transferring. But in that case, the whole vault should not be per user, but a general NFT.
 
-- [ ] Pool lows and notes:
+- [ ] **Pool lows and notes**:
   - [ ] #low `initializedSlotIndices` doesn't appear to be needed, and is confusing / error-prone since removal of `initializedSlotIndices` will not reset provider mappings and set values in slots
   - [ ] #low `moveLiquidityFromSlot` should be DRY with just `_withdraw + _add` (internal methods) but without the transfers. also no need for `LiquidityMoved` event
   - [ ] #low `openPosition` iterating the providers map indices and making changes to the map during the loop (calling `set`) is not a safe pattern. it should be ok in this case, but it depends on implementation, and is error prone and "feels wrong". fix: iterate keys
@@ -144,7 +144,7 @@
   - [ ] #note `addLiquidityToSlot` can have just one if branch since allocates similarly in both branches
   - [ ] #note liquidity can be added at any slot: below 100% and way above 100%. some validation makes sense.
 
-- [ ] Engine notes:
+- [ ] **Engine notes**:
   - [ ] #note unused and unncesseary modifiers - unused or used once. Add noise and complexity: errors, indirection, modifier code.
     - [ ] update: remove modifier
   - [ ] #note events in setters typically emitted in the end.
@@ -153,16 +153,16 @@
   - [ ] #note no need for overrides if implementing interface (and can remove virtual in interface)
   - [ ] #note remove the comment with values at the bottom of the file.
 
-- [ ] Global / Recurring notes:
+- [ ] **Global / Recurring notes**:
   - [ ] #note Floating pragma. Should be a fixed version.
   - [ ] #note console imports
   - [ ] #note magic numbers: 3000, 10_000, 15 minutes, 5 ( #med because is highly likely to be changed). Maybe bring back and use `Constants.sol` mixin?
 
-- [ ] ERC6909TokenSupply / ERC6909 lows:
+- [ ] **ERC6909TokenSupply / ERC6909 lows:**
   - [ ] #low to/from 0 unhandled and don't update totalSupply
   - [ ] #low transferFrom no allowance check from msg.sender or if operator
 
-- [x] Already "done" (part of "review" branch)
+- [x] **Already "done" (part of "review" branch)**
   - [x] Refactor of Interfaces vs. Abstract confusion
   - [x] Removal of event-only interfaces
   - [x] `uint` style
@@ -170,9 +170,9 @@
 
 # Design questions
 
-- Pausing, Upgradability, Recovery methods:
+- **Pausing, Upgradability, Recovery methods:**
   - If proxies are too complex, pausing + recovery methods are still good risk management.
-- Architecture:
+- **Architecture**:
   - Some problems:
     - Having many contracts are a big headache.
     - Per user vaults don't make much sense, the asset contracts are the main risk, so one contract per asset-pair should be enough.
@@ -188,3 +188,14 @@
     - "Unwind" takes a pair of NFTs (owned by same owner at that point), burns them, and releasing the funds.
     - This way any lender can buy out their portion of user's position from the user or any user can buy out the lender portion from any lender.
     - Rolls: a RollEscrow contract is created, where the user can escrow their borrow positions during a roll request. If the lenders take it, the escrow takes the lender's side burns the old, releases funds, and creates a new position sending the new position NFTs to original user and lender. If the deal doesn't go through, the user can take back their original position.
+- **Refactor things now vs. later. Why now?:**
+  - make design simpler and safer
+  - make code smaller shorter (cheaper, less liability)
+  - try to suit future features better (unwinds / rolls)
+  - remove deeper issues that stem from design
+  - takes advantage of existing logic and flows, but reorganizes them differently
+  - iterating on architecture makes sense now vs. later:
+    - already much more clarity on needs and current limitations
+    - much easier to refactor things early: less complexity, less testing changes, FE changes
+    - before audits is better, otherwise audits are wasted
+    - very hard to update architecture later - unlike web2, can't swap / update back-end (data and funds are hard to migrate safely) because of how exposed and risky it is.
