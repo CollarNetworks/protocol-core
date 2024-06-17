@@ -317,7 +317,7 @@ contract CollarVaultManager is ICollarVaultManager {
 
         // redeem to user & burn tokens
         _burn(msg.sender, uint256(uuid), amount);
-        IERC20(vaultsByUUID[uuid].cashAsset).transfer(msg.sender, redeemValue);
+        IERC20(vaultsByUUID[uuid].cashAsset).safeTransfer(msg.sender, redeemValue);
     }
 
     function withdraw(bytes32 uuid, uint256 amount) public override {
@@ -331,7 +331,7 @@ contract CollarVaultManager is ICollarVaultManager {
             revert InvalidAmount();
         } else {
             vaultsByUUID[uuid].loanBalance -= amount;
-            IERC20(vaultsByUUID[uuid].cashAsset).transfer(msg.sender, amount);
+            IERC20(vaultsByUUID[uuid].cashAsset).safeTransfer(msg.sender, amount);
         }
 
         emit Withdrawal(user, address(this), uuid, amount, vaultsByUUID[uuid].loanBalance);
@@ -393,7 +393,7 @@ contract CollarVaultManager is ICollarVaultManager {
 
     function _swap(AssetSpecifiers calldata assets) internal returns (uint256 cashReceived) {
         // approve the dex router so we can swap the collateral to cash
-        IERC20(assets.collateralAsset).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount);
+        IERC20(assets.collateralAsset).forceApprove(CollarEngine(engine).dexRouter(), assets.collateralAmount);
 
         // build the swap transaction
         IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({

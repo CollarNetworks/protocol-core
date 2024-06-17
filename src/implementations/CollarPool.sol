@@ -152,7 +152,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         emit LiquidityWithdrawn(msg.sender, slotIndex, amount);
 
         // finally, transfer the liquidity to the provider
-        IERC20(cashAsset).transfer(msg.sender, amount);
+        IERC20(cashAsset).safeTransfer(msg.sender, amount);
     }
 
     function moveLiquidityFromSlot(uint256 sourceSlotIndex, uint256 destinationSlotIndex, uint256 amount) external virtual override {
@@ -278,7 +278,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
         if (positionNet < 0) {
             // we owe the vault some tokens
-            IERC20(cashAsset).transfer(vaultManager, uint256(-positionNet));
+            IERC20(cashAsset).safeTransfer(vaultManager, uint256(-positionNet));
         } else if (positionNet > 0) {
             // the vault owes us some tokens
             IERC20(cashAsset).safeTransferFrom(vaultManager, address(this), uint256(positionNet));
@@ -321,7 +321,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
 
         // redeem to user & burn tokens
         _burn(msg.sender, uint256(uuid), amount);
-        IERC20(cashAsset).transfer(msg.sender, redeemValue);
+        IERC20(cashAsset).safeTransfer(msg.sender, redeemValue);
     }
 
     // ----- INTERNAL FUNCTIONS ----- //

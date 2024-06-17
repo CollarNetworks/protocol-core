@@ -14,6 +14,7 @@ import { CollarPool } from "../../src/implementations/CollarPool.sol";
 import { ICollarPool } from "../../src/interfaces/ICollarPool.sol";
 import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IWETH9 } from "../../src/interfaces/external/IWETH9.sol";
 import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
@@ -41,6 +42,8 @@ import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRout
  * https://docs.google.com/spreadsheets/d/18e5ola3JJ2HKRQyAoPNmVrV4fnRcLdckOhQIxrN_hwY/edit#gid=1819672818
  */
 contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintVaultStatsUtility {
+    using SafeERC20 for IERC20;
+
     address user1 = makeAddr("user1"); // the person who will be opening a vault
     address provider = makeAddr("user2"); // the person who will be providing liquidity
     address swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
@@ -117,32 +120,32 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
         setWETHBalance(provider, 100_000 ether);
         setWETHBalance(binanceHotWalletTwo, 1_000_000 ether);
 
-        startHoax(USDTWhale);
-        // deal(USDTAddress, user1, 100_000 ether);
-        USDT.transfer(user1, 100_000 ether);
-        // deal(USDTAddress, provider, 100_000 ether);
-        USDT.transfer(provider, 100_000 ether);
-        // deal(USDTAddress, binanceHotWalletTwo, 1_000_000 ether);
-        USDT.transfer(binanceHotWalletTwo, 1_000_000 ether);
+        // startHoax(USDTWhale);
+        deal(USDTAddress, user1, 100_000 ether);
+        // USDT.transfer(user1, 100_000 ether);
+        deal(USDTAddress, provider, 100_000 ether);
+        // USDT.transfer(provider, 100_000 ether);
+        deal(USDTAddress, binanceHotWalletTwo, 1_000_000 ether);
+        // USDT.transfer(binanceHotWalletTwo, 1_000_000 ether);
 
         startHoax(user1);
         vaultManager = CollarVaultManager(engine.createVaultManager());
-        USDT.approve(address(vaultManager), 0);
-        USDT.approve(address(vaultManager), type(uint256).max);
+        USDT.forceApprove(address(vaultManager), 0);
+        USDT.forceApprove(address(vaultManager), type(uint256).max);
         WETH.approve(address(vaultManager), type(uint256).max);
 
         startHoax(provider);
 
-        USDT.approve(address(pool), 0);
-        USDT.approve(address(pool), type(uint256).max);
+        USDT.forceApprove(address(pool), 0);
+        USDT.forceApprove(address(pool), type(uint256).max);
         WETH.approve(address(pool), type(uint256).max);
-
-        pool.addLiquidityToSlot(110, 10_000e6);
-        pool.addLiquidityToSlot(111, 10_000e6);
-        pool.addLiquidityToSlot(112, 10_000e6);
-        pool.addLiquidityToSlot(115, 10_000e6);
-        pool.addLiquidityToSlot(120, 10_000e6);
-        pool.addLiquidityToSlot(130, 10_000e6);
+        uint256 liquidityToAdd = 100_000e6;
+        pool.addLiquidityToSlot(110, liquidityToAdd);
+        pool.addLiquidityToSlot(111, liquidityToAdd);
+        pool.addLiquidityToSlot(112, liquidityToAdd);
+        pool.addLiquidityToSlot(115, liquidityToAdd);
+        pool.addLiquidityToSlot(120, liquidityToAdd);
+        pool.addLiquidityToSlot(130, liquidityToAdd);
 
         vm.stopPrank();
 
@@ -154,24 +157,22 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
         assertEq(engine.supportedLiquidityPoolsLength(), 1);
         assertEq(engine.isSupportedLiquidityPool(address(pool)), true);
 
-        assertEq(pool.getLiquidityForSlot(110), 10_000e6);
-        assertEq(pool.getLiquidityForSlot(111), 10_000e6);
-        assertEq(pool.getLiquidityForSlot(112), 10_000e6);
-        assertEq(pool.getLiquidityForSlot(115), 10_000e6);
-        assertEq(pool.getLiquidityForSlot(120), 10_000e6);
-        assertEq(pool.getLiquidityForSlot(130), 10_000e6);
+        assertEq(pool.getLiquidityForSlot(110), liquidityToAdd);
+        assertEq(pool.getLiquidityForSlot(111), liquidityToAdd);
+        assertEq(pool.getLiquidityForSlot(112), liquidityToAdd);
+        assertEq(pool.getLiquidityForSlot(115), liquidityToAdd);
+        assertEq(pool.getLiquidityForSlot(120), liquidityToAdd);
+        assertEq(pool.getLiquidityForSlot(130), liquidityToAdd);
     }
 
-    modifier assumeFuzzValues(uint256 collateralAmount, uint24 tick) {
-        vm.assume(
-            collateralAmount > 1 ether && collateralAmount < 20_000 ether && (tick == 110 || tick == 115 || tick == 120 || tick == 130)
-        );
+    modifier assumeFuzzValues(uint72 collateralAmount, uint24 tick) {
+        vm.assume(collateralAmount > 1 ether && collateralAmount < 20 ether && (tick == 110 || tick == 115 || tick == 120 || tick == 130));
         _;
     }
 
     function test_openAndCloseVaultNoPriceChange() public {
         (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) =
-            openVaultAsUserWith1000AndCheckValues(user1, CALL_STRIKE_TICK);
+            openVaultAsUserWith1AndCheckValues(user1, CALL_STRIKE_TICK);
 
         swapAsWhale(1_712_999_999_000_000_000_000, false);
         // in order for the price to not change we need to do an equal amount of tokens swapped in both directions
@@ -198,9 +199,9 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
          */
         // checked that the vault tokens are worth the same amount of cash as the cash locked when colaterall was deposited
         // startHoax(user1);
-        // uint256 vaultLockedCash = vaultManager.vaultTokenCashSupply(uuid);
+        // uint vaultLockedCash = vaultManager.vaultTokenCashSupply(uuid);
         // assertEq(vaultLockedCash, vault.lockedVaultCash);
-        // uint256 userCashbalance = USDT.balanceOf(user1);
+        // uint userCashbalance = USDT.balanceOf(user1);
         // vaultManager.redeem(uuid, vaultLockedCash);
         // assertEq(USDT.balanceOf(user1), userCashbalance);
     }
@@ -248,7 +249,7 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
         assertEq(providerCashBalanceAfterRedeem, providerCashBalanceBeforeClose + vault.lockedPoolCash + vault.lockedVaultCash);
     }
 
-    function testFuzz_openAndCloseVaultPriceUnderPutStrike(uint256 collateralAmount, uint24 tick)
+    function testFuzz_openAndCloseVaultPriceUnderPutStrike(uint72 collateralAmount, uint24 tick)
         public
         assumeFuzzValues(collateralAmount, tick)
     {
@@ -263,7 +264,7 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
 
     function test_openAndCloseVaultPriceUnderPutStrike() public {
         (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) =
-            openVaultAsUserWith1000AndCheckValues(user1, CALL_STRIKE_TICK);
+            openVaultAsUserWith1AndCheckValues(user1, CALL_STRIKE_TICK);
         uint256 userCashBalanceAfterOpen = USDT.balanceOf(user1);
         uint256 providerCashBalanceBeforeClose = USDT.balanceOf(provider);
 
@@ -321,7 +322,7 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
         assertEq(providerCashBalanceAfterRedeem, providerCashBalanceBeforeClose + withdrawable);
     }
 
-    function testFuzz_openAndCloseVaultPriceDownShortOfPutStrike(uint256 collateralAmount, uint24 tick)
+    function testFuzz_openAndCloseVaultPriceDownShortOfPutStrike(uint72 collateralAmount, uint24 tick)
         public
         assumeFuzzValues(collateralAmount, tick)
     {
@@ -335,7 +336,7 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
 
     function test_openAndCloseVaultPriceDownShortOfPutStrike() public {
         (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) =
-            openVaultAsUserWith1000AndCheckValues(user1, CALL_STRIKE_TICK);
+            openVaultAsUserWith1AndCheckValues(user1, CALL_STRIKE_TICK);
         uint256 userCashBalanceAfterOpen = USDT.balanceOf(user1);
         uint256 providerCashBalanceBeforeClose = USDT.balanceOf(provider);
         uint256 finalPrice = manipulatePriceDownwardShortOfPutStrike(false);
@@ -386,7 +387,7 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
         assertEq(providerCashBalanceAfterRedeem, providerCashBalanceBeforeClose);
     }
 
-    function testFuzz_openAndCloseVaultPriceUpPastCallStrike(uint256 collateralAmount, uint24 tick)
+    function testFuzz_openAndCloseVaultPriceUpPastCallStrike(uint72 collateralAmount, uint24 tick)
         public
         assumeFuzzValues(collateralAmount, tick)
     {
@@ -400,7 +401,7 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
 
     function test_openAndCloseVaultPriceUpPastCallStrike() public {
         (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) =
-            openVaultAsUserWith1000AndCheckValues(user1, CALL_STRIKE_TICK);
+            openVaultAsUserWith1AndCheckValues(user1, CALL_STRIKE_TICK);
         uint256 userCashBalanceAfterOpen = USDT.balanceOf(user1);
         uint256 providerCashBalanceBeforeClose = USDT.balanceOf(provider);
         manipulatePriceUpwardPastCallStrike(false);
@@ -456,7 +457,7 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
         assertEq(providerCashBalanceAfterRedeem, providerCashBalanceBeforeClose + withdrawable);
     }
 
-    function testFuzz_openAndCloseVaultPriceUpShortOfCallStrike(uint256 collateralAmount, uint24 tick)
+    function testFuzz_openAndCloseVaultPriceUpShortOfCallStrike(uint72 collateralAmount, uint24 tick)
         public
         assumeFuzzValues(collateralAmount, tick)
     {
@@ -470,7 +471,7 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
 
     function test_openAndCloseVaultPriceUpShortOfCallStrike() public {
         (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) =
-            openVaultAsUserWith1000AndCheckValues(user1, CALL_STRIKE_TICK);
+            openVaultAsUserWith1AndCheckValues(user1, CALL_STRIKE_TICK);
         uint256 userCashBalanceAfterOpen = USDT.balanceOf(user1);
         uint256 providerCashBalanceBeforeClose = USDT.balanceOf(provider);
         uint256 finalPrice = manipulatePriceUpwardShortOfCallStrike(false);
@@ -500,11 +501,11 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
         assertEq(vault.putStrikeTick, 90);
     }
 
-    function openVaultAsUserWith1000AndCheckValues(address user, uint24 tick)
+    function openVaultAsUserWith1AndCheckValues(address user, uint24 tick)
         internal
         returns (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault)
     {
-        uint256 collateralAmountToUse = 1000 ether;
+        uint256 collateralAmountToUse = 1 ether;
         (uuid, rawVault, vault) = openVaultAsUser(collateralAmountToUse, user, tick);
         // check basic vault info
         assertEq(vault.active, true);
@@ -516,7 +517,7 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
         // check asset specific info
         assertEq(vault.collateralAsset, WETHAddress);
         assertEq(vault.cashAsset, USDTAddress);
-        assertEq(vault.collateralAmount, 1000e18); // we use 1000 "ether" here (it's actually WETH, but still 18 decimals)
+        assertEq(vault.collateralAmount, 1 ether); // we use 1000 "ether" here (it's actually WETH, but still 18 decimals)
         // for the assert directly above this line, we need to consider that the price of WETH is 73 cents at this time; (specifically: $0.739504999)
         // (which converts to about 739 when considering USDT has 6 decimals and we swapped 1000 WETH)
 
@@ -557,8 +558,8 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
     function manipulatePriceDownwardPastPutStrike(bool isFuzzTest) internal {
         // Trade on Uniswap to make the price go down past the put strike price .9 * COLLATERAL_PRICE_ON_BLOCK
         // end price should be 632310
-        uint256 targetPrice = 632_310;
-        swapAsWhale(100_000e18, false);
+        uint256 targetPrice = 2_566_273_536;
+        swapAsWhale(10_000 ether, false);
         if (!isFuzzTest) {
             assertEq(CollarEngine(engine).getCurrentAssetPrice(WETHAddress, USDTAddress), targetPrice);
         }
@@ -567,8 +568,8 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
     function manipulatePriceDownwardShortOfPutStrike(bool isFuzzTest) internal returns (uint256 finalPrice) {
         // Trade on Uniswap to make the price go down but not past the put strike price .9 * COLLATERAL_PRICE_ON_BLOCK
         // end price should be 703575
-        uint256 targetPrice = 703_575;
-        swapAsWhale(40_000e18, false);
+        uint256 targetPrice = 3_146_355_099;
+        swapAsWhale(5000 ether, false);
         finalPrice = CollarEngine(engine).getCurrentAssetPrice(WETHAddress, USDTAddress);
         if (!isFuzzTest) {
             assertEq(CollarEngine(engine).getCurrentAssetPrice(WETHAddress, USDTAddress), targetPrice);
@@ -580,8 +581,8 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
     function manipulatePriceUpwardPastCallStrike(bool isFuzzTest) internal {
         // Trade on Uniswap to make the price go up past the call strike price 1.1 * COLLATERAL_PRICE_ON_BLOCK
         // end price should be 871978
-        uint256 targetPrice = 987_778;
-        swapAsWhale(200_000e6, true);
+        uint256 targetPrice = 49_072_885_881_217;
+        swapAsWhale(60_000_000e6, true);
         if (!isFuzzTest) {
             assertEq(CollarEngine(engine).getCurrentAssetPrice(WETHAddress, USDTAddress), targetPrice);
         }
@@ -590,8 +591,8 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
     function manipulatePriceUpwardShortOfCallStrike(bool isFuzzTest) internal returns (uint256 finalPrice) {
         // Trade on Uniswap to make the price go up but not past the call strike price 1.1 * COLLATERAL_PRICE_ON_BLOCK
         // end price should be 794385
-        uint256 targetPrice = 794_385;
-        swapAsWhale(40_000e6, true);
+        uint256 targetPrice = 3_418_632_174;
+        swapAsWhale(1_000_000e6, true);
         finalPrice = CollarEngine(engine).getCurrentAssetPrice(WETHAddress, USDTAddress);
         if (!isFuzzTest) {
             assertEq(CollarEngine(engine).getCurrentAssetPrice(WETHAddress, USDTAddress), targetPrice);
@@ -617,14 +618,14 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
         });
         startHoax(binanceHotWalletTwo);
         if (swapCash) {
-            IERC20(USDTAddress).approve(CollarEngine(engine).dexRouter(), amount);
+            IERC20(USDTAddress).forceApprove(CollarEngine(engine).dexRouter(), amount);
             swapParams.tokenIn = USDTAddress;
             swapParams.tokenOut = WETHAddress;
             // execute the swap
             // we're not worried about slippage here
             IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
         } else {
-            IERC20(WETHAddress).approve(CollarEngine(engine).dexRouter(), amount);
+            IERC20(WETHAddress).forceApprove(CollarEngine(engine).dexRouter(), amount);
 
             swapParams.tokenIn = WETHAddress;
             swapParams.tokenOut = USDTAddress;
