@@ -12,6 +12,7 @@ import { ICollarPoolErrors } from "../interfaces/errors/ICollarPoolErrors.sol";
 import { ICollarPoolEvents } from "../interfaces/events/ICollarPoolEvents.sol";
 import { ICollarVaultState } from "../interfaces/ICollarVaultState.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { CollarEngine } from "./CollarEngine.sol";
@@ -20,6 +21,7 @@ import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 import "forge-std/console.sol";
 
 contract CollarPool is ICollarPool, ERC6909TokenSupply {
+    using SafeERC20 for IERC20;
     using EnumerableMap for EnumerableMap.AddressToUintMap;
     using EnumerableSet for EnumerableSet.UintSet;
 
@@ -123,7 +125,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         emit LiquidityAdded(msg.sender, slotIndex, amount);
 
         // transfer CASH from provider to pool
-        IERC20(cashAsset).transferFrom(msg.sender, address(this), amount);
+        IERC20(cashAsset).safeTransferFrom(msg.sender, address(this), amount);
     }
 
     function withdrawLiquidityFromSlot(uint256 slotIndex, uint256 amount) public virtual override {
@@ -203,9 +205,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         uint256 numProviders = slot.providers.length();
 
         // if no providers, revert
-        if (numProviders == 0) {
-            revert InvalidAmount();
-        }
+        require(numProviders != 0, "no providers in slot");
 
         // if not enough liquidity, revert
         if (slot.liquidity < amount) {
@@ -281,7 +281,7 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
             IERC20(cashAsset).transfer(vaultManager, uint256(-positionNet));
         } else if (positionNet > 0) {
             // the vault owes us some tokens
-            IERC20(cashAsset).transferFrom(vaultManager, address(this), uint256(positionNet));
+            IERC20(cashAsset).safeTransferFrom(vaultManager, address(this), uint256(positionNet));
         } else {
             // impressive. most impressive.
         }

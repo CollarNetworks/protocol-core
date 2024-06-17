@@ -13,12 +13,14 @@ import { ICollarVaultState } from "../interfaces/ICollarVaultState.sol";
 import { ICollarVaultManagerErrors } from "../interfaces/errors/ICollarVaultManagerErrors.sol";
 import { ICollarVaultManagerEvents } from "../interfaces/events/ICollarVaultManagerEvents.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRouter.sol";
 import { CollarPool } from "./CollarPool.sol";
 import { CollarEngine } from "../implementations/CollarEngine.sol";
 import { TickCalculations } from "../libs/TickCalculations.sol";
 
 contract CollarVaultManager is ICollarVaultManager {
+    using SafeERC20 for IERC20;
     // ----- CONSTRUCTOR ----- //
 
     constructor(address _engine, address _owner) ICollarVaultManager(_engine, _owner) { }
@@ -53,6 +55,7 @@ contract CollarVaultManager is ICollarVaultManager {
     function previewRedeem(bytes32 uuid, uint256 amount) public view override returns (uint256 cashReceived) {
         if (amount == 0) revert AmountCannotBeZero();
         if (vaultsByUUID[uuid].openedAt == 0) revert InvalidVault();
+
 
         bool finalized = !vaultsByUUID[uuid].active;
 
@@ -122,7 +125,7 @@ contract CollarVaultManager is ICollarVaultManager {
         vaultsByUUID[uuid].cashAsset = assetData.cashAsset;
 
         // transfer collateral from user to vault
-        IERC20(assetData.collateralAsset).transferFrom(user, address(this), assetData.collateralAmount);
+        IERC20(assetData.collateralAsset).safeTransferFrom(user, address(this), assetData.collateralAmount);
 
         // swap collateral for cash & record cash amount
         uint256 cashReceivedFromSwap = _swap(assetData);
@@ -165,7 +168,7 @@ contract CollarVaultManager is ICollarVaultManager {
         emit VaultOpened(msg.sender, address(this), uuid);
 
         // approve the pool
-        IERC20(assetData.cashAsset).approve(liquidityOpts.liquidityPool, vaultsByUUID[uuid].lockedVaultCash);
+        IERC20(assetData.cashAsset).forceApprove(liquidityOpts.liquidityPool, vaultsByUUID[uuid].lockedVaultCash);
 
         if (withdrawLoan) {
             withdraw(uuid, vaultsByUUID[uuid].loanBalance);
@@ -280,7 +283,7 @@ contract CollarVaultManager is ICollarVaultManager {
 
         if (cashToSendToPool > 0) {
             vault.lockedVaultCash -= cashToSendToPool;
-            IERC20(vault.cashAsset).approve(vault.liquidityPool, cashToSendToPool);
+            IERC20(vault.cashAsset).forceApprove(vault.liquidityPool, cashToSendToPool);
         }
 
         CollarPool(vault.liquidityPool).finalizePosition(uuid, address(this), poolProfit);
