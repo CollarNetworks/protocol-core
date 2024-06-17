@@ -205,7 +205,9 @@ contract CollarPool is ICollarPool, ERC6909TokenSupply {
         uint256 numProviders = slot.providers.length();
 
         // if no providers, revert
-        require(numProviders != 0, "no providers in slot");
+        if (numProviders == 0) {
+            revert InvalidAmount();
+        }
 
         // if not enough liquidity, revert
         if (slot.liquidity < amount) {
