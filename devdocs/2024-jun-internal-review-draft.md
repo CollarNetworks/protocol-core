@@ -94,7 +94,7 @@
   - [ ] #med use SafeERC20's transfer and approve methods
   - [ ] #med decimals:
     - Oracle lib `getQuoteAtTick` assumes `baseToken` is 1e18 decimals
-  - [ ] #low Requires vs. Errors:
+  - [x] #low Requires vs. Errors:
     - I prefer "requires" due to readability, brevity, easier logic, more informative messages. A lot of auditors prefer it. It's very common in large high quality codebases (even on L1) to stick to requires. Why bloat with 4 lines instead of 1, create and and import TrickyToNameAndAnnoyingToReadError, and have to think in double-negatives?
 
 - [ ] **Naming issues**:
@@ -113,7 +113,7 @@
   - [ ] #note `VaultForABI` event??
   - [ ] #note `vaultTokenCashSupply` should use named mapping parameters
   - [ ] #note some views are used only in tests, should be removed or added only to test contract ( `Testable`): `isVaultExpired`, `vaultInfo`, `vaultInfoByNonce`
-  - [ ] #note `previewRedeem` else condition can be removed? finalized is checked by redeem already
+  - [x] #note `previewRedeem` else condition can be removed? finalized is checked by redeem already
   - [ ] `openVault`
     - [ ] #low safer (and more efficient) to initialize new Vault struct in memory, and than to write to storage. safer because won't forget fields.
     - [ ] #low approval not needed since is given again in `closeVault`. giving approval here (for delayed action) is not safe, error prone, and uncommon pattern (the pools accumulate approvals, not very "vault" like)
@@ -136,22 +136,20 @@
 
 - [ ] **Pool lows and notes**:
   - [ ] #low `initializedSlotIndices` doesn't appear to be needed, and is confusing / error-prone since removal of `initializedSlotIndices` will not reset provider mappings and set values in slots
-  - [ ] #low `moveLiquidityFromSlot` should be DRY with just `_withdraw + _add` (internal methods) but without the transfers. also no need for `LiquidityMoved` event
+  - [x] #low `moveLiquidityFromSlot` should be DRY with just `_withdraw + _add` (internal methods) but without the transfers. also no need for `LiquidityMoved` event
   - [ ] #low `openPosition` iterating the providers map indices and making changes to the map during the loop (calling `set`) is not a safe pattern. it should be ok in this case, but it depends on implementation, and is error prone and "feels wrong". fix: iterate keys
-  - [ ] #note `previewRedeem` / `redeem` using external calls (via `ERC6909TokenSupply` ) on itself, can use `balanceOf` directly
+  - [x] #note `previewRedeem` / `redeem` using external calls (via `ERC6909TokenSupply` ) on itself, can use `balanceOf` directly
   - [ ] #note `_isSlotFull`  can be one line
   - [ ] #note `_unallocate` should check `contains`, otherwise will raise less clear error
   - [ ] #note `addLiquidityToSlot` can have just one if branch since allocates similarly in both branches
   - [ ] #note liquidity can be added at any slot: below 100% and way above 100%. some validation makes sense.
 
 - [ ] **Engine notes**:
-  - [ ] #note unused and unncesseary modifiers - unused or used once. Add noise and complexity: errors, indirection, modifier code.
-    - [ ] update: remove modifier
-  - [ ] #note events in setters typically emitted in the end.
-    - [ ] update: fix to follow one convention
+  - [x] #note unused and unncesseary modifiers - unused or used once. Add noise and complexity: errors, indirection, modifier code.
+  - [x] #note events in setters typically emitted in the end.
   - [ ] #note docs redirect for overrides can use `@inheritdoc` for clarity
   - [ ] #note no need for overrides if implementing interface (and can remove virtual in interface)
-  - [ ] #note remove the comment with values at the bottom of the file.
+  - [x] #note remove the comment with values at the bottom of the file.
 
 - [ ] **Global / Recurring notes**:
   - [ ] #note Floating pragma. Should be a fixed version.
