@@ -43,75 +43,6 @@ contract CollarEngine is Ownable, ICollarEngine {
         dexRouter = _dexRouter;
     }
 
-    // -- modifiers --
-
-    // vaults
-
-    modifier ensureVaultManagerIsValid(address vaultManager) {
-        if (vaultManagers.contains(vaultManager) == false) revert InvalidVaultManager();
-        _;
-    }
-
-    modifier ensureLiquidityPoolIsValid(address pool) {
-        if (!collarLiquidityPools.contains(pool)) revert InvalidLiquidityPool();
-        _;
-    }
-
-    // liquidity pools
-
-    modifier ensureLiquidityPoolIsNotValid(address pool) {
-        if (collarLiquidityPools.contains(pool)) revert LiquidityPoolAlreadyAdded(pool);
-        _;
-    }
-
-    // collateral assets
-
-    modifier ensureCollateralAssetIsValid(address asset) {
-        if (!supportedCollateralAssets.contains(asset)) revert CollateralAssetNotSupported(asset);
-        _;
-    }
-
-    modifier ensureCollateralAssetIsNotValid(address asset) {
-        if (supportedCollateralAssets.contains(asset)) revert CollateralAssetAlreadySupported(asset);
-        _;
-    }
-
-    // cash assets
-
-    modifier ensureCashAssetIsValid(address asset) {
-        if (!supportedCashAssets.contains(asset)) revert CashAssetNotSupported(asset);
-        _;
-    }
-
-    modifier ensureCashAssetIsNotValid(address asset) {
-        if (supportedCashAssets.contains(asset)) revert CashAssetAlreadySupported(asset);
-        _;
-    }
-
-    // collar durations
-
-    modifier ensureDurationIsValid(uint duration) {
-        if (!validCollarDurations.contains(duration)) revert CollarDurationNotSupported();
-        _;
-    }
-
-    modifier ensureDurationIsNotValid(uint duration) {
-        if (validCollarDurations.contains(duration)) revert CollarDurationNotSupported();
-        _;
-    }
-
-    // ltvs
-
-    modifier ensureLTVIsValid(uint ltv) {
-        if (!validLTVs.contains(ltv)) revert LTVNotSupported(ltv);
-        _;
-    }
-
-    modifier ensureLTVIsNotValid(uint ltv) {
-        if (validLTVs.contains(ltv)) revert LTVAlreadySupported(ltv);
-        _;
-    }
-
     // ----- state-changing functions (see ICollarEngine for documentation) -----
 
     function createVaultManager() external override returns (address _vaultManager) {
@@ -131,92 +62,72 @@ contract CollarEngine is Ownable, ICollarEngine {
 
     // liquidity pools
 
-    function addLiquidityPool(address pool) external override onlyOwner ensureLiquidityPoolIsNotValid(pool) {
-        emit LiquidityPoolAdded(pool);
+    function addLiquidityPool(address pool) external override onlyOwner {
+        if (collarLiquidityPools.contains(pool)) revert LiquidityPoolAlreadyAdded(pool);
         collarLiquidityPools.add(pool);
+        emit LiquidityPoolAdded(pool);
     }
 
-    function removeLiquidityPool(address pool) external override onlyOwner ensureLiquidityPoolIsValid(pool) {
-        emit LiquidityPoolRemoved(pool);
+    function removeLiquidityPool(address pool) external override onlyOwner {
+        if (!collarLiquidityPools.contains(pool)) revert InvalidLiquidityPool();
         collarLiquidityPools.remove(pool);
+        emit LiquidityPoolRemoved(pool);
     }
 
     // collateral assets
 
-    function addSupportedCollateralAsset(address asset)
-        external
-        override
-        onlyOwner
-        ensureCollateralAssetIsNotValid(asset)
-    {
-        emit CollateralAssetAdded(asset);
+    function addSupportedCollateralAsset(address asset) external override onlyOwner {
+        if (supportedCollateralAssets.contains(asset)) revert CollateralAssetAlreadySupported(asset);
         supportedCollateralAssets.add(asset);
+        emit CollateralAssetAdded(asset);
     }
 
-    function removeSupportedCollateralAsset(address asset)
-        external
-        override
-        onlyOwner
-        ensureCollateralAssetIsValid(asset)
-    {
-        emit CollateralAssetRemoved(asset);
+    function removeSupportedCollateralAsset(address asset) external override onlyOwner {
+        if (!supportedCollateralAssets.contains(asset)) revert CollateralAssetNotSupported(asset);
         supportedCollateralAssets.remove(asset);
+        emit CollateralAssetRemoved(asset);
     }
 
     // cash assets
 
-    function addSupportedCashAsset(address asset)
-        external
-        override
-        onlyOwner
-        ensureCashAssetIsNotValid(asset)
-    {
-        emit CashAssetAdded(asset);
+    function addSupportedCashAsset(address asset) external override onlyOwner {
+        if (supportedCashAssets.contains(asset)) revert CashAssetAlreadySupported(asset);
         supportedCashAssets.add(asset);
+        emit CashAssetAdded(asset);
     }
 
-    function removeSupportedCashAsset(address asset)
-        external
-        override
-        onlyOwner
-        ensureCashAssetIsValid(asset)
-    {
-        emit CashAssetRemoved(asset);
+    function removeSupportedCashAsset(address asset) external override onlyOwner {
+        if (!supportedCashAssets.contains(asset)) revert CashAssetNotSupported(asset);
         supportedCashAssets.remove(asset);
+        emit CashAssetRemoved(asset);
     }
 
     // durations
 
-    function addCollarDuration(uint duration)
-        external
-        override
-        onlyOwner
-        ensureDurationIsNotValid(duration)
-    {
-        emit CollarDurationAdded(duration);
+    function addCollarDuration(uint duration) external override onlyOwner {
+        if (validCollarDurations.contains(duration)) revert CollarDurationNotSupported();
         validCollarDurations.add(duration);
+        emit CollarDurationAdded(duration);
     }
 
-    function removeCollarDuration(uint duration)
-        external
-        override
-        onlyOwner
-        ensureDurationIsValid(duration)
-    {
-        emit CollarDurationRemoved(duration);
+    function removeCollarDuration(uint duration) external override onlyOwner {
+        if (!validCollarDurations.contains(duration)) revert CollarDurationNotSupported();
         validCollarDurations.remove(duration);
+        emit CollarDurationRemoved(duration);
     }
 
     // ltvs
 
-    function addLTV(uint ltv) external override onlyOwner ensureLTVIsNotValid(ltv) {
-        emit LTVAdded(ltv);
+    function addLTV(uint ltv) external override onlyOwner {
+        if (validLTVs.contains(ltv)) revert LTVAlreadySupported(ltv);
         validLTVs.add(ltv);
+        emit LTVAdded(ltv);
     }
 
-    function removeLTV(uint ltv) external override onlyOwner ensureLTVIsValid(ltv) {
-        emit LTVRemoved(ltv);
+    function removeLTV(uint ltv) external override onlyOwner {
+        if (!validLTVs.contains(ltv)) revert LTVNotSupported(ltv);
         validLTVs.remove(ltv);
+        emit LTVRemoved(ltv);
     }
 
     // ----- view functions (see ICollarEngine for documentation) -----
