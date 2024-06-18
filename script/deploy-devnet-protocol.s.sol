@@ -8,21 +8,19 @@ import { ICollarVaultState } from "../src/interfaces/ICollarVaultState.sol";
 import { CollarPool } from "../src/implementations/CollarPool.sol";
 import { CollarVaultManager } from "../src/implementations/CollarVaultManager.sol";
 import { CollarEngine } from "../src/implementations/CollarEngine.sol";
-
-import { TestERC20 } from "../test/utils/TestERC20.sol";
-import { MockUniRouter } from "../test/utils/MockUniRouter.sol";
-import { MockEngine } from "../test/utils/MockEngine.sol";
-
-import { Multicall3 } from "../lib/other/multicall3.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 /**
+ * THIS SCRIPT ASSUMES A POLYGON MAINNET FORK ENVIRONMENT
+ *
  * 1. deploys the following contracts:
- * cashTestToken: test ERC20 cash asset for the collar pool
- * collateralTestToken : test ERC20 colaterall asset for the collar pool
- * router: mock uniswap router for the engine
- * engine: Mock collar engine
+ * cashToken:  cash asset for the collar pool
+ * collateralToken :  colaterall asset for the collar pool
+ * router: uniswap router for the engine
+ * engine: collar engine
  * oneDayPool: Collar pool with 1 day duration
  * oneWeekPool: Collar pool with 7 days duration
- * multicall3
+ *
  * 2. adds liquidity pools,assets and durations to the engine
  * 3. mints a million of each asset to the router
  * 4. mints 100k and 200k to test addresses
@@ -31,128 +29,121 @@ import { Multicall3 } from "../lib/other/multicall3.sol";
  */
 
 contract DeployInitializedDevnetProtocol is Script {
-    address cashTestToken;
-    address collateralTestToken;
-
-    address oneDayPool;
-    address oneWeekPool;
+    using SafeERC20 for IERC20;
 
     address router;
     address engine;
 
-    address multicall3;
+    address USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+    address USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
+    address WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address stETH = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
+    address eETH = 0x35fA164735182de50811E8e2E824cFb9B6118ac2;
+    address WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+    address MATIC = 0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0;
+    address swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
 
     function run() external {
         VmSafe.Wallet memory deployer = vm.createWallet(vm.envUint("PRIVKEY_DEV_DEPLOYER"));
-        VmSafe.Wallet memory testWallet1 = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST1"));
-        VmSafe.Wallet memory testWallet2 = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST2"));
-        VmSafe.Wallet memory testWallet3 = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST3"));
+        VmSafe.Wallet memory user1 = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST1"));
+        VmSafe.Wallet memory user2 = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST2"));
+        VmSafe.Wallet memory liquidityProvider = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST3"));
 
         vm.rememberKey(deployer.privateKey);
-        vm.rememberKey(testWallet1.privateKey);
-        vm.rememberKey(testWallet2.privateKey);
-        vm.rememberKey(testWallet3.privateKey);
+        vm.rememberKey(user1.privateKey);
+        vm.rememberKey(user2.privateKey);
+        vm.rememberKey(liquidityProvider.privateKey);
 
         vm.startBroadcast(deployer.addr);
 
-        cashTestToken = address(new TestERC20("CashTestToken", "CSH-TST"));
-        collateralTestToken = address(new TestERC20("CollateralTestToken", "COL-TST"));
-        router = address(new MockUniRouter());
-        engine = address(new MockEngine(router));
+        router = swapRouterAddress;
+        engine = address(new CollarEngine(router));
+
+        // add supported LTV values
         CollarEngine(engine).addLTV(9000);
-
-        oneDayPool = address(new CollarPool(engine, 1, cashTestToken, collateralTestToken, 1 days, 9000));
-        oneWeekPool = address(new CollarPool(engine, 1, cashTestToken, collateralTestToken, 7 days, 9000));
-
-        multicall3 = address(new Multicall3());
-
-        CollarEngine(engine).addLiquidityPool(oneDayPool);
-        CollarEngine(engine).addLiquidityPool(oneWeekPool);
-        CollarEngine(engine).addSupportedCashAsset(cashTestToken);
-        CollarEngine(engine).addSupportedCollateralAsset(collateralTestToken);
-        CollarEngine(engine).addCollarDuration(100 seconds);
-        CollarEngine(engine).addCollarDuration(1 hours);
-        CollarEngine(engine).addCollarDuration(1 days);
-        CollarEngine(engine).addCollarDuration(7 days);
+        CollarEngine(engine).addLTV(5000);
+        // add supported durations
+        CollarEngine(engine).addCollarDuration(5 minutes);
         CollarEngine(engine).addCollarDuration(30 days);
-        CollarEngine(engine).addCollarDuration(180 days);
+        CollarEngine(engine).addCollarDuration(12 * 30 days);
+        // add supported cash assets
+        CollarEngine(engine).addSupportedCashAsset(USDC);
+        CollarEngine(engine).addSupportedCashAsset(USDT);
+        // add supported collateral assets
+        CollarEngine(engine).addSupportedCollateralAsset(WETH);
+        CollarEngine(engine).addSupportedCollateralAsset(WBTC);
+        CollarEngine(engine).addSupportedCollateralAsset(MATIC);
+        CollarEngine(engine).addSupportedCollateralAsset(stETH);
+        CollarEngine(engine).addSupportedCollateralAsset(eETH);
 
-        TestERC20(cashTestToken).mint(router, 1_000_000e18);
-        TestERC20(collateralTestToken).mint(router, 1_000_000e18);
+        // create main WETH pools
+        address fiveMin90ltvPool = address(new CollarPool(engine, 1, USDC, WETH, 5 minutes, 9000));
+        address fiveMin90LTVTetherPool = address(new CollarPool(engine, 1, USDT, WETH, 5 minutes, 9000));
+        address fiveMin50LTVPool = address(new CollarPool(engine, 1, USDC, WETH, 5 minutes, 5000));
+        address oneMonth90LTVPool = address(new CollarPool(engine, 1, USDC, WETH, 30 days, 9000));
+        address oneMonth50LTVPool = address(new CollarPool(engine, 1, USDC, WETH, 30 days, 5000));
+        address oneYear90LTVPool = address(new CollarPool(engine, 1, USDC, WETH, 12 * 30 days, 9000));
+        address oneYear50LTVPool = address(new CollarPool(engine, 1, USDC, WETH, 12 * 30 days, 5000));
 
-        TestERC20(cashTestToken).mint(testWallet1.addr, 100_000e18);
-        TestERC20(cashTestToken).mint(testWallet2.addr, 100_000e18);
-        TestERC20(cashTestToken).mint(testWallet3.addr, 200_000e18);
+        CollarEngine(engine).addLiquidityPool(fiveMin90ltvPool);
+        CollarEngine(engine).addLiquidityPool(fiveMin90LTVTetherPool);
+        CollarEngine(engine).addLiquidityPool(fiveMin50LTVPool);
+        CollarEngine(engine).addLiquidityPool(oneMonth90LTVPool);
+        CollarEngine(engine).addLiquidityPool(oneMonth50LTVPool);
+        CollarEngine(engine).addLiquidityPool(oneYear90LTVPool);
+        CollarEngine(engine).addLiquidityPool(oneYear50LTVPool);
 
-        TestERC20(collateralTestToken).mint(testWallet1.addr, 100_000e18);
-        TestERC20(collateralTestToken).mint(testWallet2.addr, 100_000e18);
-        TestERC20(collateralTestToken).mint(testWallet3.addr, 200_000e18);
+        // rest of pools all 5 minutes with usdc
 
-        MockEngine(engine).setCurrentAssetPrice(collateralTestToken, 1e18);
+        address fiveMin90LTVWBTCPool = address(new CollarPool(engine, 1, USDC, WBTC, 5 minutes, 9000));
+        address fiveMin90LTVMATICPool = address(new CollarPool(engine, 1, USDC, MATIC, 5 minutes, 9000));
+        address fiveMin90LTVstETHPool = address(new CollarPool(engine, 1, USDC, stETH, 5 minutes, 9000));
+        address fiveMin90LTVeETHPool = address(new CollarPool(engine, 1, USDC, eETH, 5 minutes, 9000));
+
+        CollarEngine(engine).addLiquidityPool(fiveMin90LTVWBTCPool);
+        CollarEngine(engine).addLiquidityPool(fiveMin90LTVMATICPool);
+        CollarEngine(engine).addLiquidityPool(fiveMin90LTVstETHPool);
+        CollarEngine(engine).addLiquidityPool(fiveMin90LTVeETHPool);
 
         vm.stopBroadcast();
-        vm.startBroadcast(testWallet1.addr);
+        vm.startBroadcast(user1.addr);
 
         address user1VaultManager = address(CollarEngine(engine).createVaultManager());
 
         vm.stopBroadcast();
 
-        vm.startBroadcast(testWallet2.addr);
+        vm.startBroadcast(user2.addr);
 
         address user2VaultManager = address(CollarEngine(engine).createVaultManager());
 
         vm.stopBroadcast();
 
-        require(CollarEngine(engine).addressToVaultManager(testWallet1.addr) == user1VaultManager);
-        require(CollarEngine(engine).addressToVaultManager(testWallet2.addr) == user2VaultManager);
-        /**
-         * add liquidity to slots
-         */
-        vm.startBroadcast(testWallet3.addr);
-
-        TestERC20(cashTestToken).approve(oneDayPool, 100_000 ether);
-        TestERC20(cashTestToken).approve(oneWeekPool, 200_000 ether);
-
-        CollarPool(oneDayPool).addLiquidityToSlot(11_100, 10_000 ether);
-        CollarPool(oneDayPool).addLiquidityToSlot(11_200, 25_000 ether);
-        CollarPool(oneDayPool).addLiquidityToSlot(11_500, 17_500 ether);
-        CollarPool(oneDayPool).addLiquidityToSlot(12_000, 20_000 ether);
-        CollarPool(oneWeekPool).addLiquidityToSlot(11_100, 10_000 ether);
-        CollarPool(oneWeekPool).addLiquidityToSlot(11_200, 25_000 ether);
-        CollarPool(oneWeekPool).addLiquidityToSlot(11_500, 17_500 ether);
-        CollarPool(oneWeekPool).addLiquidityToSlot(12_000, 20_000 ether);
-
-        vm.stopBroadcast();
-
-        require(CollarEngine(engine).addressToVaultManager(testWallet1.addr) == user1VaultManager);
-        require(CollarEngine(engine).addressToVaultManager(testWallet2.addr) == user2VaultManager);
-
-        require(CollarPool(oneDayPool).getLiquidityForSlot(11_100) == 10_000 ether);
-        require(CollarPool(oneDayPool).getLiquidityForSlot(11_200) == 25_000 ether);
-        require(CollarPool(oneDayPool).getLiquidityForSlot(11_500) == 17_500 ether);
-        require(CollarPool(oneDayPool).getLiquidityForSlot(12_000) == 20_000 ether);
-        require(CollarPool(oneWeekPool).getLiquidityForSlot(11_100) == 10_000 ether);
-        require(CollarPool(oneWeekPool).getLiquidityForSlot(11_200) == 25_000 ether);
-        require(CollarPool(oneWeekPool).getLiquidityForSlot(11_500) == 17_500 ether);
-        require(CollarPool(oneWeekPool).getLiquidityForSlot(12_000) == 20_000 ether);
+        require(CollarEngine(engine).addressToVaultManager(user1.addr) == user1VaultManager);
+        require(CollarEngine(engine).addressToVaultManager(user2.addr) == user2VaultManager);
         console.log("\n --- Dev Environment Deployed ---");
         console.log("\n # Dev Deployer Address: %x", deployer.addr);
         console.log("\n # Dev Deployer Key:     %x", deployer.privateKey);
-        console.log("\n # Multicall3 Contract:  %x", multicall3);
         console.log("\n # Contract Addresses\n");
-        console.log(" - Cash Test ERC20 - - - - - ", cashTestToken);
-        console.log(" - Collateral Test ERC20 - - ", collateralTestToken);
-        console.log(" - Mock Router:  - - - - - - ", router);
-        console.log(" - Mock Engine - - - - - - - ", engine);
-        console.log(" - Collar One day Pool - - - - - - - ", oneDayPool);
-        console.log(" - Collar One week Pool - - - - - - - ", oneWeekPool);
+        console.log(" - Router:  - - - - - - ", router);
+        console.log(" - Engine - - - - - - - ", engine);
+        console.log(" - Collar 5 minutes 90LTV WETH/USDC Pool - - - - - - - ", fiveMin90ltvPool);
+        console.log(" - Collar 5 minutes 90LTV USDT/WETH Pool - - - - - - - ", fiveMin90LTVTetherPool);
+        console.log(" - Collar 5 minutes 50LTV WETH/USDC Pool - - - - - - - ", fiveMin50LTVPool);
+        console.log(" - Collar 30 days 90LTV WETH/USDC Pool - - - - - - - - ", oneMonth90LTVPool);
+        console.log(" - Collar 30 days 50LTV WETH/USDC Pool - - - - - - - - ", oneMonth50LTVPool);
+        console.log(" - Collar 12 months 90LTV WETH/USDC Pool - - - - - - - ", oneYear90LTVPool);
+        console.log(" - Collar 12 months 50LTV WETH/USDC Pool - - - - - - - ", oneYear50LTVPool);
+        console.log(" - Collar 5 minutes 90LTV WBTC/USDC Pool - - - - - - - ", fiveMin90LTVWBTCPool);
+        console.log(" - Collar 5 minutes 90LTV MATIC/USDC Pool - - - - - - - ", fiveMin90LTVMATICPool);
+        console.log(" - Collar 5 minutes 90LTV stETH/USDC Pool - - - - - - - ", fiveMin90LTVstETHPool);
+        console.log(" - Collar 5 minutes 90LTV eETH/USDC Pool - - - - - - - ", fiveMin90LTVeETHPool);
         console.log("\n # Test Users\n");
-        console.log(" - User 1 Address: %s", testWallet1.addr);
-        console.log(" - User 1 Privkey: %x", testWallet1.privateKey);
-        console.log(" - User 2 Address: %s", testWallet2.addr);
-        console.log(" - User 2 Privkey: %x", testWallet2.privateKey);
-        console.log(" - User 3 Address: %s", testWallet3.addr);
-        console.log(" - User 3 Privkey: %x", testWallet3.privateKey);
+        console.log(" - User 1 Address: %s", user1.addr);
+        console.log(" - User 1 Privkey: %x", user1.privateKey);
+        console.log(" - User 2 Address: %s", user2.addr);
+        console.log(" - User 2 Privkey: %x", user2.privateKey);
+        console.log(" - Liquidity provider Address: %s", liquidityProvider.addr);
+        console.log(" - Liquidity provider Privkey: %x", liquidityProvider.privateKey);
         console.log("\n # Vault Managers\n");
         console.log(" - User 1 Vault Manager: ", user1VaultManager);
         console.log(" - User 2 Vault Manager: ", user2VaultManager);
@@ -163,11 +154,88 @@ contract DeployInitializedDevnetProtocol is Script {
         // supportedLiquidityPoolsLength
         uint shouldBePoolLength = CollarEngine(engine).supportedLiquidityPoolsLength();
         console.log(" shouldBePoolLength", shouldBePoolLength);
-        require(shouldBePoolLength == 2);
+        require(shouldBePoolLength == 11);
 
         // getSupportedLiquidityPool
         address shouldBeOneDay = CollarEngine(engine).getSupportedLiquidityPool(0);
         console.log(" shouldBeOneDay", shouldBeOneDay);
-        require(shouldBeOneDay == oneDayPool);
+        require(shouldBeOneDay == fiveMin90ltvPool);
+
+        // setup pool liquidity // assume provider has enough funds
+
+        // add liquidity to each pool
+        /**
+         * @dev in order for this part to work provider address needs to be funded with casdh assets through tenderly previously
+         */
+        uint256 amountToAdd = 100_000e6;
+        vm.startBroadcast(liquidityProvider.addr);
+
+        IERC20(USDC).forceApprove(fiveMin90ltvPool, 1_000_000e6);
+        CollarPool(fiveMin90ltvPool).addLiquidityToSlot(11_100, amountToAdd);
+        CollarPool(fiveMin90ltvPool).addLiquidityToSlot(11_200, amountToAdd);
+        CollarPool(fiveMin90ltvPool).addLiquidityToSlot(11_500, amountToAdd);
+        CollarPool(fiveMin90ltvPool).addLiquidityToSlot(12_000, amountToAdd);
+
+        IERC20(USDT).forceApprove(fiveMin90LTVTetherPool, 1_000_000e6);
+        CollarPool(fiveMin90LTVTetherPool).addLiquidityToSlot(11_100, amountToAdd);
+        CollarPool(fiveMin90LTVTetherPool).addLiquidityToSlot(11_200, amountToAdd);
+        CollarPool(fiveMin90LTVTetherPool).addLiquidityToSlot(11_500, amountToAdd);
+        CollarPool(fiveMin90LTVTetherPool).addLiquidityToSlot(12_000, amountToAdd);
+
+        IERC20(USDC).forceApprove(fiveMin50LTVPool, 1_000_000e6);
+        CollarPool(fiveMin50LTVPool).addLiquidityToSlot(11_100, amountToAdd);
+        CollarPool(fiveMin50LTVPool).addLiquidityToSlot(11_200, amountToAdd);
+        CollarPool(fiveMin50LTVPool).addLiquidityToSlot(11_500, amountToAdd);
+        CollarPool(fiveMin50LTVPool).addLiquidityToSlot(12_000, amountToAdd);
+
+        IERC20(USDC).forceApprove(oneMonth90LTVPool, 1_000_000e6);
+        CollarPool(oneMonth90LTVPool).addLiquidityToSlot(11_100, amountToAdd);
+        CollarPool(oneMonth90LTVPool).addLiquidityToSlot(11_200, amountToAdd);
+        CollarPool(oneMonth90LTVPool).addLiquidityToSlot(11_500, amountToAdd);
+        CollarPool(oneMonth90LTVPool).addLiquidityToSlot(12_000, amountToAdd);
+
+        IERC20(USDC).forceApprove(oneMonth50LTVPool, 1_000_000e6);
+        CollarPool(oneMonth50LTVPool).addLiquidityToSlot(11_100, amountToAdd);
+        CollarPool(oneMonth50LTVPool).addLiquidityToSlot(11_200, amountToAdd);
+        CollarPool(oneMonth50LTVPool).addLiquidityToSlot(11_500, amountToAdd);
+        CollarPool(oneMonth50LTVPool).addLiquidityToSlot(12_000, amountToAdd);
+
+        IERC20(USDC).forceApprove(oneYear90LTVPool, 1_000_000e6);
+        CollarPool(oneYear90LTVPool).addLiquidityToSlot(11_100, amountToAdd);
+        CollarPool(oneYear90LTVPool).addLiquidityToSlot(11_200, amountToAdd);
+        CollarPool(oneYear90LTVPool).addLiquidityToSlot(11_500, amountToAdd);
+        CollarPool(oneYear90LTVPool).addLiquidityToSlot(12_000, amountToAdd);
+
+        IERC20(USDC).forceApprove(oneYear50LTVPool, 1_000_000e6);
+        CollarPool(oneYear50LTVPool).addLiquidityToSlot(11_100, amountToAdd);
+        CollarPool(oneYear50LTVPool).addLiquidityToSlot(11_200, amountToAdd);
+        CollarPool(oneYear50LTVPool).addLiquidityToSlot(11_500, amountToAdd);
+        CollarPool(oneYear50LTVPool).addLiquidityToSlot(12_000, amountToAdd);
+
+        IERC20(USDC).forceApprove(fiveMin90LTVWBTCPool, 1_000_000e6);
+        CollarPool(fiveMin90LTVWBTCPool).addLiquidityToSlot(11_100, amountToAdd);
+        CollarPool(fiveMin90LTVWBTCPool).addLiquidityToSlot(11_200, amountToAdd);
+        CollarPool(fiveMin90LTVWBTCPool).addLiquidityToSlot(11_500, amountToAdd);
+        CollarPool(fiveMin90LTVWBTCPool).addLiquidityToSlot(12_000, amountToAdd);
+
+        IERC20(USDC).forceApprove(fiveMin90LTVMATICPool, 1_000_000e6);
+        CollarPool(fiveMin90LTVMATICPool).addLiquidityToSlot(11_100, amountToAdd);
+        CollarPool(fiveMin90LTVMATICPool).addLiquidityToSlot(11_200, amountToAdd);
+        CollarPool(fiveMin90LTVMATICPool).addLiquidityToSlot(11_500, amountToAdd);
+        CollarPool(fiveMin90LTVMATICPool).addLiquidityToSlot(12_000, amountToAdd);
+
+        IERC20(USDC).forceApprove(fiveMin90LTVstETHPool, 1_000_000e6);
+        CollarPool(fiveMin90LTVstETHPool).addLiquidityToSlot(11_100, amountToAdd);
+        CollarPool(fiveMin90LTVstETHPool).addLiquidityToSlot(11_200, amountToAdd);
+        CollarPool(fiveMin90LTVstETHPool).addLiquidityToSlot(11_500, amountToAdd);
+        CollarPool(fiveMin90LTVstETHPool).addLiquidityToSlot(12_000, amountToAdd);
+
+        IERC20(USDC).forceApprove(fiveMin90LTVeETHPool, 1_000_000e6);
+        CollarPool(fiveMin90LTVeETHPool).addLiquidityToSlot(11_100, amountToAdd);
+        CollarPool(fiveMin90LTVeETHPool).addLiquidityToSlot(11_200, amountToAdd);
+        CollarPool(fiveMin90LTVeETHPool).addLiquidityToSlot(11_500, amountToAdd);
+        CollarPool(fiveMin90LTVeETHPool).addLiquidityToSlot(12_000, amountToAdd);
+
+        vm.stopBroadcast();
     }
 }

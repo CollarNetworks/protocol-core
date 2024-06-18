@@ -224,9 +224,9 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         // check the numbers on both user and marketmaker sides after executing withdraws and closes
         /**
          * since the price went down:
-         * step 9	all $10 locked in the vault manager gets sent to the liquidity pool
+         * step 9	all  locked in the vault manager gets sent to the liquidity pool
          * step 10	user's vault tokens are now worth $0
-         * step 11	liquidity provider's tokens are worth the $10 from the vault + original $20 = $30
+         * step 11	liquidity provider's tokens are worth the  from the vault + original
          */
 
         // user loses the locked cash and gains nothing , redeemable cash is 0 and balance doesnt change

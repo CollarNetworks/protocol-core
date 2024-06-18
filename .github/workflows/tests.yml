@@ -4,6 +4,7 @@ on: [push, pull_request]
 env:
   FOUNDRY_PROFILE: ci
   POLYGON_MAINNET_RPC: ${{ secrets.POLYGON_MAINNET_RPC }}
+  ETHEREUM_MAINNET_RPC: ${{ secrets.ETHEREUM_MAINNET_RPC }}
 
 jobs:
   test:

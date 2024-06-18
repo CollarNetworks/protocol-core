@@ -8,6 +8,7 @@
 pragma solidity ^0.8.18;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRouter.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
@@ -20,6 +21,7 @@ import { TickCalculations } from "../libs/TickCalculations.sol";
 import "forge-std/console.sol";
 
 contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager {
+    using SafeERC20 for IERC20;
     // ----- IMMUTABLES ----- //
 
     address public immutable user;
@@ -112,11 +114,7 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         CollarOpts calldata collarOpts, // length & ltv
         LiquidityOpts calldata liquidityOpts, // pool address, callstrike & amount to lock there, putstrike
         bool withdrawLoan
-    )
-        public
-        override
-        returns (bytes32 uuid)
-    {
+    ) public override returns (bytes32 uuid) {
         // only user is allowed to open vaults
         if (msg.sender != user) {
             revert NotCollarVaultOwner();
@@ -148,7 +146,7 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         vaultsByUUID[uuid].cashAsset = assetData.cashAsset;
 
         // transfer collateral from user to vault
-        IERC20(assetData.collateralAsset).transferFrom(user, address(this), assetData.collateralAmount);
+        IERC20(assetData.collateralAsset).safeTransferFrom(user, address(this), assetData.collateralAmount);
 
         // swap collateral for cash & record cash amount
         uint cashReceivedFromSwap = _swap(assetData);
@@ -193,7 +191,9 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         emit VaultOpened(msg.sender, address(this), uuid);
 
         // approve the pool
-        IERC20(assetData.cashAsset).approve(liquidityOpts.liquidityPool, vaultsByUUID[uuid].lockedVaultCash);
+        IERC20(assetData.cashAsset).forceApprove(
+            liquidityOpts.liquidityPool, vaultsByUUID[uuid].lockedVaultCash
+        );
 
         if (withdrawLoan) {
             withdraw(uuid, vaultsByUUID[uuid].loanBalance);
@@ -317,7 +317,7 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
 
         if (cashToSendToPool > 0) {
             vault.lockedVaultCash -= cashToSendToPool;
-            IERC20(vault.cashAsset).approve(vault.liquidityPool, cashToSendToPool);
+            IERC20(vault.cashAsset).forceApprove(vault.liquidityPool, cashToSendToPool);
         }
 
         CollarPool(vault.liquidityPool).finalizePosition(uuid, address(this), poolProfit);
@@ -351,7 +351,7 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
 
         // redeem to user & burn tokens
         _burn(msg.sender, uint(uuid), amount);
-        IERC20(vaultsByUUID[uuid].cashAsset).transfer(msg.sender, redeemValue);
+        IERC20(vaultsByUUID[uuid].cashAsset).safeTransfer(msg.sender, redeemValue);
     }
 
     function withdraw(bytes32 uuid, uint amount) public override {
@@ -365,7 +365,7 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
             revert InvalidAmount();
         } else {
             vaultsByUUID[uuid].loanBalance -= amount;
-            IERC20(vaultsByUUID[uuid].cashAsset).transfer(msg.sender, amount);
+            IERC20(vaultsByUUID[uuid].cashAsset).safeTransfer(msg.sender, amount);
         }
 
         emit Withdrawal(user, address(this), uuid, amount, vaultsByUUID[uuid].loanBalance);
@@ -431,7 +431,7 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
 
     function _swap(AssetSpecifiers calldata assets) internal returns (uint cashReceived) {
         // approve the dex router so we can swap the collateral to cash
-        IERC20(assets.collateralAsset).approve(CollarEngine(engine).dexRouter(), assets.collateralAmount);
+        IERC20(assets.collateralAsset).forceApprove(CollarEngine(engine).dexRouter(), assets.collateralAmount);
 
         // build the swap transaction
         IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({

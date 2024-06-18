@@ -8,6 +8,7 @@
 pragma solidity ^0.8.18;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
@@ -67,6 +68,7 @@ abstract contract BaseCollarPoolState {
 }
 
 contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
+    using SafeERC20 for IERC20;
     using EnumerableMap for EnumerableMap.AddressToUintMap;
     using EnumerableSet for EnumerableSet.UintSet;
 
@@ -165,10 +167,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         return slots[slotIndex].providers.length();
     }
 
-    function getSlotProviderInfoAtIndex(
-        uint slotIndex,
-        uint providerIndex
-    )
+    function getSlotProviderInfoAtIndex(uint slotIndex, uint providerIndex)
         external
         view
         override
@@ -177,10 +176,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         return slots[slotIndex].providers.at(providerIndex);
     }
 
-    function getSlotProviderInfoForAddress(
-        uint slotIndex,
-        address provider
-    )
+    function getSlotProviderInfoForAddress(uint slotIndex, address provider)
         external
         view
         override
@@ -248,7 +244,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         emit LiquidityAdded(msg.sender, slotIndex, amount);
 
         // transfer CASH from provider to pool
-        IERC20(cashAsset).transferFrom(msg.sender, address(this), amount);
+        IERC20(cashAsset).safeTransferFrom(msg.sender, address(this), amount);
     }
 
     function withdrawLiquidityFromSlot(uint slotIndex, uint amount) public virtual override {
@@ -275,14 +271,10 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         emit LiquidityWithdrawn(msg.sender, slotIndex, amount);
 
         // finally, transfer the liquidity to the provider
-        IERC20(cashAsset).transfer(msg.sender, amount);
+        IERC20(cashAsset).safeTransfer(msg.sender, amount);
     }
 
-    function moveLiquidityFromSlot(
-        uint sourceSlotIndex,
-        uint destinationSlotIndex,
-        uint amount
-    )
+    function moveLiquidityFromSlot(uint sourceSlotIndex, uint destinationSlotIndex, uint amount)
         external
         virtual
         override
@@ -412,10 +404,10 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
 
         if (positionNet < 0) {
             // we owe the vault some tokens
-            IERC20(cashAsset).transfer(vaultManager, uint(-positionNet));
+            IERC20(cashAsset).safeTransfer(vaultManager, uint(-positionNet));
         } else if (positionNet > 0) {
             // the vault owes us some tokens
-            IERC20(cashAsset).transferFrom(vaultManager, address(this), uint(positionNet));
+            IERC20(cashAsset).safeTransferFrom(vaultManager, address(this), uint(positionNet));
         } else {
             // impressive. most impressive.
         }
@@ -455,7 +447,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
 
         // redeem to user & burn tokens
         _burn(msg.sender, uint(uuid), amount);
-        IERC20(cashAsset).transfer(msg.sender, redeemValue);
+        IERC20(cashAsset).safeTransfer(msg.sender, redeemValue);
     }
 
     // ----- INTERNAL FUNCTIONS ----- //
