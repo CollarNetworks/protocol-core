@@ -362,7 +362,7 @@ contract CollarPoolTest is Test {
 
         pool.addLiquidityToSlot(111, 25_000);
 
-        vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
+        vm.expectRevert("amount too large");
         pool.withdrawLiquidityFromSlot(111, 26_000);
     }
 
@@ -406,7 +406,7 @@ contract CollarPoolTest is Test {
 
         pool.addLiquidityToSlot(111, 25_000);
 
-        vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
+        vm.expectRevert("amount too large");
         pool.moveLiquidityFromSlot(111, 23, 26_000);
     }
 
@@ -550,7 +550,7 @@ contract CollarPoolTest is Test {
         skip(101);
         startHoax(user1);
 
-        vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
+        vm.expectRevert("insufficient balance");
         pool.redeem(keccak256(abi.encodePacked(user1)), 110_000);
     }
 
@@ -561,7 +561,7 @@ contract CollarPoolTest is Test {
 
         startHoax(user1);
 
-        vm.expectRevert(ICollarCommonErrors.VaultNotFinalized.selector);
+        vm.expectRevert("vault not finalized");
         pool.redeem(keccak256(abi.encodePacked(user1)), 100_000);
     }
 
@@ -573,7 +573,7 @@ contract CollarPoolTest is Test {
         skip(101);
         startHoax(user1);
 
-        vm.expectRevert(ICollarCommonErrors.InvalidVault.selector);
+        vm.expectRevert("no position");
         pool.redeem(keccak256(abi.encodePacked(user2)), 100_000);
     }
 
@@ -664,11 +664,15 @@ contract CollarPoolTest is Test {
 
         manager.closeVault(uuid);
 
-        vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
+        vm.expectRevert("insufficient balance");
         pool.previewRedeem(uuid, 11);
     }
 
     function test_constructor() public {
+        // validation
+        vm.expectRevert("invalid LTV");
+        new CollarPool(address(engine), 100, address(cashAsset), address(collateralAsset), 0, 0);
+        // happy case
         CollarPool testPool =
             new CollarPool(address(engine), 100, address(cashAsset), address(collateralAsset), 100, 9000);
         assertEq(testPool.engine(), address(engine));
