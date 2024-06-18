@@ -152,7 +152,7 @@ contract DeployInitializedDevnetProtocol is Script {
         console.log("Verifying deployment : ");
 
         // supportedLiquidityPoolsLength
-        uint256 shouldBePoolLength = CollarEngine(engine).supportedLiquidityPoolsLength();
+        uint shouldBePoolLength = CollarEngine(engine).supportedLiquidityPoolsLength();
         console.log(" shouldBePoolLength", shouldBePoolLength);
         require(shouldBePoolLength == 11);
 

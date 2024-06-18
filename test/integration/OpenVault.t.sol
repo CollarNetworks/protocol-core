@@ -140,10 +140,14 @@ contract CollarOpenVaultIntegrationTest is Test {
             cashAmount: 100e6
         });
 
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 1 days, ltv: 9000 });
+        ICollarVaultState.CollarOpts memory collarOpts =
+            ICollarVaultState.CollarOpts({ duration: 1 days, ltv: 9000 });
 
-        ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
+        ICollarVaultState.LiquidityOpts memory liquidityOpts = ICollarVaultState.LiquidityOpts({
+            liquidityPool: address(pool),
+            putStrikeTick: 90,
+            callStrikeTick: 110
+        });
 
         startHoax(user);
 
@@ -191,17 +195,21 @@ contract CollarOpenVaultIntegrationTest is Test {
         // check asset specific info
         assertEq(vault.collateralAsset, WMaticAddress);
         assertEq(vault.cashAsset, USDCAddress);
-        assertEq(vault.collateralAmount, 1000e18); // we use 1000 "ether" here (it's actually wmatic, but still 18 decimals)
-        assertEq(vault.cashAmount, 739_504_999); // the price of wmatic is around ~73 cents at this time (specifically: $0.739504999)
+        assertEq(vault.collateralAmount, 1000e18); // we use 1000 "ether" here (it's actually wmatic, but
+            // still 18 decimals)
+        assertEq(vault.cashAmount, 739_504_999); // the price of wmatic is around ~73 cents at this time
+            // (specifically: $0.739504999)
             // (which converts to about 739 when considering USDC has 6 decimals and we swapped 1000 wmatic)
 
         // check liquidity pool stuff
         assertEq(vault.liquidityPool, address(pool));
-        assertEq(vault.lockedPoolCash, 73_950_499); // callstrike is 110, so locked pool cash is going to be exactly 10% of the cash received from the swap above
+        assertEq(vault.lockedPoolCash, 73_950_499); // callstrike is 110, so locked pool cash is going to be
+            // exactly 10% of the cash received from the swap above
         assertEq(vault.putStrikeTick, 90);
         assertEq(vault.callStrikeTick, 110);
         assertEq(vault.initialCollateralPrice, 739_504); // the initial price of wmatic here is $0.739504
-        assertEq(vault.putStrikePrice, 665_553); // put strike is 90%, so putstrike price is just 0.9 * original price
+        assertEq(vault.putStrikePrice, 665_553); // put strike is 90%, so putstrike price is just 0.9 *
+            // original price
         assertEq(vault.callStrikePrice, 813_454); // same math for callstrike price, just using 1.1 instead
 
         // check vault specific stuff

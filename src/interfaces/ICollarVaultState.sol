@@ -8,6 +8,7 @@
 pragma solidity ^0.8.18;
 
 /// @notice Data structures for the vault manager
+// TODO: refactor into ICollarVaultManager. didn't refactor this to avoid touching many files
 interface ICollarVaultState {
     /// @notice This struct contains information about which assests (and how much of them) are in each vault
     /// @param collateralAsset The address of the collateral asset
@@ -16,17 +17,18 @@ interface ICollarVaultState {
     /// @param cashAmount The minimum amount of the cash asset to swap the collateral for
     struct AssetSpecifiers {
         address collateralAsset;
-        uint256 collateralAmount;
+        uint collateralAmount;
         address cashAsset;
-        uint256 cashAmount;
+        uint cashAmount;
     }
 
     /// @notice This struct contains information about the collar options for each vault
     /// @param duration The length of the vault, expressed as a unix timestamp
-    /// @param ltv The maximum loan-to-value ratio of loans taken out of this vault, expressed as bps of the collateral value
+    /// @param ltv The maximum loan-to-value ratio of loans taken out of this vault, expressed as bps of the
+    /// collateral value
     struct CollarOpts {
-        uint256 duration;
-        uint256 ltv;
+        uint duration;
+        uint ltv;
     }
 
     /// @notice This struct contains information about how to source the liquidity for each vault
@@ -48,13 +50,16 @@ interface ICollarVaultState {
     /// @param collateralAmount The amount of the collateral asset to be deposited when opening the vault
     /// @param cashAmount The amount of the cash asset received after swapping from collateral
     /// @param liquidityPool The address of the liquidity pool where cash is locked
-    /// @param lockedPoolCash The amount of cash that is currently locked in the liquidity pool for this particular vault
-    /// @param startingPrice The price of the cash asset in terms of 1e18 of the collateral asset at the time of opening the vault
+    /// @param lockedPoolCash The amount of cash that is currently locked in the liquidity pool for this
+    /// particular vault
+    /// @param startingPrice The price of the cash asset in terms of 1e18 of the collateral asset at the time
+    /// of opening the vault
     /// @param putStrikePrice The strike price of the put option in terms of 1e18 of the collateral asset
     /// @param callStrikePrice The strike price of the call option in terms of 1e18 of the collateral asset
     /// @param putStrikeTick The tick at which the put option is struck
     /// @param callStrikeTick The tick at which the call option is struck
-    /// @param loanBalance amount of cash that is currently unlocked (withdrawable); this is the only state var that changes during a vault's lifetime
+    /// @param loanBalance amount of cash that is currently unlocked (withdrawable); this is the only state
+    /// var that changes during a vault's lifetime
     /// @param lockedVaultCash The amount of cash that is currently locked (unwithdrawable)
     struct Vault {
         /* ----- Basic Vault Info ----- */
@@ -62,22 +67,22 @@ interface ICollarVaultState {
         uint32 openedAt;
         uint32 expiresAt;
         uint32 duration;
-        uint256 ltv;
+        uint ltv;
         /* ---- Asset Specific Info ----- */
         address collateralAsset;
         address cashAsset;
-        uint256 collateralAmount;
-        uint256 cashAmount;
+        uint collateralAmount;
+        uint cashAmount;
         /* ----- Liquidity Pool Stuff ----- */
         address liquidityPool;
-        uint256 lockedPoolCash;
-        uint256 initialCollateralPrice;
-        uint256 putStrikePrice;
-        uint256 callStrikePrice;
+        uint lockedPoolCash;
+        uint initialCollateralPrice;
+        uint putStrikePrice;
+        uint callStrikePrice;
         uint24 putStrikeTick;
         uint24 callStrikeTick;
         /* ----- Vault Specific Stuff ----- */
-        uint256 loanBalance;
-        uint256 lockedVaultCash;
+        uint loanBalance;
+        uint lockedVaultCash;
     }
 }

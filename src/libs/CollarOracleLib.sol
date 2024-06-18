@@ -11,20 +11,17 @@ import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3
 import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 import { OracleLibrary } from "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
 
-/// @notice Various constants used throughout the system
-abstract contract Constants {
-    // one hundred percent, in basis points
-    uint256 public constant ONE_HUNDRED_PERCENT = 10_000;
-
-    // precision multiplier to be used when expanding small numbers before division, etc
-    uint256 public constant PRECISION_MULTIPLIER = 1e18;
-}
-
-library CollarOracle {
-    function getTWAP(address baseToken, address quoteToken, uint32 twapStartTimestamp, uint32 twapLength, address uniswapV3Factory)
-        external
+library CollarOracleLib {
+    function getTWAP(
+        address baseToken,
+        address quoteToken,
+        uint32 twapStartTimestamp,
+        uint32 twapLength,
+        address uniswapV3Factory
+    )
+        internal
         view
-        returns (uint256 price)
+        returns (uint price)
     {
         address poolToUse = _getPoolForTokenPair(baseToken, quoteToken, uniswapV3Factory);
         IUniswapV3Pool pool = IUniswapV3Pool(poolToUse);
@@ -61,7 +58,15 @@ library CollarOracle {
      */
 
     /// @notice Takes a pair and some fee tiers, and returns pool
-    function _getPoolForTokenPair(address _tokenA, address _tokenB, address uniswapV3Factory) internal pure returns (address _pool) {
+    function _getPoolForTokenPair(
+        address _tokenA,
+        address _tokenB,
+        address uniswapV3Factory
+    )
+        internal
+        pure
+        returns (address _pool)
+    {
         PoolAddress.PoolKey memory _poolKey = PoolAddress.getPoolKey(_tokenA, _tokenB, 3000);
         _pool = PoolAddress.computeAddress(address(uniswapV3Factory), _poolKey);
     }

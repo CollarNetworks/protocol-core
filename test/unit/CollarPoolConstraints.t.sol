@@ -13,7 +13,6 @@ import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockUniRouter } from "../utils/MockUniRouter.sol";
 import { MockEngine } from "../../test/utils/MockEngine.sol";
 import { CollarPool } from "../../src/implementations/CollarPool.sol";
-import { ICollarPoolState } from "../../src/interfaces/ICollarPool.sol";
 import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
 import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
@@ -21,7 +20,7 @@ import { ICollarCommonErrors } from "../../src/interfaces/errors/ICollarCommonEr
 import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 import { ICollarPoolErrors } from "../../src/interfaces/errors/ICollarPoolErrors.sol";
 
-contract CollarPoolConstraintsTest is Test, ICollarPoolState {
+contract CollarPoolConstraintsTest is Test {
     TestERC20 cashAsset;
     TestERC20 collateralAsset;
     MockUniRouter router;
@@ -100,9 +99,9 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
     function test_addLiquidity() public {
         startHoax(user1);
 
-        uint256 freeLiquidityStart = pool.freeLiquidity();
-        uint256 lockedLiquidityStart = pool.lockedLiquidity();
-        uint256 totalLiquidityStart = pool.totalLiquidity();
+        uint freeLiquidityStart = pool.freeLiquidity();
+        uint lockedLiquidityStart = pool.lockedLiquidity();
+        uint totalLiquidityStart = pool.totalLiquidity();
 
         assertEq(totalLiquidityStart, freeLiquidityStart + lockedLiquidityStart);
 
@@ -116,9 +115,9 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
     function test_withdrawLiquidity() public {
         startHoax(user1);
 
-        uint256 freeLiquidityStart = pool.freeLiquidity();
-        uint256 lockedLiquidityStart = pool.lockedLiquidity();
-        uint256 totalLiquidityStart = pool.totalLiquidity();
+        uint freeLiquidityStart = pool.freeLiquidity();
+        uint lockedLiquidityStart = pool.lockedLiquidity();
+        uint totalLiquidityStart = pool.totalLiquidity();
 
         assertEq(totalLiquidityStart, freeLiquidityStart + lockedLiquidityStart);
 
@@ -136,9 +135,9 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
     function test_mintPoolPositionTokens() public {
         startHoax(user1);
 
-        uint256 freeLiquidityStart = pool.freeLiquidity();
-        uint256 lockedLiquidityStart = pool.lockedLiquidity();
-        uint256 totalLiquidityStart = pool.totalLiquidity();
+        uint freeLiquidityStart = pool.freeLiquidity();
+        uint lockedLiquidityStart = pool.lockedLiquidity();
+        uint totalLiquidityStart = pool.totalLiquidity();
 
         assertEq(totalLiquidityStart, freeLiquidityStart + lockedLiquidityStart);
 
@@ -164,10 +163,10 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
 
         startHoax(user2);
 
-        uint256 freeLiquidityStart = pool.freeLiquidity();
-        uint256 lockedLiquidityStart = pool.lockedLiquidity();
-        uint256 totalLiquidityStart = pool.totalLiquidity();
-        uint256 redeemLiquidityStart = pool.redeemableLiquidity();
+        uint freeLiquidityStart = pool.freeLiquidity();
+        uint lockedLiquidityStart = pool.lockedLiquidity();
+        uint totalLiquidityStart = pool.totalLiquidity();
+        uint redeemLiquidityStart = pool.redeemableLiquidity();
 
         pool.addLiquidityToSlot(110, 25_000);
 
@@ -178,10 +177,14 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
             cashAmount: 100
         });
 
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+        ICollarVaultState.CollarOpts memory collarOpts =
+            ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
-        ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
+        ICollarVaultState.LiquidityOpts memory liquidityOpts = ICollarVaultState.LiquidityOpts({
+            liquidityPool: address(pool),
+            putStrikeTick: 90,
+            callStrikeTick: 110
+        });
 
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
@@ -204,7 +207,7 @@ contract CollarPoolConstraintsTest is Test, ICollarPoolState {
 
         ERC6909TokenSupply poolTokens = ERC6909TokenSupply(address(pool));
 
-        uint256 userPoolTokenBalance = poolTokens.balanceOf(user2, uint256(uuid));
+        uint userPoolTokenBalance = poolTokens.balanceOf(user2, uint(uuid));
 
         assertEq(userPoolTokenBalance, 10);
 

@@ -8,20 +8,109 @@
 pragma solidity ^0.8.18;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { IPeripheryImmutableState } from "@uni-v3-periphery/interfaces/IPeripheryImmutableState.sol";
+// internal imports
 import { ICollarEngine } from "../interfaces/ICollarEngine.sol";
-import { ICollarEngineEvents } from "../interfaces/events/ICollarEngineEvents.sol";
 import { CollarPool } from "./CollarPool.sol";
 import { CollarVaultManager } from "./CollarVaultManager.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { CollarOracle } from "../libs/CollarLibs.sol";
-import { IPeripheryImmutableState } from "@uni-v3-periphery/interfaces/IPeripheryImmutableState.sol";
+import { CollarOracleLib } from "../libs/CollarOracleLib.sol";
+
 import "forge-std/console.sol";
 
-contract CollarEngine is ICollarEngine, Ownable {
+contract CollarEngine is Ownable, ICollarEngine {
+    // -- lib delcarations --
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;
 
-    constructor(address _dexRouter) ICollarEngine(_dexRouter) Ownable(msg.sender) { }
+    // -- public state variables ---
+
+    address public immutable dexRouter;
+
+    /// @notice This mapping stores the address of the vault contract per user (or market maker)
+    /// @dev This will be zero if the user has not yet created a vault
+    mapping(address => address) public addressToVaultManager;
+
+    // -- internal state variables ---
+    EnumerableSet.AddressSet internal vaultManagers;
+    EnumerableSet.AddressSet internal collarLiquidityPools;
+    EnumerableSet.AddressSet internal supportedCollateralAssets;
+    EnumerableSet.AddressSet internal supportedCashAssets;
+    EnumerableSet.UintSet internal validLTVs;
+    EnumerableSet.UintSet internal validCollarDurations;
+
+    constructor(address _dexRouter) Ownable(msg.sender) {
+        dexRouter = _dexRouter;
+    }
+
+    // -- modifiers --
+
+    // vaults
+
+    modifier ensureVaultManagerIsValid(address vaultManager) {
+        if (vaultManagers.contains(vaultManager) == false) revert InvalidVaultManager();
+        _;
+    }
+
+    modifier ensureLiquidityPoolIsValid(address pool) {
+        if (!collarLiquidityPools.contains(pool)) revert InvalidLiquidityPool();
+        _;
+    }
+
+    // liquidity pools
+
+    modifier ensureLiquidityPoolIsNotValid(address pool) {
+        if (collarLiquidityPools.contains(pool)) revert LiquidityPoolAlreadyAdded(pool);
+        _;
+    }
+
+    // collateral assets
+
+    modifier ensureCollateralAssetIsValid(address asset) {
+        if (!supportedCollateralAssets.contains(asset)) revert CollateralAssetNotSupported(asset);
+        _;
+    }
+
+    modifier ensureCollateralAssetIsNotValid(address asset) {
+        if (supportedCollateralAssets.contains(asset)) revert CollateralAssetAlreadySupported(asset);
+        _;
+    }
+
+    // cash assets
+
+    modifier ensureCashAssetIsValid(address asset) {
+        if (!supportedCashAssets.contains(asset)) revert CashAssetNotSupported(asset);
+        _;
+    }
+
+    modifier ensureCashAssetIsNotValid(address asset) {
+        if (supportedCashAssets.contains(asset)) revert CashAssetAlreadySupported(asset);
+        _;
+    }
+
+    // collar durations
+
+    modifier ensureDurationIsValid(uint duration) {
+        if (!validCollarDurations.contains(duration)) revert CollarDurationNotSupported();
+        _;
+    }
+
+    modifier ensureDurationIsNotValid(uint duration) {
+        if (validCollarDurations.contains(duration)) revert CollarDurationNotSupported();
+        _;
+    }
+
+    // ltvs
+
+    modifier ensureLTVIsValid(uint ltv) {
+        if (!validLTVs.contains(ltv)) revert LTVNotSupported(ltv);
+        _;
+    }
+
+    modifier ensureLTVIsNotValid(uint ltv) {
+        if (validLTVs.contains(ltv)) revert LTVAlreadySupported(ltv);
+        _;
+    }
 
     // ----- state-changing functions (see ICollarEngine for documentation) -----
 
@@ -54,48 +143,78 @@ contract CollarEngine is ICollarEngine, Ownable {
 
     // collateral assets
 
-    function addSupportedCollateralAsset(address asset) external override onlyOwner ensureCollateralAssetIsNotValid(asset) {
+    function addSupportedCollateralAsset(address asset)
+        external
+        override
+        onlyOwner
+        ensureCollateralAssetIsNotValid(asset)
+    {
         emit CollateralAssetAdded(asset);
         supportedCollateralAssets.add(asset);
     }
 
-    function removeSupportedCollateralAsset(address asset) external override onlyOwner ensureCollateralAssetIsValid(asset) {
+    function removeSupportedCollateralAsset(address asset)
+        external
+        override
+        onlyOwner
+        ensureCollateralAssetIsValid(asset)
+    {
         emit CollateralAssetRemoved(asset);
         supportedCollateralAssets.remove(asset);
     }
 
     // cash assets
 
-    function addSupportedCashAsset(address asset) external override onlyOwner ensureCashAssetIsNotValid(asset) {
+    function addSupportedCashAsset(address asset)
+        external
+        override
+        onlyOwner
+        ensureCashAssetIsNotValid(asset)
+    {
         emit CashAssetAdded(asset);
         supportedCashAssets.add(asset);
     }
 
-    function removeSupportedCashAsset(address asset) external override onlyOwner ensureCashAssetIsValid(asset) {
+    function removeSupportedCashAsset(address asset)
+        external
+        override
+        onlyOwner
+        ensureCashAssetIsValid(asset)
+    {
         emit CashAssetRemoved(asset);
         supportedCashAssets.remove(asset);
     }
 
     // durations
 
-    function addCollarDuration(uint256 duration) external override onlyOwner ensureDurationIsNotValid(duration) {
+    function addCollarDuration(uint duration)
+        external
+        override
+        onlyOwner
+        ensureDurationIsNotValid(duration)
+    {
         emit CollarDurationAdded(duration);
         validCollarDurations.add(duration);
     }
 
-    function removeCollarDuration(uint256 duration) external override onlyOwner ensureDurationIsValid(duration) {
+    function removeCollarDuration(uint duration)
+        external
+        override
+        onlyOwner
+        ensureDurationIsValid(duration)
+    {
         emit CollarDurationRemoved(duration);
         validCollarDurations.remove(duration);
     }
 
     // ltvs
 
-    function addLTV(uint256 ltv) external override onlyOwner ensureLTVIsNotValid(ltv) {
+    function addLTV(uint ltv) external override onlyOwner ensureLTVIsNotValid(ltv) {
         emit LTVAdded(ltv);
         validLTVs.add(ltv);
     }
 
-    function removeLTV(uint256 ltv) external override onlyOwner ensureLTVIsValid(ltv) {
+    function removeLTV(uint ltv) external override onlyOwner ensureLTVIsValid(ltv) {
         emit LTVRemoved(ltv);
         validLTVs.remove(ltv);
     }
@@ -108,11 +227,11 @@ contract CollarEngine is ICollarEngine, Ownable {
         return vaultManagers.contains(vaultManager);
     }
 
-    function vaultManagersLength() external view override returns (uint256) {
+    function vaultManagersLength() external view override returns (uint) {
         return vaultManagers.length();
     }
 
-    function getVaultManager(uint256 index) external view override returns (address) {
+    function getVaultManager(uint index) external view override returns (address) {
         return vaultManagers.at(index);
     }
 
@@ -122,11 +241,11 @@ contract CollarEngine is ICollarEngine, Ownable {
         return supportedCashAssets.contains(asset);
     }
 
-    function supportedCashAssetsLength() external view override returns (uint256) {
+    function supportedCashAssetsLength() external view override returns (uint) {
         return supportedCashAssets.length();
     }
 
-    function getSupportedCashAsset(uint256 index) external view override returns (address) {
+    function getSupportedCashAsset(uint index) external view override returns (address) {
         return supportedCashAssets.at(index);
     }
 
@@ -136,11 +255,11 @@ contract CollarEngine is ICollarEngine, Ownable {
         return supportedCollateralAssets.contains(asset);
     }
 
-    function supportedCollateralAssetsLength() external view override returns (uint256) {
+    function supportedCollateralAssetsLength() external view override returns (uint) {
         return supportedCollateralAssets.length();
     }
 
-    function getSupportedCollateralAsset(uint256 index) external view override returns (address) {
+    function getSupportedCollateralAsset(uint index) external view override returns (address) {
         return supportedCollateralAssets.at(index);
     }
 
@@ -150,39 +269,39 @@ contract CollarEngine is ICollarEngine, Ownable {
         return collarLiquidityPools.contains(pool);
     }
 
-    function supportedLiquidityPoolsLength() external view override returns (uint256) {
+    function supportedLiquidityPoolsLength() external view override returns (uint) {
         return collarLiquidityPools.length();
     }
 
-    function getSupportedLiquidityPool(uint256 index) external view override returns (address) {
+    function getSupportedLiquidityPool(uint index) external view override returns (address) {
         return collarLiquidityPools.at(index);
     }
 
     // collar durations
 
-    function isValidCollarDuration(uint256 duration) external view override returns (bool) {
+    function isValidCollarDuration(uint duration) external view override returns (bool) {
         return validCollarDurations.contains(duration);
     }
 
-    function validCollarDurationsLength() external view override returns (uint256) {
+    function validCollarDurationsLength() external view override returns (uint) {
         return validCollarDurations.length();
     }
 
-    function getValidCollarDuration(uint256 index) external view override returns (uint256) {
+    function getValidCollarDuration(uint index) external view override returns (uint) {
         return validCollarDurations.at(index);
     }
 
     // ltvs
 
-    function isValidLTV(uint256 ltv) external view override returns (bool) {
+    function isValidLTV(uint ltv) external view override returns (bool) {
         return validLTVs.contains(ltv);
     }
 
-    function validLTVsLength() external view override returns (uint256) {
+    function validLTVsLength() external view override returns (uint) {
         return validLTVs.length();
     }
 
-    function getValidLTV(uint256 index) external view override returns (uint256) {
+    function getValidLTV(uint index) external view override returns (uint) {
         return validLTVs.at(index);
     }
 
@@ -193,27 +312,41 @@ contract CollarEngine is ICollarEngine, Ownable {
         if (!isSupportedBase) revert CollateralAssetNotSupported(token);
     }
 
-    function getHistoricalAssetPriceViaTWAP(address baseToken, address quoteToken, uint32 twapStartTimestamp, uint32 twapLength)
+    function getHistoricalAssetPriceViaTWAP(
+        address baseToken,
+        address quoteToken,
+        uint32 twapStartTimestamp,
+        uint32 twapLength
+    )
         external
         view
         virtual
         override
-        returns (uint256 price)
+        returns (uint price)
     {
         validateAssetsIsSupported(baseToken);
         validateAssetsIsSupported(quoteToken);
         address uniV3Factory = IPeripheryImmutableState(dexRouter).factory();
-        price = CollarOracle.getTWAP(baseToken, quoteToken, twapStartTimestamp, twapLength, uniV3Factory);
+        price = CollarOracleLib.getTWAP(baseToken, quoteToken, twapStartTimestamp, twapLength, uniV3Factory);
     }
 
-    function getCurrentAssetPrice(address baseToken, address quoteToken) external view virtual override returns (uint256 price) {
+    function getCurrentAssetPrice(
+        address baseToken,
+        address quoteToken
+    )
+        external
+        view
+        virtual
+        override
+        returns (uint price)
+    {
         validateAssetsIsSupported(baseToken);
         validateAssetsIsSupported(quoteToken);
         address uniV3Factory = IPeripheryImmutableState(dexRouter).factory();
         /**
          * @dev pass in 0,0 to get price at current tick
          */
-        price = CollarOracle.getTWAP(baseToken, quoteToken, 0, 0, uniV3Factory);
+        price = CollarOracleLib.getTWAP(baseToken, quoteToken, 0, 0, uniV3Factory);
     }
 }
 

@@ -13,7 +13,10 @@ import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 contract MockBadUniRouter {
     address public factory = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
 
-    function exactInputSingle(ISwapRouter.ExactInputSingleParams memory params) external returns (uint256 amountOut) {
+    function exactInputSingle(ISwapRouter.ExactInputSingleParams memory params)
+        external
+        returns (uint amountOut)
+    {
         amountOut = params.amountOutMinimum - 1;
 
         ERC20(params.tokenIn).transferFrom(msg.sender, address(this), params.amountIn);

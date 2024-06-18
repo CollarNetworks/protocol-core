@@ -13,7 +13,6 @@ import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockUniRouter } from "../utils/MockUniRouter.sol";
 import { MockEngine } from "../../test/utils/MockEngine.sol";
 import { CollarPool } from "../../src/implementations/CollarPool.sol";
-import { ICollarPoolState } from "../../src/interfaces/ICollarPool.sol";
 import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
 import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
@@ -21,7 +20,7 @@ import { ICollarCommonErrors } from "../../src/interfaces/errors/ICollarCommonEr
 import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 import { ICollarPoolErrors } from "../../src/interfaces/errors/ICollarPoolErrors.sol";
 
-contract CollarPoolTest is Test, ICollarPoolState {
+contract CollarPoolTest is Test {
     TestERC20 cashAsset;
     TestERC20 collateralAsset;
     MockUniRouter router;
@@ -36,11 +35,12 @@ contract CollarPoolTest is Test, ICollarPoolState {
     address user5 = makeAddr("user5");
     address user6 = makeAddr("user6");
 
-    // below we copy error messages from contracts since they aren't by default "public" or otherwise accessible
+    // below we copy error messages from contracts since they aren't by default "public" or otherwise
+    // accessible
 
     error EnumerableMapNonexistentKey(bytes32 key);
     error OwnableUnauthorizedAccount(address account);
-    error ERC20InsufficientBalance(address account, uint256 amount, uint256 balance);
+    error ERC20InsufficientBalance(address account, uint amount, uint balance);
 
     bytes user1NotAuthorized = abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, address(user1));
 
@@ -119,7 +119,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         assertEq(pool.getSlotProviderInfoForAddress(111, user1), 25_000);
         assertEq(pool.getNumProvidersInSlot(111), 1);
 
-        (address provider0, uint256 liquidity0) = pool.getSlotProviderInfoAtIndex(111, 0);
+        (address provider0, uint liquidity0) = pool.getSlotProviderInfoAtIndex(111, 0);
 
         assertEq(provider0, user1);
         assertEq(liquidity0, 25_000);
@@ -141,11 +141,11 @@ contract CollarPoolTest is Test, ICollarPoolState {
         pool.addLiquidityToSlot(111, 25_000);
         pool.addLiquidityToSlot(222, 50_000);
 
-        uint256[] memory slotIds = new uint256[](2);
+        uint[] memory slotIds = new uint[](2);
         slotIds[0] = 111;
         slotIds[1] = 222;
 
-        uint256[] memory liquidity = pool.getLiquidityForSlots(slotIds);
+        uint[] memory liquidity = pool.getLiquidityForSlots(slotIds);
 
         assertEq(liquidity[0], 25_000);
         assertEq(liquidity[1], 50_000);
@@ -165,7 +165,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         hoax(user1);
         pool.addLiquidityToSlot(111, 1000);
 
-        uint256[] memory iSlots = pool.getInitializedSlotIndices();
+        uint[] memory iSlots = pool.getInitializedSlotIndices();
 
         assertEq(iSlots.length, 1);
         assertEq(iSlots[0], 111);
@@ -228,17 +228,17 @@ contract CollarPoolTest is Test, ICollarPoolState {
         assertEq(pool.getSlotProviderInfoForAddress(111, user4), 4000);
         assertEq(pool.getSlotProviderInfoForAddress(111, user5), 5000);
 
-        uint256 liquidity = pool.getLiquidityForSlot(111);
-        uint256 providerLength = pool.getNumProvidersInSlot(111);
+        uint liquidity = pool.getLiquidityForSlot(111);
+        uint providerLength = pool.getNumProvidersInSlot(111);
 
         assertEq(liquidity, 15_000);
         assertEq(providerLength, 5);
 
-        (address provider0, uint256 liquidity0) = pool.getSlotProviderInfoAtIndex(111, 0);
-        (address provider1, uint256 liquidity1) = pool.getSlotProviderInfoAtIndex(111, 1);
-        (address provider2, uint256 liquidity2) = pool.getSlotProviderInfoAtIndex(111, 2);
-        (address provider3, uint256 liquidity3) = pool.getSlotProviderInfoAtIndex(111, 3);
-        (address provider4, uint256 liquidity4) = pool.getSlotProviderInfoAtIndex(111, 4);
+        (address provider0, uint liquidity0) = pool.getSlotProviderInfoAtIndex(111, 0);
+        (address provider1, uint liquidity1) = pool.getSlotProviderInfoAtIndex(111, 1);
+        (address provider2, uint liquidity2) = pool.getSlotProviderInfoAtIndex(111, 2);
+        (address provider3, uint liquidity3) = pool.getSlotProviderInfoAtIndex(111, 3);
+        (address provider4, uint liquidity4) = pool.getSlotProviderInfoAtIndex(111, 4);
 
         assertEq(provider0, user1);
         assertEq(provider1, user2);
@@ -332,13 +332,13 @@ contract CollarPoolTest is Test, ICollarPoolState {
         pool.withdrawLiquidityFromSlot(111, 10_000);
         assertEq(pool.getLiquidityForSlot(111), 15_000);
 
-        uint256 liquidity = pool.getLiquidityForSlot(111);
-        uint256 providerLength = pool.getNumProvidersInSlot(111);
+        uint liquidity = pool.getLiquidityForSlot(111);
+        uint providerLength = pool.getNumProvidersInSlot(111);
 
         assertEq(liquidity, 15_000);
         assertEq(providerLength, 1);
 
-        (address provider0, uint256 liquidity0) = pool.getSlotProviderInfoAtIndex(111, 0);
+        (address provider0, uint liquidity0) = pool.getSlotProviderInfoAtIndex(111, 0);
 
         assertEq(provider0, user1);
         assertEq(liquidity0, 15_000);
@@ -444,7 +444,8 @@ contract CollarPoolTest is Test, ICollarPoolState {
     function test_openPosition() public {
         mintAndOpenPosition(user1);
 
-        uint256 userTokens = ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+        uint userTokens =
+            ERC6909TokenSupply(address(pool)).balanceOf(user1, uint(keccak256(abi.encodePacked(user1))));
 
         assertEq(userTokens, 100_000);
     }
@@ -479,7 +480,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
         mintTokensAndApprovePool(user2);
         mintAndOpenPosition(user1);
 
-        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint(keccak256(abi.encodePacked(user1))));
 
         startHoax(user1);
         vm.expectRevert(ICollarCommonErrors.NotCollarVaultManager.selector);
@@ -500,10 +501,14 @@ contract CollarPoolTest is Test, ICollarPoolState {
             cashAmount: 100
         });
 
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+        ICollarVaultState.CollarOpts memory collarOpts =
+            ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
-        ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
+        ICollarVaultState.LiquidityOpts memory liquidityOpts = ICollarVaultState.LiquidityOpts({
+            liquidityPool: address(pool),
+            putStrikeTick: 90,
+            callStrikeTick: 110
+        });
 
         // price starts at "1e18"
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
@@ -526,11 +531,11 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         ERC6909TokenSupply token = ERC6909TokenSupply(pool);
 
-        assertEq(token.totalSupply(uint256(uuid)), 10);
-        assertEq(token.balanceOf(user2, uint256(uuid)), 10);
+        assertEq(token.totalSupply(uint(uuid)), 10);
+        assertEq(token.balanceOf(user2, uint(uuid)), 10);
 
         startHoax(user2);
-        uint256 toReceive = pool.previewRedeem(uuid, 10);
+        uint toReceive = pool.previewRedeem(uuid, 10);
         assertEq(toReceive, 20);
         pool.redeem(uuid, 10);
 
@@ -540,7 +545,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
     function test_redeem_InvalidAmount() public {
         mintAndOpenPosition(user1);
 
-        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint(keccak256(abi.encodePacked(user1))));
         // forward time:
         skip(101);
         startHoax(user1);
@@ -552,7 +557,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
     function test_redeem_VaultNotFinalized() public {
         mintAndOpenPosition(user1);
 
-        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint(keccak256(abi.encodePacked(user1))));
 
         startHoax(user1);
 
@@ -563,7 +568,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
     function test_redeem_VaultNotValid() public {
         mintAndOpenPosition(user1);
 
-        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint(keccak256(abi.encodePacked(user1))));
         // forward time:
         skip(101);
         startHoax(user1);
@@ -595,7 +600,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         manager.closeVault(uuid);
 
-        uint256 previewAmount = pool.previewRedeem(uuid, 10);
+        uint previewAmount = pool.previewRedeem(uuid, 10);
 
         assertEq(previewAmount, 20);
     }
@@ -625,7 +630,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
 
         manager.closeVault(uuid);
 
-        uint256 previewAmount = pool.previewRedeem(uuid, 10);
+        uint previewAmount = pool.previewRedeem(uuid, 10);
 
         assertEq(previewAmount, 20);
     }
@@ -633,7 +638,7 @@ contract CollarPoolTest is Test, ICollarPoolState {
     function test_previewRedeem_VaultNotValid() public {
         mintAndOpenPosition(user1);
 
-        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint256(keccak256(abi.encodePacked(user1))));
+        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint(keccak256(abi.encodePacked(user1))));
     }
 
     function test_previewRedeem_InvalidAmount() public {
@@ -664,7 +669,8 @@ contract CollarPoolTest is Test, ICollarPoolState {
     }
 
     function test_constructor() public {
-        CollarPool testPool = new CollarPool(address(engine), 100, address(cashAsset), address(collateralAsset), 100, 9000);
+        CollarPool testPool =
+            new CollarPool(address(engine), 100, address(cashAsset), address(collateralAsset), 100, 9000);
         assertEq(testPool.engine(), address(engine));
         assertEq(testPool.cashAsset(), address(cashAsset));
         assertEq(testPool.collateralAsset(), address(collateralAsset));
@@ -703,10 +709,14 @@ contract CollarPoolTest is Test, ICollarPoolState {
             cashAmount: 100
         });
 
-        ICollarVaultState.CollarOpts memory collarOpts = ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
+        ICollarVaultState.CollarOpts memory collarOpts =
+            ICollarVaultState.CollarOpts({ duration: 100, ltv: 9000 });
 
-        ICollarVaultState.LiquidityOpts memory liquidityOpts =
-            ICollarVaultState.LiquidityOpts({ liquidityPool: address(pool), putStrikeTick: 90, callStrikeTick: 110 });
+        ICollarVaultState.LiquidityOpts memory liquidityOpts = ICollarVaultState.LiquidityOpts({
+            liquidityPool: address(pool),
+            putStrikeTick: 90,
+            callStrikeTick: 110
+        });
 
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
