@@ -46,9 +46,7 @@ contract CollarEngine is Ownable, ICollarEngine {
     // ----- state-changing functions (see ICollarEngine for documentation) -----
 
     function createVaultManager() external override returns (address _vaultManager) {
-        if (addressToVaultManager[msg.sender] != address(0)) {
-            revert VaultManagerAlreadyExists(msg.sender, addressToVaultManager[msg.sender]);
-        }
+        require(addressToVaultManager[msg.sender] == address(0), "manager exists for sender");
 
         address vaultManager = address(new CollarVaultManager(address(this), msg.sender));
 
@@ -63,13 +61,13 @@ contract CollarEngine is Ownable, ICollarEngine {
     // liquidity pools
 
     function addLiquidityPool(address pool) external override onlyOwner {
-        if (collarLiquidityPools.contains(pool)) revert LiquidityPoolAlreadyAdded(pool);
+        require(!collarLiquidityPools.contains(pool), "already added");
         collarLiquidityPools.add(pool);
         emit LiquidityPoolAdded(pool);
     }
 
     function removeLiquidityPool(address pool) external override onlyOwner {
-        if (!collarLiquidityPools.contains(pool)) revert InvalidLiquidityPool();
+        require(collarLiquidityPools.contains(pool), "not found");
         collarLiquidityPools.remove(pool);
         emit LiquidityPoolRemoved(pool);
     }
@@ -77,13 +75,13 @@ contract CollarEngine is Ownable, ICollarEngine {
     // collateral assets
 
     function addSupportedCollateralAsset(address asset) external override onlyOwner {
-        if (supportedCollateralAssets.contains(asset)) revert CollateralAssetAlreadySupported(asset);
+        require(!supportedCollateralAssets.contains(asset), "already added");
         supportedCollateralAssets.add(asset);
         emit CollateralAssetAdded(asset);
     }
 
     function removeSupportedCollateralAsset(address asset) external override onlyOwner {
-        if (!supportedCollateralAssets.contains(asset)) revert CollateralAssetNotSupported(asset);
+        require(supportedCollateralAssets.contains(asset), "not found");
         supportedCollateralAssets.remove(asset);
         emit CollateralAssetRemoved(asset);
     }
@@ -91,13 +89,13 @@ contract CollarEngine is Ownable, ICollarEngine {
     // cash assets
 
     function addSupportedCashAsset(address asset) external override onlyOwner {
-        if (supportedCashAssets.contains(asset)) revert CashAssetAlreadySupported(asset);
+        require(!supportedCashAssets.contains(asset), "already added");
         supportedCashAssets.add(asset);
         emit CashAssetAdded(asset);
     }
 
     function removeSupportedCashAsset(address asset) external override onlyOwner {
-        if (!supportedCashAssets.contains(asset)) revert CashAssetNotSupported(asset);
+        require(supportedCashAssets.contains(asset), "not found");
         supportedCashAssets.remove(asset);
         emit CashAssetRemoved(asset);
     }
@@ -105,13 +103,13 @@ contract CollarEngine is Ownable, ICollarEngine {
     // durations
 
     function addCollarDuration(uint duration) external override onlyOwner {
-        if (validCollarDurations.contains(duration)) revert CollarDurationNotSupported();
+        require(!validCollarDurations.contains(duration), "already added");
         validCollarDurations.add(duration);
         emit CollarDurationAdded(duration);
     }
 
     function removeCollarDuration(uint duration) external override onlyOwner {
-        if (!validCollarDurations.contains(duration)) revert CollarDurationNotSupported();
+        require(validCollarDurations.contains(duration), "not found");
         validCollarDurations.remove(duration);
         emit CollarDurationRemoved(duration);
     }
@@ -119,13 +117,13 @@ contract CollarEngine is Ownable, ICollarEngine {
     // ltvs
 
     function addLTV(uint ltv) external override onlyOwner {
-        if (validLTVs.contains(ltv)) revert LTVAlreadySupported(ltv);
+        require(!validLTVs.contains(ltv), "already added");
         validLTVs.add(ltv);
         emit LTVAdded(ltv);
     }
 
     function removeLTV(uint ltv) external override onlyOwner {
-        if (!validLTVs.contains(ltv)) revert LTVNotSupported(ltv);
+        require(validLTVs.contains(ltv), "not found");
         validLTVs.remove(ltv);
         emit LTVRemoved(ltv);
     }
@@ -220,7 +218,7 @@ contract CollarEngine is Ownable, ICollarEngine {
 
     function validateAssetsIsSupported(address token) internal view {
         bool isSupportedBase = isSupportedCashAsset(token) || isSupportedCollateralAsset(token);
-        if (!isSupportedBase) revert CollateralAssetNotSupported(token);
+        require(isSupportedBase, "not supported");
     }
 
     function getHistoricalAssetPriceViaTWAP(
