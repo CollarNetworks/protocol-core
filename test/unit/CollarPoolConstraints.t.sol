@@ -16,9 +16,7 @@ import { CollarPool } from "../../src/implementations/CollarPool.sol";
 import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
 import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
-import { ICollarCommonErrors } from "../../src/interfaces/errors/ICollarCommonErrors.sol";
 import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
-import { ICollarPoolErrors } from "../../src/interfaces/errors/ICollarPoolErrors.sol";
 
 contract CollarPoolConstraintsTest is Test {
     TestERC20 cashAsset;

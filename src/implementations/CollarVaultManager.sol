@@ -53,19 +53,13 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
     }
 
     function vaultInfo(bytes32 uuid) external view override returns (bytes memory) {
-        if (vaultsByUUID[uuid].openedAt == 0) {
-            revert InvalidVault();
-        }
-
+        require(vaultsByUUID[uuid].openedAt != 0, "invalid vault");
         return abi.encode(vaultsByUUID[uuid]);
     }
 
     function vaultInfoByNonce(uint vaultNonce) external view override returns (bytes memory) {
         bytes32 uuid = vaultsByNonce[vaultNonce];
-        if (vaultsByUUID[uuid].openedAt == 0) {
-            revert InvalidVault();
-        }
-
+        require(vaultsByUUID[uuid].openedAt != 0, "invalid vault");
         return abi.encode(vaultsByUUID[uuid]);
     }
 
@@ -74,37 +68,18 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
     }
 
     function previewRedeem(bytes32 uuid, uint amount) public view override returns (uint cashReceived) {
-        if (amount == 0) revert AmountCannotBeZero();
-        if (vaultsByUUID[uuid].openedAt == 0) revert InvalidVault();
+        require(amount != 0, "invalid amount");
+        require(vaultsByUUID[uuid].openedAt != 0, "invalid vault");
+        require(!vaultsByUUID[uuid].active, "vault not finalized");
 
-        bool finalized = !vaultsByUUID[uuid].active;
+        // if finalized, calculate final redeem value
+        // grab collateral asset value @ exact vault expiration time
+        uint vaultCash = vaultTokenCashSupply[uuid];
+        uint tokenSupply = totalSupply[uint(uuid)];
 
-        if (finalized) {
-            // if finalized, calculate final redeem value
-            // grab collateral asset value @ exact vault expiration time
+        require(amount <= tokenSupply, "invalid amount");
 
-            uint vaultCash = vaultTokenCashSupply[uuid];
-            uint tokenSupply = totalSupply[uint(uuid)];
-
-            if (vaultCash == 0) {
-                return 0;
-            }
-
-            if (tokenSupply < amount) {
-                revert InvalidAmount();
-            }
-
-            cashReceived = (vaultCash * amount) / tokenSupply;
-        } else {
-            // calculate redeem value based on current price of asset
-            // uint256 currentCollateralPrice =
-            // CollarEngine(engine).getCurrentAssetPrice(vaultsByUUID[uuid].collateralAsset);
-
-            // this is very complicated to implement - basically have to recreate
-            // the entire closeVault function, but without changing state
-
-            revert VaultNotFinalized();
-        }
+        cashReceived = (vaultCash * amount) / tokenSupply;
     }
 
     // ----- STATE CHANGING FUNCTIONS ----- //
@@ -114,16 +89,15 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         CollarOpts calldata collarOpts, // length & ltv
         LiquidityOpts calldata liquidityOpts, // pool address, callstrike & amount to lock there, putstrike
         bool withdrawLoan
-    ) public override returns (bytes32 uuid) {
+    )
+        public
+        returns (bytes32 uuid)
+    {
         // only user is allowed to open vaults
-        if (msg.sender != user) {
-            revert NotCollarVaultOwner();
-        }
+        require(msg.sender == user, "not vault user");
 
         // validate parameter data
-        _validateAssetData(assetData);
-        _validateCollarOpts(collarOpts);
-        _validateLiquidityOpts(liquidityOpts);
+        _validateOpenVaultParams(assetData, collarOpts, liquidityOpts);
 
         // generate vault (and token) nonce
         uuid = keccak256(abi.encodePacked(user, vaultCount));
@@ -201,19 +175,11 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
     }
 
     function closeVault(bytes32 uuid) external override {
-        // ensure vault exists
-        if (vaultsByUUID[uuid].openedAt == 0) {
-            revert InvalidVault();
-        }
+        require(vaultsByUUID[uuid].openedAt != 0, "invalid vault");
 
         // ensure vault is active (not finalized) and finalizable (past length)
-        if (!vaultsByUUID[uuid].active) {
-            revert VaultNotActive();
-        }
-
-        if (vaultsByUUID[uuid].expiresAt > block.timestamp) {
-            revert VaultNotFinalizable();
-        }
+        require(vaultsByUUID[uuid].active, "not active");
+        require(block.timestamp >= vaultsByUUID[uuid].expiresAt, "not finalizable");
 
         // cache vault storage pointer
         Vault storage vault = vaultsByUUID[uuid];
@@ -227,7 +193,7 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
             vault.collateralAsset, vault.cashAsset, vault.expiresAt, 15 minutes
         );
 
-        if (finalPrice == 0) revert InvalidAssetPrice();
+        require(finalPrice != 0, "invalid price");
 
         // vault can finalze in 4 possible states, depending on where the final price (P_1) ends up
         // relative to the put strike (PUT), the call strike (CAL), and the starting price (P_0)
@@ -305,13 +271,11 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
 
             // ???
         } else {
-            revert InvalidState();
+            revert();
         }
 
         // sanity check
-        if (cashNeededFromPool > 0 && cashToSendToPool > 0) {
-            revert InvalidState();
-        }
+        assert(cashNeededFromPool == 0 || cashToSendToPool == 0);
 
         int poolProfit = cashToSendToPool > 0 ? int(cashToSendToPool) : -int(cashNeededFromPool);
 
@@ -334,15 +298,8 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
     }
 
     function redeem(bytes32 uuid, uint amount) external override {
-        // ensure vault exists
-        if (vaultsByUUID[uuid].openedAt == 0) {
-            revert InvalidVault();
-        }
-
-        // ensure vault is finalized
-        if (vaultsByUUID[uuid].active) {
-            revert VaultNotFinalized();
-        }
+        require(vaultsByUUID[uuid].openedAt != 0, "invalid vault");
+        require(!vaultsByUUID[uuid].active, "vault not finalized");
 
         // calculate cash redeem value
         uint redeemValue = previewRedeem(uuid, amount);
@@ -355,78 +312,47 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
     }
 
     function withdraw(bytes32 uuid, uint amount) public override {
-        if (msg.sender != user) revert NotCollarVaultOwner();
-        if (vaultsByUUID[uuid].openedAt == 0) revert InvalidVault();
+        require(msg.sender == user, "not vault user");
 
-        uint loanBalance = vaultsByUUID[uuid].loanBalance;
+        Vault storage vault = vaultsByUUID[uuid];
 
-        // withdraw from user's loan balance
-        if (amount > loanBalance) {
-            revert InvalidAmount();
-        } else {
-            vaultsByUUID[uuid].loanBalance -= amount;
-            IERC20(vaultsByUUID[uuid].cashAsset).safeTransfer(msg.sender, amount);
-        }
+        require(vault.openedAt != 0, "invalid vault");
+        require(amount <= vault.loanBalance, "invalid amount");
 
-        emit Withdrawal(user, address(this), uuid, amount, vaultsByUUID[uuid].loanBalance);
+        vault.loanBalance -= amount;
+        IERC20(vault.cashAsset).safeTransfer(msg.sender, amount);
+
+        emit Withdrawal(user, address(this), uuid, amount, vault.loanBalance);
     }
 
     // ----- INTERNAL FUNCTIONS ----- //
 
-    function _validateAssetData(AssetSpecifiers calldata assetData) internal view {
-        // verify cash & collateral assets against engine for validity
-        if (!CollarEngine(engine).isSupportedCashAsset(assetData.cashAsset)) {
-            revert InvalidCashAsset();
-        }
+    function _validateOpenVaultParams(
+        AssetSpecifiers calldata assetData,
+        CollarOpts calldata collarOpts,
+        LiquidityOpts calldata liquidityOpts
+    ) internal view {
+        // assets and amounts
+        CollarEngine engine = CollarEngine(engine);
+        require(engine.isSupportedCashAsset(assetData.cashAsset), "invalid cash asset");
+        require(engine.isSupportedCollateralAsset(assetData.collateralAsset), "invalid collateral asset");
+        require(assetData.cashAmount != 0, "invalid amount");
+        require(assetData.collateralAmount != 0, "invalid amount");
 
-        if (!CollarEngine(engine).isSupportedCollateralAsset(assetData.collateralAsset)) {
-            revert InvalidCollateralAsset();
-        }
+        // duration and ltv
+        require(engine.isValidCollarDuration(collarOpts.duration), "invalid duration");
+        require(engine.isValidLTV(collarOpts.ltv), "invalid LTV");
 
-        // verify cash & collateral amounts are > 0
-        if (assetData.cashAmount == 0) {
-            revert InvalidCashAmount();
-        }
-
-        if (assetData.collateralAmount == 0) {
-            revert InvalidCollateralAmount();
-        }
-    }
-
-    function _validateCollarOpts(CollarOpts calldata collarOpts) internal view {
-        // verify length is valid per engine
-        if (!CollarEngine(engine).isValidCollarDuration(collarOpts.duration)) {
-            revert InvalidDuration();
-        }
-
-        // verify ltv is valid
-        if (!CollarEngine(engine).isValidLTV(collarOpts.ltv)) {
-            revert InvalidLTV();
-        }
-    }
-
-    function _validateLiquidityOpts(LiquidityOpts calldata liquidityOpts) internal view {
-        // verify liquidity pool is a valid collar liquidity pool
-        if (!CollarEngine(engine).isSupportedLiquidityPool(liquidityOpts.liquidityPool)) {
-            revert InvalidLiquidityPool();
-        }
+        // pool and ltv matches put price
+        require(engine.isSupportedLiquidityPool(liquidityOpts.liquidityPool), "invalid pool");
 
         // verify the put strike tick matches the put strike tick of the pool
-        if (
-            CollarPool(liquidityOpts.liquidityPool).ltv()
-                != (liquidityOpts.putStrikeTick * CollarPool(liquidityOpts.liquidityPool).tickScaleFactor())
-        ) {
-            revert InvalidPutStrike();
-        }
+        CollarPool pool = CollarPool(liquidityOpts.liquidityPool);
+        require(liquidityOpts.putStrikeTick * pool.tickScaleFactor() == pool.ltv(), "invalid put price");
 
         // verify the call strike tick is > 100%
-        if (
-            TickCalculations.tickToBps(
-                liquidityOpts.callStrikeTick, CollarPool(liquidityOpts.liquidityPool).tickScaleFactor()
-            ) < 10_000
-        ) {
-            revert InvalidCallStrike();
-        }
+        uint tickBips = TickCalculations.tickToBps(liquidityOpts.callStrikeTick, pool.tickScaleFactor());
+        require(tickBips >= 10_000, "invalid call tick");
     }
 
     function _swap(AssetSpecifiers calldata assets) internal returns (uint cashReceived) {
@@ -447,9 +373,7 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         // cache the amount of cash received
         cashReceived = IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
         // revert if minimum not met
-        if (cashReceived < assets.cashAmount) {
-            revert TradeNotViable();
-        }
+        require(cashReceived >= assets.cashAmount, "slippage exceeded");
     }
 
     function _mint(address account, uint id, uint amount) internal {

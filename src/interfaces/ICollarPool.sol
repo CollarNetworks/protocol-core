@@ -7,12 +7,11 @@
 
 pragma solidity ^0.8.18;
 
-import { ICollarPoolErrors } from "./errors/ICollarPoolErrors.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-interface ICollarPool is ICollarPoolErrors {
+interface ICollarPool {
     // ----- EVENTS ----- //
 
     // regular user actions
