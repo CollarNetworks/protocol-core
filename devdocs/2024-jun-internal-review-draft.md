@@ -62,16 +62,15 @@
     - should use TWAP price when opening
   - [ ] #low `_swap` should do explicit balance check to avoid trusting the external implementation for the return value to match balance update
 
-- [ ] **Fix TWAP usage & logic:**
-  - [ ] #med `getHistoricalAssetPriceViaTWAP` passes `expiresAt` as twapStart, but should be expiresAt - twapLength, or variable `getTWAP` should expect `twapEnd` instead
-  - [ ] #high in `getTWAP` `twapLength` is added twice (and `twapStartTimestamp` is outside of the twap window). Both incorrect price (15 minutes in past), and incorrect window is used.
-  - [ ] #low `factory.getPool` can be used instead of custom `_getPoolForTokenPair`
+- [x] **Fix TWAP usage & logic:**
+  - [x] #med `getHistoricalAssetPriceViaTWAP` passes `expiresAt` as twapStart, but should be expiresAt - twapLength, or variable `getTWAP` should expect `twapEnd` instead
+  - [x] #high in `getTWAP` `twapLength` is added twice (and `twapStartTimestamp` is outside of the twap window). Both incorrect price (15 minutes in past), and incorrect window is used.
+  - [x] #low `factory.getPool` can be used instead of custom `_getPoolForTokenPair`
 
 
-- [ ] **Remove non-TWAP price usage**
-  - [ ] #med `getCurrentAssetPrice` is not used, but is not safe for pretty much anything onchain - should be removed:
-    - [ ] Update: remove the whole path of instantaneous price
-  - [ ] #med (oracle lib) `twapLength` 0 should not be allowed and slot0 (instaneous price) should not be used
+- [x] **Remove non-TWAP price usage**
+  - [x] #med `getCurrentAssetPrice` is not used, but is not safe for pretty much anything onchain - should be removed:
+  - [x] #med (oracle lib) `twapLength` 0 should not be allowed and slot0 (instaneous price) should not be used
     - should be removed, and instead use short twap around the right time
     - #low also `twapStartTimestamp` is ignored for `twapLength` 0, and will provide current price even the `twapStartTimestamp` is some specific time
 

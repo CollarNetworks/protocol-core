@@ -195,11 +195,6 @@ contract CollarEngineTest is Test {
         vm.stopPrank();
     }
 
-    function test_getCurrentAssetPrice_InvalidAsset() public {
-        vm.expectRevert("not supported");
-        engine.getCurrentAssetPrice(address(token1), address(token2));
-    }
-
     function test_getHistoricalAssetPriceViaTWAP_InvalidAsset() public {
         vm.expectRevert("not supported");
         engine.getHistoricalAssetPriceViaTWAP(address(token1), address(token2), 0, 0);
