@@ -18,9 +18,6 @@ interface ICollarPool is ICollarPoolErrors {
     // regular user actions
     event LiquidityAdded(address indexed provider, uint indexed slotIndex, uint liquidity);
     event LiquidityWithdrawn(address indexed provider, uint indexed slotIndex, uint liquidity);
-    event LiquidityMoved(
-        address indexed provider, uint indexed fromSlotIndex, uint indexed toSlotIndex, uint liquidity
-    );
     event PositionOpened(address indexed provider, bytes32 indexed uuid, uint expiration, uint principal);
     event PositionFinalized(address indexed vaultManager, bytes32 indexed uuid, int positionNet);
     event Redemption(

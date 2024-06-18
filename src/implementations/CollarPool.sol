@@ -192,58 +192,15 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
 
     // ----- STATE CHANGING FUNCTIONS ----- //
 
-    function addLiquidityToSlot(uint slotIndex, uint amount) public virtual override {
-        Slot storage slot = slots[slotIndex];
-
-        // If this slot isn't initialized, add to the initialized list - we're initializing it now
-        if (!_isSlotInitialized(slotIndex)) {
-            initializedSlotIndices.add(slotIndex);
-        }
-
-        if (slot.providers.contains(msg.sender) || !_isSlotFull(slotIndex)) {
-            _allocate(slotIndex, msg.sender, amount);
-        } else {
-            address smallestProvider = _getSmallestProvider(slotIndex);
-            uint smallestAmount = slot.providers.get(smallestProvider);
-
-            if (smallestAmount > amount) revert NoLiquiditySpace();
-
-            _reAllocate(smallestProvider, slotIndex, UNALLOCATED_SLOT, smallestAmount);
-            _allocate(slotIndex, msg.sender, amount);
-        }
-
-        // lockedLiquidity unchanged
-        // redeemLiquidity unchanged
-        freeLiquidity += amount;
-        totalLiquidity += amount;
-
-        emit LiquidityAdded(msg.sender, slotIndex, amount);
-
+    function addLiquidityToSlot(uint slotIndex, uint amount) external {
+        _addLiquidityToSlot(slotIndex, amount);
         // transfer CASH from provider to pool
         IERC20(cashAsset).safeTransferFrom(msg.sender, address(this), amount);
     }
 
-    function withdrawLiquidityFromSlot(uint slotIndex, uint amount) public virtual override {
-        Slot storage slot = slots[slotIndex];
-
-        uint liquidity = slot.providers.get(msg.sender);
-
-        // verify sender has enough liquidity in slot
-        require(amount <= liquidity, "amount too large");
-
-        // lockedLiquidity unchanged
-        // redeemLiquidity unchanged
-        freeLiquidity -= amount;
-        totalLiquidity -= amount;
-        _unallocate(slotIndex, msg.sender, amount);
-        // If slot has no more liquidity, remove from the initialized list
-        if (slot.liquidity == 0) {
-            initializedSlotIndices.remove(slotIndex);
-        }
-
-        emit LiquidityWithdrawn(msg.sender, slotIndex, amount);
-
-        // finally, transfer the liquidity to the provider
+    function withdrawLiquidityFromSlot(uint slotIndex, uint amount) external {
+        _withdrawLiquidityFromSlot(slotIndex, amount);
+        // transfer the liquidity to the provider
         IERC20(cashAsset).safeTransfer(msg.sender, amount);
     }
 
@@ -252,42 +209,9 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         virtual
         override
     {
-        // lockedLiquidity unchanged
-        // redeemLiquidity unchanged
-        // freeLiquidity unchanged
-        // totalLiquidity unchanged
-
-        // withdrawLiquidityFromSlot(sourceSlotIndex, amount);
-        // verify sender has enough liquidity in slot
-        Slot storage sourceSlot = slots[sourceSlotIndex];
-        uint liquidity = sourceSlot.providers.get(msg.sender);
-
-        require(amount <= liquidity, "amount too large");
-
-        _unallocate(sourceSlotIndex, msg.sender, amount);
-        // If slot has no more liquidity, remove from the initialized list
-        if (sourceSlot.liquidity == 0) {
-            initializedSlotIndices.remove(sourceSlotIndex);
-        }
-        // add
-        Slot storage destinationSlot = slots[destinationSlotIndex];
-
-        // If this slot isn't initialized, add to the initialized list - we're initializing it now
-        if (!_isSlotInitialized(destinationSlotIndex)) {
-            initializedSlotIndices.add(destinationSlotIndex);
-        }
-        if (destinationSlot.providers.contains(msg.sender) || !_isSlotFull(destinationSlotIndex)) {
-            _allocate(destinationSlotIndex, msg.sender, amount);
-        } else {
-            address smallestProvider = _getSmallestProvider(destinationSlotIndex);
-            uint smallestAmount = destinationSlot.providers.get(smallestProvider);
-
-            if (smallestAmount > amount) revert NoLiquiditySpace();
-
-            _reAllocate(smallestProvider, destinationSlotIndex, UNALLOCATED_SLOT, smallestAmount);
-            _allocate(destinationSlotIndex, msg.sender, amount);
-        }
-        emit LiquidityMoved(msg.sender, sourceSlotIndex, destinationSlotIndex, amount);
+        _withdrawLiquidityFromSlot(sourceSlotIndex, amount);
+        _addLiquidityToSlot(destinationSlotIndex, amount);
+        // @dev no transfers, only internal accounting changes
     }
 
     function openPosition(bytes32 uuid, uint slotIndex, uint amount, uint expiration) external override {
@@ -416,7 +340,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         IERC20(cashAsset).safeTransfer(msg.sender, redeemValue);
     }
 
-    // ----- INTERNAL FUNCTIONS ----- //
+    // ----- INTERNAL VIEWS ----- //
 
     function _redeemAmount(uint withdrawable, uint amount, uint supply) internal view returns (uint) {
         return withdrawable * amount / supply;
@@ -450,6 +374,59 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
                 }
             }
         }
+    }
+
+    // ----- INTERNAL MUTATIVE ----- //
+
+    /// @dev does the checks and accounting updates, but not the token transfer
+    function _addLiquidityToSlot(uint slotIndex, uint amount) internal {
+        Slot storage slot = slots[slotIndex];
+
+        // If this slot isn't initialized, add to the initialized list - we're initializing it now
+        if (!_isSlotInitialized(slotIndex)) {
+            initializedSlotIndices.add(slotIndex);
+        }
+
+        if (slot.providers.contains(msg.sender) || !_isSlotFull(slotIndex)) {
+            _allocate(slotIndex, msg.sender, amount);
+        } else {
+            address smallestProvider = _getSmallestProvider(slotIndex);
+            uint smallestAmount = slot.providers.get(smallestProvider);
+
+            if (smallestAmount > amount) revert NoLiquiditySpace();
+
+            _reAllocate(smallestProvider, slotIndex, UNALLOCATED_SLOT, smallestAmount);
+            _allocate(slotIndex, msg.sender, amount);
+        }
+
+        // lockedLiquidity unchanged
+        // redeemLiquidity unchanged
+        freeLiquidity += amount;
+        totalLiquidity += amount;
+
+        emit LiquidityAdded(msg.sender, slotIndex, amount);
+    }
+
+    /// @dev does the checks and accounting updates, but not the token transfer
+    function _withdrawLiquidityFromSlot(uint slotIndex, uint amount) internal {
+        Slot storage slot = slots[slotIndex];
+
+        uint liquidity = slot.providers.get(msg.sender);
+
+        // verify sender has enough liquidity in slot
+        require(amount <= liquidity, "amount too large");
+
+        // lockedLiquidity unchanged
+        // redeemLiquidity unchanged
+        freeLiquidity -= amount;
+        totalLiquidity -= amount;
+        _unallocate(slotIndex, msg.sender, amount);
+        // If slot has no more liquidity, remove from the initialized list
+        if (slot.liquidity == 0) {
+            initializedSlotIndices.remove(slotIndex);
+        }
+
+        emit LiquidityWithdrawn(msg.sender, slotIndex, amount);
     }
 
     function _allocate(uint slotID, address provider, uint amount) internal {
