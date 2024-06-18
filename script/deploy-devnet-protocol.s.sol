@@ -34,6 +34,15 @@ contract DeployInitializedDevnetProtocol is Script {
     address router;
     address engine;
 
+    /**
+     * @dev config for script:
+     * setup token addresses depending on the forked network
+     * setup the swap router address
+     * setup the number of pools to create (modify if `_createPools` is modified)
+     * setup chainId for the forked network to use
+     * CURRENT FORKED NETWORK: ETHEREUM MAINNET
+     */
+    uint chainId = 137_999; // id for ethereum mainnet fork on tenderly
     address USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
     address USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
     address WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
@@ -42,20 +51,34 @@ contract DeployInitializedDevnetProtocol is Script {
     address WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
     address MATIC = 0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0;
     address swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
+    uint constant numOfPools = 11;
 
-    function run() external {
-        VmSafe.Wallet memory deployer = vm.createWallet(vm.envUint("PRIVKEY_DEV_DEPLOYER"));
-        VmSafe.Wallet memory user1 = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST1"));
-        VmSafe.Wallet memory user2 = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST2"));
-        VmSafe.Wallet memory liquidityProvider = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST3"));
+    function setup()
+        internal
+        returns (address deployer, address user1, address user2, address liquidityProvider)
+    {
+        VmSafe.Wallet memory deployerWallet = vm.createWallet(vm.envUint("PRIVKEY_DEV_DEPLOYER"));
+        VmSafe.Wallet memory user1Wallet = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST1"));
+        VmSafe.Wallet memory user2Wallet = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST2"));
+        VmSafe.Wallet memory liquidityProviderWallet = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST3"));
 
-        vm.rememberKey(deployer.privateKey);
-        vm.rememberKey(user1.privateKey);
-        vm.rememberKey(user2.privateKey);
-        vm.rememberKey(liquidityProvider.privateKey);
+        vm.rememberKey(deployerWallet.privateKey);
+        vm.rememberKey(user1Wallet.privateKey);
+        vm.rememberKey(user2Wallet.privateKey);
+        vm.rememberKey(liquidityProviderWallet.privateKey);
+        console.log("\n # Dev Deployer Address: %x", deployerWallet.addr);
+        console.log("\n # Dev Deployer Key:     %x", deployerWallet.privateKey);
+        console.log("\n # Test Users\n");
+        console.log(" - User 1 Address: %s", user1Wallet.addr);
+        console.log(" - User 1 Privkey: %x", user1Wallet.privateKey);
+        console.log(" - User 2 Address: %s", user2Wallet.addr);
+        console.log(" - User 2 Privkey: %x", user2Wallet.privateKey);
+        console.log(" - Liquidity provider Address: %s", liquidityProviderWallet.addr);
+        console.log(" - Liquidity provider Privkey: %x", liquidityProviderWallet.privateKey);
+        return (deployerWallet.addr, user1Wallet.addr, user2Wallet.addr, liquidityProviderWallet.addr);
+    }
 
-        vm.startBroadcast(deployer.addr);
-
+    function _deployandSetupEngine() internal {
         router = swapRouterAddress;
         engine = address(new CollarEngine(router));
 
@@ -75,7 +98,13 @@ contract DeployInitializedDevnetProtocol is Script {
         CollarEngine(engine).addSupportedCollateralAsset(MATIC);
         CollarEngine(engine).addSupportedCollateralAsset(stETH);
         CollarEngine(engine).addSupportedCollateralAsset(eETH);
+        console.log("\n --- Dev Environment Deployed ---");
+        console.log("\n # Contract Addresses\n");
+        console.log(" - Router:  - - - - - - ", router);
+        console.log(" - Engine - - - - - - - ", engine);
+    }
 
+    function _createPools() internal returns (address[numOfPools] memory pools) {
         // create main WETH pools
         address fiveMin90ltvPool = address(new CollarPool(engine, 1, USDC, WETH, 5 minutes, 9000));
         address fiveMin90LTVTetherPool = address(new CollarPool(engine, 1, USDT, WETH, 5 minutes, 9000));
@@ -104,28 +133,6 @@ contract DeployInitializedDevnetProtocol is Script {
         CollarEngine(engine).addLiquidityPool(fiveMin90LTVMATICPool);
         CollarEngine(engine).addLiquidityPool(fiveMin90LTVstETHPool);
         CollarEngine(engine).addLiquidityPool(fiveMin90LTVeETHPool);
-
-        vm.stopBroadcast();
-        vm.startBroadcast(user1.addr);
-
-        address user1VaultManager = address(CollarEngine(engine).createVaultManager());
-
-        vm.stopBroadcast();
-
-        vm.startBroadcast(user2.addr);
-
-        address user2VaultManager = address(CollarEngine(engine).createVaultManager());
-
-        vm.stopBroadcast();
-
-        require(CollarEngine(engine).addressToVaultManager(user1.addr) == user1VaultManager);
-        require(CollarEngine(engine).addressToVaultManager(user2.addr) == user2VaultManager);
-        console.log("\n --- Dev Environment Deployed ---");
-        console.log("\n # Dev Deployer Address: %x", deployer.addr);
-        console.log("\n # Dev Deployer Key:     %x", deployer.privateKey);
-        console.log("\n # Contract Addresses\n");
-        console.log(" - Router:  - - - - - - ", router);
-        console.log(" - Engine - - - - - - - ", engine);
         console.log(" - Collar 5 minutes 90LTV WETH/USDC Pool - - - - - - - ", fiveMin90ltvPool);
         console.log(" - Collar 5 minutes 90LTV USDT/WETH Pool - - - - - - - ", fiveMin90LTVTetherPool);
         console.log(" - Collar 5 minutes 50LTV WETH/USDC Pool - - - - - - - ", fiveMin50LTVPool);
@@ -137,105 +144,100 @@ contract DeployInitializedDevnetProtocol is Script {
         console.log(" - Collar 5 minutes 90LTV MATIC/USDC Pool - - - - - - - ", fiveMin90LTVMATICPool);
         console.log(" - Collar 5 minutes 90LTV stETH/USDC Pool - - - - - - - ", fiveMin90LTVstETHPool);
         console.log(" - Collar 5 minutes 90LTV eETH/USDC Pool - - - - - - - ", fiveMin90LTVeETHPool);
-        console.log("\n # Test Users\n");
-        console.log(" - User 1 Address: %s", user1.addr);
-        console.log(" - User 1 Privkey: %x", user1.privateKey);
-        console.log(" - User 2 Address: %s", user2.addr);
-        console.log(" - User 2 Privkey: %x", user2.privateKey);
-        console.log(" - Liquidity provider Address: %s", liquidityProvider.addr);
-        console.log(" - Liquidity provider Privkey: %x", liquidityProvider.privateKey);
+        pools = [
+            fiveMin90ltvPool,
+            fiveMin90LTVTetherPool,
+            fiveMin50LTVPool,
+            oneMonth90LTVPool,
+            oneMonth50LTVPool,
+            oneYear90LTVPool,
+            oneYear50LTVPool,
+            fiveMin90LTVWBTCPool,
+            fiveMin90LTVMATICPool,
+            fiveMin90LTVstETHPool,
+            fiveMin90LTVeETHPool
+        ];
+        require(
+            pools.length == numOfPools,
+            "config error: number of pools created does not match the number of pools expected"
+        );
+    }
+
+    function _verifyVaultManagerCreation(address user1, address user2) internal {
+        vm.startBroadcast(user1);
+
+        address user1VaultManager = address(CollarEngine(engine).createVaultManager());
+
+        vm.stopBroadcast();
+
+        vm.startBroadcast(user2);
+
+        address user2VaultManager = address(CollarEngine(engine).createVaultManager());
+
+        vm.stopBroadcast();
+
+        require(CollarEngine(engine).addressToVaultManager(user1) == user1VaultManager);
+        require(CollarEngine(engine).addressToVaultManager(user2) == user2VaultManager);
         console.log("\n # Vault Managers\n");
         console.log(" - User 1 Vault Manager: ", user1VaultManager);
         console.log(" - User 2 Vault Manager: ", user2VaultManager);
-        console.log("\n");
+    }
 
-        console.log("Verifying deployment : ");
-
+    function _verifyPoolCreation(uint expectedLength, address firstPool, address lastPool) internal view {
         // supportedLiquidityPoolsLength
         uint shouldBePoolLength = CollarEngine(engine).supportedLiquidityPoolsLength();
         console.log(" shouldBePoolLength", shouldBePoolLength);
-        require(shouldBePoolLength == 11);
+        require(shouldBePoolLength == expectedLength);
 
         // getSupportedLiquidityPool
-        address shouldBeOneDay = CollarEngine(engine).getSupportedLiquidityPool(0);
-        console.log(" shouldBeOneDay", shouldBeOneDay);
-        require(shouldBeOneDay == fiveMin90ltvPool);
+        address shouldBeFirstPoolCreated = CollarEngine(engine).getSupportedLiquidityPool(0);
+        console.log(" shouldBeFirstPoolCreated", shouldBeFirstPoolCreated);
+        require(shouldBeFirstPoolCreated == firstPool);
 
+        address shouldBeLastPoolCreated =
+            CollarEngine(engine).getSupportedLiquidityPool(shouldBePoolLength - 1);
+        console.log(" shouldBeLastPoolCreated", shouldBeLastPoolCreated);
+        require(shouldBeLastPoolCreated == lastPool);
+    }
+
+    function _addLiquidityToPools(address[numOfPools] memory pools, uint amountToAdd) internal {
         // setup pool liquidity // assume provider has enough funds
 
         // add liquidity to each pool
+        for (uint i = 0; i < pools.length; i++) {
+            address cashAssetToUse = CollarPool(pools[i]).cashAsset();
+            IERC20(cashAssetToUse).forceApprove(pools[i], amountToAdd * 5);
+            CollarPool(pools[i]).addLiquidityToSlot(11_100, amountToAdd);
+            CollarPool(pools[i]).addLiquidityToSlot(11_200, amountToAdd);
+            CollarPool(pools[i]).addLiquidityToSlot(11_500, amountToAdd);
+            CollarPool(pools[i]).addLiquidityToSlot(12_000, amountToAdd);
+        }
+    }
+
+    function run() external {
+        require(chainId == block.chainid, "chainId does not match the chainId in config");
+        (address deployer, address user1, address user2, address liquidityProvider) = setup();
+        vm.startBroadcast(deployer);
+        _deployandSetupEngine();
+        // create main WETH pools
+        address[numOfPools] memory createdPools = _createPools();
+        vm.stopBroadcast();
+
+        console.log("\n");
+        console.log("Verifying deployment : ");
+        _verifyVaultManagerCreation(user1, user2);
+        _verifyPoolCreation(numOfPools, createdPools[0], createdPools[numOfPools - 1]);
+
         /**
          * @dev in order for this part to work provider address needs to be funded with casdh assets through tenderly previously
          */
-        uint256 amountToAdd = 100_000e6;
-        vm.startBroadcast(liquidityProvider.addr);
-
-        IERC20(USDC).forceApprove(fiveMin90ltvPool, 1_000_000e6);
-        CollarPool(fiveMin90ltvPool).addLiquidityToSlot(11_100, amountToAdd);
-        CollarPool(fiveMin90ltvPool).addLiquidityToSlot(11_200, amountToAdd);
-        CollarPool(fiveMin90ltvPool).addLiquidityToSlot(11_500, amountToAdd);
-        CollarPool(fiveMin90ltvPool).addLiquidityToSlot(12_000, amountToAdd);
-
-        IERC20(USDT).forceApprove(fiveMin90LTVTetherPool, 1_000_000e6);
-        CollarPool(fiveMin90LTVTetherPool).addLiquidityToSlot(11_100, amountToAdd);
-        CollarPool(fiveMin90LTVTetherPool).addLiquidityToSlot(11_200, amountToAdd);
-        CollarPool(fiveMin90LTVTetherPool).addLiquidityToSlot(11_500, amountToAdd);
-        CollarPool(fiveMin90LTVTetherPool).addLiquidityToSlot(12_000, amountToAdd);
-
-        IERC20(USDC).forceApprove(fiveMin50LTVPool, 1_000_000e6);
-        CollarPool(fiveMin50LTVPool).addLiquidityToSlot(11_100, amountToAdd);
-        CollarPool(fiveMin50LTVPool).addLiquidityToSlot(11_200, amountToAdd);
-        CollarPool(fiveMin50LTVPool).addLiquidityToSlot(11_500, amountToAdd);
-        CollarPool(fiveMin50LTVPool).addLiquidityToSlot(12_000, amountToAdd);
-
-        IERC20(USDC).forceApprove(oneMonth90LTVPool, 1_000_000e6);
-        CollarPool(oneMonth90LTVPool).addLiquidityToSlot(11_100, amountToAdd);
-        CollarPool(oneMonth90LTVPool).addLiquidityToSlot(11_200, amountToAdd);
-        CollarPool(oneMonth90LTVPool).addLiquidityToSlot(11_500, amountToAdd);
-        CollarPool(oneMonth90LTVPool).addLiquidityToSlot(12_000, amountToAdd);
-
-        IERC20(USDC).forceApprove(oneMonth50LTVPool, 1_000_000e6);
-        CollarPool(oneMonth50LTVPool).addLiquidityToSlot(11_100, amountToAdd);
-        CollarPool(oneMonth50LTVPool).addLiquidityToSlot(11_200, amountToAdd);
-        CollarPool(oneMonth50LTVPool).addLiquidityToSlot(11_500, amountToAdd);
-        CollarPool(oneMonth50LTVPool).addLiquidityToSlot(12_000, amountToAdd);
-
-        IERC20(USDC).forceApprove(oneYear90LTVPool, 1_000_000e6);
-        CollarPool(oneYear90LTVPool).addLiquidityToSlot(11_100, amountToAdd);
-        CollarPool(oneYear90LTVPool).addLiquidityToSlot(11_200, amountToAdd);
-        CollarPool(oneYear90LTVPool).addLiquidityToSlot(11_500, amountToAdd);
-        CollarPool(oneYear90LTVPool).addLiquidityToSlot(12_000, amountToAdd);
-
-        IERC20(USDC).forceApprove(oneYear50LTVPool, 1_000_000e6);
-        CollarPool(oneYear50LTVPool).addLiquidityToSlot(11_100, amountToAdd);
-        CollarPool(oneYear50LTVPool).addLiquidityToSlot(11_200, amountToAdd);
-        CollarPool(oneYear50LTVPool).addLiquidityToSlot(11_500, amountToAdd);
-        CollarPool(oneYear50LTVPool).addLiquidityToSlot(12_000, amountToAdd);
-
-        IERC20(USDC).forceApprove(fiveMin90LTVWBTCPool, 1_000_000e6);
-        CollarPool(fiveMin90LTVWBTCPool).addLiquidityToSlot(11_100, amountToAdd);
-        CollarPool(fiveMin90LTVWBTCPool).addLiquidityToSlot(11_200, amountToAdd);
-        CollarPool(fiveMin90LTVWBTCPool).addLiquidityToSlot(11_500, amountToAdd);
-        CollarPool(fiveMin90LTVWBTCPool).addLiquidityToSlot(12_000, amountToAdd);
-
-        IERC20(USDC).forceApprove(fiveMin90LTVMATICPool, 1_000_000e6);
-        CollarPool(fiveMin90LTVMATICPool).addLiquidityToSlot(11_100, amountToAdd);
-        CollarPool(fiveMin90LTVMATICPool).addLiquidityToSlot(11_200, amountToAdd);
-        CollarPool(fiveMin90LTVMATICPool).addLiquidityToSlot(11_500, amountToAdd);
-        CollarPool(fiveMin90LTVMATICPool).addLiquidityToSlot(12_000, amountToAdd);
-
-        IERC20(USDC).forceApprove(fiveMin90LTVstETHPool, 1_000_000e6);
-        CollarPool(fiveMin90LTVstETHPool).addLiquidityToSlot(11_100, amountToAdd);
-        CollarPool(fiveMin90LTVstETHPool).addLiquidityToSlot(11_200, amountToAdd);
-        CollarPool(fiveMin90LTVstETHPool).addLiquidityToSlot(11_500, amountToAdd);
-        CollarPool(fiveMin90LTVstETHPool).addLiquidityToSlot(12_000, amountToAdd);
-
-        IERC20(USDC).forceApprove(fiveMin90LTVeETHPool, 1_000_000e6);
-        CollarPool(fiveMin90LTVeETHPool).addLiquidityToSlot(11_100, amountToAdd);
-        CollarPool(fiveMin90LTVeETHPool).addLiquidityToSlot(11_200, amountToAdd);
-        CollarPool(fiveMin90LTVeETHPool).addLiquidityToSlot(11_500, amountToAdd);
-        CollarPool(fiveMin90LTVeETHPool).addLiquidityToSlot(12_000, amountToAdd);
-
+        require(liquidityProvider != address(0), "liquidity provider address not set");
+        require(liquidityProvider.balance > 1000, "liquidity provider address not funded");
+        uint amountToAdd = 100_000e6;
+        uint lpBalance = IERC20(CollarPool(createdPools[0]).cashAsset()).balanceOf(liquidityProvider);
+        require(lpBalance >= amountToAdd * 4, "liquidity provider does not have enough funds");
+        vm.startBroadcast(liquidityProvider);
+        _addLiquidityToPools(createdPools, amountToAdd);
         vm.stopBroadcast();
     }
 }
