@@ -216,23 +216,15 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
 
     function openPosition(bytes32 uuid, uint slotIndex, uint amount, uint expiration) external override {
         // ensure this is a valid vault calling us - it must call through the engine
-        if (!CollarEngine(engine).isVaultManager(msg.sender)) {
-            revert NotCollarVaultManager();
-        }
+        require(CollarEngine(engine).isVaultManager(msg.sender), "caller not vault");
 
         // grab the slot
         Slot storage slot = slots[slotIndex];
         uint numProviders = slot.providers.length();
 
-        // if no providers, revert
-        if (numProviders == 0) {
-            revert InvalidAmount();
-        }
+        require(numProviders != 0, "no providers");
 
-        // if not enough liquidity, revert
-        if (slot.liquidity < amount) {
-            revert InvalidAmount();
-        }
+        require(amount <= slot.liquidity, "insufficient liquidity");
 
         for (uint i = 0; i < numProviders; i++) {
             // calculate how much to pull from provider based off of their proportional ownership of liquidity
@@ -283,9 +275,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
 
     function finalizePosition(bytes32 uuid, address vaultManager, int positionNet) external override {
         // verify caller via engine
-        if (!CollarEngine(engine).isVaultManager(msg.sender)) {
-            revert NotCollarVaultManager();
-        }
+        require(CollarEngine(engine).isVaultManager(msg.sender), "caller not vault");
 
         // either case, we need to set the withdrawable amount to principle + positionNet
         positions[uuid].withdrawable = uint(int(positions[uuid].principal) + positionNet);
@@ -393,7 +383,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
             address smallestProvider = _getSmallestProvider(slotIndex);
             uint smallestAmount = slot.providers.get(smallestProvider);
 
-            if (smallestAmount > amount) revert NoLiquiditySpace();
+            require(amount > smallestAmount, "no smaller slot available");
 
             _reAllocate(smallestProvider, slotIndex, UNALLOCATED_SLOT, smallestAmount);
             _allocate(slotIndex, msg.sender, amount);

@@ -7,10 +7,9 @@
 
 pragma solidity ^0.8.18;
 
-import { ICollarVaultManagerErrors } from "./errors/ICollarVaultManagerErrors.sol";
 import { ICollarVaultState } from "./ICollarVaultState.sol";
 
-interface ICollarVaultManager is ICollarVaultState, ICollarVaultManagerErrors {
+interface ICollarVaultManager is ICollarVaultState {
     // ----- EVENTS ----- //
 
     // regular user actions
