@@ -261,7 +261,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
     }
 
     function testFail_getVaultManager() public view {
-        address vaultManager = engine.getVaultManager(1);
+        engine.getVaultManager(1);
     }
 
     function test_supportedCashAssetsLength() public {
