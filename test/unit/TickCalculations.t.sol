@@ -11,9 +11,9 @@ import "forge-std/Test.sol";
 import { TickCalculations } from "../../src/libs/TickCalculations.sol";
 
 contract TickCalculationsTest is Test {
-    function setUp() public { }
+    function setUp() public pure { }
 
-    function test_bpsToTick() public {
+    function test_bpsToTick() public pure {
         // tickScaleFactor = 1 (100%, 50%, 1%, 0.1%)
         assertEq(TickCalculations.bpsToTick(10_000, 1), 10_000);
         assertEq(TickCalculations.bpsToTick(5000, 1), 5000);
@@ -31,7 +31,7 @@ contract TickCalculationsTest is Test {
         assertEq(TickCalculations.bpsToTick(100, 100), 1);
     }
 
-    function test_tickToBps() public {
+    function test_tickToBps() public pure {
         // tickScaleFactor = 1 (100%, 50%, 1%, 0.1%)
         assertEq(TickCalculations.tickToBps(10_000, 1), 10_000);
         assertEq(TickCalculations.tickToBps(5000, 1), 5000);
@@ -49,7 +49,7 @@ contract TickCalculationsTest is Test {
         assertEq(TickCalculations.tickToBps(1, 100), 100);
     }
 
-    function test_tickToPrice() public {
+    function test_tickToPrice() public pure {
         // tickScaleFactor = 1
         assertEq(TickCalculations.tickToPrice(10_000, 1, 1e18), 1e18);
         assertEq(TickCalculations.tickToPrice(5000, 1, 1e18), 0.5e18);
@@ -63,7 +63,7 @@ contract TickCalculationsTest is Test {
         assertEq(TickCalculations.tickToPrice(10, 100, 1e18), 0.1e18);
     }
 
-    function test_priceToTick() public {
+    function test_priceToTick() public pure {
         // tickScaleFactor = 1a
         assertEq(TickCalculations.priceToTick(1e18, 1, 1e18), 10_000);
         assertEq(TickCalculations.priceToTick(2e18, 1, 1e18), 20_000);

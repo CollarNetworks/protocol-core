@@ -30,24 +30,24 @@ interface ICollarVaultManager is ICollarVaultState {
 
     /// @notice Whether or not the vault is expired
     /// @param uuid UUID of the vault to check
-    function isVaultExpired(bytes32 uuid) external view virtual returns (bool);
+    function isVaultExpired(bytes32 uuid) external view returns (bool);
 
     /// @notice Get the entire vault state as bytes
     /// @param uuid UUID of the vault to get state for
-    function vaultInfo(bytes32 uuid) external view virtual returns (bytes calldata data);
+    function vaultInfo(bytes32 uuid) external view returns (bytes calldata data);
 
     /// @notice Get the n-th vault state
     /// @param vaultNonce Nonce of the vault to get state for
-    function vaultInfoByNonce(uint vaultNonce) external view virtual returns (bytes calldata data);
+    function vaultInfoByNonce(uint vaultNonce) external view returns (bytes calldata data);
 
     /// @notice Get the UUID of a vault by its nonce
     /// @param vaultNonce Nonce of the vault to get the UUID for
-    function getVaultUUID(uint vaultNonce) external view virtual returns (bytes32 uuid);
+    function getVaultUUID(uint vaultNonce) external view returns (bytes32 uuid);
 
     /// @notice Preview the cash amount redeemable for a given amount of tokens for a particular vault
     /// @param uuid UUID of the vault to redeem from
     /// @param amount Amount of tokens to redeem
-    function previewRedeem(bytes32 uuid, uint amount) external virtual returns (uint);
+    function previewRedeem(bytes32 uuid, uint amount) external returns (uint);
 
     // ----- STATE CHANGING FUNCTIONS ----- //
 
@@ -64,22 +64,19 @@ interface ICollarVaultManager is ICollarVaultState {
         // pool address, callstrike & amount to lock there, putstrike
         LiquidityOpts calldata liquidityOpts,
         bool withdrawLoan
-    )
-        external
-        virtual
-        returns (bytes32 uuid);
+    ) external returns (bytes32 uuid);
 
     /// @notice Closes a vault - expiry must have passed
     /// @param uuid UUID of the vault to close
-    function closeVault(bytes32 uuid) external virtual;
+    function closeVault(bytes32 uuid) external;
 
     /// @notice Redeems a token for a particular vault - vault must be finalized
     /// @param uuid UUID of the vault to redeem from
     /// @param amount Amount of tokens to redeem
-    function redeem(bytes32 uuid, uint amount) external virtual;
+    function redeem(bytes32 uuid, uint amount) external;
 
     /// @notice Withdraws cash from a vault loan
     /// @param uuid UUID of the vault to withdraw from
     /// @param amount Amount of cash to withdraw
-    function withdraw(bytes32 uuid, uint amount) external virtual;
+    function withdraw(bytes32 uuid, uint amount) external;
 }
