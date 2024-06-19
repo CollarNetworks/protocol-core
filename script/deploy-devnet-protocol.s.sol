@@ -165,9 +165,10 @@ contract DeployInitializedDevnetProtocol is Script {
 
         // add liquidity to each pool
         /**
-         * @dev in order for this part to work provider address needs to be funded with casdh assets through tenderly previously
+         * @dev in order for this part to work provider address needs to be funded with casdh assets through
+         * tenderly previously
          */
-        uint256 amountToAdd = 100_000e6;
+        uint amountToAdd = 100_000e6;
         vm.startBroadcast(liquidityProvider.addr);
 
         IERC20(USDC).forceApprove(fiveMin90ltvPool, 1_000_000e6);

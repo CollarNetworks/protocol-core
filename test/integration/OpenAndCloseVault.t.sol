@@ -8,7 +8,6 @@
 pragma solidity ^0.8.18;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
@@ -62,8 +61,6 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
 
     IERC20 WMatic = IERC20(WMaticAddress);
     IERC20 USDC = IERC20(USDCAddress);
-
-    ISwapRouter swapRouter = ISwapRouter(swapRouterAddress);
 
     CollarEngine engine;
     CollarVaultManager vaultManager;
