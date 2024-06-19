@@ -18,8 +18,6 @@ import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 import { ICollarVaultManager } from "../../src/interfaces/ICollarVaultManager.sol";
 import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
-import { ICollarVaultManagerErrors } from "../../src/interfaces/errors/ICollarVaultManagerErrors.sol";
-import { ICollarCommonErrors } from "../../src/interfaces/errors/ICollarCommonErrors.sol";
 
 contract CollarVaultManagerTest is Test {
     TestERC20 cashAsset;
@@ -146,7 +144,7 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_vaultInfoByNonce_InvalidVault() public {
-        vm.expectRevert(ICollarCommonErrors.InvalidVault.selector);
+        vm.expectRevert("invalid vault");
         manager.vaultInfoByNonce(0);
     }
 
@@ -276,16 +274,16 @@ contract CollarVaultManagerTest is Test {
 
         startHoax(user1);
 
-        vm.expectRevert(ICollarCommonErrors.InvalidCollateralAsset.selector);
+        vm.expectRevert("invalid collateral asset");
         manager.openVault(invalidCollatAddr, collarOpts, liquidityOpts, false);
 
-        vm.expectRevert(ICollarCommonErrors.InvalidCollateralAmount.selector);
+        vm.expectRevert("invalid amount");
         manager.openVault(invalidCollatAmount, collarOpts, liquidityOpts, false);
 
-        vm.expectRevert(ICollarCommonErrors.InvalidCashAsset.selector);
+        vm.expectRevert("invalid cash asset");
         manager.openVault(invalidCashAddr, collarOpts, liquidityOpts, false);
 
-        vm.expectRevert(ICollarCommonErrors.InvalidCashAmount.selector);
+        vm.expectRevert("invalid amount");
         manager.openVault(invalidCashAmount, collarOpts, liquidityOpts, false);
     }
 
@@ -316,7 +314,7 @@ contract CollarVaultManagerTest is Test {
 
         startHoax(user1);
 
-        vm.expectRevert(ICollarCommonErrors.InvalidDuration.selector);
+        vm.expectRevert("invalid duration");
         manager.openVault(assets, invalidlength, liquidityOpts, false);
     }
 
@@ -347,7 +345,7 @@ contract CollarVaultManagerTest is Test {
 
         startHoax(user1);
 
-        vm.expectRevert(ICollarCommonErrors.InvalidLTV.selector);
+        vm.expectRevert("invalid LTV");
         manager.openVault(assets, invalidlength, liquidityOpts, false);
     }
 
@@ -390,13 +388,13 @@ contract CollarVaultManagerTest is Test {
 
         startHoax(user1);
 
-        vm.expectRevert(ICollarCommonErrors.InvalidLiquidityPool.selector);
+        vm.expectRevert("invalid pool");
         manager.openVault(assets, collarOpts, invalidPool, false);
 
-        vm.expectRevert(ICollarVaultManagerErrors.InvalidPutStrike.selector);
+        vm.expectRevert("invalid put price");
         manager.openVault(assets, collarOpts, invalidPutStrike, false);
 
-        vm.expectRevert(ICollarVaultManagerErrors.InvalidCallStrike.selector);
+        vm.expectRevert("invalid call tick");
         manager.openVault(assets, collarOpts, invalidCallStrike, false);
     }
 
@@ -454,7 +452,7 @@ contract CollarVaultManagerTest is Test {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user2);
-        vm.expectRevert(ICollarCommonErrors.NotCollarVaultOwner.selector);
+        vm.expectRevert("not vault user");
         manager.openVault(assets, collarOpts, liquidityOpts, false);
     }
 
@@ -479,7 +477,7 @@ contract CollarVaultManagerTest is Test {
         engine.setCurrentAssetPrice(address(collateralAsset), 1e18);
 
         hoax(user1);
-        vm.expectRevert(ICollarVaultManagerErrors.TradeNotViable.selector);
+        vm.expectRevert("slippage exceeded");
         badManager.openVault(assets, collarOpts, liquidityOpts, false);
     }
 
@@ -551,7 +549,7 @@ contract CollarVaultManagerTest is Test {
         bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
         skip(100);
         engine.setHistoricalAssetPrice(address(collateralAsset), 101, 0);
-        vm.expectRevert(ICollarCommonErrors.InvalidAssetPrice.selector);
+        vm.expectRevert("invalid price");
         hoax(user1);
         manager.closeVault(uuid);
     }
@@ -619,25 +617,25 @@ contract CollarVaultManagerTest is Test {
 
         manager.closeVault(uuid);
 
-        vm.expectRevert(ICollarCommonErrors.VaultNotActive.selector);
+        vm.expectRevert("not active");
         manager.closeVault(uuid);
     }
 
     function test_closeVault_InvalidVault() public {
-        vm.expectRevert(ICollarCommonErrors.InvalidVault.selector);
+        vm.expectRevert("invalid vault");
         manager.closeVault(bytes32(0));
     }
 
     function test_closeVault_NotExpired() public {
         bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
-        vm.expectRevert(ICollarCommonErrors.VaultNotFinalizable.selector);
+        vm.expectRevert("not finalizable");
         manager.closeVault(uuid);
 
         // advance some blocks, but not all of them!
         skip(25);
 
-        vm.expectRevert(ICollarCommonErrors.VaultNotFinalizable.selector);
+        vm.expectRevert("not finalizable");
         manager.closeVault(uuid);
     }
 
@@ -684,7 +682,7 @@ contract CollarVaultManagerTest is Test {
 
     function test_redeem_InvalidVault() public {
         startHoax(user1);
-        vm.expectRevert(ICollarCommonErrors.InvalidVault.selector);
+        vm.expectRevert("invalid vault");
         manager.redeem(bytes32(0), 100);
     }
 
@@ -704,14 +702,14 @@ contract CollarVaultManagerTest is Test {
         startHoax(user1);
         manager.closeVault(uuid);
 
-        vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
+        vm.expectRevert("invalid amount");
         manager.redeem(uuid, 100_000 ether);
     }
 
     function test_redeem_NotFinalized() public {
         bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
-        vm.expectRevert(ICollarCommonErrors.VaultNotFinalized.selector);
+        vm.expectRevert("vault not finalized");
         manager.redeem(uuid, 100);
     }
 
@@ -745,12 +743,12 @@ contract CollarVaultManagerTest is Test {
     }
 
     function test_previewRedeem_InvalidVault() public {
-        vm.expectRevert(ICollarCommonErrors.InvalidVault.selector);
+        vm.expectRevert("invalid vault");
         manager.previewRedeem(bytes32(0), 100);
     }
 
     function test_previewRedeem_InvalidAmount() public {
-        vm.expectRevert(ICollarCommonErrors.AmountCannotBeZero.selector);
+        vm.expectRevert("invalid amount");
         manager.previewRedeem(bytes32(0), 0);
     }
 
@@ -766,7 +764,7 @@ contract CollarVaultManagerTest is Test {
     function test_previewRedeem_VaultNotFinalized() public {
         // Assuming there is a function to create a vault for testing purposes
         bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false); // Create a vault with some test data
-        vm.expectRevert(ICollarCommonErrors.VaultNotFinalized.selector);
+        vm.expectRevert("vault not finalized");
         manager.previewRedeem(uuid, 1);
     }
 
@@ -781,26 +779,26 @@ contract CollarVaultManagerTest is Test {
     function test_withdraw_OnlyUser() public {
         bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
-        vm.expectRevert(ICollarCommonErrors.NotCollarVaultOwner.selector);
+        vm.expectRevert("not vault user");
         manager.withdraw(uuid, 90);
     }
 
     function test_withdraw_TooMuch() public {
         bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
-        vm.expectRevert(ICollarCommonErrors.InvalidAmount.selector);
+        vm.expectRevert("invalid amount");
         hoax(user1);
         manager.withdraw(uuid, 91);
     }
 
     function test_withdraw_InvalidVault() public {
         hoax(user1);
-        vm.expectRevert(ICollarCommonErrors.InvalidVault.selector);
+        vm.expectRevert("invalid vault");
         manager.withdraw(bytes32(0), 100);
     }
 
     function test_vaultInfo_InvalidVault() public {
-        vm.expectRevert(ICollarCommonErrors.InvalidVault.selector);
+        vm.expectRevert("invalid vault");
         manager.vaultInfo(bytes32(0));
     }
 

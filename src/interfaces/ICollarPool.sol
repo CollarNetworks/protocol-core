@@ -7,20 +7,16 @@
 
 pragma solidity ^0.8.18;
 
-import { ICollarPoolErrors } from "./errors/ICollarPoolErrors.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 import { EnumerableMap } from "@openzeppelin/contracts/utils/structs/EnumerableMap.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-interface ICollarPool is ICollarPoolErrors {
+interface ICollarPool {
     // ----- EVENTS ----- //
 
     // regular user actions
     event LiquidityAdded(address indexed provider, uint indexed slotIndex, uint liquidity);
     event LiquidityWithdrawn(address indexed provider, uint indexed slotIndex, uint liquidity);
-    event LiquidityMoved(
-        address indexed provider, uint indexed fromSlotIndex, uint indexed toSlotIndex, uint liquidity
-    );
     event PositionOpened(address indexed provider, bytes32 indexed uuid, uint expiration, uint principal);
     event PositionFinalized(address indexed vaultManager, bytes32 indexed uuid, int positionNet);
     event Redemption(

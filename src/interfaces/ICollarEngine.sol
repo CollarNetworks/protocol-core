@@ -7,9 +7,7 @@
 
 pragma solidity ^0.8.18;
 
-import { ICollarEngineErrors } from "./errors/ICollarEngineErrors.sol";
-
-interface ICollarEngine is ICollarEngineErrors {
+interface ICollarEngine {
     // EVENTS
 
     // regular user actions
