@@ -24,22 +24,22 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
 
     address user1 = makeAddr("user1"); // the person who will be opening a vault
     address provider = makeAddr("user2"); // the person who will be providing liquidity
-    address swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
-    address collateralAssetAddress = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
-    address cashAssetAddress = address(0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359);
-    address uniV3Pool = address(0x2DB87C4831B2fec2E35591221455834193b50D1B);
-    address whale = address(0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245);
-    uint BLOCK_NUMBER_TO_USE = 55_850_000;
-    uint COLLATERAL_PRICE_ON_BLOCK = 739_504; // $0.739504 the price for WMatic in USDC on the specified
-        // block
-        // of polygon mainnet
+    address swapRouterAddress;
+    address collateralAssetAddress;
+    address cashAssetAddress;
+    address uniV3Pool;
+    address whale;
+    uint BLOCK_NUMBER_TO_USE;
+    uint COLLATERAL_PRICE_ON_BLOCK;
+    // block
+    // of polygon mainnet
     uint24 CALL_STRIKE_TICK = 120;
-    uint poolDuration = 1 days;
-    uint poolLTV = 9000;
+    uint poolDuration;
+    uint poolLTV;
     uint tickScaleFactor = 100;
-    IERC20 collateralAsset = IERC20(collateralAssetAddress);
-    IERC20 cashAsset = IERC20(cashAssetAddress);
-    ISwapRouter swapRouter = ISwapRouter(swapRouterAddress);
+    IERC20 collateralAsset;
+    IERC20 cashAsset;
+    ISwapRouter swapRouter;
 
     CollarEngine engine;
     CollarVaultManager vaultManager;
