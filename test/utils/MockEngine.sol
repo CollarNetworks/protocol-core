@@ -31,10 +31,7 @@ contract MockEngine is CollarEngine {
         currentAssetPrices[asset] = price;
     }
 
-    function getCurrentAssetPrice(
-        address baseToken,
-        address quoteToken
-    )
+    function getCurrentAssetPrice(address baseToken, address quoteToken)
         external
         view
         virtual
@@ -49,13 +46,7 @@ contract MockEngine is CollarEngine {
         address quoteToken,
         uint32 timeStampStart,
         uint32 twapLength
-    )
-        external
-        view
-        virtual
-        override
-        returns (uint)
-    {
+    ) external view virtual override returns (uint) {
         return historicalAssetPrices[baseToken][timeStampStart];
     }
 

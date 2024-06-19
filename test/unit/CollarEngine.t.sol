@@ -13,10 +13,9 @@ import { MockUniRouter } from "../utils/MockUniRouter.sol";
 import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
 import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { ICollarEngineErrors } from "../../src/interfaces/ICollarEngine.sol";
 import { CollarPool } from "../../src/implementations/CollarPool.sol";
 
-contract CollarEngineTest is Test, ICollarEngineErrors {
+contract CollarEngineTest is Test {
     TestERC20 token1;
     TestERC20 token2;
     MockUniRouter router;
@@ -113,7 +112,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
 
     function test_addSupportedCashAsset_Duplicate() public {
         engine.addSupportedCashAsset(address(token1));
-        vm.expectRevert(abi.encodeWithSelector(CashAssetAlreadySupported.selector, address(token1)));
+        vm.expectRevert("already added");
         engine.addSupportedCashAsset(address(token1));
     }
 
@@ -131,10 +130,10 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
     }
 
     function test_removeSupportedCashAsset_NonExistent() public {
-        vm.expectRevert(abi.encodeWithSelector(CashAssetNotSupported.selector, address(token1)));
+        vm.expectRevert("not found");
         engine.removeSupportedCashAsset(address(token1));
 
-        vm.expectRevert(abi.encodeWithSelector(CollateralAssetNotSupported.selector, address(token2)));
+        vm.expectRevert("not found");
         engine.removeSupportedCollateralAsset(address(token2));
     }
 
@@ -153,7 +152,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
 
     function test_addSupportedCollateralAsset_Duplicate() public {
         engine.addSupportedCollateralAsset(address(token1));
-        vm.expectRevert(abi.encodeWithSelector(CollateralAssetAlreadySupported.selector, address(token1)));
+        vm.expectRevert("already added");
         engine.addSupportedCollateralAsset(address(token1));
     }
 
@@ -197,8 +196,13 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
     }
 
     function test_getCurrentAssetPrice_InvalidAsset() public {
-        vm.expectRevert();
+        vm.expectRevert("not supported");
         engine.getCurrentAssetPrice(address(token1), address(token2));
+    }
+
+    function test_getHistoricalAssetPriceViaTWAP_InvalidAsset() public {
+        vm.expectRevert("not supported");
+        engine.getHistoricalAssetPriceViaTWAP(address(token1), address(token2), 0, 0);
     }
 
     function test_createVaultManager() public {
@@ -227,9 +231,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
 
         address vaultManager = engine.createVaultManager();
 
-        vm.expectRevert(
-            abi.encodeWithSelector(VaultManagerAlreadyExists.selector, user1, address(vaultManager))
-        );
+        vm.expectRevert("manager exists for sender");
         engine.createVaultManager();
 
         vm.stopPrank();
@@ -261,7 +263,7 @@ contract CollarEngineTest is Test, ICollarEngineErrors {
     }
 
     function testFail_getVaultManager() public view {
-        address vaultManager = engine.getVaultManager(1);
+        engine.getVaultManager(1);
     }
 
     function test_supportedCashAssetsLength() public {
