@@ -336,10 +336,6 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         return withdrawable * amount / supply;
     }
 
-    function _redeemAmount(uint withdrawable, uint amount, uint supply) internal view returns (uint) {
-        return withdrawable * amount / supply;
-    }
-
     function _isSlotInitialized(uint slotID) internal view returns (bool) {
         return initializedSlotIndices.contains(slotID);
     }
