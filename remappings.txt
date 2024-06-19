@@ -1,1 +1,4 @@
-@forge-std/=lib/forge-std/src/
+@forge-std/=lib/forge-std
+
+
+@erc6909/=lib/ERC6909-jtriley/
