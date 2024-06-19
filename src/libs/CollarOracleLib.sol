@@ -10,6 +10,7 @@ pragma solidity ^0.8.18;
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { PoolAddress } from "@uniswap/v3-periphery/contracts/libraries/PoolAddress.sol";
 import { OracleLibrary } from "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
+import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 
 library CollarOracleLib {
     function getTWAP(
@@ -18,12 +19,8 @@ library CollarOracleLib {
         uint32 twapStartTimestamp,
         uint32 twapLength,
         address uniswapV3Factory
-    )
-        internal
-        view
-        returns (uint price)
-    {
-        address poolToUse = _getPoolForTokenPair(baseToken, quoteToken, uniswapV3Factory);
+    ) internal view returns (uint price) {
+        address poolToUse = IUniswapV3Factory(uniswapV3Factory).getPool(baseToken, quoteToken, 3000);
         IUniswapV3Pool pool = IUniswapV3Pool(poolToUse);
         int24 tick;
         if (twapLength == 0) {
@@ -47,27 +44,5 @@ library CollarOracleLib {
         }
 
         price = OracleLibrary.getQuoteAtTick(tick, 1e18, baseToken, quoteToken);
-    }
-
-    // function getCurrentAssetPrice(address /*asset*/ ) external view virtual override returns (uint256) {
-    //     revert("Method not yet implemented");
-    // }
-
-    /**
-     * pulled from mean finance static oracle
-     */
-
-    /// @notice Takes a pair and some fee tiers, and returns pool
-    function _getPoolForTokenPair(
-        address _tokenA,
-        address _tokenB,
-        address uniswapV3Factory
-    )
-        internal
-        pure
-        returns (address _pool)
-    {
-        PoolAddress.PoolKey memory _poolKey = PoolAddress.getPoolKey(_tokenA, _tokenB, 3000);
-        _pool = PoolAddress.computeAddress(address(uniswapV3Factory), _poolKey);
     }
 }

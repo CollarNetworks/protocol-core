@@ -8,12 +8,12 @@
 pragma solidity ^0.8.18;
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { ISwapRouter } from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
+import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 
 contract MockBadUniRouter {
     address public factory = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
 
-    function exactInputSingle(ISwapRouter.ExactInputSingleParams memory params)
+    function exactInputSingle(IV3SwapRouter.ExactInputSingleParams memory params)
         external
         returns (uint amountOut)
     {

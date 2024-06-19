@@ -16,7 +16,7 @@ import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IWETH9 } from "../../src/interfaces/external/IWETH9.sol";
-import { ISwapRouter } from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
+import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import { PrintVaultStatsUtility } from "../utils/PrintVaultStats.sol";
 
@@ -57,7 +57,7 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
     IWETH9 WETH = IWETH9(WETHAddress);
     IERC20 USDT = IERC20(USDTAddress);
 
-    ISwapRouter swapRouter = ISwapRouter(swapRouterAddress);
+    IV3SwapRouter swapRouter = IV3SwapRouter(swapRouterAddress);
 
     CollarEngine engine;
     CollarVaultManager vaultManager;
@@ -634,12 +634,11 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
         uint poolBalanceWETH = WETH.balanceOf(uniV3Pool);
         uint poolBalanceUSDT = USDT.balanceOf(uniV3Pool);
         // build the swap transaction
-        ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter.ExactInputSingleParams({
+        IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
             tokenIn: USDTAddress,
             tokenOut: WETHAddress,
             fee: 3000,
             recipient: address(this),
-            deadline: block.timestamp + 30 minutes,
             amountIn: amount,
             amountOutMinimum: 100,
             sqrtPriceLimitX96: 0
@@ -651,7 +650,7 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
             swapParams.tokenOut = WETHAddress;
             // execute the swap
             // we're not worried about slippage here
-            ISwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
+            IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
         } else {
             IERC20(WETHAddress).forceApprove(CollarEngine(engine).dexRouter(), amount);
 
@@ -659,7 +658,7 @@ contract CollarOpenAndCloseVaultOnEthereumMainnetIntegrationTest is Test, PrintV
             swapParams.tokenOut = USDTAddress;
             // execute the swap
             // we're not worried about slippage here
-            ISwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
+            IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
         }
 
         currentPrice = CollarEngine(engine).getCurrentAssetPrice(WETHAddress, USDTAddress);

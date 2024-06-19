@@ -9,7 +9,7 @@ pragma solidity ^0.8.18;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { ISwapRouter } from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
+import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 // internal imports
@@ -357,19 +357,18 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         IERC20(assets.collateralAsset).forceApprove(CollarEngine(engine).dexRouter(), assets.collateralAmount);
 
         // build the swap transaction
-        ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter.ExactInputSingleParams({
+        IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
             tokenIn: assets.collateralAsset,
             tokenOut: assets.cashAsset,
             fee: 3000,
             recipient: address(this),
-            deadline: block.timestamp + 30 minutes,
             amountIn: assets.collateralAmount,
             amountOutMinimum: assets.cashAmount,
             sqrtPriceLimitX96: 0
         });
 
         // cache the amount of cash received
-        cashReceived = ISwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
+        cashReceived = IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
         // revert if minimum not met
         require(cashReceived >= assets.cashAmount, "slippage exceeded");
     }

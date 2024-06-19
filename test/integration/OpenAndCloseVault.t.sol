@@ -14,10 +14,9 @@ import { CollarPool } from "../../src/implementations/CollarPool.sol";
 import { ICollarPool } from "../../src/interfaces/ICollarPool.sol";
 import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ISwapRouter } from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import { PrintVaultStatsUtility } from "../utils/PrintVaultStats.sol";
-import { ISwapRouter } from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
+import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 
 // Polygon Addresses for Uniswap V3
 
@@ -58,7 +57,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
     IERC20 WMatic = IERC20(WMaticAddress);
     IERC20 USDC = IERC20(USDCAddress);
 
-    ISwapRouter swapRouter = ISwapRouter(swapRouterAddress);
+    IV3SwapRouter swapRouter = IV3SwapRouter(swapRouterAddress);
 
     CollarEngine engine;
     CollarVaultManager vaultManager;
@@ -664,12 +663,11 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         uint poolBalanceWMATIC = WMatic.balanceOf(uniV3Pool);
         uint poolBalanceUSDC = USDC.balanceOf(uniV3Pool);
         // build the swap transaction
-        ISwapRouter.ExactInputSingleParams memory swapParams = ISwapRouter.ExactInputSingleParams({
+        IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
             tokenIn: USDCAddress,
             tokenOut: WMaticAddress,
             fee: 3000,
             recipient: address(this),
-            deadline: block.timestamp + 30 minutes,
             amountIn: amount,
             amountOutMinimum: 100,
             sqrtPriceLimitX96: 0
@@ -681,7 +679,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
             swapParams.tokenOut = WMaticAddress;
             // execute the swap
             // we're not worried about slippage here
-            ISwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
+            IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
         } else {
             IERC20(WMaticAddress).approve(CollarEngine(engine).dexRouter(), amount);
 
@@ -689,7 +687,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
             swapParams.tokenOut = USDCAddress;
             // execute the swap
             // we're not worried about slippage here
-            ISwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
+            IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
         }
 
         currentPrice = CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress);
