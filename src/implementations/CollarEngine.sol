@@ -9,7 +9,8 @@ pragma solidity ^0.8.18;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { IPeripheryImmutableState } from "@uni-v3-periphery/interfaces/IPeripheryImmutableState.sol";
+import { IPeripheryImmutableState } from
+    "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 // internal imports
 import { ICollarEngine } from "../interfaces/ICollarEngine.sol";
 import { CollarPool } from "./CollarPool.sol";
@@ -226,23 +227,14 @@ contract CollarEngine is Ownable, ICollarEngine {
         address quoteToken,
         uint32 twapStartTimestamp,
         uint32 twapLength
-    )
-        external
-        view
-        virtual
-        override
-        returns (uint price)
-    {
+    ) external view virtual override returns (uint price) {
         validateAssetsIsSupported(baseToken);
         validateAssetsIsSupported(quoteToken);
         address uniV3Factory = IPeripheryImmutableState(dexRouter).factory();
         price = CollarOracleLib.getTWAP(baseToken, quoteToken, twapStartTimestamp, twapLength, uniV3Factory);
     }
 
-    function getCurrentAssetPrice(
-        address baseToken,
-        address quoteToken
-    )
+    function getCurrentAssetPrice(address baseToken, address quoteToken)
         external
         view
         virtual

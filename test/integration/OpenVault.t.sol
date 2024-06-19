@@ -13,7 +13,7 @@ import { CollarVaultManager } from "../../src/implementations/CollarVaultManager
 import { CollarPool } from "../../src/implementations/CollarPool.sol";
 import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
+import { ISwapRouter } from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
 // Polygon Addresses for Uniswap V3
 

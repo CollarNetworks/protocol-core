@@ -1,4 +1,7 @@
 @forge-std/=lib/forge-std
+@uniswap/v3-periphery/=lib/v3-periphery
+@uniswap/v3-core/=lib/v3-core
+@openzeppelin/=lib/openzeppelin-contracts
+@erc6909/=src/libs/ERC6909-jtriley/
 
 
-@erc6909/=lib/ERC6909-jtriley/
