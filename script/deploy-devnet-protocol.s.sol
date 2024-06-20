@@ -229,7 +229,8 @@ contract DeployInitializedDevnetProtocol is Script {
         _verifyPoolCreation(numOfPools, createdPools[0], createdPools[numOfPools - 1]);
 
         /**
-         * @dev in order for this part to work provider address needs to be funded with casdh assets through tenderly previously
+         * @dev in order for this part to work provider address needs to be funded with casdh assets through
+         * tenderly previously
          */
         require(liquidityProvider != address(0), "liquidity provider address not set");
         require(liquidityProvider.balance > 1000, "liquidity provider address not funded");

@@ -6,24 +6,24 @@
  */
 
 interface IWETH9 {
-    event Approval(address indexed src, address indexed guy, uint256 wad);
-    event Transfer(address indexed src, address indexed dst, uint256 wad);
-    event Deposit(address indexed dst, uint256 wad);
-    event Withdrawal(address indexed src, uint256 wad);
+    event Approval(address indexed src, address indexed guy, uint wad);
+    event Transfer(address indexed src, address indexed dst, uint wad);
+    event Deposit(address indexed dst, uint wad);
+    event Withdrawal(address indexed src, uint wad);
 
-    function balanceOf(address owner) external view returns (uint256);
+    function balanceOf(address owner) external view returns (uint);
 
-    function allowance(address owner, address spender) external view returns (uint256);
+    function allowance(address owner, address spender) external view returns (uint);
 
     function deposit() external payable;
 
-    function withdraw(uint256 wad) external;
+    function withdraw(uint wad) external;
 
-    function totalSupply() external view returns (uint256);
+    function totalSupply() external view returns (uint);
 
-    function approve(address guy, uint256 wad) external returns (bool);
+    function approve(address guy, uint wad) external returns (bool);
 
-    function transfer(address dst, uint256 wad) external returns (bool);
+    function transfer(address dst, uint wad) external returns (bool);
 
-    function transferFrom(address src, address dst, uint256 wad) external returns (bool);
+    function transferFrom(address src, address dst, uint wad) external returns (bool);
 }

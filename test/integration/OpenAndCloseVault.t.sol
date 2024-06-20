@@ -7,17 +7,21 @@
 
 pragma solidity ^0.8.18;
 
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import { IPeripheryImmutableState } from
+    "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
+import { PrintVaultStatsUtility } from "../utils/PrintVaultStats.sol";
+import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRouter.sol";
+
 import "forge-std/Test.sol";
 import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
 import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
 import { CollarPool } from "../../src/implementations/CollarPool.sol";
 import { ICollarPool } from "../../src/interfaces/ICollarPool.sol";
 import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
-import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
-import { PrintVaultStatsUtility } from "../utils/PrintVaultStats.sol";
-import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRouter.sol";
+
+import { TestPriceOracle } from "../utils/TestPriceOracle.sol";
 
 // Polygon Addresses for Uniswap V3
 
@@ -57,8 +61,6 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
 
     IERC20 WMatic = IERC20(WMaticAddress);
     IERC20 USDC = IERC20(USDCAddress);
-
-    ISwapRouter swapRouter = ISwapRouter(swapRouterAddress);
 
     CollarEngine engine;
     CollarVaultManager vaultManager;
@@ -159,6 +161,11 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
                 && (tick == 110 || tick == 115 || tick == 120 || tick == 130)
         );
         _;
+    }
+
+    function getCurrentAssetPrice(address baseToken, address quoteToken) internal returns (uint) {
+        address uniV3Factory = IPeripheryImmutableState(CollarEngine(engine).dexRouter()).factory();
+        return TestPriceOracle.getUnsafePrice(baseToken, quoteToken, uniV3Factory);
     }
 
     function test_openAndCloseVaultNoPriceChange() public {
@@ -616,7 +623,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         uint targetPrice = 632_310;
         swapAsWhale(100_000e18, false);
         if (!isFuzzTest) {
-            assertEq(CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
+            assertEq(getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
         }
     }
 
@@ -626,9 +633,9 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         // end price should be 703575
         uint targetPrice = 703_575;
         swapAsWhale(40_000e18, false);
-        finalPrice = CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress);
+        finalPrice = getCurrentAssetPrice(WMaticAddress, USDCAddress);
         if (!isFuzzTest) {
-            assertEq(CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
+            assertEq(getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
         } else {
             console.log("Current price of WMATIC in USDC after swap: %d", targetPrice);
         }
@@ -640,7 +647,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         uint targetPrice = 987_778;
         swapAsWhale(200_000e6, true);
         if (!isFuzzTest) {
-            assertEq(CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
+            assertEq(getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
         }
     }
 
@@ -650,15 +657,15 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         // end price should be 794385
         uint targetPrice = 794_385;
         swapAsWhale(40_000e6, true);
-        finalPrice = CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress);
+        finalPrice = getCurrentAssetPrice(WMaticAddress, USDCAddress);
         if (!isFuzzTest) {
-            assertEq(CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
+            assertEq(getCurrentAssetPrice(WMaticAddress, USDCAddress), targetPrice);
         }
     }
 
     function swapAsWhale(uint amount, bool swapCash) internal {
         // Trade on Uniswap to manipulate the price
-        uint currentPrice = CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress);
+        uint currentPrice = getCurrentAssetPrice(WMaticAddress, USDCAddress);
         console.log("Current price of WMATIC in USDC before swap: %d", currentPrice);
 
         uint poolBalanceWMATIC = WMatic.balanceOf(uniV3Pool);
@@ -691,7 +698,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
             IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
         }
 
-        currentPrice = CollarEngine(engine).getCurrentAssetPrice(WMaticAddress, USDCAddress);
+        currentPrice = getCurrentAssetPrice(WMaticAddress, USDCAddress);
         poolBalanceWMATIC = WMatic.balanceOf(uniV3Pool);
         poolBalanceUSDC = USDC.balanceOf(uniV3Pool);
         console.log("Current price of WMATIC in USDC after swap: %d", currentPrice);
