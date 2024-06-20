@@ -165,7 +165,10 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         return slots[slotIndex].providers.length();
     }
 
-    function getSlotProviderInfoAtIndex(uint slotIndex, uint providerIndex)
+    function getSlotProviderInfoAtIndex(
+        uint slotIndex,
+        uint providerIndex
+    )
         external
         view
         override
@@ -174,7 +177,10 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         return slots[slotIndex].providers.at(providerIndex);
     }
 
-    function getSlotProviderInfoForAddress(uint slotIndex, address provider)
+    function getSlotProviderInfoForAddress(
+        uint slotIndex,
+        address provider
+    )
         external
         view
         override
@@ -204,7 +210,11 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         IERC20(cashAsset).safeTransfer(msg.sender, amount);
     }
 
-    function moveLiquidityFromSlot(uint sourceSlotIndex, uint destinationSlotIndex, uint amount)
+    function moveLiquidityFromSlot(
+        uint sourceSlotIndex,
+        uint destinationSlotIndex,
+        uint amount
+    )
         external
         virtual
         override

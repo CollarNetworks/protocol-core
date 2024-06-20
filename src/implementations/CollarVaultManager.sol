@@ -330,18 +330,21 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         LiquidityOpts calldata liquidityOpts
     ) internal view {
         // assets and amounts
-        CollarEngine engine = CollarEngine(engine);
-        require(engine.isSupportedCashAsset(assetData.cashAsset), "invalid cash asset");
-        require(engine.isSupportedCollateralAsset(assetData.collateralAsset), "invalid collateral asset");
+
+        require(CollarEngine(engine).isSupportedCashAsset(assetData.cashAsset), "invalid cash asset");
+        require(
+            CollarEngine(engine).isSupportedCollateralAsset(assetData.collateralAsset),
+            "invalid collateral asset"
+        );
         require(assetData.cashAmount != 0, "invalid amount");
         require(assetData.collateralAmount != 0, "invalid amount");
 
         // duration and ltv
-        require(engine.isValidCollarDuration(collarOpts.duration), "invalid duration");
-        require(engine.isValidLTV(collarOpts.ltv), "invalid LTV");
+        require(CollarEngine(engine).isValidCollarDuration(collarOpts.duration), "invalid duration");
+        require(CollarEngine(engine).isValidLTV(collarOpts.ltv), "invalid LTV");
 
         // pool and ltv matches put price
-        require(engine.isSupportedLiquidityPool(liquidityOpts.liquidityPool), "invalid pool");
+        require(CollarEngine(engine).isSupportedLiquidityPool(liquidityOpts.liquidityPool), "invalid pool");
 
         // verify the put strike tick matches the put strike tick of the pool
         CollarPool pool = CollarPool(liquidityOpts.liquidityPool);

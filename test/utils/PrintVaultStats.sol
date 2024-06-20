@@ -11,9 +11,7 @@ import "forge-std/console.sol";
 import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 
 abstract contract PrintVaultStatsUtility {
-    function printVaultStats(bytes calldata encodedVaultaData, string calldata context) external view {
-        ICollarVaultState.Vault memory vault = abi.decode(encodedVaultaData, (ICollarVaultState.Vault));
-
+    function _printVaultStats(ICollarVaultState.Vault memory vault, string memory context) internal view {
         console.log("---", context, "---");
         console.log("");
         console.log(" BASIC INFO ");

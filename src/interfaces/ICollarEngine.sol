@@ -174,14 +174,9 @@ interface ICollarEngine {
         address quoteToken,
         uint32 twapEndTimestamp,
         uint32 twapLength
-    ) external view virtual returns (uint);
-
-    /// @notice Gets the current price of 1e18 of a particular asset
-    /// @param baseToken The address of the asset to get the price of
-    /// @param quoteToken The address of the asset to quote the price in
-    function getCurrentAssetPrice(address baseToken, address quoteToken)
+    )
         external
         view
         virtual
-        returns (uint price);
+        returns (uint);
 }
