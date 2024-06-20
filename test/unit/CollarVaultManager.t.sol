@@ -126,26 +126,26 @@ contract CollarVaultManagerTest is Test {
         bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint(0)));
 
         assertEq(manager.vaultCount(), 1);
-        assertEq(calculatedUUID, manager.vaultsByNonce(0));
+        assertEq(calculatedUUID, manager.vaultsByIndex(0));
     }
 
-    function test_vaultInfoByNonce() public {
+    function test_vaultInfoByIndex() public {
         bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
         assertEq(manager.vaultCount(), 1);
 
         bytes memory vaultInfoViaUUID = manager.vaultInfo(uuid);
-        bytes memory vaultInfoViaNonce = manager.vaultInfoByNonce(0);
+        bytes memory vaultInfoViaIndex = manager.vaultInfoByIndex(0);
 
         ICollarVaultState.Vault memory infoViaUUID = abi.decode(vaultInfoViaUUID, (ICollarVaultState.Vault));
-        ICollarVaultState.Vault memory infoViaNonce = abi.decode(vaultInfoViaNonce, (ICollarVaultState.Vault));
+        ICollarVaultState.Vault memory infoViaIndex = abi.decode(vaultInfoViaIndex, (ICollarVaultState.Vault));
 
-        assertEq(infoViaUUID.expiresAt, infoViaNonce.expiresAt);
+        assertEq(infoViaUUID.expiresAt, infoViaIndex.expiresAt);
     }
 
-    function test_vaultInfoByNonce_InvalidVault() public {
+    function test_vaultInfoByIndex_InvalidVault() public {
         vm.expectRevert("invalid vault");
-        manager.vaultInfoByNonce(0);
+        manager.vaultInfoByIndex(0);
     }
 
     function test_deploymentAndDeployParams() public view {
@@ -161,7 +161,7 @@ contract CollarVaultManagerTest is Test {
         bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint(0)));
 
         assertEq(manager.vaultCount(), 1);
-        assertEq(manager.vaultsByNonce(0), calculatedUUID);
+        assertEq(manager.vaultsByIndex(0), calculatedUUID);
 
         bytes memory vaultInfo = manager.vaultInfo(calculatedUUID);
 
@@ -197,7 +197,7 @@ contract CollarVaultManagerTest is Test {
         bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint(0)));
 
         assertEq(manager.vaultCount(), 1);
-        assertEq(manager.vaultsByNonce(0), calculatedUUID);
+        assertEq(manager.vaultsByIndex(0), calculatedUUID);
 
         bytes memory vaultInfo = manager.vaultInfo(calculatedUUID);
         uint userCashBalance = cashAsset.balanceOf(user1);

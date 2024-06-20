@@ -37,12 +37,12 @@ interface ICollarVaultManager is ICollarVaultState {
     function vaultInfo(bytes32 uuid) external view returns (bytes calldata data);
 
     /// @notice Get the n-th vault state
-    /// @param vaultNonce Nonce of the vault to get state for
-    function vaultInfoByNonce(uint vaultNonce) external view returns (bytes calldata data);
+    /// @param vaultIndex Index of the vault to get state for
+    function vaultInfoByIndex(uint vaultIndex) external view returns (bytes calldata data);
 
-    /// @notice Get the UUID of a vault by its nonce
-    /// @param vaultNonce Nonce of the vault to get the UUID for
-    function getVaultUUID(uint vaultNonce) external view returns (bytes32 uuid);
+    /// @notice Get the UUID of a vault by its Index
+    /// @param vaultIndex Index of the vault to get the UUID for
+    function getVaultUUID(uint vaultIndex) external view returns (bytes32 uuid);
 
     /// @notice Preview the cash amount redeemable for a given amount of tokens for a particular vault
     /// @param uuid UUID of the vault to redeem from

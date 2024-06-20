@@ -104,7 +104,7 @@
     - [ ] "engine" is a misleading name - there's no logic really, only vault factory and config.
   - [ ] vault:
     - [ ] "vault" for internal struct is bad name since typically refers to a specific type of separate contract, but here it isn't a contract, it's a "position" type thing. Can be named BorrowPositions or smth similar.
-    - [ ] `vaultNonce` - "nonce" is not typically used this way, can be vaultIndex
+    - [x] `vaultNonce` - "nonce" is not typically used this way, can be vaultIndex
   - [ ] pool
     - [ ] "slot" is an overloaded name (because of storage slots, `.slot`, and other various slots). Tick also already refers to a specific UniV3 things. So maybe "Range" / "offerRange" ?
     - [ ] `providers` should be `providersLiquidity` because it's a map
