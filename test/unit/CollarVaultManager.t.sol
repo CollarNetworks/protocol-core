@@ -187,9 +187,10 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApproveManager(user1);
         uint initialUserCashBalance = cashAsset.balanceOf(user1);
         addLiquidityToPoolAsUser(user2);
-        openVaultAsUser(user1, true);
+        bytes32 uuid = openVaultAsUser(user1, true);
 
         bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint(0)));
+        assertEq(uuid, calculatedUUID);
 
         assertEq(manager.vaultCount(), 1);
         assertEq(manager.vaultsByIndex(0), calculatedUUID);
@@ -231,28 +232,28 @@ contract CollarVaultManagerTest is Test {
             collateralAsset: address(cashAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.AssetSpecifiers memory invalidCollatAmount = ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(collateralAsset),
             collateralAmount: 0,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.AssetSpecifiers memory invalidCashAmount = ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 0
+            minCashAmount: 0
         });
 
         ICollarVaultState.AssetSpecifiers memory invalidCashAddr = ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(collateralAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory collarOpts =
@@ -292,7 +293,7 @@ contract CollarVaultManagerTest is Test {
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory invalidlength =
@@ -323,7 +324,7 @@ contract CollarVaultManagerTest is Test {
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory invalidlength =
@@ -354,7 +355,7 @@ contract CollarVaultManagerTest is Test {
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory collarOpts =
@@ -402,7 +403,7 @@ contract CollarVaultManagerTest is Test {
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory collarOpts =
@@ -431,7 +432,7 @@ contract CollarVaultManagerTest is Test {
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory collarOpts =
@@ -456,7 +457,7 @@ contract CollarVaultManagerTest is Test {
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory collarOpts =
@@ -801,7 +802,7 @@ contract CollarVaultManagerTest is Test {
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory collarOpts =

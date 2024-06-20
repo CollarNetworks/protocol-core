@@ -116,8 +116,8 @@
   - [ ] #note some views are used only in tests, should be removed or added only to test contract ( `Testable`): `isVaultExpired`, `vaultInfo`, `vaultInfoByNonce`
   - [x] #note `previewRedeem` else condition can be removed? finalized is checked by redeem already
   - [ ] `openVault`
-    - [ ] #low safer (and more efficient) to initialize new Vault struct in memory, and than to write to storage. safer because won't forget fields.
-    - [ ] #low approval not needed since is given again in `closeVault`. giving approval here (for delayed action) is not safe, error prone, and uncommon pattern (the pools accumulate approvals, not very "vault" like)
+    - [x] #low safer (and more efficient) to initialize new Vault struct in memory, and than to write to storage. safer because won't forget fields.
+    - [x] #low approval not needed since is given again in `closeVault`. giving approval here (for delayed action) is not safe, error prone, and uncommon pattern (the pools accumulate approvals, not very "vault" like)
     - [ ] #low tokens are implicitely assumed to be all 1e18 decimals
     - [ ] #note `openVault` too long / complex, need to be refactored:
     - validation, calculation, storage, transfers & interactions. use memory vault, than write to storage vault

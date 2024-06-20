@@ -21,7 +21,7 @@ abstract contract VaultOperationsTest is CollarBaseIntegrationTestConfig, PrintV
             collateralAsset: collateralAssetAddress,
             collateralAmount: collateralAmount,
             cashAsset: cashAssetAddress,
-            cashAmount: 0.3e6
+            minCashAmount: 0.3e6
         });
 
         ICollarVaultState.CollarOpts memory collarOpts =

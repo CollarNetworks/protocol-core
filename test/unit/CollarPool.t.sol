@@ -496,7 +496,7 @@ contract CollarPoolTest is Test {
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory collarOpts =
@@ -718,7 +718,7 @@ contract CollarPoolTest is Test {
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory collarOpts =

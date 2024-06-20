@@ -137,7 +137,7 @@ contract CollarOpenVaultIntegrationTest is Test {
             collateralAsset: WMaticAddress,
             collateralAmount: 1000 ether,
             cashAsset: USDCAddress,
-            cashAmount: 100e6
+            minCashAmount: 100e6
         });
 
         ICollarVaultState.CollarOpts memory collarOpts =
