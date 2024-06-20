@@ -15,11 +15,7 @@ library TestPriceOracle {
     uint24 internal constant FEE_TIER_30_BIPS = 3000;
     uint128 internal constant BASE_TOKEN_AMOUNT = 1e18;
 
-    function getUnsafePrice(
-        address baseToken,
-        address quoteToken,
-        address uniswapV3Factory
-    )
+    function getUnsafePrice(address baseToken, address quoteToken, address uniswapV3Factory)
         internal
         view
         returns (uint)
