@@ -165,10 +165,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         return slots[slotIndex].providers.length();
     }
 
-    function getSlotProviderInfoAtIndex(
-        uint slotIndex,
-        uint providerIndex
-    )
+    function getSlotProviderInfoAtIndex(uint slotIndex, uint providerIndex)
         external
         view
         override
@@ -177,10 +174,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         return slots[slotIndex].providers.at(providerIndex);
     }
 
-    function getSlotProviderInfoForAddress(
-        uint slotIndex,
-        address provider
-    )
+    function getSlotProviderInfoForAddress(uint slotIndex, address provider)
         external
         view
         override
@@ -210,11 +204,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         IERC20(cashAsset).safeTransfer(msg.sender, amount);
     }
 
-    function moveLiquidityFromSlot(
-        uint sourceSlotIndex,
-        uint destinationSlotIndex,
-        uint amount
-    )
+    function moveLiquidityFromSlot(uint sourceSlotIndex, uint destinationSlotIndex, uint amount)
         external
         virtual
         override
@@ -235,7 +225,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         require(numProviders != 0, "no providers");
 
         require(amount <= slot.liquidity, "insufficient liquidity");
-
+        uint amountFromAllProviders = 0;
         for (uint i = 0; i < numProviders; i++) {
             // calculate how much to pull from provider based off of their proportional ownership of liquidity
             // in this slot
@@ -253,12 +243,12 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
 
             // mint tokens representing the provider's share in this vault to this provider
             _mint(thisProvider, uint(uuid), amountFromThisProvider);
-
+            amountFromAllProviders += amountFromThisProvider;
             emit PoolTokensIssued(thisProvider, expiration, amountFromThisProvider);
         }
 
         // decrement available liquidity in slot
-        slot.liquidity -= amount;
+        slot.liquidity -= amountFromAllProviders;
 
         // update global liquidity amounts
         // total liquidity unchanged
