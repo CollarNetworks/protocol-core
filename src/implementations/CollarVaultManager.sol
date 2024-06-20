@@ -281,7 +281,7 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
             IERC20(vault.cashAsset).forceApprove(vault.liquidityPool, cashToSendToPool);
         }
 
-        CollarPool(vault.liquidityPool).finalizePosition(uuid, address(this), poolProfit);
+        CollarPool(vault.liquidityPool).finalizePosition(uuid, poolProfit);
 
         // set total redeem value for vault tokens to locked vault cash + cash pulled from pool
         // also null out the locked vault cash

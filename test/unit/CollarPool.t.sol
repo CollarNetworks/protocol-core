@@ -482,7 +482,7 @@ contract CollarPoolTest is Test {
 
         startHoax(user1);
         vm.expectRevert("caller not vault");
-        pool.finalizePosition(keccak256(abi.encodePacked(user1)), user2, 100);
+        pool.finalizePosition(keccak256(abi.encodePacked(user1)), 100);
     }
 
     function test_redeem_normal() public {

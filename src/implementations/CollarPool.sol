@@ -275,9 +275,10 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         emit PositionOpened(msg.sender, uuid, expiration, amount);
     }
 
-    function finalizePosition(bytes32 uuid, address vaultManager, int positionNet) external override {
+    function finalizePosition(bytes32 uuid, int positionNet) external override {
         // verify caller via engine
-        require(CollarEngine(engine).isVaultManager(msg.sender), "caller not vault");
+        address vaultManager = msg.sender;
+        require(CollarEngine(engine).isVaultManager(vaultManager), "caller not vault");
 
         uint principal = positions[uuid].principal;
         if (positionNet >= 0) {
@@ -289,7 +290,6 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
 
             // Update global liquidity amounts
             totalLiquidity += amountToAdd;
-            lockedLiquidity -= principal;
             redeemableLiquidity += principal + amountToAdd;
 
             // The vault owes us some tokens
@@ -308,12 +308,12 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
 
             // Update global liquidity amounts
             totalLiquidity -= amountToSubstract;
-            lockedLiquidity -= principal;
             redeemableLiquidity += principal - amountToSubstract;
 
             // We owe the vault some tokens
             IERC20(cashAsset).safeTransfer(vaultManager, amountToSubstract);
         }
+        lockedLiquidity -= principal;
         positions[uuid].finalized = true;
         emit PositionFinalized(vaultManager, uuid, positionNet);
     }
