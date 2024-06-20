@@ -9,7 +9,8 @@ pragma solidity ^0.8.18;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { IPeripheryImmutableState } from "@uni-v3-periphery/interfaces/IPeripheryImmutableState.sol";
+import { IPeripheryImmutableState } from
+    "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 // internal imports
 import { ICollarEngine } from "../interfaces/ICollarEngine.sol";
 import { CollarPool } from "./CollarPool.sol";

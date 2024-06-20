@@ -14,7 +14,7 @@ import { CollarVaultManager } from "../../../src/implementations/CollarVaultMana
 import { CollarPool } from "../../../src/implementations/CollarPool.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
+import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 
 /**
  * This contract will hold the base storage variables necessary to run integration tests for the collar protocol
@@ -39,7 +39,7 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
     uint tickScaleFactor = 100;
     IERC20 collateralAsset;
     IERC20 cashAsset;
-    ISwapRouter swapRouter;
+    IV3SwapRouter swapRouter;
 
     CollarEngine engine;
     CollarVaultManager vaultManager;

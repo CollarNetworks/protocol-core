@@ -12,8 +12,9 @@ import "forge-std/console.sol";
 import { CollarEngine } from "../../../src/implementations/CollarEngine.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRouter.sol";
-import { IPeripheryImmutableState } from "@uni-v3-periphery/interfaces/IPeripheryImmutableState.sol";
+import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
+import { IPeripheryImmutableState } from
+    "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 import { CollarBaseIntegrationTestConfig } from "./BaseIntegration.t.sol";
 import { TestPriceOracle } from "../../utils/TestPriceOracle.sol";
 

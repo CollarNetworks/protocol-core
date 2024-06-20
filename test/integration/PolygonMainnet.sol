@@ -17,10 +17,7 @@ import { VaultOperationsTest } from "./utils/VaultOperations.t.sol";
  * verified
  * https://docs.google.com/spreadsheets/d/18e5ola3JJ2HKRQyAoPNmVrV4fnRcLdckOhQIxrN_hwY/edit#gid=1819672818
  */
-contract ForkTestCollarPolygonMainnetIntegrationTest is
-    CollarIntegrationPriceManipulation,
-    VaultOperationsTest
-{
+contract ForkTestCollarPolygonMainnet is CollarIntegrationPriceManipulation, VaultOperationsTest {
     /* We set up the test environment as follows:
 
     1. We fork Polygon and activate the fork

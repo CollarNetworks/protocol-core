@@ -17,10 +17,7 @@ import { VaultOperationsTest } from "./utils/VaultOperations.t.sol";
  * @dev This contract should generate test to ensure all the cases and math from this sheet is correct and verified
  * https://docs.google.com/spreadsheets/d/18e5ola3JJ2HKRQyAoPNmVrV4fnRcLdckOhQIxrN_hwY/edit#gid=1819672818
  */
-contract ForkTestCollarEthereumMainnetIntegrationTest is
-    CollarIntegrationPriceManipulation,
-    VaultOperationsTest
-{
+contract ForkTestCollarEthereumMainnet is CollarIntegrationPriceManipulation, VaultOperationsTest {
     /* We set up the test environment as follows:
 
     1. We fork Ethereum mainnet and activate the fork
