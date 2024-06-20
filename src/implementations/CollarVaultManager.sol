@@ -360,6 +360,7 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         IERC20(assets.collateralAsset).forceApprove(
             CollarEngine(engine).univ3SwapRouter(), assets.collateralAmount
         );
+        uint initialCashBalance = IERC20(assets.cashAsset).balanceOf(address(this));
 
         // build the swap transaction
         IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
@@ -372,9 +373,14 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
             sqrtPriceLimitX96: 0
         });
 
-        // cache the amount of cash received
-        cashReceived =
-            IV3SwapRouter(payable(CollarEngine(engine).univ3SwapRouter())).exactInputSingle(swapParams);
+        IV3SwapRouter(payable(CollarEngine(engine).univ3SwapRouter())).exactInputSingle(swapParams);
+
+        // Record final balance of cashAsset
+        uint finalCashBalance = IERC20(assets.cashAsset).balanceOf(address(this));
+
+        // Calculate the actual amount of cash received
+        cashReceived = finalCashBalance - initialCashBalance;
+
         // revert if minimum not met
         require(cashReceived >= assets.cashAmount, "slippage exceeded");
     }

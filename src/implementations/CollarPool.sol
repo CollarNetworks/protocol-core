@@ -301,7 +301,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
             uint amountToSubstract = uint(-positionNet);
 
             // Ensure principal is greater or equal to negative positionNet to prevent underflow
-            require(int(principal) + positionNet >= 0, "Insufficient principal to cover negative positionNet");
+            require(principal >= amountToSubstract, "Insufficient principal to cover negative positionNet");
 
             // Update position withdrawable amount
             positions[uuid].withdrawable = principal - amountToSubstract;
