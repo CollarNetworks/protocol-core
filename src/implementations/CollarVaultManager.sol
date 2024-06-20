@@ -36,7 +36,7 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
 
     mapping(bytes32 uuid => Vault vault) internal vaultsByUUID;
     mapping(uint vaultIndex => bytes32 UUID) public vaultsByIndex;
-    mapping(bytes32 => uint) public vaultTokenCashSupply;
+    mapping(bytes32 uuid => uint vaultCash) public vaultTokenCashSupply;
 
     // ----- CONSTRUCTOR ----- //
 
