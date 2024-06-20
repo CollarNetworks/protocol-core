@@ -13,10 +13,17 @@ import { CollarEngine } from "../../../src/implementations/CollarEngine.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRouter.sol";
+import { IPeripheryImmutableState } from "@uni-v3-periphery/interfaces/IPeripheryImmutableState.sol";
 import { CollarBaseIntegrationTestConfig } from "./BaseIntegration.t.sol";
+import { TestPriceOracle } from "../../utils/TestPriceOracle.sol";
 
 abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTestConfig {
     using SafeERC20 for IERC20;
+
+    function getCurrentAssetPrice(address baseToken, address quoteToken) internal view returns (uint) {
+        address uniV3Factory = IPeripheryImmutableState(CollarEngine(engine).dexRouter()).factory();
+        return TestPriceOracle.getUnsafePrice(baseToken, quoteToken, uniV3Factory);
+    }
 
     function _manipulatePriceDownwardPastPutStrike(uint amountToSwap, bool isFuzzTest, uint targetPrice)
         internal
@@ -24,10 +31,7 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
         // Trade on Uniswap to make the price go down past the put strike price .9 * COLLATERAL_PRICE_ON_BLOCK
         swapAsWhale(amountToSwap, false);
         if (!isFuzzTest) {
-            assertEq(
-                CollarEngine(engine).getCurrentAssetPrice(collateralAssetAddress, cashAssetAddress),
-                targetPrice
-            );
+            assertEq(getCurrentAssetPrice(collateralAssetAddress, cashAssetAddress), targetPrice);
         }
     }
 
@@ -38,12 +42,9 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
         // Trade on Uniswap to make the price go down but not past the put strike price .9 *
         // COLLATERAL_PRICE_ON_BLOCK
         swapAsWhale(amountToSwap, false);
-        finalPrice = CollarEngine(engine).getCurrentAssetPrice(collateralAssetAddress, cashAssetAddress);
+        finalPrice = getCurrentAssetPrice(collateralAssetAddress, cashAssetAddress);
         if (!isFuzzTest) {
-            assertEq(
-                CollarEngine(engine).getCurrentAssetPrice(collateralAssetAddress, cashAssetAddress),
-                targetPrice
-            );
+            assertEq(getCurrentAssetPrice(collateralAssetAddress, cashAssetAddress), targetPrice);
         } else {
             console.log("Current price of collateralAsset in cashAsset after swap: %d", targetPrice);
         }
@@ -55,10 +56,7 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
         // Trade on Uniswap to make the price go up past the call strike price 1.1 * COLLATERAL_PRICE_ON_BLOCK
         swapAsWhale(amountToSwap, true);
         if (!isFuzzTest) {
-            assertEq(
-                CollarEngine(engine).getCurrentAssetPrice(collateralAssetAddress, cashAssetAddress),
-                targetPrice
-            );
+            assertEq(getCurrentAssetPrice(collateralAssetAddress, cashAssetAddress), targetPrice);
         }
     }
 
@@ -69,19 +67,15 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
         // Trade on Uniswap to make the price go up but not past the call strike price 1.1 *
         // COLLATERAL_PRICE_ON_BLOCK
         swapAsWhale(amountToSwap, true);
-        finalPrice = CollarEngine(engine).getCurrentAssetPrice(collateralAssetAddress, cashAssetAddress);
+        finalPrice = getCurrentAssetPrice(collateralAssetAddress, cashAssetAddress);
         if (!isFuzzTest) {
-            assertEq(
-                CollarEngine(engine).getCurrentAssetPrice(collateralAssetAddress, cashAssetAddress),
-                targetPrice
-            );
+            assertEq(getCurrentAssetPrice(collateralAssetAddress, cashAssetAddress), targetPrice);
         }
     }
 
     function swapAsWhale(uint amount, bool swapCash) internal {
         // Trade on Uniswap to _manipulate the price
-        uint currentPrice =
-            CollarEngine(engine).getCurrentAssetPrice(collateralAssetAddress, cashAssetAddress);
+        uint currentPrice = getCurrentAssetPrice(collateralAssetAddress, cashAssetAddress);
         console.log("Current price of collateralAsset in cashAsset before swap: %d", currentPrice);
 
         uint poolBalanceCollateral = collateralAsset.balanceOf(uniV3Pool);
@@ -114,7 +108,7 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
             IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
         }
 
-        currentPrice = CollarEngine(engine).getCurrentAssetPrice(collateralAssetAddress, cashAssetAddress);
+        currentPrice = getCurrentAssetPrice(collateralAssetAddress, cashAssetAddress);
         poolBalanceCollateral = collateralAsset.balanceOf(uniV3Pool);
         poolBalanceCash = cashAsset.balanceOf(uniV3Pool);
         console.log("Current price of collateralAsset in cashAsset after swap: %d", currentPrice);

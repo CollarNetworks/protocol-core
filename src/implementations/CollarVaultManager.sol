@@ -331,7 +331,10 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         AssetSpecifiers calldata assetData,
         CollarOpts calldata collarOpts,
         LiquidityOpts calldata liquidityOpts
-    ) internal view {
+    )
+        internal
+        view
+    {
         // assets and amounts
         CollarEngine engine = CollarEngine(engine);
         require(engine.isSupportedCashAsset(assetData.cashAsset), "invalid cash asset");
