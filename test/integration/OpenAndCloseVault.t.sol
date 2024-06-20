@@ -169,8 +169,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
     }
 
     function test_openAndCloseVaultNoPriceChange() public {
-        (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault) =
-            openVaultAsUserWith1000AndCheckValues(user1, CALL_STRIKE_TICK);
+        (bytes32 uuid,,) = openVaultAsUserWith1000AndCheckValues(user1, CALL_STRIKE_TICK);
 
         swapAsWhale(1_712_999_999_000_000_000_000, false);
         // in order for the price to not change we need to do an equal amount of tokens swapped in both
@@ -181,9 +180,9 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         // close the vault
         // price before close vault
         vaultManager.closeVault(uuid);
-        uint priceAfterClose = CollarEngine(engine).getHistoricalAssetPriceViaTWAP(
-            WMaticAddress, USDCAddress, vault.expiresAt, 15 minutes
-        );
+        // uint priceAfterClose = CollarEngine(engine).getHistoricalAssetPriceViaTWAP(
+        //     WMaticAddress, USDCAddress, vault.expiresAt, 15 minutes
+        // );
         /**
          * @dev trying to manipulate price to be exactly the same as the moment of opening vault is too hard ,
          * so we'll skip this case unless there's a better proposal
@@ -218,9 +217,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         ICollarVaultState.Vault memory vault,
         uint userCashBalanceAfterOpen,
         uint providerCashBalanceBeforeClose
-    )
-        internal
-    {
+    ) internal {
         vm.roll(block.number + 43_200);
         skip(1.5 days);
         startHoax(user1);
@@ -259,10 +256,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         );
     }
 
-    function testFuzz_openAndCloseVaultPriceUnderPutStrike(
-        uint collateralAmount,
-        uint24 tick
-    )
+    function testFuzz_openAndCloseVaultPriceUnderPutStrike(uint collateralAmount, uint24 tick)
         public
         assumeFuzzValues(collateralAmount, tick)
     {
@@ -296,9 +290,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         uint userCashBalanceAfterOpen,
         uint providerCashBalanceBeforeClose,
         uint finalPrice
-    )
-        internal
-    {
+    ) internal {
         vm.roll(block.number + 43_200);
         skip(1.5 days);
         startHoax(user1);
@@ -347,10 +339,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(providerCashBalanceAfterRedeem, providerCashBalanceBeforeClose + withdrawable);
     }
 
-    function testFuzz_openAndCloseVaultPriceDownShortOfPutStrike(
-        uint collateralAmount,
-        uint24 tick
-    )
+    function testFuzz_openAndCloseVaultPriceDownShortOfPutStrike(uint collateralAmount, uint24 tick)
         public
         assumeFuzzValues(collateralAmount, tick)
     {
@@ -381,9 +370,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         ICollarVaultState.Vault memory vault,
         uint userCashBalanceAfterOpen,
         uint providerCashBalanceBeforeClose
-    )
-        internal
-    {
+    ) internal {
         vm.roll(block.number + 43_200);
         skip(1.5 days);
         startHoax(user1);
@@ -422,10 +409,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(providerCashBalanceAfterRedeem, providerCashBalanceBeforeClose);
     }
 
-    function testFuzz_openAndCloseVaultPriceUpPastCallStrike(
-        uint collateralAmount,
-        uint24 tick
-    )
+    function testFuzz_openAndCloseVaultPriceUpPastCallStrike(uint collateralAmount, uint24 tick)
         public
         assumeFuzzValues(collateralAmount, tick)
     {
@@ -457,9 +441,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         uint userCashBalanceAfterOpen,
         uint providerCashBalanceBeforeClose,
         uint finalPrice
-    )
-        internal
-    {
+    ) internal {
         vm.roll(block.number + 43_200);
         skip(1.5 days);
         startHoax(user1);
@@ -506,10 +488,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(providerCashBalanceAfterRedeem, providerCashBalanceBeforeClose + withdrawable);
     }
 
-    function testFuzz_openAndCloseVaultPriceUpShortOfCallStrike(
-        uint collateralAmount,
-        uint24 tick
-    )
+    function testFuzz_openAndCloseVaultPriceUpShortOfCallStrike(uint collateralAmount, uint24 tick)
         public
         assumeFuzzValues(collateralAmount, tick)
     {
@@ -534,11 +513,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         );
     }
 
-    function openVaultAsUserAndCheckValues(
-        uint amount,
-        address user,
-        uint24 tick
-    )
+    function openVaultAsUserAndCheckValues(uint amount, address user, uint24 tick)
         internal
         returns (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault)
     {
@@ -562,10 +537,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(vault.putStrikeTick, 90);
     }
 
-    function openVaultAsUserWith1000AndCheckValues(
-        address user,
-        uint24 tick
-    )
+    function openVaultAsUserWith1000AndCheckValues(address user, uint24 tick)
         internal
         returns (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault)
     {
@@ -612,11 +584,7 @@ contract CollarOpenAndCloseVaultIntegrationTest is Test, PrintVaultStatsUtility 
         assertEq(vault.lockedVaultCash, 73_950_499); // the vault locked balance should be 0.1 * cashAmount
     }
 
-    function openVaultAsUser(
-        uint collateralAmount,
-        address user,
-        uint24 tick
-    )
+    function openVaultAsUser(uint collateralAmount, address user, uint24 tick)
         internal
         returns (bytes32 uuid, bytes memory rawVault, ICollarVaultState.Vault memory vault)
     {

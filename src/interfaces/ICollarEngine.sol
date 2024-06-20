@@ -31,57 +31,57 @@ interface ICollarEngine {
     /// exist
     /// @dev This function is called by the user when they want to create a new vault if they haven't done so
     /// in the past
-    function createVaultManager() external virtual returns (address);
+    function createVaultManager() external returns (address);
 
     // liquidity pools
 
     /// @notice Adds a liquidity pool to the list of supported pools
     /// @param pool The address of the pool to add
-    function addLiquidityPool(address pool) external virtual;
+    function addLiquidityPool(address pool) external;
 
     /// @notice Removes a liquidity pool from the list of supported pools
     /// @param pool The address of the pool to remove
-    function removeLiquidityPool(address pool) external virtual;
+    function removeLiquidityPool(address pool) external;
 
     // collateral assets
 
     /// @notice Adds an asset to the list of supported collateral assets
     /// @param asset The address of the asset to add
-    function addSupportedCollateralAsset(address asset) external virtual;
+    function addSupportedCollateralAsset(address asset) external;
 
     /// @notice Removes an asset from the list of supported collateral assets
     /// @param asset The address of the asset to remove
-    function removeSupportedCollateralAsset(address asset) external virtual;
+    function removeSupportedCollateralAsset(address asset) external;
 
     // cash assets
 
     /// @notice Adds an asset to the list of supported cash assets
     /// @param asset The address of the asset to add
-    function addSupportedCashAsset(address asset) external virtual;
+    function addSupportedCashAsset(address asset) external;
 
     /// @notice Removes an asset from the list of supported cash assets
     /// @param asset The address of the asset to remove
-    function removeSupportedCashAsset(address asset) external virtual;
+    function removeSupportedCashAsset(address asset) external;
 
     // collar lengths
 
     /// @notice Adds a collar length to the list of supported collar lengths
     /// @param duration The length to add, in seconds
-    function addCollarDuration(uint duration) external virtual;
+    function addCollarDuration(uint duration) external;
 
     /// @notice Removes a collar duration from the list of supported collar lengths
     /// @param duration The length to remove, in seconds
-    function removeCollarDuration(uint duration) external virtual;
+    function removeCollarDuration(uint duration) external;
 
     // ltvs
 
     /// @notice Adds an LTV to the list of supported LTVs
     /// @param ltv The LTV to add, in basis points
-    function addLTV(uint ltv) external virtual;
+    function addLTV(uint ltv) external;
 
     /// @notice Removes an LTV from the list of supported LTVs
     /// @param ltv The LTV to remove, in basis points
-    function removeLTV(uint ltv) external virtual;
+    function removeLTV(uint ltv) external;
 
     // ----- view functions
 
