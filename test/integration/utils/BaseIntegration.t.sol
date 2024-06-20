@@ -26,10 +26,12 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
     address provider = makeAddr("user2"); // the person who will be providing liquidity
     address swapRouterAddress;
     address collateralAssetAddress;
+    uint collateralDecimals;
     address cashAssetAddress;
     address uniV3Pool;
     address whale;
     uint BLOCK_NUMBER_TO_USE;
+
     uint COLLATERAL_PRICE_ON_BLOCK;
     // block
     // of polygon mainnet
@@ -68,12 +70,14 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
         uint priceOnBlock,
         uint24 callstrikeTickToUse,
         uint _poolDuration,
-        uint _poolLTV
+        uint _poolLTV,
+        uint _collateraldecimals
     ) internal {
         swapRouterAddress = _swapRouter;
         cashAssetAddress = _cashAsset;
         collateralAssetAddress = _collateralAsset;
         collateralAsset = IERC20(collateralAssetAddress);
+        collateralDecimals = _collateraldecimals;
         cashAsset = IERC20(cashAssetAddress);
         uniV3Pool = _uniV3Pool;
         whale = whaleWallet;

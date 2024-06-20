@@ -23,7 +23,8 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
 
     function getCurrentAssetPrice(address baseToken, address quoteToken) internal view returns (uint) {
         address uniV3Factory = IPeripheryImmutableState(CollarEngine(engine).dexRouter()).factory();
-        return TestPriceOracle.getUnsafePrice(baseToken, quoteToken, uniV3Factory);
+        uint baseAmount = 10 ** collateralDecimals;
+        return TestPriceOracle.getUnsafePrice(baseToken, baseAmount, quoteToken, uniV3Factory);
     }
 
     function _manipulatePriceDownwardPastPutStrike(uint amountToSwap, bool isFuzzTest, uint targetPrice)

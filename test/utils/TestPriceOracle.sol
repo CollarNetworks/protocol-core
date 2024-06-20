@@ -13,9 +13,8 @@ import { OracleLibrary } from "@uniswap/v3-periphery/contracts/libraries/OracleL
 
 library TestPriceOracle {
     uint24 internal constant FEE_TIER_30_BIPS = 3000;
-    uint128 internal constant BASE_TOKEN_AMOUNT = 1e18;
 
-    function getUnsafePrice(address baseToken, address quoteToken, address uniswapV3Factory)
+    function getUnsafePrice(address baseToken, uint baseAmount, address quoteToken, address uniswapV3Factory)
         internal
         view
         returns (uint)
@@ -26,6 +25,6 @@ library TestPriceOracle {
 
         (, int24 tick,,,,,) = pool.slot0();
 
-        return OracleLibrary.getQuoteAtTick(tick, BASE_TOKEN_AMOUNT, baseToken, quoteToken);
+        return OracleLibrary.getQuoteAtTick(tick, uint128(baseAmount), baseToken, quoteToken);
     }
 }

@@ -7,70 +7,73 @@
 
 pragma solidity ^0.8.18;
 
+import "forge-std/console.sol";
+
 import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { CollarIntegrationPriceManipulation } from "./utils/PriceManipulation.t.sol";
 import { VaultOperationsTest } from "./utils/VaultOperations.t.sol";
 
 /**
- * @dev This contract should generate test to ensure all the cases and math from this sheet is correct and
- * verified
+ * @dev This contract should generate test to ensure all the cases and math from this sheet is correct and verified
  * https://docs.google.com/spreadsheets/d/18e5ola3JJ2HKRQyAoPNmVrV4fnRcLdckOhQIxrN_hwY/edit#gid=1819672818
  */
-contract ForkTestCollarPolygonMainnet is CollarIntegrationPriceManipulation, VaultOperationsTest {
+contract ForkTestCollarEthereumMainnetNon18BasedCollateral is
+    CollarIntegrationPriceManipulation,
+    VaultOperationsTest
+{
     /* We set up the test environment as follows:
 
-    1. We fork Polygon and activate the fork
-    2. We deploy the CollarEngine with the dex set to SwapRouter02 from Uniswap on the polygon fork
+    1. We fork Ethereum mainnet and activate the fork
+    2. We deploy the CollarEngine with the dex set to SwapRouter02 from Uniswap on the Ethereum mainnet fork
     3. We add the LTV of 90% to the engine, as well as the cash and collateral assets & duration
     4. We deploy a CollarPool with the following parameters:
         - engine: address of the CollarEngine
         - tickScaleFactor: 100 (1 tick = 1%)
-        - cashAsset: USDC
-        - collateralAsset: WMatic
+        - cashAsset: USDT
+        - collateralAsset: WBTC
         - duration: 1 day
         - ltv: 9000 (90%)
     5. We add the pool to the engine
-    6. We give the user USDC and WMatic, as well as the liquidity provider
+    6. We give the user USDT and WBTC, as well as the liquidity provider
     7. WE label existing addresses for better test output
     8. We deploy a vault manager for the user
-    9. We approve the vault manager to spend the user's USDC and WMatic
-    10. We approve the pool to spend the liquidity provider's USDC and WMatic
+    9. We approve the vault manager to spend the user's USDT and WBTC
+    10. We approve the pool to spend the liquidity provider's USDT and WBTC
     11. We add liquidity to the pool in ticks 111 through 130 (as the liquidity provider)
+
     */
 
     function setUp() public {
-        uint _blockNumberToUse = 55_850_000;
-        string memory forkRPC = vm.envString("POLYGON_MAINNET_RPC");
+        uint _blockNumberToUse = 20_091_414;
+        string memory forkRPC = vm.envString("ETHEREUM_MAINNET_RPC");
         vm.createSelectFork(forkRPC, _blockNumberToUse);
         assertEq(block.number, _blockNumberToUse);
-        /**
-         * polygon mainnet addresses
-         */
         address _swapRouter = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
-        address _usdc = address(0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359);
-        address _wmatic = address(0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270);
-        address _uniV3Pool = address(0x2DB87C4831B2fec2E35591221455834193b50D1B);
-        address _whale = address(0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245);
+        address collateralAssetAddress = address(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
+        address cashAssetAddress = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
+        address _uniV3Pool = address(0x4e68Ccd3E89f51C3074ca5072bbAC773960dFa36);
+        address _whale = address(0xF04a5cC80B1E94C69B48f5ee68a08CD2F09A7c3E);
         _setupConfig(
             _swapRouter,
-            _usdc,
-            _wmatic,
+            cashAssetAddress,
+            collateralAssetAddress,
             _uniV3Pool,
             _whale,
             _blockNumberToUse,
-            739_504, // $0.739504 the price for WMatic in USDC on the specified block of polygon mainnet
+            3_393_819_954, // $3393 the price for WBTC in USDT on the specified block of ethereum mainnet
             120,
             1 days,
             9000,
-            18 // collateral decimals , WMATIC has 18 decimals
+            8 // collateral decimals , WBTC has 8 decimals
         );
-        uint amountToProvide = 10_000e6;
+        uint amountToProvide = 1_000_000e6;
         _fundWallets();
         _addLiquidityToPool(amountToProvide);
         vm.stopPrank();
         _validateSetup(amountToProvide, 1 days, 9000);
     }
+
+    uint24[] public fixtureTick = [110, 115, 120, 130];
 
     modifier assumeTickFuzzValues(uint24 tick) {
         vm.assume(tick == 110 || tick == 115 || tick == 120 || tick == 130);
@@ -78,26 +81,24 @@ contract ForkTestCollarPolygonMainnet is CollarIntegrationPriceManipulation, Vau
     }
 
     function test_openAndCloseVaultNoPriceChange() public {
-        (bytes32 uuid,) = openVaultAsUserAndCheckValues(1000 ether, user1, CALL_STRIKE_TICK);
+        (bytes32 uuid,) = openVaultAsUserAndCheckValues(2e8, user1, CALL_STRIKE_TICK);
+        // in order for the price to not change we need to do an equal amount of tokens swapped in both directions
+        vm.roll(block.number + 43_200);
+        skip(1.5 days);
         startHoax(user1);
         // close the vault
         // price before close vault
-        vm.roll(block.number + 43_200);
-        skip(poolDuration + 1 days);
         vaultManager.closeVault(uuid);
         /**
-         * @dev trying to manipulate price to be exactly the same as the moment of opening vault is too hard ,
-         * so we'll skip this case unless there's a better proposal
+         * @dev trying to manipulate price to be exactly the same as the moment of opening vault is too hard , so we'll skip this case unless there's a better proposal
          */
     }
-
-    uint24[] public fixtureTick = [110, 115, 120, 130];
 
     function testFuzz_openAndCloseVaultPriceUnderPutStrike(uint collateralAmount, uint24 tick)
         public
         assumeTickFuzzValues(tick)
     {
-        collateralAmount = bound(collateralAmount, 1 ether, 20_000 ether);
+        collateralAmount = bound(collateralAmount, 2e8, 20e8);
         (bytes32 uuid, ICollarVaultState.Vault memory vault) =
             openVaultAsUserAndCheckValues(collateralAmount, user1, tick);
         uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
@@ -109,7 +110,7 @@ contract ForkTestCollarPolygonMainnet is CollarIntegrationPriceManipulation, Vau
 
     function test_openAndCloseVaultPriceUnderPutStrike() public {
         (bytes32 uuid, ICollarVaultState.Vault memory vault) =
-            openVaultAsUserAndCheckValues(1000 ether, user1, CALL_STRIKE_TICK);
+            openVaultAsUserAndCheckValues(2e8, user1, CALL_STRIKE_TICK);
         uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
         uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
 
@@ -121,7 +122,8 @@ contract ForkTestCollarPolygonMainnet is CollarIntegrationPriceManipulation, Vau
         public
         assumeTickFuzzValues(tick)
     {
-        collateralAmount = bound(collateralAmount, 1 ether, 20_000 ether);
+        collateralAmount = bound(collateralAmount, 2e8, 20e8);
+        console.log("collateralAmount: %d", collateralAmount);
         (bytes32 uuid, ICollarVaultState.Vault memory vault) =
             openVaultAsUserAndCheckValues(collateralAmount, user1, tick);
         uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
@@ -134,7 +136,7 @@ contract ForkTestCollarPolygonMainnet is CollarIntegrationPriceManipulation, Vau
 
     function test_openAndCloseVaultPriceDownShortOfPutStrike() public {
         (bytes32 uuid, ICollarVaultState.Vault memory vault) =
-            openVaultAsUserAndCheckValues(1000 ether, user1, CALL_STRIKE_TICK);
+            openVaultAsUserAndCheckValues(2e8, user1, CALL_STRIKE_TICK);
         uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
         uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
         uint finalPrice = manipulatePriceDownwardShortOfPutStrike(false);
@@ -147,7 +149,7 @@ contract ForkTestCollarPolygonMainnet is CollarIntegrationPriceManipulation, Vau
         public
         assumeTickFuzzValues(tick)
     {
-        collateralAmount = bound(collateralAmount, 1 ether, 20_000 ether);
+        collateralAmount = bound(collateralAmount, 2e8, 20e8);
         (bytes32 uuid, ICollarVaultState.Vault memory vault) =
             openVaultAsUserAndCheckValues(collateralAmount, user1, tick);
         uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
@@ -160,7 +162,7 @@ contract ForkTestCollarPolygonMainnet is CollarIntegrationPriceManipulation, Vau
 
     function test_openAndCloseVaultPriceUpPastCallStrike() public {
         (bytes32 uuid, ICollarVaultState.Vault memory vault) =
-            openVaultAsUserAndCheckValues(1000 ether, user1, CALL_STRIKE_TICK);
+            openVaultAsUserAndCheckValues(2e8, user1, CALL_STRIKE_TICK);
         uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
         uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
         manipulatePriceUpwardPastCallStrike(false);
@@ -173,7 +175,7 @@ contract ForkTestCollarPolygonMainnet is CollarIntegrationPriceManipulation, Vau
         public
         assumeTickFuzzValues(tick)
     {
-        collateralAmount = bound(collateralAmount, 1 ether, 20_000 ether);
+        collateralAmount = bound(collateralAmount, 2e8, 20e8);
         (bytes32 uuid, ICollarVaultState.Vault memory vault) =
             openVaultAsUserAndCheckValues(collateralAmount, user1, tick);
         uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
@@ -186,7 +188,7 @@ contract ForkTestCollarPolygonMainnet is CollarIntegrationPriceManipulation, Vau
 
     function test_openAndCloseVaultPriceUpShortOfCallStrike() public {
         (bytes32 uuid, ICollarVaultState.Vault memory vault) =
-            openVaultAsUserAndCheckValues(1000 ether, user1, CALL_STRIKE_TICK);
+            openVaultAsUserAndCheckValues(2e8, user1, CALL_STRIKE_TICK);
         uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
         uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
         uint finalPrice = manipulatePriceUpwardShortOfCallStrike(false);
@@ -196,22 +198,23 @@ contract ForkTestCollarPolygonMainnet is CollarIntegrationPriceManipulation, Vau
     }
 
     function manipulatePriceDownwardPastPutStrike(bool isFuzzTest) internal {
-        uint targetPrice = 632_310;
-        _manipulatePriceDownwardPastPutStrike(100_000e18, isFuzzTest, targetPrice);
+        uint targetPrice = 34_995_588_879;
+        _manipulatePriceDownwardPastPutStrike(200e8, isFuzzTest, targetPrice);
     }
 
     function manipulatePriceDownwardShortOfPutStrike(bool isFuzzTest) internal returns (uint finalPrice) {
-        uint targetPrice = 703_575;
-        finalPrice = _manipulatePriceDownwardShortOfPutStrike(40_000e18, isFuzzTest, targetPrice);
+        uint targetPrice = 62_245_934_778;
+        finalPrice = _manipulatePriceDownwardShortOfPutStrike(50e8, isFuzzTest, targetPrice);
     }
 
     function manipulatePriceUpwardPastCallStrike(bool isFuzzTest) internal {
-        uint targetPrice = 987_778;
-        _manipulatePriceUpwardPastCallStrike(200_000e6, isFuzzTest, targetPrice);
+        uint targetPrice = 92_756_083_049;
+
+        _manipulatePriceUpwardPastCallStrike(16_800_000e6, isFuzzTest, targetPrice);
     }
 
     function manipulatePriceUpwardShortOfCallStrike(bool isFuzzTest) internal returns (uint finalPrice) {
-        uint targetPrice = 794_385;
-        finalPrice = _manipulatePriceUpwardShortOfCallStrike(40_000e6, isFuzzTest, targetPrice);
+        uint targetPrice = 65_378_324_483;
+        finalPrice = _manipulatePriceUpwardShortOfCallStrike(100_000e6, isFuzzTest, targetPrice);
     }
 }
