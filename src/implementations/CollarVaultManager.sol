@@ -52,15 +52,15 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         return vaultsByUUID[uuid].expiresAt < block.timestamp;
     }
 
-    function vaultInfo(bytes32 uuid) external view override returns (bytes memory) {
+    function vaultInfo(bytes32 uuid) external view override returns (Vault memory) {
         require(vaultsByUUID[uuid].openedAt != 0, "invalid vault");
-        return abi.encode(vaultsByUUID[uuid]);
+        return vaultsByUUID[uuid];
     }
 
-    function vaultInfoByIndex(uint vaultIndex) external view override returns (bytes memory) {
+    function vaultInfoByIndex(uint vaultIndex) external view override returns (Vault memory) {
         bytes32 uuid = vaultsByIndex[vaultIndex];
         require(vaultsByUUID[uuid].openedAt != 0, "invalid vault");
-        return abi.encode(vaultsByUUID[uuid]);
+        return vaultsByUUID[uuid];
     }
 
     function getVaultUUID(uint vaultIndex) external view override returns (bytes32 uuid) {

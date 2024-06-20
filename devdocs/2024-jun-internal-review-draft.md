@@ -110,7 +110,7 @@
     - [ ] `providers` should be `providersLiquidity` because it's a map
 
 - [ ] **Vault lows and notes**:
-  - [ ] #low encoding structs to bytes makes no sense vaultInfo, vaultInfoByNonce.
+  - [x] #low encoding structs to bytes makes no sense vaultInfo, vaultInfoByNonce.
   - [ ] #note `VaultForABI` event??
   - [ ] #note `vaultTokenCashSupply` should use named mapping parameters
   - [ ] #note some views are used only in tests, should be removed or added only to test contract ( `Testable`): `isVaultExpired`, `vaultInfo`, `vaultInfoByNonce`

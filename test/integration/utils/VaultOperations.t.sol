@@ -40,8 +40,7 @@ abstract contract VaultOperationsTest is CollarBaseIntegrationTestConfig, PrintV
         poolBalanceCollateral = collateralAsset.balanceOf(uniV3Pool);
         poolBalanceCash = cashAsset.balanceOf(uniV3Pool);
         uuid = vaultManager.getVaultUUID(0);
-        bytes memory rawVault = vaultManager.vaultInfo(uuid);
-        vault = abi.decode(rawVault, (ICollarVaultState.Vault));
+        vault = vaultManager.vaultInfo(uuid);
         _printVaultStats(vault, "VAULT OPENED");
     }
 

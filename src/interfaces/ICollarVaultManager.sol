@@ -34,11 +34,11 @@ interface ICollarVaultManager is ICollarVaultState {
 
     /// @notice Get the entire vault state as bytes
     /// @param uuid UUID of the vault to get state for
-    function vaultInfo(bytes32 uuid) external view returns (bytes calldata data);
+    function vaultInfo(bytes32 uuid) external view returns (Vault memory data);
 
     /// @notice Get the n-th vault state
     /// @param vaultIndex Index of the vault to get state for
-    function vaultInfoByIndex(uint vaultIndex) external view returns (bytes calldata data);
+    function vaultInfoByIndex(uint vaultIndex) external view returns (Vault memory data);
 
     /// @notice Get the UUID of a vault by its Index
     /// @param vaultIndex Index of the vault to get the UUID for

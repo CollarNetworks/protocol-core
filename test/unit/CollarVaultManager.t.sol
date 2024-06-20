@@ -134,11 +134,8 @@ contract CollarVaultManagerTest is Test {
 
         assertEq(manager.vaultCount(), 1);
 
-        bytes memory vaultInfoViaUUID = manager.vaultInfo(uuid);
-        bytes memory vaultInfoViaIndex = manager.vaultInfoByIndex(0);
-
-        ICollarVaultState.Vault memory infoViaUUID = abi.decode(vaultInfoViaUUID, (ICollarVaultState.Vault));
-        ICollarVaultState.Vault memory infoViaIndex = abi.decode(vaultInfoViaIndex, (ICollarVaultState.Vault));
+        ICollarVaultState.Vault memory infoViaUUID = manager.vaultInfo(uuid);
+        ICollarVaultState.Vault memory infoViaIndex = manager.vaultInfoByIndex(0);
 
         assertEq(infoViaUUID.expiresAt, infoViaIndex.expiresAt);
     }
@@ -163,11 +160,9 @@ contract CollarVaultManagerTest is Test {
         assertEq(manager.vaultCount(), 1);
         assertEq(manager.vaultsByIndex(0), calculatedUUID);
 
-        bytes memory vaultInfo = manager.vaultInfo(calculatedUUID);
-
         // grab the vault state & check all the values
 
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        ICollarVaultState.Vault memory vault = manager.vaultInfo(calculatedUUID);
 
         assertEq(vault.active, true);
         assertEq(vault.openedAt, 1);
@@ -199,11 +194,10 @@ contract CollarVaultManagerTest is Test {
         assertEq(manager.vaultCount(), 1);
         assertEq(manager.vaultsByIndex(0), calculatedUUID);
 
-        bytes memory vaultInfo = manager.vaultInfo(calculatedUUID);
         uint userCashBalance = cashAsset.balanceOf(user1);
         assertEq(userCashBalance, initialUserCashBalance + 90);
         // grab the vault state & check all the values
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        ICollarVaultState.Vault memory vault = manager.vaultInfo(calculatedUUID);
         assertEq(vault.active, true);
         assertEq(vault.openedAt, 1);
         assertEq(vault.expiresAt, 101);
@@ -490,10 +484,8 @@ contract CollarVaultManagerTest is Test {
 
         manager.closeVault(uuid);
 
-        bytes memory vaultInfo = manager.vaultInfo(uuid);
-
         // check vault info
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        ICollarVaultState.Vault memory vault = manager.vaultInfo(uuid);
 
         assertEq(vault.active, false);
         assertEq(vault.openedAt, 1);
@@ -521,10 +513,9 @@ contract CollarVaultManagerTest is Test {
         skip(100);
 
         closeVaultUserWinsCase(user1, uuid, 101);
-        bytes memory vaultInfo = manager.vaultInfo(uuid);
 
         // check vault info
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        ICollarVaultState.Vault memory vault = manager.vaultInfo(uuid);
         assertEq(vault.active, false);
         assertEq(vault.openedAt, 1);
         assertEq(vault.expiresAt, 101);
@@ -583,10 +574,8 @@ contract CollarVaultManagerTest is Test {
 
         closeVaultUserLosesCase(user1, uuid, 101);
 
-        bytes memory vaultInfo = manager.vaultInfo(uuid);
-
         // check vault info
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        ICollarVaultState.Vault memory vault = manager.vaultInfo(uuid);
 
         assertEq(vault.active, false);
         assertEq(vault.openedAt, 1);
@@ -642,9 +631,7 @@ contract CollarVaultManagerTest is Test {
     function test_redeem() public {
         bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
-        bytes memory vaultInfo = manager.vaultInfo(uuid);
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
-
+        ICollarVaultState.Vault memory vault = manager.vaultInfo(uuid);
         assertEq(vault.lockedVaultCash, 10);
         assertEq(vault.lockedPoolCash, 10);
 
@@ -654,8 +641,7 @@ contract CollarVaultManagerTest is Test {
 
         ERC6909TokenSupply token = ERC6909TokenSupply(manager);
 
-        vaultInfo = manager.vaultInfo(uuid);
-        vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        vault = manager.vaultInfo(uuid);
 
         assertEq(token.totalSupply(uint(uuid)), 100);
         assertEq(token.balanceOf(user1, uint(uuid)), 100);
@@ -673,8 +659,7 @@ contract CollarVaultManagerTest is Test {
         assertEq(cashAsset.balanceOf(user1), 100_020);
         assertEq(cashAsset.balanceOf(address(manager)), 90);
 
-        vaultInfo = manager.vaultInfo(uuid);
-        vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        vault = manager.vaultInfo(uuid);
 
         assertEq(vault.lockedVaultCash, 0);
         assertEq(vault.loanBalance, 90);
@@ -689,8 +674,7 @@ contract CollarVaultManagerTest is Test {
     function test_redeem_InvalidAmount() public {
         bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
-        bytes memory vaultInfo = manager.vaultInfo(uuid);
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        ICollarVaultState.Vault memory vault = manager.vaultInfo(uuid);
 
         assertEq(vault.lockedVaultCash, 10);
         assertEq(vault.lockedPoolCash, 10);
@@ -716,8 +700,7 @@ contract CollarVaultManagerTest is Test {
     function test_previewRedeem() public {
         bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
         ERC6909TokenSupply token = ERC6909TokenSupply(manager);
-        bytes memory vaultInfo = manager.vaultInfo(uuid);
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        ICollarVaultState.Vault memory vault = manager.vaultInfo(uuid);
 
         assertEq(vault.lockedVaultCash, 10);
         assertEq(vault.lockedPoolCash, 10);
@@ -725,8 +708,7 @@ contract CollarVaultManagerTest is Test {
         skip(100);
         closeVaultUserWinsCase(user1, uuid, 101);
 
-        vaultInfo = manager.vaultInfo(uuid);
-        vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        vault = manager.vaultInfo(uuid);
 
         assertEq(token.totalSupply(uint(uuid)), 100);
         assertEq(token.balanceOf(user1, uint(uuid)), 100);
