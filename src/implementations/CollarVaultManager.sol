@@ -357,7 +357,9 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
 
     function _swap(AssetSpecifiers calldata assets) internal returns (uint cashReceived) {
         // approve the dex router so we can swap the collateral to cash
-        IERC20(assets.collateralAsset).forceApprove(CollarEngine(engine).dexRouter(), assets.collateralAmount);
+        IERC20(assets.collateralAsset).forceApprove(
+            CollarEngine(engine).univ3SwapRouter(), assets.collateralAmount
+        );
 
         // build the swap transaction
         IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
@@ -371,7 +373,8 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         });
 
         // cache the amount of cash received
-        cashReceived = IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
+        cashReceived =
+            IV3SwapRouter(payable(CollarEngine(engine).univ3SwapRouter())).exactInputSingle(swapParams);
         // revert if minimum not met
         require(cashReceived >= assets.cashAmount, "slippage exceeded");
     }

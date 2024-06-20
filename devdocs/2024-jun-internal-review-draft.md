@@ -100,7 +100,7 @@
 
 - [ ] **Naming issues**:
   - [ ] engine
-    - [ ] `dexRouter` should have correct name (`unitV3router` or smth) because is later used with specific UniV3 interface (in vault manager)
+    - [ ] `univ3SwapRouter` should have correct name (`unitV3router` or smth) because is later used with specific UniV3 interface (in vault manager)
     - [ ] "engine" is a misleading name - there's no logic really, only vault factory and config.
   - [ ] vault:
     - [ ] "vault" for internal struct is bad name since typically refers to a specific type of separate contract, but here it isn't a contract, it's a "position" type thing. Can be named BorrowPositions or smth similar.

@@ -96,7 +96,7 @@ abstract contract VaultOperationsTest is CollarBaseIntegrationTestConfig, PrintV
         assertEq(cashAsset.balanceOf(user1), userCashBalanceAfterOpen);
         // liquidity provider gets the locked cash from the vault plus the original locked cash on the pool
         // position
-        (,, uint withdrawable) = pool.positions(uuid);
+        (,, uint withdrawable,) = pool.positions(uuid);
         uint totalSupply = pool.totalSupply(uint(uuid));
         // supply from vault is equal to the locked pool cash
         assertEq(totalSupply, vault.lockedPoolCash);
@@ -153,7 +153,7 @@ abstract contract VaultOperationsTest is CollarBaseIntegrationTestConfig, PrintV
         startHoax(provider);
         // liquidity provider gets the partial locked cash from the vault plus the original locked cash on the
         // pool position
-        (,, uint withdrawable) = pool.positions(uuid);
+        (,, uint withdrawable,) = pool.positions(uuid);
         uint totalSupply = pool.totalSupply(uint(uuid));
         // supply from vault must be equal to the locked pool cash + partial amount from locked vault cash
         assertEq(totalSupply, vault.lockedPoolCash);
@@ -198,7 +198,7 @@ abstract contract VaultOperationsTest is CollarBaseIntegrationTestConfig, PrintV
         assertEq(cashAsset.balanceOf(user1), userCashBalanceAfterOpen + vaultLockedCash);
 
         // liquidity provider gets 0
-        (,, uint withdrawable) = pool.positions(uuid);
+        (,, uint withdrawable,) = pool.positions(uuid);
         uint totalSupply = pool.totalSupply(uint(uuid));
         // total supply from vault must be equal to the locked pool cash
         assertEq(totalSupply, vault.lockedPoolCash);
@@ -250,7 +250,7 @@ abstract contract VaultOperationsTest is CollarBaseIntegrationTestConfig, PrintV
 
         // liquidity provider gets the locked cash from pool minus the partial amount sent to the vault
         // manager
-        (,, uint withdrawable) = pool.positions(uuid);
+        (,, uint withdrawable,) = pool.positions(uuid);
         uint totalSupply = pool.totalSupply(uint(uuid));
         // total supply from vault must be equal to the locked pool cash
         assertEq(totalSupply, vault.lockedPoolCash);

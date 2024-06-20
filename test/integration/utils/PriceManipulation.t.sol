@@ -22,7 +22,7 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
     using SafeERC20 for IERC20;
 
     function getCurrentAssetPrice(address baseToken, address quoteToken) internal view returns (uint) {
-        address uniV3Factory = IPeripheryImmutableState(CollarEngine(engine).dexRouter()).factory();
+        address uniV3Factory = IPeripheryImmutableState(CollarEngine(engine).univ3SwapRouter()).factory();
         return TestPriceOracle.getUnsafePrice(baseToken, quoteToken, uniV3Factory);
     }
 
@@ -93,20 +93,20 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
         });
         startHoax(whale);
         if (swapCash) {
-            cashAsset.forceApprove(CollarEngine(engine).dexRouter(), amount);
+            cashAsset.forceApprove(CollarEngine(engine).univ3SwapRouter(), amount);
             swapParams.tokenIn = cashAssetAddress;
             swapParams.tokenOut = collateralAssetAddress;
             // execute the swap
             // we're not worried about slippage here
-            IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
+            IV3SwapRouter(payable(CollarEngine(engine).univ3SwapRouter())).exactInputSingle(swapParams);
         } else {
-            collateralAsset.forceApprove(CollarEngine(engine).dexRouter(), amount);
+            collateralAsset.forceApprove(CollarEngine(engine).univ3SwapRouter(), amount);
 
             swapParams.tokenIn = collateralAssetAddress;
             swapParams.tokenOut = cashAssetAddress;
             // execute the swap
             // we're not worried about slippage here
-            IV3SwapRouter(payable(CollarEngine(engine).dexRouter())).exactInputSingle(swapParams);
+            IV3SwapRouter(payable(CollarEngine(engine).univ3SwapRouter())).exactInputSingle(swapParams);
         }
 
         currentPrice = getCurrentAssetPrice(collateralAssetAddress, cashAssetAddress);

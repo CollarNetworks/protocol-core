@@ -55,6 +55,7 @@ abstract contract BaseCollarPoolState {
         uint expiration; // <-- defined time horizon --- does not change
         uint principal; // <-- static initial value --- does not change
         uint withdrawable; // <-- zero until close, then set to settlement value
+        bool finalized; // <-- true when the vault manager has finalized the vault
     }
 
     /// @notice Records the state of each slot (see Slot struct above)
@@ -263,7 +264,8 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         */
 
         // finally, store the info about the Position
-        positions[uuid] = Position({ expiration: expiration, principal: amount, withdrawable: 0 });
+        positions[uuid] =
+            Position({ expiration: expiration, principal: amount, withdrawable: 0, finalized: false });
 
         // also, check to see if we need to un-initalize this slot
         if (slot.liquidity == 0) {
@@ -277,28 +279,42 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         // verify caller via engine
         require(CollarEngine(engine).isVaultManager(msg.sender), "caller not vault");
 
-        // either case, we need to set the withdrawable amount to principle + positionNet
-        positions[uuid].withdrawable = uint(int(positions[uuid].principal) + positionNet);
+        uint principal = positions[uuid].principal;
+        if (positionNet >= 0) {
+            // Positive case: positionNet is non-negative
+            uint amountToAdd = uint(positionNet);
 
-        // update global liquidity amounts
-        // free liquidity unchanged
+            // Update position withdrawable amount
+            positions[uuid].withdrawable = principal + amountToAdd;
 
-        totalLiquidity = uint(int(totalLiquidity) + positionNet);
+            // Update global liquidity amounts
+            totalLiquidity += amountToAdd;
+            lockedLiquidity -= principal;
+            redeemableLiquidity += principal + amountToAdd;
 
-        lockedLiquidity -= positions[uuid].principal;
-
-        redeemableLiquidity += uint(int(positions[uuid].principal) + positionNet);
-
-        if (positionNet < 0) {
-            // we owe the vault some tokens
-            IERC20(cashAsset).safeTransfer(vaultManager, uint(-positionNet));
-        } else if (positionNet > 0) {
-            // the vault owes us some tokens
-            IERC20(cashAsset).safeTransferFrom(vaultManager, address(this), uint(positionNet));
+            // The vault owes us some tokens
+            if (amountToAdd > 0) {
+                IERC20(cashAsset).safeTransferFrom(vaultManager, address(this), amountToAdd);
+            }
         } else {
-            // impressive. most impressive.
-        }
+            // Negative case: positionNet is negative
+            uint amountToSubstract = uint(-positionNet);
 
+            // Ensure principal is greater or equal to negative positionNet to prevent underflow
+            require(int(principal) + positionNet >= 0, "Insufficient principal to cover negative positionNet");
+
+            // Update position withdrawable amount
+            positions[uuid].withdrawable = principal - amountToSubstract;
+
+            // Update global liquidity amounts
+            totalLiquidity -= amountToSubstract;
+            lockedLiquidity -= principal;
+            redeemableLiquidity += principal - amountToSubstract;
+
+            // We owe the vault some tokens
+            IERC20(cashAsset).safeTransfer(vaultManager, amountToSubstract);
+        }
+        positions[uuid].finalized = true;
         emit PositionFinalized(vaultManager, uuid, positionNet);
     }
 
@@ -309,6 +325,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         require(position.expiration != 0, "no position");
         require(block.timestamp >= position.expiration, "vault not finalized");
         require(amount <= balanceOf[msg.sender][_id], "insufficient balance");
+        require(position.finalized, "position not finalized");
 
         // calculate cash redeem value
         uint redeemValue = _redeemAmount(position.withdrawable, amount, totalSupply[_id]);

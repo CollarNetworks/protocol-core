@@ -542,7 +542,6 @@ contract CollarPoolTest is Test {
 
     function test_redeem_InvalidAmount() public {
         mintAndOpenPosition(user1);
-
         ERC6909TokenSupply(address(pool)).balanceOf(user1, uint(keccak256(abi.encodePacked(user1))));
         // forward time:
         skip(101);
@@ -573,6 +572,18 @@ contract CollarPoolTest is Test {
 
         vm.expectRevert("no position");
         pool.redeem(keccak256(abi.encodePacked(user2)), 100_000);
+    }
+
+    function test_redeem_PositionNotFinalized() public {
+        mintAndOpenPosition(user1);
+
+        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint(keccak256(abi.encodePacked(user1))));
+        // forward time:
+        skip(101);
+        startHoax(user1);
+
+        vm.expectRevert("position not finalized");
+        pool.redeem(keccak256(abi.encodePacked(user1)), 100_000);
     }
 
     function test_previewRedeem_same_person() public {
