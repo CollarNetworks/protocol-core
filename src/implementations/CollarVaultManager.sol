@@ -90,36 +90,34 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
     ) public returns (bytes32 uuid) {
         // only user is allowed to open vaults
         require(msg.sender == user, "not vault user");
-
         // validate parameter data
         _validateOpenVaultParams(assetData, collarOpts, liquidityOpts);
 
         // generate vault (and token) Index
         uuid = keccak256(abi.encodePacked(user, vaultCount));
-
+        require(vaultsByUUID[uuid].expiresAt == 0, "Vault already created");
         vaultUUIDsByIndex[vaultCount] = keccak256(abi.encodePacked(user, vaultCount));
-
         // increment vault
         vaultCount++;
-        Vault memory vaultToSet = vaultsByUUID[uuid];
+
         // set Basic Vault Info
-        vaultToSet.active = true;
-        vaultToSet.openedAt = uint32(block.timestamp);
-        vaultToSet.expiresAt = uint32(block.timestamp + collarOpts.duration);
-        vaultToSet.duration = uint32(collarOpts.duration);
-        vaultToSet.ltv = collarOpts.ltv;
+        bool active = true;
+        uint32 openedAt = uint32(block.timestamp);
+        uint32 expiresAt = uint32(block.timestamp + collarOpts.duration);
+        uint32 duration = uint32(collarOpts.duration);
+        uint ltv = collarOpts.ltv;
 
         // set Asset Specific Info
-        vaultToSet.collateralAsset = assetData.collateralAsset;
-        vaultToSet.collateralAmount = assetData.collateralAmount;
-        vaultToSet.cashAsset = assetData.cashAsset;
+        address collateralAsset = assetData.collateralAsset;
+        uint collateralAmount = assetData.collateralAmount;
+        address cashAsset = assetData.cashAsset;
 
         // transfer collateral from user to vault
         IERC20(assetData.collateralAsset).safeTransferFrom(user, address(this), assetData.collateralAmount);
 
         // swap collateral for cash & record cash amount
         uint cashReceivedFromSwap = _swap(assetData);
-        vaultToSet.cashAmount = cashReceivedFromSwap;
+        uint cashAmount = cashReceivedFromSwap;
 
         // calculate exactly how much cash to lock from the liquidity pool
         // this is equal to (callstrikePercent - 100%) * totalCashReceivedFromSwap
@@ -134,28 +132,46 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         uint initialCollateralPrice = (cashReceivedFromSwap * 1e18) / (assetData.collateralAmount);
 
         // set Liquidity Pool Stuff
-        vaultToSet.liquidityPool = liquidityOpts.liquidityPool;
-        vaultToSet.initialCollateralPrice = initialCollateralPrice;
-        vaultToSet.putStrikePrice =
+        address liquidityPool = liquidityOpts.liquidityPool;
+        uint putStrikePrice =
             TickCalculations.tickToPrice(liquidityOpts.putStrikeTick, tickScaleFactor, initialCollateralPrice);
-        vaultToSet.callStrikePrice = TickCalculations.tickToPrice(
+        uint callStrikePrice = TickCalculations.tickToPrice(
             liquidityOpts.callStrikeTick, tickScaleFactor, initialCollateralPrice
         );
-        vaultToSet.putStrikeTick = liquidityOpts.putStrikeTick;
-        vaultToSet.callStrikeTick = liquidityOpts.callStrikeTick;
+        uint24 putStrikeTick = liquidityOpts.putStrikeTick;
+        uint24 callStrikeTick = liquidityOpts.callStrikeTick;
 
         // mint vault tokens (equal to the amount of cash received from swap)
         _mint(user, uint(uuid), cashReceivedFromSwap);
 
         // mint liquidity pool tokens
         uint lockedPoolCash = CollarPool(liquidityOpts.liquidityPool).openPosition(
-            uuid, liquidityOpts.callStrikeTick, poolLiquidityToLock, vaultToSet.expiresAt
+            uuid, liquidityOpts.callStrikeTick, poolLiquidityToLock, expiresAt
         );
-        vaultToSet.lockedPoolCash = lockedPoolCash;
 
         // set vault specific stuff
-        vaultToSet.loanBalance = (collarOpts.ltv * cashReceivedFromSwap) / 10_000;
-        vaultToSet.lockedVaultCash = ((10_000 - collarOpts.ltv) * cashReceivedFromSwap) / 10_000;
+        uint loanBalance = (collarOpts.ltv * cashReceivedFromSwap) / 10_000;
+        uint lockedVaultCash = ((10_000 - collarOpts.ltv) * cashReceivedFromSwap) / 10_000;
+        Vault memory vaultToSet = Vault({
+            active: active,
+            openedAt: openedAt,
+            expiresAt: expiresAt,
+            duration: duration,
+            ltv: ltv,
+            collateralAsset: collateralAsset,
+            collateralAmount: collateralAmount,
+            cashAsset: cashAsset,
+            cashAmount: cashAmount,
+            liquidityPool: liquidityPool,
+            initialCollateralPrice: initialCollateralPrice,
+            putStrikePrice: putStrikePrice,
+            callStrikePrice: callStrikePrice,
+            putStrikeTick: putStrikeTick,
+            callStrikeTick: callStrikeTick,
+            lockedPoolCash: lockedPoolCash,
+            loanBalance: loanBalance,
+            lockedVaultCash: lockedVaultCash
+        });
         vaultsByUUID[uuid] = vaultToSet;
 
         emit VaultOpened(msg.sender, address(this), uuid);
