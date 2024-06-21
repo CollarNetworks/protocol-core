@@ -288,23 +288,25 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         // verify caller via engine
         address vaultManager = msg.sender;
         require(CollarEngine(engine).isVaultManager(vaultManager), "caller not vault");
+        require(block.timestamp > positions[uuid].expiration, "position is not finalizable");
+        require(positions[uuid].finalized = false, "position already finalized");
+        positions[uuid].finalized = true;
 
         uint principal = positions[uuid].principal;
-        if (positionNet >= 0) {
+        uint withdrawable;
+        if (positionNet > 0) {
             // Positive case: positionNet is non-negative
             uint amountToAdd = uint(positionNet);
 
             // Update position withdrawable amount
-            positions[uuid].withdrawable = principal + amountToAdd;
+            withdrawable = principal + amountToAdd;
 
             // Update global liquidity amounts
             totalLiquidity += amountToAdd;
-            redeemableLiquidity += principal + amountToAdd;
 
             // The vault owes us some tokens
-            if (amountToAdd > 0) {
-                IERC20(cashAsset).safeTransferFrom(vaultManager, address(this), amountToAdd);
-            }
+
+            IERC20(cashAsset).safeTransferFrom(vaultManager, address(this), amountToAdd);
         } else {
             // Negative case: positionNet is negative
             uint amountToSubstract = uint(-positionNet);
@@ -313,17 +315,17 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
             require(principal >= amountToSubstract, "Insufficient principal to cover negative positionNet");
 
             // Update position withdrawable amount
-            positions[uuid].withdrawable = principal - amountToSubstract;
+            withdrawable = principal - amountToSubstract;
 
             // Update global liquidity amounts
             totalLiquidity -= amountToSubstract;
-            redeemableLiquidity += principal - amountToSubstract;
 
             // We owe the vault some tokens
             IERC20(cashAsset).safeTransfer(vaultManager, amountToSubstract);
         }
+        positions[uuid].withdrawable = withdrawable;
+        redeemableLiquidity += withdrawable;
         lockedLiquidity -= principal;
-        positions[uuid].finalized = true;
         emit PositionFinalized(vaultManager, uuid, positionNet);
     }
 
