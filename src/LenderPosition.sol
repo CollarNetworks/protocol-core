@@ -110,18 +110,19 @@ contract LenderPosition is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
         // TODO: event
     }
 
-    function updateOfferAmount(uint offerId, int delta) public whenNotPaused {
+    function updateOfferAmount(uint offerId, uint newAmount) public whenNotPaused {
         require(msg.sender == liquidityOffers[offerId].provider, "not offer provider");
+        uint currentAmount = liquidityOffers[offerId].available;
 
-        if (delta > 0) {
+        if (newAmount > currentAmount) {
             // deposit more
-            uint toAdd = uint(delta);
+            uint toAdd = newAmount - currentAmount;
             liquidityOffers[offerId].available += toAdd;
             cashAsset.safeTransferFrom(msg.sender, address(this), toAdd);
-        } else if (delta < 0) {
+        } else if (newAmount < currentAmount) {
             // withdraw
-            uint toRemove = uint(-delta);
-            liquidityOffers[offerId].available -= toRemove; // will revert if asking too much
+            uint toRemove = currentAmount - newAmount;
+            liquidityOffers[offerId].available -= toRemove;
             cashAsset.safeTransfer(msg.sender, toRemove);
         } else {
             // no change
