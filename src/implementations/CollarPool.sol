@@ -215,7 +215,11 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         // @dev no transfers, only internal accounting changes
     }
 
-    function openPosition(bytes32 uuid, uint slotIndex, uint amount, uint expiration) external override {
+    function openPosition(bytes32 uuid, uint slotIndex, uint requestedAmount, uint expiration)
+        external
+        override
+        returns (uint amountLocked)
+    {
         // ensure this is a valid vault calling us - it must call through the engine
         require(CollarEngine(engine).isVaultManager(msg.sender), "caller not vault");
 
@@ -225,7 +229,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
 
         require(numProviders != 0, "no providers");
 
-        require(amount <= slot.liquidity, "insufficient liquidity");
+        require(requestedAmount <= slot.liquidity, "insufficient liquidity");
         uint amountFromAllProviders = 0;
         for (uint i = 0; i < numProviders; i++) {
             // calculate how much to pull from provider based off of their proportional ownership of liquidity
@@ -237,7 +241,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
             // (provider's proportional ownership of slot liquidity) * (total amount needed)
             // (providerLiquidity / totalSlotLiquidity) * amount
             // (providerLiquidity * amount) / totalSlotLiquidity
-            uint amountFromThisProvider = (thisLiquidity * amount) / slot.liquidity;
+            uint amountFromThisProvider = (thisLiquidity * requestedAmount) / slot.liquidity;
 
             // decrement the amount of free liquidity that this provider has, in this slot
             slot.providers.set(thisProvider, thisLiquidity - amountFromThisProvider);
@@ -254,8 +258,8 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         // update global liquidity amounts
         // total liquidity unchanged
         // redeemable liquidity unchanged
-        lockedLiquidity += amount;
-        freeLiquidity -= amount;
+        lockedLiquidity += amountFromAllProviders;
+        freeLiquidity -= amountFromAllProviders;
 
         /*
 
@@ -264,15 +268,20 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         */
 
         // finally, store the info about the Position
-        positions[uuid] =
-            Position({ expiration: expiration, principal: amount, withdrawable: 0, finalized: false });
+        positions[uuid] = Position({
+            expiration: expiration,
+            principal: amountFromAllProviders,
+            withdrawable: 0,
+            finalized: false
+        });
 
         // also, check to see if we need to un-initalize this slot
         if (slot.liquidity == 0) {
             initializedSlotIndices.remove(slotIndex);
         }
 
-        emit PositionOpened(msg.sender, uuid, expiration, amount);
+        emit PositionOpened(msg.sender, uuid, expiration, amountFromAllProviders);
+        return amountFromAllProviders;
     }
 
     function finalizePosition(bytes32 uuid, int positionNet) external override {

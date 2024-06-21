@@ -137,7 +137,6 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
 
         // set Liquidity Pool Stuff
         vaultToSet.liquidityPool = liquidityOpts.liquidityPool;
-        vaultToSet.lockedPoolCash = poolLiquidityToLock;
         vaultToSet.initialCollateralPrice = initialCollateralPrice;
         vaultToSet.putStrikePrice =
             TickCalculations.tickToPrice(liquidityOpts.putStrikeTick, tickScaleFactor, initialCollateralPrice);
@@ -151,9 +150,10 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         _mint(user, uint(uuid), cashReceivedFromSwap);
 
         // mint liquidity pool tokens
-        CollarPool(liquidityOpts.liquidityPool).openPosition(
+        uint lockedPoolCash = CollarPool(liquidityOpts.liquidityPool).openPosition(
             uuid, liquidityOpts.callStrikeTick, poolLiquidityToLock, vaultToSet.expiresAt
         );
+        vaultToSet.lockedPoolCash = lockedPoolCash;
 
         // set vault specific stuff
         vaultToSet.loanBalance = (collarOpts.ltv * cashReceivedFromSwap) / 10_000;
@@ -266,6 +266,8 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         } else {
             revert();
         }
+        // mark vault as finalized
+        vault.active = false;
 
         // sanity check
         assert(cashNeededFromPool == 0 || cashToSendToPool == 0);
@@ -283,9 +285,6 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         // also null out the locked vault cash
         vaultTokenCashSupply[uuid] = vault.lockedVaultCash + cashNeededFromPool;
         vault.lockedVaultCash = 0;
-
-        // mark vault as finalized
-        vault.active = false;
 
         emit VaultClosed(msg.sender, address(this), uuid);
     }

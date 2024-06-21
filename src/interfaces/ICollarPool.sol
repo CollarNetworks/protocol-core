@@ -86,9 +86,11 @@ interface ICollarPool {
     /// @notice Opens a new position (collar) in the pool (called by the vault manager)
     /// @param uuid The unique identifier of the position, corresponds to the UUID of the vault
     /// @param slotIndex The index of the slot to open the position in in the pool
-    /// @param amount The amount of liquidity to open the position with
+    /// @param requestedAmount The amount of liquidity to open the position with
     /// @param expiration The expiration timestamp of the position
-    function openPosition(bytes32 uuid, uint slotIndex, uint amount, uint expiration) external;
+    function openPosition(bytes32 uuid, uint slotIndex, uint requestedAmount, uint expiration)
+        external
+        returns (uint lockedAmount);
 
     /// @notice Allows the engine to finalize a position & mark as redeemable
     /// @dev Internally, the positionNet param allows us to decide whether or not to push or pull from a vault
