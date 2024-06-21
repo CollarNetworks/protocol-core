@@ -220,6 +220,8 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         override
         returns (uint amountLocked)
     {
+        require(expiration >= block.timestamp, "expiration cannot be in the past");
+        require(positions[uuid].expiration == 0, "Position already exists");
         // ensure this is a valid vault calling us - it must call through the engine
         require(CollarEngine(engine).isVaultManager(msg.sender), "caller not vault");
 
