@@ -56,6 +56,8 @@ contract LenderPosition is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
 
     mapping(uint offerId => Liquidity) public liquidityOffers;
 
+    // TODO: add liquidity info mappings for frontend's needs: strikes to offers, strikes to totals
+
     constructor(
         address initialOwner,
         CollarEngine _engine,
@@ -100,6 +102,7 @@ contract LenderPosition is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
 
     function createOffer(uint strikeDeviation, uint amount) external whenNotPaused returns (uint offerId) {
         // TODO validation: strikeDeviation
+        // TODO validate provider can receive NFTs (via the same check that's in _safeMint)
         offerId = nextOfferId++;
         liquidityOffers[offerId] =
             Liquidity({ provider: msg.sender, available: amount, strikeDeviation: strikeDeviation });
@@ -167,7 +170,7 @@ contract LenderPosition is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
         // store position data
         positions[positionId] = position;
         // mint the NFT to the provider
-        // @dev does not use _safeMint to avoid reentrancy, so providers MUST be able to handle NFTs
+        // @dev does not use _safeMint to avoid reentrancy
         _mint(offer.provider, positionId);
 
         // TODO: emit event
@@ -183,7 +186,7 @@ contract LenderPosition is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
     //      // refactor non-validation logic into _openPosition and loop it here
     //    }
 
-    function closePosition(uint positionId, int positionNet) external whenNotPaused {
+    function settlePosition(uint positionId, int positionNet) external whenNotPaused {
         // don't validate full config because maybe some values are no longer supported
         validateBorrowingContractTrusted();
         require(msg.sender == borrowPositionContract, "unauthorized borrow contract");
@@ -216,7 +219,7 @@ contract LenderPosition is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
         // TODO: emit event
     }
 
-    function withdrawAndBurn(uint positionId) external whenNotPaused {
+    function withdrawSettled(uint positionId) external whenNotPaused {
         require(msg.sender == ownerOf(positionId), "not position owner");
 
         Position storage position = positions[positionId];
@@ -234,7 +237,7 @@ contract LenderPosition is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
 
     /// @dev for unwinds / rolls when the borrow contract is also the owner of this NFT
     /// callable through borrow position because only it is receiver of funds
-    function forfeitPosition(uint positionId) external whenNotPaused {
+    function cancelPosition(uint positionId) external whenNotPaused {
         // don't validate full config because maybe some values are no longer supported
         validateBorrowingContractTrusted();
         require(msg.sender == borrowPositionContract, "unauthorized borrow contract");
