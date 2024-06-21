@@ -86,10 +86,10 @@ contract LenderPosition is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
         require(engine.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
         require(engine.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
         require(engine.isValidCollarDuration(duration), "unsupported duration");
-        validateBorrowingContract();
+        validateBorrowingContractTrusted();
     }
 
-    function validateBorrowingContract() public view {
+    function validateBorrowingContractTrusted() public view {
         // TODO: use the right auth view instead of isVaultManager
         require(engine.isVaultManager(borrowPositionContract), "unsupported duration");
     }
@@ -185,8 +185,7 @@ contract LenderPosition is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
 
     function closePosition(uint positionId, int positionNet) external whenNotPaused {
         // don't validate full config because maybe some values are no longer supported
-        // but check caller is still trusted
-        validateBorrowingContract();
+        validateBorrowingContractTrusted();
         require(msg.sender == borrowPositionContract, "unauthorized borrow contract");
 
         Position storage position = positions[positionId];
@@ -226,10 +225,31 @@ contract LenderPosition is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
         uint withdrawable = position.withdrawable;
         // zero out withdrawable
         position.withdrawable = 0;
-        // burn tokens
+        // burn token
         _burn(positionId);
         // transfer tokens
         cashAsset.safeTransfer(msg.sender, withdrawable);
+        // TODO: emit event
+    }
+
+    /// @dev for unwinds / rolls when the borrow contract is also the owner of this NFT
+    /// callable through borrow position because only it is receiver of funds
+    function forfeitPosition(uint positionId) external whenNotPaused {
+        // don't validate full config because maybe some values are no longer supported
+        validateBorrowingContractTrusted();
+        require(msg.sender == borrowPositionContract, "unauthorized borrow contract");
+        require(borrowPositionContract == ownerOf(positionId), "caller does not own token");
+
+        Position storage position = positions[positionId];
+
+        require(!position.finalized, "already finalized");
+        position.finalized = true; // done here as this also acts as reentrancy protection
+
+        // burn token
+        _burn(positionId);
+
+        cashAsset.safeTransfer(borrowPositionContract, position.principal);
+        // TODO: emit event
     }
 
     // ----- INTERNAL MUTATIVE ----- //
