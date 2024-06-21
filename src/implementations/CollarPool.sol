@@ -290,8 +290,8 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         // verify caller via engine
         address vaultManager = msg.sender;
         require(CollarEngine(engine).isVaultManager(vaultManager), "caller not vault");
-        require(block.timestamp > positions[uuid].expiration, "position is not finalizable");
-        require(positions[uuid].finalized = false, "position already finalized");
+        require(block.timestamp >= positions[uuid].expiration, "position is not finalizable");
+        require(positions[uuid].finalized == false, "position already finalized");
         positions[uuid].finalized = true;
 
         uint principal = positions[uuid].principal;

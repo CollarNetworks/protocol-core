@@ -92,7 +92,6 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         require(msg.sender == user, "not vault user");
         // validate parameter data
         _validateOpenVaultParams(assetData, collarOpts, liquidityOpts);
-
         // generate vault (and token) Index
         uuid = keccak256(abi.encodePacked(user, vaultCount));
         require(vaultsByUUID[uuid].expiresAt == 0, "Vault already created");
@@ -100,78 +99,16 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         // increment vault
         vaultCount++;
 
-        // set Basic Vault Info
-        bool active = true;
-        uint32 openedAt = uint32(block.timestamp);
-        uint32 expiresAt = uint32(block.timestamp + collarOpts.duration);
-        uint32 duration = uint32(collarOpts.duration);
-        uint ltv = collarOpts.ltv;
-
-        // set Asset Specific Info
-        address collateralAsset = assetData.collateralAsset;
-        uint collateralAmount = assetData.collateralAmount;
-        address cashAsset = assetData.cashAsset;
-
         // transfer collateral from user to vault
         IERC20(assetData.collateralAsset).safeTransferFrom(user, address(this), assetData.collateralAmount);
 
         // swap collateral for cash & record cash amount
         uint cashReceivedFromSwap = _swap(assetData);
-        uint cashAmount = cashReceivedFromSwap;
-
-        // calculate exactly how much cash to lock from the liquidity pool
-        // this is equal to (callstrikePercent - 100%) * totalCashReceivedFromSwap
-        // first, grab the call strike percent from the call strike tick supplied
-        uint tickScaleFactor = CollarPool(liquidityOpts.liquidityPool).tickScaleFactor();
-        uint callStrikePercentBps = TickCalculations.tickToBps(liquidityOpts.callStrikeTick, tickScaleFactor);
-        uint poolLiquidityToLock =
-            ((callStrikePercentBps - 10_000) * cashReceivedFromSwap * 1e18) / (10_000) / 1e18;
-
-        // calculate the initial collateral price from the swap execution fill
-        // this is stored as "unit price times 1e18"
-        uint initialCollateralPrice = (cashReceivedFromSwap * 1e18) / (assetData.collateralAmount);
-
-        // set Liquidity Pool Stuff
-        address liquidityPool = liquidityOpts.liquidityPool;
-        uint putStrikePrice =
-            TickCalculations.tickToPrice(liquidityOpts.putStrikeTick, tickScaleFactor, initialCollateralPrice);
-        uint callStrikePrice = TickCalculations.tickToPrice(
-            liquidityOpts.callStrikeTick, tickScaleFactor, initialCollateralPrice
-        );
-        uint24 putStrikeTick = liquidityOpts.putStrikeTick;
-        uint24 callStrikeTick = liquidityOpts.callStrikeTick;
-
         // mint vault tokens (equal to the amount of cash received from swap)
         _mint(user, uint(uuid), cashReceivedFromSwap);
 
-        // mint liquidity pool tokens
-        uint lockedPoolCash = CollarPool(liquidityOpts.liquidityPool).openPosition(
-            uuid, liquidityOpts.callStrikeTick, poolLiquidityToLock, expiresAt
-        );
-
-        // set vault specific stuff
-        uint loanBalance = (collarOpts.ltv * cashReceivedFromSwap) / 10_000;
-        uint lockedVaultCash = ((10_000 - collarOpts.ltv) * cashReceivedFromSwap) / 10_000;
-        Vault memory vaultToSet = Vault({
-            active: active,
-            openedAt: openedAt,
-            expiresAt: expiresAt,
-            duration: duration,
-            ltv: ltv,
-            collateralAsset: collateralAsset,
-            collateralAmount: collateralAmount,
-            cashAsset: cashAsset,
-            cashAmount: cashAmount,
-            liquidityPool: liquidityPool,
-            initialCollateralPrice: initialCollateralPrice,
-            putStrikePrice: putStrikePrice,
-            callStrikePrice: callStrikePrice,
-            putStrikeTick: putStrikeTick,
-            callStrikeTick: callStrikeTick,
-            lockedPoolCash: lockedPoolCash,
-            loanBalance: loanBalance,
-            lockedVaultCash: lockedVaultCash
-        });
+        Vault memory vaultToSet =
+            _createVault(assetData, collarOpts, liquidityOpts, cashReceivedFromSwap, uuid);
         vaultsByUUID[uuid] = vaultToSet;
 
         emit VaultOpened(msg.sender, address(this), uuid);
@@ -179,6 +116,61 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         if (withdrawLoan) {
             withdraw(uuid, vaultToSet.loanBalance);
         }
+    }
+
+    function _createVault(
+        AssetSpecifiers calldata assetData, // addresses & amounts of collateral & cash assets
+        CollarOpts calldata collarOpts, // length & ltv
+        LiquidityOpts calldata liquidityOpts, // pool address, callstrike & amount to lock there, putstrike
+        uint cashReceivedFromSwap,
+        bytes32 uuid
+    ) internal returns (Vault memory vault) {
+        vault = Vault({
+            active: true,
+            openedAt: uint32(block.timestamp),
+            expiresAt: uint32(block.timestamp + collarOpts.duration),
+            duration: uint32(collarOpts.duration),
+            ltv: collarOpts.ltv,
+            collateralAsset: assetData.collateralAsset,
+            collateralAmount: assetData.collateralAmount,
+            cashAsset: assetData.cashAsset,
+            cashAmount: cashReceivedFromSwap,
+            liquidityPool: liquidityOpts.liquidityPool,
+            initialCollateralPrice: 0,
+            putStrikePrice: 0,
+            callStrikePrice: 0,
+            putStrikeTick: liquidityOpts.putStrikeTick,
+            callStrikeTick: liquidityOpts.callStrikeTick,
+            lockedPoolCash: 0,
+            loanBalance: 0,
+            lockedVaultCash: 0
+        });
+        // set Basic Vault Info
+        // calculate exactly how much cash to lock from the liquidity pool
+        // this is equal to (callstrikePercent - 100%) * totalCashReceivedFromSwap
+        // first, grab the call strike percent from the call strike tick supplied
+        uint tickScaleFactor = CollarPool(liquidityOpts.liquidityPool).tickScaleFactor();
+        uint callStrikePercentBps = TickCalculations.tickToBps(liquidityOpts.callStrikeTick, tickScaleFactor);
+        uint requestedAmountToLockInPool =
+            ((callStrikePercentBps - 10_000) * cashReceivedFromSwap * 1e18) / (10_000) / 1e18;
+
+        // calculate the initial collateral price from the swap execution fill
+        // this is stored as "unit price times 1e18"
+        vault.initialCollateralPrice = (cashReceivedFromSwap * 1e18) / (assetData.collateralAmount);
+        vault.putStrikePrice = TickCalculations.tickToPrice(
+            liquidityOpts.putStrikeTick, tickScaleFactor, vault.initialCollateralPrice
+        );
+        vault.callStrikePrice = TickCalculations.tickToPrice(
+            liquidityOpts.callStrikeTick, tickScaleFactor, vault.initialCollateralPrice
+        );
+
+        // mint liquidity pool tokens
+        vault.lockedPoolCash = CollarPool(liquidityOpts.liquidityPool).openPosition(
+            uuid, liquidityOpts.callStrikeTick, requestedAmountToLockInPool, vault.expiresAt
+        );
+        // set vault specific stuff
+        vault.loanBalance = (collarOpts.ltv * cashReceivedFromSwap) / 10_000;
+        vault.lockedVaultCash = ((10_000 - collarOpts.ltv) * cashReceivedFromSwap) / 10_000;
     }
 
     function closeVault(bytes32 uuid) external override {

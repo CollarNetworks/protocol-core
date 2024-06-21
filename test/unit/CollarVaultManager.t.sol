@@ -126,7 +126,7 @@ contract CollarVaultManagerTest is Test {
         bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint(0)));
 
         assertEq(manager.vaultCount(), 1);
-        assertEq(calculatedUUID, manager.vaultsByIndex(0));
+        assertEq(calculatedUUID, manager.vaultUUIDsByIndex(0));
     }
 
     function test_vaultInfoByIndex() public {
@@ -140,9 +140,9 @@ contract CollarVaultManagerTest is Test {
         assertEq(infoViaUUID.expiresAt, infoViaIndex.expiresAt);
     }
 
-    function test_vaultInfoByIndex_InvalidVault() public {
-        vm.expectRevert("invalid vault");
-        manager.vaultInfoByIndex(0);
+    function test_vaultInfoByIndex_InvalidVault() public view {
+        ICollarVaultState.Vault memory vault = manager.vaultInfoByIndex(0);
+        assertEq(vault.expiresAt, 0);
     }
 
     function test_deploymentAndDeployParams() public view {
@@ -158,7 +158,7 @@ contract CollarVaultManagerTest is Test {
         bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint(0)));
 
         assertEq(manager.vaultCount(), 1);
-        assertEq(manager.vaultsByIndex(0), calculatedUUID);
+        assertEq(manager.vaultUUIDsByIndex(0), calculatedUUID);
 
         // grab the vault state & check all the values
 
@@ -193,7 +193,7 @@ contract CollarVaultManagerTest is Test {
         assertEq(uuid, calculatedUUID);
 
         assertEq(manager.vaultCount(), 1);
-        assertEq(manager.vaultsByIndex(0), calculatedUUID);
+        assertEq(manager.vaultUUIDsByIndex(0), calculatedUUID);
 
         uint userCashBalance = cashAsset.balanceOf(user1);
         assertEq(userCashBalance, initialUserCashBalance + 90);
@@ -780,9 +780,9 @@ contract CollarVaultManagerTest is Test {
         manager.withdraw(bytes32(0), 100);
     }
 
-    function test_vaultInfo_InvalidVault() public {
-        vm.expectRevert("invalid vault");
-        manager.vaultInfo(bytes32(0));
+    function test_vaultInfo_InvalidVault() public view {
+        ICollarVaultState.Vault memory vault = manager.vaultInfo(bytes32(0));
+        assertEq(vault.expiresAt, 0);
     }
 
     function test_isVaultExpired() public {
