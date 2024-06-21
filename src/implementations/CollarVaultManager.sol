@@ -35,7 +35,7 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
     uint public vaultCount;
 
     mapping(bytes32 uuid => Vault vault) internal vaultsByUUID;
-    mapping(uint vaultIndex => bytes32 UUID) public vaultsByIndex;
+    mapping(uint vaultIndex => bytes32 UUID) public vaultUUIDsByIndex;
     mapping(bytes32 uuid => uint vaultCash) public vaultTokenCashSupply;
 
     // ----- CONSTRUCTOR ----- //
@@ -53,18 +53,16 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
     }
 
     function vaultInfo(bytes32 uuid) external view override returns (Vault memory) {
-        require(vaultsByUUID[uuid].openedAt != 0, "invalid vault");
         return vaultsByUUID[uuid];
     }
 
     function vaultInfoByIndex(uint vaultIndex) external view override returns (Vault memory) {
-        bytes32 uuid = vaultsByIndex[vaultIndex];
-        require(vaultsByUUID[uuid].openedAt != 0, "invalid vault");
+        bytes32 uuid = vaultUUIDsByIndex[vaultIndex];
         return vaultsByUUID[uuid];
     }
 
     function getVaultUUID(uint vaultIndex) external view override returns (bytes32 uuid) {
-        return vaultsByIndex[vaultIndex];
+        return vaultUUIDsByIndex[vaultIndex];
     }
 
     function previewRedeem(bytes32 uuid, uint amount) public view override returns (uint cashReceived) {
@@ -99,7 +97,7 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         // generate vault (and token) Index
         uuid = keccak256(abi.encodePacked(user, vaultCount));
 
-        vaultsByIndex[vaultCount] = keccak256(abi.encodePacked(user, vaultCount));
+        vaultUUIDsByIndex[vaultCount] = keccak256(abi.encodePacked(user, vaultCount));
 
         // increment vault
         vaultCount++;
