@@ -45,14 +45,16 @@
       - better: remove the need for this entirely
 - [ ] **Slots design:**
   - [ ] #med #design if provider is open to multiple slots, they must lock max liquidity in each slot - either capital inefficient or inflexible. instead of slots with locked liquidity allow provider to specify accepted ranges, and let users pick providers.
+    - update: user would always choose the highest anyway
+    - update: but removing slots and ticks still makes sense since it would make contracts simpler and more flexible. provider positions would be flat IDs with whatever params (no ticks no slots)
   - [ ] #note `tickScaleFactor` needs more documentation and explanation for why it's needed and why it has no decimals
     - it seems to be "abstraction leakage" or how internal "ranges" are translated to external prices / deviations.
-  - [ ] #low (design) providers cannot control their "slippage" (must actively manage liquidity with price changes, and are exposed to oracle risk) accepting trades at any asset price from the vault. maybe worth to store acceptable price ranges per provider for opening positions?
+    - [ ] #low (design) providers cannot control their "slippage" (must actively manage liquidity with price changes, and are exposed to oracle risk) accepting trades at any asset price from the vault. maybe worth to store acceptable price ranges per provider for opening positions?
   - [ ] #issue ERC6909TokenSupply / ERC6909 is the library audited / secure?
   - [ ] TickCalculations fixes:
     - [ ] #low "slot/tick" and `tickScaleFactor` should be internal to pool contract instead of being a library in the vault. this creates unnecessary coupling and complexity (another lib, noise in the vault calculations). vault knows about external prices, but should ask pool about the pools internal "slots / ticks"
     - [ ] #issue `priceToTick` and `bpsToTick` using unsafe casting + unused. should be removed?
-    - [ ] #low there is no real need to use `uint24` , and pool uses full uint anyway
+    - [ ] #low there is no real need to use `uint24`, and pool uses full uint anyway
 
 ### Independent
 
@@ -62,16 +64,15 @@
     - should use TWAP price when opening
   - [ ] #low `_swap` should do explicit balance check to avoid trusting the external implementation for the return value to match balance update
 
-- [ ] **Fix TWAP usage & logic:**
-  - [ ] #med `getHistoricalAssetPriceViaTWAP` passes `expiresAt` as twapStart, but should be expiresAt - twapLength, or variable `getTWAP` should expect `twapEnd` instead
-  - [ ] #high in `getTWAP` `twapLength` is added twice (and `twapStartTimestamp` is outside of the twap window). Both incorrect price (15 minutes in past), and incorrect window is used.
-  - [ ] #low `factory.getPool` can be used instead of custom `_getPoolForTokenPair`
+- [x] **Fix TWAP usage & logic:**
+  - [x] #med `getHistoricalAssetPriceViaTWAP` passes `expiresAt` as twapStart, but should be expiresAt - twapLength, or variable `getTWAP` should expect `twapEnd` instead
+  - [x] #high in `getTWAP` `twapLength` is added twice (and `twapStartTimestamp` is outside of the twap window). Both incorrect price (15 minutes in past), and incorrect window is used.
+  - [x] #low `factory.getPool` can be used instead of custom `_getPoolForTokenPair`
 
 
-- [ ] **Remove non-TWAP price usage**
-  - [ ] #med `getCurrentAssetPrice` is not used, but is not safe for pretty much anything onchain - should be removed:
-    - [ ] Update: remove the whole path of instantaneous price
-  - [ ] #med (oracle lib) `twapLength` 0 should not be allowed and slot0 (instaneous price) should not be used
+- [x] **Remove non-TWAP price usage**
+  - [x] #med `getCurrentAssetPrice` is not used, but is not safe for pretty much anything onchain - should be removed:
+  - [x] #med (oracle lib) `twapLength` 0 should not be allowed and slot0 (instaneous price) should not be used
     - should be removed, and instead use short twap around the right time
     - #low also `twapStartTimestamp` is ignored for `twapLength` 0, and will provide current price even the `twapStartTimestamp` is some specific time
 
@@ -80,7 +81,7 @@
     - [ ] #high amount subtracted from provider is too little. providers can withdraw some "locked" liquidity - thus stealing from other providers.
     - [ ] #med amount reserved and minted not equal (minted < provided), should sum up provider liquidity.
     - [ ] #med `positions[uuid]` if can be theoretically called multiple times, overwritten without being checked. while opening a uuid "should" be called with only once, this tightly couples logic of factory + vault-manager + pool. should just check and revert
-    - [ ] #med redeem is callable before `finalizePosition` when `withdrawable` is 0, and will burn tokens while withdrawing 0 (losing funds). should check position was finalized (should add flag?)
+  - [ ] #med redeem is callable before `finalizePosition` when `withdrawable` is 0, and will burn tokens while withdrawing 0 (losing funds). should check position was finalized (should add flag?)
   - [ ] `finalizePosition`
     - [ ] #med a lof of unsafe casting both ways - if sums is negative for `withdrawable`, `totalLiquidity`, `redeemableLiquidity`. also turning `uints` to `ints`.
       - should split into two cases: positive update and negative update for uuid and and total, and then update

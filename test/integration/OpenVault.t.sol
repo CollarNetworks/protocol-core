@@ -13,7 +13,7 @@ import { CollarVaultManager } from "../../src/implementations/CollarVaultManager
 import { CollarPool } from "../../src/implementations/CollarPool.sol";
 import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ISwapRouter } from "@uni-v3-periphery/interfaces/ISwapRouter.sol";
+import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 
 // Polygon Addresses for Uniswap V3
 
@@ -39,7 +39,7 @@ contract CollarOpenVaultIntegrationTest is Test {
     IERC20 WMatic = IERC20(WMaticAddress);
     IERC20 USDC = IERC20(USDCAddress);
 
-    ISwapRouter swapRouter = ISwapRouter(swapRouterAddress);
+    IV3SwapRouter swapRouter = IV3SwapRouter(swapRouterAddress);
 
     CollarEngine engine;
     CollarVaultManager vaultManager;

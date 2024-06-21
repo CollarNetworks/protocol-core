@@ -9,7 +9,7 @@ pragma solidity ^0.8.18;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { IV3SwapRouter } from "@uniswap/v3-swap-contracts/interfaces/IV3SwapRouter.sol";
+import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 import { ERC6909TokenSupply } from "@erc6909/ERC6909TokenSupply.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 // internal imports
@@ -89,10 +89,7 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         CollarOpts calldata collarOpts, // length & ltv
         LiquidityOpts calldata liquidityOpts, // pool address, callstrike & amount to lock there, putstrike
         bool withdrawLoan
-    )
-        public
-        returns (bytes32 uuid)
-    {
+    ) public returns (bytes32 uuid) {
         // only user is allowed to open vaults
         require(msg.sender == user, "not vault user");
 
@@ -333,18 +330,21 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         LiquidityOpts calldata liquidityOpts
     ) internal view {
         // assets and amounts
-        CollarEngine engine = CollarEngine(engine);
-        require(engine.isSupportedCashAsset(assetData.cashAsset), "invalid cash asset");
-        require(engine.isSupportedCollateralAsset(assetData.collateralAsset), "invalid collateral asset");
+
+        require(CollarEngine(engine).isSupportedCashAsset(assetData.cashAsset), "invalid cash asset");
+        require(
+            CollarEngine(engine).isSupportedCollateralAsset(assetData.collateralAsset),
+            "invalid collateral asset"
+        );
         require(assetData.cashAmount != 0, "invalid amount");
         require(assetData.collateralAmount != 0, "invalid amount");
 
         // duration and ltv
-        require(engine.isValidCollarDuration(collarOpts.duration), "invalid duration");
-        require(engine.isValidLTV(collarOpts.ltv), "invalid LTV");
+        require(CollarEngine(engine).isValidCollarDuration(collarOpts.duration), "invalid duration");
+        require(CollarEngine(engine).isValidLTV(collarOpts.ltv), "invalid LTV");
 
         // pool and ltv matches put price
-        require(engine.isSupportedLiquidityPool(liquidityOpts.liquidityPool), "invalid pool");
+        require(CollarEngine(engine).isSupportedLiquidityPool(liquidityOpts.liquidityPool), "invalid pool");
 
         // verify the put strike tick matches the put strike tick of the pool
         CollarPool pool = CollarPool(liquidityOpts.liquidityPool);
