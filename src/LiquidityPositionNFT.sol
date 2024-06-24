@@ -12,10 +12,15 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 
 // internal
 import { CollarEngine } from "./implementations/CollarEngine.sol";
-import { BasePositionGovernedNFT } from "./base/BasePositionGovernedNFT.sol";
+import { BaseGovernedNFT } from "./base/BaseGovernedNFT.sol";
 
 contract LiquidityPositionNFT is BaseGovernedNFT {
     using SafeERC20 for IERC20;
+
+    uint internal constant BIPS_BASE = 10_000;
+    uint public constant MIN_CALL_STRIKE_BIPS = BIPS_BASE; // 1x or 100%
+    uint public constant MAX_CALL_STRIKE_BIPS = 10 * BIPS_BASE; // 10x or 1000%
+    uint public constant MAX_LTV_BIPS = BIPS_BASE;
 
     // ----- IMMUTABLES ----- //
     CollarEngine public immutable engine;
@@ -27,7 +32,7 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
 
     uint public nextOfferId; // non transferrable, @dev this is NOT the NFT id
 
-    struct Position {
+    struct LiquidityPosition {
         // terms
         uint expiration;
         uint principal;
@@ -37,9 +42,9 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         uint withdrawable;
     }
 
-    mapping(uint positionId => Position) public positions;
+    mapping(uint positionId => LiquidityPosition) internal positions;
 
-    struct Liquidity {
+    struct LiquidityOffer {
         address provider;
         uint available;
         // terms
@@ -47,7 +52,7 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
     }
     // TODO: duration, ltv should be part of offer instead of part of config??
 
-    mapping(uint offerId => Liquidity) public liquidityOffers;
+    mapping(uint offerId => LiquidityOffer) internal liquidityOffers;
 
     // TODO: add liquidity info mappings for frontend's needs: strikes to offers, strikes to totals
 
@@ -62,7 +67,7 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         string memory _name,
         string memory _symbol
     )
-        BasePositionGovernedNFT(initialOwner, _name, _symbol)
+        BaseGovernedNFT(initialOwner, _name, _symbol)
     {
         engine = _engine;
         cashAsset = _cashAsset;
@@ -84,7 +89,17 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
     }
 
     function validateBorrowingContractTrusted() public view {
-        require(engine.isBorrowContract(borrowPositionContract), "unsupported borrow contract");
+        require(engine.isBorrowNFT(borrowPositionContract), "unsupported borrow contract");
+    }
+
+    // @dev return memory struct (the default getter returns tuple)
+    function getPosition(uint positionId) external view returns (LiquidityPosition memory) {
+        return positions[positionId];
+    }
+
+    // @dev return memory struct (the default getter returns tuple)
+    function getOffer(uint offerId) external view returns (LiquidityOffer memory) {
+        return liquidityOffers[offerId];
     }
 
     // ----- MUTATIVE ----- //
@@ -96,7 +111,7 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         // TODO validate provider can receive NFTs (via the same check that's in _safeMint)
         offerId = nextOfferId++;
         liquidityOffers[offerId] =
-            Liquidity({ provider: msg.sender, available: amount, strikeDeviation: strikeDeviation });
+            LiquidityOffer({ provider: msg.sender, available: amount, strikeDeviation: strikeDeviation });
         cashAsset.safeTransferFrom(msg.sender, address(this), amount);
         // TODO: event
     }
@@ -123,26 +138,26 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
 
     // ----- Positions ----- //
 
-    function openPosition(
+    function takeLiquidityOffer(
         uint offerId,
         uint amount
     )
         external
         whenNotPaused
-        returns (uint positionId, Position memory position)
+        returns (uint positionId, LiquidityPosition memory position)
     {
         validateConfig(); // ensure values are still allowed by the config
 
         require(msg.sender == borrowPositionContract, "only borrow contract");
 
-        Liquidity storage offer = liquidityOffers[offerId];
+        LiquidityOffer storage offer = liquidityOffers[offerId];
 
         // handle liquidity
         /// @dev this will revert if request is for too much
         offer.available -= amount;
 
         // create position
-        position = Position({
+        position = LiquidityPosition({
             expiration: block.timestamp + duration,
             principal: amount,
             strikeDeviation: offer.strikeDeviation,
@@ -166,7 +181,7 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         validateBorrowingContractTrusted();
         require(msg.sender == borrowPositionContract, "unauthorized borrow contract");
 
-        Position storage position = positions[positionId];
+        LiquidityPosition storage position = positions[positionId];
 
         require(block.timestamp >= position.expiration, "position not finalizable");
         require(!position.finalized, "already finalized");
@@ -197,7 +212,7 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
     function withdrawSettled(uint positionId) external whenNotPaused {
         require(msg.sender == ownerOf(positionId), "not position owner");
 
-        Position storage position = positions[positionId];
+        LiquidityPosition storage position = positions[positionId];
         require(position.finalized, "not finalized");
 
         uint withdrawable = position.withdrawable;
@@ -218,7 +233,7 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         require(msg.sender == borrowPositionContract, "unauthorized borrow contract");
         require(borrowPositionContract == ownerOf(positionId), "caller does not own token");
 
-        Position storage position = positions[positionId];
+        LiquidityPosition storage position = positions[positionId];
 
         require(!position.finalized, "already finalized");
         position.finalized = true; // done here as this also acts as reentrancy protection
@@ -231,5 +246,4 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
     }
 
     // ----- INTERNAL MUTATIVE ----- //
-
 }
