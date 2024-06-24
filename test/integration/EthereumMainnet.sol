@@ -60,7 +60,8 @@ contract ForkTestCollarEthereumMainnet is CollarIntegrationPriceManipulation, Va
             3_393_819_954, // $3393 the price for WETH in USDT on the specified block of ethereum mainnet
             120,
             1 days,
-            9000
+            9000,
+            18 // collateral decimals , WETH has 18 decimals
         );
         uint amountToProvide = 100_000e6;
         _fundWallets();
