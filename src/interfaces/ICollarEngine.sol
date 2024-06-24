@@ -89,78 +89,78 @@ interface ICollarEngine {
 
     /// @notice Checks if an address is a vault manager
     /// @param vaultManager The address to check
-    function isVaultManager(address vaultManager) external view virtual returns (bool);
+    function isVaultManager(address vaultManager) external view  returns (bool);
 
     /// @notice Gets the number of vault managers in the list
-    function vaultManagersLength() external view virtual returns (uint);
+    function vaultManagersLength() external view  returns (uint);
 
     /// @notice Gets the address of a vault manager at a particular index
     /// @param index The index of the vault manager to get the address of
-    function getVaultManager(uint index) external view virtual returns (address);
+    function getVaultManager(uint index) external view  returns (address);
 
     // cash assets
 
     /// @notice Checks if an asset is supported as a cash asset in the engine
     /// @param asset The address of the asset to check
-    function isSupportedCashAsset(address asset) external view virtual returns (bool);
+    function isSupportedCashAsset(address asset) external view  returns (bool);
 
     /// @notice Gets the number of supported cash assets in the engine
-    function supportedCashAssetsLength() external view virtual returns (uint);
+    function supportedCashAssetsLength() external view  returns (uint);
 
     /// @notice Gets the address of a supported cash asset at a particular index
     /// @param index The index of the asset to get the address of
-    function getSupportedCashAsset(uint index) external view virtual returns (address);
+    function getSupportedCashAsset(uint index) external view  returns (address);
 
     // collateral assets
 
     /// @notice Checks if an asset is supported as a collateral asset in the engine
     /// @param asset The address of the asset to check
-    function isSupportedCollateralAsset(address asset) external view virtual returns (bool);
+    function isSupportedCollateralAsset(address asset) external view  returns (bool);
 
     /// @notice Gets the number of supported collateral assets in the engine
-    function supportedCollateralAssetsLength() external view virtual returns (uint);
+    function supportedCollateralAssetsLength() external view  returns (uint);
 
     /// @notice Gets the address of a supported collateral asset at a particular index
-    function getSupportedCollateralAsset(uint index) external view virtual returns (address);
+    function getSupportedCollateralAsset(uint index) external view  returns (address);
 
     // liquidity pools
 
     /// @notice Checks if a liquidity pool is supported in the engine
     /// @param pool The address of the pool to check
-    function isSupportedLiquidityPool(address pool) external view virtual returns (bool);
+    function isSupportedLiquidityPool(address pool) external view  returns (bool);
 
     /// @notice Gets the number of supported liquidity pools in the engine
-    function supportedLiquidityPoolsLength() external view virtual returns (uint);
+    function supportedLiquidityPoolsLength() external view  returns (uint);
 
     /// @notice Gets the address of a supported liquidity pool at a particular index
     /// @param index The index of the pool to get the address of
-    function getSupportedLiquidityPool(uint index) external view virtual returns (address);
+    function getSupportedLiquidityPool(uint index) external view  returns (address);
 
     // collar durations
 
     /// @notice Checks to see if a particular collar duration is supported
     /// @param duration The duration to check
-    function isValidCollarDuration(uint duration) external view virtual returns (bool);
+    function isValidCollarDuration(uint duration) external view  returns (bool);
 
     /// @notice Gets the number of supported collar lengths in the engine
-    function validCollarDurationsLength() external view virtual returns (uint);
+    function validCollarDurationsLength() external view  returns (uint);
 
     /// @notice Gets the collar duration at a particular index
     /// @param index The index of the collar duration to get
-    function getValidCollarDuration(uint index) external view virtual returns (uint);
+    function getValidCollarDuration(uint index) external view  returns (uint);
 
     // ltvs
 
     /// @notice Checks to see if a particular LTV is supported
     /// @param ltv The LTV to check
-    function isValidLTV(uint ltv) external view virtual returns (bool);
+    function isValidLTV(uint ltv) external view  returns (bool);
 
     /// @notice Gets the number of supported LTVs in the engine
-    function validLTVsLength() external view virtual returns (uint);
+    function validLTVsLength() external view  returns (uint);
 
     /// @notice Gets the LTV at a particular index
     /// @param index The index of the LTV to get
-    function getValidLTV(uint index) external view virtual returns (uint);
+    function getValidLTV(uint index) external view  returns (uint);
 
     // asset pricing
 
@@ -177,6 +177,6 @@ interface ICollarEngine {
     )
         external
         view
-        virtual
+        
         returns (uint);
 }

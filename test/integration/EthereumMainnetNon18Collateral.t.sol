@@ -198,23 +198,24 @@ contract ForkTestCollarEthereumMainnetNon18BasedCollateral is
     }
 
     function manipulatePriceDownwardPastPutStrike(bool isFuzzTest) internal {
-        uint targetPrice = 34_995_588_879;
+        uint targetPrice = 349955888794672307829;
         _manipulatePriceDownwardPastPutStrike(200e8, isFuzzTest, targetPrice);
     }
 
     function manipulatePriceDownwardShortOfPutStrike(bool isFuzzTest) internal returns (uint finalPrice) {
-        uint targetPrice = 62_245_934_778;
+        uint targetPrice = 622459347786056128427;
         finalPrice = _manipulatePriceDownwardShortOfPutStrike(50e8, isFuzzTest, targetPrice);
     }
 
     function manipulatePriceUpwardPastCallStrike(bool isFuzzTest) internal {
-        uint targetPrice = 92_756_083_049;
+        uint targetPrice = 927560830499000417295;
 
         _manipulatePriceUpwardPastCallStrike(16_800_000e6, isFuzzTest, targetPrice);
     }
 
     function manipulatePriceUpwardShortOfCallStrike(bool isFuzzTest) internal returns (uint finalPrice) {
-        uint targetPrice = 65_378_324_483;
-        finalPrice = _manipulatePriceUpwardShortOfCallStrike(100_000e6, isFuzzTest, targetPrice);
+        uint targetPrice = 661609347110400360503;
+        finalPrice = _manipulatePriceUpwardShortOfCallStrike(1000_000e6, isFuzzTest, targetPrice);
+
     }
 }
