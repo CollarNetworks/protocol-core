@@ -40,8 +40,8 @@ contract CollarEngine is Ownable, ICollarEngine {
     EnumerableSet.UintSet internal validLTVs;
     EnumerableSet.UintSet internal validCollarDurations;
 
-    mapping(address contractAddress => bool enabled) public isBorrowContract;
-    mapping(address contractAddress => bool enabled) public isLenderContract;
+    mapping(address contractAddress => bool enabled) public isBorrowNFT;
+    mapping(address contractAddress => bool enabled) public isProviderNFT;
 
     constructor(address _dexRouter) Ownable(msg.sender) {
         dexRouter = _dexRouter;
@@ -50,12 +50,12 @@ contract CollarEngine is Ownable, ICollarEngine {
     // ----- state-changing functions (see ICollarEngine for documentation) -----
 
     function setBorrowContractAuth(address contractAddress, bool enabled) external onlyOwner {
-        isBorrowContract[contractAddress] = enabled;
+        isBorrowNFT[contractAddress] = enabled;
         // TODO: event
     }
 
     function setLenderContractAuth(address contractAddress, bool enabled) external onlyOwner {
-        isLenderContract[contractAddress] = enabled;
+        isProviderNFT[contractAddress] = enabled;
         // TODO: event
     }
 
