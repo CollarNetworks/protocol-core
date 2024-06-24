@@ -28,6 +28,8 @@ contract CollarEngine is Ownable, ICollarEngine {
 
     address public immutable dexRouter;
 
+    uint public constant BASE_TOKEN_AMOUNT = uint(UniV3OracleLib.BASE_TOKEN_AMOUNT);
+
     /// @notice This mapping stores the address of the vault contract per user (or market maker)
     /// @dev This will be zero if the user has not yet created a vault
     mapping(address => address) public addressToVaultManager;
