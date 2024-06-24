@@ -13,9 +13,9 @@ import {
 import { ERC721Pausable } from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-abstract contract BasePositionGovernedNFT is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
+abstract contract BaseGovernedNFT is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
     // ----- State ----- //
-    uint public nextPositionId; // NFT token ID
+    uint public nextTokenId; // NFT token ID
 
     constructor(
         address initialOwner,

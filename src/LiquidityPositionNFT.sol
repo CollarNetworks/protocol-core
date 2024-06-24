@@ -14,7 +14,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { CollarEngine } from "./implementations/CollarEngine.sol";
 import { BasePositionGovernedNFT } from "./base/BasePositionGovernedNFT.sol";
 
-contract LenderPosition is BasePositionGovernedNFT {
+contract LiquidityPositionNFT is BaseGovernedNFT {
     using SafeERC20 for IERC20;
 
     // ----- IMMUTABLES ----- //
@@ -150,7 +150,7 @@ contract LenderPosition is BasePositionGovernedNFT {
             withdrawable: 0
         });
 
-        positionId = nextPositionId++;
+        positionId = nextTokenId++;
         // store position data
         positions[positionId] = position;
         // mint the NFT to the provider
