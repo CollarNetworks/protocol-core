@@ -84,8 +84,7 @@ contract LenderPosition is BasePositionGovernedNFT {
     }
 
     function validateBorrowingContractTrusted() public view {
-        // TODO: use the right auth view instead of isVaultManager
-        require(engine.isVaultManager(borrowPositionContract), "unsupported duration");
+        require(engine.isBorrowContract(borrowPositionContract), "unsupported borrow contract");
     }
 
     // ----- MUTATIVE ----- //

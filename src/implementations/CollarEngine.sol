@@ -40,11 +40,24 @@ contract CollarEngine is Ownable, ICollarEngine {
     EnumerableSet.UintSet internal validLTVs;
     EnumerableSet.UintSet internal validCollarDurations;
 
+    mapping(address contractAddress => bool enabled) public isBorrowContract;
+    mapping(address contractAddress => bool enabled) public isLenderContract;
+
     constructor(address _dexRouter) Ownable(msg.sender) {
         dexRouter = _dexRouter;
     }
 
     // ----- state-changing functions (see ICollarEngine for documentation) -----
+
+    function setBorrowContractAuth(address contractAddress, bool enabled) external onlyOwner {
+        isBorrowContract[contractAddress] = enabled;
+        // TODO: event
+    }
+
+    function setLenderContractAuth(address contractAddress, bool enabled) external onlyOwner {
+        isLenderContract[contractAddress] = enabled;
+        // TODO: event
+    }
 
     function createVaultManager() external override returns (address _vaultManager) {
         require(addressToVaultManager[msg.sender] == address(0), "manager exists for sender");
