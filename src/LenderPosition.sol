@@ -7,18 +7,14 @@
 
 pragma solidity 0.8.21;
 
-// OZ
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {
-    ERC721, ERC721Enumerable
-} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
-import { ERC721Pausable } from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Pausable.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+
 // internal
 import { CollarEngine } from "./implementations/CollarEngine.sol";
+import { BasePositionGovernedNFT } from "./base/BasePositionGovernedNFT.sol";
 
-contract LenderPosition is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
+contract LenderPosition is BasePositionGovernedNFT {
     using SafeERC20 for IERC20;
 
     // ----- IMMUTABLES ----- //
@@ -29,10 +25,7 @@ contract LenderPosition is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
     uint public immutable ltv;
     address public immutable borrowPositionContract;
 
-    // ----- State ----- //
-    uint public nextPositionId; // NFT token ID
-
-    uint public nextOfferId; // non transferrable
+    uint public nextOfferId; // non transferrable, @dev this is NOT the NFT id
 
     struct Position {
         // terms
@@ -69,8 +62,7 @@ contract LenderPosition is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
         string memory _name,
         string memory _symbol
     )
-        ERC721(_name, _symbol)
-        Ownable(initialOwner)
+        BasePositionGovernedNFT(initialOwner, _name, _symbol)
     {
         engine = _engine;
         cashAsset = _cashAsset;
@@ -130,14 +122,6 @@ contract LenderPosition is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
         // TODO: event prev amount, new amount
     }
 
-    //    /// TODO: optional convenience around updateOfferAmount, enable and test after updateOfferAmount is
-    // tested
-    //    function withdrawOffer(uint offerId) external {
-    //        // cast is safe because updateOfferAmount assumed to validate amount
-    //        // @dev this doesn't "delete" anything, and offer can be re-filled later if needed
-    //        updateOfferAmount(offerId, -int(liquidityOffers[offerId].available));
-    //    }
-
     // ----- Positions ----- //
 
     function openPosition(
@@ -177,15 +161,6 @@ contract LenderPosition is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
         // TODO: emit event
         return (positionId, position);
     }
-
-    //  TODO: optional convenience for saving on repeated validation checks. add and test after openPosition
-    // is tested
-    //    function openPositions(uint[] memory offerId, uint[] memory amount)
-    //        external
-    //        returns (uint[] memory positionIds, Position[] memory positions)
-    //    {
-    //      // refactor non-validation logic into _openPosition and loop it here
-    //    }
 
     function settlePosition(uint positionId, int positionNet) external whenNotPaused {
         // don't validate full config because maybe some values are no longer supported
@@ -258,40 +233,4 @@ contract LenderPosition is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    // Emergency actions
-
-    function pause() public onlyOwner {
-        _pause();
-    }
-
-    function unpause() public onlyOwner {
-        _unpause();
-    }
-
-    // Internal overrides required by Solidity for ERC721
-
-    function _update(
-        address to,
-        uint tokenId,
-        address auth
-    )
-        internal
-        override(ERC721, ERC721Enumerable, ERC721Pausable)
-        returns (address)
-    {
-        return super._update(to, tokenId, auth);
-    }
-
-    function _increaseBalance(address account, uint128 value) internal override(ERC721, ERC721Enumerable) {
-        super._increaseBalance(account, value);
-    }
-
-    function supportsInterface(bytes4 interfaceId)
-        public
-        view
-        override(ERC721, ERC721Enumerable)
-        returns (bool)
-    {
-        return super.supportsInterface(interfaceId);
-    }
 }
