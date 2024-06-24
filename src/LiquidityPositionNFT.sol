@@ -81,7 +81,8 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
 
     /// @dev used by openPosition, and can be used externally to check this is available
     function validateConfig() public view {
-        require(engine.isValidLTV(ltv), "invalid LTV");
+        require(engine.isValidLTV(ltv), "unsupported LTV");
+        require(ltv < MAX_LTV_BIPS, "invalid LTV"); // check LTV is in expected range
         require(engine.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
         require(engine.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
         require(engine.isValidCollarDuration(duration), "unsupported duration");
@@ -107,7 +108,8 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
     // ----- Liquidity ----- //
 
     function createOffer(uint strikeDeviation, uint amount) external whenNotPaused returns (uint offerId) {
-        // TODO validation: strikeDeviation
+        require(strikeDeviation > MIN_CALL_STRIKE_BIPS, "strike deviation too low");
+        require(strikeDeviation <= MAX_CALL_STRIKE_BIPS, "strike deviation too high");
         // TODO validate provider can receive NFTs (via the same check that's in _safeMint)
         offerId = nextOfferId++;
         liquidityOffers[offerId] =
