@@ -232,7 +232,6 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         require(numProviders != 0, "no providers");
 
         require(requestedAmount <= slot.liquidity, "insufficient liquidity");
-        uint amountFromAllProviders = 0;
         for (uint i = 0; i < numProviders; i++) {
             // calculate how much to pull from provider based off of their proportional ownership of liquidity
             // in this slot
@@ -250,18 +249,18 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
 
             // mint tokens representing the provider's share in this vault to this provider
             _mint(thisProvider, uint(uuid), amountFromThisProvider);
-            amountFromAllProviders += amountFromThisProvider;
+            amountLocked += amountFromThisProvider;
             emit PoolTokensIssued(thisProvider, expiration, amountFromThisProvider);
         }
 
         // decrement available liquidity in slot
-        slot.liquidity -= amountFromAllProviders;
+        slot.liquidity -= amountLocked;
 
         // update global liquidity amounts
         // total liquidity unchanged
         // redeemable liquidity unchanged
-        lockedLiquidity += amountFromAllProviders;
-        freeLiquidity -= amountFromAllProviders;
+        lockedLiquidity += amountLocked;
+        freeLiquidity -= amountLocked;
 
         /*
 
@@ -270,20 +269,15 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         */
 
         // finally, store the info about the Position
-        positions[uuid] = Position({
-            expiration: expiration,
-            principal: amountFromAllProviders,
-            withdrawable: 0,
-            finalized: false
-        });
+        positions[uuid] =
+            Position({ expiration: expiration, principal: amountLocked, withdrawable: 0, finalized: false });
 
         // also, check to see if we need to un-initalize this slot
         if (slot.liquidity == 0) {
             initializedSlotIndices.remove(slotIndex);
         }
 
-        emit PositionOpened(msg.sender, uuid, expiration, amountFromAllProviders);
-        return amountFromAllProviders;
+        emit PositionOpened(msg.sender, uuid, expiration, amountLocked);
     }
 
     function finalizePosition(bytes32 uuid, int positionNet) external override {
