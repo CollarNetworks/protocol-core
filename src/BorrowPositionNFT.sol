@@ -133,7 +133,7 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         // and sends the provider NFT to the provider
         uint callStrikeDeviation = providerContract.getOffer(offerId).strikeDeviation;
         uint callLockedCash = (callStrikeDeviation - BIPS_BASE) * cashFromSwap / BIPS_BASE;
-        (providerPositionId,) = providerContract.takeLiquidityOffer(offerId, callLockedCash);
+        (providerPositionId,) = providerContract.mintPositionFromOffer(offerId, callLockedCash);
 
         borrowPosition = BorrowPosition({
             providerContract: providerContract,

@@ -140,7 +140,7 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
 
     // ----- Positions ----- //
 
-    function takeLiquidityOffer(
+    function mintPositionFromOffer(
         uint offerId,
         uint amount
     )
@@ -212,7 +212,7 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         // TODO: emit event
     }
 
-    function withdrawSettled(uint positionId) external whenNotPaused {
+    function withdrawFromPosition(uint positionId) external whenNotPaused {
         require(msg.sender == ownerOf(positionId), "not position owner");
 
         LiquidityPosition storage position = positions[positionId];
