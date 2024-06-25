@@ -15,7 +15,6 @@ import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfac
 import { LiquidityPositionNFT } from "./LiquidityPositionNFT.sol";
 import { BaseGovernedNFT } from "./base/BaseGovernedNFT.sol";
 import { CollarEngine } from "./implementations/CollarEngine.sol";
-import { TickCalculations } from "./libs/TickCalculations.sol";
 
 contract BorrowPositionNFT is BaseGovernedNFT {
     using SafeERC20 for IERC20;
