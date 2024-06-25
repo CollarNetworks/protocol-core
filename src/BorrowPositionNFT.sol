@@ -117,44 +117,6 @@ contract BorrowPositionNFT is BaseGovernedNFT {
 
     // ----- INTERNAL FUNCTIONS ----- //
 
-    function _openPositionInternal(
-        uint twapPrice,
-        uint collateralAmount,
-        uint cashFromSwap,
-        LiquidityPositionNFT providerContract,
-        uint offerId
-    )
-        internal
-        returns (BorrowPosition memory borrowPosition, uint providerPositionId)
-    {
-        uint loanAmount = cashFromSwap * providerContract.ltv() / BIPS_BASE;
-
-        // open the provider position with duration and callLockedCash locked liquidity (reverts if can't)
-        // and sends the provider NFT to the provider
-        uint callStrikeDeviation = providerContract.getOffer(offerId).strikeDeviation;
-        uint callLockedCash = (callStrikeDeviation - BIPS_BASE) * cashFromSwap / BIPS_BASE;
-        (providerPositionId,) = providerContract.mintPositionFromOffer(offerId, callLockedCash);
-
-        borrowPosition = BorrowPosition({
-            providerContract: providerContract,
-            providerPositionId: providerPositionId,
-            openedAt: block.timestamp,
-            expiration: providerContract.getPosition(providerPositionId).expiration,
-            initialPrice: twapPrice,
-            putStrikePrice: twapPrice * _putStrikeDeviation(providerContract) / BIPS_BASE,
-            callStrikePrice: twapPrice * callStrikeDeviation / BIPS_BASE,
-            collateralAmount: collateralAmount,
-            loanAmount: loanAmount,
-            putLockedCash: cashFromSwap - loanAmount, // this assumes LTV === put strike price
-            callLockedCash: callLockedCash
-        });
-    }
-
-    function _putStrikeDeviation(LiquidityPositionNFT providerContract) internal view returns (uint) {
-        // LTV === put strike price currently (explicitly assigned here for clarity)
-        return providerContract.ltv();
-    }
-
     function _openPositionValidations(LiquidityPositionNFT providerContract) internal view {
         validateConfig();
 
@@ -221,6 +183,44 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         require(amountReceived == amountOutRouter, "balance update mismatch");
         // check amount is as expected by user
         require(amountReceived >= minAmountOut, "slippage exceeded");
+    }
+
+    function _openPositionInternal(
+        uint twapPrice,
+        uint collateralAmount,
+        uint cashFromSwap,
+        LiquidityPositionNFT providerContract,
+        uint offerId
+    )
+        internal
+        returns (BorrowPosition memory borrowPosition, uint providerPositionId)
+    {
+        uint loanAmount = cashFromSwap * providerContract.ltv() / BIPS_BASE;
+
+        // open the provider position with duration and callLockedCash locked liquidity (reverts if can't)
+        // and sends the provider NFT to the provider
+        uint callStrikeDeviation = providerContract.getOffer(offerId).strikeDeviation;
+        uint callLockedCash = (callStrikeDeviation - BIPS_BASE) * cashFromSwap / BIPS_BASE;
+        (providerPositionId,) = providerContract.mintPositionFromOffer(offerId, callLockedCash);
+
+        borrowPosition = BorrowPosition({
+            providerContract: providerContract,
+            providerPositionId: providerPositionId,
+            openedAt: block.timestamp,
+            expiration: providerContract.getPosition(providerPositionId).expiration,
+            initialPrice: twapPrice,
+            putStrikePrice: twapPrice * _putStrikeDeviation(providerContract) / BIPS_BASE,
+            callStrikePrice: twapPrice * callStrikeDeviation / BIPS_BASE,
+            collateralAmount: collateralAmount,
+            loanAmount: loanAmount,
+            putLockedCash: cashFromSwap - loanAmount, // this assumes LTV === put strike price
+            callLockedCash: callLockedCash
+        });
+    }
+
+    function _putStrikeDeviation(LiquidityPositionNFT providerContract) internal view returns (uint) {
+        // LTV === put strike price currently (explicitly assigned here for clarity)
+        return providerContract.ltv();
     }
 
     //    function closeVault(bytes32 uuid) external override {
