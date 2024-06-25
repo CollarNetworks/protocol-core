@@ -17,7 +17,7 @@ contract MockEngine is CollarEngine {
     mapping(address => uint) public currentAssetPrices;
     mapping(address => mapping(uint => uint)) public historicalAssetPrices;
 
-    constructor(address _dexRouter) CollarEngine(_dexRouter) { }
+    constructor(address _univ3SwapRouter) CollarEngine(_univ3SwapRouter) { }
 
     function setHistoricalAssetPrice(address asset, uint timestamp, uint value) external {
         historicalAssetPrices[asset][timestamp] = value;
@@ -30,7 +30,7 @@ contract MockEngine is CollarEngine {
     function setCurrentAssetPrice(address asset, uint price) external {
         currentAssetPrices[asset] = price;
     }
-    
+
     function getHistoricalAssetPriceViaTWAP(
         address baseToken,
         address quoteToken,

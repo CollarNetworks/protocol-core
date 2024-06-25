@@ -137,7 +137,7 @@ contract CollarOpenVaultIntegrationTest is Test {
             collateralAsset: WMaticAddress,
             collateralAmount: 1000 ether,
             cashAsset: USDCAddress,
-            cashAmount: 100e6
+            minCashAmount: 100e6
         });
 
         ICollarVaultState.CollarOpts memory collarOpts =
@@ -153,8 +153,7 @@ contract CollarOpenVaultIntegrationTest is Test {
 
         vaultManager.openVault(assets, collarOpts, liquidityOpts, false);
         bytes32 uuid = vaultManager.getVaultUUID(0);
-        bytes memory rawVault = vaultManager.vaultInfo(uuid);
-        ICollarVaultState.Vault memory vault = abi.decode(rawVault, (ICollarVaultState.Vault));
+        ICollarVaultState.Vault memory vault = vaultManager.vaultInfo(uuid);
 
         console.log("-- Vault Opened --");
         console.log("");

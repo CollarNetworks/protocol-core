@@ -26,7 +26,7 @@ contract CollarEngine is Ownable, ICollarEngine {
 
     // -- public state variables ---
 
-    address public immutable dexRouter;
+    address public immutable univ3SwapRouter;
 
     /// @notice This mapping stores the address of the vault contract per user (or market maker)
     /// @dev This will be zero if the user has not yet created a vault
@@ -40,8 +40,8 @@ contract CollarEngine is Ownable, ICollarEngine {
     EnumerableSet.UintSet internal validLTVs;
     EnumerableSet.UintSet internal validCollarDurations;
 
-    constructor(address _dexRouter) Ownable(msg.sender) {
-        dexRouter = _dexRouter;
+    constructor(address _univ3SwapRouter) Ownable(msg.sender) {
+        univ3SwapRouter = _univ3SwapRouter;
     }
 
     // ----- state-changing functions (see ICollarEngine for documentation) -----
@@ -230,7 +230,7 @@ contract CollarEngine is Ownable, ICollarEngine {
     ) external view virtual override returns (uint price) {
         validateAssetsIsSupported(baseToken);
         validateAssetsIsSupported(quoteToken);
-        address uniV3Factory = IPeripheryImmutableState(dexRouter).factory();
+        address uniV3Factory = IPeripheryImmutableState(univ3SwapRouter).factory();
         price = UniV3OracleLib.getTWAP(baseToken, quoteToken, twapEndTimestamp, twapLength, uniV3Factory);
     }
 }

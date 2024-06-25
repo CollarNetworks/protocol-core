@@ -62,7 +62,7 @@
   - [ ] #critical vault's `openVault` swap price (and so the price used for accounting) is at full user control (can sandwich themselves) so user can choose any price they like:
     - can be exploited by using low price - put the provider at a loss from the start
     - should use TWAP price when opening
-  - [ ] #low `_swap` should do explicit balance check to avoid trusting the external implementation for the return value to match balance update
+  - [x] #low `_swap` should do explicit balance check to avoid trusting the external implementation for the return value to match balance update
 
 - [x] **Fix TWAP usage & logic:**
   - [x] #med `getHistoricalAssetPriceViaTWAP` passes `expiresAt` as twapStart, but should be expiresAt - twapLength, or variable `getTWAP` should expect `twapEnd` instead
@@ -79,20 +79,20 @@
 - [ ] **Pool logic fixes:**
   - [ ] `openPosition`
     - [ ] #high amount subtracted from provider is too little. providers can withdraw some "locked" liquidity - thus stealing from other providers.
-    - [ ] #med amount reserved and minted not equal (minted < provided), should sum up provider liquidity.
+    - [x] #med amount reserved and minted not equal (minted < provided), should sum up provider liquidity.
     - [ ] #med `positions[uuid]` if can be theoretically called multiple times, overwritten without being checked. while opening a uuid "should" be called with only once, this tightly couples logic of factory + vault-manager + pool. should just check and revert
-  - [ ] #med redeem is callable before `finalizePosition` when `withdrawable` is 0, and will burn tokens while withdrawing 0 (losing funds). should check position was finalized (should add flag?)
+  - [x] #med redeem is callable before `finalizePosition` when `withdrawable` is 0, and will burn tokens while withdrawing 0 (losing funds). should check position was finalized (should add flag?)
   - [ ] `finalizePosition`
-    - [ ] #med a lof of unsafe casting both ways - if sums is negative for `withdrawable`, `totalLiquidity`, `redeemableLiquidity`. also turning `uints` to `ints`.
+    - [x] #med a lof of unsafe casting both ways - if sums is negative for `withdrawable`, `totalLiquidity`, `redeemableLiquidity`. also turning `uints` to `ints`.
       - should split into two cases: positive update and negative update for uuid and and total, and then update
     - [ ] #med depends on uuid being unique again and vault not being able to call twice (there's no flag for "finalized" for position), since overwrites `positions[uuid].withdrawable` and doesn't reduce `principal`
-    - [ ] #low `vaultManager` is both argument and sender. it should not be possible to call for non-sender vault manager, since it will cause the vault to not be finalizable. remove argument?
+    - [x] #low `vaultManager` is both argument and sender. it should not be possible to call for non-sender vault manager, since it will cause the vault to not be finalizable. remove argument?
 
-- [ ] **Dependency management:**
-  - [ ] #med https://github.com/CollarNetworks/uni-v3-periphery-solc-v0.8 copy is a strange approach - unaudited and  should not be used. Instead do something like https://github.com/euler-xyz/euler-price-oracle/blob/master/src/adapter/uniswap/UniswapV3Oracle.sol by importing SDK packages
+- [x] **Dependency management:**
+  - [x] #med https://github.com/CollarNetworks/uni-v3-periphery-solc-v0.8 copy is a strange approach - unaudited and  should not be used. Instead do something like https://github.com/euler-xyz/euler-price-oracle/blob/master/src/adapter/uniswap/UniswapV3Oracle.sol by importing SDK packages
 
 - [ ] **Global / Recurring:**
-  - [ ] #med use SafeERC20's transfer and approve methods
+  - [x] #med use SafeERC20's transfer and approve methods
   - [ ] #med decimals:
     - Oracle lib `getQuoteAtTick` assumes `baseToken` is 1e18 decimals
   - [x] #low Requires vs. Errors:
@@ -100,24 +100,24 @@
 
 - [ ] **Naming issues**:
   - [ ] engine
-    - [ ] `dexRouter` should have correct name (`unitV3router` or smth) because is later used with specific UniV3 interface (in vault manager)
+    - [x] `dexRouter` should have correct name (`unitV3router` or smth) because is later used with specific UniV3 interface (in vault manager)
     - [ ] "engine" is a misleading name - there's no logic really, only vault factory and config.
   - [ ] vault:
     - [ ] "vault" for internal struct is bad name since typically refers to a specific type of separate contract, but here it isn't a contract, it's a "position" type thing. Can be named BorrowPositions or smth similar.
-    - [ ] `vaultNonce` - "nonce" is not typically used this way, can be vaultIndex
+    - [x] `vaultNonce` - "nonce" is not typically used this way, can be vaultIndex
   - [ ] pool
     - [ ] "slot" is an overloaded name (because of storage slots, `.slot`, and other various slots). Tick also already refers to a specific UniV3 things. So maybe "Range" / "offerRange" ?
     - [ ] `providers` should be `providersLiquidity` because it's a map
 
 - [ ] **Vault lows and notes**:
-  - [ ] #low encoding structs to bytes makes no sense vaultInfo, vaultInfoByNonce.
+  - [x] #low encoding structs to bytes makes no sense vaultInfo, vaultInfoByNonce.
   - [ ] #note `VaultForABI` event??
-  - [ ] #note `vaultTokenCashSupply` should use named mapping parameters
+  - [x] #note `vaultTokenCashSupply` should use named mapping parameters
   - [ ] #note some views are used only in tests, should be removed or added only to test contract ( `Testable`): `isVaultExpired`, `vaultInfo`, `vaultInfoByNonce`
   - [x] #note `previewRedeem` else condition can be removed? finalized is checked by redeem already
   - [ ] `openVault`
-    - [ ] #low safer (and more efficient) to initialize new Vault struct in memory, and than to write to storage. safer because won't forget fields.
-    - [ ] #low approval not needed since is given again in `closeVault`. giving approval here (for delayed action) is not safe, error prone, and uncommon pattern (the pools accumulate approvals, not very "vault" like)
+    - [x] #low safer (and more efficient) to initialize new Vault struct in memory, and than to write to storage. safer because won't forget fields.
+    - [x] #low approval not needed since is given again in `closeVault`. giving approval here (for delayed action) is not safe, error prone, and uncommon pattern (the pools accumulate approvals, not very "vault" like)
     - [ ] #low tokens are implicitely assumed to be all 1e18 decimals
     - [ ] #note `openVault` too long / complex, need to be refactored:
     - validation, calculation, storage, transfers & interactions. use memory vault, than write to storage vault

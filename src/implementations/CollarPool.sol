@@ -55,6 +55,7 @@ abstract contract BaseCollarPoolState {
         uint expiration; // <-- defined time horizon --- does not change
         uint principal; // <-- static initial value --- does not change
         uint withdrawable; // <-- zero until close, then set to settlement value
+        bool finalized; // <-- true when the vault manager has finalized the vault
     }
 
     /// @notice Records the state of each slot (see Slot struct above)
@@ -165,10 +166,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         return slots[slotIndex].providers.length();
     }
 
-    function getSlotProviderInfoAtIndex(
-        uint slotIndex,
-        uint providerIndex
-    )
+    function getSlotProviderInfoAtIndex(uint slotIndex, uint providerIndex)
         external
         view
         override
@@ -177,10 +175,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         return slots[slotIndex].providers.at(providerIndex);
     }
 
-    function getSlotProviderInfoForAddress(
-        uint slotIndex,
-        address provider
-    )
+    function getSlotProviderInfoForAddress(uint slotIndex, address provider)
         external
         view
         override
@@ -210,11 +205,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         IERC20(cashAsset).safeTransfer(msg.sender, amount);
     }
 
-    function moveLiquidityFromSlot(
-        uint sourceSlotIndex,
-        uint destinationSlotIndex,
-        uint amount
-    )
+    function moveLiquidityFromSlot(uint sourceSlotIndex, uint destinationSlotIndex, uint amount)
         external
         virtual
         override
@@ -224,7 +215,13 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         // @dev no transfers, only internal accounting changes
     }
 
-    function openPosition(bytes32 uuid, uint slotIndex, uint amount, uint expiration) external override {
+    function openPosition(bytes32 uuid, uint slotIndex, uint requestedAmount, uint expiration)
+        external
+        override
+        returns (uint amountLocked)
+    {
+        require(expiration >= block.timestamp, "expiration cannot be in the past");
+        require(positions[uuid].expiration == 0, "Position already exists");
         // ensure this is a valid vault calling us - it must call through the engine
         require(CollarEngine(engine).isVaultManager(msg.sender), "caller not vault");
 
@@ -234,8 +231,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
 
         require(numProviders != 0, "no providers");
 
-        require(amount <= slot.liquidity, "insufficient liquidity");
-
+        require(requestedAmount <= slot.liquidity, "insufficient liquidity");
         for (uint i = 0; i < numProviders; i++) {
             // calculate how much to pull from provider based off of their proportional ownership of liquidity
             // in this slot
@@ -246,25 +242,25 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
             // (provider's proportional ownership of slot liquidity) * (total amount needed)
             // (providerLiquidity / totalSlotLiquidity) * amount
             // (providerLiquidity * amount) / totalSlotLiquidity
-            uint amountFromThisProvider = (thisLiquidity * amount) / slot.liquidity;
+            uint amountFromThisProvider = (thisLiquidity * requestedAmount) / slot.liquidity;
 
             // decrement the amount of free liquidity that this provider has, in this slot
             slot.providers.set(thisProvider, thisLiquidity - amountFromThisProvider);
 
             // mint tokens representing the provider's share in this vault to this provider
             _mint(thisProvider, uint(uuid), amountFromThisProvider);
-
+            amountLocked += amountFromThisProvider;
             emit PoolTokensIssued(thisProvider, expiration, amountFromThisProvider);
         }
 
         // decrement available liquidity in slot
-        slot.liquidity -= amount;
+        slot.liquidity -= amountLocked;
 
         // update global liquidity amounts
         // total liquidity unchanged
         // redeemable liquidity unchanged
-        lockedLiquidity += amount;
-        freeLiquidity -= amount;
+        lockedLiquidity += amountLocked;
+        freeLiquidity -= amountLocked;
 
         /*
 
@@ -273,42 +269,59 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         */
 
         // finally, store the info about the Position
-        positions[uuid] = Position({ expiration: expiration, principal: amount, withdrawable: 0 });
+        positions[uuid] =
+            Position({ expiration: expiration, principal: amountLocked, withdrawable: 0, finalized: false });
 
         // also, check to see if we need to un-initalize this slot
         if (slot.liquidity == 0) {
             initializedSlotIndices.remove(slotIndex);
         }
 
-        emit PositionOpened(msg.sender, uuid, expiration, amount);
+        emit PositionOpened(msg.sender, uuid, expiration, amountLocked);
     }
 
-    function finalizePosition(bytes32 uuid, address vaultManager, int positionNet) external override {
+    function finalizePosition(bytes32 uuid, int positionNet) external override {
         // verify caller via engine
-        require(CollarEngine(engine).isVaultManager(msg.sender), "caller not vault");
+        address vaultManager = msg.sender;
+        require(CollarEngine(engine).isVaultManager(vaultManager), "caller not vault");
+        require(block.timestamp >= positions[uuid].expiration, "position is not finalizable");
+        require(!positions[uuid].finalized , "position already finalized");
+        positions[uuid].finalized = true;
 
-        // either case, we need to set the withdrawable amount to principle + positionNet
-        positions[uuid].withdrawable = uint(int(positions[uuid].principal) + positionNet);
+        uint principal = positions[uuid].principal;
+        uint withdrawable;
+        if (positionNet > 0) {
+            // Positive case: positionNet is non-negative
+            uint amountToAdd = uint(positionNet);
 
-        // update global liquidity amounts
-        // free liquidity unchanged
+            // Update position withdrawable amount
+            withdrawable = principal + amountToAdd;
 
-        totalLiquidity = uint(int(totalLiquidity) + positionNet);
+            // Update global liquidity amounts
+            totalLiquidity += amountToAdd;
 
-        lockedLiquidity -= positions[uuid].principal;
+            // The vault owes us some tokens
 
-        redeemableLiquidity += uint(int(positions[uuid].principal) + positionNet);
-
-        if (positionNet < 0) {
-            // we owe the vault some tokens
-            IERC20(cashAsset).safeTransfer(vaultManager, uint(-positionNet));
-        } else if (positionNet > 0) {
-            // the vault owes us some tokens
-            IERC20(cashAsset).safeTransferFrom(vaultManager, address(this), uint(positionNet));
+            IERC20(cashAsset).safeTransferFrom(vaultManager, address(this), amountToAdd);
         } else {
-            // impressive. most impressive.
-        }
+            // Negative case: positionNet is negative
+            uint amountToSubstract = uint(-positionNet);
 
+            // Ensure principal is greater or equal to negative positionNet to prevent underflow
+            require(principal >= amountToSubstract, "Insufficient principal to cover negative positionNet");
+
+            // Update position withdrawable amount
+            withdrawable = principal - amountToSubstract;
+
+            // Update global liquidity amounts
+            totalLiquidity -= amountToSubstract;
+
+            // We owe the vault some tokens
+            IERC20(cashAsset).safeTransfer(vaultManager, amountToSubstract);
+        }
+        positions[uuid].withdrawable = withdrawable;
+        redeemableLiquidity += withdrawable;
+        lockedLiquidity -= principal;
         emit PositionFinalized(vaultManager, uuid, positionNet);
     }
 
@@ -319,6 +332,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         require(position.expiration != 0, "no position");
         require(block.timestamp >= position.expiration, "vault not finalized");
         require(amount <= balanceOf[msg.sender][_id], "insufficient balance");
+        require(position.finalized, "position not finalized");
 
         // calculate cash redeem value
         uint redeemValue = _redeemAmount(position.withdrawable, amount, totalSupply[_id]);
