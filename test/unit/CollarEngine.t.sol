@@ -56,7 +56,7 @@ contract CollarEngineTest is Test {
     }
 
     function test_deploymentAndDeployParams() public view {
-        assertEq(address(engine.dexRouter()), address(router));
+        assertEq(address(engine.univ3SwapRouter()), address(router));
         assertEq(engine.owner(), address(this));
     }
 

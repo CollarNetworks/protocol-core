@@ -14,12 +14,12 @@ interface ICollarVaultState {
     /// @param collateralAsset The address of the collateral asset
     /// @param collateralAmount The amount of the collateral asset deposited
     /// @param cashAsset The address of the cash asset
-    /// @param cashAmount The minimum amount of the cash asset to swap the collateral for
+    /// @param minCashAmount The minimum amount of the cash asset to swap the collateral for
     struct AssetSpecifiers {
         address collateralAsset;
         uint collateralAmount;
         address cashAsset;
-        uint cashAmount;
+        uint minCashAmount;
     }
 
     /// @notice This struct contains information about the collar options for each vault
