@@ -9,6 +9,7 @@ pragma solidity 0.8.21;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 // internal imports
 import { LiquidityPositionNFT } from "./LiquidityPositionNFT.sol";
@@ -18,6 +19,7 @@ import { TickCalculations } from "./libs/TickCalculations.sol";
 
 contract BorrowPositionNFT is BaseGovernedNFT {
     using SafeERC20 for IERC20;
+    using SafeCast for uint;
 
     uint24 internal constant FEE_TIER_30_BIPS = 3000;
     uint internal constant BIPS_BASE = 10_000;
@@ -45,8 +47,10 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         uint loanAmount;
         uint putLockedCash;
         uint callLockedCash;
+        // withdrawal
+        bool settled;
+        uint withdrawable;
     }
-    // terms
 
     mapping(uint positionId => BorrowPosition) public positions;
 
@@ -78,7 +82,7 @@ contract BorrowPositionNFT is BaseGovernedNFT {
     // ----- VIEW FUNCTIONS ----- //
 
     // ----- STATE CHANGING FUNCTIONS ----- //
-    function openPosition(
+    function openPairedPosition(
         uint collateralAmount,
         uint minCashAmount, // slippage control
         LiquidityPositionNFT providerContract, // @dev implies ltv & put deviation, duration
@@ -86,6 +90,7 @@ contract BorrowPositionNFT is BaseGovernedNFT {
             // TODO: optional user validation struct for ltv, expiry, put, call deviation
     )
         external
+        whenNotPaused
         returns (uint borrowPositionId, uint providerPositionId, BorrowPosition memory borrowPosition)
     {
         _openPositionValidations(providerContract);
@@ -113,6 +118,79 @@ contract BorrowPositionNFT is BaseGovernedNFT {
 
         // transfer the full loan amount on open
         cashAsset.safeTransfer(msg.sender, borrowPosition.loanAmount);
+
+        // TODO: event
+    }
+
+    function settlePairedPosition(uint borrowId) external whenNotPaused {
+        BorrowPosition storage position = positions[borrowId];
+        LiquidityPositionNFT providerNFT = position.providerContract;
+        uint providerId = position.providerPositionId;
+
+        require(position.openedAt != 0, "position doesn't exist");
+        // access is restricted because NFT owners might want to cancel (unwind) instead
+        require(
+            msg.sender == ownerOf(borrowId) || msg.sender == providerNFT.ownerOf(providerId),
+            "not owner of either position"
+        );
+        require(block.timestamp >= position.expiration, "not expired");
+        require(!position.settled, "already settled");
+
+        position.settled = true; // set here to prevent reentrancy
+
+        // get settlement price
+        uint endPrice = _getTWAPPrice(position.expiration);
+
+        (uint withdrawable, int providerChange) = _settlementCalculations(position, endPrice);
+
+        _settleProviderPosition(position, providerChange);
+
+        // set withdrawable for user
+        position.withdrawable = withdrawable;
+
+        // TODO: event
+    }
+
+    function withdrawFromSettled(uint positionId, address recipient) external whenNotPaused {
+        require(msg.sender == ownerOf(positionId), "not position owner");
+
+        BorrowPosition storage position = positions[positionId];
+        require(position.settled, "not settled");
+
+        uint withdrawable = position.withdrawable;
+        // zero out withdrawable
+        position.withdrawable = 0;
+        // burn token
+        _burn(positionId);
+        // transfer tokens
+        cashAsset.safeTransfer(recipient, withdrawable);
+        // TODO: emit event
+    }
+
+    function cancelPairedPosition(uint borrowId, address recipient) external whenNotPaused {
+        require(msg.sender == ownerOf(borrowId), "not owner");
+
+        BorrowPosition storage position = positions[borrowId];
+        require(!position.settled, "already settled");
+        position.settled = true; // set here to prevent reentrancy
+
+        // burn token
+        _burn(borrowId);
+
+        // pull the provider NFT to this contract
+        LiquidityPositionNFT providerNFT = position.providerContract;
+        uint providerId = position.providerPositionId;
+        // @dev msg.sender must be used (as always with transferFrom) to ensure token owner is calling,
+        // otherwise broad (`..forAll`) approvals by providers can be used maliciously to cancel positions
+        providerNFT.transferFrom(msg.sender, address(this), providerId);
+
+        // now that this contract has provider NFT - cancel it and withdraw funds to sender
+        providerNFT.cancelAndWithdraw(providerId, recipient);
+
+        // transfer the tokens locked in this contract
+        cashAsset.safeTransfer(recipient, position.putLockedCash);
+
+        // TODO: emit event
     }
 
     // ----- INTERNAL FUNCTIONS ----- //
@@ -203,18 +281,25 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         uint callLockedCash = (callStrikeDeviation - BIPS_BASE) * cashFromSwap / BIPS_BASE;
         (providerPositionId,) = providerContract.mintPositionFromOffer(offerId, callLockedCash);
 
+        uint putStrikePrice = twapPrice * _putStrikeDeviation(providerContract) / BIPS_BASE;
+        uint callStrikePrice = twapPrice * callStrikeDeviation / BIPS_BASE;
+        // avoid boolean edge cases and division by zero when settling
+        require(putStrikePrice < twapPrice && callStrikePrice > twapPrice, "strike prices aren't different");
+
         borrowPosition = BorrowPosition({
             providerContract: providerContract,
             providerPositionId: providerPositionId,
             openedAt: block.timestamp,
             expiration: providerContract.getPosition(providerPositionId).expiration,
             initialPrice: twapPrice,
-            putStrikePrice: twapPrice * _putStrikeDeviation(providerContract) / BIPS_BASE,
-            callStrikePrice: twapPrice * callStrikeDeviation / BIPS_BASE,
+            putStrikePrice: putStrikePrice,
+            callStrikePrice: callStrikePrice,
             collateralAmount: collateralAmount,
             loanAmount: loanAmount,
             putLockedCash: cashFromSwap - loanAmount, // this assumes LTV === put strike price
-            callLockedCash: callLockedCash
+            callLockedCash: callLockedCash,
+            settled: false,
+            withdrawable: 0
         });
     }
 
@@ -223,139 +308,45 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         return providerContract.ltv();
     }
 
-    //    function closeVault(bytes32 uuid) external override {
-    //        require(vaultsByUUID[uuid].openedAt != 0, "invalid vault");
-    //
-    //        // ensure vault is active (not finalized) and finalizable (past length)
-    //        require(vaultsByUUID[uuid].active, "not active");
-    //        require(block.timestamp >= vaultsByUUID[uuid].expiresAt, "not finalizable");
-    //
-    //        // cache vault storage pointer
-    //        Vault storage vault = vaultsByUUID[uuid];
-    //
-    //        // grab all price info
-    //        uint startingPrice = vault.initialCollateralPrice;
-    //        uint putStrikePrice = vault.putStrikePrice;
-    //        uint callStrikePrice = vault.callStrikePrice;
-    //
-    //        uint finalPrice = _getTWAPPrice(vault.expiresAt);
-    //
-    //        require(finalPrice != 0, "invalid price");
-    //
-    //        // vault can finalze in 4 possible states, depending on where the final price (P_1) ends up
-    //        // relative to the put strike (PUT), the call strike (CAL), and the starting price (P_0)
-    //        //
-    //        // (CASE 1) final price < put strike
-    //        //  - P_1 --- PUT --- P_0 --- CAL
-    //        //  - locked vault cash is rewarded to the liquidity provider
-    //        //  - locked pool liquidity is entirely returned to the liquidity provider
-    //        //
-    //        // (CASE 2) final price > call strike
-    //        //  - PUT --- P_0 --- CAL --- P_1
-    //        //  - locked vault cash is given to the user to cover collateral appreciation
-    //        //  - locked pool liquidity is entirely used to cover collateral appreciation
-    //        //
-    //        // (CASE 3) put strike < final price < starting price
-    //        //  - PUT --- P_1 --- P_0 --- CAL
-    //        //  - locked vault cash is partially given to the user to cover some collateral appreciation
-    //        //  - locked pool liquidity is entirely returned to the liquidity provider
-    //        //
-    //        // (CASE 4) call strike > final price > starting price
-    //        //  - PUT --- P_0 --- P_1 --- CAL
-    //        //  - locked vault cash is given to the user to cover collateral appreciation
-    //        //  - locked pool liquidity is partially used to cover some collateral appreciation
-    //
-    //        uint cashNeededFromPool = 0;
-    //        uint cashToSendToPool = 0;
-    //
-    //        // CASE 1 - all vault cash to liquidity pool
-    //        if (finalPrice <= putStrikePrice) {
-    //            cashToSendToPool = vault.lockedVaultCash;
-    //
-    //            console.log("CollarVaultManager::closeVault - CASE 1 ALL VAULT CASH TO LIQUIDITY POOL");
-    //            console.log("CollarVaultManager::closeVault - cashToSendToPool: ", cashToSendToPool);
-    //
-    //            // CASE 2 - all vault cash to user, all locked pool cash to user
-    //        } else if (finalPrice >= callStrikePrice) {
-    //            cashNeededFromPool = vault.lockedPoolCash;
-    //
-    //            console.log(
-    //                "CollarVaultManager::closeVault - CASE 2 ALL VAULT CASH TO USER, ALL LOCKED POOL CASH TO
-    // USER"
-    //            );
-    //            console.log("CollarVaultManager::closeVault - cashNeededFromPool: ", cashNeededFromPool);
-    //
-    //            // CASE 3 - all vault cash to user
-    //        } else if (finalPrice == startingPrice) {
-    //            // no need to update any vars here
-    //
-    //            console.log("CollarVaultManager::closeVault - CASE 3 ALL VAULT CASH TO USER");
-    //
-    //            // CASE 4 - proportional vault cash to user
-    //        } else if (putStrikePrice < finalPrice && finalPrice < startingPrice) {
-    //            uint vaultCashToPool = (
-    //                (vault.lockedVaultCash * (startingPrice - finalPrice) * 1e32)
-    //                / (startingPrice - putStrikePrice)
-    //            ) / 1e32;
-    //
-    //            cashToSendToPool = vaultCashToPool;
-    //
-    //            console.log("CollarVaultManager::closeVault - CASE 4 PROPORTIONAL VAULT CASH TO USER");
-    //            console.log("CollarVaultManager::closeVault - cashToSendToPool: ", cashToSendToPool);
-    //
-    //            // CASE 5 - all vault cash to user, proportional locked pool cash to user
-    //        } else if (callStrikePrice > finalPrice && finalPrice > startingPrice) {
-    //            uint poolCashToUser = (
-    //                (vault.lockedPoolCash * (finalPrice - startingPrice) * 1e32)
-    //                / (callStrikePrice - startingPrice)
-    //            ) / 1e32;
-    //
-    //            cashNeededFromPool = poolCashToUser;
-    //
-    //            console.log(
-    //                "CollarVaultManager::closeVault - CASE 5 ALL VAULT CASH TO USER, PROPORTIONAL LOCKED
-    // POOL CASH TO USER"
-    //            );
-    //            console.log("CollarVaultManager::closeVault - cashNeededFromPool: ", cashNeededFromPool);
-    //
-    //            // ???
-    //        } else {
-    //            revert();
-    //        }
-    //        // mark vault as finalized
-    //        vault.active = false;
-    //
-    //        // sanity check
-    //        assert(cashNeededFromPool == 0 || cashToSendToPool == 0);
-    //
-    //        int poolProfit = cashToSendToPool > 0 ? int(cashToSendToPool) : -int(cashNeededFromPool);
-    //
-    //        if (cashToSendToPool > 0) {
-    //            vault.lockedVaultCash -= cashToSendToPool;
-    //            IERC20(vault.cashAsset).forceApprove(vault.liquidityPool, cashToSendToPool);
-    //        }
-    //
-    //        CollarPool(vault.liquidityPool).finalizePosition(uuid, poolProfit);
-    //
-    //        // set total redeem value for vault tokens to locked vault cash + cash pulled from pool
-    //        // also null out the locked vault cash
-    //        vaultTokenCashSupply[uuid] = vault.lockedVaultCash + cashNeededFromPool;
-    //        vault.lockedVaultCash = 0;
-    //
-    //        emit VaultClosed(msg.sender, address(this), uuid);
-    //    }
-    //
-    //    function redeem(bytes32 uuid, uint amount) external override {
-    //        require(vaultsByUUID[uuid].openedAt != 0, "invalid vault");
-    //        require(!vaultsByUUID[uuid].active, "vault not finalized");
-    //
-    //        // calculate cash redeem value
-    //        uint redeemValue = previewRedeem(uuid, amount);
-    //
-    //        emit Redemption(msg.sender, uuid, amount, redeemValue);
-    //
-    //        // redeem to user & burn tokens
-    //        _burn(msg.sender, uint(uuid), amount);
-    //        IERC20(vaultsByUUID[uuid].cashAsset).safeTransfer(msg.sender, redeemValue);
-    //    }
+    function _settlementCalculations(
+        BorrowPosition storage position,
+        uint endPrice
+    )
+        internal
+        view
+        returns (uint withdrawable, int providerChange)
+    {
+        uint startPrice = position.initialPrice;
+        uint putPrice = position.putStrikePrice;
+        uint callPrice = position.callStrikePrice;
+
+        // restrict endPrice to put-call range
+        endPrice = endPrice < putPrice ? putPrice : endPrice;
+        endPrice = endPrice > callPrice ? callPrice : endPrice;
+
+        withdrawable = position.putLockedCash;
+        if (endPrice < startPrice) {
+            // put range: divide between user and LP, call range: goes to LP
+            uint lpPart = startPrice - endPrice;
+            uint putRange = startPrice - putPrice;
+            uint lpGain = position.putLockedCash * lpPart / putRange; // no div-zero ensured on open
+            withdrawable -= lpGain;
+            providerChange = lpGain.toInt256();
+        } else {
+            // put range: goes to user, call range: divide between user and LP
+            uint userPart = endPrice - startPrice;
+            uint callRange = callPrice - startPrice;
+            uint userGain = position.callLockedCash * userPart / callRange; // no div-zero ensured on open
+            withdrawable += userGain;
+            providerChange = -userGain.toInt256();
+        }
+    }
+
+    function _settleProviderPosition(BorrowPosition storage position, int providerChange) internal {
+        if (providerChange > 0) {
+            cashAsset.forceApprove(position.providerContract, lpGain);
+        }
+
+        position.providerContract.settlePosition(position.providerPositionId, providerChange);
+    }
 }
