@@ -178,28 +178,28 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         return (positionId, position);
     }
 
-    function settlePosition(uint positionId, int positionNet) external whenNotPaused {
+    function settlePosition(uint positionId, int positionChange) external whenNotPaused {
         // don't validate full config because maybe some values are no longer supported
         validateBorrowingContractTrusted();
         require(msg.sender == borrowPositionContract, "unauthorized borrow contract");
 
         LiquidityPosition storage position = positions[positionId];
 
-        require(block.timestamp >= position.expiration, "position not finalizable");
+        require(block.timestamp >= position.expiration, "not expired");
         require(!position.settled, "already settled");
 
         position.settled = true; // done here as this also acts as reentrancy protection
 
         uint withdrawable = position.principal;
-        if (positionNet < 0) {
-            uint toRemove = uint(-positionNet);
+        if (positionChange < 0) {
+            uint toRemove = uint(-positionChange);
             /// @dev will revert if too much is requested
             require(toRemove <= withdrawable, "loss is too high");
             withdrawable -= toRemove;
             // we owe the borrower some tokens
             cashAsset.safeTransfer(borrowPositionContract, toRemove);
-        } else if (positionNet > 0) {
-            uint toAdd = uint(positionNet);
+        } else if (positionChange > 0) {
+            uint toAdd = uint(positionChange);
             withdrawable += toAdd;
             // the borrower owes us some tokens, requires approval
             cashAsset.safeTransferFrom(borrowPositionContract, address(this), toAdd);
@@ -212,7 +212,7 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         // TODO: emit event
     }
 
-    function withdrawFromPosition(uint positionId) external whenNotPaused {
+    function withdrawFromSettled(uint positionId) external whenNotPaused {
         require(msg.sender == ownerOf(positionId), "not position owner");
 
         LiquidityPosition storage position = positions[positionId];
@@ -230,7 +230,7 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
 
     /// @dev for unwinds / rolls when the borrow contract is also the owner of this NFT
     /// callable through borrow position because only it is receiver of funds
-    function cancelPosition(uint positionId) external whenNotPaused {
+    function cancelAndWithdraw(uint positionId) external whenNotPaused {
         // don't validate full config because maybe some values are no longer supported
         validateBorrowingContractTrusted();
         require(msg.sender == borrowPositionContract, "unauthorized borrow contract");
