@@ -168,7 +168,6 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
         vault.lockedPoolCash = CollarPool(liquidityOpts.liquidityPool).openPosition(
             uuid, liquidityOpts.callStrikeTick, requestedAmountToLockInPool, vault.expiresAt
         );
-        require(vault.lockedPoolCash == requestedAmountToLockInPool, "Not enough locked liquidity in pool");
         // set vault specific stuff
         vault.loanBalance = (collarOpts.ltv * cashReceivedFromSwap) / 10_000;
         vault.lockedVaultCash = ((10_000 - collarOpts.ltv) * cashReceivedFromSwap) / 10_000;
