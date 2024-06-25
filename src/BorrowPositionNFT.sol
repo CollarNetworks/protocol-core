@@ -87,11 +87,10 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         uint minCashAmount, // slippage control
         LiquidityPositionNFT providerContract, // @dev implies ltv & put deviation, duration
         uint offerId // @dev imply specific offer with provider and strike price
-            // TODO: optional user validation struct for ltv, expiry, put, call deviation
     )
         external
         whenNotPaused
-        returns (uint borrowPositionId, uint providerPositionId, BorrowPosition memory borrowPosition)
+        returns (uint borrowId, uint providerId, BorrowPosition memory borrowPosition)
     {
         _openPositionValidations(providerContract);
 
@@ -106,15 +105,15 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         // only affect the "pot sizing" (so does not affect the provider, only the borrower)
         _checkSwapPrice(twapPrice, cashFromSwap, collateralAmount);
 
-        (borrowPosition, providerPositionId) =
+        (borrowPosition, providerId) =
             _openPositionInternal(twapPrice, collateralAmount, cashFromSwap, providerContract, offerId);
 
-        borrowPositionId = nextTokenId++;
+        borrowId = nextTokenId++;
         // store position data
-        positions[borrowPositionId] = borrowPosition;
+        positions[borrowId] = borrowPosition;
         // mint the NFT to the sender
         // @dev does not use _safeMint to avoid reentrancy
-        _mint(msg.sender, borrowPositionId);
+        _mint(msg.sender, borrowId);
 
         // transfer the full loan amount on open
         cashAsset.safeTransfer(msg.sender, borrowPosition.loanAmount);
@@ -151,26 +150,31 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         // TODO: event
     }
 
-    function withdrawFromSettled(uint positionId, address recipient) external whenNotPaused {
-        require(msg.sender == ownerOf(positionId), "not position owner");
+    function withdrawFromSettled(uint borrowId, address recipient) external whenNotPaused {
+        require(msg.sender == ownerOf(borrowId), "not position owner");
 
-        BorrowPosition storage position = positions[positionId];
+        BorrowPosition storage position = positions[borrowId];
         require(position.settled, "not settled");
 
         uint withdrawable = position.withdrawable;
         // zero out withdrawable
         position.withdrawable = 0;
         // burn token
-        _burn(positionId);
+        _burn(borrowId);
         // transfer tokens
         cashAsset.safeTransfer(recipient, withdrawable);
         // TODO: emit event
     }
 
     function cancelPairedPosition(uint borrowId, address recipient) external whenNotPaused {
-        require(msg.sender == ownerOf(borrowId), "not owner");
-
         BorrowPosition storage position = positions[borrowId];
+        LiquidityPositionNFT providerNFT = position.providerContract;
+        uint providerId = position.providerPositionId;
+
+        require(msg.sender == ownerOf(borrowId), "not owner of borrow ID");
+        // this is redundant due to NFT transfer from msg.sender later, but is clearer.
+        require(msg.sender == providerNFT.ownerOf(providerId), "not owner of provider ID");
+
         require(!position.settled, "already settled");
         position.settled = true; // set here to prevent reentrancy
 
@@ -178,13 +182,9 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         _burn(borrowId);
 
         // pull the provider NFT to this contract
-        LiquidityPositionNFT providerNFT = position.providerContract;
-        uint providerId = position.providerPositionId;
-        // @dev msg.sender must be used (as always with transferFrom) to ensure token owner is calling,
-        // otherwise broad (`..forAll`) approvals by providers can be used maliciously to cancel positions
         providerNFT.transferFrom(msg.sender, address(this), providerId);
 
-        // now that this contract has provider NFT - cancel it and withdraw funds to sender
+        // now that this contract has the provider NFT - cancel it and withdraw funds to sender
         providerNFT.cancelAndWithdraw(providerId, recipient);
 
         // transfer the tokens locked in this contract
