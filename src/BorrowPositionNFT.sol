@@ -344,7 +344,7 @@ contract BorrowPositionNFT is BaseGovernedNFT {
 
     function _settleProviderPosition(BorrowPosition storage position, int providerChange) internal {
         if (providerChange > 0) {
-            cashAsset.forceApprove(position.providerContract, lpGain);
+            cashAsset.forceApprove(address(position.providerContract), uint(providerChange));
         }
 
         position.providerContract.settlePosition(position.providerPositionId, providerChange);
