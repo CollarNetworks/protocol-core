@@ -193,40 +193,7 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         // TODO: emit event
     }
 
-    // ----- INTERNAL FUNCTIONS ----- //
-
-    function _openPositionValidations(LiquidityPositionNFT providerContract) internal view {
-        validateConfig();
-
-        // check self (provider will check too)
-        require(engine.isBorrowNFT(address(this)), "unsupported borrow contract");
-
-        // check provider
-        require(engine.isProviderNFT(address(providerContract)), "unsupported provider contract");
-        // check assets match
-        require(providerContract.collateralAsset() == collateralAsset, "asset mismatch");
-        require(providerContract.cashAsset() == cashAsset, "asset mismatch");
-
-        // checking LTV and duration (from provider contract) is redundant since provider contract
-        // is trusted by user (passed in input), and trusted by engine (was checked vs. engine above)
-    }
-
-    function _getTWAPPrice(uint twapEndTime) internal view returns (uint price) {
-        return engine.getHistoricalAssetPriceViaTWAP(
-            address(collateralAsset), address(cashAsset), uint32(twapEndTime), TWAP_LENGTH
-        );
-    }
-
-    /// TODO: establish if this is needed or not, since the swap price is only used for "pot sizing",
-    ///     but not for pot division on expiry (initialPrice is twap price).
-    ///     still makes sense as a precaution, as long as the deviation is not too restrictive.
-    function _checkSwapPrice(uint twapPrice, uint cashFromSwap, uint collateralAmount) internal view {
-        // TODO: sort out the mess with using or not using exact amounts / BASE_TOKEN_AMOUNT
-        uint swapPrice = cashFromSwap * engine.BASE_TOKEN_AMOUNT() / collateralAmount;
-        uint diff = swapPrice > twapPrice ? swapPrice - twapPrice : twapPrice - swapPrice;
-        uint deviation = diff * BIPS_BASE / twapPrice;
-        require(deviation <= MAX_SWAP_TWAP_DEVIATION_BIPS, "swap and twap price too different");
-    }
+    // ----- INTERNAL MUTATIVE ----- //
 
     function _pullAndSwap(
         address sender,
@@ -303,6 +270,49 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         });
     }
 
+    function _settleProviderPosition(BorrowPosition storage position, int providerChange) internal {
+        if (providerChange > 0) {
+            cashAsset.forceApprove(address(position.providerContract), uint(providerChange));
+        }
+
+        position.providerContract.settlePosition(position.providerPositionId, providerChange);
+    }
+
+    // ----- INTERNAL VIEWS ----- //
+
+    function _openPositionValidations(LiquidityPositionNFT providerContract) internal view {
+        validateConfig();
+
+        // check self (provider will check too)
+        require(engine.isBorrowNFT(address(this)), "unsupported borrow contract");
+
+        // check provider
+        require(engine.isProviderNFT(address(providerContract)), "unsupported provider contract");
+        // check assets match
+        require(providerContract.collateralAsset() == collateralAsset, "asset mismatch");
+        require(providerContract.cashAsset() == cashAsset, "asset mismatch");
+
+        // checking LTV and duration (from provider contract) is redundant since provider contract
+        // is trusted by user (passed in input), and trusted by engine (was checked vs. engine above)
+    }
+
+    function _getTWAPPrice(uint twapEndTime) internal view returns (uint price) {
+        return engine.getHistoricalAssetPriceViaTWAP(
+            address(collateralAsset), address(cashAsset), uint32(twapEndTime), TWAP_LENGTH
+        );
+    }
+
+    /// TODO: establish if this is needed or not, since the swap price is only used for "pot sizing",
+    ///     but not for pot division on expiry (initialPrice is twap price).
+    ///     still makes sense as a precaution, as long as the deviation is not too restrictive.
+    function _checkSwapPrice(uint twapPrice, uint cashFromSwap, uint collateralAmount) internal view {
+        // TODO: sort out the mess with using or not using exact amounts / BASE_TOKEN_AMOUNT
+        uint swapPrice = cashFromSwap * engine.BASE_TOKEN_AMOUNT() / collateralAmount;
+        uint diff = swapPrice > twapPrice ? swapPrice - twapPrice : twapPrice - swapPrice;
+        uint deviation = diff * BIPS_BASE / twapPrice;
+        require(deviation <= MAX_SWAP_TWAP_DEVIATION_BIPS, "swap and twap price too different");
+    }
+
     function _putStrikeDeviation(LiquidityPositionNFT providerContract) internal view returns (uint) {
         // LTV === put strike price currently (explicitly assigned here for clarity)
         return providerContract.ltv();
@@ -340,13 +350,5 @@ contract BorrowPositionNFT is BaseGovernedNFT {
             withdrawable += userGain;
             providerChange = -userGain.toInt256();
         }
-    }
-
-    function _settleProviderPosition(BorrowPosition storage position, int providerChange) internal {
-        if (providerChange > 0) {
-            cashAsset.forceApprove(address(position.providerContract), uint(providerChange));
-        }
-
-        position.providerContract.settlePosition(position.providerPositionId, providerChange);
     }
 }
