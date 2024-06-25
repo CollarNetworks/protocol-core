@@ -212,7 +212,7 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         // TODO: emit event
     }
 
-    function withdrawFromSettled(uint positionId) external whenNotPaused {
+    function withdrawFromSettled(uint positionId, address recipient) external whenNotPaused {
         require(msg.sender == ownerOf(positionId), "not position owner");
 
         LiquidityPosition storage position = positions[positionId];
@@ -224,13 +224,13 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         // burn token
         _burn(positionId);
         // transfer tokens
-        cashAsset.safeTransfer(msg.sender, withdrawable);
+        cashAsset.safeTransfer(recipient, withdrawable);
         // TODO: emit event
     }
 
     /// @dev for unwinds / rolls when the borrow contract is also the owner of this NFT
     /// callable through borrow position because only it is receiver of funds
-    function cancelAndWithdraw(uint positionId) external whenNotPaused {
+    function cancelAndWithdraw(uint positionId, address recipient) external whenNotPaused {
         // don't validate full config because maybe some values are no longer supported
         validateBorrowingContractTrusted();
         require(msg.sender == borrowPositionContract, "unauthorized borrow contract");
@@ -244,7 +244,7 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         // burn token
         _burn(positionId);
 
-        cashAsset.safeTransfer(borrowPositionContract, position.principal);
+        cashAsset.safeTransfer(recipient, position.principal);
         // TODO: emit event
     }
 
