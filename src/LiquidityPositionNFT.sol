@@ -38,7 +38,7 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         uint principal;
         uint strikeDeviation;
         // withdrawal
-        bool finalized;
+        bool settled;
         uint withdrawable;
     }
 
@@ -163,7 +163,7 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
             expiration: block.timestamp + duration,
             principal: amount,
             strikeDeviation: offer.strikeDeviation,
-            finalized: false,
+            settled: false,
             withdrawable: 0
         });
 
@@ -186,9 +186,9 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         LiquidityPosition storage position = positions[positionId];
 
         require(block.timestamp >= position.expiration, "position not finalizable");
-        require(!position.finalized, "already finalized");
+        require(!position.settled, "already settled");
 
-        position.finalized = true; // done here as this also acts as reentrancy protection
+        position.settled = true; // done here as this also acts as reentrancy protection
 
         uint withdrawable = position.principal;
         if (positionNet < 0) {
@@ -216,7 +216,7 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         require(msg.sender == ownerOf(positionId), "not position owner");
 
         LiquidityPosition storage position = positions[positionId];
-        require(position.finalized, "not finalized");
+        require(position.settled, "not settled");
 
         uint withdrawable = position.withdrawable;
         // zero out withdrawable
@@ -238,8 +238,8 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
 
         LiquidityPosition storage position = positions[positionId];
 
-        require(!position.finalized, "already finalized");
-        position.finalized = true; // done here as this also acts as reentrancy protection
+        require(!position.settled, "already settled");
+        position.settled = true; // done here as this also acts as reentrancy protection
 
         // burn token
         _burn(positionId);
