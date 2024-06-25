@@ -213,10 +213,13 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         });
 
         uint balanceBefore = cashAsset.balanceOf(address(this));
-        IV3SwapRouter(payable(engine.dexRouter())).exactInputSingle(swapParams);
+        uint amountOutRouter = IV3SwapRouter(payable(engine.dexRouter())).exactInputSingle(swapParams);
         // Calculate the actual amount of cash received
         amountReceived = cashAsset.balanceOf(address(this)) - balanceBefore;
-        // revert if minimum not met
+        // check balance is updated as expected and as reported by router (no other balance changes)
+        // cash-asset cannot be fee-on-transfer or rebasing (e.g., internal shares accounting)
+        require(amountReceived == amountOutRouter, "balance update mismatch");
+        // check amount is as expected by user
         require(amountReceived >= minAmountOut, "slippage exceeded");
     }
 
