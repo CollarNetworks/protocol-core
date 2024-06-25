@@ -155,7 +155,7 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         LiquidityOffer storage offer = liquidityOffers[offerId];
 
         // handle liquidity
-        /// @dev this will revert if request is for too much
+        require(amount <= offer.available, "amount too high");
         offer.available -= amount;
 
         // create position
@@ -194,6 +194,7 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         if (positionNet < 0) {
             uint toRemove = uint(-positionNet);
             /// @dev will revert if too much is requested
+            require(toRemove <= withdrawable, "loss is too high");
             withdrawable -= toRemove;
             // we owe the borrower some tokens
             cashAsset.safeTransfer(borrowPositionContract, toRemove);
