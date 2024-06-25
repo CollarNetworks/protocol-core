@@ -128,8 +128,6 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         returns (BorrowPosition memory borrowPosition, uint providerPositionId)
     {
         uint loanAmount = cashFromSwap * providerContract.ltv() / BIPS_BASE;
-        // LTV === put strike price (explicitly assigned here for clarity)
-        uint putStrikeDeviation = providerContract.ltv();
 
         // open the provider position with duration and callLockedCash locked liquidity (reverts if can't)
         // and sends the provider NFT to the provider
@@ -143,13 +141,18 @@ contract BorrowPositionNFT is BaseGovernedNFT {
             openedAt: block.timestamp,
             expiration: providerContract.getPosition(providerPositionId).expiration,
             initialPrice: twapPrice,
-            putStrikePrice: twapPrice * putStrikeDeviation / BIPS_BASE,
+            putStrikePrice: twapPrice * _putStrikeDeviation(providerContract) / BIPS_BASE,
             callStrikePrice: twapPrice * callStrikeDeviation / BIPS_BASE,
             collateralAmount: collateralAmount,
             loanAmount: loanAmount,
             putLockedCash: cashFromSwap - loanAmount, // this assumes LTV === put strike price
             callLockedCash: callLockedCash
         });
+    }
+
+    function _putStrikeDeviation(LiquidityPositionNFT providerContract) internal view returns (uint) {
+        // LTV === put strike price currently (explicitly assigned here for clarity)
+        return providerContract.ltv();
     }
 
     function _openPositionValidations(LiquidityPositionNFT providerContract) internal view {
