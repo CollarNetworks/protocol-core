@@ -15,7 +15,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 abstract contract BaseGovernedNFT is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
     // ----- State ----- //
-    uint public nextTokenId; // NFT token ID
+    uint internal nextTokenId; // NFT token ID
 
     constructor(
         address initialOwner,

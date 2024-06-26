@@ -13,8 +13,9 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 // internal
 import { CollarEngine } from "./implementations/CollarEngine.sol";
 import { BaseGovernedNFT } from "./base/BaseGovernedNFT.sol";
+import { IProviderPositionNFT } from "./interfaces/IProviderPositionNFT.sol";
 
-contract ProviderPositionNFT is BaseGovernedNFT {
+contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
@@ -30,35 +31,10 @@ contract ProviderPositionNFT is BaseGovernedNFT {
     IERC20 public immutable collateralAsset;
     address public immutable borrowPositionContract;
 
+    // ----- STATE ----- //
     uint public nextOfferId; // non transferrable, @dev this is NOT the NFT id
-
-    struct LiquidityPosition {
-        // terms
-        uint expiration;
-        uint principal;
-        // terms that are unused on-chain (stored for FE / convenience)
-        uint openedAt;
-        uint putStrikeDeviation;
-        uint callStrikeDeviation;
-        // withdrawal
-        bool settled;
-        uint withdrawable;
-    }
-
-    mapping(uint positionId => LiquidityPosition) internal positions;
-
-    struct LiquidityOffer {
-        address provider;
-        uint available;
-        // terms
-        uint putStrikeDeviation;
-        uint callStrikeDeviation;
-        uint duration;
-    }
-
+    mapping(uint positionId => ProviderPosition) internal positions;
     mapping(uint offerId => LiquidityOffer) internal liquidityOffers;
-
-    // TODO: add liquidity info mappings for frontend's needs: strikes to offers, strikes to totals
 
     constructor(
         address initialOwner,
@@ -79,8 +55,20 @@ contract ProviderPositionNFT is BaseGovernedNFT {
         _validateAssetsSupported();
     }
 
+    modifier onlyTrustedBorrowContract() {
+        require(engine.isBorrowNFT(borrowPositionContract), "unsupported borrow contract");
+        require(msg.sender == borrowPositionContract, "unauthorized borrow contract");
+        _;
+    }
+
+    // ----- VIEWS ----- //
+
+    function nextPositionId() external view returns (uint) {
+        return nextTokenId;
+    }
+
     // @dev return memory struct (the default getter returns tuple)
-    function getPosition(uint positionId) external view returns (LiquidityPosition memory) {
+    function getPosition(uint positionId) external view returns (ProviderPosition memory) {
         return positions[positionId];
     }
 
@@ -116,38 +104,32 @@ contract ProviderPositionNFT is BaseGovernedNFT {
             duration: duration
         });
         cashAsset.safeTransferFrom(msg.sender, address(this), amount);
-        // TODO: event
+        emit OfferCreated(msg.sender, putStrikeDeviation, duration, callStrikeDeviation, amount, offerId);
     }
 
     function updateOfferAmount(uint offerId, uint newAmount) public whenNotPaused {
         require(msg.sender == liquidityOffers[offerId].provider, "not offer provider");
-        uint currentAmount = liquidityOffers[offerId].available;
+        uint previousAmount = liquidityOffers[offerId].available;
 
-        if (newAmount > currentAmount) {
+        if (newAmount > previousAmount) {
             // deposit more
-            uint toAdd = newAmount - currentAmount;
+            uint toAdd = newAmount - previousAmount;
             liquidityOffers[offerId].available += toAdd;
             cashAsset.safeTransferFrom(msg.sender, address(this), toAdd);
-        } else if (newAmount < currentAmount) {
+        } else if (newAmount < previousAmount) {
             // withdraw
-            uint toRemove = currentAmount - newAmount;
+            uint toRemove = previousAmount - newAmount;
             liquidityOffers[offerId].available -= toRemove;
             cashAsset.safeTransfer(msg.sender, toRemove);
         } else {
             // no change
         }
-        // TODO: event prev amount, new amount
+        emit OfferUpdated(offerId, msg.sender, previousAmount, newAmount);
     }
 
     // ----- Position actions ----- //
 
     // ----- actions through borrow NFT ----- //
-
-    modifier onlyTrustedBorrowContract() {
-        require(engine.isBorrowNFT(borrowPositionContract), "unsupported borrow contract");
-        require(msg.sender == borrowPositionContract, "unauthorized borrow contract");
-        _;
-    }
 
     function mintPositionFromOffer(
         uint offerId,
@@ -156,7 +138,7 @@ contract ProviderPositionNFT is BaseGovernedNFT {
         external
         onlyTrustedBorrowContract
         whenNotPaused
-        returns (uint positionId, LiquidityPosition memory position)
+        returns (uint positionId, ProviderPosition memory position)
     {
         LiquidityOffer storage offer = liquidityOffers[offerId];
 
@@ -168,7 +150,7 @@ contract ProviderPositionNFT is BaseGovernedNFT {
         offer.available -= amount;
 
         // create position
-        position = LiquidityPosition({
+        position = ProviderPosition({
             openedAt: block.timestamp,
             expiration: block.timestamp + offer.duration,
             principal: amount,
@@ -185,8 +167,15 @@ contract ProviderPositionNFT is BaseGovernedNFT {
         // @dev does not use _safeMint to avoid reentrancy
         _mint(offer.provider, positionId);
 
-        // TODO: emit event
-        return (positionId, position);
+        emit OfferUpdated(offerId, msg.sender, offer.available + amount, offer.available);
+        emit PositionCreated(
+            positionId,
+            position.putStrikeDeviation,
+            offer.duration,
+            position.callStrikeDeviation,
+            amount,
+            offerId
+        );
     }
 
     function settlePosition(
@@ -197,7 +186,7 @@ contract ProviderPositionNFT is BaseGovernedNFT {
         onlyTrustedBorrowContract
         whenNotPaused
     {
-        LiquidityPosition storage position = positions[positionId];
+        ProviderPosition storage position = positions[positionId];
 
         require(block.timestamp >= position.expiration, "not expired");
         require(!position.settled, "already settled");
@@ -223,7 +212,8 @@ contract ProviderPositionNFT is BaseGovernedNFT {
 
         // store the updated state
         position.withdrawable = withdrawable;
-        // TODO: emit event
+
+        emit PositionSettled(positionId, positionChange, withdrawable);
     }
 
     /// @dev for unwinds / rolls when the borrow contract is also the owner of this NFT
@@ -238,7 +228,7 @@ contract ProviderPositionNFT is BaseGovernedNFT {
     {
         require(msg.sender == ownerOf(positionId), "caller does not own token");
 
-        LiquidityPosition storage position = positions[positionId];
+        ProviderPosition storage position = positions[positionId];
 
         require(!position.settled, "already settled");
         position.settled = true; // done here as this also acts as reentrancy protection
@@ -247,7 +237,9 @@ contract ProviderPositionNFT is BaseGovernedNFT {
         _burn(positionId);
 
         cashAsset.safeTransfer(recipient, position.principal);
-        // TODO: emit event
+
+        bool expired = position.expiration >= block.timestamp;
+        emit PositionCanceled(positionId, expired, recipient, position.principal);
     }
 
     // ----- actions by position owner ----- //
@@ -255,7 +247,7 @@ contract ProviderPositionNFT is BaseGovernedNFT {
     function withdrawFromSettled(uint positionId, address recipient) external whenNotPaused {
         require(msg.sender == ownerOf(positionId), "not position owner");
 
-        LiquidityPosition storage position = positions[positionId];
+        ProviderPosition storage position = positions[positionId];
         require(position.settled, "not settled");
 
         uint withdrawable = position.withdrawable;
@@ -265,7 +257,8 @@ contract ProviderPositionNFT is BaseGovernedNFT {
         _burn(positionId);
         // transfer tokens
         cashAsset.safeTransfer(recipient, withdrawable);
-        // TODO: emit event
+
+        emit WithdrawalFromSettled(positionId, recipient, withdrawable);
     }
 
     // ----- INTERNAL MUTATIVE ----- //
