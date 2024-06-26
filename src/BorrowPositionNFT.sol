@@ -12,7 +12,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 // internal imports
-import { LiquidityPositionNFT } from "./LiquidityPositionNFT.sol";
+import {ProviderPositionNFT} from "./ProviderPositionNFT.sol";
 import { BaseGovernedNFT } from "./base/BaseGovernedNFT.sol";
 import { CollarEngine } from "./implementations/CollarEngine.sol";
 
@@ -37,7 +37,7 @@ contract BorrowPositionNFT is BaseGovernedNFT {
     // TODO: Consider trimming down this struct, since some of the fields aren't needed on-chain,
     //      and are stored for FE / usability since the assumption is that this is used on L2.
     struct BorrowPosition {
-        LiquidityPositionNFT providerContract;
+        ProviderPositionNFT providerContract;
         uint providerPositionId;
         uint openedAt;
         uint expiration;
@@ -80,7 +80,7 @@ contract BorrowPositionNFT is BaseGovernedNFT {
     function openPairedPosition(
         uint collateralAmount,
         uint minCashAmount, // slippage control
-        LiquidityPositionNFT providerContract,
+        ProviderPositionNFT providerContract,
         uint offerId // @dev implies specific provider, put & call deviations, duration
     )
         external
@@ -118,7 +118,7 @@ contract BorrowPositionNFT is BaseGovernedNFT {
 
     function settlePairedPosition(uint borrowId) external whenNotPaused {
         BorrowPosition storage position = positions[borrowId];
-        LiquidityPositionNFT providerNFT = position.providerContract;
+        ProviderPositionNFT providerNFT = position.providerContract;
         uint providerId = position.providerPositionId;
 
         require(position.openedAt != 0, "position doesn't exist");
@@ -163,7 +163,7 @@ contract BorrowPositionNFT is BaseGovernedNFT {
 
     function cancelPairedPosition(uint borrowId, address recipient) external whenNotPaused {
         BorrowPosition storage position = positions[borrowId];
-        LiquidityPositionNFT providerNFT = position.providerContract;
+        ProviderPositionNFT providerNFT = position.providerContract;
         uint providerId = position.providerPositionId;
 
         require(msg.sender == ownerOf(borrowId), "not owner of borrow ID");
@@ -229,7 +229,7 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         uint twapPrice,
         uint collateralAmount,
         uint cashFromSwap,
-        LiquidityPositionNFT providerContract,
+        ProviderPositionNFT providerContract,
         uint offerId
     )
         internal
@@ -237,7 +237,7 @@ contract BorrowPositionNFT is BaseGovernedNFT {
     {
         // open the provider position with duration and callLockedCash locked liquidity (reverts if can't)
         // and sends the provider NFT to the provider
-        LiquidityPositionNFT.LiquidityOffer memory offer = providerContract.getOffer(offerId);
+        ProviderPositionNFT.LiquidityOffer memory offer = providerContract.getOffer(offerId);
         uint callLockedCash = (offer.callStrikeDeviation - BIPS_BASE) * cashFromSwap / BIPS_BASE;
         (providerPositionId,) = providerContract.mintPositionFromOffer(offerId, callLockedCash);
 
@@ -280,7 +280,7 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         require(engine.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
     }
 
-    function _openPositionValidations(LiquidityPositionNFT providerContract) internal view {
+    function _openPositionValidations(ProviderPositionNFT providerContract) internal view {
         _validateAssetsSupported();
 
         // check self (provider will check too)

@@ -14,7 +14,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { CollarEngine } from "./implementations/CollarEngine.sol";
 import { BaseGovernedNFT } from "./base/BaseGovernedNFT.sol";
 
-contract LiquidityPositionNFT is BaseGovernedNFT {
+contract ProviderPositionNFT is BaseGovernedNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
