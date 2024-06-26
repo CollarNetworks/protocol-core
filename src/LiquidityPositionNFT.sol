@@ -105,7 +105,7 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
 
     // ----- MUTATIVE ----- //
 
-    // ----- Liquidity ----- //
+    // ----- Liquidity actions ----- //
 
     function createOffer(uint strikeDeviation, uint amount) external whenNotPaused returns (uint offerId) {
         require(strikeDeviation > MIN_CALL_STRIKE_BIPS, "strike deviation too low");
@@ -138,13 +138,22 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         // TODO: event prev amount, new amount
     }
 
-    // ----- Positions ----- //
+    // ----- Position actions ----- //
+
+    // ----- actions through borrow NFT ----- //
+
+    modifier onlyTrustedBorrowContract() {
+        validateBorrowingContractTrusted();
+        require(msg.sender == borrowPositionContract, "unauthorized borrow contract");
+        _;
+    }
 
     function mintPositionFromOffer(
         uint offerId,
         uint amount
     )
         external
+        onlyTrustedBorrowContract
         whenNotPaused
         returns (uint positionId, LiquidityPosition memory position)
     {
@@ -178,11 +187,14 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         return (positionId, position);
     }
 
-    function settlePosition(uint positionId, int positionChange) external whenNotPaused {
-        // don't validate full config because maybe some values are no longer supported
-        validateBorrowingContractTrusted();
-        require(msg.sender == borrowPositionContract, "unauthorized borrow contract");
-
+    function settlePosition(
+        uint positionId,
+        int positionChange
+    )
+        external
+        onlyTrustedBorrowContract
+        whenNotPaused
+    {
         LiquidityPosition storage position = positions[positionId];
 
         require(block.timestamp >= position.expiration, "not expired");
@@ -212,6 +224,32 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         // TODO: emit event
     }
 
+    /// @dev for unwinds / rolls when the borrow contract is also the owner of this NFT
+    /// callable through borrow position because only it is receiver of funds
+    function cancelAndWithdraw(
+        uint positionId,
+        address recipient
+    )
+        external
+        onlyTrustedBorrowContract
+        whenNotPaused
+    {
+        require(msg.sender == ownerOf(positionId), "caller does not own token");
+
+        LiquidityPosition storage position = positions[positionId];
+
+        require(!position.settled, "already settled");
+        position.settled = true; // done here as this also acts as reentrancy protection
+
+        // burn token
+        _burn(positionId);
+
+        cashAsset.safeTransfer(recipient, position.principal);
+        // TODO: emit event
+    }
+
+    // ----- actions by position owner ----- //
+
     function withdrawFromSettled(uint positionId, address recipient) external whenNotPaused {
         require(msg.sender == ownerOf(positionId), "not position owner");
 
@@ -225,26 +263,6 @@ contract LiquidityPositionNFT is BaseGovernedNFT {
         _burn(positionId);
         // transfer tokens
         cashAsset.safeTransfer(recipient, withdrawable);
-        // TODO: emit event
-    }
-
-    /// @dev for unwinds / rolls when the borrow contract is also the owner of this NFT
-    /// callable through borrow position because only it is receiver of funds
-    function cancelAndWithdraw(uint positionId, address recipient) external whenNotPaused {
-        // don't validate full config because maybe some values are no longer supported
-        validateBorrowingContractTrusted();
-        require(msg.sender == borrowPositionContract, "unauthorized borrow contract");
-        require(borrowPositionContract == ownerOf(positionId), "caller does not own token");
-
-        LiquidityPosition storage position = positions[positionId];
-
-        require(!position.settled, "already settled");
-        position.settled = true; // done here as this also acts as reentrancy protection
-
-        // burn token
-        _burn(positionId);
-
-        cashAsset.safeTransfer(recipient, position.principal);
         // TODO: emit event
     }
 
