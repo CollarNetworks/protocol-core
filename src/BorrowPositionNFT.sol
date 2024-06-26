@@ -97,6 +97,8 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
 
         // transfer the full loan amount on open
         cashAsset.safeTransfer(msg.sender, loanAmount);
+
+        emit BorrowedFromSwap(borrowId, msg.sender, collateralAmount, cashFromSwap, loanAmount);
     }
 
     /// @dev this is for use in rolls to open positions without repaying or swapping
@@ -368,7 +370,6 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         view
         returns (uint)
     {
-        // calculate provider locked cash
         ProviderPositionNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
         uint putRange = BIPS_BASE - offer.putStrikeDeviation;
         uint callRange = offer.callStrikeDeviation - BIPS_BASE;
