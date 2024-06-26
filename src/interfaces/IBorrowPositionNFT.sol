@@ -26,9 +26,6 @@ interface IBorrowPositionNFT {
         uint callStrikePrice;
         uint putLockedCash;
         uint callLockedCash;
-        // borrow info that's only stored, but isn't used
-        uint collateralAmount;
-        uint loanAmount;
         // withdrawal state
         bool settled;
         uint withdrawable;

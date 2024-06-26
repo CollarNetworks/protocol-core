@@ -84,11 +84,13 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         // TODO: double-check this actually handles it, or add a reentrancy guard
         uint cashFromSwap = _pullAndSwap(msg.sender, collateralAmount, minCashAmount, twapPrice);
 
+        uint putLockedCash;
+        (loanAmount, putLockedCash) = _splitSwappedCash(cashFromSwap, providerNFT, offerId);
+
         // stores, mints, calls providerNFT and mints there, emits the event
-        (borrowId, providerId, loanAmount) = _openPairedPositionFromSwap({
-            collateralAmount: collateralAmount,
-            cashFromSwap: cashFromSwap,
+        (borrowId, providerId) = _openPairedPositionInternal({
             twapPrice: twapPrice,
+            putLockedCash: putLockedCash,
             providerNFT: providerNFT,
             offerId: offerId
         });
@@ -120,9 +122,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
             twapPrice: twapPrice,
             putLockedCash: putLockedCash,
             providerNFT: providerNFT,
-            offerId: offerId,
-            collateralAmount: 0,
-            loanAmount: 0
+            offerId: offerId
         });
     }
 
@@ -245,41 +245,11 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         _checkSwapPrice(twapPrice, cashFromSwap, collateralAmount);
     }
 
-    function _openPairedPositionFromSwap(
-        uint collateralAmount,
-        uint cashFromSwap,
-        uint twapPrice,
-        ProviderPositionNFT providerNFT,
-        uint offerId
-    )
-        internal
-        returns (uint borrowId, uint providerId, uint loanAmount)
-    {
-        // calculate putLockedCash - amount of cash need for user (borrow) side
-        uint putStrikeDeviation = providerNFT.getOffer(offerId).putStrikeDeviation;
-        uint putLockedCash = (BIPS_BASE - putStrikeDeviation) * cashFromSwap / BIPS_BASE;
-
-        // this assumes LTV === put strike price
-        loanAmount = cashFromSwap - putLockedCash;
-
-        // stores, mints, calls providerNFT and mints there, emits the event
-        (borrowId, providerId) = _openPairedPositionInternal({
-            twapPrice: twapPrice,
-            putLockedCash: putLockedCash,
-            providerNFT: providerNFT,
-            offerId: offerId,
-            collateralAmount: collateralAmount,
-            loanAmount: loanAmount
-        });
-    }
-
     function _openPairedPositionInternal(
         uint twapPrice,
         uint putLockedCash,
         ProviderPositionNFT providerNFT,
-        uint offerId,
-        uint collateralAmount, // only stored, not used
-        uint loanAmount // only stored, not used
+        uint offerId
     )
         internal
         returns (uint borrowId, uint providerId)
@@ -307,8 +277,6 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
             callStrikePrice: callStrikePrice,
             putLockedCash: putLockedCash,
             callLockedCash: callLockedCash,
-            collateralAmount: collateralAmount,
-            loanAmount: loanAmount,
             // unset until settlement
             settled: false,
             withdrawable: 0
@@ -373,15 +341,22 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         require(deviation <= MAX_SWAP_TWAP_DEVIATION_BIPS, "swap and twap price too different");
     }
 
-    function _calculateUserLockedFromSwap(
+    // calculations
+
+    function _splitSwappedCash(
         uint cashFromSwap,
-        uint putStrikeDeviation
+        ProviderPositionNFT providerNFT,
+        uint offerId
     )
         internal
-        pure
-        returns (uint)
+        view
+        returns (uint loanAmount, uint putLockedCash)
     {
-        return (BIPS_BASE - putStrikeDeviation) * cashFromSwap / BIPS_BASE;
+        uint putStrikeDeviation = providerNFT.getOffer(offerId).putStrikeDeviation;
+        // this assumes LTV === put strike price
+        loanAmount = putStrikeDeviation * cashFromSwap / BIPS_BASE;
+        // everything that remains is locked on the put side
+        putLockedCash = cashFromSwap - loanAmount;
     }
 
     function _calculateProviderLocked(
@@ -396,8 +371,9 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         // calculate provider locked cash
         ProviderPositionNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
         uint putRange = BIPS_BASE - offer.putStrikeDeviation;
+        uint callRange = offer.callStrikeDeviation - BIPS_BASE;
         require(putRange != 0, "invalid put strike deviation"); // avoid division by zero
-        return (offer.callStrikeDeviation - BIPS_BASE) * putLockedCash / putRange;
+        return callRange * putLockedCash / putRange; // proportionally scaled according to ranges
     }
 
     function _settlementCalculations(
