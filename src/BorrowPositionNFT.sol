@@ -26,6 +26,8 @@ contract BorrowPositionNFT is BaseGovernedNFT {
     uint32 public constant TWAP_LENGTH = 15 minutes;
     uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 100;
 
+    string public constant VERSION = "0.1.0"; // allow checking version on-chain
+
     // ----- IMMUTABLES ----- //
     CollarEngine public immutable engine;
     IERC20 public immutable cashAsset;
