@@ -28,6 +28,8 @@ contract CollarEngine is Ownable, ICollarEngine {
 
     address public immutable univ3SwapRouter;
 
+    uint public constant BASE_TOKEN_AMOUNT = uint(UniV3OracleLib.BASE_TOKEN_AMOUNT);
+
     /// @notice This mapping stores the address of the vault contract per user (or market maker)
     /// @dev This will be zero if the user has not yet created a vault
     mapping(address => address) public addressToVaultManager;
@@ -40,11 +42,24 @@ contract CollarEngine is Ownable, ICollarEngine {
     EnumerableSet.UintSet internal validLTVs;
     EnumerableSet.UintSet internal validCollarDurations;
 
+    mapping(address contractAddress => bool enabled) public isBorrowNFT;
+    mapping(address contractAddress => bool enabled) public isProviderNFT;
+
     constructor(address _univ3SwapRouter) Ownable(msg.sender) {
         univ3SwapRouter = _univ3SwapRouter;
     }
 
     // ----- state-changing functions (see ICollarEngine for documentation) -----
+
+    function setBorrowContractAuth(address contractAddress, bool enabled) external onlyOwner {
+        isBorrowNFT[contractAddress] = enabled;
+        emit BorrowNFTAuthSet(contractAddress, enabled);
+    }
+
+    function setLenderContractAuth(address contractAddress, bool enabled) external onlyOwner {
+        isProviderNFT[contractAddress] = enabled;
+        emit ProviderNFTAuthSet(contractAddress, enabled);
+    }
 
     function createVaultManager() external override returns (address _vaultManager) {
         require(addressToVaultManager[msg.sender] == address(0), "manager exists for sender");

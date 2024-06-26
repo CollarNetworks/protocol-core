@@ -9,57 +9,69 @@
 
 > Grouped by: change-sets, contracts, somewhat odered by priority / severity
 
+### Unresolved by refactor
+- #low (design) providers cannot control their "slippage" (must actively manage liquidity with price changes, and are exposed to oracle risk) accepting trades at any asset price from the vault. maybe worth to store acceptable price ranges per provider for opening positions?
+- Oracle decimals and amounts:
+  - #med oracle lib `getQuoteAtTick` assumes `baseToken` is 1e18 decimals and uses fixed amount (1e18)
+- #note "engine" is a misleading name - there's no logic really, only ~~vault factory and~~ config.
+- Documentations: 
+  - #note token compatibility issues - no hooks, no fee-on-transfer
+  - #note missing interface docs + redirects in implementations  
+- Gbobal:
+  - #med recovery methods (or upgradability)
+  - #note floating pragma in some files, console imports 
+  
 ### Depends on VaultManager refactor
 
-- [ ] **Vault manager per user vs. single BorrowPositions contract**
-  - [ ] #med `createVaultManager` allowing one manager per sender:
+- [x] **Vault manager per user vs. single BorrowPositions contract**
+  - [x] #med `createVaultManager` allowing one manager per sender:
     - vault-manager is Ownable, so this limitation prevents users from being able to interact with protocol if they transfer their vault.
     - this also allows a user to at the same time own multiple managers by creating and transferring, so if one-manager-per-user is an important assumption, it can be violated.
-    - [ ] #med (engine) `createVaultManager` allowing only one manager per sender limits composability since cannot be used by other protocols in a flexible way
-    - [ ] #high (vault) `user` and `owner` being initially the same, but `user` being immutable and used for auth, while `owner` is transferrable is problematic and confusing.
-    - [ ] #high (vault) if ownership is transferred, user is still the expected sender for sensitive functions
+    - [x] #med (engine) `createVaultManager` allowing only one manager per sender limits composability since cannot be used by other protocols in a flexible way
+    - [x] #high (vault) `user` and `owner` being initially the same, but `user` being immutable and used for auth, while `owner` is transferrable is problematic and confusing.
+    - [x] #high (vault) if ownership is transferred, user is still the expected sender for sensitive functions
     - Update: there's shouldn't mapping, use ownable, remove `user`  in vault. FE solution - use events (and later subgraph).
-  - [ ] #low vault addresses are create1 so are known in advance and can be taken by anyone depending on transaction order. should use sender as create2 salt to avoid frontrunning risks (incorrectly predicting users' vault)
+  - [x] #low vault addresses are create1 so are known in advance and can be taken by anyone depending on transaction order. should use sender as create2 salt to avoid frontrunning risks (incorrectly predicting users' vault)
     - update: fix to create2
-  - [ ] #low `uuid` is not necessarily unique, and is misleading name (since not universally unique). uuid will only unique if there's one factory and it continues restricting one per user, but both are not necessarily true from vault's POV (coupling)
+  - [x] #low `uuid` is not necessarily unique, and is misleading name (since not universally unique). uuid will only unique if there's one factory and it continues restricting one per user, but both are not necessarily true from vault's POV (coupling)
     - fix: to be unique can use its own contract address instead of user address
     - even better: to not depend on id uniqueness in general if used accross several contracts, and instead per contract sequential ids can be used direclty (position / vault index)
-  - [ ] #note `openVault` accepts a lot of parameters code/design smell
-  - [ ] #low (pool) position doesn't store the opening vault-manager, and `finalizePosition` doesn't check the closing and opening manager is the same. position should store and check the "owner" vault?
-  - [ ] #issue ERC6909TokenSupply / ERC6909 is the library audited / secure?
+  - [x] #note `openVault` accepts a lot of parameters code/design smell
+  - [x] #low (pool) position doesn't store the opening vault-manager, and `finalizePosition` doesn't check the closing and opening manager is the same. position should store and check the "owner" vault?
+  - [x] #issue ERC6909TokenSupply / ERC6909 is the library audited / secure?
 
 ### Depends on LiquidityPool refactors
 
-- [ ] **5 providers per position limitation:**
-  - [ ] #high `addLiquidityToSlot` can bump out anyone's liquidity and immediately remove it using `withdrawLiquidityFromSlot`
+- [x] **5 providers per position limitation:**
+  - [x] #high `addLiquidityToSlot` can bump out anyone's liquidity and immediately remove it using `withdrawLiquidityFromSlot`
     - can do it while frontrunning an openVault to
     - 1. take the trade if it's good
     - 2. DoS - prevent any trade from happening (by "removing" liquidity from the slot)
     - can backrun all liquidity provisions to remove DoS the whole protocol
     - fix: no eviction / limit logic, instead allow user to pass list of specific providers to use (to avoid DoS) or empty list to use in order
-    - [ ]  `_getSmallestProvider`
-      - [ ] #low `_getSmallestProvider` should not check return `address(0)`  if `_isSlotFull` since that provider will raise error. the check is also redundant since condition cannot be trigerred (callers are checking too)
-      - [ ] #low for empty slot, `address(0)` will be returned
-      - [ ] #note if `type(uint).max` is actually provided, `address(0)` will be returned
+    - [x]  `_getSmallestProvider`
+      - [x] #low `_getSmallestProvider` should not check return `address(0)`  if `_isSlotFull` since that provider will raise error. the check is also redundant since condition cannot be trigerred (callers are checking too)
+      - [x] #low for empty slot, `address(0)` will be returned
+      - [x] #note if `type(uint).max` is actually provided, `address(0)` will be returned
       - fix: should revert on empty slot, should start `smallestAmount` at first index.
       - better: remove the need for this entirely
 - [ ] **Slots design:**
-  - [ ] #med #design if provider is open to multiple slots, they must lock max liquidity in each slot - either capital inefficient or inflexible. instead of slots with locked liquidity allow provider to specify accepted ranges, and let users pick providers.
+  - [ ] ~~#med #design if provider is open to multiple slots, they must lock max liquidity in each slot - either capital inefficient or inflexible. instead of slots with locked liquidity allow provider to specify accepted ranges, and let users pick providers.~~
     - update: user would always choose the highest anyway
     - update: but removing slots and ticks still makes sense since it would make contracts simpler and more flexible. provider positions would be flat IDs with whatever params (no ticks no slots)
-  - [ ] #note `tickScaleFactor` needs more documentation and explanation for why it's needed and why it has no decimals
+  - [x] #note `tickScaleFactor` needs more documentation and explanation for why it's needed and why it has no decimals
     - it seems to be "abstraction leakage" or how internal "ranges" are translated to external prices / deviations.
     - [ ] #low (design) providers cannot control their "slippage" (must actively manage liquidity with price changes, and are exposed to oracle risk) accepting trades at any asset price from the vault. maybe worth to store acceptable price ranges per provider for opening positions?
-  - [ ] #issue ERC6909TokenSupply / ERC6909 is the library audited / secure?
-  - [ ] TickCalculations fixes:
-    - [ ] #low "slot/tick" and `tickScaleFactor` should be internal to pool contract instead of being a library in the vault. this creates unnecessary coupling and complexity (another lib, noise in the vault calculations). vault knows about external prices, but should ask pool about the pools internal "slots / ticks"
-    - [ ] #issue `priceToTick` and `bpsToTick` using unsafe casting + unused. should be removed?
-    - [ ] #low there is no real need to use `uint24`, and pool uses full uint anyway
+  - [x] #issue ERC6909TokenSupply / ERC6909 is the library audited / secure?
+  - [x] TickCalculations fixes:
+    - [x] #low "slot/tick" and `tickScaleFactor` should be internal to pool contract instead of being a library in the vault. this creates unnecessary coupling and complexity (another lib, noise in the vault calculations). vault knows about external prices, but should ask pool about the pools internal "slots / ticks"
+    - [x] #issue `priceToTick` and `bpsToTick` using unsafe casting + unused. should be removed?
+    - [x] #low there is no real need to use `uint24`, and pool uses full uint anyway
 
 ### Independent
 
-- [ ] **Swapping fixes:**
-  - [ ] #critical vault's `openVault` swap price (and so the price used for accounting) is at full user control (can sandwich themselves) so user can choose any price they like:
+- [x] **Swapping fixes:**
+  - [x] #critical vault's `openVault` swap price (and so the price used for accounting) is at full user control (can sandwich themselves) so user can choose any price they like:
     - can be exploited by using low price - put the provider at a loss from the start
     - should use TWAP price when opening
   - [x] #low `_swap` should do explicit balance check to avoid trusting the external implementation for the return value to match balance update
@@ -76,16 +88,16 @@
     - should be removed, and instead use short twap around the right time
     - #low also `twapStartTimestamp` is ignored for `twapLength` 0, and will provide current price even the `twapStartTimestamp` is some specific time
 
-- [ ] **Pool logic fixes:**
-  - [ ] `openPosition`
-    - [ ] #high amount subtracted from provider is too little. providers can withdraw some "locked" liquidity - thus stealing from other providers.
+- [x] **Pool logic fixes:**
+  - [x] `openPosition`
+    - [x] #high amount subtracted from provider is too little. providers can withdraw some "locked" liquidity - thus stealing from other providers.
     - [x] #med amount reserved and minted not equal (minted < provided), should sum up provider liquidity.
-    - [ ] #med `positions[uuid]` if can be theoretically called multiple times, overwritten without being checked. while opening a uuid "should" be called with only once, this tightly couples logic of factory + vault-manager + pool. should just check and revert
+    - [x] #med `positions[uuid]` if can be theoretically called multiple times, overwritten without being checked. while opening a uuid "should" be called with only once, this tightly couples logic of factory + vault-manager + pool. should just check and revert
   - [x] #med redeem is callable before `finalizePosition` when `withdrawable` is 0, and will burn tokens while withdrawing 0 (losing funds). should check position was finalized (should add flag?)
-  - [ ] `finalizePosition`
+  - [x] `finalizePosition`
     - [x] #med a lof of unsafe casting both ways - if sums is negative for `withdrawable`, `totalLiquidity`, `redeemableLiquidity`. also turning `uints` to `ints`.
       - should split into two cases: positive update and negative update for uuid and and total, and then update
-    - [ ] #med depends on uuid being unique again and vault not being able to call twice (there's no flag for "finalized" for position), since overwrites `positions[uuid].withdrawable` and doesn't reduce `principal`
+    - [x] #med depends on uuid being unique again and vault not being able to call twice (there's no flag for "finalized" for position), since overwrites `positions[uuid].withdrawable` and doesn't reduce `principal`
     - [x] #low `vaultManager` is both argument and sender. it should not be possible to call for non-sender vault manager, since it will cause the vault to not be finalizable. remove argument?
 
 - [x] **Dependency management:**
@@ -102,64 +114,64 @@
   - [ ] engine
     - [x] `dexRouter` should have correct name (`unitV3router` or smth) because is later used with specific UniV3 interface (in vault manager)
     - [ ] "engine" is a misleading name - there's no logic really, only vault factory and config.
-  - [ ] vault:
-    - [ ] "vault" for internal struct is bad name since typically refers to a specific type of separate contract, but here it isn't a contract, it's a "position" type thing. Can be named BorrowPositions or smth similar.
+  - [x] vault:
+    - [x] "vault" for internal struct is bad name since typically refers to a specific type of separate contract, but here it isn't a contract, it's a "position" type thing. Can be named BorrowPositions or smth similar.
     - [x] `vaultNonce` - "nonce" is not typically used this way, can be vaultIndex
-  - [ ] pool
-    - [ ] "slot" is an overloaded name (because of storage slots, `.slot`, and other various slots). Tick also already refers to a specific UniV3 things. So maybe "Range" / "offerRange" ?
-    - [ ] `providers` should be `providersLiquidity` because it's a map
+  - [x] pool
+    - [x] "slot" is an overloaded name (because of storage slots, `.slot`, and other various slots). Tick also already refers to a specific UniV3 things. So maybe "Range" / "offerRange" ?
+    - [x] `providers` should be `providersLiquidity` because it's a map
 
 - [ ] **Vault lows and notes**:
   - [x] #low encoding structs to bytes makes no sense vaultInfo, vaultInfoByNonce.
-  - [ ] #note `VaultForABI` event??
+  - [x] #note `VaultForABI` event??
   - [x] #note `vaultTokenCashSupply` should use named mapping parameters
-  - [ ] #note some views are used only in tests, should be removed or added only to test contract ( `Testable`): `isVaultExpired`, `vaultInfo`, `vaultInfoByNonce`
+  - [x] #note some views are used only in tests, should be removed or added only to test contract ( `Testable`): `isVaultExpired`, `vaultInfo`, `vaultInfoByNonce`
   - [x] #note `previewRedeem` else condition can be removed? finalized is checked by redeem already
-  - [ ] `openVault`
+  - [x] `openVault`
     - [x] #low safer (and more efficient) to initialize new Vault struct in memory, and than to write to storage. safer because won't forget fields.
     - [x] #low approval not needed since is given again in `closeVault`. giving approval here (for delayed action) is not safe, error prone, and uncommon pattern (the pools accumulate approvals, not very "vault" like)
     - [ ] #low tokens are implicitely assumed to be all 1e18 decimals
-    - [ ] #note `openVault` too long / complex, need to be refactored:
+    - [x] #note `openVault` too long / complex, need to be refactored:
     - validation, calculation, storage, transfers & interactions. use memory vault, than write to storage vault
-    - [ ] #note `cashAmount` in `AssetSpecifiers`  should be `minCashAmount`
-    - [ ] #note document that ERC20 should not have callbacks (reentrancy in openVault)
-    - [ ] #note `_validateLiquidityOpts` inconsistent use of `tickToBps`
-    - [ ] #note `vaultsByUUID[uuid]` should be cached
-  - [ ] `closeVault`
-    - [ ] #low unsafe casting
-    - [ ] #note too long / complex
-    - [ ] #note comments don't match code (4 cases vs. 5)
-    - [ ] #note 1e32 is too much (18 + 18 + 32 = 66, out of 78), leaves only 11 decimals for "units"
-    - [ ] #note a single "bag" and less conditions can be used. the total bag is divided between user and pool according to price linearly within the (put < call) range because the pool liquidity is locked proportionally to price as well.
-    - [ ] #note setting active false can be done before making external calls
-  - [ ] #issue using ERC20 for vault position is weird since tokens for a UUID are only minted once. having multiple users use the vault is weird because only `user` can withdraw borrowed. why would user trade part of their ERC20 redeem tokens?
-  - [ ] Perhaps should use NFTs for positions to allow transferring. But in that case, the whole vault should not be per user, but a general NFT.
+    - [x] #note `cashAmount` in `AssetSpecifiers`  should be `minCashAmount`
+    - [x] #note document that ERC20 should not have callbacks (reentrancy in openVault)
+    - [x] #note `_validateLiquidityOpts` inconsistent use of `tickToBps`
+    - [x] #note `vaultsByUUID[uuid]` should be cached
+  - [x] `closeVault`
+    - [x] #low unsafe casting
+    - [x] #note too long / complex
+    - [x] #note comments don't match code (4 cases vs. 5)
+    - [x] #note 1e32 is too much (18 + 18 + 32 = 66, out of 78), leaves only 11 decimals for "units"
+    - [ ] ~~#note a single "bag" and less conditions can be used. the total bag is divided between user and pool according to price linearly within the (put < call) range because the pool liquidity is locked proportionally to price as well.~~ More complex to reason through, error prone
+    - [x] #note setting active false can be done before making external calls
+  - [x] #issue using ERC20 for vault position is weird since tokens for a UUID are only minted once. having multiple users use the vault is weird because only `user` can withdraw borrowed. why would user trade part of their ERC20 redeem tokens?
+  - [x] Perhaps should use NFTs for positions to allow transferring. But in that case, the whole vault should not be per user, but a general NFT.
 
-- [ ] **Pool lows and notes**:
-  - [ ] #low `initializedSlotIndices` doesn't appear to be needed, and is confusing / error-prone since removal of `initializedSlotIndices` will not reset provider mappings and set values in slots
+- [x] **Pool lows and notes**:
+  - [x] #low `initializedSlotIndices` doesn't appear to be needed, and is confusing / error-prone since removal of `initializedSlotIndices` will not reset provider mappings and set values in slots
   - [x] #low `moveLiquidityFromSlot` should be DRY with just `_withdraw + _add` (internal methods) but without the transfers. also no need for `LiquidityMoved` event
-  - [ ] #low `openPosition` iterating the providers map indices and making changes to the map during the loop (calling `set`) is not a safe pattern. it should be ok in this case, but it depends on implementation, and is error prone and "feels wrong". fix: iterate keys
+  - [x] #low `openPosition` iterating the providers map indices and making changes to the map during the loop (calling `set`) is not a safe pattern. it should be ok in this case, but it depends on implementation, and is error prone and "feels wrong". fix: iterate keys
   - [x] #note `previewRedeem` / `redeem` using external calls (via `ERC6909TokenSupply` ) on itself, can use `balanceOf` directly
-  - [ ] #note `_isSlotFull`  can be one line
-  - [ ] #note `_unallocate` should check `contains`, otherwise will raise less clear error
-  - [ ] #note `addLiquidityToSlot` can have just one if branch since allocates similarly in both branches
-  - [ ] #note liquidity can be added at any slot: below 100% and way above 100%. some validation makes sense.
+  - [x] #note `_isSlotFull`  can be one line
+  - [x] #note `_unallocate` should check `contains`, otherwise will raise less clear error
+  - [x] #note `addLiquidityToSlot` can have just one if branch since allocates similarly in both branches
+  - [x] #note liquidity can be added at any slot: below 100% and way above 100%. some validation makes sense.
 
 - [ ] **Engine notes**:
   - [x] #note unused and unncesseary modifiers - unused or used once. Add noise and complexity: errors, indirection, modifier code.
   - [x] #note events in setters typically emitted in the end.
   - [ ] #note docs redirect for overrides can use `@inheritdoc` for clarity
-  - [ ] #note no need for overrides if implementing interface (and can remove virtual in interface)
+  - [x] #note no need for overrides if implementing interface (and can remove virtual in interface)
   - [x] #note remove the comment with values at the bottom of the file.
 
 - [ ] **Global / Recurring notes**:
   - [ ] #note Floating pragma. Should be a fixed version.
   - [ ] #note console imports
-  - [ ] #note magic numbers: 3000, 10_000, 15 minutes, 5 ( #med because is highly likely to be changed). Maybe bring back and use `Constants.sol` mixin?
+  - [x] #note magic numbers: 3000, 10_000, 15 minutes, 5 ( #med because is highly likely to be changed). Maybe bring back and use `Constants.sol` mixin?
 
-- [ ] **ERC6909TokenSupply / ERC6909 lows:**
-  - [ ] #low to/from 0 unhandled and don't update totalSupply
-  - [ ] #low transferFrom no allowance check from msg.sender or if operator
+- [ ] ~~**ERC6909TokenSupply / ERC6909 lows:**~~
+  - [ ] ~~#low to/from 0 unhandled and don't update totalSupply~~
+  - [ ] ~~#low transferFrom no allowance check from msg.sender or if operator~~
 
 - [x] **Already "done" (part of "review" branch)**
   - [x] Refactor of Interfaces vs. Abstract confusion
