@@ -201,7 +201,7 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         collateralAsset.safeTransferFrom(sender, address(this), amountIn);
 
         // approve the dex router so we can swap the collateral to cash
-        collateralAsset.forceApprove(engine.dexRouter(), amountIn);
+        collateralAsset.forceApprove(engine.univ3SwapRouter(), amountIn);
 
         // build the swap transaction
         IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
@@ -215,7 +215,7 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         });
 
         uint balanceBefore = cashAsset.balanceOf(address(this));
-        uint amountOutRouter = IV3SwapRouter(payable(engine.dexRouter())).exactInputSingle(swapParams);
+        uint amountOutRouter = IV3SwapRouter(payable(engine.univ3SwapRouter())).exactInputSingle(swapParams);
         // Calculate the actual amount of cash received
         amountReceived = cashAsset.balanceOf(address(this)) - balanceBefore;
         // check balance is updated as expected and as reported by router (no other balance changes)
