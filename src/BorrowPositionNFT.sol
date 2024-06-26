@@ -69,13 +69,7 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
         // check params are supported
-        validateConfig();
-    }
-
-    /// @dev used by openPosition, and can be used externally to check this is available
-    function validateConfig() public view {
-        require(engine.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
-        require(engine.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
+        _validateAssetsSupported();
     }
 
     // ----- VIEW FUNCTIONS ----- //
@@ -84,8 +78,8 @@ contract BorrowPositionNFT is BaseGovernedNFT {
     function openPairedPosition(
         uint collateralAmount,
         uint minCashAmount, // slippage control
-        LiquidityPositionNFT providerContract, // @dev implies ltv & put deviation, duration
-        uint offerId // @dev imply specific offer with provider and strike price
+        LiquidityPositionNFT providerContract,
+        uint offerId // @dev implies specific provider, put & call deviations, duration
     )
         external
         whenNotPaused
@@ -239,16 +233,16 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         internal
         returns (BorrowPosition memory borrowPosition, uint providerPositionId)
     {
-        uint loanAmount = cashFromSwap * providerContract.ltv() / BIPS_BASE;
-
         // open the provider position with duration and callLockedCash locked liquidity (reverts if can't)
         // and sends the provider NFT to the provider
-        uint callStrikeDeviation = providerContract.getOffer(offerId).strikeDeviation;
-        uint callLockedCash = (callStrikeDeviation - BIPS_BASE) * cashFromSwap / BIPS_BASE;
+        LiquidityPositionNFT.LiquidityOffer memory offer = providerContract.getOffer(offerId);
+        uint callLockedCash = (offer.callStrikeDeviation - BIPS_BASE) * cashFromSwap / BIPS_BASE;
         (providerPositionId,) = providerContract.mintPositionFromOffer(offerId, callLockedCash);
 
-        uint putStrikePrice = twapPrice * _putStrikeDeviation(providerContract) / BIPS_BASE;
-        uint callStrikePrice = twapPrice * callStrikeDeviation / BIPS_BASE;
+        // assumes LTV === putStrikeDeviation
+        uint loanAmount = offer.putStrikeDeviation * cashFromSwap / BIPS_BASE;
+        uint putStrikePrice = twapPrice * offer.putStrikeDeviation / BIPS_BASE;
+        uint callStrikePrice = twapPrice * offer.callStrikeDeviation / BIPS_BASE;
         // avoid boolean edge cases and division by zero when settling
         require(putStrikePrice < twapPrice && callStrikePrice > twapPrice, "strike prices aren't different");
 
@@ -279,8 +273,13 @@ contract BorrowPositionNFT is BaseGovernedNFT {
 
     // ----- INTERNAL VIEWS ----- //
 
+    function _validateAssetsSupported() internal view {
+        require(engine.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
+        require(engine.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
+    }
+
     function _openPositionValidations(LiquidityPositionNFT providerContract) internal view {
-        validateConfig();
+        _validateAssetsSupported();
 
         // check self (provider will check too)
         require(engine.isBorrowNFT(address(this)), "unsupported borrow contract");
@@ -291,7 +290,7 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         require(providerContract.collateralAsset() == collateralAsset, "asset mismatch");
         require(providerContract.cashAsset() == cashAsset, "asset mismatch");
 
-        // checking LTV and duration (from provider contract) is redundant since provider contract
+        // checking LTV and duration (from provider offer) is redundant since provider offer
         // is trusted by user (passed in input), and trusted by engine (was checked vs. engine above)
     }
 
@@ -310,11 +309,6 @@ contract BorrowPositionNFT is BaseGovernedNFT {
         uint diff = swapPrice > twapPrice ? swapPrice - twapPrice : twapPrice - swapPrice;
         uint deviation = diff * BIPS_BASE / twapPrice;
         require(deviation <= MAX_SWAP_TWAP_DEVIATION_BIPS, "swap and twap price too different");
-    }
-
-    function _putStrikeDeviation(LiquidityPositionNFT providerContract) internal view returns (uint) {
-        // LTV === put strike price currently (explicitly assigned here for clarity)
-        return providerContract.ltv();
     }
 
     function _settlementCalculations(
