@@ -238,8 +238,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
 
         cashAsset.safeTransfer(recipient, position.principal);
 
-        bool expired = position.expiration >= block.timestamp;
-        emit PositionCanceled(positionId, expired, recipient, position.principal);
+        emit PositionCanceled(positionId, recipient, position.principal, position.expiration);
     }
 
     // ----- actions by position owner ----- //

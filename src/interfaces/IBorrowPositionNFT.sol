@@ -51,9 +51,9 @@ interface IBorrowPositionNFT {
         uint indexed borrowId,
         address indexed providerNFT,
         uint indexed providerId,
-        bool expired,
         address recipient,
-        uint withdrawn
+        uint withdrawn,
+        uint expiration
     );
     event WithdrawalFromSettled(uint indexed borrowId, address indexed recipient, uint withdrawn);
 
@@ -67,6 +67,7 @@ interface IBorrowPositionNFT {
     function engine() external view returns (CollarEngine);
     // state
     function getPosition(uint borrowId) external view returns (BorrowPosition memory);
+    function nextPositionId() external view returns (uint);
     // mutative
     function openPairedPosition(
         uint collateralAmount,

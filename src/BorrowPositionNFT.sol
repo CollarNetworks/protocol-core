@@ -60,6 +60,10 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         return positions[borrowId];
     }
 
+    function nextPositionId() external view returns (uint) {
+        return nextTokenId;
+    }
+
     // ----- STATE CHANGING FUNCTIONS ----- //
     function openPairedPosition(
         uint collateralAmount,
@@ -164,10 +168,8 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         // transfer the tokens locked in this contract
         cashAsset.safeTransfer(recipient, position.putLockedCash);
 
-        bool expired = position.expiration >= block.timestamp;
-
         emit PairedPositionCanceled(
-            borrowId, address(providerNFT), providerId, expired, recipient, position.putLockedCash
+            borrowId, address(providerNFT), providerId, recipient, position.putLockedCash, position.expiration
         );
     }
 
