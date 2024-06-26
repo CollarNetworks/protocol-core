@@ -54,7 +54,7 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
      * @param whaleWallet the address of the whale wallet to use
      * @param blockNumber the block number to use
      * @param priceOnBlock the price of the collateral asset on the block number to use
-     * @param callstrikeTickToUse the call strike tick to use
+     * @param callStrikeTickToUse the call strike tick to use
      * @param _poolDuration the pool duration to use
      * @param _poolLTV the pool LTV to use
      */
@@ -66,7 +66,7 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
         address whaleWallet,
         uint blockNumber,
         uint priceOnBlock,
-        uint24 callstrikeTickToUse,
+        uint24 callStrikeTickToUse,
         uint _poolDuration,
         uint _poolLTV
     ) internal {
@@ -79,7 +79,7 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
         whale = whaleWallet;
         BLOCK_NUMBER_TO_USE = blockNumber;
         COLLATERAL_PRICE_ON_BLOCK = priceOnBlock;
-        CALL_STRIKE_TICK = callstrikeTickToUse;
+        CALL_STRIKE_TICK = callStrikeTickToUse;
         engine = new CollarEngine(swapRouterAddress);
         engine.addLTV(_poolLTV);
         pool = new CollarPool(

@@ -482,7 +482,7 @@ contract CollarPoolTest is Test {
 
         startHoax(user1);
         vm.expectRevert("caller not vault");
-        pool.finalizePosition(keccak256(abi.encodePacked(user1)), user2, 100);
+        pool.finalizePosition(keccak256(abi.encodePacked(user1)), 100);
     }
 
     function test_redeem_normal() public {
@@ -496,7 +496,7 @@ contract CollarPoolTest is Test {
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory collarOpts =
@@ -514,8 +514,7 @@ contract CollarPoolTest is Test {
         startHoax(user1);
         bytes32 uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
-        bytes memory vaultInfo = manager.vaultInfo(uuid);
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        ICollarVaultState.Vault memory vault = manager.vaultInfo(uuid);
 
         assertEq(vault.lockedVaultCash, 10);
         assertEq(vault.lockedPoolCash, 10);
@@ -542,7 +541,6 @@ contract CollarPoolTest is Test {
 
     function test_redeem_InvalidAmount() public {
         mintAndOpenPosition(user1);
-
         ERC6909TokenSupply(address(pool)).balanceOf(user1, uint(keccak256(abi.encodePacked(user1))));
         // forward time:
         skip(101);
@@ -573,6 +571,18 @@ contract CollarPoolTest is Test {
 
         vm.expectRevert("no position");
         pool.redeem(keccak256(abi.encodePacked(user2)), 100_000);
+    }
+
+    function test_redeem_PositionNotFinalized() public {
+        mintAndOpenPosition(user1);
+
+        ERC6909TokenSupply(address(pool)).balanceOf(user1, uint(keccak256(abi.encodePacked(user1))));
+        // forward time:
+        skip(101);
+        startHoax(user1);
+
+        vm.expectRevert("position not finalized");
+        pool.redeem(keccak256(abi.encodePacked(user1)), 100_000);
     }
 
     function test_previewRedeem_same_person() public {
@@ -708,7 +718,7 @@ contract CollarPoolTest is Test {
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory collarOpts =
@@ -724,8 +734,6 @@ contract CollarPoolTest is Test {
 
         uuid = manager.openVault(assets, collarOpts, liquidityOpts, false);
 
-        bytes memory vaultInfo = manager.vaultInfo(uuid);
-
-        vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        vault = manager.vaultInfo(uuid);
     }
 }

@@ -26,7 +26,7 @@ contract CollarEngine is Ownable, ICollarEngine {
 
     // -- public state variables ---
 
-    address public immutable dexRouter;
+    address public immutable univ3SwapRouter;
 
     uint public constant BASE_TOKEN_AMOUNT = uint(UniV3OracleLib.BASE_TOKEN_AMOUNT);
 
@@ -45,8 +45,8 @@ contract CollarEngine is Ownable, ICollarEngine {
     mapping(address contractAddress => bool enabled) public isBorrowNFT;
     mapping(address contractAddress => bool enabled) public isProviderNFT;
 
-    constructor(address _dexRouter) Ownable(msg.sender) {
-        dexRouter = _dexRouter;
+    constructor(address _univ3SwapRouter) Ownable(msg.sender) {
+        univ3SwapRouter = _univ3SwapRouter;
     }
 
     // ----- state-changing functions (see ICollarEngine for documentation) -----
@@ -245,7 +245,7 @@ contract CollarEngine is Ownable, ICollarEngine {
     ) external view virtual override returns (uint price) {
         validateAssetsIsSupported(baseToken);
         validateAssetsIsSupported(quoteToken);
-        address uniV3Factory = IPeripheryImmutableState(dexRouter).factory();
+        address uniV3Factory = IPeripheryImmutableState(univ3SwapRouter).factory();
         price = UniV3OracleLib.getTWAP(baseToken, quoteToken, twapEndTimestamp, twapLength, uniV3Factory);
     }
 }

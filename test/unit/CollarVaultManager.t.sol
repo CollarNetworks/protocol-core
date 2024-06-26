@@ -126,26 +126,23 @@ contract CollarVaultManagerTest is Test {
         bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint(0)));
 
         assertEq(manager.vaultCount(), 1);
-        assertEq(calculatedUUID, manager.vaultsByNonce(0));
+        assertEq(calculatedUUID, manager.vaultUUIDsByIndex(0));
     }
 
-    function test_vaultInfoByNonce() public {
+    function test_vaultInfoByIndex() public {
         bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
         assertEq(manager.vaultCount(), 1);
 
-        bytes memory vaultInfoViaUUID = manager.vaultInfo(uuid);
-        bytes memory vaultInfoViaNonce = manager.vaultInfoByNonce(0);
+        ICollarVaultState.Vault memory infoViaUUID = manager.vaultInfo(uuid);
+        ICollarVaultState.Vault memory infoViaIndex = manager.vaultInfoByIndex(0);
 
-        ICollarVaultState.Vault memory infoViaUUID = abi.decode(vaultInfoViaUUID, (ICollarVaultState.Vault));
-        ICollarVaultState.Vault memory infoViaNonce = abi.decode(vaultInfoViaNonce, (ICollarVaultState.Vault));
-
-        assertEq(infoViaUUID.expiresAt, infoViaNonce.expiresAt);
+        assertEq(infoViaUUID.expiresAt, infoViaIndex.expiresAt);
     }
 
-    function test_vaultInfoByNonce_InvalidVault() public {
-        vm.expectRevert("invalid vault");
-        manager.vaultInfoByNonce(0);
+    function test_vaultInfoByIndex_InvalidVault() public view {
+        ICollarVaultState.Vault memory vault = manager.vaultInfoByIndex(0);
+        assertEq(vault.expiresAt, 0);
     }
 
     function test_deploymentAndDeployParams() public view {
@@ -161,13 +158,11 @@ contract CollarVaultManagerTest is Test {
         bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint(0)));
 
         assertEq(manager.vaultCount(), 1);
-        assertEq(manager.vaultsByNonce(0), calculatedUUID);
-
-        bytes memory vaultInfo = manager.vaultInfo(calculatedUUID);
+        assertEq(manager.vaultUUIDsByIndex(0), calculatedUUID);
 
         // grab the vault state & check all the values
 
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        ICollarVaultState.Vault memory vault = manager.vaultInfo(calculatedUUID);
 
         assertEq(vault.active, true);
         assertEq(vault.openedAt, 1);
@@ -192,18 +187,18 @@ contract CollarVaultManagerTest is Test {
         mintTokensToUserAndApproveManager(user1);
         uint initialUserCashBalance = cashAsset.balanceOf(user1);
         addLiquidityToPoolAsUser(user2);
-        openVaultAsUser(user1, true);
+        bytes32 uuid = openVaultAsUser(user1, true);
 
         bytes32 calculatedUUID = keccak256(abi.encodePacked(user1, uint(0)));
+        assertEq(uuid, calculatedUUID);
 
         assertEq(manager.vaultCount(), 1);
-        assertEq(manager.vaultsByNonce(0), calculatedUUID);
+        assertEq(manager.vaultUUIDsByIndex(0), calculatedUUID);
 
-        bytes memory vaultInfo = manager.vaultInfo(calculatedUUID);
         uint userCashBalance = cashAsset.balanceOf(user1);
         assertEq(userCashBalance, initialUserCashBalance + 90);
         // grab the vault state & check all the values
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        ICollarVaultState.Vault memory vault = manager.vaultInfo(calculatedUUID);
         assertEq(vault.active, true);
         assertEq(vault.openedAt, 1);
         assertEq(vault.expiresAt, 101);
@@ -237,28 +232,28 @@ contract CollarVaultManagerTest is Test {
             collateralAsset: address(cashAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.AssetSpecifiers memory invalidCollatAmount = ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(collateralAsset),
             collateralAmount: 0,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.AssetSpecifiers memory invalidCashAmount = ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 0
+            minCashAmount: 0
         });
 
         ICollarVaultState.AssetSpecifiers memory invalidCashAddr = ICollarVaultState.AssetSpecifiers({
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(collateralAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory collarOpts =
@@ -298,7 +293,7 @@ contract CollarVaultManagerTest is Test {
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory invalidlength =
@@ -329,7 +324,7 @@ contract CollarVaultManagerTest is Test {
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory invalidlength =
@@ -360,7 +355,7 @@ contract CollarVaultManagerTest is Test {
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory collarOpts =
@@ -408,7 +403,7 @@ contract CollarVaultManagerTest is Test {
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory collarOpts =
@@ -437,7 +432,7 @@ contract CollarVaultManagerTest is Test {
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory collarOpts =
@@ -462,7 +457,7 @@ contract CollarVaultManagerTest is Test {
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory collarOpts =
@@ -490,10 +485,8 @@ contract CollarVaultManagerTest is Test {
 
         manager.closeVault(uuid);
 
-        bytes memory vaultInfo = manager.vaultInfo(uuid);
-
         // check vault info
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        ICollarVaultState.Vault memory vault = manager.vaultInfo(uuid);
 
         assertEq(vault.active, false);
         assertEq(vault.openedAt, 1);
@@ -521,10 +514,9 @@ contract CollarVaultManagerTest is Test {
         skip(100);
 
         closeVaultUserWinsCase(user1, uuid, 101);
-        bytes memory vaultInfo = manager.vaultInfo(uuid);
 
         // check vault info
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        ICollarVaultState.Vault memory vault = manager.vaultInfo(uuid);
         assertEq(vault.active, false);
         assertEq(vault.openedAt, 1);
         assertEq(vault.expiresAt, 101);
@@ -583,10 +575,8 @@ contract CollarVaultManagerTest is Test {
 
         closeVaultUserLosesCase(user1, uuid, 101);
 
-        bytes memory vaultInfo = manager.vaultInfo(uuid);
-
         // check vault info
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        ICollarVaultState.Vault memory vault = manager.vaultInfo(uuid);
 
         assertEq(vault.active, false);
         assertEq(vault.openedAt, 1);
@@ -642,9 +632,7 @@ contract CollarVaultManagerTest is Test {
     function test_redeem() public {
         bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
-        bytes memory vaultInfo = manager.vaultInfo(uuid);
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
-
+        ICollarVaultState.Vault memory vault = manager.vaultInfo(uuid);
         assertEq(vault.lockedVaultCash, 10);
         assertEq(vault.lockedPoolCash, 10);
 
@@ -654,8 +642,7 @@ contract CollarVaultManagerTest is Test {
 
         ERC6909TokenSupply token = ERC6909TokenSupply(manager);
 
-        vaultInfo = manager.vaultInfo(uuid);
-        vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        vault = manager.vaultInfo(uuid);
 
         assertEq(token.totalSupply(uint(uuid)), 100);
         assertEq(token.balanceOf(user1, uint(uuid)), 100);
@@ -673,8 +660,7 @@ contract CollarVaultManagerTest is Test {
         assertEq(cashAsset.balanceOf(user1), 100_020);
         assertEq(cashAsset.balanceOf(address(manager)), 90);
 
-        vaultInfo = manager.vaultInfo(uuid);
-        vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        vault = manager.vaultInfo(uuid);
 
         assertEq(vault.lockedVaultCash, 0);
         assertEq(vault.loanBalance, 90);
@@ -689,8 +675,7 @@ contract CollarVaultManagerTest is Test {
     function test_redeem_InvalidAmount() public {
         bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
 
-        bytes memory vaultInfo = manager.vaultInfo(uuid);
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        ICollarVaultState.Vault memory vault = manager.vaultInfo(uuid);
 
         assertEq(vault.lockedVaultCash, 10);
         assertEq(vault.lockedPoolCash, 10);
@@ -716,8 +701,7 @@ contract CollarVaultManagerTest is Test {
     function test_previewRedeem() public {
         bytes32 uuid = mintTokensAddLiquidityAndOpenVault(false);
         ERC6909TokenSupply token = ERC6909TokenSupply(manager);
-        bytes memory vaultInfo = manager.vaultInfo(uuid);
-        ICollarVaultState.Vault memory vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        ICollarVaultState.Vault memory vault = manager.vaultInfo(uuid);
 
         assertEq(vault.lockedVaultCash, 10);
         assertEq(vault.lockedPoolCash, 10);
@@ -725,8 +709,7 @@ contract CollarVaultManagerTest is Test {
         skip(100);
         closeVaultUserWinsCase(user1, uuid, 101);
 
-        vaultInfo = manager.vaultInfo(uuid);
-        vault = abi.decode(vaultInfo, (ICollarVaultState.Vault));
+        vault = manager.vaultInfo(uuid);
 
         assertEq(token.totalSupply(uint(uuid)), 100);
         assertEq(token.balanceOf(user1, uint(uuid)), 100);
@@ -797,9 +780,9 @@ contract CollarVaultManagerTest is Test {
         manager.withdraw(bytes32(0), 100);
     }
 
-    function test_vaultInfo_InvalidVault() public {
-        vm.expectRevert("invalid vault");
-        manager.vaultInfo(bytes32(0));
+    function test_vaultInfo_InvalidVault() public view {
+        ICollarVaultState.Vault memory vault = manager.vaultInfo(bytes32(0));
+        assertEq(vault.expiresAt, 0);
     }
 
     function test_isVaultExpired() public {
@@ -819,7 +802,7 @@ contract CollarVaultManagerTest is Test {
             collateralAsset: address(collateralAsset),
             collateralAmount: 100,
             cashAsset: address(cashAsset),
-            cashAmount: 100
+            minCashAmount: 100
         });
 
         ICollarVaultState.CollarOpts memory collarOpts =
