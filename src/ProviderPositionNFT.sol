@@ -151,7 +151,6 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
 
         // create position
         position = ProviderPosition({
-            openedAt: block.timestamp,
             expiration: block.timestamp + offer.duration,
             principal: amount,
             putStrikeDeviation: offer.putStrikeDeviation,

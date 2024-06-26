@@ -15,18 +15,21 @@ interface IBorrowPositionNFT {
     // @dev Some data can be trimmed down from this struct, since some of the fields aren't needed on-chain,
     // and are stored for FE / usability since the assumption is that this is used on L2.
     struct BorrowPosition {
+        // paired NFT info
         ProviderPositionNFT providerNFT;
         uint providerPositionId;
+        // collar position info
         uint openedAt;
         uint expiration;
         uint initialPrice;
         uint putStrikePrice;
         uint callStrikePrice;
-        uint collateralAmount;
-        uint loanAmount;
         uint putLockedCash;
         uint callLockedCash;
-        // withdrawal
+        // borrow info that's only stored, but isn't used
+        uint collateralAmount;
+        uint loanAmount;
+        // withdrawal state
         bool settled;
         uint withdrawable;
     }

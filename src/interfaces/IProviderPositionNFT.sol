@@ -22,11 +22,9 @@ interface IProviderPositionNFT {
     }
 
     struct ProviderPosition {
-        // terms
+        // collar position terms
         uint expiration;
         uint principal;
-        // terms that are unused on-chain (stored for FE / convenience)
-        uint openedAt;
         uint putStrikeDeviation;
         uint callStrikeDeviation;
         // withdrawal
