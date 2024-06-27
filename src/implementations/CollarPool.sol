@@ -5,7 +5,7 @@
  * All rights reserved. No warranty, explicit or implicit, provided.
  */
 
-pragma solidity ^0.8.18;
+pragma solidity 0.8.21;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -285,7 +285,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         address vaultManager = msg.sender;
         require(CollarEngine(engine).isVaultManager(vaultManager), "caller not vault");
         require(block.timestamp >= positions[uuid].expiration, "position is not finalizable");
-        require(!positions[uuid].finalized , "position already finalized");
+        require(!positions[uuid].finalized, "position already finalized");
         positions[uuid].finalized = true;
 
         uint principal = positions[uuid].principal;
