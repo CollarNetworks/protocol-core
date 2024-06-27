@@ -141,7 +141,7 @@ contract BorrowPositionNFTTest is Test {
     }
 
     /**
-     * openPaired validation errors:
+     * @TODO openPaired validation errors:
      *  "balance update mismatch");
      *  "slippage exceeded");
      *  "strike prices aren't different"
@@ -251,6 +251,13 @@ contract BorrowPositionNFTTest is Test {
         assertEq(balanceDiff, 9000 ether);
     }
 
+    /**
+     * @TODO settlePairedPosition revert branches 
+     *     "position doesn't exist"
+     *     "not owner of either position"
+     *     "not expired"
+     *     "already settled"
+     */
     function test_settlePairedPosition() public {
         createOfferAsProvider(12_000, providerNFT);
         mintTokensToUserandApproveNFT();
@@ -268,6 +275,11 @@ contract BorrowPositionNFTTest is Test {
         assertEq(providerPosition.settled, true);
     }
 
+    /**
+     * @TODO withdrawFromSettled revert branches
+     *         "not position owner"
+     *         "not settled"
+     */
     function test_withdrawFromSettled() public {
         createOfferAsProvider(12_000, providerNFT);
         mintTokensToUserandApproveNFT();
@@ -287,6 +299,12 @@ contract BorrowPositionNFTTest is Test {
         assertEq(position.withdrawable, 0);
     }
 
+    /**
+     * @TODO * cancelPairedPosition revert branches
+     *         "not owner of borrow ID"
+     *         "not owner of provider ID"
+     *         "already settled"
+     */
     function test_cancelPairedPosition() public {
         createOfferAsProvider(12_000, providerNFT);
         mintTokensToUserandApproveNFT();
