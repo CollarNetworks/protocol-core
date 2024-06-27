@@ -26,9 +26,6 @@ interface IBorrowPositionNFT {
         uint callStrikePrice;
         uint putLockedCash;
         uint callLockedCash;
-        // borrow info that's only stored, but isn't used
-        uint collateralAmount;
-        uint loanAmount;
         // withdrawal state
         bool settled;
         uint withdrawable;
@@ -59,6 +56,13 @@ interface IBorrowPositionNFT {
         uint expiration
     );
     event WithdrawalFromSettled(uint indexed borrowId, address indexed recipient, uint withdrawn);
+    event BorrowedFromSwap(
+        uint indexed borrowId,
+        address indexed sender,
+        uint collateralAmount,
+        uint cashFromSwap,
+        uint loanAmount
+    );
 
     // constants
     function MAX_SWAP_TWAP_DEVIATION_BIPS() external view returns (uint);
