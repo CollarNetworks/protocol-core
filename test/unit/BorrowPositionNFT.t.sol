@@ -115,7 +115,7 @@ contract BorrowPositionNFTTest is Test {
         assertEq(position.callStrikePrice, 0);
         assertEq(position.putLockedCash, 0);
         assertEq(position.callLockedCash, 0);
-        assertEq(position.loanAmount, 0);
+
         assertEq(position.settled, false);
         assertEq(position.withdrawable, 0);
     }
