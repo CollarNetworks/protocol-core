@@ -141,7 +141,7 @@ contract BorrowPositionNFTTest is Test {
     }
 
     /**
-     * @TODO openPaired validation errors:
+     * TODO openPaired validation errors:
      *  "balance update mismatch");
      *  "slippage exceeded");
      *  "strike prices aren't different"
@@ -252,7 +252,7 @@ contract BorrowPositionNFTTest is Test {
     }
 
     /**
-     * @TODO settlePairedPosition revert branches 
+     * TODO settlePairedPosition revert branches
      *     "position doesn't exist"
      *     "not owner of either position"
      *     "not expired"
@@ -276,7 +276,7 @@ contract BorrowPositionNFTTest is Test {
     }
 
     /**
-     * @TODO withdrawFromSettled revert branches
+     * TODO withdrawFromSettled revert branches
      *         "not position owner"
      *         "not settled"
      */
@@ -300,7 +300,7 @@ contract BorrowPositionNFTTest is Test {
     }
 
     /**
-     * @TODO * cancelPairedPosition revert branches
+     * TODO * cancelPairedPosition revert branches
      *         "not owner of borrow ID"
      *         "not owner of provider ID"
      *         "already settled"
