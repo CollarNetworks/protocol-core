@@ -58,7 +58,7 @@ contract CollarEngine is Ownable, ICollarEngine {
         emit BorrowNFTAuthSet(contractAddress, enabled);
     }
 
-    function setLenderContractAuth(address contractAddress, bool enabled) external onlyOwner {
+    function setProviderContractAuth(address contractAddress, bool enabled) external onlyOwner {
         isProviderNFT[contractAddress] = enabled;
         emit ProviderNFTAuthSet(contractAddress, enabled);
     }
