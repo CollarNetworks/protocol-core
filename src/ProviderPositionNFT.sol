@@ -19,9 +19,9 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
-    uint public constant MIN_CALL_STRIKE_BIPS = BIPS_BASE; // 1x or 100%
+    uint public constant MIN_CALL_STRIKE_BIPS = BIPS_BASE + 1; // 1x or 100%
     uint public constant MAX_CALL_STRIKE_BIPS = 10 * BIPS_BASE; // 10x or 1000%
-    uint public constant MAX_PUT_STRIKE_BIPS = BIPS_BASE;
+    uint public constant MAX_PUT_STRIKE_BIPS = BIPS_BASE - 1;
 
     string public constant VERSION = "0.2.0"; // allow checking version on-chain
 
@@ -195,7 +195,6 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         uint withdrawable = position.principal;
         if (positionChange < 0) {
             uint toRemove = uint(-positionChange);
-            /// @dev will revert if too much is requested
             require(toRemove <= withdrawable, "loss is too high");
             withdrawable -= toRemove;
             // we owe the borrower some tokens
@@ -270,8 +269,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
 
     function _validateOfferParamsSupported(uint putStrikeDeviation, uint duration) internal view {
         _validateAssetsSupported();
-        require(putStrikeDeviation < MAX_PUT_STRIKE_BIPS, "invalid put strike deviation"); // check LTV is in
-            // expected range
+        require(putStrikeDeviation <= MAX_PUT_STRIKE_BIPS, "invalid put strike deviation");
         uint ltv = putStrikeDeviation; // assumed to be always equal
         require(engine.isValidLTV(ltv), "unsupported LTV");
         require(engine.isValidCollarDuration(duration), "unsupported duration");
