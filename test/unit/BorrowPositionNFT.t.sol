@@ -5,14 +5,16 @@
  * All rights reserved. No warranty, explicit or implicit, provided.
  */
 
-pragma solidity 0.8.21;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockUniRouter } from "../utils/MockUniRouter.sol";
 import { MockEngine } from "../../test/utils/MockEngine.sol";
 import { BorrowPositionNFT } from "../../src/BorrowPositionNFT.sol";
+import { IBorrowPositionNFT } from "../../src/interfaces/IBorrowPositionNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
+import { IProviderPositionNFT } from "../../src/interfaces/IProviderPositionNFT.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 
 contract BorrowPositionNFTTest is Test {
@@ -26,9 +28,16 @@ contract BorrowPositionNFTTest is Test {
     address provider = makeAddr("provider");
     address owner = makeAddr("owner");
     uint amountToUse = 10_000 ether;
+    uint loanAmount = 9000 ether;
     uint ltvToUse = 9000;
     uint durationToUse = 300;
+    uint putLockedCashToUse = 1000 ether;
+    uint callLockedCashToUse = 2000 ether;
     uint priceToUse = 1 ether;
+    uint callStrikePrice = 1.2 ether; // 120% of the price
+    uint pastCallStrikePrice = 1.25 ether; // 125% of the price | to use when price goes over call strike price
+    uint putStrikePrice = 0.9 ether; // 90% of the price corresponding to 9000 LTV
+    uint pastPutStrikePrice = 0.8 ether; // 80% of the price | to use when price goes under put strike price
     uint callStrikeDeviationToUse = 12_000;
     uint amountToProvide = 100_000 ether;
 
@@ -82,6 +91,13 @@ contract BorrowPositionNFTTest is Test {
     ) internal returns (uint offerId) {
         startHoax(provider);
         cashAsset.approve(address(providerNFTToUse), 1_000_000 ether);
+
+        uint expectedOfferId = providerNFTToUse.nextPositionId();
+        console.log("expectedOfferId", expectedOfferId);
+        vm.expectEmit(true, true, true, true);
+        emit IProviderPositionNFT.OfferCreated(
+            provider, putStrikeDeviation, durationToUse, callStrike, amountToProvide, expectedOfferId
+        );
         offerId = providerNFTToUse.createOffer(callStrike, amountToProvide, putStrikeDeviation, durationToUse);
         ProviderPositionNFT.LiquidityOffer memory offer = providerNFTToUse.getOffer(offerId);
         assertEq(offer.callStrikeDeviation, callStrike);
@@ -113,9 +129,9 @@ contract BorrowPositionNFTTest is Test {
 
     function checkBorrowPosition() internal view {
         BorrowPositionNFT.BorrowPosition memory position = borrowNFT.getPosition(0);
-        assertEq(position.callStrikePrice, 1.2 ether);
-        assertEq(position.putLockedCash, 1000 ether);
-        assertEq(position.callLockedCash, 2000 ether);
+        assertEq(position.callStrikePrice, callStrikePrice);
+        assertEq(position.putLockedCash, putLockedCashToUse);
+        assertEq(position.callLockedCash, callLockedCashToUse);
         assertEq(position.settled, false);
         assertEq(position.withdrawable, 0);
     }
@@ -123,23 +139,38 @@ contract BorrowPositionNFTTest is Test {
     function checkProviderPosition() internal view {
         ProviderPositionNFT.ProviderPosition memory position = providerNFT.getPosition(0);
         assertEq(position.expiration, 301);
-        assertEq(position.principal, 2000 ether);
+        assertEq(position.principal, callLockedCashToUse);
         assertEq(position.putStrikeDeviation, ltvToUse);
         assertEq(position.callStrikeDeviation, callStrikeDeviationToUse);
         assertEq(position.settled, false);
         assertEq(position.withdrawable, 0);
     }
 
-    function createAndSettlePositionOnPrice(uint priceToSettleAt)
-        internal
-        returns (uint borrowId, uint providerNFTId, uint amountLoaned)
-    {
+    function createAndSettlePositionOnPrice(
+        uint priceToSettleAt,
+        uint expectedBorrowWithdrawable,
+        uint expectedProviderWithdrawable,
+        int expectedProviderChange
+    ) internal returns (uint borrowId, uint providerNFTId, uint amountLoaned) {
         createOfferMintTouserAndSetPrice();
         (borrowId, providerNFTId, amountLoaned) = createBorrowPositionAsUser(0, borrowNFT, providerNFT);
         skip(301);
         setPricesAtTimestamp(engine, 301, priceToSettleAt);
 
         startHoax(user1);
+        vm.expectEmit(true, true, true, true, address(providerNFT));
+        emit IProviderPositionNFT.PositionSettled(
+            providerNFTId, expectedProviderChange, expectedProviderWithdrawable
+        );
+        vm.expectEmit(true, true, true, true, address(borrowNFT));
+        emit IBorrowPositionNFT.PairedPositionSettled(
+            borrowId,
+            address(providerNFT),
+            providerNFTId,
+            priceToSettleAt,
+            expectedBorrowWithdrawable,
+            expectedProviderChange
+        );
         borrowNFT.settlePairedPosition(borrowId);
     }
 
@@ -169,6 +200,19 @@ contract BorrowPositionNFTTest is Test {
         // Try to open a position while paused
         vm.expectRevert(Pausable.EnforcedPause.selector);
         borrowNFT.openPairedPosition(amountToUse, amountToUse, providerNFT, 0);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        borrowNFT.openPairedPositionWithoutSwap(putLockedCashToUse, providerNFT, 0);
+        // Try to settle a position while paused
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        borrowNFT.settlePairedPosition(0);
+
+        // Try to withdraw from settled while paused
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        borrowNFT.withdrawFromSettled(0, address(this));
+
+        // Try to cancel a paired position while paused
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        borrowNFT.cancelPairedPosition(0, address(this));
     }
 
     function test_unpause() public {
@@ -244,7 +288,7 @@ contract BorrowPositionNFTTest is Test {
     }
 
     /**
-     * TODO openPaired validation errors:
+     * openPaired validation errors:
      *  "invalid put strike deviation" // cant get this since it checks that putStrike deviation is < 10000 and create offer doesnt allow you to put a put strike deviation > 10000
      */
     function test_openPairedPositionUnsupportedCashAsset() public {
@@ -342,7 +386,7 @@ contract BorrowPositionNFTTest is Test {
     }
 
     function test_openPairedPositionSwapAndTwapPriceTooDifferent() public {
-        uint badOfferId = createOfferAsProvider(11_000, 9000, providerNFT);
+        uint badOfferId = createOfferAsProvider(11_000, ltvToUse, providerNFT);
         mintTokensToUserandApproveNFT();
         setPricesAtTimestamp(engine, 1, 1);
         router.setTransferAmount(1);
@@ -363,7 +407,7 @@ contract BorrowPositionNFTTest is Test {
         startHoax(user1);
         collateralAsset.approve(address(borrowNFT), amountToUse);
         vm.expectRevert("strike prices aren't different");
-        borrowNFT.openPairedPosition(1 ether, 1, providerNFT, badOfferId);
+        borrowNFT.openPairedPosition(priceToUse, 1, providerNFT, badOfferId);
     }
 
     function test_openPairedPositionWithoutSwap() public {
@@ -372,79 +416,100 @@ contract BorrowPositionNFTTest is Test {
         startHoax(user1);
         cashAsset.approve(address(borrowNFT), amountToUse);
         (uint borrowId, uint providerNFTId) =
-            borrowNFT.openPairedPositionWithoutSwap(9000 ether, providerNFT, 0);
+            borrowNFT.openPairedPositionWithoutSwap(loanAmount, providerNFT, 0);
         uint userBalanceAfter = cashAsset.balanceOf(user1);
         assertEq(borrowId, 0);
         assertEq(providerNFTId, 0);
         assertGt(userBalanceBefore, userBalanceAfter);
         // there's no loan so the balance just goes down because of the locked cash amount
         uint balanceDiff = userBalanceBefore - userBalanceAfter;
-        assertEq(balanceDiff, 9000 ether);
+        assertEq(balanceDiff, loanAmount);
     }
 
     function test_openPairedPosition_InvalidParameters() public {
         createOfferMintTouserAndSetPrice();
+        router.setAmountToReturn(amountToUse);
+        router.setTransferAmount(amountToUse);
         startHoax(user1);
         collateralAsset.approve(address(borrowNFT), amountToUse);
         // Test with zero collateral amount
-        vm.expectRevert();
+        vm.expectRevert("zero collateral");
         borrowNFT.openPairedPosition(0, amountToUse, providerNFT, 0);
-        // Test with zero minCashAmount
-        vm.expectRevert();
-        borrowNFT.openPairedPosition(amountToUse, 0, providerNFT, 0);
         // Test with invalid offerId
-        vm.expectRevert();
+        vm.expectRevert("invalid put strike deviation");
         borrowNFT.openPairedPosition(amountToUse, amountToUse, providerNFT, 999);
     }
 
     function test_settlePairedPositionPriceUp() public {
-        uint borrowContractCashBalanceBefore = cashAsset.balanceOf(address(borrowNFT)); // 0
-        uint providerContractCashBalanceBefore = cashAsset.balanceOf(address(providerNFT)); // 0
-        (uint borrowId, uint providerNFTId,) = createAndSettlePositionOnPrice(1.25 ether);
-        uint providerContractCashBalanceAfter = cashAsset.balanceOf(address(providerNFT)); // 0 + amounttoProvide - callLockedCash
-        uint borrowContractCashBalanceAfter = cashAsset.balanceOf(address(borrowNFT)); // 0 + putLockedCash + callLockedCash
-        assertEq(
-            providerContractCashBalanceAfter - providerContractCashBalanceBefore, amountToProvide - 2000 ether
+        uint borrowContractCashBalanceBefore = cashAsset.balanceOf(address(borrowNFT));
+        uint providerContractCashBalanceBefore = cashAsset.balanceOf(address(providerNFT));
+
+        (uint borrowId, uint providerNFTId,) = createAndSettlePositionOnPrice(
+            pastCallStrikePrice, putLockedCashToUse + callLockedCashToUse, 0, -int(callLockedCashToUse)
         );
-        assertEq(borrowContractCashBalanceAfter - borrowContractCashBalanceBefore, 3000 ether);
+
+        uint providerContractCashBalanceAfter = cashAsset.balanceOf(address(providerNFT));
+        uint borrowContractCashBalanceAfter = cashAsset.balanceOf(address(borrowNFT));
+
+        assertEq(
+            providerContractCashBalanceAfter - providerContractCashBalanceBefore,
+            amountToProvide - callLockedCashToUse
+        );
+        assertEq(
+            borrowContractCashBalanceAfter - borrowContractCashBalanceBefore,
+            putLockedCashToUse + callLockedCashToUse
+        );
+
         BorrowPositionNFT.BorrowPosition memory position = borrowNFT.getPosition(borrowId);
         assertEq(position.settled, true);
-        // price went up past call strike (120%) so the withdrawable amount should be locked (1000) + provider locked (2000)
-        assertEq(position.withdrawable, 3000 ether);
+        assertEq(position.withdrawable, putLockedCashToUse + callLockedCashToUse);
+
         ProviderPositionNFT.ProviderPosition memory providerPosition = providerNFT.getPosition(providerNFTId);
         assertEq(providerPosition.settled, true);
     }
 
     function test_settlePairedPositionNoPriceChange() public {
-        uint borrowContractCashBalanceBefore = cashAsset.balanceOf(address(borrowNFT)); // 0
-        uint providerContractCashBalanceBefore = cashAsset.balanceOf(address(providerNFT)); // 0
-        (uint borrowId, uint providerNFTId,) = createAndSettlePositionOnPrice(1 ether);
-        uint providerContractCashBalanceAfter = cashAsset.balanceOf(address(providerNFT)); // 0 + amounttoProvide
-        uint borrowContractCashBalanceAfter = cashAsset.balanceOf(address(borrowNFT)); // 0 + putLockedCash
+        uint borrowContractCashBalanceBefore = cashAsset.balanceOf(address(borrowNFT));
+        uint providerContractCashBalanceBefore = cashAsset.balanceOf(address(providerNFT));
+
+        (uint borrowId, uint providerNFTId,) =
+            createAndSettlePositionOnPrice(priceToUse, putLockedCashToUse, callLockedCashToUse, 0);
+
+        uint providerContractCashBalanceAfter = cashAsset.balanceOf(address(providerNFT));
+        uint borrowContractCashBalanceAfter = cashAsset.balanceOf(address(borrowNFT));
+
         assertEq(providerContractCashBalanceAfter - providerContractCashBalanceBefore, amountToProvide);
-        assertEq(borrowContractCashBalanceAfter - borrowContractCashBalanceBefore, 1000 ether);
+        assertEq(borrowContractCashBalanceAfter - borrowContractCashBalanceBefore, putLockedCashToUse);
+
         BorrowPositionNFT.BorrowPosition memory position = borrowNFT.getPosition(borrowId);
         assertEq(position.settled, true);
-        // price went up past call strike (120%) so the withdrawable amount should be locked (1000) + provider locked (2000)
-        assertEq(position.withdrawable, 1000 ether);
+        assertEq(position.withdrawable, putLockedCashToUse);
+
         ProviderPositionNFT.ProviderPosition memory providerPosition = providerNFT.getPosition(providerNFTId);
         assertEq(providerPosition.settled, true);
     }
 
     function test_settlePairedPositionPriceDown() public {
-        uint borrowContractCashBalanceBefore = cashAsset.balanceOf(address(borrowNFT)); // 0
-        uint providerContractCashBalanceBefore = cashAsset.balanceOf(address(providerNFT)); // 0
-        (uint borrowId, uint providerNFTId,) = createAndSettlePositionOnPrice(0.8 ether);
-        uint providerContractCashBalanceAfter = cashAsset.balanceOf(address(providerNFT)); // 0 + amounttoProvide + putLockedCash
-        uint borrowContractCashBalanceAfter = cashAsset.balanceOf(address(borrowNFT)); // 0
+        uint borrowContractCashBalanceBefore = cashAsset.balanceOf(address(borrowNFT));
+        uint providerContractCashBalanceBefore = cashAsset.balanceOf(address(providerNFT));
+
+        (uint borrowId, uint providerNFTId,) = createAndSettlePositionOnPrice(
+            pastPutStrikePrice, 0, callLockedCashToUse + putLockedCashToUse, int(putLockedCashToUse)
+        );
+
+        uint providerContractCashBalanceAfter = cashAsset.balanceOf(address(providerNFT));
+        uint borrowContractCashBalanceAfter = cashAsset.balanceOf(address(borrowNFT));
+
         assertEq(
-            providerContractCashBalanceAfter - providerContractCashBalanceBefore, amountToProvide + 1000 ether
+            providerContractCashBalanceAfter - providerContractCashBalanceBefore,
+            amountToProvide + putLockedCashToUse
         );
         assertEq(borrowContractCashBalanceAfter, borrowContractCashBalanceBefore);
+
         BorrowPositionNFT.BorrowPosition memory position = borrowNFT.getPosition(borrowId);
         assertEq(position.settled, true);
-        // price went up past call strike (120%) so the withdrawable amount should be locked (1000) + provider locked (2000)
         assertEq(position.withdrawable, 0);
+
         ProviderPositionNFT.ProviderPosition memory providerPosition = providerNFT.getPosition(providerNFTId);
         assertEq(providerPosition.settled, true);
     }
@@ -488,19 +553,17 @@ contract BorrowPositionNFTTest is Test {
         borrowNFT.settlePairedPosition(borrowId);
     }
 
-    /**
-     * TODO withdrawFromSettled revert branches
-     *         "not position owner"
-     *         "not settled"
-     */
     function test_withdrawFromSettled() public {
         uint cashBalanceBefore = cashAsset.balanceOf(user1);
-        (uint borrowId,,) = createAndSettlePositionOnPrice(1.25 ether);
+        (uint borrowId,,) = createAndSettlePositionOnPrice(
+            pastCallStrikePrice, putLockedCashToUse + callLockedCashToUse, 0, -int(callLockedCashToUse)
+        );
         borrowNFT.withdrawFromSettled(borrowId, user1);
         uint cashBalanceAfter = cashAsset.balanceOf(user1);
         uint cashBalanceDiff = cashBalanceAfter - cashBalanceBefore;
         // price went up past call strike (120%) so the balance after withdrawing should be  mint  + loan + userLocked + providerLocked
-        assertEq(cashBalanceDiff, 22_000 ether);
+        uint shouldBeDiff = amountToUse + loanAmount + putLockedCashToUse + callLockedCashToUse;
+        assertEq(cashBalanceDiff, shouldBeDiff);
         BorrowPositionNFT.BorrowPosition memory position = borrowNFT.getPosition(borrowId);
         assertEq(position.withdrawable, 0);
     }
@@ -530,12 +593,6 @@ contract BorrowPositionNFTTest is Test {
         borrowNFT.withdrawFromSettled(borrowId, user1);
     }
 
-    /**
-     * TODO * cancelPairedPosition revert branches
-     *         "not owner of borrow ID"
-     *         "not owner of provider ID"
-     *         "already settled"
-     */
     function test_cancelPairedPosition() public {
         createOfferMintTouserAndSetPrice();
         uint userCashBalanceBefore = cashAsset.balanceOf(user1);
@@ -554,7 +611,8 @@ contract BorrowPositionNFTTest is Test {
         uint userCashBalanceAfter = cashAsset.balanceOf(user1);
         uint userCashBalanceDiff = userCashBalanceAfter - userCashBalanceBefore;
         // we set the user1 address at recipient so both the putLockedCash and the callLockedCash should be returned to user1  loanAmount + putLockedCash + callLockedCash
-        assertEq(userCashBalanceDiff, 12_000 ether);
+        uint shouldBeDiff = loanAmount + putLockedCashToUse + callLockedCashToUse;
+        assertEq(userCashBalanceDiff, shouldBeDiff);
 
         uint providerCashBalanceDiff = providerCashBalanceAfter - providerCashBalanceBefore;
         assertEq(providerCashBalanceDiff, 0);
@@ -599,10 +657,3 @@ contract BorrowPositionNFTTest is Test {
         borrowNFT.cancelPairedPosition(borrowId, user1);
     }
 }
-
-// - Refers to item: Branch (branch: 4, path: 0) (location: source ID 66, line 154, chars 6028-6090, hits: 0)
-// - Refers to item: Branch (branch: 5, path: 0) (location: source ID 66, line 157, chars 6164-6204, hits: 0)
-// - Refers to item: Branch (branch: 6, path: 0) (location: source ID 66, line 175, chars 6820-6886, hits: 0)
-// - Refers to item: Branch (branch: 7, path: 0) (location: source ID 66, line 177, chars 6984-7066, hits: 0)
-// - Refers to item: Branch (branch: 8, path: 0) (location: source ID 66, line 179, chars 7077-7122, hits: 0)
-// - Refers to item: Branch (branch: 20, path: 0) (location: source ID 66, line 355, chars 15216-15270, hits: 0)
