@@ -11,10 +11,10 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { CollarEngine } from "../implementations/CollarEngine.sol";
 import { ProviderPositionNFT } from "../ProviderPositionNFT.sol";
 
-interface IBorrowPositionNFT {
+interface ICollarTakerNFT {
     // @dev Some data can be trimmed down from this struct, since some of the fields aren't needed on-chain,
     // and are stored for FE / usability since the assumption is that this is used on L2.
-    struct BorrowPosition {
+    struct TakerPosition {
         // paired NFT info
         ProviderPositionNFT providerNFT;
         uint providerPositionId;
@@ -33,14 +33,14 @@ interface IBorrowPositionNFT {
 
     // events
     event PairedPositionOpened(
-        uint indexed borrowId,
+        uint indexed takerId,
         address indexed providerNFT,
         uint indexed providerId,
         uint offerId,
-        BorrowPosition borrowPosition
+        TakerPosition takerPosition
     );
     event PairedPositionSettled(
-        uint indexed borrowId,
+        uint indexed takerId,
         address indexed providerNFT,
         uint indexed providerId,
         uint endPrice,
@@ -48,16 +48,16 @@ interface IBorrowPositionNFT {
         int providerChange
     );
     event PairedPositionCanceled(
-        uint indexed borrowId,
+        uint indexed takerId,
         address indexed providerNFT,
         uint indexed providerId,
         address recipient,
         uint withdrawn,
         uint expiration
     );
-    event WithdrawalFromSettled(uint indexed borrowId, address indexed recipient, uint withdrawn);
+    event WithdrawalFromSettled(uint indexed takerId, address indexed recipient, uint withdrawn);
     event BorrowedFromSwap(
-        uint indexed borrowId,
+        uint indexed takerId,
         address indexed sender,
         uint collateralAmount,
         uint cashFromSwap,
@@ -73,7 +73,7 @@ interface IBorrowPositionNFT {
     function collateralAsset() external view returns (IERC20);
     function engine() external view returns (CollarEngine);
     // state
-    function getPosition(uint borrowId) external view returns (BorrowPosition memory);
+    function getPosition(uint takerId) external view returns (TakerPosition memory);
     function nextPositionId() external view returns (uint);
     // mutative
     function openPairedPosition(
@@ -83,8 +83,8 @@ interface IBorrowPositionNFT {
         uint offerId
     )
         external
-        returns (uint borrowId, uint providerId, uint loanAmount);
-    function settlePairedPosition(uint borrowId) external;
-    function cancelPairedPosition(uint borrowId, address recipient) external;
-    function withdrawFromSettled(uint borrowId, address recipient) external;
+        returns (uint takerId, uint providerId, uint loanAmount);
+    function settlePairedPosition(uint takerId) external;
+    function cancelPairedPosition(uint takerId, address recipient) external;
+    function withdrawFromSettled(uint takerId, address recipient) external;
 }

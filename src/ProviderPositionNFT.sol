@@ -29,7 +29,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
     CollarEngine public immutable engine;
     IERC20 public immutable cashAsset;
     IERC20 public immutable collateralAsset;
-    address public immutable borrowPositionContract;
+    address public immutable collarTakerContract;
 
     // ----- STATE ----- //
     uint public nextOfferId; // non transferrable, @dev this is NOT the NFT id
@@ -41,7 +41,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         CollarEngine _engine,
         IERC20 _cashAsset,
         IERC20 _collateralAsset,
-        address _borrowPositionContract,
+        address _collarTakerContract,
         string memory _name,
         string memory _symbol
     )
@@ -50,14 +50,14 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         engine = _engine;
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
-        borrowPositionContract = _borrowPositionContract;
+        collarTakerContract = _collarTakerContract;
         // check params are supported
         _validateAssetsSupported();
     }
 
-    modifier onlyTrustedBorrowContract() {
-        require(engine.isBorrowNFT(borrowPositionContract), "unsupported borrow contract");
-        require(msg.sender == borrowPositionContract, "unauthorized borrow contract");
+    modifier onlyTrustedTakerContract() {
+        require(engine.isCollarTakerNFT(collarTakerContract), "unsupported taker contract");
+        require(msg.sender == collarTakerContract, "unauthorized taker contract");
         _;
     }
 
@@ -129,14 +129,14 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
 
     // ----- Position actions ----- //
 
-    // ----- actions through borrow NFT ----- //
+    // ----- actions through collar taker NFT ----- //
 
     function mintPositionFromOffer(
         uint offerId,
         uint amount
     )
         external
-        onlyTrustedBorrowContract
+        onlyTrustedTakerContract
         whenNotPaused
         returns (uint positionId, ProviderPosition memory position)
     {
@@ -182,7 +182,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         int positionChange
     )
         external
-        onlyTrustedBorrowContract
+        onlyTrustedTakerContract
         whenNotPaused
     {
         ProviderPosition storage position = positions[positionId];
@@ -198,13 +198,13 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
             /// @dev will revert if too much is requested
             require(toRemove <= withdrawable, "loss is too high");
             withdrawable -= toRemove;
-            // we owe the borrower some tokens
-            cashAsset.safeTransfer(borrowPositionContract, toRemove);
+            // we owe the taker some tokens
+            cashAsset.safeTransfer(collarTakerContract, toRemove);
         } else if (positionChange > 0) {
             uint toAdd = uint(positionChange);
             withdrawable += toAdd;
-            // the borrower owes us some tokens, requires approval
-            cashAsset.safeTransferFrom(borrowPositionContract, address(this), toAdd);
+            // the taker owes us some tokens, requires approval
+            cashAsset.safeTransferFrom(collarTakerContract, address(this), toAdd);
         } else {
             // no change
         }
@@ -215,14 +215,14 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         emit PositionSettled(positionId, positionChange, withdrawable);
     }
 
-    /// @dev for unwinds / rolls when the borrow contract is also the owner of this NFT
-    /// callable through borrow position because only it is receiver of funds
+    /// @dev for unwinds / rolls when the taker contract is also the owner of this NFT
+    /// callable through taker position because only it is receiver of funds
     function cancelAndWithdraw(
         uint positionId,
         address recipient
     )
         external
-        onlyTrustedBorrowContract
+        onlyTrustedTakerContract
         whenNotPaused
     {
         require(msg.sender == ownerOf(positionId), "caller does not own token");

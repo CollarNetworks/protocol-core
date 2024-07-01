@@ -15,9 +15,9 @@ import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfac
 import { ProviderPositionNFT } from "./ProviderPositionNFT.sol";
 import { BaseGovernedNFT } from "./base/BaseGovernedNFT.sol";
 import { CollarEngine } from "./implementations/CollarEngine.sol";
-import { IBorrowPositionNFT } from "./interfaces/IBorrowPositionNFT.sol";
+import { ICollarTakerNFT } from "./interfaces/ICollarTakerNFT.sol";
 
-contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
+contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
     using SafeERC20 for IERC20;
     using SafeCast for uint;
 
@@ -36,7 +36,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
     IERC20 public immutable collateralAsset;
 
     // ----- STATE VARIABLES ----- //
-    mapping(uint positionId => BorrowPosition) internal positions;
+    mapping(uint positionId => TakerPosition) internal positions;
 
     constructor(
         address initialOwner,
@@ -57,8 +57,8 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
 
     // ----- VIEW FUNCTIONS ----- //
     // @dev return memory struct (the default getter returns tuple)
-    function getPosition(uint borrowId) external view returns (BorrowPosition memory) {
-        return positions[borrowId];
+    function getPosition(uint takerId) external view returns (TakerPosition memory) {
+        return positions[takerId];
     }
 
     function nextPositionId() external view returns (uint) {
@@ -74,7 +74,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
     )
         external
         whenNotPaused
-        returns (uint borrowId, uint providerId, uint loanAmount)
+        returns (uint takerId, uint providerId, uint loanAmount)
     {
         _openPositionValidations(providerNFT);
 
@@ -89,12 +89,12 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         (loanAmount, putLockedCash) = _splitSwappedCash(cashFromSwap, providerNFT, offerId);
 
         // stores, mints, calls providerNFT and mints there, emits the event
-        (borrowId, providerId) = _openPairedPositionInternal(twapPrice, putLockedCash, providerNFT, offerId);
+        (takerId, providerId) = _openPairedPositionInternal(twapPrice, putLockedCash, providerNFT, offerId);
 
         // transfer the full loan amount on open
         cashAsset.safeTransfer(msg.sender, loanAmount);
 
-        emit BorrowedFromSwap(borrowId, msg.sender, collateralAmount, cashFromSwap, loanAmount);
+        emit BorrowedFromSwap(takerId, msg.sender, collateralAmount, cashFromSwap, loanAmount);
     }
 
     /// @dev this is for use in rolls to open positions without repaying or swapping
@@ -105,7 +105,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
     )
         external
         whenNotPaused
-        returns (uint borrowId, uint providerId)
+        returns (uint takerId, uint providerId)
     {
         _openPositionValidations(providerNFT);
 
@@ -116,18 +116,18 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         uint twapPrice = _getTWAPPrice(block.timestamp);
 
         // stores, mints, calls providerNFT and mints there, emits the event
-        (borrowId, providerId) = _openPairedPositionInternal(twapPrice, putLockedCash, providerNFT, offerId);
+        (takerId, providerId) = _openPairedPositionInternal(twapPrice, putLockedCash, providerNFT, offerId);
     }
 
-    function settlePairedPosition(uint borrowId) external whenNotPaused {
-        BorrowPosition storage position = positions[borrowId];
+    function settlePairedPosition(uint takerId) external whenNotPaused {
+        TakerPosition storage position = positions[takerId];
         ProviderPositionNFT providerNFT = position.providerNFT;
         uint providerId = position.providerPositionId;
 
         require(position.openedAt != 0, "position doesn't exist");
         // access is restricted because NFT owners might want to cancel (unwind) instead
         require(
-            msg.sender == ownerOf(borrowId) || msg.sender == providerNFT.ownerOf(providerId),
+            msg.sender == ownerOf(takerId) || msg.sender == providerNFT.ownerOf(providerId),
             "not owner of either position"
         );
         require(block.timestamp >= position.expiration, "not expired");
@@ -146,33 +146,33 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         position.withdrawable = withdrawable;
 
         emit PairedPositionSettled(
-            borrowId, address(providerNFT), providerId, endPrice, withdrawable, providerChange
+            takerId, address(providerNFT), providerId, endPrice, withdrawable, providerChange
         );
     }
 
-    function withdrawFromSettled(uint borrowId, address recipient) external whenNotPaused {
-        require(msg.sender == ownerOf(borrowId), "not position owner");
+    function withdrawFromSettled(uint takerId, address recipient) external whenNotPaused {
+        require(msg.sender == ownerOf(takerId), "not position owner");
 
-        BorrowPosition storage position = positions[borrowId];
+        TakerPosition storage position = positions[takerId];
         require(position.settled, "not settled");
 
         uint withdrawable = position.withdrawable;
         // zero out withdrawable
         position.withdrawable = 0;
         // burn token
-        _burn(borrowId);
+        _burn(takerId);
         // transfer tokens
         cashAsset.safeTransfer(recipient, withdrawable);
 
-        emit WithdrawalFromSettled(borrowId, recipient, withdrawable);
+        emit WithdrawalFromSettled(takerId, recipient, withdrawable);
     }
 
-    function cancelPairedPosition(uint borrowId, address recipient) external whenNotPaused {
-        BorrowPosition storage position = positions[borrowId];
+    function cancelPairedPosition(uint takerId, address recipient) external whenNotPaused {
+        TakerPosition storage position = positions[takerId];
         ProviderPositionNFT providerNFT = position.providerNFT;
         uint providerId = position.providerPositionId;
 
-        require(msg.sender == ownerOf(borrowId), "not owner of borrow ID");
+        require(msg.sender == ownerOf(takerId), "not owner of taker ID");
         // this is redundant due to NFT transfer from msg.sender later, but is clearer.
         require(msg.sender == providerNFT.ownerOf(providerId), "not owner of provider ID");
 
@@ -180,7 +180,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         position.settled = true; // set here to prevent reentrancy
 
         // burn token
-        _burn(borrowId);
+        _burn(takerId);
 
         // pull the provider NFT to this contract
         providerNFT.transferFrom(msg.sender, address(this), providerId);
@@ -192,7 +192,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         cashAsset.safeTransfer(recipient, position.putLockedCash);
 
         emit PairedPositionCanceled(
-            borrowId, address(providerNFT), providerId, recipient, position.putLockedCash, position.expiration
+            takerId, address(providerNFT), providerId, recipient, position.putLockedCash, position.expiration
         );
     }
 
@@ -235,7 +235,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         require(cashFromSwap >= minCashAmount, "slippage exceeded");
 
         // @dev note that only TWAP price is used for payout decision later, and swap price should
-        // only affect the "pot sizing" (so does not affect the provider, only the borrower)
+        // only affect the "pot sizing" (so does not affect the provider, only the taker)
         _checkSwapPrice(twapPrice, cashFromSwap, collateralAmount);
     }
 
@@ -246,7 +246,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         uint offerId
     )
         internal
-        returns (uint borrowId, uint providerId)
+        returns (uint takerId, uint providerId)
     {
         uint callLockedCash = _calculateProviderLocked(putLockedCash, providerNFT, offerId);
 
@@ -261,7 +261,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         // avoid boolean edge cases and division by zero when settling
         require(putStrikePrice < twapPrice && callStrikePrice > twapPrice, "strike prices aren't different");
 
-        BorrowPosition memory borrowPosition = BorrowPosition({
+        TakerPosition memory takerPosition = TakerPosition({
             providerNFT: providerNFT,
             providerPositionId: providerId,
             openedAt: block.timestamp,
@@ -277,17 +277,17 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         });
 
         // increment ID
-        borrowId = nextTokenId++;
+        takerId = nextTokenId++;
         // store position data
-        positions[borrowId] = borrowPosition;
+        positions[takerId] = takerPosition;
         // mint the NFT to the sender
         // @dev does not use _safeMint to avoid reentrancy
-        _mint(msg.sender, borrowId);
+        _mint(msg.sender, takerId);
 
-        emit PairedPositionOpened(borrowId, address(providerNFT), providerId, offerId, borrowPosition);
+        emit PairedPositionOpened(takerId, address(providerNFT), providerId, offerId, takerPosition);
     }
 
-    function _settleProviderPosition(BorrowPosition storage position, int providerChange) internal {
+    function _settleProviderPosition(TakerPosition storage position, int providerChange) internal {
         if (providerChange > 0) {
             cashAsset.forceApprove(address(position.providerNFT), uint(providerChange));
         }
@@ -306,7 +306,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         _validateAssetsSupported();
 
         // check self (provider will check too)
-        require(engine.isBorrowNFT(address(this)), "unsupported borrow contract");
+        require(engine.isCollarTakerNFT(address(this)), "unsupported taker contract");
 
         // check provider
         require(engine.isProviderNFT(address(providerNFT)), "unsupported provider contract");
@@ -370,7 +370,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
     }
 
     function _settlementCalculations(
-        BorrowPosition storage position,
+        TakerPosition storage position,
         uint endPrice
     )
         internal
