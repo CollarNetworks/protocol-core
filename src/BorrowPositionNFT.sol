@@ -25,6 +25,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
     uint internal constant BIPS_BASE = 10_000;
 
     uint32 public constant TWAP_LENGTH = 15 minutes;
+    /// should be set to not be overly restrictive since is mostly sanity-check
     uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 100;
 
     string public constant VERSION = "0.1.0"; // allow checking version on-chain
@@ -75,20 +76,15 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         // get TWAP price
         uint twapPrice = _getTWAPPrice(block.timestamp);
 
-        // transfer and swap collateral first to handle reentrancy
-        // TODO: double-check this actually handles it, or add a reentrancy guard
+        // transfer and swap collateral
+        // reentrancy assumptions: router is trusted + swap path is direct (not through multiple pools)
         uint cashFromSwap = _pullAndSwap(msg.sender, collateralAmount, minCashAmount, twapPrice);
 
         uint putLockedCash;
         (loanAmount, putLockedCash) = _splitSwappedCash(cashFromSwap, providerNFT, offerId);
 
         // stores, mints, calls providerNFT and mints there, emits the event
-        (borrowId, providerId) = _openPairedPositionInternal({
-            twapPrice: twapPrice,
-            putLockedCash: putLockedCash,
-            providerNFT: providerNFT,
-            offerId: offerId
-        });
+        (borrowId, providerId) = _openPairedPositionInternal(twapPrice, putLockedCash, providerNFT, offerId);
 
         // transfer the full loan amount on open
         cashAsset.safeTransfer(msg.sender, loanAmount);
@@ -111,12 +107,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         uint twapPrice = _getTWAPPrice(block.timestamp);
 
         // stores, mints, calls providerNFT and mints there, emits the event
-        (borrowId, providerId) = _openPairedPositionInternal({
-            twapPrice: twapPrice,
-            putLockedCash: putLockedCash,
-            providerNFT: providerNFT,
-            offerId: offerId
-        });
+        (borrowId, providerId) = _openPairedPositionInternal(twapPrice, putLockedCash, providerNFT, offerId);
     }
 
     function settlePairedPosition(uint borrowId) external whenNotPaused {
@@ -219,6 +210,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         });
 
         uint balanceBefore = cashAsset.balanceOf(address(this));
+        // reentrancy assumptions: router is trusted + swap path is direct (not through multiple pools)
         uint amountOutRouter = IV3SwapRouter(payable(engine.univ3SwapRouter())).exactInputSingle(swapParams);
         // Calculate the actual amount of cash received
         cashFromSwap = cashAsset.balanceOf(address(this)) - balanceBefore;
@@ -315,12 +307,12 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         );
     }
 
-    /// TODO: establish if this is needed or not, since the swap price is only used for "pot sizing",
-    ///     but not for pot division on expiry (initialPrice is twap price).
-    ///     still makes sense as a precaution, as long as the deviation is not too restrictive.
+    /// The swap price is only used for "pot sizing", but not for payouts division on expiry.
+    /// Due to this, price manipulation *should* NOT leak value from provider / protocol.
+    /// The caller (user) is protected via a slippage parameter, and SHOULD use it to avoid MEV (if present).
+    /// So, this check is just extra precaution and avoidance of manipulation edge-cases.
     function _checkSwapPrice(uint twapPrice, uint cashFromSwap, uint collateralAmount) internal view {
-        // TODO: sort out the mess with using or not using exact amounts / BASE_TOKEN_AMOUNT
-        uint swapPrice = cashFromSwap * engine.BASE_TOKEN_AMOUNT() / collateralAmount;
+        uint swapPrice = cashFromSwap * engine.TWAP_BASE_TOKEN_AMOUNT() / collateralAmount;
         uint diff = swapPrice > twapPrice ? swapPrice - twapPrice : twapPrice - swapPrice;
         uint deviation = diff * BIPS_BASE / twapPrice;
 
