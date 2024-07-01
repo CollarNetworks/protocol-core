@@ -136,8 +136,8 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         uint amount
     )
         external
-        onlyTrustedBorrowContract
         whenNotPaused
+        onlyTrustedBorrowContract
         returns (uint positionId, ProviderPosition memory position)
     {
         LiquidityOffer storage offer = liquidityOffers[offerId];
@@ -182,8 +182,8 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         int positionChange
     )
         external
-        onlyTrustedBorrowContract
         whenNotPaused
+        onlyTrustedBorrowContract
     {
         ProviderPosition storage position = positions[positionId];
 
@@ -222,8 +222,8 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         address recipient
     )
         external
-        onlyTrustedBorrowContract
         whenNotPaused
+        onlyTrustedBorrowContract
     {
         require(msg.sender == ownerOf(positionId), "caller does not own token");
 
