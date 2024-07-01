@@ -23,7 +23,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
     uint public constant MAX_CALL_STRIKE_BIPS = 10 * BIPS_BASE; // 10x or 1000%
     uint public constant MAX_PUT_STRIKE_BIPS = BIPS_BASE;
 
-    string public constant VERSION = "0.1.0"; // allow checking version on-chain
+    string public constant VERSION = "0.2.0"; // allow checking version on-chain
 
     // ----- IMMUTABLES ----- //
     CollarEngine public immutable engine;

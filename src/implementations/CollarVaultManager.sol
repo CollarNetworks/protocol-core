@@ -24,6 +24,8 @@ contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager 
     using SafeERC20 for IERC20;
     // ----- IMMUTABLES ----- //
 
+    string public constant VERSION = "0.1.0";
+
     address public immutable user;
     address public immutable engine;
 

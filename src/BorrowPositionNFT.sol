@@ -28,7 +28,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
     /// should be set to not be overly restrictive since is mostly sanity-check
     uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 100;
 
-    string public constant VERSION = "0.1.0"; // allow checking version on-chain
+    string public constant VERSION = "0.2.0"; // allow checking version on-chain
 
     // ----- IMMUTABLES ----- //
     CollarEngine public immutable engine;
