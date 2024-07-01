@@ -61,7 +61,7 @@ interface IProviderPositionNFT {
     function MAX_PUT_STRIKE_BIPS() external view returns (uint);
     function VERSION() external view returns (string memory);
     // immutables
-    function borrowPositionContract() external view returns (address);
+    function collarTakerContract() external view returns (address);
     function cashAsset() external view returns (IERC20);
     function collateralAsset() external view returns (IERC20);
     function engine() external view returns (CollarEngine);

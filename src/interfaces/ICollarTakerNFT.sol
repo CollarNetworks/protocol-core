@@ -56,16 +56,8 @@ interface ICollarTakerNFT {
         uint expiration
     );
     event WithdrawalFromSettled(uint indexed takerId, address indexed recipient, uint withdrawn);
-    event BorrowedFromSwap(
-        uint indexed takerId,
-        address indexed sender,
-        uint collateralAmount,
-        uint cashFromSwap,
-        uint loanAmount
-    );
 
     // constants
-    function MAX_SWAP_TWAP_DEVIATION_BIPS() external view returns (uint);
     function TWAP_LENGTH() external view returns (uint32);
     function VERSION() external view returns (string memory);
     // immutables
@@ -77,13 +69,10 @@ interface ICollarTakerNFT {
     function nextPositionId() external view returns (uint);
     // mutative
     function openPairedPosition(
-        uint collateralAmount,
-        uint minCashAmount,
+        uint putLockedCash,
         ProviderPositionNFT providerNFT,
         uint offerId
-    )
-        external
-        returns (uint takerId, uint providerId, uint loanAmount);
+        ) external returns (uint takerId, uint providerId);
     function settlePairedPosition(uint takerId) external;
     function cancelPairedPosition(uint takerId, address recipient) external;
     function withdrawFromSettled(uint takerId, address recipient) external;
