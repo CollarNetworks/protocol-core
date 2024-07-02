@@ -5,7 +5,7 @@
  * All rights reserved. No warranty, explicit or implicit, provided.
  */
 
-pragma solidity ^0.8.18;
+pragma solidity 0.8.22;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
@@ -56,7 +56,7 @@ contract CollarEngine is Ownable, ICollarEngine {
         emit BorrowNFTAuthSet(contractAddress, enabled);
     }
 
-    function setLenderContractAuth(address contractAddress, bool enabled) external onlyOwner {
+    function setProviderContractAuth(address contractAddress, bool enabled) external onlyOwner {
         isProviderNFT[contractAddress] = enabled;
         emit ProviderNFTAuthSet(contractAddress, enabled);
     }
