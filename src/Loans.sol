@@ -16,8 +16,9 @@ import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { CollarEngine } from "./implementations/CollarEngine.sol";
 import { CollarTakerNFT } from "./CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "./ProviderPositionNFT.sol";
+import { ILoans } from "./interfaces/ILoans.sol";
 
-contract Loans is Ownable, Pausable {
+contract Loans is ILoans, Ownable, Pausable {
     using SafeERC20 for IERC20;
 
     uint24 internal constant FEE_TIER_30_BIPS = 3000;
@@ -26,7 +27,8 @@ contract Loans is Ownable, Pausable {
     /// should be set to not be overly restrictive since is mostly sanity-check
     uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 100;
 
-    string public constant VERSION = "0.2.0"; // allow checking version on-chain
+    // allow checking version in scripts / on-chain
+    string public constant VERSION = "0.2.0";
 
     // ----- IMMUTABLES ----- //
     CollarEngine public immutable engine;
@@ -35,17 +37,11 @@ contract Loans is Ownable, Pausable {
     IERC20 public immutable collateralAsset;
 
     // ----- STATE VARIABLES ----- //
-    struct Loan {
-        uint collateralAmount;
-        uint loanAmount;
-        address keeperAllowedBy;
-        bool closed;
-    }
 
     mapping(uint takerId => Loan) internal loans;
 
     // keeper for closing set by contract owner
-    address public settlementKeeper;
+    address public closingKeeper;
 
     constructor(
         address initialOwner,
@@ -76,7 +72,7 @@ contract Loans is Ownable, Pausable {
         /// @dev will also revert on non-existent (unminted / burned) taker ID
         address currentTakerNFTOwner = takerNFT.ownerOf(takerId);
         bool isOwner = msg.sender == currentTakerNFTOwner;
-        bool isKeeper = msg.sender == settlementKeeper;
+        bool isKeeper = msg.sender == closingKeeper;
         // if owner has changed since keeper was allowed by the owner, the allowance is disabled
         // to avoid selling an NFT with a keeper allowance, allowing keeper triggering for new buyer
         bool keeperAllowed = loans[takerId].keeperAllowedBy == currentTakerNFTOwner;
@@ -95,7 +91,7 @@ contract Loans is Ownable, Pausable {
 
     function createLoan(
         uint collateralAmount,
-        uint minLoanAmount,
+        uint minLoanAmount, // slippage control
         uint minSwapCash, // slippage control
         ProviderPositionNFT providerNFT, // @dev will be validated by takerNFT, which is immutable
         uint offerId // @dev implies specific provider, put & call deviations, duration
@@ -111,9 +107,83 @@ contract Loans is Ownable, Pausable {
         // reentrancy assumptions: router is trusted + swap path is direct (not through multiple pools)
         uint cashFromSwap = _swapCollateralWithTwapCheck(collateralAmount, minSwapCash);
 
-        uint putLockedCash;
-        (loanAmount, putLockedCash) = _splitSwappedCash(cashFromSwap, providerNFT, offerId);
+        (takerId, providerId, loanAmount) = _createLoan(collateralAmount, cashFromSwap, providerNFT, offerId);
         require(loanAmount >= minLoanAmount, "loan amount too low");
+
+        // transfer the full loan amount on open
+        cashAsset.safeTransfer(msg.sender, loanAmount);
+
+        // transfer the taker NFT to the user
+        takerNFT.transferFrom(address(this), msg.sender, takerId);
+
+        emit LoanCreated(
+            msg.sender, address(providerNFT), offerId, collateralAmount, loanAmount, takerId, providerId
+        );
+    }
+
+    /// @dev this stores the original sender, to avoid a hanging allowance for an NFT that
+    /// has changed owners (was sold) exposing the new owner's approvals to the keeper
+    /// @dev a user that sets this allowance has to also grant NFT and cash approvals to this contract
+    /// that should be valid when closeLoan is called by the keeper
+    function setKeeperAllowedBy(uint takerId, bool enabled) external onlyNFTOwner(takerId) {
+        Loan storage loan = loans[takerId];
+        _requireValidLoan(loan);
+        loan.keeperAllowedBy = enabled ? msg.sender : address(0);
+        emit ClosingKeeperAllowed(msg.sender, takerId, enabled);
+    }
+
+    function closeLoan(
+        uint takerId,
+        uint minCollateralAmount
+    )
+        external
+        onlyNFTOwnerOrKeeper(takerId)
+        returns (uint collateralOut)
+    {
+        Loan storage loan = loans[takerId];
+        _requireValidLoan(loan);
+        loan.closed = true; // set here to add reentrancy protection
+
+        // @dev user is the NFT owner, since msg.sender can be a keeper
+        // If called by keeper, the user must trust it because:
+        // - call pulls user funds (for repayment)
+        // - call pulls the NFT (for settlement) from user
+        // - call sends the final funds to the user
+        // - keeper sets the slippage parameter
+        address user = takerNFT.ownerOf(takerId);
+
+        uint cashAmount = _closeLoan(takerId, user, loan.loanAmount);
+
+        collateralOut = _swap(cashAsset, collateralAsset, cashAmount, minCollateralAmount);
+
+        collateralAsset.safeTransfer(user, collateralOut);
+
+        emit LoanClosed(takerId, msg.sender, user, loan.loanAmount, collateralOut);
+    }
+
+    function setKeeper(address keeper) external onlyOwner {
+        address previous = closingKeeper;
+        closingKeeper = keeper;
+        emit ClosingKeeperUpdated(previous, keeper);
+    }
+
+    // ----- INTERNAL MUTATIVE ----- //
+
+    function _createLoan(
+        uint collateralAmount,
+        uint cashFromSwap,
+        ProviderPositionNFT providerNFT,
+        uint offerId
+    )
+        internal
+        returns (uint takerId, uint providerId, uint loanAmount)
+    {
+        uint putStrikeDeviation = providerNFT.getOffer(offerId).putStrikeDeviation;
+
+        // this assumes LTV === put strike price
+        loanAmount = putStrikeDeviation * cashFromSwap / BIPS_BASE;
+        // everything that remains is locked on the put side in the collar position
+        uint putLockedCash = cashFromSwap - loanAmount;
 
         // approve the taker contract
         cashAsset.forceApprove(address(takerNFT), putLockedCash);
@@ -129,67 +199,22 @@ contract Loans is Ownable, Pausable {
             keeperAllowedBy: address(0),
             closed: false
         });
-
-        // transfer the full loan amount on open
-        cashAsset.safeTransfer(msg.sender, loanAmount);
-
-        // transfer the taker NFT to the user
-        takerNFT.transferFrom(address(this), msg.sender, takerId);
-
-        // TODO: event
     }
 
-    /// @dev this stores the original sender, to avoid a hanging allowance for an NFT that
-    /// has changed owners (was sold) exposing the new owner's approvals to the keeper
-    /// @dev a user that sets this allowance has to also grant NFT and cash approvals to this contract
-    /// that should be valid when closeLoan is called by the keeper
-    function setKeeperAllowedBy(uint takerId, bool enabled) external onlyNFTOwner(takerId) {
-        Loan storage loan = loans[takerId];
-        _requireValidLoan(loan);
-        loan.keeperAllowedBy = enabled ? msg.sender : address(0);
-        // TODO: event
-    }
-
-    function closeLoan(
-        uint takerId,
-        uint minCollateralAmount
+    function _swapCollateralWithTwapCheck(
+        uint collateralAmount,
+        uint minCashAmount
     )
-        external
-        onlyNFTOwnerOrKeeper(takerId)
-        returns (uint collateralReturned)
+        internal
+        returns (uint cashFromSwap)
     {
-        // @dev user is the NFT owner, since msg.sender can be a keeper
-        // If called by keeper, the user must trust it because:
-        // - call pulls user funds (for repayment)
-        // - call pulls the NFT (for settlement) from user
-        // - call sends the final funds to the user
-        // - keeper sets the slippage parameter
-        address user = takerNFT.ownerOf(takerId);
+        cashFromSwap = _swap(collateralAsset, cashAsset, collateralAmount, minCashAmount);
 
-        Loan storage loan = loans[takerId];
-        _requireValidLoan(loan);
-        loan.closed = true; // set here to add reentrancy protection
-
-        // @dev assumes approval
-        cashAsset.safeTransferFrom(user, address(this), loan.loanAmount);
-        // set cashAmount to the loan that was repaid now
-        uint cashAmount = loan.loanAmount;
-
-        cashAmount += _settleAndWithdraw(takerId, user);
-
-        collateralReturned = _swap(cashAsset, collateralAsset, cashAmount, minCollateralAmount);
-
-        collateralAsset.safeTransfer(user, collateralReturned);
-
-        // TODO: event
+        // @dev note that TWAP price is used for payout decision in CollarTakerNFT, and swap price
+        // only affects the putLockedCash passed into it - so does not affect the provider, only the user
+        _checkSwapPrice(cashFromSwap, collateralAmount);
     }
 
-    function setKeeper(address keeper) external onlyOwner {
-        settlementKeeper = keeper;
-        // TODO: event
-    }
-
-    // ----- INTERNAL MUTATIVE ----- //
     function _swap(
         IERC20 assetIn,
         IERC20 assetOut,
@@ -225,38 +250,34 @@ contract Loans is Ownable, Pausable {
         require(amountOut >= minAmountOut, "slippage exceeded");
     }
 
-    function _swapCollateralWithTwapCheck(
-        uint collateralAmount,
-        uint minCashAmount
+    function _closeLoan(
+        uint takerId,
+        address user,
+        uint repaymentAmount
     )
         internal
-        returns (uint cashFromSwap)
+        returns (uint cashAmount)
     {
-        cashFromSwap = _swap(collateralAsset, cashAsset, collateralAmount, minCashAmount);
+        // @dev assumes approval
+        cashAsset.safeTransferFrom(user, address(this), repaymentAmount);
 
-        // @dev note that only TWAP price is used for payout decision later, and swap price should
-        // only affect the "pot sizing" (so does not affect the provider, only the taker)
-        _checkSwapPrice(cashFromSwap, collateralAmount);
-    }
-
-    function _settleAndWithdraw(uint takerId, address from) internal returns (uint withdrawnAmount) {
         // transfer the NFT to this contract so it can settle and withdraw
         // @dev owner must have approved the token ID to this contract to use it for settlement
-        takerNFT.transferFrom(from, address(this), takerId);
+        takerNFT.transferFrom(user, address(this), takerId);
 
         // position could have been settled by user or provider already
-        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(takerId);
-        if (!takerPosition.settled) {
+        bool settled = takerNFT.getPosition(takerId).settled;
+        if (!settled) {
             /// @dev this will revert on:
             ///     not owner, too early, no position, calculation issues, ...
             takerNFT.settlePairedPosition(takerId);
-            // update position struct
-            takerPosition = takerNFT.getPosition(takerId);
         }
 
         /// @dev this should not be optional, since otherwise there is no point to the entire call
         /// (and the position NFT would be burned already, so would not belong to sender)
-        withdrawnAmount = takerNFT.withdrawFromSettled(takerId, address(this));
+        uint withdrawnAmount = takerNFT.withdrawFromSettled(takerId, address(this));
+
+        cashAmount = repaymentAmount + withdrawnAmount;
     }
 
     // ----- INTERNAL VIEWS ----- //
