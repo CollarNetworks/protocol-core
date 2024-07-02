@@ -5,7 +5,7 @@
  * All rights reserved. No warranty, explicit or implicit, provided.
  */
 
-pragma solidity ^0.8.18;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
@@ -78,9 +78,6 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
         // Trade on Uniswap to _manipulate the price
         uint currentPrice = getCurrentAssetPrice(collateralAssetAddress, cashAssetAddress);
         console.log("Current price of collateralAsset in cashAsset before swap: %d", currentPrice);
-
-        uint poolBalanceCollateral = collateralAsset.balanceOf(uniV3Pool);
-        uint poolBalanceCash = cashAsset.balanceOf(uniV3Pool);
         // build the swap transaction
         IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
             tokenIn: cashAssetAddress,
@@ -110,8 +107,6 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
         }
 
         currentPrice = getCurrentAssetPrice(collateralAssetAddress, cashAssetAddress);
-        poolBalanceCollateral = collateralAsset.balanceOf(uniV3Pool);
-        poolBalanceCash = cashAsset.balanceOf(uniV3Pool);
         console.log("Current price of collateralAsset in cashAsset after swap: %d", currentPrice);
     }
 }
