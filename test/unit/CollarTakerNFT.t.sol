@@ -192,6 +192,10 @@ contract CollarTakerNFTTest is Test {
      * Pausable
      */
     function test_pause() public {
+        // create a position
+        createOfferMintTouserAndSetPrice();
+        (uint takerId, ) = createTakerPositionAsUser(0, takerNFT, providerNFT);
+
         startHoax(owner);
         takerNFT.pause();
         assertTrue(takerNFT.paused());
@@ -210,6 +214,11 @@ contract CollarTakerNFTTest is Test {
         // Try to cancel a paired position while paused
         vm.expectRevert(Pausable.EnforcedPause.selector);
         takerNFT.cancelPairedPosition(0, address(this));
+
+        // transfers are paused
+        vm.startPrank(user1);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        takerNFT.transferFrom(user1, provider, takerId);
     }
 
     function test_unpause() public {
