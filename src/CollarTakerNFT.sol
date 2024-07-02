@@ -5,7 +5,7 @@
  * All rights reserved. No warranty, explicit or implicit, provided.
  */
 
-pragma solidity 0.8.21;
+pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -24,7 +24,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
 
     uint32 public constant TWAP_LENGTH = 15 minutes;
 
-    string public constant VERSION = "0.1.0"; // allow checking version on-chain
+    string public constant VERSION = "0.2.0"; // allow checking version on-chain
 
     // ----- IMMUTABLES ----- //
     CollarEngine public immutable engine;
@@ -41,9 +41,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         IERC20 _collateralAsset,
         string memory _name,
         string memory _symbol
-    )
-        BaseGovernedNFT(initialOwner, _name, _symbol)
-    {
+    ) BaseGovernedNFT(initialOwner, _name, _symbol) {
         engine = _engine;
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;

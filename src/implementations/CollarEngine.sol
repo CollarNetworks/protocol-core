@@ -5,7 +5,7 @@
  * All rights reserved. No warranty, explicit or implicit, provided.
  */
 
-pragma solidity ^0.8.18;
+pragma solidity 0.8.22;
 
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
@@ -25,6 +25,8 @@ contract CollarEngine is Ownable, ICollarEngine {
     using EnumerableSet for EnumerableSet.UintSet;
 
     // -- public state variables ---
+
+    string public constant VERSION = "0.2.0";
 
     address public immutable univ3SwapRouter;
 

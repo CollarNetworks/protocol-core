@@ -5,7 +5,7 @@
  * All rights reserved. No warranty, explicit or implicit, provided.
  */
 
-pragma solidity ^0.8.18;
+pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -23,6 +23,8 @@ import "forge-std/console.sol";
 contract CollarVaultManager is Ownable, ERC6909TokenSupply, ICollarVaultManager {
     using SafeERC20 for IERC20;
     // ----- IMMUTABLES ----- //
+
+    string public constant VERSION = "0.1.0";
 
     address public immutable user;
     address public immutable engine;

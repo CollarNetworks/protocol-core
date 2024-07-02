@@ -5,7 +5,7 @@
  * All rights reserved. No warranty, explicit or implicit, provided.
  */
 
-pragma solidity ^0.8.18;
+pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -76,6 +76,8 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
     using EnumerableMap for EnumerableMap.AddressToUintMap;
 
     // ----- IMMUTABLES ----- //
+
+    string public constant VERSION = "0.1.0";
 
     /// @notice This is the ID of the slot that is unallocated to any particular call strike percentage
     uint public constant UNALLOCATED_SLOT = type(uint).max;
@@ -285,7 +287,7 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
         address vaultManager = msg.sender;
         require(CollarEngine(engine).isVaultManager(vaultManager), "caller not vault");
         require(block.timestamp >= positions[uuid].expiration, "position is not finalizable");
-        require(!positions[uuid].finalized , "position already finalized");
+        require(!positions[uuid].finalized, "position already finalized");
         positions[uuid].finalized = true;
 
         uint principal = positions[uuid].principal;
