@@ -26,7 +26,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
 
     uint32 public constant TWAP_LENGTH = 15 minutes;
     /// should be set to not be overly restrictive since is mostly sanity-check
-    uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 100;
+    uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 400;
 
     string public constant VERSION = "0.1.0"; // allow checking version on-chain
 
