@@ -28,7 +28,7 @@ import { IProviderPositionNFT } from "./interfaces/IProviderPositionNFT.sol";
  *
  * Role in the Protocol:
  * This contract acts as the interface for liquidity providers in the Collar Protocol.
- * It works in tandem with a corresponding BorrowPositionNFT contract, which is trusted by this contract
+ * It works in tandem with a corresponding CollarTakerNFT contract, which is trusted by this contract
  * to manage the borrower side of position, as well as calculating the positions' payouts.
  *
  * Key Assumptions and Prerequisites:
@@ -201,7 +201,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
     )
         external
         whenNotPaused
-        onlyTrustedBorrowContract
+        onlyTrustedTakerContract
         returns (uint positionId, ProviderPosition memory position)
     {
         LiquidityOffer storage offer = liquidityOffers[offerId];
@@ -260,7 +260,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
     )
         external
         whenNotPaused
-        onlyTrustedBorrowContract
+        onlyTrustedTakerContract
     {
         ProviderPosition storage position = positions[positionId];
 
@@ -306,7 +306,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
     )
         external
         whenNotPaused
-        onlyTrustedBorrowContract
+        onlyTrustedTakerContract
     {
         require(msg.sender == ownerOf(positionId), "caller does not own token");
 
