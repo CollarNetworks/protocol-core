@@ -75,5 +75,5 @@ interface ICollarTakerNFT {
         ) external returns (uint takerId, uint providerId);
     function settlePairedPosition(uint takerId) external;
     function cancelPairedPosition(uint takerId, address recipient) external;
-    function withdrawFromSettled(uint takerId, address recipient) external;
+    function withdrawFromSettled(uint takerId, address recipient) external returns (uint amount);
 }

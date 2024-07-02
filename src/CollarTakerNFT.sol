@@ -41,7 +41,9 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         IERC20 _collateralAsset,
         string memory _name,
         string memory _symbol
-    ) BaseGovernedNFT(initialOwner, _name, _symbol) {
+    )
+        BaseGovernedNFT(initialOwner, _name, _symbol)
+    {
         engine = _engine;
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
@@ -113,21 +115,28 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         );
     }
 
-    function withdrawFromSettled(uint takerId, address recipient) external whenNotPaused {
+    function withdrawFromSettled(
+        uint takerId,
+        address recipient
+    )
+        external
+        whenNotPaused
+        returns (uint amount)
+    {
         require(msg.sender == ownerOf(takerId), "not position owner");
 
         TakerPosition storage position = positions[takerId];
         require(position.settled, "not settled");
 
-        uint withdrawable = position.withdrawable;
+        amount = position.withdrawable;
         // zero out withdrawable
         position.withdrawable = 0;
         // burn token
         _burn(takerId);
         // transfer tokens
-        cashAsset.safeTransfer(recipient, withdrawable);
+        cashAsset.safeTransfer(recipient, amount);
 
-        emit WithdrawalFromSettled(takerId, recipient, withdrawable);
+        emit WithdrawalFromSettled(takerId, recipient, amount);
     }
 
     function cancelPairedPosition(uint takerId, address recipient) external whenNotPaused {

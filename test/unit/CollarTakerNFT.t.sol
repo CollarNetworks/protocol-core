@@ -493,10 +493,11 @@ contract CollarTakerNFTTest is Test {
             pastCallStrikePrice, putLockedCashToUse + callLockedCashToUse, 0, -int(callLockedCashToUse)
         );
         uint cashBalanceBefore = cashAsset.balanceOf(user1);
-        takerNFT.withdrawFromSettled(takerId, user1);
+        uint withdrawal = takerNFT.withdrawFromSettled(takerId, user1);
+        assertEq(withdrawal, putLockedCashToUse + callLockedCashToUse);
         // price went up past call strike (120%) so the balance after withdrawing should be
         // userLocked + providerLocked
-        assertEq(cashAsset.balanceOf(user1), cashBalanceBefore + putLockedCashToUse + callLockedCashToUse);
+        assertEq(cashAsset.balanceOf(user1), cashBalanceBefore + withdrawal);
         CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(takerId);
         assertEq(position.withdrawable, 0);
     }
