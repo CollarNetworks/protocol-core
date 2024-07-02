@@ -46,6 +46,9 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
 
         // We can add a simple log here to see the final price achieved
         console.log("Final price after manipulation: %d", getCurrentAssetPrice());
+        if (!isFuzzTest) {
+            assertEq(getCurrentAssetPrice(), targetPrice);
+        }
     }
 
     function _manipulatePriceDownwardPastPutStrike(uint amountToSwap, bool isFuzzTest, uint targetPrice)
