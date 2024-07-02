@@ -26,6 +26,8 @@ contract CollarEngine is Ownable, ICollarEngine {
 
     // -- public state variables ---
 
+    string public constant VERSION = "0.2.0";
+
     address public immutable univ3SwapRouter;
 
     uint public constant TWAP_BASE_TOKEN_AMOUNT = uint(UniV3OracleLib.BASE_TOKEN_AMOUNT);
@@ -56,7 +58,7 @@ contract CollarEngine is Ownable, ICollarEngine {
         emit BorrowNFTAuthSet(contractAddress, enabled);
     }
 
-    function setLenderContractAuth(address contractAddress, bool enabled) external onlyOwner {
+    function setProviderContractAuth(address contractAddress, bool enabled) external onlyOwner {
         isProviderNFT[contractAddress] = enabled;
         emit ProviderNFTAuthSet(contractAddress, enabled);
     }

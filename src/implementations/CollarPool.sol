@@ -77,6 +77,8 @@ contract CollarPool is BaseCollarPoolState, ERC6909TokenSupply, ICollarPool {
 
     // ----- IMMUTABLES ----- //
 
+    string public constant VERSION = "0.1.0";
+
     /// @notice This is the ID of the slot that is unallocated to any particular call strike percentage
     uint public constant UNALLOCATED_SLOT = type(uint).max;
 

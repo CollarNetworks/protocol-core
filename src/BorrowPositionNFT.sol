@@ -28,7 +28,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
     /// should be set to not be overly restrictive since is mostly sanity-check
     uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 400;
 
-    string public constant VERSION = "0.1.0"; // allow checking version on-chain
+    string public constant VERSION = "0.2.0"; // allow checking version on-chain
 
     // ----- IMMUTABLES ----- //
     CollarEngine public immutable engine;
@@ -70,6 +70,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         ProviderPositionNFT providerNFT,
         uint offerId // @dev implies specific provider, put & call deviations, duration
     ) external whenNotPaused returns (uint borrowId, uint providerId, uint loanAmount) {
+        require(collateralAmount > 0, "zero collateral");
         _openPositionValidations(providerNFT);
 
         // get TWAP price
@@ -314,6 +315,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         uint swapPrice = cashFromSwap * engine.TWAP_BASE_TOKEN_AMOUNT() / collateralAmount;
         uint diff = swapPrice > twapPrice ? swapPrice - twapPrice : twapPrice - swapPrice;
         uint deviation = diff * BIPS_BASE / twapPrice;
+
         require(deviation <= MAX_SWAP_TWAP_DEVIATION_BIPS, "swap and twap price too different");
     }
 
@@ -325,6 +327,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         returns (uint loanAmount, uint putLockedCash)
     {
         uint putStrikeDeviation = providerNFT.getOffer(offerId).putStrikeDeviation;
+        require(putStrikeDeviation != 0, "invalid put strike deviation");
         // this assumes LTV === put strike price
         loanAmount = putStrikeDeviation * cashFromSwap / BIPS_BASE;
         // everything that remains is locked on the put side
