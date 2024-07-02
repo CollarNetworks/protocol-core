@@ -10,9 +10,9 @@ pragma solidity 0.8.22;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
-// internal imports
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+// internal imports
 import { CollarEngine } from "./implementations/CollarEngine.sol";
 import { CollarTakerNFT } from "./CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "./ProviderPositionNFT.sol";
@@ -22,7 +22,6 @@ contract Loans is Ownable, Pausable {
 
     uint24 internal constant FEE_TIER_30_BIPS = 3000;
     uint internal constant BIPS_BASE = 10_000;
-
     uint32 public constant TWAP_LENGTH = 15 minutes;
     /// should be set to not be overly restrictive since is mostly sanity-check
     uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 100;
@@ -39,12 +38,14 @@ contract Loans is Ownable, Pausable {
     struct Loan {
         uint collateralAmount;
         uint loanAmount;
-        bool repaid;
+        address keeperAllowedBy;
         bool closed;
-        address settlementKeeper;
     }
 
     mapping(uint takerId => Loan) internal loans;
+
+    // keeper for closing set by contract owner
+    address public settlementKeeper;
 
     constructor(
         address initialOwner,
@@ -69,9 +70,13 @@ contract Loans is Ownable, Pausable {
 
     modifier onlyNFTOwnerOrKeeper(uint takerId) {
         /// @dev will also revert on non-existent (unminted / burned) taker ID
-        bool isOwner = msg.sender == takerNFT.ownerOf(takerId);
-        bool isKeeper = msg.sender == loans[takerId].settlementKeeper;
-        require(isOwner || isKeeper, "not taker NFT owner or settlement keeper");
+        address currentTakerNFTOwner = takerNFT.ownerOf(takerId);
+        bool isOwner = msg.sender == currentTakerNFTOwner;
+        bool isKeeper = msg.sender == settlementKeeper;
+        // if owner has changed since keeper was allowed by the owner, the allowance is disabled
+        // to avoid selling an NFT with a keeper allowance, allowing keeper triggering for new buyer
+        bool keeperAllowed = loans[takerId].keeperAllowedBy == currentTakerNFTOwner;
+        require(isOwner || (isKeeper && keeperAllowed), "not taker NFT owner or allowed settlement keeper");
         _;
     }
 
@@ -95,9 +100,12 @@ contract Loans is Ownable, Pausable {
         whenNotPaused
         returns (uint takerId, uint providerId, uint loanAmount)
     {
-        // transfer and swap collateral
+        // pull collateral
+        collateralAsset.safeTransferFrom(msg.sender, address(this), collateralAmount);
+
+        // swap collateral
         // reentrancy assumptions: router is trusted + swap path is direct (not through multiple pools)
-        uint cashFromSwap = _pullCollateralAndSwap(msg.sender, collateralAmount, minSwapCash);
+        uint cashFromSwap = _swapFromCollateral(collateralAmount, minSwapCash);
 
         uint putLockedCash;
         (loanAmount, putLockedCash) = _splitSwappedCash(cashFromSwap, providerNFT, offerId);
@@ -113,9 +121,8 @@ contract Loans is Ownable, Pausable {
         loans[takerId] = Loan({
             collateralAmount: collateralAmount,
             loanAmount: loanAmount,
-            repaid: false,
-            closed: false,
-            settlementKeeper: address(0)
+            keeperAllowedBy: address(0),
+            closed: false
         });
 
         // transfer the full loan amount on open
@@ -127,46 +134,13 @@ contract Loans is Ownable, Pausable {
         // TODO: event
     }
 
-    function repayBeforeExpiry(uint takerId, address settlementKeeper) external onlyNFTOwner(takerId) {
-        // taker state validations
-        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(takerId);
-        // @dev if settlement is possible already, closeLoan* methods should be preferred
-        // due to lower risks: atomic (cannot lock funds), and add no keeper trust assumptions
-        require(block.timestamp < takerPosition.expiration, "expiration passed");
-        // @dev ensure closing separately will be possible to avoid repayment being locked
-        require(!takerPosition.settled, "already settled");
-
+    /// @dev this stores the original sender, to avoid a hanging allowance for an NFT that
+    /// has changed owners (was sold) exposing the new owner's approvals to the keeper
+    /// @dev a user that sets this allowance has to also grant NFT and cash approvals to this contract
+    function setKeeperAllowedBy(uint takerId, bool enabled) external onlyNFTOwner(takerId) {
         Loan storage loan = loans[takerId];
         _requireValidLoan(loan);
-
-        // set an optional keeper for triggering the rest of the flow
-        loan.settlementKeeper = settlementKeeper;
-
-        // @dev this will no-op if already repaid
-        // allowing a no-op allows the user to change / unset keeper
-        _repayIfNotRepaid(takerId, msg.sender);
-    }
-
-    /// @dev this is needed in case the user repaid, but now wants cash only, or if they want
-    /// to settle and withdraw in one call
-    function closeLoanCashOnly(uint takerId) external onlyNFTOwner(takerId) {
-        Loan storage loan = loans[takerId];
-        _requireValidLoan(loan);
-        loan.closed = true; // set here to add reentrancy protection
-
-        uint cashAmount;
-        // @dev it's possible that user repaid but later decided to take out cash instead
-        // of swapping to collateral
-        if (loan.repaid) {
-            // add the cash repaid to the cashAmount
-            cashAmount += loan.loanAmount;
-        }
-
-        // add withdrawal cash if any, after settling if needed
-        cashAmount += _settleAndWithdraw(takerId, msg.sender);
-
-        cashAsset.safeTransfer(msg.sender, cashAmount);
-
+        loan.keeperAllowedBy = enabled ? msg.sender : address(0);
         // TODO: event
     }
 
@@ -190,12 +164,10 @@ contract Loans is Ownable, Pausable {
         _requireValidLoan(loan);
         loan.closed = true; // set here to add reentrancy protection
 
-        // @dev must either repay or have already repaid
-        if (!loan.repaid) {
-            _repayIfNotRepaid(takerId, user);
-        }
+        // @dev assumes approval
+        cashAsset.safeTransferFrom(user, address(this), loan.loanAmount);
 
-        // set cashAmount to the loan that was repaid now or previously
+        // set cashAmount to the loan that was repaid now
         uint cashAmount = loan.loanAmount;
 
         cashAmount += _settleAndWithdraw(takerId, user);
@@ -207,18 +179,20 @@ contract Loans is Ownable, Pausable {
         // TODO: event
     }
 
+    function setKeeper(address keeper) external onlyOwner {
+        settlementKeeper = keeper;
+        // TODO: event
+    }
+
     // ----- INTERNAL MUTATIVE ----- //
 
-    function _pullCollateralAndSwap(
-        address sender,
+    function _swapFromCollateral(
         uint collateralAmount,
         uint minCashAmount
     )
         internal
         returns (uint cashFromSwap)
     {
-        collateralAsset.safeTransferFrom(sender, address(this), collateralAmount);
-
         // approve the dex router so we can swap the collateral to cash
         collateralAsset.forceApprove(engine.univ3SwapRouter(), collateralAmount);
 
@@ -302,26 +276,13 @@ contract Loans is Ownable, Pausable {
         withdrawnAmount = takerNFT.withdrawFromSettled(takerId, address(this));
     }
 
-    function _repayIfNotRepaid(uint takerId, address from) internal {
-        Loan storage loan = loans[takerId];
-        // do not repay twice
-        if (!loan.repaid) {
-            loan.repaid = true;
-
-            // @dev assumes approval
-            cashAsset.safeTransferFrom(from, address(this), loan.loanAmount);
-
-            // TODO: event
-        }
-    }
-
     // ----- INTERNAL VIEWS ----- //
 
     function _requireValidLoan(Loan storage loan) internal view {
         // no loan taken. Note that loanAmount 0 can happen for 0 putStrikePrice
         // so only collateral should be checked
         require(loan.collateralAmount != 0, "0 collateral amount");
-        require(!loan.closed, "already closed"); // do not repay for withdrawn
+        require(!loan.closed, "already closed");
     }
 
     /// The swap price is only used for "pot sizing", but not for payouts division on expiry.
