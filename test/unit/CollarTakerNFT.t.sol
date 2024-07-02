@@ -87,7 +87,7 @@ contract CollarTakerNFTTest is Test {
         cashAsset.approve(address(providerNFTToUse), 1_000_000 ether);
 
         uint expectedOfferId = providerNFTToUse.nextPositionId();
-        vm.expectEmit(true, true, true, true);
+        vm.expectEmit(address(providerNFTToUse));
         emit IProviderPositionNFT.OfferCreated(
             provider, putStrikeDeviation, durationToUse, callStrike, amountToProvide, expectedOfferId
         );
@@ -157,11 +157,11 @@ contract CollarTakerNFTTest is Test {
         setPricesAtTimestamp(engine, 301, priceToSettleAt);
 
         startHoax(user1);
-        vm.expectEmit(true, true, true, true, address(providerNFT));
+        vm.expectEmit(address(providerNFT));
         emit IProviderPositionNFT.PositionSettled(
             providerNFTId, expectedProviderChange, expectedProviderWithdrawable
         );
-        vm.expectEmit(true, true, true, true, address(takerNFT));
+        vm.expectEmit(address(takerNFT));
         emit ICollarTakerNFT.PairedPositionSettled(
             takerId,
             address(providerNFT),
