@@ -60,6 +60,10 @@ contract Loans is Ownable, Pausable {
         takerNFT = _takerNFT;
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
+        /// @dev this contract can might as well be a third party contract (since not authed by engine),
+        /// this is because it's not trusted by any other contract (only its users).
+        /// @dev similarly this contract is not checking any engine auth, since taker and provider contracts
+        /// are assumed to check the configs
     }
 
     modifier onlyNFTOwner(uint takerId) {
@@ -105,7 +109,7 @@ contract Loans is Ownable, Pausable {
 
         // swap collateral
         // reentrancy assumptions: router is trusted + swap path is direct (not through multiple pools)
-        uint cashFromSwap = _swapFromCollateral(collateralAmount, minSwapCash);
+        uint cashFromSwap = _swapCollateralWithTwapCheck(collateralAmount, minSwapCash);
 
         uint putLockedCash;
         (loanAmount, putLockedCash) = _splitSwappedCash(cashFromSwap, providerNFT, offerId);
@@ -137,6 +141,7 @@ contract Loans is Ownable, Pausable {
     /// @dev this stores the original sender, to avoid a hanging allowance for an NFT that
     /// has changed owners (was sold) exposing the new owner's approvals to the keeper
     /// @dev a user that sets this allowance has to also grant NFT and cash approvals to this contract
+    /// that should be valid when closeLoan is called by the keeper
     function setKeeperAllowedBy(uint takerId, bool enabled) external onlyNFTOwner(takerId) {
         Loan storage loan = loans[takerId];
         _requireValidLoan(loan);
@@ -153,7 +158,7 @@ contract Loans is Ownable, Pausable {
         returns (uint collateralReturned)
     {
         // @dev user is the NFT owner, since msg.sender can be a keeper
-        // If called by keeper, the user must trust them because:
+        // If called by keeper, the user must trust it because:
         // - call pulls user funds (for repayment)
         // - call pulls the NFT (for settlement) from user
         // - call sends the final funds to the user
@@ -166,13 +171,12 @@ contract Loans is Ownable, Pausable {
 
         // @dev assumes approval
         cashAsset.safeTransferFrom(user, address(this), loan.loanAmount);
-
         // set cashAmount to the loan that was repaid now
         uint cashAmount = loan.loanAmount;
 
         cashAmount += _settleAndWithdraw(takerId, user);
 
-        collateralReturned = _swapCashToCollateral(cashAmount, minCollateralAmount);
+        collateralReturned = _swap(cashAsset, collateralAsset, cashAmount, minCollateralAmount);
 
         collateralAsset.safeTransfer(user, collateralReturned);
 
@@ -185,75 +189,53 @@ contract Loans is Ownable, Pausable {
     }
 
     // ----- INTERNAL MUTATIVE ----- //
+    function _swap(
+        IERC20 assetIn,
+        IERC20 assetOut,
+        uint amountIn,
+        uint minAmountOut
+    )
+        internal
+        returns (uint amountOut)
+    {
+        // approve the dex router
+        assetIn.forceApprove(engine.univ3SwapRouter(), amountIn);
 
-    function _swapFromCollateral(
+        // build the swap transaction
+        IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
+            tokenIn: address(assetIn),
+            tokenOut: address(assetOut),
+            fee: FEE_TIER_30_BIPS,
+            recipient: address(this),
+            amountIn: amountIn,
+            amountOutMinimum: minAmountOut,
+            sqrtPriceLimitX96: 0
+        });
+
+        uint balanceBefore = assetOut.balanceOf(address(this));
+        // reentrancy assumptions: router is trusted + swap path is direct (not through multiple pools)
+        uint amountOutRouter = IV3SwapRouter(payable(engine.univ3SwapRouter())).exactInputSingle(swapParams);
+        // Calculate the actual amount received
+        amountOut = assetOut.balanceOf(address(this)) - balanceBefore;
+        // check balance is updated as expected and as reported by router (no other balance changes)
+        // asset cannot be fee-on-transfer or rebasing (e.g., internal shares accounting)
+        require(amountOut == amountOutRouter, "balance update mismatch");
+        // check amount is as expected by user
+        require(amountOut >= minAmountOut, "slippage exceeded");
+    }
+
+    function _swapCollateralWithTwapCheck(
         uint collateralAmount,
         uint minCashAmount
     )
         internal
         returns (uint cashFromSwap)
     {
-        // approve the dex router so we can swap the collateral to cash
-        collateralAsset.forceApprove(engine.univ3SwapRouter(), collateralAmount);
-
-        // build the swap transaction
-        IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
-            tokenIn: address(collateralAsset),
-            tokenOut: address(cashAsset),
-            fee: FEE_TIER_30_BIPS,
-            recipient: address(this),
-            amountIn: collateralAmount,
-            amountOutMinimum: minCashAmount,
-            sqrtPriceLimitX96: 0
-        });
-
-        uint balanceBefore = cashAsset.balanceOf(address(this));
-        // reentrancy assumptions: router is trusted + swap path is direct (not through multiple pools)
-        uint amountOutRouter = IV3SwapRouter(payable(engine.univ3SwapRouter())).exactInputSingle(swapParams);
-        // Calculate the actual amount of cash received
-        cashFromSwap = cashAsset.balanceOf(address(this)) - balanceBefore;
-        // check balance is updated as expected and as reported by router (no other balance changes)
-        // cash-asset cannot be fee-on-transfer or rebasing (e.g., internal shares accounting)
-        require(cashFromSwap == amountOutRouter, "balance update mismatch");
-        // check amount is as expected by user
-        require(cashFromSwap >= minCashAmount, "slippage exceeded");
+        cashFromSwap = _swap(collateralAsset, cashAsset, collateralAmount, minCashAmount);
 
         // @dev note that only TWAP price is used for payout decision later, and swap price should
         // only affect the "pot sizing" (so does not affect the provider, only the taker)
         _checkSwapPrice(cashFromSwap, collateralAmount);
-    }
-
-    function _swapCashToCollateral(
-        uint cashAmount,
-        uint minCollateralAmount
-    )
-        internal
-        returns (uint collateralFromSwap)
-    {
-        // approve the dex router so we can swap the collateral to cash
-        cashAsset.forceApprove(engine.univ3SwapRouter(), cashAmount);
-
-        // build the swap transaction
-        IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
-            tokenIn: address(cashAsset),
-            tokenOut: address(collateralAsset),
-            fee: FEE_TIER_30_BIPS,
-            recipient: address(this),
-            amountIn: cashAmount,
-            amountOutMinimum: minCollateralAmount,
-            sqrtPriceLimitX96: 0
-        });
-
-        uint balanceBefore = collateralAsset.balanceOf(address(this));
-        // reentrancy assumptions: router is trusted + swap path is direct (not through multiple pools)
-        uint amountOutRouter = IV3SwapRouter(payable(engine.univ3SwapRouter())).exactInputSingle(swapParams);
-        // Calculate the actual amount of cash received
-        collateralFromSwap = collateralAsset.balanceOf(address(this)) - balanceBefore;
-        // check balance is updated as expected and as reported by router (no other balance changes)
-        // collateral-asset cannot be fee-on-transfer or rebasing (e.g., internal shares accounting)
-        require(collateralFromSwap == amountOutRouter, "balance update mismatch");
-        // check amount is as expected by user
-        require(collateralFromSwap >= minCollateralAmount, "slippage exceeded");
     }
 
     function _settleAndWithdraw(uint takerId, address from) internal returns (uint withdrawnAmount) {
