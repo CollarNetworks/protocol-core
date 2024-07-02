@@ -5,7 +5,7 @@
  * All rights reserved. No warranty, explicit or implicit, provided.
  */
 
-pragma solidity 0.8.21;
+pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -44,9 +44,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         address _borrowPositionContract,
         string memory _name,
         string memory _symbol
-    )
-        BaseGovernedNFT(initialOwner, _name, _symbol)
-    {
+    ) BaseGovernedNFT(initialOwner, _name, _symbol) {
         engine = _engine;
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
@@ -86,11 +84,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         uint amount, // up to the provider
         uint putStrikeDeviation, // validated vs. engine
         uint duration // validated vs. engine
-    )
-        external
-        whenNotPaused
-        returns (uint offerId)
-    {
+    ) external whenNotPaused returns (uint offerId) {
         _validateOfferParamsSupported(putStrikeDeviation, duration);
         require(callStrikeDeviation > MIN_CALL_STRIKE_BIPS, "strike deviation too low");
         require(callStrikeDeviation <= MAX_CALL_STRIKE_BIPS, "strike deviation too high");
@@ -131,10 +125,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
 
     // ----- actions through borrow NFT ----- //
 
-    function mintPositionFromOffer(
-        uint offerId,
-        uint amount
-    )
+    function mintPositionFromOffer(uint offerId, uint amount)
         external
         onlyTrustedBorrowContract
         whenNotPaused
@@ -177,10 +168,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         );
     }
 
-    function settlePosition(
-        uint positionId,
-        int positionChange
-    )
+    function settlePosition(uint positionId, int positionChange)
         external
         onlyTrustedBorrowContract
         whenNotPaused
@@ -217,10 +205,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
 
     /// @dev for unwinds / rolls when the borrow contract is also the owner of this NFT
     /// callable through borrow position because only it is receiver of funds
-    function cancelAndWithdraw(
-        uint positionId,
-        address recipient
-    )
+    function cancelAndWithdraw(uint positionId, address recipient)
         external
         onlyTrustedBorrowContract
         whenNotPaused

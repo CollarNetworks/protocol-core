@@ -5,7 +5,7 @@
  * All rights reserved. No warranty, explicit or implicit, provided.
  */
 
-pragma solidity ^0.8.18;
+pragma solidity 0.8.22;
 
 import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";

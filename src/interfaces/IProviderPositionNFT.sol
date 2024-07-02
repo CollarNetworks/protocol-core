@@ -5,11 +5,10 @@
  * All rights reserved. No warranty, explicit or implicit, provided.
  */
 
-pragma solidity 0.8.21;
+pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { CollarEngine } from "../implementations/CollarEngine.sol";
-
 
 interface IProviderPositionNFT {
     struct LiquidityOffer {
@@ -73,20 +72,12 @@ interface IProviderPositionNFT {
     function getPosition(uint positionId) external view returns (ProviderPosition memory);
 
     // mutative liquidity
-    function createOffer(
-        uint callStrikeDeviation,
-        uint amount,
-        uint putStrikeDeviation,
-        uint duration
-    )
+    function createOffer(uint callStrikeDeviation, uint amount, uint putStrikeDeviation, uint duration)
         external
         returns (uint offerId);
     function updateOfferAmount(uint offerId, uint newAmount) external;
     // mutative from borrow NFT
-    function mintPositionFromOffer(
-        uint offerId,
-        uint amount
-    )
+    function mintPositionFromOffer(uint offerId, uint amount)
         external
         returns (uint positionId, ProviderPosition memory position);
     function cancelAndWithdraw(uint positionId, address recipient) external;

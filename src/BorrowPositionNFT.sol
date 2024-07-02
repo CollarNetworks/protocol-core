@@ -5,7 +5,7 @@
  * All rights reserved. No warranty, explicit or implicit, provided.
  */
 
-pragma solidity 0.8.21;
+pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -45,9 +45,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         IERC20 _collateralAsset,
         string memory _name,
         string memory _symbol
-    )
-        BaseGovernedNFT(initialOwner, _name, _symbol)
-    {
+    ) BaseGovernedNFT(initialOwner, _name, _symbol) {
         engine = _engine;
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
@@ -71,11 +69,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         uint minCashAmount, // slippage control
         ProviderPositionNFT providerNFT,
         uint offerId // @dev implies specific provider, put & call deviations, duration
-    )
-        external
-        whenNotPaused
-        returns (uint borrowId, uint providerId, uint loanAmount)
-    {
+    ) external whenNotPaused returns (uint borrowId, uint providerId, uint loanAmount) {
         _openPositionValidations(providerNFT);
 
         // get TWAP price
@@ -102,11 +96,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         uint putLockedCash, // user portion of collar position
         ProviderPositionNFT providerNFT,
         uint offerId // @dev implies specific provider, put & call deviations, duration
-    )
-        external
-        whenNotPaused
-        returns (uint borrowId, uint providerId)
-    {
+    ) external whenNotPaused returns (uint borrowId, uint providerId) {
         _openPositionValidations(providerNFT);
 
         // pull the user side of the locked cash
@@ -198,12 +188,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    function _pullAndSwap(
-        address sender,
-        uint collateralAmount,
-        uint minCashAmount,
-        uint twapPrice
-    )
+    function _pullAndSwap(address sender, uint collateralAmount, uint minCashAmount, uint twapPrice)
         internal
         returns (uint cashFromSwap)
     {
@@ -244,10 +229,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         uint putLockedCash,
         ProviderPositionNFT providerNFT,
         uint offerId
-    )
-        internal
-        returns (uint borrowId, uint providerId)
-    {
+    ) internal returns (uint borrowId, uint providerId) {
         uint callLockedCash = _calculateProviderLocked(putLockedCash, providerNFT, offerId);
 
         // open the provider position with duration and callLockedCash locked liquidity (reverts if can't)
@@ -337,11 +319,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
 
     // calculations
 
-    function _splitSwappedCash(
-        uint cashFromSwap,
-        ProviderPositionNFT providerNFT,
-        uint offerId
-    )
+    function _splitSwappedCash(uint cashFromSwap, ProviderPositionNFT providerNFT, uint offerId)
         internal
         view
         returns (uint loanAmount, uint putLockedCash)
@@ -353,11 +331,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         putLockedCash = cashFromSwap - loanAmount;
     }
 
-    function _calculateProviderLocked(
-        uint putLockedCash,
-        ProviderPositionNFT providerNFT,
-        uint offerId
-    )
+    function _calculateProviderLocked(uint putLockedCash, ProviderPositionNFT providerNFT, uint offerId)
         internal
         view
         returns (uint)
@@ -369,10 +343,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
         return callRange * putLockedCash / putRange; // proportionally scaled according to ranges
     }
 
-    function _settlementCalculations(
-        BorrowPosition storage position,
-        uint endPrice
-    )
+    function _settlementCalculations(BorrowPosition storage position, uint endPrice)
         internal
         view
         returns (uint withdrawable, int providerChange)
@@ -398,6 +369,7 @@ contract BorrowPositionNFT is IBorrowPositionNFT, BaseGovernedNFT {
             uint userPart = endPrice - startPrice;
             uint callRange = callPrice - startPrice;
             uint userGain = position.callLockedCash * userPart / callRange; // no div-zero ensured on open
+
             withdrawable += userGain;
             providerChange = -userGain.toInt256();
         }

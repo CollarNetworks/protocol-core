@@ -5,7 +5,7 @@
  * All rights reserved. No warranty, explicit or implicit, provided.
  */
 
-pragma solidity ^0.8.18;
+pragma solidity 0.8.22;
 
 library TickCalculations {
     /// @notice Returns the tick matching the given bps
@@ -41,11 +41,7 @@ library TickCalculations {
     /// @param tick The tick to convert to a price
     /// @param tickScaleFactor The tickScaleFactor to use for the conversion
     /// @param startingPrice The starting price of the collateral token (per unit)
-    function tickToPrice(
-        uint24 tick,
-        uint tickScaleFactor,
-        uint startingPrice
-    )
+    function tickToPrice(uint24 tick, uint tickScaleFactor, uint startingPrice)
         internal
         pure
         returns (uint)
@@ -58,11 +54,7 @@ library TickCalculations {
     /// @param currentPrice The current price (of the collateral token) to convert to a tick
     /// @param tickScaleFactor The tickScaleFactor to use for the conversion
     /// @param startingPrice The starting price of the collateral token (per unit)
-    function priceToTick(
-        uint currentPrice,
-        uint tickScaleFactor,
-        uint startingPrice
-    )
+    function priceToTick(uint currentPrice, uint tickScaleFactor, uint startingPrice)
         internal
         pure
         returns (uint24)
