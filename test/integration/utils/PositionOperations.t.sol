@@ -7,11 +7,14 @@ import { CollarBaseIntegrationTestConfig } from "./BaseIntegration.t.sol";
 import { ProviderPositionNFT } from "../../../src/ProviderPositionNFT.sol";
 import { CollarTakerNFT } from "../../../src/CollarTakerNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
+    using SafeERC20 for IERC20;
+
     function createProviderOffer(uint callStrikeDeviation, uint amount) internal returns (uint offerId) {
         startHoax(provider);
-        cashAsset.approve(address(providerNFT), amount);
+        cashAsset.forceApprove(address(providerNFT), amount);
         offerId = providerNFT.createOffer(callStrikeDeviation, amount, offerLTV, positionDuration);
         vm.stopPrank();
     }
@@ -21,7 +24,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         returns (uint borrowId, CollarTakerNFT.TakerPosition memory position)
     {
         startHoax(user1);
-        collateralAsset.approve(address(loanContract), collateralAmount);
+        collateralAsset.forceApprove(address(loanContract), collateralAmount);
         (borrowId,,) = loanContract.createLoan(collateralAmount, 0, minCashAmount, providerNFT, offerId);
         position = takerNFT.getPosition(borrowId);
         vm.stopPrank();
@@ -271,7 +274,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         callStrikeDeviations[3] = 13_000; // 130%
 
         startHoax(provider);
-        cashAsset.approve(address(providerNFT), amountPerOffer * 4);
+        cashAsset.forceApprove(address(providerNFT), amountPerOffer * 4);
 
         for (uint i = 0; i < callStrikeDeviations.length; i++) {
             providerNFT.createOffer(callStrikeDeviations[i], amountPerOffer, offerLTV, positionDuration);
