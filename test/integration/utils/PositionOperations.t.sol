@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import { CollarBaseIntegrationTestConfig } from "./BaseIntegration.t.sol";
 import { ProviderPositionNFT } from "../../../src/ProviderPositionNFT.sol";
-import { BorrowPositionNFT } from "../../../src/BorrowPositionNFT.sol";
+import { CollarTakerNFT } from "../../../src/CollarTakerNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
@@ -16,14 +16,14 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         vm.stopPrank();
     }
 
-    function openBorrowPosition(uint collateralAmount, uint minCashAmount, uint offerId)
+    function openTakerPosition(uint collateralAmount, uint minCashAmount, uint offerId)
         internal
-        returns (uint borrowId, BorrowPositionNFT.BorrowPosition memory position)
+        returns (uint borrowId, CollarTakerNFT.TakerPosition memory position)
     {
         startHoax(user1);
-        collateralAsset.approve(address(borrowNFT), collateralAmount);
-        (borrowId,,) = borrowNFT.openPairedPosition(collateralAmount, minCashAmount, providerNFT, offerId);
-        position = borrowNFT.getPosition(borrowId);
+        collateralAsset.approve(address(loanContract), collateralAmount);
+        (borrowId,,) = loanContract.createLoan(collateralAmount, 0, minCashAmount, providerNFT, offerId);
+        position = takerNFT.getPosition(borrowId);
         vm.stopPrank();
 
         // Perform checks
@@ -42,14 +42,14 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         internal
         returns (uint userWithdrawnAmount, uint providerWithdrawnAmount)
     {
-        BorrowPositionNFT.BorrowPosition memory position = borrowNFT.getPosition(borrowId);
+        CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(borrowId);
 
         startHoax(user1);
-        borrowNFT.settlePairedPosition(borrowId);
+        takerNFT.settlePairedPosition(borrowId);
 
         // User withdrawal
         uint userBalanceBefore = cashAsset.balanceOf(user1);
-        borrowNFT.withdrawFromSettled(borrowId, user1);
+        takerNFT.withdrawFromSettled(borrowId, user1);
         uint userBalanceAfter = cashAsset.balanceOf(user1);
         userWithdrawnAmount = userBalanceAfter - userBalanceBefore;
         vm.stopPrank();
@@ -63,7 +63,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         vm.stopPrank();
     }
 
-    function calculatePriceDownValues(BorrowPositionNFT.BorrowPosition memory position, uint finalPrice)
+    function calculatePriceDownValues(CollarTakerNFT.TakerPosition memory position, uint finalPrice)
         internal
         pure
         returns (uint expectedUserWithdrawable, uint expectedProviderGain)
@@ -74,7 +74,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         expectedUserWithdrawable = position.putLockedCash - expectedProviderGain;
     }
 
-    function calculatePriceUpValues(BorrowPositionNFT.BorrowPosition memory position, uint finalPrice)
+    function calculatePriceUpValues(CollarTakerNFT.TakerPosition memory position, uint finalPrice)
         internal
         pure
         returns (uint expectedUserWithdrawable, uint expectedProviderWithdrawable)
@@ -93,7 +93,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
     ) internal {
         (uint userWithdrawnAmount, uint providerWithdrawnAmount) = settleAndWithdraw(borrowId);
 
-        BorrowPositionNFT.BorrowPosition memory position = borrowNFT.getPosition(borrowId);
+        CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(borrowId);
 
         // Check position state after settlement
         assertEq(position.settled, true);
@@ -127,7 +127,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
     ) internal {
         (uint userWithdrawnAmount, uint providerWithdrawnAmount) = settleAndWithdraw(borrowId);
 
-        BorrowPositionNFT.BorrowPosition memory position = borrowNFT.getPosition(borrowId);
+        CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(borrowId);
 
         (uint expectedUserWithdrawable, uint expectedProviderGain) =
             calculatePriceDownValues(position, finalPrice);
@@ -169,7 +169,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
     ) internal {
         (uint userWithdrawnAmount, uint providerWithdrawnAmount) = settleAndWithdraw(borrowId);
 
-        BorrowPositionNFT.BorrowPosition memory position = borrowNFT.getPosition(borrowId);
+        CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(borrowId);
 
         // Check position state after settlement
         assertEq(position.settled, true);
@@ -208,7 +208,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
     ) internal {
         (uint userWithdrawnAmount, uint providerWithdrawnAmount) = settleAndWithdraw(borrowId);
 
-        BorrowPositionNFT.BorrowPosition memory position = borrowNFT.getPosition(borrowId);
+        CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(borrowId);
 
         (uint expectedUserWithdrawable, uint expectedProviderWithdrawable) =
             calculatePriceUpValues(position, finalPrice);

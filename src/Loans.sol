@@ -24,7 +24,7 @@ contract Loans is Ownable, Pausable {
     uint internal constant BIPS_BASE = 10_000;
     uint32 public constant TWAP_LENGTH = 15 minutes;
     /// should be set to not be overly restrictive since is mostly sanity-check
-    uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 100;
+    uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 500;
 
     string public constant VERSION = "0.2.0"; // allow checking version on-chain
 
@@ -53,9 +53,7 @@ contract Loans is Ownable, Pausable {
         CollarTakerNFT _takerNFT,
         IERC20 _cashAsset,
         IERC20 _collateralAsset
-    )
-        Ownable(initialOwner)
-    {
+    ) Ownable(initialOwner) {
         engine = _engine;
         takerNFT = _takerNFT;
         cashAsset = _cashAsset;
@@ -99,11 +97,7 @@ contract Loans is Ownable, Pausable {
         uint minSwapCash, // slippage control
         ProviderPositionNFT providerNFT, // @dev will be validated by takerNFT, which is immutable
         uint offerId // @dev implies specific provider, put & call deviations, duration
-    )
-        external
-        whenNotPaused
-        returns (uint takerId, uint providerId, uint loanAmount)
-    {
+    ) external whenNotPaused returns (uint takerId, uint providerId, uint loanAmount) {
         // pull collateral
         collateralAsset.safeTransferFrom(msg.sender, address(this), collateralAmount);
 
@@ -150,10 +144,7 @@ contract Loans is Ownable, Pausable {
         // TODO: event
     }
 
-    function closeLoan(
-        uint takerId,
-        uint minCollateralAmount
-    )
+    function closeLoan(uint takerId, uint minCollateralAmount)
         external
         onlyNFTOwnerOrKeeper(takerId)
         returns (uint collateralReturned)
@@ -190,12 +181,7 @@ contract Loans is Ownable, Pausable {
     }
 
     // ----- INTERNAL MUTATIVE ----- //
-    function _swap(
-        IERC20 assetIn,
-        IERC20 assetOut,
-        uint amountIn,
-        uint minAmountOut
-    )
+    function _swap(IERC20 assetIn, IERC20 assetOut, uint amountIn, uint minAmountOut)
         internal
         returns (uint amountOut)
     {
@@ -225,10 +211,7 @@ contract Loans is Ownable, Pausable {
         require(amountOut >= minAmountOut, "slippage exceeded");
     }
 
-    function _swapCollateralWithTwapCheck(
-        uint collateralAmount,
-        uint minCashAmount
-    )
+    function _swapCollateralWithTwapCheck(uint collateralAmount, uint minCashAmount)
         internal
         returns (uint cashFromSwap)
     {
@@ -286,11 +269,7 @@ contract Loans is Ownable, Pausable {
         );
     }
 
-    function _splitSwappedCash(
-        uint cashFromSwap,
-        ProviderPositionNFT providerNFT,
-        uint offerId
-    )
+    function _splitSwappedCash(uint cashFromSwap, ProviderPositionNFT providerNFT, uint offerId)
         internal
         view
         returns (uint loanAmount, uint putLockedCash)

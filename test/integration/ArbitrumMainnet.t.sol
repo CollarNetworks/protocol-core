@@ -7,7 +7,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { CollarIntegrationPriceManipulation } from "./utils/PriceManipulation.t.sol";
 import { PositionOperationsTest } from "./utils/PositionOperations.t.sol";
-import { BorrowPositionNFT } from "../../src/BorrowPositionNFT.sol";
+import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 
 contract ForkTestCollarArbitrumMainnetIntegrationTest is
     CollarIntegrationPriceManipulation,
@@ -75,8 +75,8 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
          * @dev trying to manipulate price to be exactly the same as the moment of opening vault is too hard ,
          * so we'll skip this case unless there's a better proposal
          */
-        // (uint borrowId, BorrowPositionNFT.BorrowPosition memory position) =
-        //     openBorrowPosition(1 ether, 0.3e6, getOfferIndex(120));
+        // (uint borrowId, CollarTakerNFT.BorrowPosition memory position) =
+        //     openTakerPosition(1 ether, 0.3e6, getOfferIndex(120));
 
         // vm.warp(block.timestamp + positionDuration + 1);
 
@@ -106,7 +106,7 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
         collateralAmount = bound(collateralAmount, 1 ether, 20 ether);
         callStrikeTick = uint24(bound(callStrikeTick, uint(110), uint(130)));
 
-        (uint borrowId,) = openBorrowPosition(collateralAmount, 0.3e6, getOfferIndex(callStrikeTick));
+        (uint borrowId,) = openTakerPosition(collateralAmount, 0.3e6, getOfferIndex(callStrikeTick));
         uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
         uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
 
@@ -118,7 +118,7 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
     }
 
     function test_openAndClosePositionPriceUnderPutStrike() public {
-        (uint borrowId,) = openBorrowPosition(1 ether, 0.3e6, getOfferIndex(120));
+        (uint borrowId,) = openTakerPosition(1 ether, 0.3e6, getOfferIndex(120));
         uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
         uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
 
@@ -136,7 +136,7 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
         collateralAmount = bound(collateralAmount, 1 ether, 20 ether);
         callStrikeTick = uint24(bound(callStrikeTick, uint(110), uint(130)));
 
-        (uint borrowId,) = openBorrowPosition(collateralAmount, 0.3e6, getOfferIndex(callStrikeTick));
+        (uint borrowId,) = openTakerPosition(collateralAmount, 0.3e6, getOfferIndex(callStrikeTick));
         uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
         uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
 
@@ -150,7 +150,7 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
     }
 
     function test_openAndClosePositionPriceDownShortOfPutStrike() public {
-        (uint borrowId,) = openBorrowPosition(1 ether, 0.3e6, getOfferIndex(120));
+        (uint borrowId,) = openTakerPosition(1 ether, 0.3e6, getOfferIndex(120));
         uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
         uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
 
@@ -170,7 +170,7 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
         collateralAmount = bound(collateralAmount, 1 ether, 20 ether);
         callStrikeTick = uint24(bound(callStrikeTick, uint(110), uint(130)));
 
-        (uint borrowId,) = openBorrowPosition(collateralAmount, 0.3e6, getOfferIndex(callStrikeTick));
+        (uint borrowId,) = openTakerPosition(collateralAmount, 0.3e6, getOfferIndex(callStrikeTick));
         uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
         uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
 
@@ -182,7 +182,7 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
     }
 
     function test_openAndClosePositionPriceUpPastCallStrike() public {
-        (uint borrowId,) = openBorrowPosition(1 ether, 0.3e6, getOfferIndex(120));
+        (uint borrowId,) = openTakerPosition(1 ether, 0.3e6, getOfferIndex(120));
         uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
         uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
 
@@ -200,7 +200,7 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
         collateralAmount = bound(collateralAmount, 1 ether, 20 ether);
         callStrikeTick = uint24(bound(callStrikeTick, uint(110), uint(130)));
 
-        (uint borrowId,) = openBorrowPosition(collateralAmount, 0.3e6, getOfferIndex(callStrikeTick));
+        (uint borrowId,) = openTakerPosition(collateralAmount, 0.3e6, getOfferIndex(callStrikeTick));
         uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
         uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
 
@@ -214,7 +214,7 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
     }
 
     function test_openAndClosePositionPriceUpShortOfCallStrike() public {
-        (uint borrowId,) = openBorrowPosition(1 ether, 0.3e6, getOfferIndex(120));
+        (uint borrowId,) = openTakerPosition(1 ether, 0.3e6, getOfferIndex(120));
         uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
         uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
 
