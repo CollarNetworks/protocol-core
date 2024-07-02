@@ -97,7 +97,7 @@ contract Loans is Ownable, Pausable {
         uint collateralAmount,
         uint minLoanAmount,
         uint minSwapCash, // slippage control
-        ProviderPositionNFT providerNFT,
+        ProviderPositionNFT providerNFT, // @dev will be validated by takerNFT, which is immutable
         uint offerId // @dev implies specific provider, put & call deviations, duration
     )
         external
@@ -122,6 +122,7 @@ contract Loans is Ownable, Pausable {
         (takerId, providerId) = takerNFT.openPairedPosition(putLockedCash, providerNFT, offerId);
 
         // store the loan opening data
+        assert(loans[takerId].collateralAmount == 0); // should not be possible - was just minted
         loans[takerId] = Loan({
             collateralAmount: collateralAmount,
             loanAmount: loanAmount,
