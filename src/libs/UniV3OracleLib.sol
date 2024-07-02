@@ -5,7 +5,7 @@
  * All rights reserved. No warranty, explicit or implicit, provided.
  */
 
-pragma solidity ^0.8.18;
+pragma solidity 0.8.22;
 
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
@@ -23,11 +23,7 @@ library UniV3OracleLib {
         uint32 twapEndTimestamp,
         uint32 twapLength,
         address uniswapV3Factory
-    )
-        internal
-        view
-        returns (uint)
-    {
+    ) internal view returns (uint) {
         // _secondsAgos is in offsets format. e.g., [120, 60] means that observations 120 and 60
         // seconds ago will be used for the TWAP calculation
         uint32[] memory secondsAgos = new uint32[](2);
@@ -52,11 +48,7 @@ library UniV3OracleLib {
         address quoteToken,
         address uniswapV3Factory,
         uint32[] memory secondsAgos
-    )
-        internal
-        view
-        returns (int56[] memory)
-    {
+    ) internal view returns (int56[] memory) {
         address pool = IUniswapV3Factory(uniswapV3Factory).getPool(baseToken, quoteToken, FEE_TIER_30_BIPS);
         (int56[] memory tickCumulatives,) = IUniswapV3Pool(pool).observe(secondsAgos);
         return tickCumulatives;
