@@ -81,9 +81,7 @@ interface IBorrowPositionNFT {
         uint minCashAmount,
         ProviderPositionNFT providerNFT,
         uint offerId
-    )
-        external
-        returns (uint borrowId, uint providerId, uint loanAmount);
+    ) external returns (uint borrowId, uint providerId, uint loanAmount);
     function settlePairedPosition(uint borrowId) external;
     function cancelPairedPosition(uint borrowId, address recipient) external;
     function withdrawFromSettled(uint borrowId, address recipient) external;
