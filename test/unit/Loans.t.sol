@@ -410,7 +410,14 @@ contract LoansTest is Test {
         uint offerId = createOfferAsProvider();
         // not enough approval for collatearal
         vm.startPrank(user1);
-        vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InsufficientAllowance.selector, address(loans), collateralAmount, collateralAmount + 1));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC20Errors.ERC20InsufficientAllowance.selector,
+                address(loans),
+                collateralAmount,
+                collateralAmount + 1
+            )
+        );
         loans.createLoan(collateralAmount + 1, minLoanAmount, minSwapCash, providerNFT, offerId);
     }
 
@@ -450,5 +457,107 @@ contract LoansTest is Test {
         vm.expectRevert("loan amount too low");
         loans.createLoan(collateralAmount, highMinLoanAmount, minSwapCash, providerNFT, offerId);
     }
+
+    function test_revert_closeLoan_notNFTOwnerOrKeeper() public {
+        (uint takerId,,) = createAndCheckLoan();
+        vm.startPrank(address(0xdead));
+        vm.expectRevert("not taker NFT owner or allowed keeper");
+        loans.closeLoan(takerId, 0);
+    }
+
+    function test_revert_closeLoan_nonExistentLoan() public {
+        uint nonExistentTakerId = 999;
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, nonExistentTakerId)
+        );
+        loans.closeLoan(nonExistentTakerId, 0);
+    }
+
+    function test_revert_closeLoan_alreadyClosed() public {
+        (uint takerId,, uint loanAmount) = createAndCheckLoan();
+        skip(duration);
+        vm.startPrank(user1);
+
+        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        cashAsset.approve(address(loans), loanAmount);
+        takerNFT.approve(address(loans), takerId);
+        setupSwap(collateralAsset, collateralAmount);
+        loans.closeLoan(takerId, 0);
+
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, takerId));
+        loans.closeLoan(takerId, 0);
+    }
+
+    function test_revert_closeLoan_insufficientRepaymentAllowance() public {
+        (uint takerId,, uint loanAmount) = createAndCheckLoan();
+        skip(duration);
+
+        vm.startPrank(user1);
+        cashAsset.approve(address(loans), loanAmount - 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC20Errors.ERC20InsufficientAllowance.selector, address(loans), loanAmount - 1, loanAmount
+            )
+        );
+        loans.closeLoan(takerId, 0);
+    }
+
+    function test_revert_closeLoan_notApprovedNFT() public {
+        (uint takerId,, uint loanAmount) = createAndCheckLoan();
+        skip(duration);
+
+        vm.startPrank(user1);
+        cashAsset.approve(address(loans), loanAmount);
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC721Errors.ERC721InsufficientApproval.selector, address(loans), takerId)
+        );
+        loans.closeLoan(takerId, 0);
+    }
+
+    function test_revert_closeLoan_beforeExpiration() public {
+        (uint takerId,, uint loanAmount) = createAndCheckLoan();
+        skip(duration - 1);
+
+        vm.startPrank(user1);
+        cashAsset.approve(address(loans), loanAmount);
+        takerNFT.approve(address(loans), takerId);
+
+        vm.expectRevert("not expired");
+        loans.closeLoan(takerId, 0);
+    }
+
+    function test_revert_closeLoan_slippageExceeded() public {
+        (uint takerId,, uint loanAmount) = createAndCheckLoan();
+        skip(duration);
+        vm.startPrank(user1);
+        cashAsset.approve(address(loans), loanAmount);
+        takerNFT.approve(address(loans), takerId);
+        setupSwap(collateralAsset, collateralAmount);
+        vm.expectRevert("slippage exceeded");
+        loans.closeLoan(takerId, collateralAmount + 1);
+    }
+
+    function test_revert_closeLoan_keeperNotAllowed() public {
+        (uint takerId,,) = createAndCheckLoan();
+        skip(duration);
+
+        vm.startPrank(owner);
+        loans.setKeeper(keeper);
+
+        vm.startPrank(keeper);
+        vm.expectRevert("not taker NFT owner or allowed keeper");
+        loans.closeLoan(takerId, 0);
+
+        vm.startPrank(user1);
+        loans.setKeeperAllowedBy(takerId, true);
+
+        vm.startPrank(user1);
+        takerNFT.transferFrom(user1, address(0xbeef), takerId);
+
+        vm.startPrank(keeper);
+        vm.expectRevert("not taker NFT owner or allowed keeper");
+        loans.closeLoan(takerId, 0);
+    }
+
 
 }
