@@ -351,4 +351,37 @@ contract LoansTest is Test {
 
         assertEq(loans.closingKeeper(), keeper);
     }
+
+    function test_pause() public {
+        (uint takerId,,) = createAndCheckLoan();
+
+        // pause
+        vm.startPrank(owner);
+        vm.expectEmit(address(loans));
+        emit Pausable.Paused(owner);
+        loans.pause();
+        // paused view
+        assertTrue(loans.paused());
+        // methods are paused
+        vm.startPrank(user1);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        loans.createLoan(0, 0, 0, providerNFT, 0);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        loans.setKeeperAllowedBy(takerId, true);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        loans.closeLoan(takerId, 0);
+    }
+
+    // reverts
+
+    function test_onlyOwnerMethods() public {
+        vm.startPrank(user1);
+        bytes4 selector = Ownable.OwnableUnauthorizedAccount.selector;
+        vm.expectRevert(abi.encodeWithSelector(selector, user1));
+        loans.pause();
+        vm.expectRevert(abi.encodeWithSelector(selector, user1));
+        loans.unpause();
+        vm.expectRevert(abi.encodeWithSelector(selector, user1));
+        loans.setKeeper(keeper);
+    }
 }

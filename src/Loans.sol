@@ -123,7 +123,7 @@ contract Loans is ILoans, Ownable, Pausable {
     /// has changed owners (was sold) exposing the new owner's approvals to the keeper
     /// @dev a user that sets this allowance has to also grant NFT and cash approvals to this contract
     /// that should be valid when closeLoan is called by the keeper
-    function setKeeperAllowedBy(uint takerId, bool enabled) external onlyNFTOwner(takerId) {
+    function setKeeperAllowedBy(uint takerId, bool enabled) external whenNotPaused onlyNFTOwner(takerId) {
         Loan storage loan = loans[takerId];
         _requireValidLoan(loan);
         loan.keeperAllowedBy = enabled ? msg.sender : address(0);
@@ -135,6 +135,7 @@ contract Loans is ILoans, Ownable, Pausable {
         uint minCollateralAmount
     )
         external
+        whenNotPaused
         onlyNFTOwnerOrKeeper(takerId)
         returns (uint collateralOut)
     {
@@ -159,10 +160,20 @@ contract Loans is ILoans, Ownable, Pausable {
         emit LoanClosed(takerId, msg.sender, user, loan.loanAmount, cashAmount, collateralOut);
     }
 
+    // admin methods
+
     function setKeeper(address keeper) external onlyOwner {
         address previous = closingKeeper;
         closingKeeper = keeper;
         emit ClosingKeeperUpdated(previous, keeper);
+    }
+
+    function pause() public onlyOwner {
+        _pause();
+    }
+
+    function unpause() public onlyOwner {
+        _unpause();
     }
 
     // ----- INTERNAL MUTATIVE ----- //
