@@ -10,7 +10,7 @@ import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockEngine } from "../../test/utils/MockEngine.sol";
 import { MockUniRouter } from "../../test/utils/MockUniRouter.sol";
 
-import { Loans } from "../../src/Loans.sol";
+import { Loans, ILoans } from "../../src/Loans.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 
@@ -83,12 +83,15 @@ contract LoansTest is Test {
     function createOfferAsProvider() internal returns (uint offerId) {
         startHoax(provider);
         cashAsset.approve(address(providerNFT), amountToProvide);
-        offerId = providerNFT.createOffer(
-            callStrikeDeviation, amountToProvide, ltv, duration
-        );
+        offerId = providerNFT.createOffer(callStrikeDeviation, amountToProvide, ltv, duration);
     }
 
-    function createLoanAsUser(uint offerId) internal returns (uint takerId, uint providerId, uint loanAmount) {
+    function createAndCheckLoan()
+        internal
+        returns (uint takerId, uint providerId, uint loanAmount)
+    {
+        uint offerId = createOfferAsProvider();
+
         engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, price);
 
         uint swapOut = collateralAmount * price / 1e18;
@@ -96,9 +99,66 @@ contract LoansTest is Test {
 
         startHoax(user1);
         collateralAsset.approve(address(loans), collateralAmount);
-        (takerId, providerId, loanAmount) = loans.createLoan(
-            collateralAmount, minLoanAmount, minSwapCash, providerNFT, offerId
+
+        uint initialCollateralBalance = collateralAsset.balanceOf(user1);
+        uint initialCashBalance = cashAsset.balanceOf(user1);
+        uint nextTakerId = takerNFT.nextPositionId();
+        uint nextProviderId = providerNFT.nextPositionId();
+        uint expectedLoanAmount = swapOut * ltv / 10_000;
+
+        vm.expectEmit(address(loans));
+        emit ILoans.LoanCreated(
+            user1,
+            address(providerNFT),
+            offerId,
+            collateralAmount,
+            expectedLoanAmount,
+            nextTakerId,
+            nextProviderId
         );
+
+        (takerId, providerId, loanAmount) =
+            loans.createLoan(collateralAmount, minLoanAmount, minSwapCash, providerNFT, offerId);
+
+        // Check return values
+        assertEq(takerId, nextTakerId);
+        assertEq(providerId, nextProviderId);
+        assertEq(loanAmount, expectedLoanAmount);
+
+        // Check balances
+        assertEq(collateralAsset.balanceOf(user1), initialCollateralBalance - collateralAmount);
+        assertEq(cashAsset.balanceOf(user1), initialCashBalance + loanAmount);
+
+        // Check NFT ownership
+        assertEq(takerNFT.ownerOf(takerId), user1);
+        assertEq(providerNFT.ownerOf(providerId), provider);
+
+        // Check loan state
+        Loans.Loan memory loan = loans.getLoan(takerId);
+        assertEq(loan.collateralAmount, collateralAmount);
+        assertEq(loan.loanAmount, loanAmount);
+        assertEq(loan.keeperAllowedBy, address(0));
+        assertFalse(loan.closed);
+
+        // Check taker position
+        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(takerId);
+        assertEq(address(takerPosition.providerNFT), address(providerNFT));
+        assertEq(takerPosition.providerPositionId, providerId);
+        assertEq(takerPosition.initialPrice, price);
+        assertEq(takerPosition.putLockedCash, swapOut - loanAmount);
+        assertEq(takerPosition.openedAt, block.timestamp);
+        assertEq(takerPosition.expiration, block.timestamp + duration);
+        assertFalse(takerPosition.settled);
+        assertEq(takerPosition.withdrawable, 0);
+
+        // Check provider position
+        ProviderPositionNFT.ProviderPosition memory providerPosition = providerNFT.getPosition(providerId);
+        assertEq(providerPosition.expiration, block.timestamp + duration);
+        assertEq(providerPosition.principal, takerPosition.callLockedCash);
+        assertEq(providerPosition.putStrikeDeviation, ltv);
+        assertEq(providerPosition.callStrikeDeviation, callStrikeDeviation);
+        assertFalse(providerPosition.settled);
+        assertEq(providerPosition.withdrawable, 0);
     }
 
     function test_constructor() public {
@@ -110,32 +170,21 @@ contract LoansTest is Test {
     }
 
     function test_createLoan() public {
-        uint offerId = createOfferAsProvider();
-        uint initialCollateralBalance = collateralAsset.balanceOf(user1);
-        uint initialCashBalance = cashAsset.balanceOf(user1);
-
-        (uint takerId, uint providerId, uint loanAmount) = createLoanAsUser(offerId);
-
-        assertEq(collateralAsset.balanceOf(user1), initialCollateralBalance - collateralAmount);
-        assertEq(cashAsset.balanceOf(user1), initialCashBalance + loanAmount);
-        assertEq(takerNFT.ownerOf(takerId), user1);
-
-        Loans.Loan memory loan = loans.getLoan(takerId);
-        assertEq(loan.collateralAmount, collateralAmount);
-        assertEq(loan.loanAmount, loanAmount);
-        assertEq(loan.keeperAllowedBy, address(0));
-        assertFalse(loan.closed);
+        createAndCheckLoan();
     }
 
     function test_setKeeperAllowedBy() public {
-        uint offerId = createOfferAsProvider();
-        (uint takerId,,) = createLoanAsUser(offerId);
+        (uint takerId,,) = createAndCheckLoan();
 
+        vm.expectEmit(address(loans));
+        emit ILoans.ClosingKeeperAllowed(user1, takerId, true);
         loans.setKeeperAllowedBy(takerId, true);
 
         Loans.Loan memory loan = loans.getLoan(takerId);
         assertEq(loan.keeperAllowedBy, user1);
 
+        vm.expectEmit(address(loans));
+        emit ILoans.ClosingKeeperAllowed(user1, takerId, false);
         loans.setKeeperAllowedBy(takerId, false);
 
         loan = loans.getLoan(takerId);
@@ -143,8 +192,7 @@ contract LoansTest is Test {
     }
 
     function test_closeLoan() public {
-        uint offerId = createOfferAsProvider();
-        (uint takerId, uint providerId, uint loanAmount) = createLoanAsUser(offerId);
+        (uint takerId, uint providerId, uint loanAmount) = createAndCheckLoan();
 
         skip(duration);
 
@@ -157,6 +205,8 @@ contract LoansTest is Test {
 
         uint initialCollateralBalance = collateralAsset.balanceOf(user1);
         uint initialCashBalance = cashAsset.balanceOf(user1);
+        vm.expectEmit(address(loans));
+        emit ILoans.LoanClosed(takerId, user1, user1, loanAmount, swapOut);
         uint collateralOut = loans.closeLoan(takerId, swapOut);
 
         assertEq(collateralAsset.balanceOf(user1), initialCollateralBalance + collateralOut);
@@ -173,6 +223,8 @@ contract LoansTest is Test {
         assertEq(loans.closingKeeper(), address(0));
 
         vm.prank(owner);
+        vm.expectEmit(address(loans));
+        emit ILoans.ClosingKeeperUpdated(address(0), keeper);
         loans.setKeeper(keeper);
 
         assertEq(loans.closingKeeper(), keeper);
