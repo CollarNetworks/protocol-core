@@ -37,9 +37,7 @@ contract Loans is ILoans, Ownable, Pausable {
     IERC20 public immutable collateralAsset;
 
     // ----- STATE VARIABLES ----- //
-
     mapping(uint takerId => Loan) internal loans;
-
     // keeper for closing set by contract owner
     address public closingKeeper;
 
@@ -76,7 +74,7 @@ contract Loans is ILoans, Ownable, Pausable {
         // if owner has changed since keeper was allowed by the owner, the allowance is disabled
         // to avoid selling an NFT with a keeper allowance, allowing keeper triggering for new buyer
         bool keeperAllowed = loans[takerId].keeperAllowedBy == currentTakerNFTOwner;
-        require(isOwner || (isKeeper && keeperAllowed), "not taker NFT owner or allowed settlement keeper");
+        require(isOwner || (isKeeper && keeperAllowed), "not taker NFT owner or allowed keeper");
         _;
     }
 
