@@ -31,7 +31,7 @@ interface ILoans {
         uint providerId
     );
     event LoanClosed(
-        uint indexed takerId, address indexed sender, address indexed user, uint repayment, uint collateralOut
+        uint indexed takerId, address indexed sender, address indexed user, uint repayment, uint cashAmount, uint collateralOut
     );
     event ClosingKeeperAllowed(address indexed sender, uint indexed takerId, bool indexed enabled);
     event ClosingKeeperUpdated(address indexed previousKeeper, address indexed newKeeper);

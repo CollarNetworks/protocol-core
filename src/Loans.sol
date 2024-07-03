@@ -156,7 +156,7 @@ contract Loans is ILoans, Ownable, Pausable {
 
         collateralAsset.safeTransfer(user, collateralOut);
 
-        emit LoanClosed(takerId, msg.sender, user, loan.loanAmount, collateralOut);
+        emit LoanClosed(takerId, msg.sender, user, loan.loanAmount, cashAmount, collateralOut);
     }
 
     function setKeeper(address keeper) external onlyOwner {

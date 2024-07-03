@@ -31,11 +31,13 @@ contract LoansTest is Test {
     uint collateralAmount = 10 ether;
     uint minLoanAmount = 8 ether;
     uint minSwapCash = 9 ether;
+    uint amountToProvide = 100_000 ether;
+    uint twapPrice = 10 ether;
+
+    uint constant BIPS_100PCT = 10_000;
     uint ltv = 9000;
     uint duration = 300;
     uint callStrikeDeviation = 12_000;
-    uint amountToProvide = 100_000 ether;
-    uint price = 10 ether;
 
     function setUp() public {
         cashAsset = new TestERC20("TestCash", "TestCash");
@@ -54,10 +56,10 @@ contract LoansTest is Test {
         engine.setProviderContractAuth(address(providerNFT), true);
 
         collateralAsset.mint(user1, collateralAmount * 10);
-        cashAsset.mint(user1, collateralAmount * 10 * price / 1e18);
+        cashAsset.mint(user1, collateralAmount * 10 * twapPrice / 1e18);
         cashAsset.mint(provider, amountToProvide * 10);
 
-        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, price);
+        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
 
         vm.label(address(cashAsset), "TestCash");
         vm.label(address(collateralAsset), "TestCollat");
@@ -89,9 +91,9 @@ contract LoansTest is Test {
     function createAndCheckLoan() internal returns (uint takerId, uint providerId, uint loanAmount) {
         uint offerId = createOfferAsProvider();
 
-        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, price);
+        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
 
-        uint swapOut = collateralAmount * price / 1e18;
+        uint swapOut = collateralAmount * twapPrice / 1e18;
         setupSwap(cashAsset, swapOut);
 
         startHoax(user1);
@@ -141,7 +143,7 @@ contract LoansTest is Test {
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(takerId);
         assertEq(address(takerPosition.providerNFT), address(providerNFT));
         assertEq(takerPosition.providerPositionId, providerId);
-        assertEq(takerPosition.initialPrice, price);
+        assertEq(takerPosition.initialPrice, twapPrice);
         assertEq(takerPosition.putLockedCash, swapOut - loanAmount);
         assertEq(takerPosition.openedAt, block.timestamp);
         assertEq(takerPosition.expiration, block.timestamp + duration);
@@ -158,14 +160,18 @@ contract LoansTest is Test {
         assertEq(providerPosition.withdrawable, 0);
     }
 
-    function closeAndCheckiLoan(
+    function closeAndCheckLoan(
         uint takerId,
         address caller,
         uint loanAmount,
+        uint withdrawal,
         uint expectedCollateralOut
     )
         internal
     {
+        // TWAP price must be set for every block
+        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+
         // Approve loan contract to spend user's cash for repayment
         vm.startPrank(user1);
         cashAsset.approve(address(loans), loanAmount);
@@ -178,7 +184,9 @@ contract LoansTest is Test {
         // Keeper closes the loan
         vm.startPrank(caller);
         vm.expectEmit(address(loans));
-        emit ILoans.LoanClosed(takerId, caller, user1, loanAmount, expectedCollateralOut);
+        emit ILoans.LoanClosed(
+            takerId, caller, user1, loanAmount, loanAmount + withdrawal, expectedCollateralOut
+        );
         uint collateralOut = loans.closeLoan(takerId, 0);
 
         // Check balances after loan closure
@@ -196,6 +204,24 @@ contract LoansTest is Test {
         // Try to close the loan again (should fail)
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, takerId));
         loans.closeLoan(takerId, 0);
+    }
+
+    function checkOpenCloseLoanPriceChange(uint newPrice, uint putPortion, uint callPortion) public {
+        (uint takerId, uint providerId, uint loanAmount) = createAndCheckLoan();
+        skip(duration);
+
+        // update price
+        twapPrice = newPrice;
+
+        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(takerId);
+        // calculate withdrawal amounts
+        uint withdrawal = takerPosition.putLockedCash * putPortion / BIPS_100PCT
+            + takerPosition.callLockedCash * callPortion / BIPS_100PCT;
+        // setup router output
+        uint swapOut = collateralAmount * 1e18 / twapPrice;
+        setupSwap(collateralAsset, swapOut);
+
+        closeAndCheckLoan(takerId, user1, loanAmount, withdrawal, swapOut);
     }
 
     function allowKeeper(uint takerId) internal {
@@ -246,26 +272,73 @@ contract LoansTest is Test {
 
     function test_closeLoan_simple() public {
         (uint takerId, uint providerId, uint loanAmount) = createAndCheckLoan();
-
         skip(duration);
 
-        uint swapOut = collateralAmount * 1e18 / price;
+        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(takerId);
+        // withdrawal: no price change so only user locked (put locked)
+        uint withdrawal = takerPosition.putLockedCash;
+        // setup router output
+        uint swapOut = collateralAmount * 1e18 / twapPrice;
         setupSwap(collateralAsset, swapOut);
 
-        closeAndCheckiLoan(takerId, user1, loanAmount, swapOut);
+        closeAndCheckLoan(takerId, user1, loanAmount, withdrawal, swapOut);
     }
 
     function test_closeLoan_byKeeper() public {
         (uint takerId, uint providerId, uint loanAmount) = createAndCheckLoan();
+        skip(duration);
         // allow keeper
         allowKeeper(takerId);
 
-        skip(duration);
-
-        uint swapOut = collateralAmount * 1e18 / price;
+        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(takerId);
+        // withdrawal: no price change so only user locked (put locked)
+        uint withdrawal = takerPosition.putLockedCash;
+        // setup router output
+        uint swapOut = collateralAmount * 1e18 / twapPrice;
         setupSwap(collateralAsset, swapOut);
 
-        closeAndCheckiLoan(takerId, keeper, loanAmount, swapOut);
+        closeAndCheckLoan(takerId, keeper, loanAmount, withdrawal, swapOut);
+    }
+
+    function test_closeLoan_priceUpToCall() public {
+        uint newPrice = twapPrice * callStrikeDeviation / BIPS_100PCT;
+        // price goes to call strike, withdrawal is 100% of pot (put + call locked parts)
+        checkOpenCloseLoanPriceChange(newPrice, BIPS_100PCT, BIPS_100PCT);
+    }
+
+    function test_closeLoan_priceHalfUpToCall() public {
+        uint delta = (callStrikeDeviation - BIPS_100PCT) / 2;
+        uint newPrice = twapPrice * (BIPS_100PCT + delta) / BIPS_100PCT;
+        // price goes to half way to call, withdrawal is putLocked + half of callLocked
+        checkOpenCloseLoanPriceChange(newPrice, BIPS_100PCT, BIPS_100PCT / 2);
+    }
+
+    function test_closeLoan_priceOverCall() public {
+        uint newPrice = twapPrice * (callStrikeDeviation + BIPS_100PCT) / BIPS_100PCT;
+        // price goes over call, withdrawal is putLocked + callLocked
+        checkOpenCloseLoanPriceChange(newPrice, BIPS_100PCT, BIPS_100PCT);
+    }
+
+    function test_closeLoan_priceDownToPut() public {
+        uint putStrikeDeviation = ltv;
+        uint newPrice = twapPrice * putStrikeDeviation / BIPS_100PCT;
+        // price goes to put strike, withdrawal is 0 (all gone to provider)
+        checkOpenCloseLoanPriceChange(newPrice, 0, 0);
+    }
+
+    function test_closeLoan_priceHalfDownToPut() public {
+        uint putStrikeDeviation = ltv;
+        uint delta = (BIPS_100PCT - putStrikeDeviation) / 2;
+        uint newPrice = twapPrice * (BIPS_100PCT - delta) / BIPS_100PCT;
+        // price goes half way to put strike, withdrawal is half of putLocked and 0 of callLocked
+        checkOpenCloseLoanPriceChange(newPrice, BIPS_100PCT / 2, 0);
+    }
+
+    function test_closeLoan_priceBelowPut() public {
+        uint putStrikeDeviation = ltv;
+        uint newPrice = twapPrice * (putStrikeDeviation - BIPS_100PCT / 10) / BIPS_100PCT;
+        // price goes below put strike, withdrawal is 0 (all gone to provider)
+        checkOpenCloseLoanPriceChange(newPrice, 0, 0);
     }
 
     function test_setKeeper() public {
