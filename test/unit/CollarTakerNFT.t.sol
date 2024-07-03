@@ -330,6 +330,14 @@ contract CollarTakerNFTTest is Test {
         takerNFT.openPairedPosition(putLockedCashToUse, providerNFT, 0);
     }
 
+    function test_openPairedPosition_badOfferId() public {
+        createOfferMintTouserAndSetPrice();
+        startHoax(user1);
+        cashAsset.approve(address(takerNFT), putLockedCashToUse);
+        vm.expectRevert("invalid offer");
+        takerNFT.openPairedPosition(putLockedCashToUse, providerNFT, 1000);
+    }
+
     function test_openPairedPositionBadCashAssetMismatch() public {
         createOfferMintTouserAndSetPrice();
         vm.stopPrank();

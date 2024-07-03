@@ -251,6 +251,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         returns (uint)
     {
         ProviderPositionNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
+        require(offer.provider != address(0), "invalid offer");
         uint putRange = BIPS_BASE - offer.putStrikeDeviation;
         uint callRange = offer.callStrikeDeviation - BIPS_BASE;
         require(putRange != 0, "invalid put strike deviation"); // avoid division by zero
