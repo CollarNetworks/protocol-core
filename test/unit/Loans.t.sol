@@ -170,9 +170,7 @@ contract LoansTest is Test {
         uint loanAmount,
         uint withdrawal,
         uint expectedCollateralOut
-    )
-        internal
-    {
+    ) internal {
         // TWAP price must be set for every block
         engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
 
@@ -247,7 +245,7 @@ contract LoansTest is Test {
         assertEq(address(loans.cashAsset()), address(cashAsset));
         assertEq(address(loans.collateralAsset()), address(collateralAsset));
         assertEq(loans.TWAP_LENGTH(), 15 minutes);
-        assertEq(loans.MAX_SWAP_TWAP_DEVIATION_BIPS(), 100);
+        assertEq(loans.MAX_SWAP_TWAP_DEVIATION_BIPS(), 500);
         assertEq(loans.VERSION(), "0.2.0");
         assertEq(loans.owner(), owner);
         assertEq(loans.closingKeeper(), address(0));
