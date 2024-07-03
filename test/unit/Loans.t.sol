@@ -241,6 +241,7 @@ contract LoansTest is Test {
     // happy paths
 
     function test_constructor() public {
+        loans = new Loans(owner, engine, takerNFT, cashAsset, collateralAsset);
         assertEq(address(loans.engine()), address(engine));
         assertEq(address(loans.takerNFT()), address(takerNFT));
         assertEq(address(loans.cashAsset()), address(cashAsset));
@@ -376,6 +377,17 @@ contract LoansTest is Test {
         loans.closeLoan(takerId, 0);
     }
 
+    function test_unpause() public {
+        vm.startPrank(owner);
+        loans.pause();
+        vm.expectEmit(address(loans));
+        emit Pausable.Unpaused(owner);
+        loans.unpause();
+        assertFalse(loans.paused());
+        // check at least one method workds now
+        createAndCheckLoan();
+    }
+
     // reverts
 
     function test_onlyOwnerMethods() public {
@@ -393,6 +405,10 @@ contract LoansTest is Test {
         vm.startPrank(user1);
         collateralAsset.approve(address(loans), collateralAmount);
         setupSwap(cashAsset, twapPrice * collateralAmount / 1e18);
+
+        // 0 collateral
+        vm.expectRevert("invalid collateral amount");
+        loans.createLoan(0, 0, 0, ProviderPositionNFT(address(0)), 0);
 
         // bad provider
         ProviderPositionNFT invalidProviderNFT = new ProviderPositionNFT(
@@ -473,7 +489,16 @@ contract LoansTest is Test {
         loans.closeLoan(nonExistentTakerId, 0);
     }
 
-    function test_revert_closeLoan_alreadyClosed() public {
+    function test_revert_closeLoan_noLoanForTakerID() public {
+        uint offerId = createOfferAsProvider();
+        vm.startPrank(user1);
+        // create taker NFT not through loans
+        (uint takerId,) = takerNFT.openPairedPosition(0, providerNFT, offerId);
+        vm.expectRevert("loan does not exist");
+        loans.closeLoan(takerId, 0);
+    }
+
+    function test_reverts_alreadyClosed() public {
         (uint takerId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
         vm.startPrank(user1);
@@ -486,6 +511,9 @@ contract LoansTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, takerId));
         loans.closeLoan(takerId, 0);
+
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, takerId));
+        loans.setKeeperAllowedBy(takerId, true);
     }
 
     function test_revert_closeLoan_insufficientRepaymentAllowance() public {
@@ -545,6 +573,7 @@ contract LoansTest is Test {
         loans.setKeeper(keeper);
 
         vm.startPrank(keeper);
+        // keeper was not allowed by user
         vm.expectRevert("not taker NFT owner or allowed keeper");
         loans.closeLoan(takerId, 0);
 
@@ -552,6 +581,7 @@ contract LoansTest is Test {
         loans.setKeeperAllowedBy(takerId, true);
 
         vm.startPrank(user1);
+        // transfer invalidates approval
         takerNFT.transferFrom(user1, address(0xbeef), takerId);
 
         vm.startPrank(keeper);
@@ -559,5 +589,40 @@ contract LoansTest is Test {
         loans.closeLoan(takerId, 0);
     }
 
+    function test_revert_setKeeperAllowedBy_notNFTOwner() public {
+        (uint takerId,,) = createAndCheckLoan();
+        vm.startPrank(address(0xdead));
+        vm.expectRevert("not taker NFT owner");
+        loans.setKeeperAllowedBy(takerId, true);
+    }
 
+    function test_revert_setKeeperAllowedBy_nonExistentLoan() public {
+        uint nonExistentTakerId = 999;
+        vm.startPrank(user1);
+        vm.expectRevert(
+            abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, nonExistentTakerId)
+        );
+        loans.setKeeperAllowedBy(nonExistentTakerId, true);
+    }
+
+    function test_revert_setKeeperAllowedBy_noLoanForTakerID() public {
+        uint offerId = createOfferAsProvider();
+        vm.startPrank(user1);
+        // create taker NFT not through loans
+        (uint takerId,) = takerNFT.openPairedPosition(0, providerNFT, offerId);
+        vm.expectRevert("loan does not exist");
+        loans.setKeeperAllowedBy(takerId, true);
+    }
+
+    function test_revert_setKeeperAllowedBy_afterTransfer() public {
+        (uint takerId,,) = createAndCheckLoan();
+        address newOwner = address(0xbeef);
+
+        vm.startPrank(user1);
+        takerNFT.transferFrom(user1, newOwner, takerId);
+
+        vm.startPrank(user1);
+        vm.expectRevert("not taker NFT owner");
+        loans.setKeeperAllowedBy(takerId, true);
+    }
 }

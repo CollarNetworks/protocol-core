@@ -98,6 +98,9 @@ contract Loans is ILoans, Ownable, Pausable {
         whenNotPaused
         returns (uint takerId, uint providerId, uint loanAmount)
     {
+        // 0 collateral is later checked to mean non-existing loan, also prevents div-zero
+        require(collateralAmount != 0, "invalid collateral amount");
+
         // pull collateral
         collateralAsset.safeTransferFrom(msg.sender, address(this), collateralAmount);
 
@@ -201,7 +204,7 @@ contract Loans is ILoans, Ownable, Pausable {
         (takerId, providerId) = takerNFT.openPairedPosition(putLockedCash, providerNFT, offerId);
 
         // store the loan opening data
-        assert(loans[takerId].collateralAmount == 0); // should not be possible - was just minted
+        // takerId is assumed to be just minted, so storage must be empty
         loans[takerId] = Loan({
             collateralAmount: collateralAmount,
             loanAmount: loanAmount,
@@ -294,7 +297,8 @@ contract Loans is ILoans, Ownable, Pausable {
     function _requireValidLoan(Loan storage loan) internal view {
         // no loan taken. Note that loanAmount 0 can happen for 0 putStrikePrice
         // so only collateral should be checked
-        require(loan.collateralAmount != 0, "0 collateral amount");
+        require(loan.collateralAmount != 0, "loan does not exist");
+        // TODO: add a reentrancy test (via one of the assets) to cover this check
         require(!loan.closed, "already closed");
     }
 
@@ -304,6 +308,7 @@ contract Loans is ILoans, Ownable, Pausable {
     /// So, this check is just extra precaution and avoidance of manipulation edge-cases.
     function _checkSwapPrice(uint cashFromSwap, uint collateralAmount) internal view {
         uint twapPrice = _getTWAPPrice(block.timestamp);
+        // collateral is checked on open to not be 0
         uint swapPrice = cashFromSwap * engine.TWAP_BASE_TOKEN_AMOUNT() / collateralAmount;
         uint diff = swapPrice > twapPrice ? swapPrice - twapPrice : twapPrice - swapPrice;
         uint deviation = diff * BIPS_BASE / twapPrice;
@@ -314,21 +319,5 @@ contract Loans is ILoans, Ownable, Pausable {
         return engine.getHistoricalAssetPriceViaTWAP(
             address(collateralAsset), address(cashAsset), uint32(twapEndTime), TWAP_LENGTH
         );
-    }
-
-    function _splitSwappedCash(
-        uint cashFromSwap,
-        ProviderPositionNFT providerNFT,
-        uint offerId
-    )
-        internal
-        view
-        returns (uint loanAmount, uint putLockedCash)
-    {
-        uint putStrikeDeviation = providerNFT.getOffer(offerId).putStrikeDeviation;
-        // this assumes LTV === put strike price
-        loanAmount = putStrikeDeviation * cashFromSwap / BIPS_BASE;
-        // everything that remains is locked on the put side
-        putLockedCash = cashFromSwap - loanAmount;
     }
 }
