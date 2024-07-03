@@ -4,6 +4,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
@@ -28,16 +29,18 @@ contract LoansTest is Test {
     address provider = makeAddr("provider");
     address keeper = makeAddr("keeper");
 
-    uint collateralAmount = 10 ether;
-    uint minLoanAmount = 8 ether;
-    uint minSwapCash = 9 ether;
-    uint amountToProvide = 100_000 ether;
-    uint twapPrice = 10 ether;
-
     uint constant BIPS_100PCT = 10_000;
     uint ltv = 9000;
     uint duration = 300;
     uint callStrikeDeviation = 12_000;
+
+    uint twapPrice = 10 ether;
+    uint collateralAmount = 10 ether;
+    // swap amount
+    uint minSwapCash = (collateralAmount * twapPrice / 1e18);
+    // swap amount * ltv
+    uint minLoanAmount = minSwapCash * (ltv / BIPS_100PCT);
+    uint amountToProvide = 100_000 ether;
 
     function setUp() public {
         cashAsset = new TestERC20("TestCash", "TestCash");
@@ -80,6 +83,7 @@ contract LoansTest is Test {
     function setupSwap(TestERC20 asset, uint amount) public {
         asset.mint(address(uniRouter), amount);
         uniRouter.setAmountToReturn(amount);
+        uniRouter.setTransferAmount(amount);
     }
 
     function createOfferAsProvider() internal returns (uint offerId) {
@@ -384,4 +388,67 @@ contract LoansTest is Test {
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
         loans.setKeeper(keeper);
     }
+
+    function test_revert_createLoan_params() public {
+        vm.startPrank(user1);
+        collateralAsset.approve(address(loans), collateralAmount);
+        setupSwap(cashAsset, twapPrice * collateralAmount / 1e18);
+
+        // bad provider
+        ProviderPositionNFT invalidProviderNFT = new ProviderPositionNFT(
+            owner, engine, cashAsset, collateralAsset, address(takerNFT), "InvalidProviderNFT", "INVPRV"
+        );
+        vm.expectRevert("unsupported provider contract");
+        loans.createLoan(collateralAmount, minLoanAmount, minSwapCash, invalidProviderNFT, 0);
+
+        // bad offer
+        uint invalidOfferId = 999;
+        vm.expectRevert("invalid offer");
+        loans.createLoan(collateralAmount, minLoanAmount, minSwapCash, providerNFT, invalidOfferId);
+
+        // too much collateral for offer
+        uint offerId = createOfferAsProvider();
+        // not enough approval for collatearal
+        vm.startPrank(user1);
+        vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InsufficientAllowance.selector, address(loans), collateralAmount, collateralAmount + 1));
+        loans.createLoan(collateralAmount + 1, minLoanAmount, minSwapCash, providerNFT, offerId);
+    }
+
+    function test_revert_createLoan_swaps() public {
+        // too much slippage
+        uint offerId = createOfferAsProvider();
+        setupSwap(cashAsset, minSwapCash);
+
+        vm.startPrank(user1);
+        collateralAsset.approve(address(loans), collateralAmount);
+
+        // balance mismatch
+        uniRouter.setAmountToReturn(minSwapCash - 1);
+        vm.expectRevert("balance update mismatch");
+        loans.createLoan(collateralAmount, minLoanAmount, minSwapCash, providerNFT, offerId);
+
+        // slippage params
+        uniRouter.setAmountToReturn(minSwapCash);
+        vm.expectRevert("slippage exceeded");
+        loans.createLoan(collateralAmount, minLoanAmount, minSwapCash + 1, providerNFT, offerId);
+
+        // deviation vs.TWAP
+        setupSwap(cashAsset, minSwapCash / 2);
+        vm.expectRevert("swap and twap price too different");
+        loans.createLoan(collateralAmount, minLoanAmount, 0, providerNFT, offerId);
+    }
+
+    function test_revert_createLoan_insufficientLoanAmount() public {
+        uint offerId = createOfferAsProvider();
+        uint swapOut = collateralAmount * twapPrice / 1e18;
+        setupSwap(cashAsset, swapOut);
+
+        vm.startPrank(user1);
+        collateralAsset.approve(address(loans), collateralAmount);
+
+        uint highMinLoanAmount = (swapOut * ltv / BIPS_100PCT) + 1; // 1 wei more than ltv
+        vm.expectRevert("loan amount too low");
+        loans.createLoan(collateralAmount, highMinLoanAmount, minSwapCash, providerNFT, offerId);
+    }
+
 }
