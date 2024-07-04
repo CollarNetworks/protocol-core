@@ -59,7 +59,7 @@ contract LoansTest is Test {
         engine.setProviderContractAuth(address(providerNFT), true);
 
         collateralAsset.mint(user1, collateralAmount * 10);
-        cashAsset.mint(user1, collateralAmount * 10 * twapPrice / 1e18);
+        cashAsset.mint(user1, minSwapCash * 10);
         cashAsset.mint(provider, amountToProvide * 10);
 
         engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
@@ -80,10 +80,20 @@ contract LoansTest is Test {
         engine.addSupportedCollateralAsset(address(collateralAsset));
     }
 
-    function setupSwap(TestERC20 asset, uint amount) public {
+    function prepareSwap(TestERC20 asset, uint amount) public {
         asset.mint(address(uniRouter), amount);
         uniRouter.setAmountToReturn(amount);
         uniRouter.setTransferAmount(amount);
+    }
+
+    function prepareSwapToCollateralAtTWAPPrice() public returns (uint swapOut) {
+        swapOut = collateralAmount * 1e18 / twapPrice;
+        prepareSwap(collateralAsset, swapOut);
+    }
+
+    function prepareSwapToCashAtTWAPPrice() public returns (uint swapOut) {
+        swapOut = collateralAmount * twapPrice / 1e18;
+        prepareSwap(cashAsset, swapOut);
     }
 
     function createOfferAsProvider() internal returns (uint offerId) {
@@ -95,10 +105,12 @@ contract LoansTest is Test {
     function createAndCheckLoan() internal returns (uint takerId, uint providerId, uint loanAmount) {
         uint offerId = createOfferAsProvider();
 
+        // TWAP price must be set for every block
         engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
 
+        // convert at twap price
         uint swapOut = collateralAmount * twapPrice / 1e18;
-        setupSwap(cashAsset, swapOut);
+        prepareSwap(cashAsset, swapOut);
 
         startHoax(user1);
         collateralAsset.approve(address(loans), collateralAmount);
@@ -176,8 +188,8 @@ contract LoansTest is Test {
         // TWAP price must be set for every block
         engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
 
-        // Approve loan contract to spend user's cash for repayment
         vm.startPrank(user1);
+        // Approve loan contract to spend user's cash for repayment
         cashAsset.approve(address(loans), loanAmount);
         // Approve loan contract to transfer user's NFT for settlement
         takerNFT.approve(address(loans), takerId);
@@ -185,7 +197,7 @@ contract LoansTest is Test {
         uint initialCollateralBalance = collateralAsset.balanceOf(user1);
         uint initialCashBalance = cashAsset.balanceOf(user1);
 
-        // Keeper closes the loan
+        // caller closes the loan
         vm.startPrank(caller);
         vm.expectEmit(address(loans));
         emit ILoans.LoanClosed(
@@ -193,7 +205,7 @@ contract LoansTest is Test {
         );
         uint collateralOut = loans.closeLoan(takerId, 0);
 
-        // Check balances after loan closure
+        // Check balances and return value
         assertEq(collateralOut, expectedCollateralOut);
         assertEq(collateralAsset.balanceOf(user1), initialCollateralBalance + collateralOut);
         assertEq(cashAsset.balanceOf(user1), initialCashBalance - loanAmount);
@@ -210,7 +222,7 @@ contract LoansTest is Test {
         loans.closeLoan(takerId, 0);
     }
 
-    function checkOpenCloseLoanPriceChange(uint newPrice, uint putPortion, uint callPortion) public {
+    function checkOpenCloseWithPriceChange(uint newPrice, uint putRatio, uint callRaio) public returns (uint) {
         (uint takerId, uint providerId, uint loanAmount) = createAndCheckLoan();
         skip(duration);
 
@@ -218,24 +230,13 @@ contract LoansTest is Test {
         twapPrice = newPrice;
 
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(takerId);
-        // calculate withdrawal amounts
-        uint withdrawal = takerPosition.putLockedCash * putPortion / BIPS_100PCT
-            + takerPosition.callLockedCash * callPortion / BIPS_100PCT;
+        // calculate withdrawal amounts according to expected ratios
+        uint withdrawal = takerPosition.putLockedCash * putRatio / BIPS_100PCT
+            + takerPosition.callLockedCash * callRaio / BIPS_100PCT;
         // setup router output
-        uint swapOut = collateralAmount * 1e18 / twapPrice;
-        setupSwap(collateralAsset, swapOut);
-
+        uint swapOut = prepareSwapToCollateralAtTWAPPrice();
         closeAndCheckLoan(takerId, user1, loanAmount, withdrawal, swapOut);
-    }
-
-    function allowKeeper(uint takerId) internal {
-        // Set the keeper
-        vm.startPrank(owner);
-        loans.setKeeper(keeper);
-
-        // Allow the keeper to close the loan
-        vm.startPrank(user1);
-        loans.setKeeperAllowedBy(takerId, true);
+        return takerId;
     }
 
     // happy paths
@@ -283,67 +284,69 @@ contract LoansTest is Test {
         // withdrawal: no price change so only user locked (put locked)
         uint withdrawal = takerPosition.putLockedCash;
         // setup router output
-        uint swapOut = collateralAmount * 1e18 / twapPrice;
-        setupSwap(collateralAsset, swapOut);
-
+        uint swapOut = prepareSwapToCollateralAtTWAPPrice();
         closeAndCheckLoan(takerId, user1, loanAmount, withdrawal, swapOut);
     }
 
     function test_closeLoan_byKeeper() public {
         (uint takerId, uint providerId, uint loanAmount) = createAndCheckLoan();
         skip(duration);
-        // allow keeper
-        allowKeeper(takerId);
+
+        // Set the keeper
+        vm.startPrank(owner);
+        loans.setKeeper(keeper);
+
+        // Allow the keeper to close the loan
+        vm.startPrank(user1);
+        loans.setKeeperAllowedBy(takerId, true);
 
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(takerId);
         // withdrawal: no price change so only user locked (put locked)
         uint withdrawal = takerPosition.putLockedCash;
         // setup router output
-        uint swapOut = collateralAmount * 1e18 / twapPrice;
-        setupSwap(collateralAsset, swapOut);
-
+        uint swapOut = prepareSwapToCollateralAtTWAPPrice();
         closeAndCheckLoan(takerId, keeper, loanAmount, withdrawal, swapOut);
     }
 
     function test_closeLoan_priceUpToCall() public {
         uint newPrice = twapPrice * callStrikeDeviation / BIPS_100PCT;
-        // price goes to call strike, withdrawal is 100% of pot (put + call locked parts)
-        checkOpenCloseLoanPriceChange(newPrice, BIPS_100PCT, BIPS_100PCT);
+        // price goes to call strike, withdrawal is 100% of pot (100% put + 100% call locked parts)
+        checkOpenCloseWithPriceChange(newPrice, BIPS_100PCT, BIPS_100PCT);
     }
 
     function test_closeLoan_priceHalfUpToCall() public {
         uint delta = (callStrikeDeviation - BIPS_100PCT) / 2;
         uint newPrice = twapPrice * (BIPS_100PCT + delta) / BIPS_100PCT;
-        // price goes to half way to call, withdrawal is putLocked + half of callLocked
-        checkOpenCloseLoanPriceChange(newPrice, BIPS_100PCT, BIPS_100PCT / 2);
+        // price goes to half way to call, withdrawal is 100% putLocked + 50% of callLocked
+        checkOpenCloseWithPriceChange(newPrice, BIPS_100PCT, BIPS_100PCT / 2);
     }
 
     function test_closeLoan_priceOverCall() public {
         uint newPrice = twapPrice * (callStrikeDeviation + BIPS_100PCT) / BIPS_100PCT;
-        // price goes over call, withdrawal is putLocked + callLocked
-        checkOpenCloseLoanPriceChange(newPrice, BIPS_100PCT, BIPS_100PCT);
+        // price goes over call, withdrawal is 100% putLocked + 100% callLocked
+        checkOpenCloseWithPriceChange(newPrice, BIPS_100PCT, BIPS_100PCT);
     }
 
     function test_closeLoan_priceDownToPut() public {
         uint putStrikeDeviation = ltv;
         uint newPrice = twapPrice * putStrikeDeviation / BIPS_100PCT;
         // price goes to put strike, withdrawal is 0 (all gone to provider)
-        checkOpenCloseLoanPriceChange(newPrice, 0, 0);
+        checkOpenCloseWithPriceChange(newPrice, 0, 0);
     }
 
     function test_closeLoan_priceHalfDownToPut() public {
         uint putStrikeDeviation = ltv;
         uint delta = (BIPS_100PCT - putStrikeDeviation) / 2;
         uint newPrice = twapPrice * (BIPS_100PCT - delta) / BIPS_100PCT;
-        // price goes half way to put strike, withdrawal is half of putLocked and 0 of callLocked
-        checkOpenCloseLoanPriceChange(newPrice, BIPS_100PCT / 2, 0);
+        // price goes half way to put strike, withdrawal is 50% of putLocked and 0% of callLocked
+        checkOpenCloseWithPriceChange(newPrice, BIPS_100PCT / 2, 0);
     }
 
     function test_closeLoan_priceBelowPut() public {
         uint putStrikeDeviation = ltv;
         uint newPrice = twapPrice * (putStrikeDeviation - BIPS_100PCT / 10) / BIPS_100PCT;
-        // price goes below put strike, withdrawal is 0 (all gone to provider)
-        checkOpenCloseLoanPriceChange(newPrice, 0, 0);
+        // price goes below put strike, withdrawal is 0% (all gone to provider)
+        checkOpenCloseWithPriceChange(newPrice, 0, 0);
     }
 
     function test_setKeeper() public {
@@ -404,7 +407,7 @@ contract LoansTest is Test {
     function test_revert_createLoan_params() public {
         vm.startPrank(user1);
         collateralAsset.approve(address(loans), collateralAmount);
-        setupSwap(cashAsset, twapPrice * collateralAmount / 1e18);
+        prepareSwapToCashAtTWAPPrice();
 
         // 0 collateral
         vm.expectRevert("invalid collateral amount");
@@ -422,7 +425,6 @@ contract LoansTest is Test {
         vm.expectRevert("invalid offer");
         loans.createLoan(collateralAmount, minLoanAmount, minSwapCash, providerNFT, invalidOfferId);
 
-        // too much collateral for offer
         uint offerId = createOfferAsProvider();
         // not enough approval for collatearal
         vm.startPrank(user1);
@@ -438,9 +440,8 @@ contract LoansTest is Test {
     }
 
     function test_revert_createLoan_swaps() public {
-        // too much slippage
         uint offerId = createOfferAsProvider();
-        setupSwap(cashAsset, minSwapCash);
+        prepareSwap(cashAsset, minSwapCash);
 
         vm.startPrank(user1);
         collateralAsset.approve(address(loans), collateralAmount);
@@ -456,15 +457,14 @@ contract LoansTest is Test {
         loans.createLoan(collateralAmount, minLoanAmount, minSwapCash + 1, providerNFT, offerId);
 
         // deviation vs.TWAP
-        setupSwap(cashAsset, minSwapCash / 2);
+        prepareSwap(cashAsset, minSwapCash / 2);
         vm.expectRevert("swap and twap price too different");
         loans.createLoan(collateralAmount, minLoanAmount, 0, providerNFT, offerId);
     }
 
     function test_revert_createLoan_insufficientLoanAmount() public {
         uint offerId = createOfferAsProvider();
-        uint swapOut = collateralAmount * twapPrice / 1e18;
-        setupSwap(cashAsset, swapOut);
+        uint swapOut = prepareSwapToCashAtTWAPPrice();
 
         vm.startPrank(user1);
         collateralAsset.approve(address(loans), collateralAmount);
@@ -498,29 +498,17 @@ contract LoansTest is Test {
         loans.closeLoan(takerId, 0);
     }
 
-    function test_reverts_alreadyClosed() public {
-        (uint takerId,, uint loanAmount) = createAndCheckLoan();
-        skip(duration);
-        vm.startPrank(user1);
-
-        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
-        cashAsset.approve(address(loans), loanAmount);
-        takerNFT.approve(address(loans), takerId);
-        setupSwap(collateralAsset, collateralAmount);
-        loans.closeLoan(takerId, 0);
-
+    function test_revert_closeLoan_alreadyClosed() public {
+        uint takerId = checkOpenCloseWithPriceChange(twapPrice, BIPS_100PCT, 0);
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, takerId));
         loans.closeLoan(takerId, 0);
-
-        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, takerId));
-        loans.setKeeperAllowedBy(takerId, true);
     }
 
     function test_revert_closeLoan_insufficientRepaymentAllowance() public {
         (uint takerId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
-
         vm.startPrank(user1);
+
         cashAsset.approve(address(loans), loanAmount - 1);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -533,9 +521,9 @@ contract LoansTest is Test {
     function test_revert_closeLoan_notApprovedNFT() public {
         (uint takerId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
-
         vm.startPrank(user1);
         cashAsset.approve(address(loans), loanAmount);
+
         vm.expectRevert(
             abi.encodeWithSelector(IERC721Errors.ERC721InsufficientApproval.selector, address(loans), takerId)
         );
@@ -560,13 +548,14 @@ contract LoansTest is Test {
         vm.startPrank(user1);
         cashAsset.approve(address(loans), loanAmount);
         takerNFT.approve(address(loans), takerId);
-        setupSwap(collateralAsset, collateralAmount);
+        prepareSwap(collateralAsset, collateralAmount);
+
         vm.expectRevert("slippage exceeded");
         loans.closeLoan(takerId, collateralAmount + 1);
     }
 
     function test_revert_closeLoan_keeperNotAllowed() public {
-        (uint takerId,,) = createAndCheckLoan();
+        (uint takerId,,uint loanAmount) = createAndCheckLoan();
         skip(duration);
 
         vm.startPrank(owner);
@@ -582,11 +571,25 @@ contract LoansTest is Test {
 
         vm.startPrank(user1);
         // transfer invalidates approval
-        takerNFT.transferFrom(user1, address(0xbeef), takerId);
+        takerNFT.transferFrom(user1, provider, takerId);
 
         vm.startPrank(keeper);
         vm.expectRevert("not taker NFT owner or allowed keeper");
         loans.closeLoan(takerId, 0);
+
+        // transfer back
+        vm.startPrank(provider);
+        takerNFT.transferFrom(provider, user1, takerId);
+
+        // should work now
+        vm.startPrank(user1);
+        cashAsset.approve(address(loans), loanAmount);
+        takerNFT.approve(address(loans), takerId);
+        prepareSwap(collateralAsset, collateralAmount);
+        // close from keeper
+        vm.startPrank(keeper);
+        loans.closeLoan(takerId, 0);
+        assertTrue(loans.getLoan(takerId).closed);
     }
 
     function test_revert_setKeeperAllowedBy_notNFTOwner() public {
@@ -603,6 +606,12 @@ contract LoansTest is Test {
             abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, nonExistentTakerId)
         );
         loans.setKeeperAllowedBy(nonExistentTakerId, true);
+    }
+
+    function test_revert_setKeeperAllowedBy_alreadyClosed() public {
+        uint takerId = checkOpenCloseWithPriceChange(twapPrice, BIPS_100PCT, 0);
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, takerId));
+        loans.setKeeperAllowedBy(takerId, true);
     }
 
     function test_revert_setKeeperAllowedBy_noLoanForTakerID() public {
