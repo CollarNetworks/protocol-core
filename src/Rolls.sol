@@ -162,7 +162,7 @@ contract Rolls is Ownable, Pausable {
         // auth, will revert if takerId was burned already
         require(msg.sender == takerNFT.ownerOf(offerMemory.takerId), "not taker ID owner");
 
-        // position is valid
+        // position is not settled yet. it must exist still (otherwise ownerOf would revert)
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offerMemory.takerId);
         require(!takerPos.settled, "taker position settled");
 
@@ -171,6 +171,7 @@ contract Rolls is Ownable, Pausable {
         require(currentPrice >= takerPos.initialPrice, "price too low");
         require(currentPrice <= offerMemory.maxPrice, "price too high");
 
+        // offer was cancelled (if taken tokens would be burned)
         require(offerMemory.active, "invalid offer");
         // store the inactive state before external calls as extra reentrancy precaution
         // @dev this writes to storage, and so doesn't use memoryOffer (because it's in memory)
