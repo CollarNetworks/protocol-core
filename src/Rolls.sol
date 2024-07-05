@@ -167,11 +167,22 @@ contract Rolls is Ownable, Pausable {
         require(currentPrice >= takerPos.initialPrice, "price too low");
         require(currentPrice <= offer.maxPrice, "price too high");
 
+        // deactivate before external calls as reentrancy precaution
+        offer.active = false;
+
+        // track our balance
+        uint cashBalanceBefore = cashAsset.balanceOf(address(this));
+
+        // pull the taker NFT from the user (we already have the provider NFT)
+        takerNFT.transferFrom(msg.sender, address(this), takerId);
+        // now that we have both NFTs, cancel the positions and withdraw
+        _cancelPairedPositionAndWithdraw(takerId, takerPos);
+
         ProviderPositionNFT providerNFT = takerPos.providerNFT;
-        uint providerId = takerPos.providerPositionId;
-        ProviderPositionNFT.ProviderPosition memory providerPos = providerNFT.getPosition(providerId);
+        ProviderPositionNFT.ProviderPosition memory providerPos =
+            providerNFT.getPosition(takerPos.providerPositionId);
         // calculate the transfer amounts
-        (uint providerTransferIn, uint takerTransferOut,) = _calculateTransferAmounts({
+        (uint providerTransferIn, uint takerTransferOut, uint fee) = _calculateTransferAmounts({
             startPrice: takerPos.initialPrice,
             newPrice: currentPrice,
             feePercent: offer.feePercent,
@@ -179,54 +190,32 @@ contract Rolls is Ownable, Pausable {
             providerPos: providerPos
         });
 
-        // deactivate before external calls as reentrancy precaution
-        offer.active = false;
-
-        // pull the taker NFT from the user (we already have the provider NFT)
-        takerNFT.transferFrom(msg.sender, address(this), takerId);
-
-        // cancel and withdraw the cash from the existing paired position
-        // @dev this relies on being the owner of both NFTs. it burns both NFTs, and withdraws
-        // both put and locked cash to this contract
-        uint balanceBefore = cashAsset.balanceOf(address(this));
-        takerNFT.cancelPairedPosition(takerId, address(this));
-        uint withdrawn = cashAsset.balanceOf(address(this)) - balanceBefore;
-        uint expectedAmount = takerPos.putLockedCash + takerPos.callLockedCash;
-        require(withdrawn == expectedAmount, "unexpected withdrawal amount");
-
-        // pull the cash needed from the original provider who made the roll offer
+        // pull the additional cash needed from the original provider who made the roll offer
         // @dev this requires the original owner of the providerId (stored in the offer) when
         // the roll offer was created to still allow this contract to pull their funds, and
-        // still have sufficient balance on that account.
+        // still have sufficient balance for that.
         cashAsset.safeTransferFrom(offer.provider, address(this), providerTransferIn);
 
-        // calculate locked amounts for new positions
-        (uint newPutLocked, uint newCallLocked) = _newLockedAmounts({
-            startPrice : takerPos.initialPrice,
-            newPrice : currentPrice,
-            putLocked : takerPos.putLockedCash,
-            putDeviation : providerPos.putStrikeDeviation,
-            callDeviation : providerPos.callStrikeDeviation
-        });
-
-        // create a liquidity offer just for this roll
-        cashAsset.forceApprove(address(providerNFT), newCallLocked);
-        uint liquidityOfferId = providerNFT.createOffer(providerPos.callStrikeDeviation, newCallLocked, providerPos.putStrikeDeviation, takerPos.duration);
-
-        // take the liquidity offer as taker
-        cashAsset.forceApprove(address(takerNFT), newPutLocked);
-        (uint newTakerId, uint newProviderId) = takerNFT.openPairedPosition(newPutLocked, providerNFT, liquidityOfferId);
-
-        // send the cash for the delta (price exposure difference, equivalent to the loan increase)
-        // to the taker
-        cashAsset.safeTransfer(msg.sender, takerTransferOut);
+        // open the new positions
+        (uint newTakerId, uint newProviderId) =
+            _openNewPairedPosition(currentPrice, providerNFT, takerPos, providerPos);
 
         // we now own both of the NFT IDs, so send them out to their new proud owners
         takerNFT.transferFrom(address(this), msg.sender, newTakerId);
         providerNFT.transferFrom(address(this), offer.provider, newProviderId);
 
+        // send the cash for the delta (price exposure difference, equivalent to the loan increase)
+        // to the taker
+        cashAsset.safeTransfer(msg.sender, takerTransferOut);
+
+        // refund any remaining dust or excess
+        uint providerRefund = cashAsset.balanceOf(address(this)) - cashBalanceBefore;
+        cashAsset.safeTransfer(offer.provider, providerRefund);
+
         // TODO: event
     }
+
+    // admin mutative
 
     /// @notice Pauses the contract in an emergency, pausing all user callable mutative methods
     function pause() public onlyOwner {
@@ -239,6 +228,55 @@ contract Rolls is Ownable, Pausable {
     }
 
     // ----- INTERNAL MUTATIVE ----- //
+
+    function _cancelPairedPositionAndWithdraw(
+        uint takerId,
+        CollarTakerNFT.TakerPosition memory takerPos
+    )
+        internal
+    {
+        // cancel and withdraw the cash from the existing paired position
+        // @dev this relies on being the owner of both NFTs. it burns both NFTs, and withdraws
+        // both put and locked cash to this contract
+        uint balanceBefore = cashAsset.balanceOf(address(this));
+        takerNFT.cancelPairedPosition(takerId, address(this));
+        uint withdrawn = cashAsset.balanceOf(address(this)) - balanceBefore;
+        uint expectedAmount = takerPos.putLockedCash + takerPos.callLockedCash;
+        require(withdrawn == expectedAmount, "unexpected withdrawal amount");
+    }
+
+    function _openNewPairedPosition(
+        uint currentPrice,
+        ProviderPositionNFT providerNFT,
+        CollarTakerNFT.TakerPosition memory takerPos,
+        ProviderPositionNFT.ProviderPosition memory providerPos
+    )
+        internal
+        returns (uint newTakerId, uint newProviderId)
+    {
+        // calculate locked amounts for new positions
+        (uint newPutLocked, uint newCallLocked) = _newLockedAmounts({
+            startPrice: takerPos.initialPrice,
+            newPrice: currentPrice,
+            putLocked: takerPos.putLockedCash,
+            putDeviation: providerPos.putStrikeDeviation,
+            callDeviation: providerPos.callStrikeDeviation
+        });
+
+        // create a liquidity offer just for this roll
+        cashAsset.forceApprove(address(providerNFT), newCallLocked);
+        uint liquidityOfferId = providerNFT.createOffer(
+            providerPos.callStrikeDeviation, newCallLocked, providerPos.putStrikeDeviation, takerPos.duration
+        );
+
+        // take the liquidity offer as taker
+        cashAsset.forceApprove(address(takerNFT), newPutLocked);
+        (newTakerId, newProviderId) = takerNFT.openPairedPosition(newPutLocked, providerNFT, liquidityOfferId);
+
+        // withdraw any dust from the liquidity offer, in case of possible rounding in calculations
+        // should be 0 because the same calculation method is used
+        providerNFT.updateOfferAmount(liquidityOfferId, 0);
+    }
 
     // ----- INTERNAL VIEWS ----- //
 
