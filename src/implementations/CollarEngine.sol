@@ -44,7 +44,7 @@ contract CollarEngine is Ownable, ICollarEngine {
     EnumerableSet.UintSet internal validLTVs;
     EnumerableSet.UintSet internal validCollarDurations;
 
-    mapping(address contractAddress => bool enabled) public isBorrowNFT;
+    mapping(address contractAddress => bool enabled) public isCollarTakerNFT;
     mapping(address contractAddress => bool enabled) public isProviderNFT;
 
     constructor(address _univ3SwapRouter) Ownable(msg.sender) {
@@ -53,9 +53,9 @@ contract CollarEngine is Ownable, ICollarEngine {
 
     // ----- state-changing functions (see ICollarEngine for documentation) -----
 
-    function setBorrowContractAuth(address contractAddress, bool enabled) external onlyOwner {
-        isBorrowNFT[contractAddress] = enabled;
-        emit BorrowNFTAuthSet(contractAddress, enabled);
+    function setCollarTakerContractAuth(address contractAddress, bool enabled) external onlyOwner {
+        isCollarTakerNFT[contractAddress] = enabled;
+        emit CollarTakerNFTAuthSet(contractAddress, enabled);
     }
 
     function setProviderContractAuth(address contractAddress, bool enabled) external onlyOwner {
@@ -244,7 +244,13 @@ contract CollarEngine is Ownable, ICollarEngine {
         address quoteToken,
         uint32 twapEndTimestamp,
         uint32 twapLength
-    ) external view virtual override returns (uint price) {
+    )
+        external
+        view
+        virtual
+        override
+        returns (uint price)
+    {
         validateAssetsIsSupported(baseToken);
         validateAssetsIsSupported(quoteToken);
         address uniV3Factory = IPeripheryImmutableState(univ3SwapRouter).factory();

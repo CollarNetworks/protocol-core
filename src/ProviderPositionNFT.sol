@@ -28,7 +28,7 @@ import { IProviderPositionNFT } from "./interfaces/IProviderPositionNFT.sol";
  *
  * Role in the Protocol:
  * This contract acts as the interface for liquidity providers in the Collar Protocol.
- * It works in tandem with a corresponding BorrowPositionNFT contract, which is trusted by this contract
+ * It works in tandem with a corresponding CollarTakerNFT contract, which is trusted by this contract
  * to manage the borrower side of position, as well as calculating the positions' payouts.
  *
  * Key Assumptions and Prerequisites:
@@ -65,7 +65,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
     CollarEngine public immutable engine;
     IERC20 public immutable cashAsset;
     IERC20 public immutable collateralAsset;
-    address public immutable borrowPositionContract;
+    address public immutable collarTakerContract;
 
     // ----- STATE ----- //
     uint public nextOfferId; // non transferrable, @dev this is NOT the NFT id
@@ -77,7 +77,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         CollarEngine _engine,
         IERC20 _cashAsset,
         IERC20 _collateralAsset,
-        address _borrowPositionContract,
+        address _collarTakerContract,
         string memory _name,
         string memory _symbol
     )
@@ -86,14 +86,14 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         engine = _engine;
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
-        borrowPositionContract = _borrowPositionContract;
+        collarTakerContract = _collarTakerContract;
         // check params are supported
         _validateAssetsSupported();
     }
 
-    modifier onlyTrustedBorrowContract() {
-        require(engine.isBorrowNFT(borrowPositionContract), "unsupported borrow contract");
-        require(msg.sender == borrowPositionContract, "unauthorized borrow contract");
+    modifier onlyTrustedTakerContract() {
+        require(engine.isCollarTakerNFT(collarTakerContract), "unsupported taker contract");
+        require(msg.sender == collarTakerContract, "unauthorized taker contract");
         _;
     }
 
@@ -183,7 +183,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
 
     // ----- Position actions ----- //
 
-    // ----- actions through borrow NFT ----- //
+    // ----- actions through collar taker NFT ----- //
 
     /// @notice Mints a new position from an existing offer. Can ONLY be called through the
     /// borrowing contract, which is trusted to open and settle the offer according to the terms.
@@ -201,7 +201,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
     )
         external
         whenNotPaused
-        onlyTrustedBorrowContract
+        onlyTrustedTakerContract
         returns (uint positionId, ProviderPosition memory position)
     {
         LiquidityOffer storage offer = liquidityOffers[offerId];
@@ -260,7 +260,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
     )
         external
         whenNotPaused
-        onlyTrustedBorrowContract
+        onlyTrustedTakerContract
     {
         ProviderPosition storage position = positions[positionId];
 
@@ -274,13 +274,13 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
             uint toRemove = uint(-positionChange);
             require(toRemove <= withdrawable, "loss is too high");
             withdrawable -= toRemove;
-            // we owe the borrower some tokens
-            cashAsset.safeTransfer(borrowPositionContract, toRemove);
+            // we owe the taker some tokens
+            cashAsset.safeTransfer(collarTakerContract, toRemove);
         } else if (positionChange > 0) {
             uint toAdd = uint(positionChange);
             withdrawable += toAdd;
-            // the borrower owes us some tokens, requires approval
-            cashAsset.safeTransferFrom(borrowPositionContract, address(this), toAdd);
+            // the taker owes us some tokens, requires approval
+            cashAsset.safeTransferFrom(collarTakerContract, address(this), toAdd);
         } else {
             // no change
         }
@@ -306,7 +306,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
     )
         external
         whenNotPaused
-        onlyTrustedBorrowContract
+        onlyTrustedTakerContract
     {
         require(msg.sender == ownerOf(positionId), "caller does not own token");
 

@@ -12,6 +12,7 @@ line_length = 110
 tab_width = 4
 int_types = "short"
 number_underscore = "thousands"
+func_attrs_with_params_multiline = false
 ignore = ["lib/"]
 bracket_spacing = true
 

@@ -24,7 +24,7 @@ interface ICollarEngine {
     event CollarDurationRemoved(uint indexed duration);
     event LTVAdded(uint indexed ltv);
     event LTVRemoved(uint indexed ltv);
-    event BorrowNFTAuthSet(address indexed contractAddress, bool indexed enabled);
+    event CollarTakerNFTAuthSet(address indexed contractAddress, bool indexed enabled);
     event ProviderNFTAuthSet(address indexed contractAddress, bool indexed enabled);
 
     // ----- state changing transactions
@@ -176,5 +176,8 @@ interface ICollarEngine {
         address quoteToken,
         uint32 twapEndTimestamp,
         uint32 twapLength
-    ) external view returns (uint);
+    )
+        external
+        view
+        returns (uint);
 }
