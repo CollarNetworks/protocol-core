@@ -161,7 +161,7 @@ contract LoansTest is Test {
         assertEq(takerPosition.providerPositionId, providerId);
         assertEq(takerPosition.initialPrice, twapPrice);
         assertEq(takerPosition.putLockedCash, swapOut - loanAmount);
-        assertEq(takerPosition.openedAt, block.timestamp);
+        assertEq(takerPosition.duration, duration);
         assertEq(takerPosition.expiration, block.timestamp + duration);
         assertFalse(takerPosition.settled);
         assertEq(takerPosition.withdrawable, 0);

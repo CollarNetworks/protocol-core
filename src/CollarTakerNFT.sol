@@ -112,7 +112,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         ProviderPositionNFT providerNFT = position.providerNFT;
         uint providerId = position.providerPositionId;
 
-        require(position.openedAt != 0, "position doesn't exist");
+        require(position.expiration != 0, "position doesn't exist");
         // access is restricted because NFT owners might want to cancel (unwind) instead
         require(
             msg.sender == ownerOf(takerId) || msg.sender == providerNFT.ownerOf(providerId),
@@ -202,7 +202,8 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         internal
         returns (uint takerId, uint providerId)
     {
-        uint callLockedCash = _calculateProviderLocked(putLockedCash, providerNFT, offerId);
+        ProviderPositionNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
+        uint callLockedCash = _calculateProviderLocked(putLockedCash, offer);
 
         // open the provider position with duration and callLockedCash locked liquidity (reverts if can't)
         // and sends the provider NFT to the provider
@@ -218,7 +219,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         TakerPosition memory takerPosition = TakerPosition({
             providerNFT: providerNFT,
             providerPositionId: providerId,
-            openedAt: block.timestamp,
+            duration: offer.duration,
             expiration: providerPosition.expiration,
             initialPrice: twapPrice,
             putStrikePrice: putStrikePrice,
@@ -276,14 +277,12 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
 
     function _calculateProviderLocked(
         uint putLockedCash,
-        ProviderPositionNFT providerNFT,
-        uint offerId
+        ProviderPositionNFT.LiquidityOffer memory offer
     )
         internal
         view
         returns (uint)
     {
-        ProviderPositionNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
         require(offer.provider != address(0), "invalid offer");
         return calculateProviderLocked(putLockedCash, offer.putStrikeDeviation, offer.callStrikeDeviation);
     }
