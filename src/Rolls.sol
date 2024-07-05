@@ -145,7 +145,7 @@ contract Rolls is Ownable, Pausable {
         // TODO event
     }
 
-    function acceptOffer(
+    function executeRoll(
         uint rollId,
         uint minCashTransfer // "slippage", extra user protection (e.g, from price changes)
     )
