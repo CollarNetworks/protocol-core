@@ -280,7 +280,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         ProviderPositionNFT.LiquidityOffer memory offer
     )
         internal
-        view
+        pure
         returns (uint)
     {
         require(offer.provider != address(0), "invalid offer");
