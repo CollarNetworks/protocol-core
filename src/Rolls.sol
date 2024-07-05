@@ -9,7 +9,6 @@ pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 // internal imports
@@ -27,10 +26,8 @@ contract Rolls is Ownable, Pausable {
     string public constant VERSION = "0.2.0";
 
     // ----- IMMUTABLES ----- //
-    CollarEngine public immutable engine;
     CollarTakerNFT public immutable takerNFT;
     IERC20 public immutable cashAsset;
-    IERC20 public immutable collateralAsset;
 
     // ----- STATE VARIABLES ----- //
 
@@ -53,17 +50,13 @@ contract Rolls is Ownable, Pausable {
 
     constructor(
         address initialOwner,
-        CollarEngine _engine,
         CollarTakerNFT _takerNFT,
-        IERC20 _cashAsset,
-        IERC20 _collateralAsset
+        IERC20 _cashAsset
     )
         Ownable(initialOwner)
     {
-        engine = _engine;
         takerNFT = _takerNFT;
         cashAsset = _cashAsset;
-        collateralAsset = _collateralAsset;
     }
 
     // ----- VIEW FUNCTIONS ----- //
@@ -160,19 +153,20 @@ contract Rolls is Ownable, Pausable {
         whenNotPaused
         returns (uint newTakerId, uint newProviderId, uint takerTransfer)
     {
-        RollOffer memory memoryOffer = rollOffers[rollId]; // @dev memory, not storage
+        RollOffer memory offerMemory = rollOffers[rollId]; // @dev memory, not storage
         // auth, will revert if takerId was burned already
-        require(msg.sender == takerNFT.ownerOf(memoryOffer.takerId), "not taker ID owner");
+        require(msg.sender == takerNFT.ownerOf(offerMemory.takerId), "not taker ID owner");
 
         // position is valid
-        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(memoryOffer.takerId);
+        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offerMemory.takerId);
         require(!takerPos.settled, "taker position settled");
 
         // prices are valid
         uint currentPrice = takerNFT.getReferenceTWAPPrice(block.timestamp);
         require(currentPrice >= takerPos.initialPrice, "price too low");
-        require(currentPrice <= memoryOffer.maxPrice, "price too high");
+        require(currentPrice <= offerMemory.maxPrice, "price too high");
 
+        require(offerMemory.active, "invalid offer");
         // store the inactive state before external calls as extra reentrancy precaution
         // @dev this writes to storage, and so doesn't use memoryOffer (because it's in memory)
         rollOffers[rollId].active = false;
@@ -180,14 +174,14 @@ contract Rolls is Ownable, Pausable {
         // track our balance
         uint balanceBefore = cashAsset.balanceOf(address(this));
 
-        (newTakerId, newProviderId, takerTransfer) = _executeRoll(memoryOffer, currentPrice, takerPos);
+        (newTakerId, newProviderId, takerTransfer) = _executeRoll(offerMemory, currentPrice, takerPos);
 
         // check transfer is sufficient
         require(takerTransfer >= minCashTransfer, "taker transfer too small");
 
         // refund any remaining dust or excess
         uint providerRefund = cashAsset.balanceOf(address(this)) - balanceBefore;
-        cashAsset.safeTransfer(memoryOffer.provider, providerRefund);
+        cashAsset.safeTransfer(offerMemory.provider, providerRefund);
     }
 
     // admin mutative
