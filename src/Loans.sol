@@ -18,6 +18,35 @@ import { CollarTakerNFT } from "./CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "./ProviderPositionNFT.sol";
 import { ILoans } from "./interfaces/ILoans.sol";
 
+/**
+ * @title Loans
+ * @dev This contract manages the creation and closure of collateralized loans via Collar positions.
+ *
+ * Main Functionality:
+ * 1. Allows users to create loans by providing collateral and borrowing against it.
+ * 2. Handles the swapping of collateral to the cash asset using Uniswap V3.
+ * 3. Interacts with CollarTakerNFT to mint the NFT collar position backing the loans to the user.
+ * 4. Manages loan closure, including repayment and swapping back to collateral.
+ * 5. Provides keeper functionality for automated loan closure to allow avoiding price
+ * fluctuations negatively impacting swapping back to collateral.
+ *
+ * Role in the Protocol:
+ * This contract acts as the main entry point for borrowers in the Collar Protocol.
+ *
+ * Key Assumptions and Prerequisites:
+ * 1. The Uniswap V3 router is trusted and properly implemented.
+ * 2. The CollarTakerNFT and ProviderPositionNFT contracts are correctly implemented and authorized.
+ * 3. The CollarEngine contract correctly manages protocol parameters and reports prices.
+ * 4. Assets (ERC-20) used are standard compliant (non-rebasing, no transfer fees, no callbacks).
+ *
+ * Design Considerations:
+ * 1. Uses CollarTakerNFT NFTs to represent loan positions, allowing for potential secondary market trading.
+ * 2. Implements pausability for emergency situations.
+ * 3. Includes a keeper system for automated loan closure to allow users to delegate the time-sensitive
+ * loan closure action.
+ * 4. Uses TWAP prices from Uniswap V3 for price manipulation protection when swapping during borrowing
+ * (but not during closing).
+ */
 contract Loans is ILoans, Ownable, Pausable {
     using SafeERC20 for IERC20;
 
@@ -37,6 +66,7 @@ contract Loans is ILoans, Ownable, Pausable {
     IERC20 public immutable collateralAsset;
 
     // ----- STATE VARIABLES ----- //
+    /// @notice Stores loan information for each taker NFT ID
     mapping(uint takerId => Loan) internal loans;
     // keeper for closing set by contract owner
     address public closingKeeper;
@@ -78,17 +108,35 @@ contract Loans is ILoans, Ownable, Pausable {
 
     // ----- VIEW FUNCTIONS ----- //
 
-    // @dev return memory struct (the default getter returns tuple)
+    /// @notice Retrieves loan information for a given taker NFT ID
+    /// @dev return memory struct (the default getter returns tuple)
     function getLoan(uint takerId) external view returns (Loan memory) {
         return loans[takerId];
     }
 
     // ----- STATE CHANGING FUNCTIONS ----- //
 
+    /**
+     * @notice Creates a new loan by providing collateral and borrowing against it
+     * @dev This function handles the entire loan creation process:
+     *      1. Transfers collateral from the user to this contract
+     *      2. Swaps collateral for cash assets using Uniswap V3
+     *      3. Creates a loan position using the CollarTakerNFT contract
+     *      4. Transfers the borrowed amount to the user
+     *      5. Transfers the minted NFT to the user
+     * @param collateralAmount The amount of collateral asset to be provided
+     * @param minLoanAmount The minimum acceptable loan amount (slippage protection)
+     * @param minSwapCash The minimum acceptable amount of cash from the collateral swap (slippage protection)
+     * @param providerNFT The address of the ProviderPositionNFT contract to use
+     * @param offerId The ID of the liquidity offer to use from the provider
+     * @return takerId The ID of the minted CollarTakerNFT representing the loan
+     * @return providerId The ID of the minted ProviderPositionNFT paired with this loan
+     * @return loanAmount The actual amount of the loan created in cash asset
+     */
     function createLoan(
         uint collateralAmount,
-        uint minLoanAmount, // slippage control
-        uint minSwapCash, // slippage control
+        uint minLoanAmount,
+        uint minSwapCash,
         ProviderPositionNFT providerNFT, // @dev will be validated by takerNFT, which is immutable
         uint offerId // @dev implies specific provider, put & call deviations, duration
     ) external whenNotPaused returns (uint takerId, uint providerId, uint loanAmount) {
@@ -116,10 +164,18 @@ contract Loans is ILoans, Ownable, Pausable {
         );
     }
 
-    /// @dev this stores the original sender, to avoid a hanging allowance for an NFT that
-    /// has changed owners (was sold) exposing the new owner's approvals to the keeper
-    /// @dev a user that sets this allowance has to also grant NFT and cash approvals to this contract
-    /// that should be valid when closeLoan is called by the keeper
+    /**
+     * @notice Allows or disallows a keeper to close a loan on behalf of the NFT owner
+     * @dev This function can only be called by the current owner of the CollarTakerNFT
+     *      It sets the keeperAllowedBy field in the Loan struct to the current owner's address,
+     *      which is checked in closeLoan's access modifier.
+     *      The allowance is tied to the current owner to prevent it from persisting if the NFT
+     *      is transferred (e.g., sold) to avoid exposing the new owner's approvals to the keeper.
+     * @dev A user that sets this allowance has to also grant NFT and cash approvals to this contract
+     * that should be valid when closeLoan is called by the keeper.
+     * @param takerId The ID of the CollarTakerNFT representing the loan
+     * @param enabled True to allow the keeper, false to disallow
+     */
     function setKeeperAllowedBy(uint takerId, bool enabled) external whenNotPaused onlyNFTOwner(takerId) {
         Loan storage loan = loans[takerId];
         _requireValidLoan(loan);
@@ -127,6 +183,29 @@ contract Loans is ILoans, Ownable, Pausable {
         emit ClosingKeeperAllowed(msg.sender, takerId, enabled);
     }
 
+    /**
+     * @notice Closes an existing loan, repaying the borrowed amount and returning collateral.
+     * The amount of collateral returned may be smaller or larger than originally deposited,
+     * depending on the position's settlement result, and the final swap.
+     * This method can be called by either the loan's owner (the CollarTakerNFT owner) or by a keeper
+     * if the keeper was allowed by the current owner (by calling setKeeperAllowedBy). Using a keeper
+     * may be needed because the call's timing should be as close to expiration as possible, to
+     * avoid additional price exposure due to the swap performed during closing.
+     * To settle in cash (and avoid the repayment and swap) the user can instead of using this contract
+     * directly use CollarTakerNFT to settle and and withdraw.
+     * @dev the user must have approved this contract prior to calling: cash asset for repayment, and
+     * the NFT id for settlement.
+     * @dev This function handles the entire loan closure process:
+     *      1. Transfers the repayment amount from the user to this contract
+     *      2. Settles the CollarTakerNFT position
+     *      3. Withdraws any available funds from the settled position
+     *      4. Swaps the total cash amount back to collateral asset
+     *      5. Transfers the collateral back to the user
+     *      6. Burns the CollarTakerNFT
+     * @param takerId The ID of the CollarTakerNFT representing the loan to close
+     * @param minCollateralAmount The minimum acceptable amount of collateral to receive (slippage protection)
+     * @return collateralOut The actual amount of collateral asset returned to the user
+     */
     function closeLoan(uint takerId, uint minCollateralAmount)
         external
         whenNotPaused
@@ -156,16 +235,21 @@ contract Loans is ILoans, Ownable, Pausable {
 
     // admin methods
 
+    /// @notice Sets the address of the closing keeper
+    /// @dev This function can only be called by the contract owner
+    /// @param keeper The address of the new closing keeper
     function setKeeper(address keeper) external onlyOwner {
         address previous = closingKeeper;
         closingKeeper = keeper;
         emit ClosingKeeperUpdated(previous, keeper);
     }
 
+    /// @notice Pauses the contract in an emergency, pausing all user callable mutative methods
     function pause() public onlyOwner {
         _pause();
     }
 
+    /// @notice Unpauses the contract
     function unpause() public onlyOwner {
         _unpause();
     }
@@ -274,7 +358,6 @@ contract Loans is ILoans, Ownable, Pausable {
         // no loan taken. Note that loanAmount 0 can happen for 0 putStrikePrice
         // so only collateral should be checked
         require(loan.collateralAmount != 0, "loan does not exist");
-        // TODO: add a reentrancy test (via one of the assets) to cover this check
         require(!loan.closed, "already closed");
     }
 
