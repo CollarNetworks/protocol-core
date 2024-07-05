@@ -107,9 +107,11 @@ contract Rolls is Ownable, Pausable {
 
         // check allowance and balance to reduce chances of unfillable offers
         // @dev provider may still have insufficient allowance or balance when user will try to accept
-        // but this check makes it harder to spoof offers, and reduces chance of provider errors.
-        // Note that depositing the funds for each roll offer can be highly capital inefficient, since
-        // each offer is for a specific position.
+        // but this check makes it a bit harder to spoof offers, and reduces chance of provider errors.
+        // Depositing the funds for each roll offer is avoided because it's capital inefficient, since
+        // each offer is for a specific position. The offer must specific, because each taker's initial
+        // price may be different, so may or may not be attractive (or require different fee) for a
+        // provider.
         uint providerAllowance = cashAsset.allowance(msg.sender, address(this));
         require(cashAsset.balanceOf(msg.sender) >= maxProviderTransfer, "insufficient cash balance");
         require(providerAllowance >= maxProviderTransfer, "insufficient cash allowance");
@@ -153,7 +155,10 @@ contract Rolls is Ownable, Pausable {
         whenNotPaused
         returns (uint newTakerId, uint newProviderId, uint takerTransfer)
     {
-        RollOffer memory offerMemory = rollOffers[rollId]; // @dev memory, not storage
+        // @dev this is memory, not storage, because we later pass it into _executeRoll, which
+        // should use memory not storage. It would be possible to use storage here, and memory
+        // there, but that's error prone, so memory is used in both places.
+        RollOffer memory offerMemory = rollOffers[rollId];
         // auth, will revert if takerId was burned already
         require(msg.sender == takerNFT.ownerOf(offerMemory.takerId), "not taker ID owner");
 
@@ -385,7 +390,7 @@ contract Rolls is Ownable, Pausable {
             900 = 100 * 90% / 10%;
         Another way to get to the same is in two steps:
             1. 1000 = "full collateral value" = 100 * 100% / 10%;
-            2. 900 = "loan value" = 90% * 100;
+            2. 900 = "loan value" = 90% * 1000;
         Combining the two steps results in the same.
         */
         uint initialPutValue = putLocked * putDeviation / putRange;
@@ -396,7 +401,7 @@ contract Rolls is Ownable, Pausable {
             1. initialPutValue = putLocked * putDeviation / putRange;
         into the new one:
             2. newPutValue = initialPutValue * newPrice / startPrice;
-        resulting in after rearranging:
+        resulting in, after rearranging:
             newPutValue = putLocked * putDeviation * newPrice / startPrice / putRange;
         */
         uint newPutValue = putLocked * putDeviation * newPrice / startPrice / putRange;
