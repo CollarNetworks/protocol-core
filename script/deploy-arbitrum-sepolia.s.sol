@@ -20,9 +20,7 @@ contract DeployArbitrumSepoliaProtocol is Script {
     using SafeERC20 for IERC20;
 
     uint constant chainId = 421_614; // Arbitrum Sepolia
-    address constant swapRouterAddress = 0x101F443B4d1b059569D643917553c771E1b9663E;
     address constant uniswapV3FactoryAddress = 0x248AB79Bbb9bC29bB72f7Cd42F17e054Fc40188e; // Arbitrum Sepolia UniswapV3Factory
-
     uint24 constant POOL_FEE = 3000;
     uint[] public callStrikeTicks = [11_100, 11_200, 11_500, 12_000];
 
@@ -39,13 +37,11 @@ contract DeployArbitrumSepoliaProtocol is Script {
     IERC20 constant COLLATERAL_TOKEN = IERC20(0x12576dc597a66A1627b75F6E9A9673e935E0f8F2);
     IERC20 constant CASH_TOKEN = IERC20(0x8FC21A6C07C9A83AcaaeB97E5F23bDf24521da5d);
     address constant POSITION_MANAGER = 0x6b2937Bde17889EDCf8fbD8dE31C3C2a70Bc4d65;
-    address constant POOL = 0xF54a2e436e8357dcC0B8baa5bA2522aD7BF512f5;
-    uint24 constant FEE = 3000; // 0.3%
 
     function setUp() public { }
 
     function run() external {
-        // require(block.chainid == chainId, "Wrong chain");
+        require(block.chainid == chainId, "Wrong chain");
 
         uint deployerPrivateKey = vm.envUint("PRIVKEY_DEV_DEPLOYER");
         address deployer = vm.addr(deployerPrivateKey);
@@ -54,79 +50,38 @@ contract DeployArbitrumSepoliaProtocol is Script {
         // console.log("Deployer address:", deployer);
         // console.log("Liquidity provider address:", liquidityProvider);
         vm.startBroadcast(deployerPrivateKey);
-        CollarOwnedERC20(address(CASH_TOKEN)).mint(deployer, 10_000_000 ether);
-        CollarOwnedERC20(address(COLLATERAL_TOKEN)).mint(deployer, 10_000_000 ether);
-        // Approve tokens
-        IERC20(COLLATERAL_TOKEN).approve(POSITION_MANAGER, type(uint).max);
-        IERC20(CASH_TOKEN).approve(POSITION_MANAGER, type(uint).max);
 
-        // Get current tick
-        (, int24 currentTick,,,,,) = IUniswapV3Pool(POOL).slot0();
+        // Deploy and setup engine
+        CollarEngine engine = new CollarEngine(address(SWAP_ROUTER));
+        CollarEngine(engine).addLTV(9000);
+        CollarEngine(engine).addCollarDuration(300);
 
-        // Set price range (adjust these values as needed)
-        int24 tickLower = currentTick - 600; // Approximately -10% from current price
-        int24 tickUpper = currentTick + 600; // Approximately +10% from current price
-
-        // Amount of tokens to add as liquidity (adjust as needed)
-        uint amount0Desired = 10_000_000 ether; // 1000 tokens
-        uint amount1Desired = 10_000_000 ether; // 1000 tokens
-
-        INonfungiblePositionManager.MintParams memory params = INonfungiblePositionManager.MintParams({
-            token0: address(COLLATERAL_TOKEN),
-            token1: address(CASH_TOKEN),
-            fee: FEE,
-            tickLower: tickLower,
-            tickUpper: tickUpper,
-            amount0Desired: amount0Desired,
-            amount1Desired: amount1Desired,
-            amount0Min: 0,
-            amount1Min: 0,
-            recipient: deployer,
-            deadline: block.timestamp + 15 minutes
-        });
-
-        // Add liquidity
-        (uint tokenId, uint128 liquidity, uint amount0, uint amount1) =
-            INonfungiblePositionManager(POSITION_MANAGER).mint(params);
-
-        console.log("Liquidity added:");
-        console.log("Token ID:", tokenId);
-        console.log("Liquidity:", liquidity);
-        console.log("Amount of token0:", amount0);
-        console.log("Amount of token1:", amount1);
-
-        // // Deploy and setup engine
-        // address engine = 0x1be645F77992d62a5e81c914eeb6E77b873C1aA9;
-        // // CollarEngine(engine).addLTV(9000);
-        // // CollarEngine(engine).addCollarDuration(300);
-
-        // // Deploy other contracts
-        // DeployedContracts memory contracts = deployContracts(engine, deployer);
+        // Deploy other contracts
+        DeployedContracts memory contracts = deployContracts(address(engine), deployer);
 
         vm.stopBroadcast();
+        console.log("Engine deployed at:", engine);
+        console.log("Cash Asset deployed at:", contracts.cashAsset);
+        console.log("Collateral Asset deployed at:", contracts.collateralAsset);
+        console.log("TakerNFT deployed at:", contracts.takerNFT);
+        console.log("ProviderNFT deployed at:", contracts.providerNFT);
+        console.log("Loans contract deployed at:", contracts.loansContract);
+        console.log("Uniswap V3 pool created at:", contracts.uniswapPool);
 
-        // console.log("Engine deployed at:", engine);
-        // console.log("Cash Asset deployed at:", contracts.cashAsset);
-        // console.log("Collateral Asset deployed at:", contracts.collateralAsset);
-        // console.log("TakerNFT deployed at:", contracts.takerNFT);
-        // console.log("ProviderNFT deployed at:", contracts.providerNFT);
-        // console.log("Loans contract deployed at:", contracts.loansContract);
-        // console.log("Uniswap V3 pool created at:", contracts.uniswapPool);
+        // Verify deployment
+        _verifyDeployment(engine, contracts);
 
-        // // Verify deployment
-        // _verifyDeployment(engine, contracts);
+        // Create offers
+        _createOffers(
+            deployerPrivateKey,
+            contracts.providerNFT,
+            contracts.cashAsset,
+            contracts.collateralAsset,
+            liquidityProvider
+        );
 
-        // // Create offers
-        // _createOffers(
-        //     deployerPrivateKey,
-        //     contracts.providerNFT,
-        //     contracts.cashAsset,
-        //     contracts.collateralAsset,
-        //     liquidityProvider
-        // );
-
-        // // Verify offers
-        // _verifyOffers(contracts.providerNFT, liquidityProvider);
+        // Verify offers
+        _verifyOffers(contracts.providerNFT, liquidityProvider);
     }
 
     function deployContracts(address engine, address deployer) internal returns (DeployedContracts memory) {
@@ -259,5 +214,49 @@ contract DeployArbitrumSepoliaProtocol is Script {
         }
 
         console.log("Offers verified successfully");
+    }
+
+    function _addLiquidityToPool(address provider, address pool) internal {
+        vm.startBroadcast(provider);
+        CollarOwnedERC20(address(CASH_TOKEN)).mint(provider, 10_000_000 ether);
+        CollarOwnedERC20(address(COLLATERAL_TOKEN)).mint(provider, 10_000_000 ether);
+        // Approve tokens
+        IERC20(COLLATERAL_TOKEN).approve(POSITION_MANAGER, type(uint).max);
+        IERC20(CASH_TOKEN).approve(POSITION_MANAGER, type(uint).max);
+
+        // Get current tick
+        (, int24 currentTick,,,,,) = IUniswapV3Pool(pool).slot0();
+
+        // Set price range (adjust these values as needed)
+        int24 tickLower = currentTick - 600; // Approximately -10% from current price
+        int24 tickUpper = currentTick + 600; // Approximately +10% from current price
+
+        // Amount of tokens to add as liquidity (adjust as needed)
+        uint amount0Desired = 10_000_000 ether; // 1000 tokens
+        uint amount1Desired = 10_000_000 ether; // 1000 tokens
+
+        INonfungiblePositionManager.MintParams memory params = INonfungiblePositionManager.MintParams({
+            token0: address(COLLATERAL_TOKEN),
+            token1: address(CASH_TOKEN),
+            fee: POOL_FEE,
+            tickLower: tickLower,
+            tickUpper: tickUpper,
+            amount0Desired: amount0Desired,
+            amount1Desired: amount1Desired,
+            amount0Min: 0,
+            amount1Min: 0,
+            recipient: provider,
+            deadline: block.timestamp + 15 minutes
+        });
+
+        // Add liquidity
+        (uint tokenId, uint128 liquidity, uint amount0, uint amount1) =
+            INonfungiblePositionManager(POSITION_MANAGER).mint(params);
+
+        console.log("Liquidity added:");
+        console.log("Token ID:", tokenId);
+        console.log("Liquidity:", liquidity);
+        console.log("Amount of token0:", amount0);
+        console.log("Amount of token1:", amount1);
     }
 }
