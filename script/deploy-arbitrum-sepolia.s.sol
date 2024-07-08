@@ -47,20 +47,17 @@ contract DeployArbitrumSepoliaProtocol is Script {
         address deployer = vm.addr(deployerPrivateKey);
         address liquidityProvider = vm.addr(vm.envUint("LIQUIDITY_PROVIDER_KEY"));
 
-        // console.log("Deployer address:", deployer);
-        // console.log("Liquidity provider address:", liquidityProvider);
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy and setup engine
         CollarEngine engine = new CollarEngine(address(SWAP_ROUTER));
-        CollarEngine(engine).addLTV(9000);
-        CollarEngine(engine).addCollarDuration(300);
+        engine.addLTV(9000);
+        engine.addCollarDuration(300);
 
-        // Deploy other contracts
         DeployedContracts memory contracts = deployContracts(address(engine), deployer);
 
         vm.stopBroadcast();
-        console.log("Engine deployed at:", engine);
+        console.log("Engine deployed at:", address(engine));
         console.log("Cash Asset deployed at:", contracts.cashAsset);
         console.log("Collateral Asset deployed at:", contracts.collateralAsset);
         console.log("TakerNFT deployed at:", contracts.takerNFT);
@@ -69,7 +66,7 @@ contract DeployArbitrumSepoliaProtocol is Script {
         console.log("Uniswap V3 pool created at:", contracts.uniswapPool);
 
         // Verify deployment
-        _verifyDeployment(engine, contracts);
+        _verifyDeployment(address(engine), contracts);
 
         // Create offers
         _createOffers(
@@ -82,6 +79,9 @@ contract DeployArbitrumSepoliaProtocol is Script {
 
         // Verify offers
         _verifyOffers(contracts.providerNFT, liquidityProvider);
+
+        // add liquidity to the new asset pool
+        _addLiquidityToPool(liquidityProvider, contracts.uniswapPool);
     }
 
     function deployContracts(address engine, address deployer) internal returns (DeployedContracts memory) {
@@ -104,12 +104,14 @@ contract DeployArbitrumSepoliaProtocol is Script {
         console.log("Factory owner:", factory.owner());
         // check fee tier is enabled
         console.logInt(factory.feeAmountTickSpacing(POOL_FEE));
-        // Debug: Check if pool already exists
+        // Check if pool already exists
         address existingPool = factory.getPool(collateralAsset, cashAsset, POOL_FEE);
         console.log("Existing pool address:", existingPool);
         // Create Uniswap V3 pool
-
-        address pool = factory.createPool(cashAsset, collateralAsset, POOL_FEE);
+        address pool = existingPool;
+        if (existingPool == address(0)) {
+            pool = factory.createPool(cashAsset, collateralAsset, POOL_FEE);
+        }
 
         // Add support for assets in the engine
         CollarEngine(engine).addSupportedCashAsset(cashAsset);
@@ -227,13 +229,13 @@ contract DeployArbitrumSepoliaProtocol is Script {
         // Get current tick
         (, int24 currentTick,,,,,) = IUniswapV3Pool(pool).slot0();
 
-        // Set price range (adjust these values as needed)
-        int24 tickLower = currentTick - 600; // Approximately -10% from current price
-        int24 tickUpper = currentTick + 600; // Approximately +10% from current price
+        // Set price range
+        int24 tickLower = currentTick - 600;
+        int24 tickUpper = currentTick + 600;
 
-        // Amount of tokens to add as liquidity (adjust as needed)
-        uint amount0Desired = 10_000_000 ether; // 1000 tokens
-        uint amount1Desired = 10_000_000 ether; // 1000 tokens
+        // Amount of tokens to add as liquidity
+        uint amount0Desired = 10_000_000 ether;
+        uint amount1Desired = 10_000_000 ether;
 
         INonfungiblePositionManager.MintParams memory params = INonfungiblePositionManager.MintParams({
             token0: address(COLLATERAL_TOKEN),
