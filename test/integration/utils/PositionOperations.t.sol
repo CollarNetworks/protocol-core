@@ -94,18 +94,15 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         uint userCashBalanceBeforeSettle,
         uint providerCashBalanceBeforeSettle
     ) internal {
-        (uint userWithdrawnAmount, uint providerWithdrawnAmount) = settleAndWithdraw(borrowId);
+        (
+            uint userWithdrawnAmount,
+            uint providerWithdrawnAmount,
+            uint userBalanceAfter,
+            uint providerBalanceAfter,
+            CollarTakerNFT.TakerPosition memory position
+        ) = _settleAndGetBalances(borrowId);
 
-        CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(borrowId);
-
-        // Check position state after settlement
-        assertEq(position.settled, true);
         assertEq(position.withdrawable, 0);
-
-        // Check balances
-        uint userBalanceAfter = cashAsset.balanceOf(user1);
-        uint providerBalanceAfter = cashAsset.balanceOf(provider);
-
         // When price is under put strike, the user loses all locked cash
         // and the provider receives all locked cash from both sides
         assertEq(userWithdrawnAmount, 0);
@@ -122,19 +119,15 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         uint providerCashBalanceBeforeSettle,
         uint finalPrice
     ) internal {
-        (uint userWithdrawnAmount, uint providerWithdrawnAmount) = settleAndWithdraw(borrowId);
-
-        CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(borrowId);
-
+        (
+            uint userWithdrawnAmount,
+            uint providerWithdrawnAmount,
+            uint userBalanceAfter,
+            uint providerBalanceAfter,
+            CollarTakerNFT.TakerPosition memory position
+        ) = _settleAndGetBalances(borrowId);
         (uint expectedUserWithdrawable, uint expectedProviderGain) =
             calculatePriceDownValues(position, finalPrice);
-        // Check position state after settlement
-        assertEq(position.settled, true);
-
-        // Check balances after withdrawal
-        uint userBalanceAfter = cashAsset.balanceOf(user1);
-        uint providerBalanceAfter = cashAsset.balanceOf(provider);
-
         // When price is down but above put strike, the user gets a portion of the locked cash
         // and the provider gets the rest based on how close the price is to the put strike
         assertEq(userWithdrawnAmount, expectedUserWithdrawable);
@@ -151,16 +144,13 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         uint userCashBalanceBeforeSettle,
         uint providerCashBalanceBeforeSettle
     ) internal {
-        (uint userWithdrawnAmount, uint providerWithdrawnAmount) = settleAndWithdraw(borrowId);
-
-        CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(borrowId);
-
-        // Check position state after settlement
-        assertEq(position.settled, true);
-
-        // Check balances after withdrawal
-        uint userBalanceAfter = cashAsset.balanceOf(user1);
-        uint providerBalanceAfter = cashAsset.balanceOf(provider);
+        (
+            uint userWithdrawnAmount,
+            uint providerWithdrawnAmount,
+            uint userBalanceAfter,
+            uint providerBalanceAfter,
+            CollarTakerNFT.TakerPosition memory position
+        ) = _settleAndGetBalances(borrowId);
 
         // When price is up past call strike, the user receives all locked cash
         // and the provider receives nothing
@@ -178,18 +168,15 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         uint providerCashBalanceBeforeSettle,
         uint finalPrice
     ) internal {
-        (uint userWithdrawnAmount, uint providerWithdrawnAmount) = settleAndWithdraw(borrowId);
-
-        CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(borrowId);
-
+        (
+            uint userWithdrawnAmount,
+            uint providerWithdrawnAmount,
+            uint userBalanceAfter,
+            uint providerBalanceAfter,
+            CollarTakerNFT.TakerPosition memory position
+        ) = _settleAndGetBalances(borrowId);
         (uint expectedUserWithdrawable, uint expectedProviderWithdrawable) =
             calculatePriceUpValues(position, finalPrice);
-        // Check position state after settlement
-        assertEq(position.settled, true);
-
-        // Check balances after withdrawal
-        uint userBalanceAfter = cashAsset.balanceOf(user1);
-        uint providerBalanceAfter = cashAsset.balanceOf(provider);
 
         // When price is up but below call strike, the user gets their put locked cash
         // plus a portion of the call locked cash based on how close the price is to the call strike
@@ -200,23 +187,35 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         assertEq(providerBalanceAfter, providerCashBalanceBeforeSettle + expectedProviderWithdrawable);
     }
 
-    function checkBalances(address account)
-        internal
-        view
-        returns (uint cashBalance, uint collateralBalance)
-    {
-        cashBalance = cashAsset.balanceOf(account);
-        collateralBalance = collateralAsset.balanceOf(account);
-    }
-
-    uint24[] public callStrikeTicks = [110, 115, 120, 130];
-
     function getOfferIndex(uint24 callStrikeTick) internal pure returns (uint) {
         if (callStrikeTick == 110) return 0;
         if (callStrikeTick == 115) return 1;
         if (callStrikeTick == 120) return 2;
         if (callStrikeTick == 130) return 3;
         revert("Invalid call strike tick");
+    }
+
+    function _settleAndGetBalances(uint borrowId)
+        internal
+        returns (
+            uint userWithdrawnAmount,
+            uint providerWithdrawnAmount,
+            uint userBalanceAfter,
+            uint providerBalanceAfter,
+            CollarTakerNFT.TakerPosition memory position
+        )
+    {
+        (userWithdrawnAmount, providerWithdrawnAmount) = settleAndWithdraw(borrowId);
+
+        position = takerNFT.getPosition(borrowId);
+
+        // Check position state after settlement
+        assertEq(position.settled, true);
+        assertEq(position.withdrawable, 0);
+
+        // Check balances
+        userBalanceAfter = cashAsset.balanceOf(user1);
+        providerBalanceAfter = cashAsset.balanceOf(provider);
     }
 
     function _setupOffers(uint amountPerOffer) internal {
