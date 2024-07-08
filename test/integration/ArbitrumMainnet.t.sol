@@ -70,35 +70,6 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
         finalPrice = _manipulatePriceUpwardShortOfCallStrike(100_000e6, isFuzzTest, targetPrice);
     }
 
-    function test_openAndClosePositionNoPriceChange() public {
-        /**
-         * @dev trying to manipulate price to be exactly the same as the moment of opening vault is too hard ,
-         * so we'll skip this case unless there's a better proposal
-         */
-        // (uint borrowId, CollarTakerNFT.BorrowPosition memory position) =
-        //     openTakerPosition(1 ether, 0.3e6, getOfferIndex(120));
-
-        // vm.warp(block.timestamp + positionDuration + 1);
-
-        // uint userCashBalanceBefore = cashAsset.balanceOf(user1);
-        // uint providerCashBalanceBefore = cashAsset.balanceOf(provider);
-
-        // (uint userWithdrawnAmount, uint providerWithdrawnAmount) = settleAndWithdraw(borrowId);
-        // assertEq(userWithdrawnAmount, position.putLockedCash, "User should receive put locked cash");
-        // assertEq(providerWithdrawnAmount, position.callLockedCash, "Provider should receive call locked cash");
-
-        // assertEq(
-        //     cashAsset.balanceOf(user1),
-        //     userCashBalanceBefore + userWithdrawnAmount,
-        //     "Incorrect user balance after settlement"
-        // );
-        // assertEq(
-        //     cashAsset.balanceOf(provider),
-        //     providerCashBalanceBefore + providerWithdrawnAmount,
-        //     "Incorrect provider balance after settlement"
-        // );
-    }
-
     function testFuzz_openAndClosePositionPriceUnderPutStrike(uint collateralAmount, uint24 callStrikeTick)
         public
         assumeValidCallStrikeTick(callStrikeTick)
