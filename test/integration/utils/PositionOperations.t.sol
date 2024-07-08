@@ -19,7 +19,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         vm.stopPrank();
     }
 
-    function openTakerPosition(uint collateralAmount, uint minCashAmount, uint offerId)
+    function openTakerPositionAndCheckValues(uint collateralAmount, uint minCashAmount, uint offerId)
         internal
         returns (uint borrowId, CollarTakerNFT.TakerPosition memory position)
     {
@@ -108,18 +108,12 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
 
         // When price is under put strike, the user loses all locked cash
         // and the provider receives all locked cash from both sides
-        assertEq(userWithdrawnAmount, 0, "User should not receive any cash when price is under put strike");
-        assertEq(userBalanceAfter, userCashBalanceBeforeSettle, "User's balance should not change");
+        assertEq(userWithdrawnAmount, 0);
+        assertEq(userBalanceAfter, userCashBalanceBeforeSettle);
 
         uint expectedProviderWithdrawal = position.putLockedCash + position.callLockedCash;
-        assertEq(
-            providerWithdrawnAmount, expectedProviderWithdrawal, "Provider should receive all locked cash"
-        );
-        assertEq(
-            providerBalanceAfter,
-            providerCashBalanceBeforeSettle + expectedProviderWithdrawal,
-            "Provider's balance should increase by the total locked cash amount"
-        );
+        assertEq(providerWithdrawnAmount, expectedProviderWithdrawal);
+        assertEq(providerBalanceAfter, providerCashBalanceBeforeSettle + expectedProviderWithdrawal);
     }
 
     function checkPriceDownShortOfPutStrikeValues(
@@ -143,25 +137,12 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
 
         // When price is down but above put strike, the user gets a portion of the locked cash
         // and the provider gets the rest based on how close the price is to the put strike
-        assertEq(
-            userWithdrawnAmount,
-            expectedUserWithdrawable,
-            "User should receive a portion of the locked cash based on price movement"
-        );
-        assertEq(
-            userBalanceAfter,
-            userCashBalanceBeforeSettle + expectedUserWithdrawable,
-            "User's balance should increase by the withdrawn amount"
-        );
-        assertEq(
-            providerWithdrawnAmount,
-            expectedProviderGain + position.callLockedCash,
-            "Provider should receive a portion of the locked cash based on price movement + call locked cash"
-        );
+        assertEq(userWithdrawnAmount, expectedUserWithdrawable);
+        assertEq(userBalanceAfter, userCashBalanceBeforeSettle + expectedUserWithdrawable);
+        assertEq(providerWithdrawnAmount, expectedProviderGain + position.callLockedCash);
         assertEq(
             providerBalanceAfter,
-            providerCashBalanceBeforeSettle + expectedProviderGain + position.callLockedCash,
-            "Provider's balance should increase by the gained amount"
+            providerCashBalanceBeforeSettle + expectedProviderGain + position.callLockedCash
         );
     }
 
@@ -184,23 +165,11 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         // When price is up past call strike, the user receives all locked cash
         // and the provider receives nothing
         uint expectedUserWithdrawal = position.putLockedCash + position.callLockedCash;
-        assertEq(
-            userWithdrawnAmount,
-            expectedUserWithdrawal,
-            "User should receive all locked cash when price is above call strike"
-        );
-        assertEq(
-            userBalanceAfter,
-            userCashBalanceBeforeSettle + expectedUserWithdrawal,
-            "User's balance should increase by the total locked cash amount"
-        );
+        assertEq(userWithdrawnAmount, expectedUserWithdrawal);
+        assertEq(userBalanceAfter, userCashBalanceBeforeSettle + expectedUserWithdrawal);
 
-        assertEq(
-            providerWithdrawnAmount, 0, "Provider should receive nothing when price is above call strike"
-        );
-        assertEq(
-            providerBalanceAfter, providerCashBalanceBeforeSettle, "Provider's balance should not change"
-        );
+        assertEq(providerWithdrawnAmount, 0);
+        assertEq(providerBalanceAfter, providerCashBalanceBeforeSettle);
     }
 
     function checkPriceUpShortOfCallStrikeValues(
@@ -224,27 +193,11 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
 
         // When price is up but below call strike, the user gets their put locked cash
         // plus a portion of the call locked cash based on how close the price is to the call strike
-        assertEq(
-            userWithdrawnAmount,
-            expectedUserWithdrawable,
-            "User should receive put locked cash plus a portion of call locked cash based on price movement"
-        );
-        assertEq(
-            userBalanceAfter,
-            userCashBalanceBeforeSettle + expectedUserWithdrawable,
-            "User's balance should increase by the withdrawn amount"
-        );
+        assertEq(userWithdrawnAmount, expectedUserWithdrawable);
+        assertEq(userBalanceAfter, userCashBalanceBeforeSettle + expectedUserWithdrawable);
 
-        assertEq(
-            providerWithdrawnAmount,
-            expectedProviderWithdrawable,
-            "Provider should receive the remaining portion of call locked cash"
-        );
-        assertEq(
-            providerBalanceAfter,
-            providerCashBalanceBeforeSettle + expectedProviderWithdrawable,
-            "Provider's balance should increase by the withdrawn amount"
-        );
+        assertEq(providerWithdrawnAmount, expectedProviderWithdrawable);
+        assertEq(providerBalanceAfter, providerCashBalanceBeforeSettle + expectedProviderWithdrawable);
     }
 
     function checkBalances(address account)
@@ -292,15 +245,11 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
 
         for (uint i = 0; i < callStrikeDeviations.length; i++) {
             ProviderPositionNFT.LiquidityOffer memory offer = providerNFT.getOffer(i);
-            assertEq(offer.provider, provider, "Incorrect provider for offer");
-            assertEq(offer.available, amountPerOffer, "Incorrect amount for offer");
-            assertEq(offer.putStrikeDeviation, offerLTV, "Incorrect put strike deviation for offer");
-            assertEq(
-                offer.callStrikeDeviation,
-                callStrikeDeviations[i],
-                "Incorrect call strike deviation for offer"
-            );
-            assertEq(offer.duration, positionDuration, "Incorrect duration for offer");
+            assertEq(offer.provider, provider);
+            assertEq(offer.available, amountPerOffer);
+            assertEq(offer.putStrikeDeviation, offerLTV);
+            assertEq(offer.callStrikeDeviation, callStrikeDeviations[i]);
+            assertEq(offer.duration, positionDuration);
         }
     }
 }
