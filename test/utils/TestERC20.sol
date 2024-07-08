@@ -23,7 +23,7 @@ contract TestERC20 is ERC20 {
         attacker = _attacker;
     }
 
-    function _update(address from, address to, uint256 value) internal override {
+    function _update(address from, address to, uint value) internal override {
         _maybeAttack();
         super._update(from, to, value);
     }
@@ -32,7 +32,11 @@ contract TestERC20 is ERC20 {
         if (attacker != address(0)) {
             (bool success, bytes memory data) = attacker.call(""); // call attacker fallback
             // bubble up the revert reason for tests
-            if (!success) assembly { revert(add(data, 0x20), mload(data)) }
+            if (!success) {
+                assembly {
+                    revert(add(data, 0x20), mload(data))
+                }
+            }
         }
     }
 }
