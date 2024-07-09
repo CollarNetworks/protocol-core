@@ -13,7 +13,7 @@ interface IERC6909 is IERC165 {
     /// @param id The id of the token.
     /// @param amount The amount of the token.
     event Transfer(
-        address caller, address indexed sender, address indexed receiver, uint256 indexed id, uint256 amount
+        address caller, address indexed sender, address indexed receiver, uint indexed id, uint amount
     );
 
     /// @notice The event emitted when an operator is set.
@@ -27,20 +27,20 @@ interface IERC6909 is IERC165 {
     /// @param spender The address of the spender.
     /// @param id The id of the token.
     /// @param amount The amount of the token.
-    event Approval(address indexed owner, address indexed spender, uint256 indexed id, uint256 amount);
+    event Approval(address indexed owner, address indexed spender, uint indexed id, uint amount);
 
     /// @notice Owner balance of an id.
     /// @param owner The address of the owner.
     /// @param id The id of the token.
     /// @return amount The balance of the token.
-    function balanceOf(address owner, uint256 id) external view returns (uint256 amount);
+    function balanceOf(address owner, uint id) external view returns (uint amount);
 
     /// @notice Spender allowance of an id.
     /// @param owner The address of the owner.
     /// @param spender The address of the spender.
     /// @param id The id of the token.
     /// @return amount The allowance of the token.
-    function allowance(address owner, address spender, uint256 id) external view returns (uint256 amount);
+    function allowance(address owner, address spender, uint id) external view returns (uint amount);
 
     /// @notice Checks if a spender is approved by an owner as an operator
     /// @param owner The address of the owner.
@@ -52,20 +52,20 @@ interface IERC6909 is IERC165 {
     /// @param receiver The address of the receiver.
     /// @param id The id of the token.
     /// @param amount The amount of the token.
-    function transfer(address receiver, uint256 id, uint256 amount) external returns (bool);
+    function transfer(address receiver, uint id, uint amount) external returns (bool);
 
     /// @notice Transfers an amount of an id from a sender to a receiver.
     /// @param sender The address of the sender.
     /// @param receiver The address of the receiver.
     /// @param id The id of the token.
     /// @param amount The amount of the token.
-    function transferFrom(address sender, address receiver, uint256 id, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address receiver, uint id, uint amount) external returns (bool);
 
     /// @notice Approves an amount of an id to a spender.
     /// @param spender The address of the spender.
     /// @param id The id of the token.
     /// @param amount The amount of the token.
-    function approve(address spender, uint256 id, uint256 amount) external returns (bool);
+    function approve(address spender, uint id, uint amount) external returns (bool);
 
     /// @notice Sets or removes a spender as an operator for the caller.
     /// @param spender The address of the spender.
