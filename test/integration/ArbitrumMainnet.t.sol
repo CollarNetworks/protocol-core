@@ -26,14 +26,14 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
         _setupConfig({
             _swapRouter: 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45,
             _cashAsset: 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8, // USDC
-            _collateralAsset: 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1, //WETH
+            _collateralAsset: 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1, // WETH
             _uniV3Pool: 0x17c14D2c404D167802b16C450d3c99F88F2c4F4d,
             whaleWallet: 0xB38e8c17e38363aF6EbdCb3dAE12e0243582891D,
             blockNumber: _blockNumberToUse,
-            priceOnBlock: 3_547_988_497, // $3547.988497 the price for WETH in USDC on the specified block of Arbitrum mainnet
+            priceOnBlock: 3_547_988_497, // $3547.988497 WETH/USDC price on specified block
             callStrikeTickToUse: 120,
-            _poolDuration: 1 days,
-            _poolLTV: 9000
+            _positionDuration: 1 days,
+            _offerLTV: 9000
         });
 
         _fundWallets();
