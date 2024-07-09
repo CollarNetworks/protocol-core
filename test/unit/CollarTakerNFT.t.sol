@@ -79,10 +79,7 @@ contract CollarTakerNFTTest is Test {
         uint callStrike,
         uint putStrikeDeviation,
         ProviderPositionNFT providerNFTToUse
-    )
-        internal
-        returns (uint offerId)
-    {
+    ) internal returns (uint offerId) {
         startHoax(provider);
         cashAsset.approve(address(providerNFTToUse), 1_000_000 ether);
 
@@ -105,10 +102,7 @@ contract CollarTakerNFTTest is Test {
         uint offerId,
         CollarTakerNFT takerNFTToUse,
         ProviderPositionNFT providerNFTToUse
-    )
-        internal
-        returns (uint takerId, uint providerNFTId)
-    {
+    ) internal returns (uint takerId, uint providerNFTId) {
         startHoax(user1);
         cashAsset.approve(address(takerNFT), putLockedCashToUse);
         (takerId, providerNFTId) =
@@ -147,10 +141,7 @@ contract CollarTakerNFTTest is Test {
         uint expectedTakerWithdrawable,
         uint expectedProviderWithdrawable,
         int expectedProviderChange
-    )
-        internal
-        returns (uint takerId, uint providerNFTId)
-    {
+    ) internal returns (uint takerId, uint providerNFTId) {
         createOfferMintTouserAndSetPrice();
         (takerId, providerNFTId) = createTakerPositionAsUser(0, takerNFT, providerNFT);
         skip(301);
@@ -194,7 +185,7 @@ contract CollarTakerNFTTest is Test {
     function test_pause() public {
         // create a position
         createOfferMintTouserAndSetPrice();
-        (uint takerId, ) = createTakerPositionAsUser(0, takerNFT, providerNFT);
+        (uint takerId,) = createTakerPositionAsUser(0, takerNFT, providerNFT);
 
         startHoax(owner);
         takerNFT.pause();

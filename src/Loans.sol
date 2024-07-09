@@ -76,9 +76,7 @@ contract Loans is ILoans, Ownable, Pausable {
         CollarTakerNFT _takerNFT,
         IERC20 _cashAsset,
         IERC20 _collateralAsset
-    )
-        Ownable(initialOwner)
-    {
+    ) Ownable(initialOwner) {
         engine = _engine;
         takerNFT = _takerNFT;
         cashAsset = _cashAsset;
@@ -140,11 +138,7 @@ contract Loans is ILoans, Ownable, Pausable {
         uint minSwapCash,
         ProviderPositionNFT providerNFT, // @dev will be validated by takerNFT, which is immutable
         uint offerId // @dev implies specific provider, put & call deviations, duration
-    )
-        external
-        whenNotPaused
-        returns (uint takerId, uint providerId, uint loanAmount)
-    {
+    ) external whenNotPaused returns (uint takerId, uint providerId, uint loanAmount) {
         // 0 collateral is later checked to mean non-existing loan, also prevents div-zero
         require(collateralAmount != 0, "invalid collateral amount");
 
@@ -211,10 +205,7 @@ contract Loans is ILoans, Ownable, Pausable {
      * @param minCollateralAmount The minimum acceptable amount of collateral to receive (slippage protection)
      * @return collateralOut The actual amount of collateral asset returned to the user
      */
-    function closeLoan(
-        uint takerId,
-        uint minCollateralAmount
-    )
+    function closeLoan(uint takerId, uint minCollateralAmount)
         external
         whenNotPaused
         onlyNFTOwnerOrKeeper(takerId)
@@ -269,10 +260,7 @@ contract Loans is ILoans, Ownable, Pausable {
         uint cashFromSwap,
         ProviderPositionNFT providerNFT,
         uint offerId
-    )
-        internal
-        returns (uint takerId, uint providerId, uint loanAmount)
-    {
+    ) internal returns (uint takerId, uint providerId, uint loanAmount) {
         uint putStrikeDeviation = providerNFT.getOffer(offerId).putStrikeDeviation;
 
         // this assumes LTV === put strike price
@@ -296,10 +284,7 @@ contract Loans is ILoans, Ownable, Pausable {
         });
     }
 
-    function _swapCollateralWithTwapCheck(
-        uint collateralAmount,
-        uint minCashAmount
-    )
+    function _swapCollateralWithTwapCheck(uint collateralAmount, uint minCashAmount)
         internal
         returns (uint cashFromSwap)
     {
@@ -310,12 +295,7 @@ contract Loans is ILoans, Ownable, Pausable {
         _checkSwapPrice(cashFromSwap, collateralAmount);
     }
 
-    function _swap(
-        IERC20 assetIn,
-        IERC20 assetOut,
-        uint amountIn,
-        uint minAmountOut
-    )
+    function _swap(IERC20 assetIn, IERC20 assetOut, uint amountIn, uint minAmountOut)
         internal
         returns (uint amountOut)
     {
@@ -345,11 +325,7 @@ contract Loans is ILoans, Ownable, Pausable {
         require(amountOut >= minAmountOut, "slippage exceeded");
     }
 
-    function _closeLoan(
-        uint takerId,
-        address user,
-        uint repaymentAmount
-    )
+    function _closeLoan(uint takerId, address user, uint repaymentAmount)
         internal
         returns (uint cashAmount)
     {

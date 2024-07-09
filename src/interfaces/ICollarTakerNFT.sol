@@ -68,11 +68,9 @@ interface ICollarTakerNFT {
     function getPosition(uint takerId) external view returns (TakerPosition memory);
     function nextPositionId() external view returns (uint);
     // mutative
-    function openPairedPosition(
-        uint putLockedCash,
-        ProviderPositionNFT providerNFT,
-        uint offerId
-        ) external returns (uint takerId, uint providerId);
+    function openPairedPosition(uint putLockedCash, ProviderPositionNFT providerNFT, uint offerId)
+        external
+        returns (uint takerId, uint providerId);
     function settlePairedPosition(uint takerId) external;
     function cancelPairedPosition(uint takerId, address recipient) external;
     function withdrawFromSettled(uint takerId, address recipient) external returns (uint amount);

@@ -80,9 +80,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         address _collarTakerContract,
         string memory _name,
         string memory _symbol
-    )
-        BaseGovernedNFT(initialOwner, _name, _symbol)
-    {
+    ) BaseGovernedNFT(initialOwner, _name, _symbol) {
         engine = _engine;
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
@@ -134,11 +132,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         uint amount, // up to the provider
         uint putStrikeDeviation, // validated vs. engine
         uint duration // validated vs. engine
-    )
-        external
-        whenNotPaused
-        returns (uint offerId)
-    {
+    ) external whenNotPaused returns (uint offerId) {
         _validateOfferParamsSupported(putStrikeDeviation, duration);
         require(callStrikeDeviation > MIN_CALL_STRIKE_BIPS, "strike deviation too low");
         require(callStrikeDeviation <= MAX_CALL_STRIKE_BIPS, "strike deviation too high");
@@ -195,10 +189,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
     /// @param amount The amount of cash asset to use for the new position
     /// @return positionId The ID of the newly created position (NFT token ID)
     /// @return position The details of the newly created position
-    function mintPositionFromOffer(
-        uint offerId,
-        uint amount
-    )
+    function mintPositionFromOffer(uint offerId, uint amount)
         external
         whenNotPaused
         onlyTrustedTakerContract
@@ -254,10 +245,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
     /// of the withdrawal themselves
     /// @param positionId The ID of the position to settle (NFT token ID)
     /// @param positionChange The change in position value (positive or negative)
-    function settlePosition(
-        uint positionId,
-        int positionChange
-    )
+    function settlePosition(uint positionId, int positionChange)
         external
         whenNotPaused
         onlyTrustedTakerContract
@@ -300,10 +288,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
     /// so is assumed to specify the withdrawal correctly for their funds.
     /// @param positionId The ID of the position to cancel (NFT token ID)
     /// @param recipient The address to receive the withdrawn funds
-    function cancelAndWithdraw(
-        uint positionId,
-        address recipient
-    )
+    function cancelAndWithdraw(uint positionId, address recipient)
         external
         whenNotPaused
         onlyTrustedTakerContract

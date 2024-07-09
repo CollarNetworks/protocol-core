@@ -17,11 +17,7 @@ abstract contract BaseGovernedNFT is Ownable, ERC721, ERC721Enumerable, ERC721Pa
     // ----- State ----- //
     uint internal nextTokenId; // NFT token ID
 
-    constructor(
-        address initialOwner,
-        string memory _name,
-        string memory _symbol
-    )
+    constructor(address initialOwner, string memory _name, string memory _symbol)
         ERC721(_name, _symbol)
         Ownable(initialOwner)
     { }
@@ -40,11 +36,7 @@ abstract contract BaseGovernedNFT is Ownable, ERC721, ERC721Enumerable, ERC721Pa
 
     // Internal overrides required by Solidity for ERC721
 
-    function _update(
-        address to,
-        uint tokenId,
-        address auth
-    )
+    function _update(address to, uint tokenId, address auth)
         internal
         override(ERC721, ERC721Enumerable, ERC721Pausable)
         returns (address)

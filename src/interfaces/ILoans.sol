@@ -31,7 +31,12 @@ interface ILoans {
         uint providerId
     );
     event LoanClosed(
-        uint indexed takerId, address indexed sender, address indexed user, uint repayment, uint cashAmount, uint collateralOut
+        uint indexed takerId,
+        address indexed sender,
+        address indexed user,
+        uint repayment,
+        uint cashAmount,
+        uint collateralOut
     );
     event ClosingKeeperAllowed(address indexed sender, uint indexed takerId, bool indexed enabled);
     event ClosingKeeperUpdated(address indexed previousKeeper, address indexed newKeeper);
@@ -57,9 +62,7 @@ interface ILoans {
         uint minSwapCash,
         ProviderPositionNFT providerNFT,
         uint offerId
-    )
-        external
-        returns (uint takerId, uint providerId, uint loanAmount);
+    ) external returns (uint takerId, uint providerId, uint loanAmount);
     function setKeeperAllowedBy(uint takerId, bool enabled) external;
     function closeLoan(uint takerId, uint minCollateralAmount) external returns (uint collateralReturned);
 }

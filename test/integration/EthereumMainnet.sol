@@ -47,15 +47,15 @@ contract ForkTestCollarEthereumMainnet is CollarIntegrationPriceManipulation, Va
         assertEq(block.number, _blockNumberToUse);
         _setupConfig({
             _swapRouter: 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45,
-            _cashAsset :0xdAC17F958D2ee523a2206206994597C13D831ec7,// USDT
-            _collateralAsset:0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, //WETH
-            _uniV3Pool :0x4e68Ccd3E89f51C3074ca5072bbAC773960dFa36,
-            whaleWallet :0xF04a5cC80B1E94C69B48f5ee68a08CD2F09A7c3E,
-            blockNumber:_blockNumberToUse,
-            priceOnBlock:3_393_819_954, // $3547.988497 the price for WETH in USDT on the specified block of Arbitrum mainnet
-            callStrikeTickToUse:120,
-            _poolDuration:1 days,
-            _poolLTV:9000
+            _cashAsset: 0xdAC17F958D2ee523a2206206994597C13D831ec7, // USDT
+            _collateralAsset: 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, //WETH
+            _uniV3Pool: 0x4e68Ccd3E89f51C3074ca5072bbAC773960dFa36,
+            whaleWallet: 0xF04a5cC80B1E94C69B48f5ee68a08CD2F09A7c3E,
+            blockNumber: _blockNumberToUse,
+            priceOnBlock: 3_393_819_954, // $3547.988497 the price for WETH in USDT on the specified block of Arbitrum mainnet
+            callStrikeTickToUse: 120,
+            _poolDuration: 1 days,
+            _poolLTV: 9000
         });
         uint amountToProvide = 100_000e6;
         _fundWallets();

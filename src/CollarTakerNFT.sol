@@ -41,9 +41,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         IERC20 _collateralAsset,
         string memory _name,
         string memory _symbol
-    )
-        BaseGovernedNFT(initialOwner, _name, _symbol)
-    {
+    ) BaseGovernedNFT(initialOwner, _name, _symbol) {
         engine = _engine;
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
@@ -90,11 +88,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         uint putLockedCash, // user portion of collar position
         ProviderPositionNFT providerNFT,
         uint offerId // @dev implies specific provider, put & call deviations, duration
-    )
-        external
-        whenNotPaused
-        returns (uint takerId, uint providerId)
-    {
+    ) external whenNotPaused returns (uint takerId, uint providerId) {
         _openPositionValidations(providerNFT);
 
         // pull the user side of the locked cash
@@ -138,10 +132,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         );
     }
 
-    function withdrawFromSettled(
-        uint takerId,
-        address recipient
-    )
+    function withdrawFromSettled(uint takerId, address recipient)
         external
         whenNotPaused
         returns (uint amount)
@@ -197,10 +188,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         uint twapPrice,
         uint putLockedCash,
         ProviderPositionNFT providerNFT,
-        uint offerId
-    )
-        internal
-        returns (uint takerId, uint providerId)
+        uint offerId) internal returns (uint takerId, uint providerId) {
     {
         ProviderPositionNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
         uint callLockedCash = _calculateProviderLocked(putLockedCash, offer);
@@ -274,11 +262,8 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
     }
 
     // calculations
-
-    function _calculateProviderLocked(
-        uint putLockedCash,
-        ProviderPositionNFT.LiquidityOffer memory offer
-    )
+    
+    function _calculateProviderLocked(uint putLockedCash, ProviderPositionNFT providerNFT)
         internal
         pure
         returns (uint)
@@ -287,10 +272,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         return calculateProviderLocked(putLockedCash, offer.putStrikeDeviation, offer.callStrikeDeviation);
     }
 
-    function _settlementCalculations(
-        TakerPosition storage position,
-        uint endPrice
-    )
+    function _settlementCalculations(TakerPosition storage position, uint endPrice)
         internal
         view
         returns (uint withdrawable, int providerChange)
