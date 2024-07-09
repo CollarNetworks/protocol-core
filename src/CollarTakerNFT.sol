@@ -294,6 +294,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
             uint userPart = endPrice - startPrice;
             uint callRange = callPrice - startPrice;
             uint userGain = position.callLockedCash * userPart / callRange; // no div-zero ensured on open
+
             withdrawable += userGain;
             providerChange = -userGain.toInt256();
         }
