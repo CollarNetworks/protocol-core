@@ -9,5 +9,5 @@ import "./ERC6909.sol";
 /// @notice Extends the ERC6909 interface with a total supply tracker for each token.
 contract ERC6909TokenSupply is ERC6909, IERC6909TokenSupply {
     /// @notice Total supply of a token.
-    mapping(uint256 id => uint256) public totalSupply;
+    mapping(uint id => uint) public totalSupply;
 }
