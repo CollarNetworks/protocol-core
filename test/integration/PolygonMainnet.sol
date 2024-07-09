@@ -21,18 +21,20 @@ contract ForkTestCollarPolygonMainnetIntegrationTest is
         string memory forkRPC = vm.envString("POLYGON_MAINNET_RPC");
         vm.createSelectFork(forkRPC, _blockNumberToUse);
         assertEq(block.number, _blockNumberToUse);
-
+        /**
+         * polygon mainnet addresses
+         */
         _setupConfig({
             _swapRouter: 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45,
             _cashAsset: 0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359, // USDC
-            _collateralAsset: 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270, // WMATIC
+            _collateralAsset: 0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270, //WMATIC
             _uniV3Pool: 0x2DB87C4831B2fec2E35591221455834193b50D1B,
             whaleWallet: 0xe7804c37c13166fF0b37F5aE0BB07A3aEbb6e245,
             blockNumber: _blockNumberToUse,
-            priceOnBlock: 739_504, // $0.739504 WMATIC/USDC price on specified block
+            priceOnBlock: 739_504, // $3547.988497 the price for WMATIC in USDC on the specified block of Arbitrum mainnet
             callStrikeTickToUse: 120,
-            _positionDuration: 1 days,
-            _offerLTV: 9000
+            _poolDuration: 1 days,
+            _poolLTV: 9000
         });
 
         _fundWallets();
