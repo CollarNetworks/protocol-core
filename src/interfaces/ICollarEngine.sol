@@ -176,8 +176,5 @@ interface ICollarEngine {
         address quoteToken,
         uint32 twapEndTimestamp,
         uint32 twapLength
-    )
-        external
-        view
-        returns (uint);
+    ) external view returns (uint);
 }
