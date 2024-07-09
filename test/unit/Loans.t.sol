@@ -182,9 +182,7 @@ contract LoansTest is Test {
         uint loanAmount,
         uint withdrawal,
         uint expectedCollateralOut
-    )
-        internal
-    {
+    ) internal {
         // TWAP price must be set for every block
         engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
 
@@ -222,11 +220,7 @@ contract LoansTest is Test {
         loans.closeLoan(takerId, 0);
     }
 
-    function checkOpenCloseWithPriceChange(
-        uint newPrice,
-        uint putRatio,
-        uint callRaio
-    )
+    function checkOpenCloseWithPriceChange(uint newPrice, uint putRatio, uint callRaio)
         public
         returns (uint)
     {

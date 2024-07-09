@@ -46,10 +46,7 @@ contract ProviderPositionNFTTest is Test {
         mockEngine.addCollarDuration(duration);
     }
 
-    function createAndCheckOffer(
-        address provider,
-        uint amount
-    )
+    function createAndCheckOffer(address provider, uint amount)
         public
         returns (uint offerId, ProviderPositionNFT.LiquidityOffer memory offer)
     {
@@ -78,11 +75,7 @@ contract ProviderPositionNFTTest is Test {
         assertEq(cashAsset.balanceOf(provider), balance - amount);
     }
 
-    function createAndCheckPosition(
-        address provider,
-        uint offerAmount,
-        uint positionAmount
-    )
+    function createAndCheckPosition(address provider, uint offerAmount, uint positionAmount)
         public
         returns (uint positionId, ProviderPositionNFT.ProviderPosition memory position)
     {
