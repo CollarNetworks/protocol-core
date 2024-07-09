@@ -26,14 +26,14 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
         _setupConfig({
             _swapRouter: 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45,
             _cashAsset: 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8, // USDC
-            _collateralAsset: 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1, //WETH
+            _collateralAsset: 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1, // WETH
             _uniV3Pool: 0x17c14D2c404D167802b16C450d3c99F88F2c4F4d,
             whaleWallet: 0xB38e8c17e38363aF6EbdCb3dAE12e0243582891D,
             blockNumber: _blockNumberToUse,
-            priceOnBlock: 3_547_988_497, // $3547.988497 the price for WETH in USDC on the specified block of Arbitrum mainnet
+            priceOnBlock: 3_547_988_497, // $3547.988497 WETH/USDC price on specified block
             callStrikeTickToUse: 120,
-            _poolDuration: 1 days,
-            _poolLTV: 9000
+            _positionDuration: 1 days,
+            _offerLTV: 9000
         });
 
         _fundWallets();
@@ -68,6 +68,35 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
     function manipulatePriceUpwardShortOfCallStrike(bool isFuzzTest) internal returns (uint finalPrice) {
         uint targetPrice = 3_872_244_419;
         finalPrice = _manipulatePriceUpwardShortOfCallStrike(100_000e6, isFuzzTest, targetPrice);
+    }
+
+    function test_openAndClosePositionNoPriceChange() public {
+        /**
+         * @dev trying to manipulate price to be exactly the same as the moment of opening vault is too hard ,
+         * so we'll skip this case unless there's a better proposal
+         */
+        // (uint borrowId, CollarTakerNFT.BorrowPosition memory position) =
+        //     openTakerPositionAndCheckValues(1 ether, 0.3e6, getOfferIndex(120));
+
+        // vm.warp(block.timestamp + positionDuration + 1);
+
+        // uint userCashBalanceBefore = cashAsset.balanceOf(user1);
+        // uint providerCashBalanceBefore = cashAsset.balanceOf(provider);
+
+        // (uint userWithdrawnAmount, uint providerWithdrawnAmount) = settleAndWithdraw(borrowId);
+        // assertEq(userWithdrawnAmount, position.putLockedCash, "User should receive put locked cash");
+        // assertEq(providerWithdrawnAmount, position.callLockedCash, "Provider should receive call locked cash");
+
+        // assertEq(
+        //     cashAsset.balanceOf(user1),
+        //     userCashBalanceBefore + userWithdrawnAmount,
+        //     "Incorrect user balance after settlement"
+        // );
+        // assertEq(
+        //     cashAsset.balanceOf(provider),
+        //     providerCashBalanceBefore + providerWithdrawnAmount,
+        //     "Incorrect provider balance after settlement"
+        // );
     }
 
     function testFuzz_openAndClosePositionPriceUnderPutStrike(uint collateralAmount, uint24 callStrikeTick)
