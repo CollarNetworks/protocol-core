@@ -188,8 +188,8 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         uint twapPrice,
         uint putLockedCash,
         ProviderPositionNFT providerNFT,
-        uint offerId) internal returns (uint takerId, uint providerId) {
-    {
+        uint offerId
+    ) internal returns (uint takerId, uint providerId) {
         ProviderPositionNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
         uint callLockedCash = _calculateProviderLocked(putLockedCash, offer);
 
@@ -263,7 +263,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
 
     // calculations
     
-    function _calculateProviderLocked(uint putLockedCash, ProviderPositionNFT providerNFT)
+    function _calculateProviderLocked(uint putLockedCash, ProviderPositionNFT.LiquidityOffer memory offer)
         internal
         pure
         returns (uint)
