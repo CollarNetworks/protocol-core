@@ -48,13 +48,7 @@ contract Rolls is Ownable, Pausable {
 
     mapping(uint rollId => RollOffer) internal rollOffers;
 
-    constructor(
-        address initialOwner,
-        CollarTakerNFT _takerNFT,
-        IERC20 _cashAsset
-    )
-        Ownable(initialOwner)
-    {
+    constructor(address initialOwner, CollarTakerNFT _takerNFT, IERC20 _cashAsset) Ownable(initialOwner) {
         takerNFT = _takerNFT;
         cashAsset = _cashAsset;
     }
@@ -68,11 +62,7 @@ contract Rolls is Ownable, Pausable {
 
     // ----- STATE CHANGING FUNCTIONS ----- //
 
-    function createRollOffer(
-        uint takerId,
-        uint maxPrice,
-        uint feePercent
-    )
+    function createRollOffer(uint takerId, uint maxPrice, uint feePercent)
         external
         whenNotPaused
         returns (uint rollId)
@@ -150,11 +140,7 @@ contract Rolls is Ownable, Pausable {
     function executeRoll(
         uint rollId,
         uint minCashTransfer // "slippage", extra user protection (e.g, from price changes)
-    )
-        external
-        whenNotPaused
-        returns (uint newTakerId, uint newProviderId, uint takerTransfer)
-    {
+    ) external whenNotPaused returns (uint newTakerId, uint newProviderId, uint takerTransfer) {
         // @dev this is memory, not storage, because we later pass it into _executeRoll, which
         // should use memory not storage. It would be possible to use storage here, and memory
         // there, but that's error prone, so memory is used in both places.
@@ -208,10 +194,7 @@ contract Rolls is Ownable, Pausable {
         RollOffer memory offer, // @dev this is NOT storage
         uint currentPrice,
         CollarTakerNFT.TakerPosition memory takerPos
-    )
-        internal
-        returns (uint newTakerId, uint newProviderId, uint takerTransfer)
-    {
+    ) internal returns (uint newTakerId, uint newProviderId, uint takerTransfer) {
         // pull the taker NFT from the user (we already have the provider NFT)
         takerNFT.transferFrom(msg.sender, address(this), offer.takerId);
         // now that we have both NFTs, cancel the positions and withdraw
@@ -251,10 +234,7 @@ contract Rolls is Ownable, Pausable {
         // TODO: event
     }
 
-    function _cancelPairedPositionAndWithdraw(
-        uint takerId,
-        CollarTakerNFT.TakerPosition memory takerPos
-    )
+    function _cancelPairedPositionAndWithdraw(uint takerId, CollarTakerNFT.TakerPosition memory takerPos)
         internal
     {
         // cancel and withdraw the cash from the existing paired position
@@ -273,10 +253,7 @@ contract Rolls is Ownable, Pausable {
         ProviderPositionNFT providerNFT,
         CollarTakerNFT.TakerPosition memory takerPos,
         ProviderPositionNFT.ProviderPosition memory providerPos
-    )
-        internal
-        returns (uint newTakerId, uint newProviderId)
-    {
+    ) internal returns (uint newTakerId, uint newProviderId) {
         // calculate locked amounts for new positions
         (uint newPutLocked, uint newCallLocked) = _newLockedAmounts({
             startPrice: takerPos.initialPrice,
@@ -312,11 +289,7 @@ contract Rolls is Ownable, Pausable {
         uint feePercent,
         CollarTakerNFT.TakerPosition memory takerPos,
         ProviderPositionNFT.ProviderPosition memory providerPos
-    )
-        internal
-        view
-        returns (uint providerTransferIn, uint takerTransferOut, uint fee)
-    {
+    ) internal view returns (uint providerTransferIn, uint takerTransferOut, uint fee) {
         // assign for readability
         uint putLocked = takerPos.putLockedCash;
         uint putDeviation = providerPos.putStrikeDeviation;
@@ -359,11 +332,7 @@ contract Rolls is Ownable, Pausable {
         uint putLocked,
         uint putDeviation,
         uint callDeviation
-    )
-        internal
-        view
-        returns (uint newPutLocked, uint newCallLocked)
-    {
+    ) internal view returns (uint newPutLocked, uint newCallLocked) {
         // simple scale up using price. As the putLockedCash is the main input to CollarTakerNFT's
         // open, this determines the new funds needed.
         newPutLocked = putLocked * newPrice / startPrice;
@@ -371,12 +340,7 @@ contract Rolls is Ownable, Pausable {
         newCallLocked = takerNFT.calculateProviderLocked(newPutLocked, putDeviation, callDeviation);
     }
 
-    function _calculateTakerDelta(
-        uint startPrice,
-        uint newPrice,
-        uint putLocked,
-        uint putDeviation
-    )
+    function _calculateTakerDelta(uint startPrice, uint newPrice, uint putLocked, uint putDeviation)
         internal
         pure
         returns (uint takerDelta)

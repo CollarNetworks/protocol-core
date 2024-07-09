@@ -67,11 +67,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
     }
 
     // TODO: test and doc
-    function calculateProviderLocked(
-        uint putLockedCash,
-        uint putStrikeDeviation,
-        uint callStrikeDeviation
-    )
+    function calculateProviderLocked(uint putLockedCash, uint putStrikeDeviation, uint callStrikeDeviation)
         public
         pure
         returns (uint)
@@ -262,7 +258,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
     }
 
     // calculations
-    
+
     function _calculateProviderLocked(uint putLockedCash, ProviderPositionNFT.LiquidityOffer memory offer)
         internal
         pure
