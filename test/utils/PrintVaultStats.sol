@@ -5,7 +5,7 @@
  * All rights reserved. No warranty, explicit or implicit, provided.
  */
 
-pragma solidity ^0.8.18;
+pragma solidity 0.8.22;
 
 import "forge-std/console.sol";
 import { ICollarVaultState } from "../../src/interfaces/ICollarVaultState.sol";

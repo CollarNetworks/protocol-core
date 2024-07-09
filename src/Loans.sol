@@ -54,7 +54,7 @@ contract Loans is ILoans, Ownable, Pausable {
     uint internal constant BIPS_BASE = 10_000;
     uint32 public constant TWAP_LENGTH = 15 minutes;
     /// should be set to not be overly restrictive since is mostly sanity-check
-    uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 100;
+    uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 500;
 
     // allow checking version in scripts / on-chain
     string public constant VERSION = "0.2.0";
@@ -358,6 +358,7 @@ contract Loans is ILoans, Ownable, Pausable {
         // no loan taken. Note that loanAmount 0 can happen for 0 putStrikePrice
         // so only collateral should be checked
         require(loan.collateralAmount != 0, "loan does not exist");
+        // TODO: add a reentrancy test (via one of the assets) to cover this check
         require(!loan.closed, "already closed");
     }
 
