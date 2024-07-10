@@ -28,7 +28,9 @@ interface ILoans {
         uint collateralAmount,
         uint loanAmount,
         uint takerId,
-        uint providerId
+        uint providerId,
+        address cashAsset,
+        address collateralAsset
     );
     event LoanClosed(
         uint indexed takerId,

@@ -57,7 +57,14 @@ contract ProviderPositionNFTTest is Test {
 
         vm.expectEmit(address(providerNFT));
         emit IProviderPositionNFT.OfferCreated(
-            provider, putDeviation, duration, callDeviation, amount, nextOfferId
+            provider,
+            putDeviation,
+            duration,
+            callDeviation,
+            amount,
+            nextOfferId,
+            address(cashAsset),
+            address(collateralAsset)
         );
         offerId = providerNFT.createOffer(callDeviation, amount, putDeviation, duration);
 
@@ -90,9 +97,9 @@ contract ProviderPositionNFTTest is Test {
         );
         vm.expectEmit(address(providerNFT));
         emit IProviderPositionNFT.PositionCreated(
-            0, putDeviation, duration, callDeviation, positionAmount, offerId
+            provider, 0, putDeviation, duration, callDeviation, positionAmount, offerId
         );
-        (positionId, position) = providerNFT.mintPositionFromOffer(offerId, positionAmount);
+        (positionId, position,) = providerNFT.mintPositionFromOffer(offerId, positionAmount);
 
         // Check position details
         assertEq(positionId, nextPosId);
@@ -423,7 +430,7 @@ contract ProviderPositionNFTTest is Test {
         vm.startPrank(address(takerContract));
         for (uint i = 0; i < positionCount; i++) {
             uint amount = largeAmount;
-            (positionIds[i],) = providerNFT.mintPositionFromOffer(offerId, amount);
+            (positionIds[i],,) = providerNFT.mintPositionFromOffer(offerId, amount);
         }
 
         ProviderPositionNFT.LiquidityOffer memory updatedOffer = providerNFT.getOffer(offerId);

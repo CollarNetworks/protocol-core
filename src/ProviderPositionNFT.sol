@@ -146,7 +146,16 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
             duration: duration
         });
         cashAsset.safeTransferFrom(msg.sender, address(this), amount);
-        emit OfferCreated(msg.sender, putStrikeDeviation, duration, callStrikeDeviation, amount, offerId);
+        emit OfferCreated(
+            msg.sender,
+            putStrikeDeviation,
+            duration,
+            callStrikeDeviation,
+            amount,
+            offerId,
+            address(cashAsset),
+            address(collateralAsset)
+        );
     }
 
     /// @notice Updates the amount of an existing liquidity offer by either transferring from the offer
@@ -193,7 +202,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         external
         whenNotPaused
         onlyTrustedTakerContract
-        returns (uint positionId, ProviderPosition memory position)
+        returns (uint positionId, ProviderPosition memory position, address provider)
     {
         LiquidityOffer storage offer = liquidityOffers[offerId];
 
@@ -213,6 +222,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
             settled: false,
             withdrawable: 0
         });
+        provider = offer.provider;
 
         positionId = nextTokenId++;
         // store position data
@@ -223,6 +233,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
 
         emit OfferUpdated(offerId, msg.sender, offer.available + amount, offer.available);
         emit PositionCreated(
+            offer.provider,
             positionId,
             position.putStrikeDeviation,
             offer.duration,

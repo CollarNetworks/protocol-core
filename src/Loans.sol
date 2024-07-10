@@ -160,7 +160,15 @@ contract Loans is ILoans, Ownable, Pausable {
         takerNFT.transferFrom(address(this), msg.sender, takerId);
 
         emit LoanCreated(
-            msg.sender, address(providerNFT), offerId, collateralAmount, loanAmount, takerId, providerId
+            msg.sender,
+            address(providerNFT),
+            offerId,
+            collateralAmount,
+            loanAmount,
+            takerId,
+            providerId,
+            address(cashAsset),
+            address(collateralAsset)
         );
     }
 

@@ -129,7 +129,9 @@ contract LoansTest is Test {
             collateralAmount,
             expectedLoanAmount,
             nextTakerId,
-            nextProviderId
+            nextProviderId,
+            address(cashAsset),
+            address(collateralAsset)
         );
 
         (takerId, providerId, loanAmount) =
