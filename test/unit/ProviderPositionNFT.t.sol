@@ -97,7 +97,15 @@ contract ProviderPositionNFTTest is Test {
         );
         vm.expectEmit(address(providerNFT));
         emit IProviderPositionNFT.PositionCreated(
-            provider, 0, putDeviation, duration, callDeviation, positionAmount, offerId
+            provider,
+            0,
+            putDeviation,
+            duration,
+            callDeviation,
+            positionAmount,
+            offerId,
+            address(cashAsset),
+            address(collateralAsset)
         );
         (positionId, position,) = providerNFT.mintPositionFromOffer(offerId, positionAmount);
 

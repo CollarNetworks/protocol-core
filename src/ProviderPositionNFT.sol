@@ -239,7 +239,9 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
             offer.duration,
             position.callStrikeDeviation,
             amount,
-            offerId
+            offerId,
+            address(cashAsset),
+            address(collateralAsset)
         );
     }
 
