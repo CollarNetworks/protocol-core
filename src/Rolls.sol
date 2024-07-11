@@ -83,6 +83,23 @@ contract Rolls is Ownable, Pausable {
         return takerNFT.getReferenceTWAPPrice(block.timestamp);
     }
 
+    function previewRollTransfers(uint rollId, uint price)
+        external
+        view
+        returns (int toTaker, int toProvider, int rollFee)
+    {
+        RollOffer memory offer = rollOffers[rollId];
+        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offer.takerId);
+        rollFee = calculateRollFee(offer, price);
+        (toTaker, toProvider) = _calculateTransferAmounts({
+            startPrice: takerPos.initialPrice,
+            newPrice: price,
+            rollFeeAmount: rollFee,
+            takerPos: takerPos,
+            providerPos: takerPos.providerNFT.getPosition(takerPos.providerPositionId)
+        });
+    }
+
     // ----- STATE CHANGING FUNCTIONS ----- //
 
     function createRollOffer(
