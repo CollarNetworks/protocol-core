@@ -36,8 +36,6 @@ contract Rolls is IRolls, Ownable, Pausable {
 
     mapping(uint rollId => RollOffer) internal rollOffers;
 
-    // ----- Events ----- //
-
     constructor(address initialOwner, CollarTakerNFT _takerNFT, IERC20 _cashAsset) Ownable(initialOwner) {
         takerNFT = _takerNFT;
         cashAsset = _cashAsset;
@@ -90,7 +88,7 @@ contract Rolls is IRolls, Ownable, Pausable {
         });
     }
 
-    // ----- STATE CHANGING FUNCTIONS ----- //
+    // ----- MUTATIVE FUNCTIONS ----- //
 
     // @dev if the provider will need to provide cash on execution, they must approve the contract to pull that
     // cash when submitting the offer (and have those funds available), so that it is executable.
@@ -320,40 +318,39 @@ contract Rolls is IRolls, Ownable, Pausable {
         CollarTakerNFT.TakerPosition memory takerPos,
         ProviderPositionNFT.ProviderPosition memory providerPos
     ) internal view returns (int toTaker, int toProvider) {
-        // assign for readability
-        uint putLocked = takerPos.putLockedCash;
-        uint callLocked = takerPos.callLockedCash;
-        uint putDeviation = providerPos.putStrikeDeviation;
-        uint callDeviation = providerPos.callStrikeDeviation;
-
-        // what would the taker get from a settlement of the old position at current price
-        (uint takerSettled,) = takerNFT.previewSettlement(takerPos, newPrice);
+        // what would the taker and provider get from a settlement of the old position at current price
+        (uint takerSettled, int providerChange) = takerNFT.previewSettlement(takerPos, newPrice);
+        int providerSettled = takerPos.callLockedCash.toInt256() + providerChange;
 
         // what are the new locked amounts as they will be calculated when opening the new positions
         (uint newPutLocked, uint newCallLocked) = _newLockedAmounts({
             startPrice: startPrice,
             newPrice: newPrice,
-            putLocked: putLocked,
-            putDeviation: putDeviation,
-            callDeviation: callDeviation
+            putLocked: takerPos.putLockedCash,
+            putDeviation: providerPos.putStrikeDeviation,
+            callDeviation: providerPos.callStrikeDeviation
         });
 
-        // The first invariant is that the new locked balance needs to be transferred out to be locked
-        // in the new paired-position when opening it
-        uint oldLocked = putLocked + callLocked; // the withdrawal from the cancelled old position
-        int toPairedPosition = (newPutLocked + newCallLocked).toInt256() - oldLocked.toInt256();
-
-        // The second invariant is that taker's external balance (before fee) should be updated according to
+        // The taker and provider external balances (before fee) should be updated according to
         // their PNL: the money released from their settled position minus the cost of opening the new position.
-        // The roll-fee is deduced, and can represent any arbitrary adjustment to this (that's expressed by the offer).
+        // The roll-fee is applied, and can represent any arbitrary adjustment to this (that's expressed by the offer).
         toTaker = takerSettled.toInt256() - newPutLocked.toInt256() - rollFeeAmount;
+        toProvider = providerSettled - newCallLocked.toInt256() + rollFeeAmount;
 
-        // The third invariant is that the contract should be have no funds remaining after this, so
-        // this means that the provider transfer balances out the other two transfers (taker and locked). So
-        // provider pays (or receives) the difference to balance them out.
-        // Since the roll-fee is already accounted for in toTaker, there is no need to account
-        // for it again.
-        toProvider = -toPairedPosition - toTaker;
+        /*
+            Does this balance out? After settlement (aligned to see what cancels out):
+
+            The contract balance    = takerSettled + providerSettled
+
+            The contract receives / pays:
+                1. toPairedPosition =                                  newPutLocked + newCallLocked
+                2. toTaker          = takerSettled                   - newPutLocked                 - fee
+                3. toProvider       =                providerSettled                - newCallLocked + fee
+
+            All payments summed     = takerSettled + providerSettled
+
+            So the contract pays out everything it receives, and everyone gets their correct updates.
+        */
     }
 
     // @dev the amounts needed for a new position given the old position
