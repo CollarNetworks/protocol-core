@@ -86,14 +86,7 @@ contract CollarTakerNFTTest is Test {
         uint expectedOfferId = providerNFTToUse.nextPositionId();
         vm.expectEmit(address(providerNFTToUse));
         emit IProviderPositionNFT.OfferCreated(
-            provider,
-            putStrikeDeviation,
-            durationToUse,
-            callStrike,
-            amountToProvide,
-            expectedOfferId,
-            address(cashAsset),
-            address(collateralAsset)
+            provider, putStrikeDeviation, durationToUse, callStrike, amountToProvide, expectedOfferId
         );
         offerId = providerNFTToUse.createOffer(callStrike, amountToProvide, putStrikeDeviation, durationToUse);
         ProviderPositionNFT.LiquidityOffer memory offer = providerNFTToUse.getOffer(offerId);

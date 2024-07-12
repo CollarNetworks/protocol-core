@@ -38,21 +38,16 @@ interface IProviderPositionNFT {
         uint indexed duration,
         uint callStrikeDeviation,
         uint amount,
-        uint offerId,
-        address cashAsset,
-        address collateralAsset
+        uint offerId
     );
     event OfferUpdated(uint indexed offerId, address indexed provider, uint previousAmount, uint newAmount);
     event PositionCreated(
-        address provider,
         uint indexed positionId,
         uint indexed putStrikeDeviation,
         uint indexed duration,
         uint callStrikeDeviation,
         uint amount,
-        uint offerId,
-        address cashAsset,
-        address collateralAsset
+        uint offerId
     );
     event PositionSettled(uint indexed positionId, int positionChange, uint withdrawable);
     event WithdrawalFromSettled(uint indexed positionId, address indexed recipient, uint withdrawn);
@@ -84,7 +79,7 @@ interface IProviderPositionNFT {
     // mutative from borrow NFT
     function mintPositionFromOffer(uint offerId, uint amount)
         external
-        returns (uint positionId, ProviderPosition memory position, address provider);
+        returns (uint positionId, ProviderPosition memory position);
     function cancelAndWithdraw(uint positionId, address recipient) external;
     function settlePosition(uint positionId, int positionChange) external;
     // mutative by position NFT owner
