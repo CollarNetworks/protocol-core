@@ -106,6 +106,10 @@ contract Rolls is Ownable, Pausable {
 
     // ----- STATE CHANGING FUNCTIONS ----- //
 
+    // @dev if the provider will need to provide cash on execution, they must approve the contract to pull that
+    // cash when submitting the offer (and have those funds available), so that it is executable.
+    // If offer is unexecutable becomes of insufficient provider cash approval or balance it should ideally be
+    // filtered out by the FE as not executable (and show as unexecutable for the provider).
     function createRollOffer(
         uint takerId,
         int rollFeeAmount,
@@ -126,36 +130,6 @@ contract Rolls is Ownable, Pausable {
         // sanity check bounds
         require(minPrice < maxPrice, "max price not higher than min price");
         require(_abs(rollFeeDeltaFactorBIPS) <= BIPS_BASE, "invalid fee delta change");
-
-        ProviderPositionNFT.ProviderPosition memory providerPos = providerNFT.getPosition(providerId);
-        // calculate the approximate amount of cash that may be needed to be pulled from the provider
-        // @dev it's likely that actual max amount can be somewhat different due to fees, but this
-        // is a close enough approximation, since it's only used for sanity checking the cash
-        // made available now. This doesn't need to be exact because provider may not have enough
-        // cash anyway when execution is triggered, and calculating the max fees (depending on factor
-        // signs) is unnecessary complexity
-        (, int toProvider) = _calculateTransferAmounts({
-            startPrice: takerPos.initialPrice,
-            newPrice: maxPrice, // at maxPrice, the provider needs to provide the max amount of new funds
-            rollFeeAmount: rollFeeAmount,
-            takerPos: takerPos,
-            providerPos: providerPos
-        });
-        // how much should be pulled from provider. 0 if push is expected
-        uint maxFromProvider = toProvider < 0 ? uint(-toProvider) : 0;
-
-        if (maxFromProvider > 0) {
-            // check allowance and balance to reduce chances of unfillable offers
-            // @dev provider may still have insufficient allowance or balance when user will try to accept
-            // but this check makes it a tiny bit harder to spoof offers, and reduces chance of errors.
-            // Depositing the funds for each roll offer is avoided because it's capital inefficient, since
-            // each offer is for a specific position. The offer must specific, because each taker's initial
-            // price may be different, so may or may not be attractive (or require different fee) for a
-            // provider.
-            uint providerAllowance = cashAsset.allowance(msg.sender, address(this));
-            require(cashAsset.balanceOf(msg.sender) >= maxFromProvider, "insufficient cash balance");
-            require(providerAllowance >= maxFromProvider, "insufficient cash allowance");
-        }
 
         // pull the NFT
         providerNFT.transferFrom(msg.sender, address(this), providerId);
