@@ -217,17 +217,10 @@ contract Rolls is Ownable, Pausable {
         // @dev this writes to storage, and so doesn't use memoryOffer (because it's in memory)
         rollOffers[rollId].active = false;
 
-        // track our balance
-        uint balanceBefore = cashAsset.balanceOf(address(this));
-
         (newTakerId, newProviderId, toTaker, toProvider) = _executeRoll(offerMemory, currentPrice, takerPos);
 
         // check transfer is sufficient / or pull is not excessive
         require(toTaker >= minToUser, "taker transfer slippage");
-
-        // refund any remaining dust or excess to provider
-        uint providerRefund = cashAsset.balanceOf(address(this)) - balanceBefore;
-        cashAsset.safeTransfer(offerMemory.provider, providerRefund);
     }
 
     // admin mutative
