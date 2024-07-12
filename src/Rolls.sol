@@ -13,11 +13,11 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 // internal imports
-import { CollarEngine } from "./implementations/CollarEngine.sol";
+import { IRolls } from "./interfaces/IRolls.sol";
 import { CollarTakerNFT } from "./CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "./ProviderPositionNFT.sol";
 
-contract Rolls is Ownable, Pausable {
+contract Rolls is IRolls, Ownable, Pausable {
     using SafeERC20 for IERC20;
     using SafeCast for uint;
 
@@ -34,23 +34,9 @@ contract Rolls is Ownable, Pausable {
 
     uint public nextRollId;
 
-    struct RollOffer {
-        // terms
-        uint takerId;
-        int rollFeeAmount;
-        int rollFeeDeltaFactorBIPS; // bips change of fee amount for delta (ratio) of price change
-        uint rollFeeReferencePrice;
-        uint minPrice;
-        uint maxPrice;
-        // somewhat redundant (since it comes from the taker ID), but safer for cancellations
-        ProviderPositionNFT providerNFT;
-        uint providerId;
-        // state
-        address provider;
-        bool active;
-    }
-
     mapping(uint rollId => RollOffer) internal rollOffers;
+
+    // ----- Events ----- //
 
     constructor(address initialOwner, CollarTakerNFT _takerNFT, IERC20 _cashAsset) Ownable(initialOwner) {
         takerNFT = _takerNFT;
@@ -149,7 +135,7 @@ contract Rolls is Ownable, Pausable {
             active: true
         });
 
-        // TODO: event
+        emit OfferCreated(takerId, msg.sender, providerNFT, providerId, rollFeeAmount, rollId);
     }
 
     /// @dev only cancel and no updating, to prevent frontrunning a user's accept.
@@ -162,36 +148,33 @@ contract Rolls is Ownable, Pausable {
         offer.active = false;
         // return the NFT
         offer.providerNFT.transferFrom(address(this), msg.sender, offer.providerId);
-        // TODO event
+        emit OfferCancelled(rollId, offer.takerId, offer.provider);
     }
 
     function executeRoll(
         uint rollId,
         int minToUser // signed "slippage", user protection
     ) external whenNotPaused returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider) {
-        // @dev this is memory, not storage, because we later pass it into _executeRoll, which
-        // should use memory not storage. It would be possible to use storage here, and memory
-        // there, but that's error prone, so memory is used in both places.
-        RollOffer memory offerMemory = rollOffers[rollId];
+        RollOffer storage offer = rollOffers[rollId];
         // auth, will revert if takerId was burned already
-        require(msg.sender == takerNFT.ownerOf(offerMemory.takerId), "not taker ID owner");
+        require(msg.sender == takerNFT.ownerOf(offer.takerId), "not taker ID owner");
 
         // position is not settled yet. it must exist still (otherwise ownerOf would revert)
-        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offerMemory.takerId);
+        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offer.takerId);
         require(!takerPos.settled, "taker position settled");
 
         // prices are valid
         uint currentPrice = getCurrentPrice();
-        require(currentPrice <= offerMemory.maxPrice, "price too high");
-        require(currentPrice >= offerMemory.minPrice, "price too low");
+        require(currentPrice <= offer.maxPrice, "price too high");
+        require(currentPrice >= offer.minPrice, "price too low");
 
         // offer was cancelled (if taken tokens would be burned)
-        require(offerMemory.active, "invalid offer");
+        require(offer.active, "invalid offer");
         // store the inactive state before external calls as extra reentrancy precaution
-        // @dev this writes to storage, and so doesn't use memoryOffer (because it's in memory)
-        rollOffers[rollId].active = false;
+        // @dev this writes to storage
+        offer.active = false;
 
-        (newTakerId, newProviderId, toTaker, toProvider) = _executeRoll(offerMemory, currentPrice, takerPos);
+        (newTakerId, newProviderId, toTaker, toProvider) = _executeRoll(rollId, currentPrice, takerPos);
 
         // check transfer is sufficient / or pull is not excessive
         require(toTaker >= minToUser, "taker transfer slippage");
@@ -211,11 +194,12 @@ contract Rolls is Ownable, Pausable {
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    function _executeRoll(
-        RollOffer memory offer, // @dev this is NOT storage
-        uint currentPrice,
-        CollarTakerNFT.TakerPosition memory takerPos
-    ) internal returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider) {
+    function _executeRoll(uint rollId, uint currentPrice, CollarTakerNFT.TakerPosition memory takerPos)
+        internal
+        returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider)
+    {
+        // @dev this is memory, not storage
+        RollOffer memory offer = rollOffers[rollId];
         // pull the taker NFT from the user (we already have the provider NFT)
         takerNFT.transferFrom(msg.sender, address(this), offer.takerId);
         // now that we have both NFTs, cancel the positions and withdraw
@@ -263,7 +247,17 @@ contract Rolls is Ownable, Pausable {
             cashAsset.safeTransfer(offer.provider, uint(toProvider));
         }
 
-        // TODO: event
+        emit OfferExecuted(
+            rollId,
+            offer.takerId,
+            offer.providerNFT,
+            offer.providerId,
+            toTaker,
+            toProvider,
+            rollFee,
+            newTakerId,
+            newProviderId
+        );
     }
 
     function _cancelPairedPositionAndWithdraw(uint takerId, CollarTakerNFT.TakerPosition memory takerPos)

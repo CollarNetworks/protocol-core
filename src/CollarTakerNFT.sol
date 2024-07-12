@@ -81,7 +81,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
     // TODO: test and doc
     function previewSettlement(TakerPosition memory takerPos, uint endPrice)
         external
-        view
+        pure
         returns (uint takerBalance, int providerChange)
     {
         return _settlementCalculations(takerPos, endPrice);
