@@ -71,8 +71,12 @@ contract Rolls is Ownable, Pausable {
         uint deltaFactor = _abs(offer.rollFeeDeltaFactorBIPS);
         // scale the fee magnitude by the delta (price change) multiplied by the factor
         // for deltaFactor of 100%, this results in linear scaling of the fee with price
+        // so if factor is BIPS_BASE the amount moves with the price. E.g., 5% price increase, 5% fee increase
+        // but if it's, e.g.,  50% the fee increases only 2.5% for a 5% price increase.
         uint change = amount * deltaFactor * currentPrice / offer.rollFeeReferencePrice / BIPS_BASE;
-        // apply the change depending on the sign of the delta (increase or decrease fee magnitude)
+        // Apply the change depending on the sign of the delta (increase or decrease fee magnitude).
+        // E.g., if the fee is -5, the sign of the factor specifies whether it's increased (+5% -> -5.25)
+        // or decreased (-5% -> -4.75) with price change.
         uint newAmount = offer.rollFeeDeltaFactorBIPS > 0 ? amount + change : amount - change;
         int i_newAmount = newAmount.toInt256();
         // apply the original sign of the fee (increase of decrease provider's balance)
@@ -361,12 +365,10 @@ contract Rolls is Ownable, Pausable {
         uint putDeviation = providerPos.putStrikeDeviation;
         uint callDeviation = providerPos.callStrikeDeviation;
 
-        // account for the difference in the put option (the loan) that the user
-        // was exposed to (and that now has a different strike price), and is scaled by the price change
-        (uint initialUnlocked, uint newUnlocked) =
-            _calculatePutValues(startPrice, newPrice, putLocked, putDeviation);
+        // what would the taker get from a settlement of the old position at current price
+        (uint takerSettled,) = takerNFT.previewSettlement(takerPos, newPrice);
 
-        // new locked amounts, as they will be calculated when opening the new positions
+        // what are the new locked amounts as they will be calculated when opening the new positions
         (uint newPutLocked, uint newCallLocked) = _newLockedAmounts({
             startPrice: startPrice,
             newPrice: newPrice,
@@ -375,22 +377,22 @@ contract Rolls is Ownable, Pausable {
             callDeviation: callDeviation
         });
 
-        // The first invariant is that taker's external balance (adjusted for roll-fee) should
-        // reflect the new position's put value.
-        // Taker should either get paid OR repay the difference in "loan" (put value), adjusted by roll fee.
-        toTaker = newUnlocked.toInt256() - initialUnlocked.toInt256() - rollFeeAmount;
-        uint lockedBalance = putLocked + callLocked;
-        // The second invariant is that the new locked balance needs to be present in the contract
-        // when opening the new position regardless of where it comes from.
-        int lockedChange = (newPutLocked + newCallLocked).toInt256() - lockedBalance.toInt256();
-        // The result is that provider "needs" to pay (or receive) the difference needed for these
-        // invariant to be satisfied: locked adjustment and taker's adjustment.
-        // since the roll-fee is already accounted for in the takerTransfer, there is no need to account
+        // The first invariant is that the new locked balance needs to be transferred out to be locked
+        // in the new paired-position when opening it
+        uint oldLocked = putLocked + callLocked; // the withdrawal from the cancelled old position
+        int toPairedPosition = (newPutLocked + newCallLocked).toInt256() - oldLocked.toInt256();
+
+        // The second invariant is that taker's external balance (before fee) should be updated according to
+        // their PNL: the money released from their settled position minus the cost of opening the new position.
+        // The roll-fee is deduced, and can represent any arbitrary adjustment to this (that's expressed by the offer).
+        toTaker = takerSettled.toInt256() - newPutLocked.toInt256() - rollFeeAmount;
+
+        // The third invariant is that the contract should be have no funds remaining after this, so
+        // this means that the provider transfer balances out the other two transfers (taker and locked). So
+        // provider pays (or receives) the difference to balance them out.
+        // Since the roll-fee is already accounted for in toTaker, there is no need to account
         // for it again.
-        // Thus, if new cash needs to be provided into the system (e.g, due to increase in price), it's
-        // the position calculations force taker and locked changes, and the difference is via the provider
-        // and the roll-fee adjustment.
-        toProvider = -lockedChange - toTaker;
+        toProvider = -toPairedPosition - toTaker;
     }
 
     // @dev the amounts needed for a new position given the old position
@@ -401,42 +403,13 @@ contract Rolls is Ownable, Pausable {
         uint putDeviation,
         uint callDeviation
     ) internal view returns (uint newPutLocked, uint newCallLocked) {
-        // simple scale up using price. As the putLockedCash is the main input to CollarTakerNFT's
+        // simply scale up using price. As the putLockedCash is the main input to CollarTakerNFT's
         // open, this determines the new funds needed.
+        // The reason this needs to be scaled with price, instead of just using the previous amount
+        // is that this can serve the loans use-case, where the "collateral" value (price exposure) is
+        // maintained constant (instead of the dollar amount).
         newPutLocked = putLocked * newPrice / startPrice;
         // use the method that CollarTakerNFT will use to calculate the provider part
         newCallLocked = takerNFT.calculateProviderLocked(newPutLocked, putDeviation, callDeviation);
-    }
-
-    function _calculatePutValues(uint startPrice, uint newPrice, uint putLocked, uint putDeviation)
-        internal
-        pure
-        returns (uint initialPutValue, uint newPutValue)
-    {
-        // the deviation range of the put. e.g., 10% = 100% - 90%
-        uint putRange = BIPS_BASE - putDeviation;
-        /*
-        To calculate the initial put's value (equivalent to the loan), we use the putLocked
-        amount (e.g. 100 tokens), which represent its range (e.g., 10%), to get to what
-        the 90% (the put) would be worth:
-            putValue = putLocked * BIPS_BASE / putRange;
-            900 = 100 * 90% / 10%;
-        Another way to get to the same is in two steps:
-            1. 1000 = "full collateral value" = 100 * 100% / 10%;
-            2. 900 = "loan value" = 90% * 1000;
-        Combining the two steps results in the same.
-        */
-        initialPutValue = putLocked * putDeviation / putRange;
-
-        /*
-        To get to the new value we scale by price. But because the previous value is the result
-        of division, and to avoid mul-after-div precision loss, we substitute the previous formula:
-            1. initialPutValue = putLocked * putDeviation / putRange;
-        into the new one:
-            2. newPutValue = initialPutValue * newPrice / startPrice;
-        resulting in, after rearranging:
-            newPutValue = putLocked * putDeviation * newPrice / startPrice / putRange;
-        */
-        newPutValue = putLocked * putDeviation * newPrice / startPrice / putRange;
     }
 }

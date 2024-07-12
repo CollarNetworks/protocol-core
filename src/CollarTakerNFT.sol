@@ -78,6 +78,15 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         return callRange * putLockedCash / putRange; // proportionally scaled according to ranges
     }
 
+    // TODO: test and doc
+    function previewSettlement(TakerPosition memory takerPos, uint endPrice)
+        external
+        view
+        returns (uint takerBalance, int providerChange)
+    {
+        return _settlementCalculations(takerPos, endPrice);
+    }
+
     // ----- STATE CHANGING FUNCTIONS ----- //
 
     function openPairedPosition(
@@ -268,9 +277,9 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         return calculateProviderLocked(putLockedCash, offer.putStrikeDeviation, offer.callStrikeDeviation);
     }
 
-    function _settlementCalculations(TakerPosition storage position, uint endPrice)
+    function _settlementCalculations(TakerPosition memory position, uint endPrice)
         internal
-        view
+        pure
         returns (uint withdrawable, int providerChange)
     {
         uint startPrice = position.initialPrice;
