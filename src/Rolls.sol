@@ -23,7 +23,8 @@ contract Rolls is IRolls, Ownable, Pausable {
 
     uint internal constant BIPS_BASE = 10_000;
 
-    // allow checking version in scripts / on-chain
+    uint public constant MAX_DEADLINE_DURATION = 52 weeks;
+
     string public constant VERSION = "0.2.0";
 
     // ----- IMMUTABLES ----- //
@@ -71,7 +72,7 @@ contract Rolls is IRolls, Ownable, Pausable {
         return takerNFT.getReferenceTWAPPrice(block.timestamp);
     }
 
-    function previewRollTransfers(uint rollId, uint price)
+    function calculateTransferAmounts(uint rollId, uint price)
         external
         view
         returns (int toTaker, int toProvider, int rollFee)
@@ -98,8 +99,11 @@ contract Rolls is IRolls, Ownable, Pausable {
         uint takerId,
         int rollFeeAmount,
         int rollFeeDeltaFactorBIPS,
+        // provider protection
         uint minPrice,
-        uint maxPrice
+        uint maxPrice,
+        int minToProvider,
+        uint deadline
     ) external whenNotPaused returns (uint rollId) {
         // taker position is valid
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
@@ -114,9 +118,26 @@ contract Rolls is IRolls, Ownable, Pausable {
         // sanity check bounds
         require(minPrice < maxPrice, "max price not higher than min price");
         require(_abs(rollFeeDeltaFactorBIPS) <= BIPS_BASE, "invalid fee delta change");
+        require(deadline >= block.timestamp, "deadline passed");
+        require(deadline <= block.timestamp + MAX_DEADLINE_DURATION, "deadline too far in future");
 
         // pull the NFT
         providerNFT.transferFrom(msg.sender, address(this), providerId);
+
+        // @dev if provider expects to pay, check that they have granted sufficient balance and approvals already
+        // according to their max payment expectation
+        if (minToProvider < 0) {
+            uint maxFromProvider = uint(-minToProvider);
+            // @dev provider may still have insufficient allowance or balance when user will try to accept
+            // but this check makes it a tiny bit harder to spoof offers, and reduces chance of errors.
+            // Depositing the funds for each roll offer is avoided because it's capital inefficient, since
+            // each offer is for a specific position.
+            require(cashAsset.balanceOf(msg.sender) >= maxFromProvider, "insufficient cash balance");
+            require(
+                cashAsset.allowance(msg.sender, address(this)) >= maxFromProvider,
+                "insufficient cash allowance"
+            );
+        }
 
         // store the offer
         rollId = nextRollId++;
@@ -127,6 +148,8 @@ contract Rolls is IRolls, Ownable, Pausable {
             rollFeeReferencePrice: getCurrentPrice(), // the roll offer fees are for current price
             minPrice: minPrice,
             maxPrice: maxPrice,
+            minToProvider: minToProvider,
+            deadline: deadline,
             providerNFT: providerNFT,
             providerId: providerId,
             provider: msg.sender,
@@ -161,10 +184,11 @@ contract Rolls is IRolls, Ownable, Pausable {
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offer.takerId);
         require(!takerPos.settled, "taker position settled");
 
-        // prices are valid
+        // offer is within its terms
         uint currentPrice = getCurrentPrice();
         require(currentPrice <= offer.maxPrice, "price too high");
         require(currentPrice >= offer.minPrice, "price too low");
+        require(offer.deadline <= block.timestamp, "deadline passed");
 
         // offer was cancelled (if taken tokens would be burned)
         require(offer.active, "invalid offer");
@@ -174,8 +198,9 @@ contract Rolls is IRolls, Ownable, Pausable {
 
         (newTakerId, newProviderId, toTaker, toProvider) = _executeRoll(rollId, currentPrice, takerPos);
 
-        // check transfer is sufficient / or pull is not excessive
+        // check transfers are sufficient / or pulls are not excessive
         require(toTaker >= minToUser, "taker transfer slippage");
+        require(toProvider >= offer.minToProvider, "provider transfer slippage");
     }
 
     // admin mutative

@@ -18,8 +18,11 @@ interface IRolls {
         int rollFeeAmount;
         int rollFeeDeltaFactorBIPS; // bips change of fee amount for delta (ratio) of price change
         uint rollFeeReferencePrice;
+        // provider protection
         uint minPrice;
         uint maxPrice;
+        int minToProvider;
+        uint deadline;
         // somewhat redundant (since it comes from the taker ID), but safer for cancellations
         ProviderPositionNFT providerNFT;
         uint providerId;
@@ -52,6 +55,7 @@ interface IRolls {
 
     // constants
     function VERSION() external view returns (string memory);
+    function MAX_DEADLINE_DURATION() external view returns (uint);
     // immutables
     function cashAsset() external view returns (IERC20);
     function takerNFT() external view returns (CollarTakerNFT);
@@ -64,7 +68,7 @@ interface IRolls {
         pure
         returns (int rollFee);
     function getCurrentPrice() external view returns (uint);
-    function previewRollTransfers(uint rollId, uint price)
+    function calculateTransferAmounts(uint rollId, uint price)
         external
         view
         returns (int toTaker, int toProvider, int rollFee);
@@ -75,7 +79,9 @@ interface IRolls {
         int rollFeeAmount,
         int rollFeeDeltaFactorBIPS,
         uint minPrice,
-        uint maxPrice
+        uint maxPrice,
+        int minToProvider,
+        uint deadline
     ) external returns (uint rollId);
     function cancelOffer(uint rollId) external;
     // mutative user
