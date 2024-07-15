@@ -217,11 +217,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         positionId = nextTokenId++;
         // store position data
         positions[positionId] = position;
-        // mint the NFT to the provider
-        // @dev does not use _safeMint to avoid reentrancy
-        _mint(offer.provider, positionId);
-
-        emit OfferUpdated(offerId, msg.sender, offer.available + amount, offer.available);
+        // emit creation before transfer
         emit PositionCreated(
             positionId,
             position.putStrikeDeviation,
@@ -230,6 +226,11 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
             amount,
             offerId
         );
+        // mint the NFT to the provider
+        // @dev does not use _safeMint to avoid reentrancy
+        _mint(offer.provider, positionId);
+
+        emit OfferUpdated(offerId, msg.sender, offer.available + amount, offer.available);
     }
 
     /// @notice Settles an existing position. Can ONLY be called through the
