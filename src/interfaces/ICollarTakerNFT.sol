@@ -33,15 +33,11 @@ interface ICollarTakerNFT {
 
     // events
     event PairedPositionOpened(
-        address taker,
-        address provider,
         uint indexed takerId,
         address indexed providerNFT,
         uint indexed providerId,
         uint offerId,
-        TakerPosition takerPosition,
-        address cashAsset,
-        address collateralAsset
+        TakerPosition takerPosition
     );
     event PairedPositionSettled(
         uint indexed takerId,

@@ -173,7 +173,6 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         // and sends the provider NFT to the provider
         ProviderPositionNFT.ProviderPosition memory providerPosition;
         (providerId, providerPosition) = providerNFT.mintPositionFromOffer(offerId, callLockedCash);
-        address provider = providerNFT.ownerOf(providerId);
         // put and call deviations are assumed to be identical for offer and resulting position
         uint putStrikePrice = twapPrice * providerPosition.putStrikeDeviation / BIPS_BASE;
         uint callStrikePrice = twapPrice * providerPosition.callStrikeDeviation / BIPS_BASE;
@@ -203,17 +202,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         // @dev does not use _safeMint to avoid reentrancy
         _mint(msg.sender, takerId);
 
-        emit PairedPositionOpened(
-            msg.sender,
-            provider,
-            takerId,
-            address(providerNFT),
-            providerId,
-            offerId,
-            takerPosition,
-            address(cashAsset),
-            address(collateralAsset)
-        );
+        emit PairedPositionOpened(takerId, address(providerNFT), providerId, offerId, takerPosition);
     }
 
     function _settleProviderPosition(TakerPosition storage position, int providerChange) internal {
