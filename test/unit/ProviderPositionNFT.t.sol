@@ -89,12 +89,12 @@ contract ProviderPositionNFTTest is Test {
 
         startHoax(address(takerContract));
         vm.expectEmit(address(providerNFT));
-        emit IProviderPositionNFT.OfferUpdated(
-            offerId, address(takerContract), offerAmount, offerAmount - positionAmount
-        );
-        vm.expectEmit(address(providerNFT));
         emit IProviderPositionNFT.PositionCreated(
             0, putDeviation, duration, callDeviation, positionAmount, offerId
+        );
+        vm.expectEmit(address(providerNFT));
+        emit IProviderPositionNFT.OfferUpdated(
+            offerId, address(takerContract), offerAmount, offerAmount - positionAmount
         );
         (positionId, position) = providerNFT.mintPositionFromOffer(offerId, positionAmount);
 
