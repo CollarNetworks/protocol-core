@@ -55,7 +55,6 @@ interface IRolls {
 
     // constants
     function VERSION() external view returns (string memory);
-    function MAX_DEADLINE_DURATION() external view returns (uint);
     // immutables
     function cashAsset() external view returns (IERC20);
     function takerNFT() external view returns (CollarTakerNFT);

@@ -23,8 +23,6 @@ contract Rolls is IRolls, Ownable, Pausable {
 
     uint internal constant BIPS_BASE = 10_000;
 
-    uint public constant MAX_DEADLINE_DURATION = 52 weeks;
-
     string public constant VERSION = "0.2.0";
 
     // ----- IMMUTABLES ----- //
@@ -119,7 +117,6 @@ contract Rolls is IRolls, Ownable, Pausable {
         require(minPrice < maxPrice, "max price not higher than min price");
         require(_abs(rollFeeDeltaFactorBIPS) <= BIPS_BASE, "invalid fee delta change");
         require(deadline >= block.timestamp, "deadline passed");
-        require(deadline <= block.timestamp + MAX_DEADLINE_DURATION, "deadline too far in future");
 
         // pull the NFT
         providerNFT.transferFrom(msg.sender, address(this), providerId);
