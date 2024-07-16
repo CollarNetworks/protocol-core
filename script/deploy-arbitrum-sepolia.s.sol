@@ -11,10 +11,11 @@ import { Loans } from "../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
-import { CollarOwnedERC20 } from "../src//utils/CollarOwnedERC20.sol";
+
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
+import { CollarOwnedERC20 } from "../src/utils/CollarOwnedERC20.sol";
 
 contract DeployArbitrumSepoliaProtocol is Script {
     using SafeERC20 for IERC20;
@@ -34,18 +35,19 @@ contract DeployArbitrumSepoliaProtocol is Script {
     }
 
     IV3SwapRouter constant SWAP_ROUTER = IV3SwapRouter(0x101F443B4d1b059569D643917553c771E1b9663E);
-    IERC20 constant COLLATERAL_TOKEN = IERC20(0x12576dc597a66A1627b75F6E9A9673e935E0f8F2);
-    IERC20 constant CASH_TOKEN = IERC20(0x8FC21A6C07C9A83AcaaeB97E5F23bDf24521da5d);
+    IERC20 constant CASH_TOKEN = IERC20(0x5D01F1E59C188a2A9Afc376cF6627dd5F28DC28F);
+    IERC20 constant COLLATERAL_TOKEN = IERC20(0x9A6E1a5f94De0aD8ca15b55eA0d39bEaEc579434);
     address constant POSITION_MANAGER = 0x6b2937Bde17889EDCf8fbD8dE31C3C2a70Bc4d65;
 
     function setUp() public { }
 
     function run() external {
-        require(block.chainid == chainId, "Wrong chain");
+        // require(block.chainid == chainId, "Wrong chain");
 
         uint deployerPrivateKey = vm.envUint("PRIVKEY_DEV_DEPLOYER");
         address deployer = vm.addr(deployerPrivateKey);
-        address liquidityProvider = vm.addr(vm.envUint("LIQUIDITY_PROVIDER_KEY"));
+        uint liquidityProviderKey = vm.envUint("LIQUIDITY_PROVIDER_KEY");
+        address liquidityProvider = vm.addr(liquidityProviderKey);
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -56,7 +58,13 @@ contract DeployArbitrumSepoliaProtocol is Script {
 
         DeployedContracts memory contracts = deployContracts(address(engine), deployer);
 
+        _verifyDeployment(address(engine), contracts);
+
+        CollarOwnedERC20(address(contracts.cashAsset)).mint(liquidityProvider, 100_000_000 ether);
+        CollarOwnedERC20(address(contracts.collateralAsset)).mint(liquidityProvider, 100_000_000 ether);
+
         vm.stopBroadcast();
+
         console.log("Engine deployed at:", address(engine));
         console.log("Cash Asset deployed at:", contracts.cashAsset);
         console.log("Collateral Asset deployed at:", contracts.collateralAsset);
@@ -66,8 +74,6 @@ contract DeployArbitrumSepoliaProtocol is Script {
         console.log("Uniswap V3 pool created at:", contracts.uniswapPool);
 
         // Verify deployment
-        _verifyDeployment(address(engine), contracts);
-
         // Create offers
         _createOffers(
             deployerPrivateKey,
@@ -80,14 +86,41 @@ contract DeployArbitrumSepoliaProtocol is Script {
         // Verify offers
         _verifyOffers(contracts.providerNFT, liquidityProvider);
 
-        // add liquidity to the new asset pool
-        _addLiquidityToPool(liquidityProvider, contracts.uniswapPool);
+        // // add liquidity to the new asset pool
+
+        // _initializePool(
+        //     liquidityProviderKey,
+        //     liquidityProvider,
+        //     contracts.uniswapPool,
+        //     CollarOwnedERC20(contracts.cashAsset),
+        //     CollarOwnedERC20(contracts.collateralAsset)
+        // );
+
+        // _addLiquidityToPool(
+        //     liquidityProviderKey,
+        //     liquidityProvider,
+        //     CollarOwnedERC20(contracts.cashAsset),
+        //     CollarOwnedERC20(contracts.collateralAsset)
+        // );
+
+        _testLoan(
+            deployerPrivateKey,
+            contracts.loansContract,
+            ProviderPositionNFT(contracts.providerNFT),
+            address(contracts.cashAsset),
+            address(contracts.collateralAsset)
+        );
     }
 
     function deployContracts(address engine, address deployer) internal returns (DeployedContracts memory) {
         // Deploy custom ERC20 tokens
-        address cashAsset = address(new CollarOwnedERC20(deployer, "Cash Asset", "CASH"));
-        address collateralAsset = address(new CollarOwnedERC20(deployer, "Collateral Asset", "COLL"));
+        address cashAsset = address(CASH_TOKEN);
+        address collateralAsset = address(COLLATERAL_TOKEN);
+        if (CollarOwnedERC20(cashAsset).decimals() != 18) {
+            cashAsset = address(new CollarOwnedERC20(deployer, "Cash Asset", "CASH"));
+            collateralAsset = address(new CollarOwnedERC20(deployer, "Collateral Asset", "COLL"));
+        }
+
         console.log("Collateral asset address:", collateralAsset);
         console.log("Cash asset address:", cashAsset);
         CollarOwnedERC20(collateralAsset).mint(deployer, 1_000_000e18);
@@ -114,8 +147,8 @@ contract DeployArbitrumSepoliaProtocol is Script {
         }
 
         // Add support for assets in the engine
-        CollarEngine(engine).addSupportedCashAsset(cashAsset);
         CollarEngine(engine).addSupportedCollateralAsset(collateralAsset);
+        CollarEngine(engine).addSupportedCashAsset(cashAsset);
 
         // Deploy contract pair
         address takerNFT = address(
@@ -124,8 +157,8 @@ contract DeployArbitrumSepoliaProtocol is Script {
                 CollarEngine(engine),
                 IERC20(cashAsset),
                 IERC20(collateralAsset),
-                "Taker CASH/COLL",
-                "TCASH/COLL"
+                "Taker COLL/CASH",
+                "TCOLL/CASH"
             )
         );
         address providerNFT = address(
@@ -135,8 +168,8 @@ contract DeployArbitrumSepoliaProtocol is Script {
                 IERC20(cashAsset),
                 IERC20(collateralAsset),
                 takerNFT,
-                "Provider CASH/COLL",
-                "PCASH/COLL"
+                "Provider COLL/CASH",
+                "PCOLL/CASH"
             )
         );
         address loansContract = address(
@@ -209,7 +242,7 @@ contract DeployArbitrumSepoliaProtocol is Script {
         for (uint i = 0; i < callStrikeTicks.length; i++) {
             ProviderPositionNFT.LiquidityOffer memory offer = provider.getOffer(i);
             require(offer.provider == liquidityProvider, "Incorrect offer provider");
-            require(offer.available == 100_000e6, "Incorrect offer amount");
+            require(offer.available == 100_000 ether, "Incorrect offer amount");
             require(offer.putStrikeDeviation == 9000, "Incorrect LTV");
             require(offer.duration == 300, "Incorrect duration");
             require(offer.callStrikeDeviation == callStrikeTicks[i], "Incorrect call strike deviation");
@@ -218,14 +251,59 @@ contract DeployArbitrumSepoliaProtocol is Script {
         console.log("Offers verified successfully");
     }
 
-    function _addLiquidityToPool(address provider, address pool) internal {
-        vm.startBroadcast(provider);
-        CollarOwnedERC20(address(CASH_TOKEN)).mint(provider, 10_000_000 ether);
-        CollarOwnedERC20(address(COLLATERAL_TOKEN)).mint(provider, 10_000_000 ether);
+    function _addLiquidityToPool(
+        uint providerKey,
+        address provider,
+        CollarOwnedERC20 cashAsset,
+        CollarOwnedERC20 collateralAsset
+    ) internal {
+        vm.startBroadcast(providerKey);
         // Approve tokens
-        IERC20(COLLATERAL_TOKEN).approve(POSITION_MANAGER, type(uint).max);
-        IERC20(CASH_TOKEN).approve(POSITION_MANAGER, type(uint).max);
+        collateralAsset.approve(address(SWAP_ROUTER), type(uint).max);
+        cashAsset.approve(address(SWAP_ROUTER), type(uint).max);
 
+        // Amount of tokens to add as liquidity
+        uint amountDesired = 10_000_000 ether;
+
+        SWAP_ROUTER.exactInputSingle(
+            IV3SwapRouter.ExactInputSingleParams({
+                tokenIn: address(collateralAsset),
+                tokenOut: address(cashAsset),
+                fee: POOL_FEE,
+                recipient: provider,
+                amountIn: amountDesired,
+                amountOutMinimum: 0,
+                sqrtPriceLimitX96: 0
+            })
+        );
+
+        // // Swap cashAsset for collateralAsset
+        SWAP_ROUTER.exactInputSingle(
+            IV3SwapRouter.ExactInputSingleParams({
+                tokenIn: address(cashAsset),
+                tokenOut: address(collateralAsset),
+                fee: POOL_FEE,
+                recipient: provider,
+                amountIn: amountDesired,
+                amountOutMinimum: 0,
+                sqrtPriceLimitX96: 0
+            })
+        );
+
+        console.log("Liquidity added:");
+    }
+
+    function _initializePool(
+        uint providerKey,
+        address provider,
+        address pool,
+        CollarOwnedERC20 cashAsset,
+        CollarOwnedERC20 collateralAsset
+    ) internal {
+        vm.startBroadcast(providerKey);
+        // Approve tokens
+        IERC20(collateralAsset).approve(POSITION_MANAGER, type(uint).max);
+        IERC20(cashAsset).approve(POSITION_MANAGER, type(uint).max);
         // Get current tick
         (, int24 currentTick,,,,,) = IUniswapV3Pool(pool).slot0();
 
@@ -234,17 +312,21 @@ contract DeployArbitrumSepoliaProtocol is Script {
         int24 tickUpper = currentTick + 600;
 
         // Amount of tokens to add as liquidity
-        uint amount0Desired = 10_000_000 ether;
-        uint amount1Desired = 10_000_000 ether;
+        uint amountDesired = 10_000_000 ether;
 
+        // Set the initial price
+        uint160 sqrtPriceX96 = 79_228_162_514_264_337_593_543_950_336; // Represents a price of 1:1
+
+        // Initialize the pool
+        IUniswapV3Pool(pool).initialize(sqrtPriceX96);
         INonfungiblePositionManager.MintParams memory params = INonfungiblePositionManager.MintParams({
-            token0: address(COLLATERAL_TOKEN),
-            token1: address(CASH_TOKEN),
+            token1: address(collateralAsset),
+            token0: address(cashAsset),
             fee: POOL_FEE,
             tickLower: tickLower,
             tickUpper: tickUpper,
-            amount0Desired: amount0Desired,
-            amount1Desired: amount1Desired,
+            amount0Desired: amountDesired,
+            amount1Desired: amountDesired,
             amount0Min: 0,
             amount1Min: 0,
             recipient: provider,
@@ -252,13 +334,27 @@ contract DeployArbitrumSepoliaProtocol is Script {
         });
 
         // Add liquidity
-        (uint tokenId, uint128 liquidity, uint amount0, uint amount1) =
-            INonfungiblePositionManager(POSITION_MANAGER).mint(params);
+        INonfungiblePositionManager(POSITION_MANAGER).mint(params);
+    }
 
-        console.log("Liquidity added:");
-        console.log("Token ID:", tokenId);
-        console.log("Liquidity:", liquidity);
-        console.log("Amount of token0:", amount0);
-        console.log("Amount of token1:", amount1);
+    function _testLoan(
+        uint privKey,
+        address loansContract,
+        ProviderPositionNFT providerNFT,
+        address cashAsset,
+        address collateralAsset
+    ) internal {
+        vm.startBroadcast(privKey);
+        // Create loan
+        IERC20(cashAsset).approve(loansContract, 100_000 ether);
+        IERC20(collateralAsset).approve(loansContract, 100_000 ether);
+        Loans(loansContract).createLoan(10 ether, 9 ether, 0, providerNFT, 0);
+        // Get loan
+        Loans.Loan memory loan = Loans(loansContract).getLoan(0);
+        console.log("Loan collateral amount:", loan.collateralAmount);
+        console.log("Loan loan amount:", loan.loanAmount);
+        console.log("Loan keeper allowed by:", loan.keeperAllowedBy);
+        console.log("Loan closed:", loan.closed);
+        vm.stopBroadcast();
     }
 }
