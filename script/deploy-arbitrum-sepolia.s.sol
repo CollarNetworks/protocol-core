@@ -23,7 +23,7 @@ contract DeployArbitrumSepoliaProtocol is Script {
     uint constant chainId = 421_614; // Arbitrum Sepolia
     address constant uniswapV3FactoryAddress = 0x248AB79Bbb9bC29bB72f7Cd42F17e054Fc40188e; // Arbitrum Sepolia UniswapV3Factory
     uint24 constant POOL_FEE = 3000;
-    uint[] public callStrikeTicks = [11_100, 11_200, 11_500, 12_000];
+    uint[] public callStrikeDeviations = [11_100, 11_200, 11_500, 12_000];
 
     struct DeployedContracts {
         address cashAsset;
@@ -228,8 +228,8 @@ contract DeployArbitrumSepoliaProtocol is Script {
         uint amountToAdd = 100_000e18; // 100,000 CASH tokens
         IERC20(cashAsset).approve(providerNFT, type(uint).max);
 
-        for (uint i = 0; i < callStrikeTicks.length; i++) {
-            ProviderPositionNFT(providerNFT).createOffer(callStrikeTicks[i], amountToAdd, 9000, 300);
+        for (uint i = 0; i < callStrikeDeviations.length; i++) {
+            ProviderPositionNFT(providerNFT).createOffer(callStrikeDeviations[i], amountToAdd, 9000, 300);
         }
 
         vm.stopBroadcast();
@@ -239,13 +239,13 @@ contract DeployArbitrumSepoliaProtocol is Script {
     function _verifyOffers(address providerNFT, address liquidityProvider) internal view {
         ProviderPositionNFT provider = ProviderPositionNFT(providerNFT);
 
-        for (uint i = 0; i < callStrikeTicks.length; i++) {
+        for (uint i = 0; i < callStrikeDeviations.length; i++) {
             ProviderPositionNFT.LiquidityOffer memory offer = provider.getOffer(i);
             require(offer.provider == liquidityProvider, "Incorrect offer provider");
             require(offer.available == 100_000 ether, "Incorrect offer amount");
             require(offer.putStrikeDeviation == 9000, "Incorrect LTV");
             require(offer.duration == 300, "Incorrect duration");
-            require(offer.callStrikeDeviation == callStrikeTicks[i], "Incorrect call strike deviation");
+            require(offer.callStrikeDeviation == callStrikeDeviations[i], "Incorrect call strike deviation");
         }
 
         console.log("Offers verified successfully");
