@@ -358,6 +358,7 @@ contract Loans is ILoans, Ownable, Pausable {
         // no loan taken. Note that loanAmount 0 can happen for 0 putStrikePrice
         // so only collateral should be checked
         require(loan.collateralAmount != 0, "loan does not exist");
+        // TODO: add a reentrancy test (via one of the assets) to cover this check
         require(!loan.closed, "already closed");
     }
 
