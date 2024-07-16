@@ -10,18 +10,15 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockUniRouter } from "../utils/MockUniRouter.sol";
-import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
+
 import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { CollarPool } from "../../src/implementations/CollarPool.sol";
 
 contract CollarEngineTest is Test {
     TestERC20 token1;
     TestERC20 token2;
     MockUniRouter router;
-    CollarVaultManager manager;
     CollarEngine engine;
-    address pool1;
 
     address user1 = makeAddr("user1");
     address user2 = makeAddr("user2");
@@ -39,62 +36,12 @@ contract CollarEngineTest is Test {
         router = new MockUniRouter();
 
         engine = new CollarEngine(address(router));
-        manager = CollarVaultManager(engine.createVaultManager());
-
         engine.addLTV(9000);
-
-        pool1 = address(new CollarPool(address(engine), 1, address(token1), address(token2), 100, 9000));
-    }
-
-    function mintTokensAndApprovePool(address recipient) public {
-        startHoax(recipient);
-        token1.mint(recipient, 100_000);
-        token2.mint(recipient, 100_000);
-        token1.approve(address(pool1), 100_000);
-        token2.approve(address(pool1), 100_000);
-        vm.stopPrank();
     }
 
     function test_deploymentAndDeployParams() public view {
         assertEq(address(engine.univ3SwapRouter()), address(router));
         assertEq(engine.owner(), address(this));
-    }
-
-    function test_addLiquidityPool() public {
-        assertFalse(engine.isSupportedLiquidityPool(address(pool1)));
-        engine.addLiquidityPool(address(pool1));
-        assertTrue(engine.isSupportedLiquidityPool(address(pool1)));
-    }
-
-    function test_supportedLiquidityPoolsLength() public {
-        engine.addLiquidityPool(address(pool1));
-        assertEq(engine.supportedLiquidityPoolsLength(), 1);
-        engine.removeLiquidityPool(address(pool1));
-        assertEq(engine.supportedLiquidityPoolsLength(), 0);
-    }
-
-    function test_removeLiquidityPool() public {
-        engine.addLiquidityPool(address(pool1));
-        engine.removeLiquidityPool(address(pool1));
-        assertFalse(engine.isSupportedLiquidityPool(address(pool1)));
-    }
-
-    function test_addLiquidityPool_NoAuth() public {
-        startHoax(user1);
-
-        vm.expectRevert(user1NotAuthorized);
-        engine.addLiquidityPool(address(pool1));
-
-        vm.stopPrank();
-    }
-
-    function test_removeLiquidityPool_NoAuth() public {
-        startHoax(user1);
-
-        vm.expectRevert(user1NotAuthorized);
-        engine.removeLiquidityPool(address(pool1));
-
-        vm.stopPrank();
     }
 
     function test_addSupportedCashAsset() public {
@@ -182,10 +129,28 @@ contract CollarEngineTest is Test {
         vm.stopPrank();
     }
 
+    function test_addCollarDuration_AlreadyAdded() public {
+        uint duration = 7 days;
+
+        // First addition should succeed
+        engine.addCollarDuration(duration);
+        assertTrue(engine.isValidCollarDuration(duration));
+
+        // Second addition should fail
+        vm.expectRevert("already added");
+        engine.addCollarDuration(duration);
+    }
+
     function test_removeCollarDuration() public {
         engine.addCollarDuration(1);
         engine.removeCollarDuration(1);
         assertFalse(engine.isValidCollarDuration(1));
+    }
+
+    function test_removeCollarDuration_NotFound() public {
+        uint duration = 7 days;
+        vm.expectRevert("not found");
+        engine.removeCollarDuration(duration);
     }
 
     function test_removeCollarDuration_NoAuth() public {
@@ -200,65 +165,15 @@ contract CollarEngineTest is Test {
         engine.getHistoricalAssetPriceViaTWAP(address(token1), address(token2), 0, 0);
     }
 
-    function test_createVaultManager() public {
-        startHoax(user1);
-
-        address createdVaultManager = engine.createVaultManager();
-        address storedVaultManager = engine.addressToVaultManager(user1);
-
-        assertEq(createdVaultManager, storedVaultManager);
-
-        address vaultManager = createdVaultManager;
-
-        address vaultManagerOwner = CollarVaultManager(vaultManager).owner();
-        address vaultManagerUSer = CollarVaultManager(vaultManager).user();
-        address vaultManagerEngine = CollarVaultManager(vaultManager).engine();
-
-        assertEq(vaultManagerOwner, user1);
-        assertEq(vaultManagerUSer, user1);
-        assertEq(vaultManagerEngine, address(engine));
-
-        vm.stopPrank();
-    }
-
-    function test_createVaultManager_Duplicate() public {
-        startHoax(user1);
-
-        address vaultManager = engine.createVaultManager();
-
-        vm.expectRevert("manager exists for sender");
-        engine.createVaultManager();
-
-        vm.stopPrank();
-    }
-
     function test_removeLTV() public {
         engine.removeLTV(9000);
         assertFalse(engine.isValidLTV(9000));
     }
 
-    function test_vaultManagersLength() public {
-        vm.startPrank(user1);
-        engine.createVaultManager();
-        vm.stopPrank();
-        vm.startPrank(user2);
-        engine.createVaultManager();
-        vm.stopPrank();
-        assertEq(engine.vaultManagersLength(), 3);
-    }
-
-    function test_getVaultManager() public {
-        vm.startPrank(user1);
-        uint vaultManagerCount = engine.vaultManagersLength();
-        engine.createVaultManager();
-        address vaultManager = engine.getVaultManager(vaultManagerCount);
-
-        assertEq(vaultManager, engine.addressToVaultManager(user1));
-        vm.stopPrank();
-    }
-
-    function testFail_getVaultManager() public view {
-        engine.getVaultManager(1);
+    function test_removeLTV_NotFound() public {
+        uint ltv = 7500;
+        vm.expectRevert("not found");
+        engine.removeLTV(ltv);
     }
 
     function test_supportedCashAssetsLength() public {
@@ -285,11 +200,6 @@ contract CollarEngineTest is Test {
         assertEq(engine.getSupportedCollateralAsset(0), address(token1));
     }
 
-    function test_getSupportedLiquidityPool() public {
-        engine.addLiquidityPool(address(pool1));
-        assertEq(engine.getSupportedLiquidityPool(0), address(pool1));
-    }
-
     function test_validCollarDurationsLength() public {
         engine.addCollarDuration(1);
         assertEq(engine.validCollarDurationsLength(), 1);
@@ -312,5 +222,37 @@ contract CollarEngineTest is Test {
     function test_getValidLTV() public {
         engine.addLTV(8000);
         assertEq(engine.getValidLTV(1), 8000);
+    }
+
+    function test_addLTV_AlreadyAdded() public {
+        uint ltv = 8500;
+
+        // First addition should succeed
+        engine.addLTV(ltv);
+        assertTrue(engine.isValidLTV(ltv));
+
+        // Second addition should fail
+        vm.expectRevert("already added");
+        engine.addLTV(ltv);
+    }
+
+    function test_setCollarTakerContractAuth() public {
+        address testContract = address(0x123);
+        engine.setCollarTakerContractAuth(testContract, true);
+        assertTrue(engine.isCollarTakerNFT(testContract));
+
+        // Test "already added" branch
+        engine.setCollarTakerContractAuth(testContract, false);
+        assertFalse(engine.isCollarTakerNFT(testContract));
+    }
+
+    function test_setProviderContractAuth() public {
+        address testContract = address(0x456);
+        engine.setProviderContractAuth(testContract, true);
+        assertTrue(engine.isProviderNFT(testContract));
+
+        // Test "already added" branch
+        engine.setProviderContractAuth(testContract, false);
+        assertFalse(engine.isProviderNFT(testContract));
     }
 }
