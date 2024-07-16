@@ -10,12 +10,7 @@ pragma solidity 0.8.22;
 interface ICollarEngine {
     // EVENTS
 
-    // regular user actions
-    event VaultManagerCreated(address indexed vaultManager, address indexed owner);
-
     // auth'd actions
-    event LiquidityPoolAdded(address indexed liquidityPool);
-    event LiquidityPoolRemoved(address indexed liquidityPool);
     event CollateralAssetAdded(address indexed collateralAsset);
     event CollateralAssetRemoved(address indexed collateralAsset);
     event CashAssetAdded(address indexed cashAsset);
@@ -28,22 +23,6 @@ interface ICollarEngine {
     event ProviderNFTAuthSet(address indexed contractAddress, bool indexed enabled);
 
     // ----- state changing transactions
-
-    /// @notice Creates a vault manager contract for the user that calls this function, if it does not already
-    /// exist
-    /// @dev This function is called by the user when they want to create a new vault if they haven't done so
-    /// in the past
-    function createVaultManager() external returns (address);
-
-    // liquidity pools
-
-    /// @notice Adds a liquidity pool to the list of supported pools
-    /// @param pool The address of the pool to add
-    function addLiquidityPool(address pool) external;
-
-    /// @notice Removes a liquidity pool from the list of supported pools
-    /// @param pool The address of the pool to remove
-    function removeLiquidityPool(address pool) external;
 
     // collateral assets
 
@@ -87,19 +66,6 @@ interface ICollarEngine {
 
     // ----- view functions
 
-    // vault managers
-
-    /// @notice Checks if an address is a vault manager
-    /// @param vaultManager The address to check
-    function isVaultManager(address vaultManager) external view returns (bool);
-
-    /// @notice Gets the number of vault managers in the list
-    function vaultManagersLength() external view returns (uint);
-
-    /// @notice Gets the address of a vault manager at a particular index
-    /// @param index The index of the vault manager to get the address of
-    function getVaultManager(uint index) external view returns (address);
-
     // cash assets
 
     /// @notice Checks if an asset is supported as a cash asset in the engine
@@ -124,19 +90,6 @@ interface ICollarEngine {
 
     /// @notice Gets the address of a supported collateral asset at a particular index
     function getSupportedCollateralAsset(uint index) external view returns (address);
-
-    // liquidity pools
-
-    /// @notice Checks if a liquidity pool is supported in the engine
-    /// @param pool The address of the pool to check
-    function isSupportedLiquidityPool(address pool) external view returns (bool);
-
-    /// @notice Gets the number of supported liquidity pools in the engine
-    function supportedLiquidityPoolsLength() external view returns (uint);
-
-    /// @notice Gets the address of a supported liquidity pool at a particular index
-    /// @param index The index of the pool to get the address of
-    function getSupportedLiquidityPool(uint index) external view returns (address);
 
     // collar durations
 
