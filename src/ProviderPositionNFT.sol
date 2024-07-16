@@ -300,12 +300,14 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         require(!position.settled, "already settled");
         position.settled = true; // done here as this also acts as reentrancy protection
 
+        uint withdrawal = position.principal;
+
         // burn token
         _burn(positionId);
 
-        cashAsset.safeTransfer(recipient, position.principal);
+        cashAsset.safeTransfer(recipient, withdrawal);
 
-        emit PositionCanceled(positionId, recipient, position.principal, position.expiration);
+        emit PositionCanceled(positionId, recipient, withdrawal, position.expiration);
     }
 
     // ----- actions by position owner ----- //

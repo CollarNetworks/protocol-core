@@ -185,7 +185,7 @@ contract Rolls is IRolls, Ownable, Pausable {
         uint currentPrice = getCurrentPrice();
         require(currentPrice <= offer.maxPrice, "price too high");
         require(currentPrice >= offer.minPrice, "price too low");
-        require(offer.deadline <= block.timestamp, "deadline passed");
+        require(offer.deadline >= block.timestamp, "deadline passed");
 
         // offer was cancelled (if taken tokens would be burned)
         require(offer.active, "invalid offer");
@@ -283,6 +283,8 @@ contract Rolls is IRolls, Ownable, Pausable {
     function _cancelPairedPositionAndWithdraw(uint takerId, CollarTakerNFT.TakerPosition memory takerPos)
         internal
     {
+        // approve the takerNFT to pull the provider NFT
+        takerPos.providerNFT.approve(address(takerNFT), takerPos.providerPositionId);
         // cancel and withdraw the cash from the existing paired position
         // @dev this relies on being the owner of both NFTs. it burns both NFTs, and withdraws
         // both put and locked cash to this contract
