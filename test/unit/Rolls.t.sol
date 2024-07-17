@@ -507,5 +507,46 @@ contract RollsTest is Test {
         assertGt(fee, 1 ether, "tiny price change");
     }
 
+    function test_pause() public {
+        // pause
+        vm.startPrank(owner);
+        vm.expectEmit(address(rolls));
+        emit Pausable.Paused(owner);
+        rolls.pause();
+        // paused view
+        assertTrue(rolls.paused());
+        // methods are paused
+        vm.startPrank(user1);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        rolls.createRollOffer(0, 0, 0, 0, 0, 0, 0);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        rolls.cancelOffer(0);
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        rolls.executeRoll(0, 0);
+    }
+
+    function test_unpause() public {
+        vm.startPrank(owner);
+        rolls.pause();
+        vm.expectEmit(address(rolls));
+        emit Pausable.Unpaused(owner);
+        rolls.unpause();
+        assertFalse(rolls.paused());
+        // check at least one method works now
+        createAndCheckRollOffer();
+    }
+
+    // reverts
+
+    function test_onlyOwnerMethods() public {
+        vm.startPrank(user1);
+        bytes4 selector = Ownable.OwnableUnauthorizedAccount.selector;
+        vm.expectRevert(abi.encodeWithSelector(selector, user1));
+        rolls.pause();
+        vm.expectRevert(abi.encodeWithSelector(selector, user1));
+        rolls.unpause();
+    }
+
+
 
 }
