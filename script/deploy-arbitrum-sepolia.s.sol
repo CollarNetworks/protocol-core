@@ -29,6 +29,8 @@ contract DeployArbitrumSepoliaProtocol is Script {
     uint amountToMintForLP = 100_000_000 ether;
     uint amountPerOffer = 100_000 ether;
     uint amountToProvideToPool = 10_000_000 ether;
+    uint amountForLoanCollateral = 10 ether;
+    uint amountExpectedForCashLoan = 9 ether;
     mapping(uint offerId => ProviderPositionNFT.LiquidityOffer offer) createdOffers;
 
     struct DeployedContracts {
@@ -58,8 +60,8 @@ contract DeployArbitrumSepoliaProtocol is Script {
 
         // Deploy and setup engine
         CollarEngine engine = new CollarEngine(address(SWAP_ROUTER));
-        engine.addLTV(9000);
-        engine.addCollarDuration(300);
+        engine.addLTV(ltvToUse);
+        engine.addCollarDuration(durationToUse);
 
         DeployedContracts memory contracts = deployContracts(engine, deployer);
 
@@ -79,10 +81,7 @@ contract DeployArbitrumSepoliaProtocol is Script {
 
         // Verify deployment
         // Create offers
-        _createOffers(deployerPrivateKey, contracts.providerNFT, contracts.cashAsset);
-
-        // Verify offers
-        _verifyOffers(contracts.providerNFT, liquidityProvider);
+        _createOffers(liquidityProviderKey, liquidityProvider, contracts.providerNFT, contracts.cashAsset);
 
         // // add liquidity to the new asset pool
 
@@ -177,39 +176,28 @@ contract DeployArbitrumSepoliaProtocol is Script {
     }
 
     function _createOffers(
-        uint deployerPrivateKey,
+        uint liquidityProviderPrivateKey,
+        address liquidityProviderAddress,
         ProviderPositionNFT providerNFT,
         CollarOwnedERC20 cashAsset
     ) internal {
-        vm.startBroadcast(deployerPrivateKey);
-
+        vm.startBroadcast(liquidityProviderPrivateKey);
         vm.stopBroadcast();
-
         vm.startBroadcast(vm.envUint("LIQUIDITY_PROVIDER_KEY"));
-
-        IERC20(cashAsset).approve(address(providerNFT), type(uint).max);
-
+        cashAsset.approve(address(providerNFT), type(uint).max);
         for (uint i = 0; i < callStrikeDeviations.length; i++) {
-            ProviderPositionNFT(providerNFT).createOffer(
-                callStrikeDeviations[i], amountPerOffer, ltvToUse, durationToUse
-            );
-        }
-
-        vm.stopBroadcast();
-        console.log("Offers created successfully");
-    }
-
-    function _verifyOffers(ProviderPositionNFT providerNFT, address liquidityProvider) internal view {
-        for (uint i = 0; i < callStrikeDeviations.length; i++) {
-            ProviderPositionNFT.LiquidityOffer memory offer = providerNFT.getOffer(i);
-            require(offer.provider == liquidityProvider, "Incorrect offer provider");
+            uint offerId =
+                providerNFT.createOffer(callStrikeDeviations[i], amountPerOffer, ltvToUse, durationToUse);
+            ProviderPositionNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
+            require(offer.provider == liquidityProviderAddress, "Incorrect offer provider");
             require(offer.available == amountPerOffer, "Incorrect offer amount");
             require(offer.putStrikeDeviation == ltvToUse, "Incorrect LTV");
             require(offer.duration == durationToUse, "Incorrect duration");
             require(offer.callStrikeDeviation == callStrikeDeviations[i], "Incorrect call strike deviation");
+            console.log("Offer created successfully : ", offerId);
         }
 
-        console.log("Offers verified successfully");
+        vm.stopBroadcast();
     }
 
     function _initializePool(
@@ -230,9 +218,6 @@ contract DeployArbitrumSepoliaProtocol is Script {
         int24 tickLower = currentTick - 600;
         int24 tickUpper = currentTick + 600;
 
-        // Amount of tokens to add as liquidity
-        uint amountDesired = 10_000_000 ether;
-
         // Set the initial price
         uint160 sqrtPriceX96 = 79_228_162_514_264_337_593_543_950_336; // Represents a price of 1:1
 
@@ -244,8 +229,8 @@ contract DeployArbitrumSepoliaProtocol is Script {
             fee: POOL_FEE,
             tickLower: tickLower,
             tickUpper: tickUpper,
-            amount0Desired: amountDesired,
-            amount1Desired: amountDesired,
+            amount0Desired: amountToProvideToPool,
+            amount1Desired: amountToProvideToPool,
             amount0Min: 0,
             amount1Min: 0,
             recipient: provider,
@@ -253,7 +238,7 @@ contract DeployArbitrumSepoliaProtocol is Script {
         });
 
         // Add liquidity
-        INonfungiblePositionManager(POSITION_MANAGER).mint(params);
+        POSITION_MANAGER.mint(params);
     }
 
     function _createLoan(
@@ -265,11 +250,12 @@ contract DeployArbitrumSepoliaProtocol is Script {
     ) internal {
         vm.startBroadcast(privKey);
         // Create loan
-        IERC20(cashAsset).approve(address(loansContract), 100_000 ether);
-        IERC20(collateralAsset).approve(address(loansContract), 100_000 ether);
-        loansContract.createLoan(10 ether, 9 ether, 0, providerNFT, 0);
+        cashAsset.approve(address(loansContract), amountPerOffer);
+        collateralAsset.approve(address(loansContract), amountPerOffer);
+        (uint loanId,,) =
+            loansContract.createLoan(amountForLoanCollateral, amountExpectedForCashLoan, 0, providerNFT, 0);
         // Get loan
-        Loans.Loan memory loan = loansContract.getLoan(0);
+        Loans.Loan memory loan = loansContract.getLoan(loanId);
         console.log("Loan collateral amount:", loan.collateralAmount);
         console.log("Loan loan amount:", loan.loanAmount);
         console.log("Loan keeper allowed by:", loan.keeperAllowedBy);
