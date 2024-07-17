@@ -244,7 +244,7 @@ contract RollsTest is Test {
             // Execute roll
             startHoax(user1);
             takerNFT.approve(address(rolls), offer.takerId);
-            cashAsset.approve(address(rolls), 0);
+            cashAsset.approve(address(rolls), expected.toTaker < 0 ? uint(-expected.toTaker) : 0);
             vm.expectEmit(address(rolls));
             emit IRolls.OfferExecuted(
                 rollId,
@@ -311,28 +311,108 @@ contract RollsTest is Test {
         assertEq(newProviderPos.withdrawable, 0);
     }
 
-    function test_executeRoll_5_pct_up_simple() public {
+    function checkExecuteRollForPriceChange(uint newPrice) internal returns (ExpectedRoll memory expected) {
         // create offer at initial price
         (, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
-
-        // Move the price up by 5%
-        uint newPrice = twapPrice * 105 / 100;
         // not testing the fee calc itself here, so using the view directly
         int rollFee = rolls.calculateRollFee(offer, newPrice);
         // Calculate expected values
-        ExpectedRoll memory expected = calculateRollAmounts(rollId, newPrice, rollFee);
-
-        // check specific amounts
-        assertEq(expected.newPutLocked, 105e18);
-        assertEq(expected.newCallLocked, 210e18);
-        assertEq(expected.toTaker, 45e18 - rollFee);
-        assertEq(expected.toProvider, -60e18 + rollFee);
-        assertEq(expected.rollFee, rollFee);
-
+        expected = calculateRollAmounts(rollId, newPrice, rollFee);
         // check the view
         checkCalculateTransferAmounts(expected, rollId, newPrice);
-
         // check execute effects
         checkExecuteRoll(rollId, newPrice, expected);
     }
+
+    function test_executeRoll_no_change_simple() public {
+        ExpectedRoll memory expected = checkExecuteRollForPriceChange(twapPrice);
+
+        /* check specific amounts
+        - start 1000 at price 1000, 100 user locked, 200 provider locked
+        - no changes except fee being charged
+        */
+        assertEq(expected.newPutLocked, 100e18);
+        assertEq(expected.newCallLocked, 200e18);
+        assertEq(expected.toTaker, -expected.rollFee);
+        assertEq(expected.toProvider, expected.rollFee);
+    }
+
+    function test_executeRoll_5_pct_up_simple() public {
+        // Move the price up by 5%
+        ExpectedRoll memory expected = checkExecuteRollForPriceChange(twapPrice * 105 / 100);
+
+        /* check specific amounts
+        - start 1000 at price 1000, 100 user locked, 200 provider locked
+        - price updated from 1000 to 1050
+        - user settles 150, provider 150
+        - new user locked is 105 (10%), 210 (210%)
+        - toTaker = 150 - 105 = 45
+        - toProvider = 150 - 210 = -60
+        */
+        assertEq(expected.newPutLocked, 105e18);
+        assertEq(expected.newCallLocked, 210e18);
+        assertEq(expected.toTaker, 45e18 - expected.rollFee);
+        assertEq(expected.toProvider, -60e18 + expected.rollFee);
+    }
+
+    function test_executeRoll_5_pct_down_simple() public {
+        // Move the price down by 5%
+        ExpectedRoll memory expected = checkExecuteRollForPriceChange(twapPrice * 95 / 100);
+
+        /* check specific amounts
+        - start 1000 at price 1000, 100 user locked, 200 provider locked
+        - price updated from 1000 to 950
+        - user settles 50, provider 250
+        - new user locked is 95 (10%), 190 (210%)
+        - toTaker = 50 - 95 = -45
+        - toProvider = 250 - 190 = 60
+        */
+        assertEq(expected.newPutLocked, 95e18);
+        assertEq(expected.newCallLocked, 190e18);
+        assertEq(expected.toTaker, -45e18 - expected.rollFee);
+        assertEq(expected.toProvider, 60e18 + expected.rollFee);
+    }
+
+    function test_executeRoll_30_pct_up_simple() public {
+        // increase price tolerance
+        maxPrice = twapPrice * 2;
+        minToProvider = -260e18;
+        // Move the price up by 30%
+        ExpectedRoll memory expected = checkExecuteRollForPriceChange(twapPrice * 130 / 100);
+
+        /* check specific amounts
+        - start 1000 at price 1000, 100 user locked, 200 provider locked
+        - price updated from 1000 to 1300
+        - user settles 300, provider 0
+        - new user locked is 130 (10%), 260 (210%)
+        - toTaker = 300 - 130 = 170
+        - toProvider = 0 - 260 = -260
+        */
+        assertEq(expected.newPutLocked, 130e18);
+        assertEq(expected.newCallLocked, 260e18);
+        assertEq(expected.toTaker, 170e18 - expected.rollFee);
+        assertEq(expected.toProvider, -260e18 + expected.rollFee);
+    }
+
+    function test_executeRoll_20_pct_down_simple() public {
+        // increase price tolerance
+        minPrice = twapPrice / 2;
+        // Move the price down by 20%
+        ExpectedRoll memory expected = checkExecuteRollForPriceChange(twapPrice * 80 / 100);
+
+        /* check specific amounts
+        - start 1000 at price 1000, 100 user locked, 200 provider locked
+        - price updated from 1000 to 800
+        - user settles 0, provider 300
+        - new user locked is 80 (10%), 160 (210%)
+        - toTaker = 0 - 80 = -80
+        - toProvider = 300 - 160 = 140
+        */
+        assertEq(expected.newPutLocked, 80e18);
+        assertEq(expected.newCallLocked, 160e18);
+        assertEq(expected.toTaker, -80e18 - expected.rollFee);
+        assertEq(expected.toProvider, 140e18 + expected.rollFee);
+    }
+
+
 }
