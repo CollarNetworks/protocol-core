@@ -765,9 +765,7 @@ contract RollsTest is Test {
         startHoax(user1);
         cashAsset.approve(address(rolls), type(uint).max);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                IERC721Errors.ERC721InsufficientApproval.selector, address(rolls), takerId
-            )
+            abi.encodeWithSelector(IERC721Errors.ERC721InsufficientApproval.selector, address(rolls), takerId)
         );
         rolls.executeRoll(rollId, type(int).min);
 
@@ -779,10 +777,7 @@ contract RollsTest is Test {
         (int toTaker,,) = rolls.calculateTransferAmounts(rollId, lowPrice);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IERC20Errors.ERC20InsufficientAllowance.selector,
-                address(rolls),
-                0,
-                uint(-toTaker)
+                IERC20Errors.ERC20InsufficientAllowance.selector, address(rolls), 0, uint(-toTaker)
             )
         );
         rolls.executeRoll(rollId, type(int).min);
@@ -799,15 +794,31 @@ contract RollsTest is Test {
         cashAsset.approve(address(rolls), type(uint).max);
         uint highPrice = twapPrice * 11 / 10;
         engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, highPrice);
-        (,int toProvider,) = rolls.calculateTransferAmounts(rollId, highPrice);
+        (, int toProvider,) = rolls.calculateTransferAmounts(rollId, highPrice);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IERC20Errors.ERC20InsufficientAllowance.selector,
-                address(rolls),
-                0,
-                uint(-toProvider)
+                IERC20Errors.ERC20InsufficientAllowance.selector, address(rolls), 0, uint(-toProvider)
             )
         );
+        rolls.executeRoll(rollId, type(int).min);
+    }
+
+    function test_revert_executeRoll_unexpected_withdrawal_amount() public {
+        (uint takerId, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
+
+        startHoax(user1);
+        takerNFT.approve(address(rolls), takerId);
+        cashAsset.approve(address(rolls), type(uint).max);
+
+        // Mock the cancelPairedPosition function to do nothing
+        vm.mockCall(
+            address(takerNFT),
+            abi.encodeWithSelector(takerNFT.cancelPairedPosition.selector, takerId, address(rolls)),
+            "" // does nothing
+        );
+
+        // Attempt to execute the roll
+        vm.expectRevert("unexpected withdrawal amount");
         rolls.executeRoll(rollId, type(int).min);
     }
 }

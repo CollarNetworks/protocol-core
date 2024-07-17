@@ -63,10 +63,6 @@ contract Rolls is IRolls, Ownable, Pausable {
         rollFee = offer.rollFeeAmount + change;
     }
 
-    function getCurrentPrice() public view returns (uint) {
-        return takerNFT.getReferenceTWAPPrice(block.timestamp);
-    }
-
     function calculateTransferAmounts(uint rollId, uint price)
         external
         view
@@ -139,7 +135,7 @@ contract Rolls is IRolls, Ownable, Pausable {
             takerId: takerId,
             rollFeeAmount: rollFeeAmount,
             rollFeeDeltaFactorBIPS: rollFeeDeltaFactorBIPS,
-            rollFeeReferencePrice: getCurrentPrice(), // the roll offer fees are for current price
+            rollFeeReferencePrice: _getCurrentPrice(), // the roll offer fees are for current price
             minPrice: minPrice,
             maxPrice: maxPrice,
             minToProvider: minToProvider,
@@ -186,7 +182,7 @@ contract Rolls is IRolls, Ownable, Pausable {
         require(!takerPos.settled, "taker position settled");
 
         // offer is within its terms
-        uint currentPrice = getCurrentPrice();
+        uint currentPrice = _getCurrentPrice();
         require(currentPrice <= offer.maxPrice, "price too high");
         require(currentPrice >= offer.minPrice, "price too low");
         require(offer.deadline >= block.timestamp, "deadline passed");
@@ -391,5 +387,9 @@ contract Rolls is IRolls, Ownable, Pausable {
         newPutLocked = putLocked * newPrice / startPrice;
         // use the method that CollarTakerNFT will use to calculate the provider part
         newCallLocked = takerNFT.calculateProviderLocked(newPutLocked, putDeviation, callDeviation);
+    }
+
+    function _getCurrentPrice() internal view returns (uint) {
+        return takerNFT.getReferenceTWAPPrice(block.timestamp);
     }
 }
