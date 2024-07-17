@@ -66,7 +66,6 @@ interface IRolls {
         external
         pure
         returns (int rollFee);
-    function getCurrentPrice() external view returns (uint);
     function calculateTransferAmounts(uint rollId, uint price)
         external
         view
