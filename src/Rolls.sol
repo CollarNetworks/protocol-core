@@ -172,6 +172,12 @@ contract Rolls is IRolls, Ownable, Pausable {
         int minToUser // signed "slippage", user protection
     ) external whenNotPaused returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider) {
         RollOffer storage offer = rollOffers[rollId];
+        // offer was cancelled (if taken tokens would be burned)
+        require(offer.active, "invalid offer");
+        // store the inactive state before external calls as extra reentrancy precaution
+        // @dev this writes to storage
+        offer.active = false;
+
         // auth, will revert if takerId was burned already
         require(msg.sender == takerNFT.ownerOf(offer.takerId), "not taker ID owner");
 
@@ -184,12 +190,6 @@ contract Rolls is IRolls, Ownable, Pausable {
         require(currentPrice <= offer.maxPrice, "price too high");
         require(currentPrice >= offer.minPrice, "price too low");
         require(offer.deadline >= block.timestamp, "deadline passed");
-
-        // offer was cancelled (if taken tokens would be burned)
-        require(offer.active, "invalid offer");
-        // store the inactive state before external calls as extra reentrancy precaution
-        // @dev this writes to storage
-        offer.active = false;
 
         (newTakerId, newProviderId, toTaker, toProvider) = _executeRoll(rollId, currentPrice, takerPos);
 

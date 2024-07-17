@@ -674,4 +674,140 @@ contract RollsTest is Test {
         vm.expectRevert("offer not active");
         rolls.cancelOffer(rollId);
     }
+
+    function test_revert_executeRoll_basic_checks() public {
+        (uint takerId, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
+
+        // Non-existent offer
+        startHoax(user1);
+        vm.expectRevert("invalid offer");
+        rolls.executeRoll(rollId + 1, type(int).min);
+
+        // Caller is not the taker NFT owner
+        startHoax(provider);
+        vm.expectRevert("not taker ID owner");
+        rolls.executeRoll(rollId, type(int).min);
+
+        // Taker position already settled
+        startHoax(user1);
+        skip(duration);
+        takerNFT.settlePairedPosition(takerId);
+        vm.expectRevert("taker position settled");
+        rolls.executeRoll(rollId, type(int).min);
+
+        // new offer
+        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        (takerId, rollId, offer) = createAndCheckRollOffer();
+        // Offer already executed
+        startHoax(user1);
+        takerNFT.approve(address(rolls), takerId);
+        cashAsset.approve(address(rolls), type(uint).max);
+        rolls.executeRoll(rollId, type(int).min);
+        vm.expectRevert("invalid offer");
+        rolls.executeRoll(rollId, type(int).min);
+    }
+
+    function test_revert_executeRoll_offer_terms() public {
+        (uint takerId, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
+
+        // Price too high
+        uint highPrice = offer.maxPrice + 1;
+        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, highPrice);
+        startHoax(user1);
+        vm.expectRevert("price too high");
+        rolls.executeRoll(rollId, type(int).min);
+
+        // Price too low
+        uint lowPrice = offer.minPrice - 1;
+        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, lowPrice);
+        vm.expectRevert("price too low");
+        rolls.executeRoll(rollId, type(int).min);
+
+        // Deadline passed
+        skip(deadline + 1);
+        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        vm.expectRevert("deadline passed");
+        rolls.executeRoll(rollId, type(int).min);
+    }
+
+    function test_revert_executeRoll_slippage() public {
+        (uint takerId, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
+
+        // create new offer
+        (takerId, rollId, offer) = createAndCheckRollOffer();
+
+        // Taker transfer slippage
+        startHoax(user1);
+        takerNFT.approve(address(rolls), takerId);
+        cashAsset.approve(address(rolls), type(uint).max);
+        (int toTaker,,) = rolls.calculateTransferAmounts(rollId, twapPrice);
+        vm.expectRevert("taker transfer slippage");
+        rolls.executeRoll(rollId, toTaker + 1);
+
+        minToProvider = minToProvider + 1;
+        (takerId, rollId, offer) = createAndCheckRollOffer();
+        cashAsset.approve(address(rolls), type(uint).max);
+
+        // Provider transfer slippage
+        startHoax(user1);
+        takerNFT.approve(address(rolls), takerId);
+        cashAsset.approve(address(rolls), type(uint).max);
+        uint newPrice = twapPrice * 110 / 100;
+        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, newPrice);
+        vm.expectRevert("provider transfer slippage");
+        rolls.executeRoll(rollId, type(int).min);
+    }
+
+    function test_revert_executeRoll_taker_approvals() public {
+        (uint takerId, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
+
+        // Insufficient taker NFT approval
+        startHoax(user1);
+        cashAsset.approve(address(rolls), type(uint).max);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC721Errors.ERC721InsufficientApproval.selector, address(rolls), takerId
+            )
+        );
+        rolls.executeRoll(rollId, type(int).min);
+
+        // Insufficient cash approval (when taker needs to pay)
+        takerNFT.approve(address(rolls), takerId);
+        cashAsset.approve(address(rolls), 0);
+        uint lowPrice = twapPrice * 9 / 10;
+        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, lowPrice);
+        (int toTaker,,) = rolls.calculateTransferAmounts(rollId, lowPrice);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC20Errors.ERC20InsufficientAllowance.selector,
+                address(rolls),
+                0,
+                uint(-toTaker)
+            )
+        );
+        rolls.executeRoll(rollId, type(int).min);
+    }
+
+    function test_revert_executeRoll_provider_approval() public {
+        (uint takerId, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
+
+        // Insufficient provider cash approval (when provider needs to pay)
+        (takerId, rollId, offer) = createAndCheckRollOffer();
+        cashAsset.approve(address(rolls), 0);
+        startHoax(user1);
+        takerNFT.approve(address(rolls), takerId);
+        cashAsset.approve(address(rolls), type(uint).max);
+        uint highPrice = twapPrice * 11 / 10;
+        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, highPrice);
+        (,int toProvider,) = rolls.calculateTransferAmounts(rollId, highPrice);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC20Errors.ERC20InsufficientAllowance.selector,
+                address(rolls),
+                0,
+                uint(-toProvider)
+            )
+        );
+        rolls.executeRoll(rollId, type(int).min);
+    }
 }
