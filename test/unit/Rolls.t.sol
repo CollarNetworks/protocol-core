@@ -414,5 +414,98 @@ contract RollsTest is Test {
         assertEq(expected.toProvider, 140e18 + expected.rollFee);
     }
 
+    function test_calculateRollFee() public {
+        (, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
+
+        // Test case 1: No price change
+        int fee = rolls.calculateRollFee(offer, twapPrice);
+        assertEq(fee, rollFeeAmount, "no price change");
+
+        // Test case 2: Price increase, positive fee, positive delta factor
+        uint newPrice = twapPrice * 110 / 100; // 10% increase
+        fee = rolls.calculateRollFee(offer, newPrice);
+        // Expected: 1 ether + (1 ether * 50% * 10%) = 1.05 ether
+        assertEq(fee, 1.05 ether, "pos fee, +10%");
+
+        // Test case 3: Price decrease, positive fee, positive delta factor
+        newPrice = twapPrice * 90 / 100; // 10% decrease
+        fee = rolls.calculateRollFee(offer, newPrice);
+        // Expected: 1 ether - (1 ether * 50% * 10%) = 0.95 ether
+        assertEq(fee, 0.95 ether, "pos fee, -10%");
+
+        // Test case 4: Price increase, negative fee, positive delta factor
+        offer.rollFeeAmount = -1 ether;
+        fee = rolls.calculateRollFee(offer, twapPrice * 110 / 100);
+        // Expected: -1 ether + (1 ether * 50% * 10%) = -0.95 ether
+        assertEq(fee, -0.95 ether, "neg fee, +10%");
+
+        // Test case 5: Price increase, positive fee, negative delta factor
+        offer.rollFeeAmount = 1 ether;
+        offer.rollFeeDeltaFactorBIPS = -5000; // -50%
+        fee = rolls.calculateRollFee(offer, twapPrice * 110 / 100);
+        // Expected: 1 ether - (1 ether * 50% * 10%) = 0.95 ether
+        assertEq(fee, 0.95 ether, "pos fee, neg delta, +10%");
+
+        // Test case 6: Price decrease, negative fee, negative delta factor
+        offer.rollFeeAmount = -1 ether;
+        newPrice = twapPrice * 90 / 100; // 10% decrease
+        fee = rolls.calculateRollFee(offer, newPrice);
+        // Expected: -1 ether + (1 ether * 50% * 10%) = -0.95 ether
+        assertEq(fee, -0.95 ether, "neg fee, neg delta, -10%");
+
+        // Test case 7: Extreme price change (100% increase)
+        offer.rollFeeAmount = 1 ether;
+        offer.rollFeeDeltaFactorBIPS = 5000; // 50%
+        fee = rolls.calculateRollFee(offer, twapPrice * 200 / 100);
+        // Expected: 1 ether + (1 ether * 50% * 100%) = 1.5 ether
+        assertEq(fee, 1.5 ether, "+100%");
+
+        // Test case 8: Zero fee
+        offer.rollFeeAmount = 0;
+        fee = rolls.calculateRollFee(offer, twapPrice * 150 / 100);
+        assertEq(fee, 0, "0 fee");
+
+        // Test case 9: Zero delta factor
+        offer.rollFeeAmount = 1 ether;
+        offer.rollFeeDeltaFactorBIPS = 0;
+        fee = rolls.calculateRollFee(offer, twapPrice * 150 / 100);
+        assertEq(fee, 1 ether, "0 delta");
+    }
+
+    function test_calculateRollFee_additional() public {
+        (, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
+
+        // Edge cases for price changes
+        int fee = rolls.calculateRollFee(offer, 0); // Minimum price
+        assertEq(fee, 0.5 ether, "-100% price");
+
+        fee = rolls.calculateRollFee(offer, twapPrice * 2);
+        assertEq(fee, 1.5 ether, "+100%");
+
+        // Edge cases for fee amounts
+        offer.rollFeeAmount = type(int).min;
+        vm.expectRevert(stdError.arithmeticError);
+        fee = rolls.calculateRollFee(offer, twapPrice * 110 / 100);
+
+        offer.rollFeeAmount = type(int).max;
+        vm.expectRevert(stdError.arithmeticError);
+        fee = rolls.calculateRollFee(offer, twapPrice * 110 / 100);
+
+        // Edge cases for delta factors
+        offer.rollFeeAmount = 1 ether;
+        offer.rollFeeDeltaFactorBIPS = 10000; // 100%
+        fee = rolls.calculateRollFee(offer, 0);
+        assertEq(fee, 0, "full delta factor no fee");
+
+        offer.rollFeeDeltaFactorBIPS = 10000; // 100%
+        fee = rolls.calculateRollFee(offer, twapPrice * 110 / 100);
+        assertEq(fee, 1.1 ether, "linearly fee");
+
+        // Precision check
+        offer.rollFeeDeltaFactorBIPS = 10000; // 100%
+        fee = rolls.calculateRollFee(offer, 10001 * twapPrice / 10000);
+        assertGt(fee, 1 ether, "tiny price change");
+    }
+
 
 }
