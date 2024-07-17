@@ -146,8 +146,7 @@ contract DeployArbitrumSepoliaProtocol is Script {
             "PCOLL/CASH"
         );
 
-        Loans loansContract =
-            new Loans(deployer, engine, CollarTakerNFT(takerNFT), cashAsset, collateralAsset);
+        Loans loansContract = new Loans(deployer, engine, takerNFT, cashAsset, collateralAsset);
 
         engine.setCollarTakerContractAuth(address(takerNFT), true);
         engine.setProviderContractAuth(address(providerNFT), true);
