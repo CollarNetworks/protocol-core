@@ -640,4 +640,38 @@ contract RollsTest is Test {
             takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
         );
     }
+
+    function test_revert_cancelOffer() public {
+        (uint takerId, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
+
+        // Non-existent offer
+        uint nonExistentRollId = rollId + 1;
+        vm.expectRevert("not initial provider");
+        rolls.cancelOffer(nonExistentRollId);
+
+        // Caller is not the initial provider
+        startHoax(user1);
+        vm.expectRevert("not initial provider");
+        rolls.cancelOffer(rollId);
+
+        // Offer already executed
+        startHoax(user1);
+        takerNFT.approve(address(rolls), takerId);
+        cashAsset.approve(address(rolls), type(uint).max);
+        rolls.executeRoll(rollId, type(int).min);
+
+        startHoax(provider);
+        vm.expectRevert("offer not active");
+        rolls.cancelOffer(rollId);
+
+        // create a new offer
+        (takerId, rollId, offer) = createAndCheckRollOffer();
+
+        // Offer already cancelled
+        startHoax(provider);
+        rolls.cancelOffer(rollId);
+
+        vm.expectRevert("offer not active");
+        rolls.cancelOffer(rollId);
+    }
 }

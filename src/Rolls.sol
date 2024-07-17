@@ -159,6 +159,7 @@ contract Rolls is IRolls, Ownable, Pausable {
     function cancelOffer(uint rollId) external whenNotPaused {
         RollOffer storage offer = rollOffers[rollId];
         require(msg.sender == offer.provider, "not initial provider");
+        require(offer.active, "offer not active");
         // cancel offer
         offer.active = false;
         // return the NFT
