@@ -493,17 +493,17 @@ contract RollsTest is Test {
 
         // Edge cases for delta factors
         offer.rollFeeAmount = 1 ether;
-        offer.rollFeeDeltaFactorBIPS = 10000; // 100%
+        offer.rollFeeDeltaFactorBIPS = 10_000; // 100%
         fee = rolls.calculateRollFee(offer, 0);
         assertEq(fee, 0, "full delta factor no fee");
 
-        offer.rollFeeDeltaFactorBIPS = 10000; // 100%
+        offer.rollFeeDeltaFactorBIPS = 10_000; // 100%
         fee = rolls.calculateRollFee(offer, twapPrice * 110 / 100);
         assertEq(fee, 1.1 ether, "linearly fee");
 
         // Precision check
-        offer.rollFeeDeltaFactorBIPS = 10000; // 100%
-        fee = rolls.calculateRollFee(offer, 10001 * twapPrice / 10000);
+        offer.rollFeeDeltaFactorBIPS = 10_000; // 100%
+        fee = rolls.calculateRollFee(offer, 10_001 * twapPrice / 10_000);
         assertGt(fee, 1 ether, "tiny price change");
     }
 
@@ -547,6 +547,97 @@ contract RollsTest is Test {
         rolls.unpause();
     }
 
+    function test_revert_createRollOffer() public {
+        (uint takerId, uint providerId) = createTakerPositions();
 
+        // Setup for valid offer
+        startHoax(provider);
+        providerNFT.approve(address(rolls), providerId);
+        cashAsset.approve(address(rolls), uint(-minToProvider));
 
+        // Non-existent taker position
+        vm.expectRevert("taker position doesn't exist");
+        rolls.createRollOffer(
+            999, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
+        );
+
+        // Settled taker position
+        skip(duration);
+        takerNFT.settlePairedPosition(takerId);
+        vm.expectRevert("taker position settled");
+        rolls.createRollOffer(
+            takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
+        );
+
+        // new taker position
+        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        (takerId, providerId) = createTakerPositions();
+        startHoax(provider);
+        providerNFT.approve(address(rolls), providerId);
+
+        // Caller is not the provider position owner
+        startHoax(user1);
+        vm.expectRevert("not provider ID owner");
+        rolls.createRollOffer(
+            takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
+        );
+
+        // Invalid price bounds
+        startHoax(provider);
+        vm.expectRevert("max price not higher than min price");
+        rolls.createRollOffer(
+            takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, maxPrice, minPrice, minToProvider, deadline
+        );
+
+        // Invalid fee delta change
+        vm.expectRevert("invalid fee delta change");
+        rolls.createRollOffer(takerId, rollFeeAmount, 10_001, minPrice, maxPrice, minToProvider, deadline);
+
+        vm.expectRevert("invalid fee delta change");
+        rolls.createRollOffer(takerId, rollFeeAmount, -10_001, minPrice, maxPrice, minToProvider, deadline);
+
+        // Deadline in the past
+        vm.expectRevert("deadline passed");
+        rolls.createRollOffer(
+            takerId,
+            rollFeeAmount,
+            rollFeeDeltaFactorBIPS,
+            minPrice,
+            maxPrice,
+            minToProvider,
+            block.timestamp - 1
+        );
+
+        providerNFT.approve(address(rolls), providerId);
+        // Insufficient cash balance for potential payment
+        int largeNegativeMinToProvider = -int(cashAsset.balanceOf(provider)) - 1;
+        vm.expectRevert("insufficient cash balance");
+        rolls.createRollOffer(
+            takerId,
+            rollFeeAmount,
+            rollFeeDeltaFactorBIPS,
+            minPrice,
+            maxPrice,
+            largeNegativeMinToProvider,
+            deadline
+        );
+
+        // Insufficient cash allowance for potential payment
+        cashAsset.approve(address(rolls), uint(-minToProvider) - 1);
+        vm.expectRevert("insufficient cash allowance");
+        rolls.createRollOffer(
+            takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
+        );
+
+        // NFT not approved
+        providerNFT.approve(address(0), providerId);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC721Errors.ERC721InsufficientApproval.selector, address(rolls), providerId
+            )
+        );
+        rolls.createRollOffer(
+            takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
+        );
+    }
 }
