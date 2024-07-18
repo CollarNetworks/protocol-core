@@ -169,7 +169,12 @@ contract RollsTest is Test {
         // _newLockedAmounts
         expected.newPutLocked = putLocked * newPrice / twapPrice;
         expected.newCallLocked =
-            takerNFT.calculateProviderLocked(expected.newPutLocked, ltv, callStrikeDeviation);
+            expected.newPutLocked * (callStrikeDeviation - BIPS_100PCT) / (BIPS_100PCT - ltv);
+        // check against taker NFT calc
+        assertEq(
+            expected.newCallLocked,
+            takerNFT.calculateProviderLocked(expected.newPutLocked, ltv, callStrikeDeviation)
+        );
         // _calculateTransferAmounts
         (uint takerSettled, int providerChange) = takerNFT.previewSettlement(oldTakerPos, newPrice);
         int providerSettled = int(oldTakerPos.callLockedCash) + providerChange;
@@ -335,6 +340,20 @@ contract RollsTest is Test {
         assertEq(expected.newCallLocked, 200e18);
         assertEq(expected.toTaker, -expected.rollFee);
         assertEq(expected.toProvider, expected.rollFee);
+    }
+
+    function test_executeRoll_no_change_no_fee() public {
+        rollFeeAmount = 0;
+        ExpectedRoll memory expected = checkExecuteRollForPriceChange(twapPrice);
+
+        /* check specific amounts
+        - start 1000 at price 1000, 100 user locked, 200 provider locked
+        - no changes except fee being charged
+        */
+        assertEq(expected.newPutLocked, 100e18);
+        assertEq(expected.newCallLocked, 200e18);
+        assertEq(expected.toTaker, 0);
+        assertEq(expected.toProvider, 0);
     }
 
     function test_executeRoll_5_pct_up_simple() public {
@@ -638,6 +657,7 @@ contract RollsTest is Test {
         rolls.createRollOffer(
             takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
         );
+        cashAsset.approve(address(rolls), uint(-minToProvider));
 
         // NFT not approved
         providerNFT.approve(address(0), providerId);
@@ -646,6 +666,16 @@ contract RollsTest is Test {
                 IERC721Errors.ERC721InsufficientApproval.selector, address(rolls), providerId
             )
         );
+        rolls.createRollOffer(
+            takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
+        );
+
+        // cannot create twice
+        providerNFT.approve(address(rolls), providerId);
+        rolls.createRollOffer(
+            takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
+        );
+        vm.expectRevert("not provider ID owner");
         rolls.createRollOffer(
             takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
         );
@@ -793,18 +823,22 @@ contract RollsTest is Test {
     function test_revert_executeRoll_provider_approval() public {
         (uint takerId, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
 
+        uint highPrice = twapPrice * 11 / 10;
+        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, highPrice);
+        (, int toProvider,) = rolls.calculateTransferAmounts(rollId, highPrice);
+
         // provider revoked approval
-        cashAsset.approve(address(rolls), 0);
+        cashAsset.approve(address(rolls), uint(-toProvider) - 1);
 
         startHoax(user1);
         takerNFT.approve(address(rolls), takerId);
         cashAsset.approve(address(rolls), type(uint).max);
-        uint highPrice = twapPrice * 11 / 10;
-        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, highPrice);
-        (, int toProvider,) = rolls.calculateTransferAmounts(rollId, highPrice);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IERC20Errors.ERC20InsufficientAllowance.selector, address(rolls), 0, uint(-toProvider)
+                IERC20Errors.ERC20InsufficientAllowance.selector,
+                address(rolls),
+                uint(-toProvider) - 1,
+                uint(-toProvider)
             )
         );
         rolls.executeRoll(rollId, type(int).min);

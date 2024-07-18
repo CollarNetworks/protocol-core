@@ -233,34 +233,18 @@ contract Rolls is IRolls, Ownable, Pausable {
             providerPos: providerPos
         });
 
-        // pull any needed cash
-        if (toTaker < 0) {
-            // assumes approval from the taker
-            cashAsset.safeTransferFrom(msg.sender, address(this), uint(-toTaker));
-        }
-        if (toProvider < 0) {
-            // @dev this requires the original owner of the providerId (stored in the offer) when
-            // the roll offer was created to still allow this contract to pull their funds, and
-            // still have sufficient balance for that.
-            cashAsset.safeTransferFrom(offer.provider, address(this), uint(-toProvider));
-        }
+        // pull cash as needed
+        _pullCash(toTaker, msg.sender, toProvider, offer.provider);
 
         // open the new positions
         (newTakerId, newProviderId) = _openNewPairedPosition(currentPrice, providerNFT, takerPos, providerPos);
 
+        // pay cash as needed
+        _payCash(toTaker, msg.sender, toProvider, offer.provider);
+
         // we now own both of the NFT IDs, so send them out to their new proud owners
         takerNFT.transferFrom(address(this), msg.sender, newTakerId);
         providerNFT.transferFrom(address(this), offer.provider, newProviderId);
-
-        // pay cash if needed
-        if (toTaker > 0) {
-            // pay the taker if needed
-            cashAsset.safeTransfer(msg.sender, uint(toTaker));
-        }
-        if (toProvider > 0) {
-            // pay the provider if needed
-            cashAsset.safeTransfer(offer.provider, uint(toProvider));
-        }
 
         emit OfferExecuted(
             rollId,
@@ -275,10 +259,32 @@ contract Rolls is IRolls, Ownable, Pausable {
         );
     }
 
+    function _pullCash(int toTaker, address taker, int toProvider, address provider) internal {
+        if (toTaker < 0) {
+            // assumes approval from the taker
+            cashAsset.safeTransferFrom(taker, address(this), uint(-toTaker));
+        }
+        if (toProvider < 0) {
+            // @dev this requires the original owner of the providerId (stored in the offer) when
+            // the roll offer was created to still allow this contract to pull their funds, and
+            // still have sufficient balance for that.
+            cashAsset.safeTransferFrom(provider, address(this), uint(-toProvider));
+        }
+    }
+
+    function _payCash(int toTaker, address taker, int toProvider, address provider) internal {
+        if (toTaker > 0) {
+            cashAsset.safeTransfer(taker, uint(toTaker));
+        }
+        if (toProvider > 0) {
+            cashAsset.safeTransfer(provider, uint(toProvider));
+        }
+    }
+
     function _cancelPairedPositionAndWithdraw(uint takerId, CollarTakerNFT.TakerPosition memory takerPos)
         internal
     {
-        // approve the takerNFT to pull the provider NFT
+        // approve the takerNFT to pull the provider NFT, as both NFTs are needed for cancellation
         takerPos.providerNFT.approve(address(takerNFT), takerPos.providerPositionId);
         // cancel and withdraw the cash from the existing paired position
         // @dev this relies on being the owner of both NFTs. it burns both NFTs, and withdraws
