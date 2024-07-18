@@ -50,14 +50,15 @@ contract Rolls is IRolls, Ownable, Pausable {
     function calculateRollFee(RollOffer memory offer, uint currentPrice) public pure returns (int rollFee) {
         int prevPrice = offer.rollFeeReferencePrice.toInt256();
         int priceChange = currentPrice.toInt256() - prevPrice;
-        // scale the fee magnitude by the delta (price change) multiplied by the factor
-        // for deltaFactor of 100%, this results in linear scaling of the fee with price
-        // so if factor is BIPS_BASE the amount moves with the price. E.g., 5% price increase, 5% fee increase
-        // but if it's, e.g.,  50% the fee increases only 2.5% for a 5% price increase.
+        // Scaling the fee magnitude by the delta (price change) multiplied by the factor.
+        // For deltaFactor of 100%, this results in linear scaling of the fee with price.
+        // If factor is BIPS_BASE the amount moves with the price. E.g., 5% price increase, 5% fee increase.
+        // If factor is, e.g., 50% the fee increases only 2.5% for a 5% price increase.
         int feeSize = _abs(offer.rollFeeAmount).toInt256();
         int change = feeSize * offer.rollFeeDeltaFactorBIPS * priceChange / prevPrice / int(BIPS_BASE);
-        // Apply the change depending on the sign of the delta - positive factor means provider gets more money
-        // with higher price, negative factor means user gets more money with higher price
+        // Apply the change depending on the sign of the delta * price-change.
+        // Positive factor means provider gets more money with higher price.
+        // Negative factor means user gets more money with higher price.
         // E.g., if the fee is -5, the sign of the factor specifies whether provider gains (+5% -> -4.75)
         // or user gains (+5% -> -5.25) with price increase.
         rollFee = offer.rollFeeAmount + change;

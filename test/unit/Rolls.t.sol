@@ -9,7 +9,6 @@ import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockEngine } from "../../test/utils/MockEngine.sol";
-import { MockUniRouter } from "../../test/utils/MockUniRouter.sol";
 
 import { Rolls, IRolls } from "../../src/Rolls.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
@@ -19,7 +18,6 @@ contract RollsTest is Test {
     TestERC20 cashAsset;
     TestERC20 collateralAsset;
     MockEngine engine;
-    MockUniRouter uniRouter;
     CollarTakerNFT takerNFT;
     ProviderPositionNFT providerNFT;
     ProviderPositionNFT providerNFT2;
@@ -44,7 +42,7 @@ contract RollsTest is Test {
     // roll offer params
     int rollFeeAmount = 1 ether;
     int rollFeeDeltaFactorBIPS = 5000; // 50%
-    uint minPrice = twapPrice * 9 / BIPS_100PCT;
+    uint minPrice = twapPrice * 9 / 10;
     uint maxPrice = twapPrice * 11 / 10;
     int minToProvider = -int(callLocked) / 2;
     uint deadline = block.timestamp + 1 days;
@@ -52,8 +50,7 @@ contract RollsTest is Test {
     function setUp() public {
         cashAsset = new TestERC20("TestCash", "TestCash");
         collateralAsset = new TestERC20("TestCollat", "TestCollat");
-        uniRouter = new MockUniRouter();
-        engine = new MockEngine(address(uniRouter));
+        engine = new MockEngine(address(0));
         setupEngine();
 
         takerNFT = new CollarTakerNFT(owner, engine, cashAsset, collateralAsset, "CollarTakerNFT", "TKRNFT");
@@ -78,7 +75,6 @@ contract RollsTest is Test {
         vm.label(address(cashAsset), "TestCash");
         vm.label(address(collateralAsset), "TestCollat");
         vm.label(address(engine), "CollarEngine");
-        vm.label(address(uniRouter), "UniRouter");
         vm.label(address(takerNFT), "CollarTakerNFT");
         vm.label(address(providerNFT), "ProviderNFT");
         vm.label(address(providerNFT2), "ProviderNFT-2");
@@ -103,7 +99,6 @@ contract RollsTest is Test {
 
     function createTakerPositions() internal returns (uint takerId, uint providerId) {
         (uint offerId, uint offerId2) = createProviderOffers();
-
         startHoax(user1);
         cashAsset.approve(address(takerNFT), 2 * putLocked);
         // open "second" position first, such that the taker ID is incremented
@@ -120,13 +115,10 @@ contract RollsTest is Test {
         (takerId, providerId) = createTakerPositions();
 
         startHoax(provider);
-
         providerNFT.approve(address(rolls), providerId);
-
-        uint nextRollId = rolls.nextRollId();
-
         cashAsset.approve(address(rolls), uint(-minToProvider));
 
+        uint nextRollId = rolls.nextRollId();
         vm.expectEmit(address(rolls));
         emit IRolls.OfferCreated(takerId, provider, providerNFT, providerId, rollFeeAmount, nextRollId);
         rollId = rolls.createRollOffer(
@@ -152,34 +144,6 @@ contract RollsTest is Test {
         assertTrue(offer.active);
         // nft owner
         assertEq(providerNFT.ownerOf(providerId), address(rolls));
-    }
-
-    function test_constructor() public {
-        Rolls newRolls = new Rolls(owner, takerNFT, cashAsset);
-
-        assertEq(address(newRolls.takerNFT()), address(takerNFT));
-        assertEq(address(newRolls.cashAsset()), address(cashAsset));
-        assertEq(newRolls.VERSION(), "0.2.0");
-        assertEq(newRolls.owner(), owner);
-    }
-
-    function test_createRollOffer() public {
-        createAndCheckRollOffer();
-    }
-
-    function test_cancelOffer() public {
-        (, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
-
-        startHoax(provider);
-
-        vm.expectEmit(address(rolls));
-        emit IRolls.OfferCancelled(rollId, offer.takerId, provider);
-        rolls.cancelOffer(rollId);
-
-        offer = rolls.getRollOffer(rollId);
-        assertFalse(offer.active);
-        // nft owner
-        assertEq(providerNFT.ownerOf(offer.providerId), provider);
     }
 
     // avoiding stack too deep errors
@@ -232,50 +196,47 @@ contract RollsTest is Test {
         uint nextProviderId = providerNFT.nextPositionId();
         uint newTakerId;
         uint newProviderId;
-        // stack to deep
-        {
-            // balances
-            uint userBalance = cashAsset.balanceOf(user1);
-            uint providerBalance = cashAsset.balanceOf(provider);
-            uint rollsBalance = cashAsset.balanceOf(address(rolls));
 
-            // update to new price
-            engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, newPrice);
-            // Execute roll
-            startHoax(user1);
-            takerNFT.approve(address(rolls), offer.takerId);
-            cashAsset.approve(address(rolls), expected.toTaker < 0 ? uint(-expected.toTaker) : 0);
-            vm.expectEmit(address(rolls));
-            emit IRolls.OfferExecuted(
-                rollId,
-                offer.takerId,
-                offer.providerNFT,
-                offer.providerId,
-                expected.toTaker,
-                expected.toProvider,
-                expected.rollFee,
-                nextTakerId,
-                nextProviderId
-            );
-            int toTaker;
-            int toProvider;
-            (newTakerId, newProviderId, toTaker, toProvider) = rolls.executeRoll(rollId, expected.toTaker);
+        // balances
+        uint userBalance = cashAsset.balanceOf(user1);
+        uint providerBalance = cashAsset.balanceOf(provider);
+        uint rollsBalance = cashAsset.balanceOf(address(rolls));
 
-            // Check return values
-            assertEq(newTakerId, nextTakerId);
-            assertEq(newProviderId, nextProviderId);
-            assertEq(toTaker, expected.toTaker);
-            assertEq(toProvider, expected.toProvider);
+        // update to new price
+        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, newPrice);
+        // Execute roll
+        startHoax(user1);
+        takerNFT.approve(address(rolls), offer.takerId);
+        cashAsset.approve(address(rolls), expected.toTaker < 0 ? uint(-expected.toTaker) : 0);
+        vm.expectEmit(address(rolls));
+        emit IRolls.OfferExecuted(
+            rollId,
+            offer.takerId,
+            offer.providerNFT,
+            offer.providerId,
+            expected.toTaker,
+            expected.toProvider,
+            expected.rollFee,
+            nextTakerId,
+            nextProviderId
+        );
+        int toTaker;
+        int toProvider;
+        (newTakerId, newProviderId, toTaker, toProvider) = rolls.executeRoll(rollId, expected.toTaker);
 
-            // check balances
-            assertEq(cashAsset.balanceOf(user1), uint(int(userBalance) + expected.toTaker));
-            assertEq(cashAsset.balanceOf(provider), uint(int(providerBalance) + expected.toProvider));
-            assertEq(cashAsset.balanceOf(address(rolls)), rollsBalance); // no change
-        }
+        // Check return values
+        assertEq(newTakerId, nextTakerId);
+        assertEq(newProviderId, nextProviderId);
+        assertEq(toTaker, expected.toTaker);
+        assertEq(toProvider, expected.toProvider);
+
+        // check balances
+        assertEq(cashAsset.balanceOf(user1), uint(int(userBalance) + expected.toTaker));
+        assertEq(cashAsset.balanceOf(provider), uint(int(providerBalance) + expected.toProvider));
+        assertEq(cashAsset.balanceOf(address(rolls)), rollsBalance); // no change
 
         // Check offer is no longer active
-        offer = rolls.getRollOffer(rollId);
-        assertFalse(offer.active);
+        assertFalse(rolls.getRollOffer(rollId).active);
 
         // Check old positions are burned
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, offer.takerId));
@@ -289,6 +250,16 @@ contract RollsTest is Test {
         assertEq(takerNFT.ownerOf(newTakerId), user1);
         assertEq(providerNFT.ownerOf(newProviderId), provider);
 
+        // check positions
+        checkNewPositions(newTakerId, newProviderId, newPrice, expected);
+    }
+
+    function checkNewPositions(
+        uint newTakerId,
+        uint newProviderId,
+        uint newPrice,
+        ExpectedRoll memory expected
+    ) internal {
         // Check new taker position details
         CollarTakerNFT.TakerPosition memory newTakerPos = takerNFT.getPosition(newTakerId);
         assertEq(address(newTakerPos.providerNFT), address(providerNFT));
@@ -322,6 +293,35 @@ contract RollsTest is Test {
         checkCalculateTransferAmounts(expected, rollId, newPrice);
         // check execute effects
         checkExecuteRoll(rollId, newPrice, expected);
+    }
+
+    // happy cases
+
+    function test_constructor() public {
+        Rolls newRolls = new Rolls(owner, takerNFT, cashAsset);
+        assertEq(address(newRolls.takerNFT()), address(takerNFT));
+        assertEq(address(newRolls.cashAsset()), address(cashAsset));
+        assertEq(newRolls.VERSION(), "0.2.0");
+        assertEq(newRolls.owner(), owner);
+    }
+
+    function test_createRollOffer() public {
+        createAndCheckRollOffer();
+    }
+
+    function test_cancelOffer() public {
+        (, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
+
+        startHoax(provider);
+
+        vm.expectEmit(address(rolls));
+        emit IRolls.OfferCancelled(rollId, offer.takerId, provider);
+        rolls.cancelOffer(rollId);
+
+        offer = rolls.getRollOffer(rollId);
+        assertFalse(offer.active);
+        // nft owner
+        assertEq(providerNFT.ownerOf(offer.providerId), provider);
     }
 
     function test_executeRoll_no_change_simple() public {
@@ -417,94 +417,105 @@ contract RollsTest is Test {
     function test_calculateRollFee() public {
         (, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
 
-        // Test case 1: No price change
-        int fee = rolls.calculateRollFee(offer, twapPrice);
-        assertEq(fee, rollFeeAmount, "no price change");
+        // No price change
+        assertEq(rolls.calculateRollFee(offer, twapPrice), rollFeeAmount, "no price change");
 
-        // Test case 2: Price increase, positive fee, positive delta factor
+        // Price increase, positive fee, positive delta factor
         uint newPrice = twapPrice * 110 / 100; // 10% increase
-        fee = rolls.calculateRollFee(offer, newPrice);
         // Expected: 1 ether + (1 ether * 50% * 10%) = 1.05 ether
-        assertEq(fee, 1.05 ether, "pos fee, +10%");
+        assertEq(rolls.calculateRollFee(offer, newPrice), 1.05 ether, "f+ p+ d+");
 
-        // Test case 3: Price decrease, positive fee, positive delta factor
-        newPrice = twapPrice * 90 / 100; // 10% decrease
-        fee = rolls.calculateRollFee(offer, newPrice);
-        // Expected: 1 ether - (1 ether * 50% * 10%) = 0.95 ether
-        assertEq(fee, 0.95 ether, "pos fee, -10%");
-
-        // Test case 4: Price increase, negative fee, positive delta factor
-        offer.rollFeeAmount = -1 ether;
-        fee = rolls.calculateRollFee(offer, twapPrice * 110 / 100);
-        // Expected: -1 ether + (1 ether * 50% * 10%) = -0.95 ether
-        assertEq(fee, -0.95 ether, "neg fee, +10%");
-
-        // Test case 5: Price increase, positive fee, negative delta factor
+        // Price increase, positive fee, negative delta factor
         offer.rollFeeAmount = 1 ether;
         offer.rollFeeDeltaFactorBIPS = -5000; // -50%
-        fee = rolls.calculateRollFee(offer, twapPrice * 110 / 100);
+        newPrice = twapPrice * 110 / 100;
         // Expected: 1 ether - (1 ether * 50% * 10%) = 0.95 ether
-        assertEq(fee, 0.95 ether, "pos fee, neg delta, +10%");
+        assertEq(rolls.calculateRollFee(offer, newPrice), 0.95 ether, "f+ p+ d-");
 
-        // Test case 6: Price decrease, negative fee, negative delta factor
+        // Price decrease, positive fee, negative delta factor
+        newPrice = twapPrice * 90 / 100; // 10% decrease
+        offer.rollFeeDeltaFactorBIPS = -5000;
+        // Expected: 1 ether + (1 ether * 50% * 10%) = 1.05 ether
+        assertEq(rolls.calculateRollFee(offer, newPrice), 1.05 ether, "f+ p- d-");
+
+        // Price decrease, positive fee, positive delta factor
+        newPrice = twapPrice * 90 / 100; // 10% decrease
+        offer.rollFeeDeltaFactorBIPS = 5000;
+        // Expected: 1 ether - (1 ether * 50% * 10%) = 0.95 ether
+        assertEq(rolls.calculateRollFee(offer, newPrice), 0.95 ether, "f+ p- d+");
+
+        // Price increase, negative fee, positive delta factor
+        offer.rollFeeAmount = -1 ether;
+        newPrice = twapPrice * 110 / 100;
+        // Expected: -1 ether + (1 ether * 50% * 10%) = -0.95 ether
+        assertEq(rolls.calculateRollFee(offer, newPrice), -0.95 ether, "f- p+ d+");
+
+        // Price increase, negative fee, positive delta factor
+        offer.rollFeeAmount = -1 ether;
+        newPrice = twapPrice * 110 / 100;
+        offer.rollFeeDeltaFactorBIPS = -5000;
+        // Expected: -1 ether - (1 ether * 50% * 10%) = -1.05 ether
+        assertEq(rolls.calculateRollFee(offer, newPrice), -1.05 ether, "f- p+ d-");
+
+        // Price decrease, negative fee, negative delta factor
         offer.rollFeeAmount = -1 ether;
         newPrice = twapPrice * 90 / 100; // 10% decrease
-        fee = rolls.calculateRollFee(offer, newPrice);
+        offer.rollFeeDeltaFactorBIPS = 5000;
+        // Expected: -1 ether - (1 ether * 50% * 10%) = -1.05 ether
+        assertEq(rolls.calculateRollFee(offer, newPrice), -1.05 ether, "--+");
+
+        // Price decrease, negative fee, negative delta factor
+        offer.rollFeeAmount = -1 ether;
+        newPrice = twapPrice * 90 / 100; // 10% decrease
+        offer.rollFeeDeltaFactorBIPS = -5000;
         // Expected: -1 ether + (1 ether * 50% * 10%) = -0.95 ether
-        assertEq(fee, -0.95 ether, "neg fee, neg delta, -10%");
+        assertEq(rolls.calculateRollFee(offer, newPrice), -0.95 ether, "---");
 
-        // Test case 7: Extreme price change (100% increase)
+        // Large price change (100% increase)
         offer.rollFeeAmount = 1 ether;
+        newPrice = twapPrice * 200 / 100;
         offer.rollFeeDeltaFactorBIPS = 5000; // 50%
-        fee = rolls.calculateRollFee(offer, twapPrice * 200 / 100);
         // Expected: 1 ether + (1 ether * 50% * 100%) = 1.5 ether
-        assertEq(fee, 1.5 ether, "+100%");
+        assertEq(rolls.calculateRollFee(offer, newPrice), 1.5 ether, "+100%");
 
-        // Test case 8: Zero fee
+        // Zero fee
         offer.rollFeeAmount = 0;
-        fee = rolls.calculateRollFee(offer, twapPrice * 150 / 100);
-        assertEq(fee, 0, "0 fee");
+        assertEq(rolls.calculateRollFee(offer, twapPrice * 150 / 100), 0, "0 fee");
 
         // Test case 9: Zero delta factor
         offer.rollFeeAmount = 1 ether;
         offer.rollFeeDeltaFactorBIPS = 0;
-        fee = rolls.calculateRollFee(offer, twapPrice * 150 / 100);
-        assertEq(fee, 1 ether, "0 delta");
+        assertEq(rolls.calculateRollFee(offer, twapPrice * 150 / 100), 1 ether, "0 delta");
     }
 
     function test_calculateRollFee_additional() public {
         (, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
 
         // Edge cases for price changes
-        int fee = rolls.calculateRollFee(offer, 0); // Minimum price
-        assertEq(fee, 0.5 ether, "-100% price");
+        assertEq(rolls.calculateRollFee(offer, 0), 0.5 ether, "-100% price");
 
-        fee = rolls.calculateRollFee(offer, twapPrice * 2);
-        assertEq(fee, 1.5 ether, "+100%");
+        assertEq(rolls.calculateRollFee(offer, twapPrice * 2), 1.5 ether, "+100%");
 
         // Edge cases for fee amounts
         offer.rollFeeAmount = type(int).min;
         vm.expectRevert(stdError.arithmeticError);
-        fee = rolls.calculateRollFee(offer, twapPrice * 110 / 100);
+        rolls.calculateRollFee(offer, twapPrice * 110 / 100);
 
         offer.rollFeeAmount = type(int).max;
         vm.expectRevert(stdError.arithmeticError);
-        fee = rolls.calculateRollFee(offer, twapPrice * 110 / 100);
+        rolls.calculateRollFee(offer, twapPrice * 110 / 100);
 
         // Edge cases for delta factors
         offer.rollFeeAmount = 1 ether;
         offer.rollFeeDeltaFactorBIPS = 10_000; // 100%
-        fee = rolls.calculateRollFee(offer, 0);
-        assertEq(fee, 0, "full delta factor no fee");
+        assertEq(rolls.calculateRollFee(offer, 0), 0, "full delta factor no fee");
 
         offer.rollFeeDeltaFactorBIPS = 10_000; // 100%
-        fee = rolls.calculateRollFee(offer, twapPrice * 110 / 100);
-        assertEq(fee, 1.1 ether, "linearly fee");
+        assertEq(rolls.calculateRollFee(offer, twapPrice * 110 / 100), 1.1 ether, "linear fee");
 
         // Precision check
         offer.rollFeeDeltaFactorBIPS = 10_000; // 100%
-        fee = rolls.calculateRollFee(offer, 10_001 * twapPrice / 10_000);
-        assertGt(fee, 1 ether, "tiny price change");
+        assertGt(rolls.calculateRollFee(offer, 10_001 * twapPrice / 10_000), 1 ether, "tiny price change");
     }
 
     function test_pause() public {
@@ -608,7 +619,6 @@ contract RollsTest is Test {
             block.timestamp - 1
         );
 
-        providerNFT.approve(address(rolls), providerId);
         // Insufficient cash balance for potential payment
         int largeNegativeMinToProvider = -int(cashAsset.balanceOf(provider)) - 1;
         vm.expectRevert("insufficient cash balance");
@@ -733,9 +743,6 @@ contract RollsTest is Test {
     function test_revert_executeRoll_slippage() public {
         (uint takerId, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
 
-        // create new offer
-        (takerId, rollId, offer) = createAndCheckRollOffer();
-
         // Taker transfer slippage
         startHoax(user1);
         takerNFT.approve(address(rolls), takerId);
@@ -786,9 +793,9 @@ contract RollsTest is Test {
     function test_revert_executeRoll_provider_approval() public {
         (uint takerId, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
 
-        // Insufficient provider cash approval (when provider needs to pay)
-        (takerId, rollId, offer) = createAndCheckRollOffer();
+        // provider revoked approval
         cashAsset.approve(address(rolls), 0);
+
         startHoax(user1);
         takerNFT.approve(address(rolls), takerId);
         cashAsset.approve(address(rolls), type(uint).max);
