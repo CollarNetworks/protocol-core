@@ -17,6 +17,40 @@ import { IRolls } from "./interfaces/IRolls.sol";
 import { CollarTakerNFT } from "./CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "./ProviderPositionNFT.sol";
 
+/**
+ * @title Rolls
+ * @dev This contract manages the "rolling" of existing collar positions before expiry to new strikes and
+ * expiry.
+ *
+ * Main Functionality:
+ * 1. Allows providers to create roll offers for existing positions.
+ * 2. Handles the cancellation of created roll offers.
+ * 3. Executes rolls, cancelling (settling) existing positions and creating new ones with updated terms.
+ * 4. Manages the transfer of funds between takers and providers during rolls.
+ *
+ * Role in the Protocol:
+ * Allows for the extension or modification of existing positions prior to expiry if both parties agree.
+ *
+ * Key Assumptions and Prerequisites:
+ * 1. The CollarTakerNFT and ProviderPositionNFT contracts are correctly implemented and authorized.
+ * 2. The cash asset (ERC-20) used is standard compliant (non-rebasing, no transfer fees, no callbacks).
+ * 3. Providers must approve this contract to transfer their ProviderPositionNFTs and cash when creating
+ * and offer. The NFT is transferred on offer creation, and cash will be transferred on execution, if
+ * and when the user accepts the offer.
+ * 4. Takers must approve this contract to transfer their CollarTakerNFTs and any cash that's needed
+ * to be pulled.
+ *
+ * Design Considerations:
+ * 1. Offers are made by providers, and accepted (and executed) by takers.
+ * 2. Implements pausability for emergency situations.
+ * 3. Calculates fees based on price changes to allow correct fee pricing when asset price moves.
+ * 4. Settles existing positions and creates new ones atomically to ensure consistency.
+ *
+ * Security Considerations:
+ * 1. Does not hold cash (only during execution), but will have approvals to spend cash.
+ * 2. Signed integers are used for many input and output values, and proper care should be
+ * taken in understanding the semantics of the positive and negative values.
+ */
 contract Rolls is IRolls, Ownable, Pausable {
     using SafeERC20 for IERC20;
     using SafeCast for uint;
@@ -47,6 +81,18 @@ contract Rolls is IRolls, Ownable, Pausable {
         return rollOffers[rollId];
     }
 
+    /**
+     * @notice Calculates the roll fee based on the price
+     * @dev The fee changes based on the price change since the offer was created.
+     * All three of - price change, roll fee, and delta-factor - can be negative. The fee is adjusted
+     * such that positive `price-change x delta-factor` increase the fee (provider benefits), and decrease
+     * the fee (taker benefits) if negative.
+     * 0 delta-factor means the fee is constant, 100% delta-factor (10_000 in bips), means the price
+     * linearly scales the fee (according to the sign logic)
+     * @param offer The roll offer to calculate the fee for
+     * @param currentPrice The current price to use for the calculation
+     * @return rollFee The calculated roll fee (in cash amount)
+     */
     function calculateRollFee(RollOffer memory offer, uint currentPrice) public pure returns (int rollFee) {
         int prevPrice = offer.rollFeeReferencePrice.toInt256();
         int priceChange = currentPrice.toInt256() - prevPrice;
@@ -64,6 +110,17 @@ contract Rolls is IRolls, Ownable, Pausable {
         rollFee = offer.rollFeeAmount + change;
     }
 
+    /**
+     * @notice Calculates the amounts to be transferred during a roll execution at a specific price.
+     * This does not check any of the execution validity conditions (deadline, price range, etc...).
+     * @dev If validity is important, a staticcall to the executeRoll method should be used instead of
+     * this view.
+     * @param rollId The ID of the roll offer
+     * @param price The price to use for the calculation
+     * @return toTaker The amount that would be transferred to (or from, if negative) the taker
+     * @return toProvider The amount that would be transferred to (or from, if negative) the provider
+     * @return rollFee The roll fee that would be applied
+     */
     function calculateTransferAmounts(uint rollId, uint price)
         external
         view
@@ -83,10 +140,25 @@ contract Rolls is IRolls, Ownable, Pausable {
 
     // ----- MUTATIVE FUNCTIONS ----- //
 
-    // @dev if the provider will need to provide cash on execution, they must approve the contract to pull that
-    // cash when submitting the offer (and have those funds available), so that it is executable.
-    // If offer is unexecutable becomes of insufficient provider cash approval or balance it should ideally be
-    // filtered out by the FE as not executable (and show as unexecutable for the provider).
+    /**
+     * @notice Creates a new roll offer for an existing taker NFT position and pulls the provider NFT.
+     * @dev The provider must own the ProviderPositionNFT for the position to be rolled
+     * @param takerId The ID of the CollarTakerNFT position to be rolled
+     * @param rollFeeAmount The base fee for the roll, can be positive (paid by taker) or
+     *     negative (paid by provider)
+     * @param rollFeeDeltaFactorBIPS How much the fee changes with price, in basis points, can be
+     *     negative. Positive means asset price increase benefits provider, and negative benefits user.
+     * @param minPrice The minimum acceptable price for roll execution
+     * @param maxPrice The maximum acceptable price for roll execution
+     * @param minToProvider The minimum amount the provider is willing to receive, or maximum willing to pay if negative. The execution transfer (in or out) will be checked to be >= this value.
+     * @param deadline The timestamp after which this offer can no longer be executed
+     * @return rollId The ID of the newly created roll offer
+     *
+     * @dev if the provider will need to provide cash on execution, they must approve the contract to pull that
+     * cash when submitting the offer (and have those funds available), so that it is executable.
+     * If offer becomes unexecutable due to insufficient provider cash approval or balance it should ideally be
+     * filtered out by the FE as not executable (and provider be made aware).
+     */
     function createRollOffer(
         uint takerId,
         int rollFeeAmount,
@@ -150,9 +222,15 @@ contract Rolls is IRolls, Ownable, Pausable {
         emit OfferCreated(takerId, msg.sender, providerNFT, providerId, rollFeeAmount, rollId);
     }
 
-    /// @dev only cancel and no updating, to prevent frontrunning a user's accept.
-    /// The risk of update is different here from providerNFT.updateOfferAmount because
-    /// the most an update can cause there is a revert of taking the offer.
+    /**
+    * @notice Cancels an existing roll offer and returns the provider NFT to the sender.
+    * @dev Can only be called by the original offer creator
+    * @param rollId The ID of the roll offer to cancel
+    *
+    * @dev only cancel and no updating, to prevent frontrunning a user's acceptance
+    * The risk of update is different here from providerNFT.updateOfferAmount because
+    * the most an update can cause there is a revert of taking the offer.
+    */
     function cancelOffer(uint rollId) external whenNotPaused {
         RollOffer storage offer = rollOffers[rollId];
         require(msg.sender == offer.provider, "not initial provider");
@@ -164,6 +242,18 @@ contract Rolls is IRolls, Ownable, Pausable {
         emit OfferCancelled(rollId, offer.takerId, offer.provider);
     }
 
+    /**
+     * @notice Executes a roll, settling the existing paired position and creating a new one.
+     * This pulls and distributes cash, pulls taker NFT, and sends out new taker and provider NFTs.
+     * @dev The caller must be the owner of the CollarTakerNFT for the position being rolled,
+     * and must have approved sufficient cash if cash needs to be paid (depends on offer and current price)
+     * @param rollId The ID of the roll offer to execute
+     * @param minToUser The minimum amount the user (taker) is willing to receive, or maximum willing to pay if negative. The execution transfer (in or out) will be checked to be >= this value.
+     * @return newTakerId The ID of the newly created CollarTakerNFT position
+     * @return newProviderId The ID of the newly created ProviderPositionNFT position
+     * @return toTaker The amount transferred to (or from, if negative) the taker
+     * @return toProvider The amount transferred to (or from, if negative) the provider
+     */
     function executeRoll(
         uint rollId,
         int minToUser // signed "slippage", user protection
