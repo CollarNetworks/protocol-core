@@ -481,14 +481,14 @@ contract RollsTest is Test {
         newPrice = twapPrice * 90 / 100; // 10% decrease
         offer.rollFeeDeltaFactorBIPS = 5000;
         // Expected: -1 ether - (1 ether * 50% * 10%) = -1.05 ether
-        assertEq(rolls.calculateRollFee(offer, newPrice), -1.05 ether, "--+");
+        assertEq(rolls.calculateRollFee(offer, newPrice), -1.05 ether, "f- p- d+");
 
         // Price decrease, negative fee, negative delta factor
         offer.rollFeeAmount = -1 ether;
         newPrice = twapPrice * 90 / 100; // 10% decrease
         offer.rollFeeDeltaFactorBIPS = -5000;
         // Expected: -1 ether + (1 ether * 50% * 10%) = -0.95 ether
-        assertEq(rolls.calculateRollFee(offer, newPrice), -0.95 ether, "---");
+        assertEq(rolls.calculateRollFee(offer, newPrice), -0.95 ether, "f- p- d-");
 
         // Large price change (100% increase)
         offer.rollFeeAmount = 1 ether;
