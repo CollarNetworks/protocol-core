@@ -223,14 +223,14 @@ contract Rolls is IRolls, Ownable, Pausable {
     }
 
     /**
-    * @notice Cancels an existing roll offer and returns the provider NFT to the sender.
-    * @dev Can only be called by the original offer creator
-    * @param rollId The ID of the roll offer to cancel
-    *
-    * @dev only cancel and no updating, to prevent frontrunning a user's acceptance
-    * The risk of update is different here from providerNFT.updateOfferAmount because
-    * the most an update can cause there is a revert of taking the offer.
-    */
+     * @notice Cancels an existing roll offer and returns the provider NFT to the sender.
+     * @dev Can only be called by the original offer creator
+     * @param rollId The ID of the roll offer to cancel
+     *
+     * @dev only cancel and no updating, to prevent frontrunning a user's acceptance
+     * The risk of update is different here from providerNFT.updateOfferAmount because
+     * the most an update can cause there is a revert of taking the offer.
+     */
     function cancelOffer(uint rollId) external whenNotPaused {
         RollOffer storage offer = rollOffers[rollId];
         require(msg.sender == offer.provider, "not initial provider");
