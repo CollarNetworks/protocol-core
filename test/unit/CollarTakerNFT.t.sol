@@ -25,6 +25,10 @@ contract CollarTakerNFTTest is Test {
     address user1 = makeAddr("user1");
     address provider = makeAddr("provider");
     address owner = makeAddr("owner");
+
+    uint constant TWAP_LENGTH = 15 minutes;
+    uint constant BIPS_BASE = 10_000;
+
     uint amountToUse = 10_000 ether;
     uint ltvToUse = 9000;
     uint durationToUse = 300;
@@ -68,6 +72,8 @@ contract CollarTakerNFTTest is Test {
     function setPricesAtTimestamp(MockEngine engineToUse, uint timestamp, uint price) internal {
         engineToUse.setHistoricalAssetPrice(address(collateralAsset), timestamp, price);
         engineToUse.setHistoricalAssetPrice(address(cashAsset), timestamp, price);
+        // check the TWAP view
+        assertEq(takerNFT.getReferenceTWAPPrice(timestamp), price);
     }
 
     function mintTokensToUserandApproveNFT() internal {
@@ -126,7 +132,24 @@ contract CollarTakerNFTTest is Test {
         assertEq(position.withdrawable, 0);
     }
 
+    function checkCalculateProviderLocked(uint putLocked, uint putStrike, uint callStrike)
+        internal
+        view
+        returns (uint callLocked)
+    {
+        // calculate
+        uint putRange = BIPS_BASE - putStrike;
+        uint callRange = callStrike - BIPS_BASE;
+        callLocked = callRange * putLocked / putRange;
+        // check view agrees
+        assertEq(callLocked, takerNFT.calculateProviderLocked(putLocked, putStrike, callStrike));
+    }
+
     function checkProviderPosition() internal view {
+        // check the view
+        uint callLocked = checkCalculateProviderLocked(putLockedCashToUse, ltvToUse, callStrikeDeviationToUse);
+        assertEq(callLockedCashToUse, callLocked);
+        // check position
         ProviderPositionNFT.ProviderPosition memory position = providerNFT.getPosition(0);
         assertEq(position.expiration, 301);
         assertEq(position.principal, callLockedCashToUse);
@@ -146,6 +169,12 @@ contract CollarTakerNFTTest is Test {
         (takerId, providerNFTId) = createTakerPositionAsUser(0, takerNFT, providerNFT);
         skip(301);
         setPricesAtTimestamp(engine, 301, priceToSettleAt);
+
+        // check the view
+        (uint takerBalanceView, int providerChangeView) =
+            takerNFT.previewSettlement(takerNFT.getPosition(takerId), priceToSettleAt);
+        assertEq(takerBalanceView, expectedTakerWithdrawable);
+        assertEq(providerChangeView, expectedProviderChange);
 
         startHoax(user1);
         vm.expectEmit(address(providerNFT));
@@ -171,6 +200,7 @@ contract CollarTakerNFTTest is Test {
         assertEq(address(newTakerNFT.engine()), address(engine));
         assertEq(address(newTakerNFT.cashAsset()), address(cashAsset));
         assertEq(address(newTakerNFT.collateralAsset()), address(collateralAsset));
+        assertEq(uint(newTakerNFT.TWAP_LENGTH()), TWAP_LENGTH);
         assertEq(newTakerNFT.name(), "NewCollarTakerNFT");
         assertEq(newTakerNFT.symbol(), "NBPNFT");
     }
@@ -589,5 +619,14 @@ contract CollarTakerNFTTest is Test {
         startHoax(provider);
         vm.expectRevert("already settled");
         takerNFT.cancelPairedPosition(takerId, user1);
+    }
+
+    function test_calculateProviderLocked_revert() public {
+        uint putLockedCash = 1000 ether;
+        uint putStrikeDeviation = 10_000; // This will cause a division by zero
+        uint callStrikeDeviation = 12_000;
+
+        vm.expectRevert("invalid put strike deviation");
+        takerNFT.calculateProviderLocked(putLockedCash, putStrikeDeviation, callStrikeDeviation);
     }
 }

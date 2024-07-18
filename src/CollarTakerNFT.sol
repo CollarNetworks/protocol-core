@@ -59,14 +59,15 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         return nextTokenId;
     }
 
-    // TODO: test and doc
+    /// @dev TWAP price that's used in this contract for opening and settling positions
     function getReferenceTWAPPrice(uint twapEndTime) public view returns (uint price) {
         return engine.getHistoricalAssetPriceViaTWAP(
             address(collateralAsset), address(cashAsset), uint32(twapEndTime), TWAP_LENGTH
         );
     }
 
-    // TODO: test and doc
+    /// @dev calculate the amount of cash the provider will lock for specific terms and taker
+    /// locked amount
     function calculateProviderLocked(uint putLockedCash, uint putStrikeDeviation, uint callStrikeDeviation)
         public
         pure
@@ -78,7 +79,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         return callRange * putLockedCash / putRange; // proportionally scaled according to ranges
     }
 
-    // TODO: test and doc
+    /// @dev preview the settlement calculation updates at a particular price
     function previewSettlement(TakerPosition memory takerPos, uint endPrice)
         external
         pure
