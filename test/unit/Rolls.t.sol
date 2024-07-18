@@ -34,7 +34,7 @@ contract RollsTest is Test {
 
     uint twapPrice = 1000 ether;
     uint collateralAmount = 1 ether;
-    uint swapAmount = collateralAmount * twapPrice / 1e18; // 1000
+    uint swapAmount = collateralAmount * twapPrice / 1 ether; // 1000
     uint putLocked = swapAmount * (BIPS_100PCT - ltv) / BIPS_100PCT; // 100
     uint callLocked = swapAmount * (callStrikeDeviation - BIPS_100PCT) / BIPS_100PCT; // 100
     uint amountToProvide = 100_000 ether;
@@ -336,8 +336,8 @@ contract RollsTest is Test {
         - start 1000 at price 1000, 100 user locked, 200 provider locked
         - no changes except fee being charged
         */
-        assertEq(expected.newPutLocked, 100e18);
-        assertEq(expected.newCallLocked, 200e18);
+        assertEq(expected.newPutLocked, 100 ether);
+        assertEq(expected.newCallLocked, 200 ether);
         assertEq(expected.toTaker, -expected.rollFee);
         assertEq(expected.toProvider, expected.rollFee);
     }
@@ -350,8 +350,8 @@ contract RollsTest is Test {
         - start 1000 at price 1000, 100 user locked, 200 provider locked
         - no changes except fee being charged
         */
-        assertEq(expected.newPutLocked, 100e18);
-        assertEq(expected.newCallLocked, 200e18);
+        assertEq(expected.newPutLocked, 100 ether);
+        assertEq(expected.newCallLocked, 200 ether);
         assertEq(expected.toTaker, 0);
         assertEq(expected.toProvider, 0);
     }
@@ -368,10 +368,10 @@ contract RollsTest is Test {
         - toTaker = 150 - 105 = 45
         - toProvider = 150 - 210 = -60
         */
-        assertEq(expected.newPutLocked, 105e18);
-        assertEq(expected.newCallLocked, 210e18);
-        assertEq(expected.toTaker, 45e18 - expected.rollFee);
-        assertEq(expected.toProvider, -60e18 + expected.rollFee);
+        assertEq(expected.newPutLocked, 105 ether);
+        assertEq(expected.newCallLocked, 210 ether);
+        assertEq(expected.toTaker, 45 ether - expected.rollFee);
+        assertEq(expected.toProvider, -60 ether + expected.rollFee);
     }
 
     function test_executeRoll_5_pct_down_simple() public {
@@ -386,16 +386,16 @@ contract RollsTest is Test {
         - toTaker = 50 - 95 = -45
         - toProvider = 250 - 190 = 60
         */
-        assertEq(expected.newPutLocked, 95e18);
-        assertEq(expected.newCallLocked, 190e18);
-        assertEq(expected.toTaker, -45e18 - expected.rollFee);
-        assertEq(expected.toProvider, 60e18 + expected.rollFee);
+        assertEq(expected.newPutLocked, 95 ether);
+        assertEq(expected.newCallLocked, 190 ether);
+        assertEq(expected.toTaker, -45 ether - expected.rollFee);
+        assertEq(expected.toProvider, 60 ether + expected.rollFee);
     }
 
     function test_executeRoll_30_pct_up_simple() public {
         // increase price tolerance
         maxPrice = twapPrice * 2;
-        minToProvider = -260e18;
+        minToProvider = -260 ether;
         // Move the price up by 30%
         ExpectedRoll memory expected = checkExecuteRollForPriceChange(twapPrice * 130 / 100);
 
@@ -407,10 +407,10 @@ contract RollsTest is Test {
         - toTaker = 300 - 130 = 170
         - toProvider = 0 - 260 = -260
         */
-        assertEq(expected.newPutLocked, 130e18);
-        assertEq(expected.newCallLocked, 260e18);
-        assertEq(expected.toTaker, 170e18 - expected.rollFee);
-        assertEq(expected.toProvider, -260e18 + expected.rollFee);
+        assertEq(expected.newPutLocked, 130 ether);
+        assertEq(expected.newCallLocked, 260 ether);
+        assertEq(expected.toTaker, 170 ether - expected.rollFee);
+        assertEq(expected.toProvider, -260 ether + expected.rollFee);
     }
 
     function test_executeRoll_20_pct_down_simple() public {
@@ -427,10 +427,10 @@ contract RollsTest is Test {
         - toTaker = 0 - 80 = -80
         - toProvider = 300 - 160 = 140
         */
-        assertEq(expected.newPutLocked, 80e18);
-        assertEq(expected.newCallLocked, 160e18);
-        assertEq(expected.toTaker, -80e18 - expected.rollFee);
-        assertEq(expected.toProvider, 140e18 + expected.rollFee);
+        assertEq(expected.newPutLocked, 80 ether);
+        assertEq(expected.newCallLocked, 160 ether);
+        assertEq(expected.toTaker, -80 ether - expected.rollFee);
+        assertEq(expected.toProvider, 140 ether + expected.rollFee);
     }
 
     function test_calculateRollFee() public {
