@@ -12,6 +12,7 @@ import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockUniRouter } from "../utils/MockUniRouter.sol";
 
 import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
+import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract CollarEngineTest is Test {
@@ -112,23 +113,39 @@ contract CollarEngineTest is Test {
         assertFalse(engine.isValidLTV(10_000));
     }
 
-    function test_setCollarTakerContractAuth() public {
+    function test_setCollarTakerContractAuth_non_taker_contract() public {
         address testContract = address(0x123);
+        // testContract doesnt support calling .cashAsset();
+        vm.expectRevert();
         engine.setCollarTakerContractAuth(testContract, true);
-        assertTrue(engine.isCollarTakerNFT(testContract));
-
-        // Test "already added" branch
-        engine.setCollarTakerContractAuth(testContract, false);
         assertFalse(engine.isCollarTakerNFT(testContract));
     }
 
-    function test_setProviderContractAuth() public {
+    function test_setProviderContractAuth_non_taker_contract() public {
         address testContract = address(0x456);
+        // testContract doesnt support calling .cashAsset();
+        vm.expectRevert();
         engine.setProviderContractAuth(testContract, true);
-        assertTrue(engine.isProviderNFT(testContract));
-
-        // Test "already added" branch
-        engine.setProviderContractAuth(testContract, false);
         assertFalse(engine.isProviderNFT(testContract));
+    }
+
+    function test_setMaxLTV() public {
+        engine.setMaxLTV(1000);
+        assertEq(engine.MAX_LTV(), 1000);
+    }
+
+    function test_setMinLTV() public {
+        engine.setMinLTV(1000);
+        assertEq(engine.MIN_LTV(), 1000);
+    }
+
+    function test_setMinCollarDuration() public {
+        engine.setMinCollarDuration(1000);
+        assertEq(engine.MIN_COLLAR_DURATION(), 1000);
+    }
+
+    function test_setMaxCollarDuration() public {
+        engine.setMaxCollarDuration(1000);
+        assertEq(engine.MAX_COLLAR_DURATION(), 1000);
     }
 }

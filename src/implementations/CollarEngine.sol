@@ -31,10 +31,10 @@ contract CollarEngine is Ownable, ICollarEngine {
     address public immutable univ3SwapRouter;
 
     uint public constant TWAP_BASE_TOKEN_AMOUNT = uint(UniV3OracleLib.BASE_TOKEN_AMOUNT);
-    uint public constant MIN_LTV = 1000;
-    uint public constant MAX_LTV = 9999;
-    uint public constant MIN_COLLAR_DURATION = 300;
-    uint public constant MAX_COLLAR_DURATION = 365 days;
+    uint public MIN_LTV = 1000;
+    uint public MAX_LTV = 9999;
+    uint public MIN_COLLAR_DURATION = 300;
+    uint public MAX_COLLAR_DURATION = 365 days;
     // -- internal state variables ---
     mapping(address collateralAssetAddress => bool isSupported) public isSupportedCollateralAsset;
     mapping(address cashAssetAddress => bool isSupported) public isSupportedCashAsset;
@@ -62,6 +62,26 @@ contract CollarEngine is Ownable, ICollarEngine {
         emit ProviderNFTAuthSet(
             contractAddress, enabled, address(cashAsset), address(collateralAsset), collarTakerNFT
         );
+    }
+
+    // ltv
+
+    function setMaxLTV(uint ltv) external onlyOwner {
+        MAX_LTV = ltv;
+    }
+
+    function setMinLTV(uint ltv) external onlyOwner {
+        MIN_LTV = ltv;
+    }
+
+    // collar durations
+
+    function setMinCollarDuration(uint duration) external onlyOwner {
+        MIN_COLLAR_DURATION = duration;
+    }
+
+    function setMaxCollarDuration(uint duration) external onlyOwner {
+        MAX_COLLAR_DURATION = duration;
     }
 
     // collateral assets
@@ -92,7 +112,7 @@ contract CollarEngine is Ownable, ICollarEngine {
 
     // collar durations
 
-    function isValidCollarDuration(uint duration) external pure override returns (bool) {
+    function isValidCollarDuration(uint duration) external view override returns (bool) {
         if (duration < MIN_COLLAR_DURATION || duration > MAX_COLLAR_DURATION) {
             return false;
         }
@@ -101,7 +121,7 @@ contract CollarEngine is Ownable, ICollarEngine {
 
     // ltvs
 
-    function isValidLTV(uint ltv) external pure override returns (bool) {
+    function isValidLTV(uint ltv) external view override returns (bool) {
         if (ltv < MIN_LTV || ltv > MAX_LTV) {
             return false;
         }

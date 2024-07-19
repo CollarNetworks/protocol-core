@@ -605,19 +605,26 @@ contract ProviderPositionNFTTest is Test {
     }
 
     function test_revert_mintPositionFromOffer_EngineValidations() public {
-        vm.stopPrank(); // sender is engine owner
-
-        vm.startPrank(address(takerContract));
-        // set putdeviation a value so it passes offer check but not engine check
-        putDeviation = engine.MIN_LTV() - 1;
+        // set a putdeviation that willbe invalid later
+        engine.setMinLTV(900);
+        putDeviation = 900;
         (uint offerId,) = createAndCheckOffer(provider1, largeAmount);
+        vm.stopPrank();
+        putDeviation = 9000;
+        engine.setMinLTV(9000);
+        vm.startPrank(address(takerContract));
+
         vm.expectRevert("unsupported LTV");
         providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);
 
         vm.stopPrank();
-        putDeviation = 9000;
-        duration = engine.MAX_COLLAR_DURATION() + 1;
+        // set a duration that will be invalid later
+        engine.setMinCollarDuration(200);
+        duration = 200;
         (offerId,) = createAndCheckOffer(provider1, largeAmount);
+        duration = 300;
+        vm.stopPrank();
+        engine.setMinCollarDuration(300);
         vm.startPrank(address(takerContract));
         vm.expectRevert("unsupported duration");
         providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);

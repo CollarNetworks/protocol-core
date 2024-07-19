@@ -32,6 +32,26 @@ interface ICollarEngine {
 
     // ----- state changing transactions
 
+    // ltv
+
+    /// @notice Sets the minimum LTV for the engine
+    /// @param ltv The new minimum LTV
+    function setMaxLTV(uint ltv) external;
+
+    /// @notice Sets the maximum LTV for the engine
+    /// @param ltv The new maximum LTV
+    function setMinLTV(uint ltv) external;
+
+    // collar durations
+
+    /// @notice Sets the minimum collar duration for the engine
+    /// @param duration The new minimum collar duration
+    function setMinCollarDuration(uint duration) external;
+
+    /// @notice Sets the maximum collar duration for the engine
+    /// @param duration The new maximum collar duration
+    function setMaxCollarDuration(uint duration) external;
+
     // collateral assets
 
     /// @notice Adds an asset to the list of supported collateral assets
@@ -58,13 +78,13 @@ interface ICollarEngine {
 
     /// @notice Checks to see if a particular collar duration is supported
     /// @param duration The duration to check
-    function isValidCollarDuration(uint duration) external pure returns (bool);
+    function isValidCollarDuration(uint duration) external view returns (bool);
 
     // ltvs
 
     /// @notice Checks to see if a particular LTV is supported
     /// @param ltv The LTV to check
-    function isValidLTV(uint ltv) external pure returns (bool);
+    function isValidLTV(uint ltv) external view returns (bool);
 
     // asset pricing
 
