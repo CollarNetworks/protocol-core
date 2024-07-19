@@ -10,6 +10,7 @@ import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockEngine } from "../../test/utils/MockEngine.sol";
 
 import { ProviderPositionNFT, IProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
+import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 
 contract ProviderPositionNFTTest is Test {
     TestERC20 cashAsset;
@@ -17,7 +18,7 @@ contract ProviderPositionNFTTest is Test {
     MockEngine engine;
     ProviderPositionNFT providerNFT;
     address owner = makeAddr("owner");
-    address takerContract = makeAddr("takerContract");
+    address takerContract;
     address provider1 = makeAddr("provider");
     address recipient1 = makeAddr("recipient");
     uint largeAmount = 100_000 ether;
@@ -28,11 +29,14 @@ contract ProviderPositionNFTTest is Test {
     function setUp() public {
         cashAsset = new TestERC20("TestCash", "TestCash");
         collateralAsset = new TestERC20("TestCollat", "TestCollat");
-        cashAsset.mint(takerContract, 1_000_000 ether);
         cashAsset.mint(provider1, 1_000_000 ether);
         engine = setupMockEngine();
         engine.addSupportedCashAsset(address(cashAsset));
         engine.addSupportedCollateralAsset(address(collateralAsset));
+        CollarTakerNFT collarTakerNFT =
+            new CollarTakerNFT(owner, engine, cashAsset, collateralAsset, "TakerNFT", "TakerNFT");
+        takerContract = address(collarTakerNFT);
+        cashAsset.mint(takerContract, 1_000_000 ether);
         providerNFT = new ProviderPositionNFT(
             owner, engine, cashAsset, collateralAsset, address(takerContract), "ProviderNFT", "ProviderNFT"
         );
@@ -83,12 +87,12 @@ contract ProviderPositionNFTTest is Test {
 
         startHoax(address(takerContract));
         vm.expectEmit(address(providerNFT));
-        emit IProviderPositionNFT.OfferUpdated(
-            offerId, address(takerContract), offerAmount, offerAmount - positionAmount
-        );
-        vm.expectEmit(address(providerNFT));
         emit IProviderPositionNFT.PositionCreated(
             0, putDeviation, duration, callDeviation, positionAmount, offerId
+        );
+        vm.expectEmit(address(providerNFT));
+        emit IProviderPositionNFT.OfferUpdated(
+            offerId, address(takerContract), offerAmount, offerAmount - positionAmount
         );
         (positionId, position) = providerNFT.mintPositionFromOffer(offerId, positionAmount);
 

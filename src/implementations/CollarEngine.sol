@@ -14,7 +14,9 @@ import { IPeripheryImmutableState } from
 // internal imports
 import { ICollarEngine } from "../interfaces/ICollarEngine.sol";
 import { UniV3OracleLib } from "../libs/UniV3OracleLib.sol";
-
+import { IProviderPositionNFT } from "../interfaces/IProviderPositionNFT.sol";
+import { ICollarTakerNFT } from "../interfaces/ICollarTakerNFT.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "forge-std/console.sol";
 
 contract CollarEngine is Ownable, ICollarEngine {
@@ -47,12 +49,19 @@ contract CollarEngine is Ownable, ICollarEngine {
 
     function setCollarTakerContractAuth(address contractAddress, bool enabled) external onlyOwner {
         isCollarTakerNFT[contractAddress] = enabled;
-        emit CollarTakerNFTAuthSet(contractAddress, enabled);
+        IERC20 cashAsset = ICollarTakerNFT(contractAddress).cashAsset();
+        IERC20 collateralAsset = ICollarTakerNFT(contractAddress).collateralAsset();
+        emit CollarTakerNFTAuthSet(contractAddress, enabled, address(cashAsset), address(collateralAsset));
     }
 
     function setProviderContractAuth(address contractAddress, bool enabled) external onlyOwner {
         isProviderNFT[contractAddress] = enabled;
-        emit ProviderNFTAuthSet(contractAddress, enabled);
+        IERC20 cashAsset = IProviderPositionNFT(contractAddress).cashAsset();
+        IERC20 collateralAsset = IProviderPositionNFT(contractAddress).collateralAsset();
+        address collarTakerNFT = IProviderPositionNFT(contractAddress).collarTakerContract();
+        emit ProviderNFTAuthSet(
+            contractAddress, enabled, address(cashAsset), address(collateralAsset), collarTakerNFT
+        );
     }
 
     // collateral assets
