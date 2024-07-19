@@ -19,7 +19,7 @@ interface ICollarTakerNFT {
         ProviderPositionNFT providerNFT;
         uint providerPositionId;
         // collar position info
-        uint openedAt;
+        uint duration;
         uint expiration;
         uint initialPrice;
         uint putStrikePrice;

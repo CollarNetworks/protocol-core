@@ -43,7 +43,6 @@ interface ILoans {
 
     // constants
     function MAX_SWAP_TWAP_DEVIATION_BIPS() external view returns (uint);
-    function TWAP_LENGTH() external view returns (uint32);
     function VERSION() external view returns (string memory);
 
     // immutables
