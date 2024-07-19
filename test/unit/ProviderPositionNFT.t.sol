@@ -42,8 +42,6 @@ contract ProviderPositionNFTTest is Test {
 
     function setupMockEngine() public returns (MockEngine mockEngine) {
         mockEngine = new MockEngine(address(0));
-        mockEngine.addLTV(putDeviation);
-        mockEngine.addCollarDuration(duration);
     }
 
     function createAndCheckOffer(address provider, uint amount)
@@ -563,12 +561,13 @@ contract ProviderPositionNFTTest is Test {
         uint maxPutStrike = providerNFT.MAX_PUT_STRIKE_BIPS();
         vm.expectRevert("invalid put strike deviation");
         providerNFT.createOffer(callDeviation, largeAmount, maxPutStrike + 1, duration);
-
+        putDeviation = engine.MIN_LTV() - 1;
         vm.expectRevert("unsupported LTV");
-        providerNFT.createOffer(callDeviation, largeAmount, putDeviation + 1, duration);
-
+        providerNFT.createOffer(callDeviation, largeAmount, putDeviation, duration);
+        putDeviation = 9000;
+        duration = engine.MAX_COLLAR_DURATION() + 1;
         vm.expectRevert("unsupported duration");
-        providerNFT.createOffer(callDeviation, largeAmount, putDeviation, duration + 1);
+        providerNFT.createOffer(callDeviation, largeAmount, putDeviation, duration);
 
         engine.removeSupportedCashAsset(address(cashAsset));
         vm.expectRevert("unsupported asset");
@@ -602,23 +601,24 @@ contract ProviderPositionNFTTest is Test {
     }
 
     function test_revert_mintPositionFromOffer_EngineValidations() public {
-        (uint offerId,) = createAndCheckOffer(provider1, largeAmount);
-
         vm.stopPrank(); // sender is engine owner
-        engine.removeLTV(putDeviation);
+
         vm.startPrank(address(takerContract));
+        // set putdeviation a value so it passes offer check but not engine check
+        putDeviation = engine.MIN_LTV() - 1;
+        (uint offerId,) = createAndCheckOffer(provider1, largeAmount);
         vm.expectRevert("unsupported LTV");
         providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);
 
         vm.stopPrank();
-        engine.addLTV(putDeviation);
-        engine.removeCollarDuration(duration);
+        putDeviation = 9000;
+        duration = engine.MAX_COLLAR_DURATION() + 1;
+        (offerId,) = createAndCheckOffer(provider1, largeAmount);
         vm.startPrank(address(takerContract));
         vm.expectRevert("unsupported duration");
         providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);
 
         vm.stopPrank();
-        engine.addCollarDuration(duration);
         engine.removeSupportedCashAsset(address(cashAsset));
         vm.expectRevert("unsupported asset");
         vm.startPrank(address(takerContract));

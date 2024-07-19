@@ -29,13 +29,13 @@ contract CollarEngine is Ownable, ICollarEngine {
     address public immutable univ3SwapRouter;
 
     uint public constant TWAP_BASE_TOKEN_AMOUNT = uint(UniV3OracleLib.BASE_TOKEN_AMOUNT);
-
+    uint public constant MIN_LTV = 1000;
+    uint public constant MAX_LTV = 9999;
+    uint public constant MIN_COLLAR_DURATION = 300;
+    uint public constant MAX_COLLAR_DURATION = 365 days;
     // -- internal state variables ---
-    EnumerableSet.AddressSet internal supportedCollateralAssets;
-    EnumerableSet.AddressSet internal supportedCashAssets;
-    EnumerableSet.UintSet internal validLTVs;
-    EnumerableSet.UintSet internal validCollarDurations;
-
+    mapping(address collateralAssetAddress => bool isSupported) public isSupportedCollateralAsset;
+    mapping(address cashAssetAddress => bool isSupported) public isSupportedCashAsset;
     mapping(address contractAddress => bool enabled) public isCollarTakerNFT;
     mapping(address contractAddress => bool enabled) public isProviderNFT;
 
@@ -58,121 +58,51 @@ contract CollarEngine is Ownable, ICollarEngine {
     // collateral assets
 
     function addSupportedCollateralAsset(address asset) external override onlyOwner {
-        require(!supportedCollateralAssets.contains(asset), "already added");
-        supportedCollateralAssets.add(asset);
+        isSupportedCollateralAsset[asset] = true;
         emit CollateralAssetAdded(asset);
     }
 
     function removeSupportedCollateralAsset(address asset) external override onlyOwner {
-        require(supportedCollateralAssets.contains(asset), "not found");
-        supportedCollateralAssets.remove(asset);
+        isSupportedCollateralAsset[asset] = false;
         emit CollateralAssetRemoved(asset);
     }
 
     // cash assets
 
     function addSupportedCashAsset(address asset) external override onlyOwner {
-        require(!supportedCashAssets.contains(asset), "already added");
-        supportedCashAssets.add(asset);
+        isSupportedCashAsset[asset] = true;
         emit CashAssetAdded(asset);
     }
 
     function removeSupportedCashAsset(address asset) external override onlyOwner {
-        require(supportedCashAssets.contains(asset), "not found");
-        supportedCashAssets.remove(asset);
+        isSupportedCashAsset[asset] = false;
         emit CashAssetRemoved(asset);
-    }
-
-    // durations
-
-    function addCollarDuration(uint duration) external override onlyOwner {
-        require(!validCollarDurations.contains(duration), "already added");
-        validCollarDurations.add(duration);
-        emit CollarDurationAdded(duration);
-    }
-
-    function removeCollarDuration(uint duration) external override onlyOwner {
-        require(validCollarDurations.contains(duration), "not found");
-        validCollarDurations.remove(duration);
-        emit CollarDurationRemoved(duration);
-    }
-
-    // ltvs
-
-    function addLTV(uint ltv) external override onlyOwner {
-        require(!validLTVs.contains(ltv), "already added");
-        validLTVs.add(ltv);
-        emit LTVAdded(ltv);
-    }
-
-    function removeLTV(uint ltv) external override onlyOwner {
-        require(validLTVs.contains(ltv), "not found");
-        validLTVs.remove(ltv);
-        emit LTVRemoved(ltv);
     }
 
     // ----- view functions (see ICollarEngine for documentation) -----
 
-    // cash assets
-
-    function isSupportedCashAsset(address asset) public view override returns (bool) {
-        return supportedCashAssets.contains(asset);
-    }
-
-    function supportedCashAssetsLength() external view override returns (uint) {
-        return supportedCashAssets.length();
-    }
-
-    function getSupportedCashAsset(uint index) external view override returns (address) {
-        return supportedCashAssets.at(index);
-    }
-
-    // collateral assets
-
-    function isSupportedCollateralAsset(address asset) public view override returns (bool) {
-        return supportedCollateralAssets.contains(asset);
-    }
-
-    function supportedCollateralAssetsLength() external view override returns (uint) {
-        return supportedCollateralAssets.length();
-    }
-
-    function getSupportedCollateralAsset(uint index) external view override returns (address) {
-        return supportedCollateralAssets.at(index);
-    }
-
     // collar durations
 
-    function isValidCollarDuration(uint duration) external view override returns (bool) {
-        return validCollarDurations.contains(duration);
-    }
-
-    function validCollarDurationsLength() external view override returns (uint) {
-        return validCollarDurations.length();
-    }
-
-    function getValidCollarDuration(uint index) external view override returns (uint) {
-        return validCollarDurations.at(index);
+    function isValidCollarDuration(uint duration) external pure override returns (bool) {
+        if (duration < MIN_COLLAR_DURATION || duration > MAX_COLLAR_DURATION) {
+            return false;
+        }
+        return true;
     }
 
     // ltvs
 
-    function isValidLTV(uint ltv) external view override returns (bool) {
-        return validLTVs.contains(ltv);
-    }
-
-    function validLTVsLength() external view override returns (uint) {
-        return validLTVs.length();
-    }
-
-    function getValidLTV(uint index) external view override returns (uint) {
-        return validLTVs.at(index);
+    function isValidLTV(uint ltv) external pure override returns (bool) {
+        if (ltv < MIN_LTV || ltv > MAX_LTV) {
+            return false;
+        }
+        return true;
     }
 
     // asset pricing
 
     function validateAssetsIsSupported(address token) internal view {
-        bool isSupportedBase = isSupportedCashAsset(token) || isSupportedCollateralAsset(token);
+        bool isSupportedBase = isSupportedCashAsset[token] || isSupportedCollateralAsset[token];
         require(isSupportedBase, "not supported");
     }
 

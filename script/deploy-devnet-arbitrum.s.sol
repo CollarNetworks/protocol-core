@@ -79,13 +79,6 @@ contract DeployInitializedDevnetProtocol is Script {
         router = swapRouterAddress;
         engine = address(new CollarEngine(router));
 
-        // add supported LTV values
-        CollarEngine(engine).addLTV(9000);
-        CollarEngine(engine).addLTV(5000);
-        // add supported durations
-        CollarEngine(engine).addCollarDuration(5 minutes);
-        CollarEngine(engine).addCollarDuration(30 days);
-        CollarEngine(engine).addCollarDuration(12 * 30 days);
         // add supported cash assets
         CollarEngine(engine).addSupportedCashAsset(USDC);
         CollarEngine(engine).addSupportedCashAsset(USDT);

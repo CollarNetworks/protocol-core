@@ -74,8 +74,6 @@ contract LoansTest is Test {
     }
 
     function setupEngine() public {
-        engine.addLTV(ltv);
-        engine.addCollarDuration(duration);
         engine.addSupportedCashAsset(address(cashAsset));
         engine.addSupportedCollateralAsset(address(collateralAsset));
     }

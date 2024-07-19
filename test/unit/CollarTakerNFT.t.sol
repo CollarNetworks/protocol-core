@@ -61,8 +61,6 @@ contract CollarTakerNFTTest is Test {
 
     function setupMockEngine() public returns (MockEngine mockEngine) {
         mockEngine = new MockEngine(address(0));
-        mockEngine.addLTV(ltvToUse);
-        mockEngine.addCollarDuration(durationToUse);
     }
 
     function setPricesAtTimestamp(MockEngine engineToUse, uint timestamp, uint price) internal {
@@ -364,7 +362,6 @@ contract CollarTakerNFTTest is Test {
     }
 
     function test_openPairedPositionStrikePricesArentDifferent() public {
-        engine.addLTV(9990);
         uint badOfferId = createOfferAsProvider(10_010, 9990, providerNFT);
         mintTokensToUserandApproveNFT();
         setPricesAtTimestamp(engine, 1, 991);

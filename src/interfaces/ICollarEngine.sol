@@ -44,78 +44,19 @@ interface ICollarEngine {
     /// @param asset The address of the asset to remove
     function removeSupportedCashAsset(address asset) external;
 
-    // collar lengths
-
-    /// @notice Adds a collar length to the list of supported collar lengths
-    /// @param duration The length to add, in seconds
-    function addCollarDuration(uint duration) external;
-
-    /// @notice Removes a collar duration from the list of supported collar lengths
-    /// @param duration The length to remove, in seconds
-    function removeCollarDuration(uint duration) external;
-
-    // ltvs
-
-    /// @notice Adds an LTV to the list of supported LTVs
-    /// @param ltv The LTV to add, in basis points
-    function addLTV(uint ltv) external;
-
-    /// @notice Removes an LTV from the list of supported LTVs
-    /// @param ltv The LTV to remove, in basis points
-    function removeLTV(uint ltv) external;
-
     // ----- view functions
-
-    // cash assets
-
-    /// @notice Checks if an asset is supported as a cash asset in the engine
-    /// @param asset The address of the asset to check
-    function isSupportedCashAsset(address asset) external view returns (bool);
-
-    /// @notice Gets the number of supported cash assets in the engine
-    function supportedCashAssetsLength() external view returns (uint);
-
-    /// @notice Gets the address of a supported cash asset at a particular index
-    /// @param index The index of the asset to get the address of
-    function getSupportedCashAsset(uint index) external view returns (address);
-
-    // collateral assets
-
-    /// @notice Checks if an asset is supported as a collateral asset in the engine
-    /// @param asset The address of the asset to check
-    function isSupportedCollateralAsset(address asset) external view returns (bool);
-
-    /// @notice Gets the number of supported collateral assets in the engine
-    function supportedCollateralAssetsLength() external view returns (uint);
-
-    /// @notice Gets the address of a supported collateral asset at a particular index
-    function getSupportedCollateralAsset(uint index) external view returns (address);
 
     // collar durations
 
     /// @notice Checks to see if a particular collar duration is supported
     /// @param duration The duration to check
-    function isValidCollarDuration(uint duration) external view returns (bool);
-
-    /// @notice Gets the number of supported collar lengths in the engine
-    function validCollarDurationsLength() external view returns (uint);
-
-    /// @notice Gets the collar duration at a particular index
-    /// @param index The index of the collar duration to get
-    function getValidCollarDuration(uint index) external view returns (uint);
+    function isValidCollarDuration(uint duration) external pure returns (bool);
 
     // ltvs
 
     /// @notice Checks to see if a particular LTV is supported
     /// @param ltv The LTV to check
-    function isValidLTV(uint ltv) external view returns (bool);
-
-    /// @notice Gets the number of supported LTVs in the engine
-    function validLTVsLength() external view returns (uint);
-
-    /// @notice Gets the LTV at a particular index
-    /// @param index The index of the LTV to get
-    function getValidLTV(uint index) external view returns (uint);
+    function isValidLTV(uint ltv) external pure returns (bool);
 
     // asset pricing
 
