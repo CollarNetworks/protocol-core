@@ -203,7 +203,6 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         // and sends the provider NFT to the provider
         ProviderPositionNFT.ProviderPosition memory providerPosition;
         (providerId, providerPosition) = providerNFT.mintPositionFromOffer(offerId, callLockedCash);
-
         // put and call deviations are assumed to be identical for offer and resulting position
         uint putStrikePrice = twapPrice * providerPosition.putStrikeDeviation / BIPS_BASE;
         uint callStrikePrice = twapPrice * providerPosition.callStrikeDeviation / BIPS_BASE;
