@@ -36,13 +36,16 @@ contract LoansTest is Test {
     uint duration = 300;
     uint callStrikeDeviation = 12_000;
 
-    uint twapPrice = 10 ether;
-    uint collateralAmount = 10 ether;
+    uint twapPrice = 1000 ether;
+    uint collateralAmount = 1 ether;
     // swap amount
     uint minSwapCash = (collateralAmount * twapPrice / 1e18);
     // swap amount * ltv
     uint minLoanAmount = minSwapCash * (ltv / BIPS_100PCT);
     uint amountToProvide = 100_000 ether;
+
+    // rolld
+    int rollFee = 1 ether;
 
     function setUp() public {
         cashAsset = new TestERC20("TestCash", "TestCash");
@@ -226,11 +229,11 @@ contract LoansTest is Test {
         loans.closeLoan(takerId, 0);
     }
 
-    function checkOpenCloseWithPriceChange(uint newPrice, uint putRatio, uint callRaio)
+    function checkOpenCloseWithPriceChange(uint newPrice, uint putRatio, uint callRatio)
         public
         returns (uint)
     {
-        (uint takerId, uint providerId, uint loanAmount) = createAndCheckLoan();
+        (uint takerId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
 
         // update price
@@ -239,11 +242,122 @@ contract LoansTest is Test {
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(takerId);
         // calculate withdrawal amounts according to expected ratios
         uint withdrawal = takerPosition.putLockedCash * putRatio / BIPS_100PCT
-            + takerPosition.callLockedCash * callRaio / BIPS_100PCT;
+            + takerPosition.callLockedCash * callRatio / BIPS_100PCT;
         // setup router output
         uint swapOut = prepareSwapToCollateralAtTWAPPrice();
         closeAndCheckLoan(takerId, user1, loanAmount, withdrawal, swapOut);
         return takerId;
+    }
+
+    struct ExpectedRoll {
+        uint newPutLocked;
+        uint newCallLocked;
+        int toTaker;
+        int rollFee;
+        uint newLoanAmount;
+    }
+
+    function calculateRollAmounts(uint rollId, uint newPrice)
+        internal
+        view
+        returns (ExpectedRoll memory expected)
+    {
+        // roll transfers
+        (expected.toTaker,, expected.rollFee) = rolls.calculateTransferAmounts(rollId, newPrice);
+
+        uint takerId = rolls.getRollOffer(rollId).takerId;
+        CollarTakerNFT.TakerPosition memory oldTakerPos = takerNFT.getPosition(takerId);
+
+        // new position
+        expected.newPutLocked = oldTakerPos.putLockedCash * newPrice / twapPrice;
+        expected.newCallLocked =
+            expected.newPutLocked * (callStrikeDeviation - BIPS_100PCT) / (BIPS_100PCT - ltv);
+
+        // new loan
+        expected.newLoanAmount = uint(int(loans.getLoan(takerId).loanAmount) + expected.toTaker);
+
+        return expected;
+    }
+
+    function createRollOffer(uint takerId) internal returns (uint rollId) {
+        vm.startPrank(provider);
+        uint providerId = takerNFT.getPosition(takerId).providerPositionId;
+        providerNFT.approve(address(rolls), providerId);
+        cashAsset.approve(address(rolls), type(uint).max);
+        rollId = rolls.createRollOffer(
+            takerId, rollFee, 0, 0, type(uint).max, -int(amountToProvide), block.timestamp + duration
+        );
+    }
+
+    function checkRollLoan(uint takerId, uint newPrice)
+        internal
+        returns (uint newTakerId, ExpectedRoll memory expected)
+    {
+        uint rollId = createRollOffer(takerId);
+
+        // Calculate expected values
+        expected = calculateRollAmounts(rollId, newPrice);
+
+        // Update price
+        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, newPrice);
+
+        // Execute roll
+        vm.startPrank(user1);
+        takerNFT.approve(address(loans), takerId);
+        cashAsset.approve(address(loans), type(uint).max);
+
+        uint initialBalance = cashAsset.balanceOf(user1);
+        uint initialLoanAmount = loans.getLoan(takerId).loanAmount;
+
+        uint expectedPositionId = takerNFT.nextPositionId();
+        vm.expectEmit(address(loans));
+        emit ILoans.LoanRolled(
+            user1, takerId, rollId, expectedPositionId, initialLoanAmount, expected.newLoanAmount
+        );
+        // min change param
+        int minLoanChange = int(expected.newLoanAmount) - int(initialLoanAmount);
+        uint newLoanAmount;
+        (newTakerId, newLoanAmount) = loans.rollLoan(takerId, rolls, rollId, minLoanChange);
+
+        // id
+        assertEq(newTakerId, expectedPositionId);
+        // new loanAmount
+        assertEq(newLoanAmount, expected.newLoanAmount);
+
+        // balance change matches roll output value
+        assertEq(cashAsset.balanceOf(user1), uint(int(initialBalance) + expected.toTaker));
+        // loan change matches balance change
+        int loanChange = int(newLoanAmount) - int(initialLoanAmount);
+        assertEq(expected.toTaker, loanChange);
+
+        // check laons and NFT views
+        checkLoansAndNFT(takerId, newTakerId, expected, newPrice);
+    }
+
+    function checkLoansAndNFT(uint takerId, uint newTakerId, ExpectedRoll memory expected, uint newPrice)
+        internal
+    {
+        // old NFT burned
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, takerId));
+        takerNFT.ownerOf(takerId);
+        // user has new NFT
+        assertEq(takerNFT.ownerOf(newTakerId), user1);
+
+        // old loan not active
+        assertFalse(loans.getLoan(takerId).active);
+
+        // new loan state
+        ILoans.Loan memory newLoan = loans.getLoan(newTakerId);
+        assertEq(newLoan.loanAmount, expected.newLoanAmount);
+        assertEq(newLoan.collateralAmount, loans.getLoan(takerId).collateralAmount);
+        assertEq(newLoan.keeperAllowedBy, loans.getLoan(takerId).keeperAllowedBy);
+        assertTrue(newLoan.active);
+
+        // new taker position
+        CollarTakerNFT.TakerPosition memory newTakerPos = takerNFT.getPosition(newTakerId);
+        assertEq(newTakerPos.putLockedCash, expected.newPutLocked);
+        assertEq(newTakerPos.callLockedCash, expected.newCallLocked);
+        assertEq(newTakerPos.initialPrice, newPrice);
     }
 
     // happy paths
@@ -353,6 +467,60 @@ contract LoansTest is Test {
         uint newPrice = twapPrice * (putStrikeDeviation - BIPS_100PCT / 10) / BIPS_100PCT;
         // price goes below put strike, withdrawal is 0% (all gone to provider)
         checkOpenCloseWithPriceChange(newPrice, 0, 0);
+    }
+
+    function test_rollLoan_no_change() public {
+        (uint takerId,,) = createAndCheckLoan();
+        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(takerId);
+        (uint newTakerId, ExpectedRoll memory expected) = checkRollLoan(takerId, twapPrice);
+
+        // no change in locked amounts
+        assertEq(expected.newPutLocked, takerPosition.putLockedCash);
+        assertEq(expected.newCallLocked, takerPosition.callLockedCash);
+        // only fee paid
+        assertEq(expected.toTaker, -1 ether);
+        assertEq(expected.newLoanAmount, loans.getLoan(takerId).loanAmount - 1 ether);
+        assertEq(expected.newLoanAmount, loans.getLoan(newTakerId).loanAmount);
+    }
+
+    function test_rollLoan_price_increase() public {
+        (uint takerId,,) = createAndCheckLoan();
+        // +5%
+        (uint newTakerId, ExpectedRoll memory expected) = checkRollLoan(takerId, twapPrice * 105 / 100);
+
+        assertEq(expected.newPutLocked, 105 ether); // scaled by price
+        assertEq(expected.newCallLocked, 210 ether); // scaled by price
+        assertEq(expected.toTaker, 44 ether); // 45 (+5% * 90% LTV) - 1 (fee)
+    }
+
+    function test_rollLoan_price_decrease() public {
+        (uint takerId,,) = createAndCheckLoan();
+        // -5%
+        (uint newTakerId, ExpectedRoll memory expected) = checkRollLoan(takerId, twapPrice * 95 / 100);
+
+        assertEq(expected.newPutLocked, 95 ether); // scaled by price
+        assertEq(expected.newCallLocked, 190 ether); // scaled by price
+        assertEq(expected.toTaker, -46 ether); // -45 (-5% * 90% LTV) - 1 (fee)
+    }
+
+    function test_rollLoan_price_increase_large() public {
+        (uint takerId,,) = createAndCheckLoan();
+        // +50%
+        (uint newTakerId, ExpectedRoll memory expected) = checkRollLoan(takerId, twapPrice * 150 / 100);
+
+        assertEq(expected.newPutLocked, 150 ether); // scaled by price
+        assertEq(expected.newCallLocked, 300 ether); // scaled by price
+        assertEq(expected.toTaker, 149 ether); // 150 (300 collar settle - 150 collar open) - 1 fee
+    }
+
+    function test_rollLoan_price_decrease_large() public {
+        (uint takerId,,) = createAndCheckLoan();
+        // -50%
+        (uint newTakerId, ExpectedRoll memory expected) = checkRollLoan(takerId, twapPrice * 50 / 100);
+
+        assertEq(expected.newPutLocked, 50 ether); // scaled by price
+        assertEq(expected.newCallLocked, 100 ether); // scaled by price
+        assertEq(expected.toTaker, -51 ether); // -50 (0 collar settle - 50 collar open) - 1 fee
     }
 
     function test_setKeeper() public {
