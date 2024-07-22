@@ -247,7 +247,7 @@ contract Loans is ILoans, Ownable, Pausable {
         // close the previous loan, done here to add reentrancy protection
         loan.active = false;
 
-        // pull and push NFT and cash, execute roll
+        // pull and push NFT and cash, execute roll, emit event
         (newTakerId, newLoanAmount) = _rollLoan(takerId, rollId, minLoanChange, loan.loanAmount);
 
         // store the new loan data
@@ -422,12 +422,12 @@ contract Loans is ILoans, Ownable, Pausable {
         // execute roll
         int loanChange;
         (newTakerId,, loanChange,) = rollsContract.executeRoll(rollId, minLoanChange);
-        // check return value matches preview, which was used for the updating the loan and pulling cash
+        // check return value matches preview, which was used for updating the loan and pulling cash
         require(loanChange == loanChangePreview, "unexpected loan update");
         // check slippage (would have been checked in Rolls as well)
-        require(loanChangePreview >= minLoanChange, "loan update slippage");
+        require(loanChange >= minLoanChange, "loan update slippage");
 
-        // transfer new NFT @dev expects approval
+        // transfer new NFT, @dev expects approval
         takerNFT.transferFrom(address(this), msg.sender, newTakerId);
         // transfer cash if should have received any
         if (loanChange > 0) {

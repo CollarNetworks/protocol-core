@@ -60,7 +60,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
     }
 
     /// @dev TWAP price that's used in this contract for opening and settling positions
-    /// and should be used for other contracts to get inputs for previewSettlement
+    /// and should be used by other contracts to get inputs for previewSettlement
     function getReferenceTWAPPrice(uint twapEndTime) public view returns (uint price) {
         return engine.getHistoricalAssetPriceViaTWAP(
             address(collateralAsset), address(cashAsset), uint32(twapEndTime), TWAP_LENGTH
