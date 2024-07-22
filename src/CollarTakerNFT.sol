@@ -81,6 +81,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
     }
 
     /// @dev preview the settlement calculation updates at a particular price
+    /// @dev no validation, so may revert with division by zero for bad values
     function previewSettlement(TakerPosition memory takerPos, uint endReferencePrice)
         external
         pure

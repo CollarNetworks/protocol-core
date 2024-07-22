@@ -240,6 +240,7 @@ contract Loans is ILoans, Ownable, Pausable {
         // Check user expected rolls contract is the currently configured rolls contract.
         // @dev user intent validation in case rolls contract config value was updated
         require(rolls == rollsContract, "rolls contract mismatch");
+        require(rollsContract.getRollOffer(rollId).active, "invalid rollId"); // avoid using invalid data
 
         // loan
         Loan storage loan = loans[takerId];
@@ -432,7 +433,7 @@ contract Loans is ILoans, Ownable, Pausable {
         // transfer cash if should have received any
         if (loanChange > 0) {
             // @dev this will revert if rolls contract didn't actually pay above
-            cashAsset.transfer(msg.sender, uint(loanChange));
+            cashAsset.safeTransfer(msg.sender, uint(loanChange));
         }
 
         // there should be no balance change for the contract (e.g., rolls contract
