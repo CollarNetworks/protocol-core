@@ -360,6 +360,16 @@ contract LoansTest is Test {
         assertEq(newTakerPos.initialPrice, newPrice);
     }
 
+    function checkCloseRolledLoan(uint takerId, uint loanAmount) public returns (uint) {
+        skip(duration);
+
+        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(takerId);
+        uint withdrawal = takerPosition.putLockedCash;
+        uint swapOut = prepareSwapToCollateralAtTWAPPrice();
+        closeAndCheckLoan(takerId, user1, loanAmount, withdrawal, swapOut);
+        return takerId;
+    }
+
     // happy paths
 
     function test_constructor() public {
@@ -481,46 +491,64 @@ contract LoansTest is Test {
         assertEq(expected.toTaker, -1 ether);
         assertEq(expected.newLoanAmount, loans.getLoan(takerId).loanAmount - 1 ether);
         assertEq(expected.newLoanAmount, loans.getLoan(newTakerId).loanAmount);
+
+        checkCloseRolledLoan(newTakerId, expected.newLoanAmount);
     }
 
     function test_rollLoan_price_increase() public {
         (uint takerId,,) = createAndCheckLoan();
         // +5%
-        (uint newTakerId, ExpectedRoll memory expected) = checkRollLoan(takerId, twapPrice * 105 / 100);
+        uint newPrice = twapPrice * 105 / 100;
+        (uint newTakerId, ExpectedRoll memory expected) = checkRollLoan(takerId, newPrice);
 
         assertEq(expected.newPutLocked, 105 ether); // scaled by price
         assertEq(expected.newCallLocked, 210 ether); // scaled by price
         assertEq(expected.toTaker, 44 ether); // 45 (+5% * 90% LTV) - 1 (fee)
+
+        twapPrice = newPrice;
+        checkCloseRolledLoan(newTakerId, expected.newLoanAmount);
     }
 
     function test_rollLoan_price_decrease() public {
         (uint takerId,,) = createAndCheckLoan();
         // -5%
-        (uint newTakerId, ExpectedRoll memory expected) = checkRollLoan(takerId, twapPrice * 95 / 100);
+        uint newPrice = twapPrice * 95 / 100;
+        (uint newTakerId, ExpectedRoll memory expected) = checkRollLoan(takerId, newPrice);
 
         assertEq(expected.newPutLocked, 95 ether); // scaled by price
         assertEq(expected.newCallLocked, 190 ether); // scaled by price
         assertEq(expected.toTaker, -46 ether); // -45 (-5% * 90% LTV) - 1 (fee)
+
+        twapPrice = newPrice;
+        checkCloseRolledLoan(newTakerId, expected.newLoanAmount);
     }
 
     function test_rollLoan_price_increase_large() public {
         (uint takerId,,) = createAndCheckLoan();
         // +50%
-        (uint newTakerId, ExpectedRoll memory expected) = checkRollLoan(takerId, twapPrice * 150 / 100);
+        uint newPrice = twapPrice * 150 / 100;
+        (uint newTakerId, ExpectedRoll memory expected) = checkRollLoan(takerId, newPrice);
 
         assertEq(expected.newPutLocked, 150 ether); // scaled by price
         assertEq(expected.newCallLocked, 300 ether); // scaled by price
         assertEq(expected.toTaker, 149 ether); // 150 (300 collar settle - 150 collar open) - 1 fee
+
+        twapPrice = newPrice;
+        checkCloseRolledLoan(newTakerId, expected.newLoanAmount);
     }
 
     function test_rollLoan_price_decrease_large() public {
         (uint takerId,,) = createAndCheckLoan();
         // -50%
-        (uint newTakerId, ExpectedRoll memory expected) = checkRollLoan(takerId, twapPrice * 50 / 100);
+        uint newPrice = twapPrice * 50 / 100;
+        (uint newTakerId, ExpectedRoll memory expected) = checkRollLoan(takerId, newPrice);
 
         assertEq(expected.newPutLocked, 50 ether); // scaled by price
         assertEq(expected.newCallLocked, 100 ether); // scaled by price
         assertEq(expected.toTaker, -51 ether); // -50 (0 collar settle - 50 collar open) - 1 fee
+
+        twapPrice = newPrice;
+        checkCloseRolledLoan(newTakerId, expected.newLoanAmount);
     }
 
     function test_setKeeper() public {
@@ -976,9 +1004,7 @@ contract LoansTest is Test {
 
         // Mock the NFT ownerOf call to return the sender instead of reverting
         vm.mockCall(
-            address(takerNFT),
-            abi.encodeWithSelector(takerNFT.ownerOf.selector, takerId),
-            abi.encode(user1)
+            address(takerNFT), abi.encodeWithSelector(takerNFT.ownerOf.selector, takerId), abi.encode(user1)
         );
         // Attempt to roll the closed loan
         vm.expectRevert("not active");
@@ -1004,7 +1030,7 @@ contract LoansTest is Test {
     }
 
     function test_revert_rollLoan_repayment_larger_than_loan() public {
-        (uint takerId, , uint loanAmount) = createAndCheckLoan();
+        (uint takerId,, uint loanAmount) = createAndCheckLoan();
         uint rollId = createRollOffer(takerId);
 
         vm.startPrank(user1);
@@ -1115,11 +1141,10 @@ contract ReentrantKeeperSetter is ReentrantCloser {
     }
 }
 
-
 contract DonatingAttacker {
-    Loans public loans;
-    TestERC20 public cashAsset;
-    bool attacked = false;
+    Loans loans;
+    TestERC20 cashAsset;
+    bool attacked;
 
     constructor(Loans _loans, TestERC20 _cashAsset) {
         loans = _loans;
