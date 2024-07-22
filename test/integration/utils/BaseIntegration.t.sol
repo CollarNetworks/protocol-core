@@ -65,7 +65,7 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
         engine.addCollarDuration(_positionDuration);
         takerNFT = new CollarTakerNFT(address(this), engine, cashAsset, collateralAsset, "Borrow NFT", "BNFT");
 
-        loanContract = new Loans(address(this), engine, takerNFT, cashAsset, collateralAsset);
+        loanContract = new Loans(address(this), takerNFT);
         engine.setCollarTakerContractAuth(address(takerNFT), true);
         providerNFT = new ProviderPositionNFT(
             address(this), engine, cashAsset, collateralAsset, address(takerNFT), "Provider NFT", "PNFT"

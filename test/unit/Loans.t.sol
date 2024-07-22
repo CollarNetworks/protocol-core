@@ -53,7 +53,7 @@ contract LoansTest is Test {
         providerNFT = new ProviderPositionNFT(
             owner, engine, cashAsset, collateralAsset, address(takerNFT), "ProviderNFT", "PRVNFT"
         );
-        loans = new Loans(owner, engine, takerNFT, cashAsset, collateralAsset);
+        loans = new Loans(owner, takerNFT);
 
         engine.setCollarTakerContractAuth(address(takerNFT), true);
         engine.setProviderContractAuth(address(providerNFT), true);
@@ -243,7 +243,7 @@ contract LoansTest is Test {
     // happy paths
 
     function test_constructor() public {
-        loans = new Loans(owner, engine, takerNFT, cashAsset, collateralAsset);
+        loans = new Loans(owner, takerNFT);
         assertEq(address(loans.engine()), address(engine));
         assertEq(address(loans.takerNFT()), address(takerNFT));
         assertEq(address(loans.cashAsset()), address(cashAsset));

@@ -15,6 +15,7 @@ import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 // internal imports
 import { CollarEngine } from "./implementations/CollarEngine.sol";
 import { CollarTakerNFT } from "./CollarTakerNFT.sol";
+import { Rolls } from "./Rolls.sol";
 import { ProviderPositionNFT } from "./ProviderPositionNFT.sol";
 import { ILoans } from "./interfaces/ILoans.sol";
 
@@ -67,21 +68,17 @@ contract Loans is ILoans, Ownable, Pausable {
     // ----- STATE VARIABLES ----- //
     /// @notice Stores loan information for each taker NFT ID
     mapping(uint takerId => Loan) internal loans;
-    // keeper for closing set by contract owner
+    // keeper for closing set by contract owner. Keeper is needed for time-sensitive actions (swapping back)
     address public closingKeeper;
+    // the currently configured & allowed rolls contract for this takerNFT and cash asset
+    Rolls public rollsContract;
 
-    constructor(
-        address initialOwner,
-        CollarEngine _engine,
-        CollarTakerNFT _takerNFT,
-        IERC20 _cashAsset,
-        IERC20 _collateralAsset
-    ) Ownable(initialOwner) {
-        engine = _engine;
+    constructor(address initialOwner, CollarTakerNFT _takerNFT) Ownable(initialOwner) {
         takerNFT = _takerNFT;
-        cashAsset = _cashAsset;
-        collateralAsset = _collateralAsset;
-        /// @dev this contract can might as well be a third party contract (since not authed by engine),
+        engine = _takerNFT.engine();
+        cashAsset = _takerNFT.cashAsset();
+        collateralAsset = _takerNFT.collateralAsset();
+        /// @dev this contract might as well be a third party contract (since not authed by engine),
         /// this is because it's not trusted by any other contract (only its users).
         /// @dev similarly this contract is not checking any engine auth, since taker and provider contracts
         /// are assumed to check the configs
@@ -231,6 +228,38 @@ contract Loans is ILoans, Ownable, Pausable {
         emit LoanClosed(takerId, msg.sender, user, loan.loanAmount, cashAmount, collateralOut);
     }
 
+    // TODO: event, tests, docs
+    function rollLoan(uint takerId, Rolls rolls, uint rollId, int minLoanChange)
+        external
+        whenNotPaused
+        onlyNFTOwner(takerId)
+        returns (uint newTakerId, uint newLoanAmount)
+    {
+        // rolls contract is valid
+        require(rollsContract != Rolls(address(0)), "rolls contract unset");
+        // Check user expected rolls contract is the currently configured rolls contract.
+        // @dev user intent validation in case rolls contract config value was updated
+        require(rolls == rollsContract, "rolls contract mismatch");
+
+        // loan
+        Loan storage loan = loans[takerId];
+        _requireValidLoan(loan);
+        // close the previous loan, done here to add reentrancy protection
+        loan.closed = true;
+
+        // pull and push NFT and cash, execute roll
+        (newTakerId, newLoanAmount) = _rollLoan(takerId, rollId, minLoanChange, loan.loanAmount);
+
+        // store the new loan data
+        // takerId is assumed to be just minted, so storage must be empty
+        loans[newTakerId] = Loan({
+            collateralAmount: loan.collateralAmount,
+            loanAmount: newLoanAmount,
+            keeperAllowedBy: loan.keeperAllowedBy,
+            closed: false
+        });
+    }
+
     // admin methods
 
     /// @notice Sets the address of the closing keeper
@@ -240,6 +269,15 @@ contract Loans is ILoans, Ownable, Pausable {
         address previous = closingKeeper;
         closingKeeper = keeper;
         emit ClosingKeeperUpdated(previous, keeper);
+    }
+
+    // TODO: event, tests, docs
+    function setRollsContract(Rolls rolls) external onlyOwner {
+        if (rolls != Rolls(address(0))) {
+            require(rolls.takerNFT() == takerNFT, "rolls taker NFT mismatch");
+            require(rolls.cashAsset() == cashAsset, "rolls cash asset mismatch");
+        }
+        rollsContract = rolls;
     }
 
     /// @notice Pauses the contract in an emergency, pausing all user callable mutative methods
@@ -348,6 +386,58 @@ contract Loans is ILoans, Ownable, Pausable {
         uint withdrawnAmount = takerNFT.withdrawFromSettled(takerId, address(this));
 
         cashAmount = repaymentAmount + withdrawnAmount;
+    }
+
+    function _rollLoan(uint takerId, uint rollId, int minLoanChange, uint loanAmount)
+        internal
+        returns (uint newTakerId, uint newLoanAmount)
+    {
+        uint initialBalance = cashAsset.balanceOf(address(this));
+
+        // calculate cash to pull
+        (int loanChangePreview,,) =
+            rollsContract.calculateTransferAmounts(rollId, takerNFT.getReferenceTWAPPrice(block.timestamp));
+
+        // update loan amount
+        if (loanChangePreview < 0) {
+            uint repayment = uint(-loanChangePreview); // will revert for type(int).min
+            require(repayment <= loanAmount, "repayment larger than loan");
+            // update loan
+            newLoanAmount = loanAmount - repayment;
+            // pull cash first, because rolls will try to pull it (if needed) from this contract
+            // @dev assumes approval
+            cashAsset.safeTransferFrom(msg.sender, address(this), repayment);
+            // allow rolls to pull this cash
+            cashAsset.forceApprove(address(rollsContract), repayment);
+        } else {
+            // update loan
+            newLoanAmount = loanAmount + uint(loanChangePreview);
+        }
+
+        // transfer the NFT to this contract so it can accept the roll
+        // @dev owner must have approved the token ID to this contract
+        takerNFT.transferFrom(msg.sender, address(this), takerId);
+        // approve the taker NFT for rolls to pull
+        takerNFT.approve(address(rollsContract), takerId);
+        // execute roll
+        int loanChange;
+        (newTakerId,, loanChange,) = rollsContract.executeRoll(rollId, minLoanChange);
+        // check return value matches preview, which was used for the updating the loan and pulling cash
+        require(loanChange == loanChangePreview, "unexpected loan update");
+        // check slippage (would have been checked in Rolls as well)
+        require(loanChangePreview >= minLoanChange, "loan update slippage");
+
+        // transfer new NFT @dev expects approval
+        takerNFT.transferFrom(address(this), msg.sender, newTakerId);
+        // transfer cash if should have received any
+        if (loanChange > 0) {
+            // @dev this will revert if rolls contract didn't actually pay above
+            cashAsset.transfer(msg.sender, uint(loanChange));
+        }
+
+        // there should be no balance change for the contract (e.g., rolls contract
+        // didn't overestimate amount to pull from user, or under-report return value)
+        require(cashAsset.balanceOf(address(this)) == initialBalance, "contract balance changed");
     }
 
     // ----- INTERNAL VIEWS ----- //
