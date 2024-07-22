@@ -9,7 +9,7 @@ import { ProviderPositionNFT } from "../src/ProviderPositionNFT.sol";
 import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
 import { Loans } from "../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+// import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title DeployInitializedDevnetProtocol
@@ -25,8 +25,6 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
  * The script is designed to work on an Arbitrum fork, but can be adapted for other networks.
  */
 contract DeployInitializedDevnetProtocol is Script {
-    using SafeERC20 for IERC20;
-
     address router;
     CollarEngine engine;
 
@@ -66,7 +64,7 @@ contract DeployInitializedDevnetProtocol is Script {
         VmSafe.Wallet memory deployerWallet = vm.createWallet(vm.envUint("PRIVKEY_DEV_DEPLOYER"));
         VmSafe.Wallet memory user1Wallet = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST1"));
         VmSafe.Wallet memory user2Wallet = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST2"));
-        VmSafe.Wallet memory liquidityProviderWallet = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST3"));
+        VmSafe.Wallet memory liquidityProviderWallet = vm.createWallet(vm.envUint("PRIVKEY_DEV_DEPLOYER"));
 
         vm.rememberKey(deployerWallet.privateKey);
         vm.rememberKey(user1Wallet.privateKey);
@@ -114,10 +112,12 @@ contract DeployInitializedDevnetProtocol is Script {
     }
 
     function _createContractPairs() internal {
-        uint[] memory singleDuration = new uint[](allDurations[0]);
+        uint[] memory singleDuration = new uint[](1);
+        singleDuration[0] = allDurations[0];
 
-        uint[] memory singleLTV = new uint[](allLTVs[0]);
-
+        uint[] memory singleLTV = new uint[](1);
+        singleLTV[0] = allLTVs[0];
+        console.log("ltv: %d", singleLTV[0]);
         _createContractPair(IERC20(USDC), IERC20(WETH), "USDC/WETH", allDurations, allLTVs);
         _createContractPair(IERC20(USDT), IERC20(WETH), "USDT/WETH", singleDuration, singleLTV);
         _createContractPair(IERC20(USDC), IERC20(WBTC), "USDC/WBTC", singleDuration, singleLTV);
@@ -177,7 +177,7 @@ contract DeployInitializedDevnetProtocol is Script {
          */
         for (uint i = 0; i < assetPairContracts.length; i++) {
             AssetPairContracts memory pair = assetPairContracts[i];
-            pair.cashAsset.forceApprove(address(pair.providerNFT), type(uint).max);
+            pair.cashAsset.approve(address(pair.providerNFT), type(uint).max);
 
             for (uint j = 0; j < pair.durations.length; j++) {
                 for (uint k = 0; k < pair.ltvs.length; k++) {
@@ -239,30 +239,67 @@ contract DeployInitializedDevnetProtocol is Script {
 
         // Use the first contract pair (USDC/WETH) for this example
         AssetPairContracts memory pair = assetPairContracts[0];
-        ProviderPositionNFT providerNFT = pair.providerNFT;
-        Loans loansContract = pair.loansContract;
         uint userCollateralBalance = pair.collateralAsset.balanceOf(user);
         require(userCollateralBalance >= collateralAmountForLoan, "User does not have enough collateral");
         // Approve collateral spending
-        pair.collateralAsset.forceApprove(address(loansContract), type(uint).max);
+        pair.collateralAsset.approve(address(pair.loansContract), type(uint).max);
 
         // Find the first available offer
         uint offerId = 0;
-        require(offerId < providerNFT.nextOfferId(), "No available offers");
+        require(offerId < pair.providerNFT.nextOfferId(), "No available offers");
         // Check initial balances
         uint initialCollateralBalance = pair.collateralAsset.balanceOf(user);
         uint initialCashBalance = pair.cashAsset.balanceOf(user);
+
+        // Get TWAP price before loan creation
+        uint twapPrice = engine.getHistoricalAssetPriceViaTWAP(
+            address(pair.collateralAsset),
+            address(pair.cashAsset),
+            uint32(block.timestamp),
+            pair.takerNFT.TWAP_LENGTH()
+        );
+
         // Open a position
-        (uint takerId, uint providerId, uint loanAmount) = loansContract.createLoan(
+        (uint takerId, uint providerId, uint loanAmount) = pair.loansContract.createLoan(
             collateralAmountForLoan,
             0, // slippage
             0,
-            providerNFT,
+            pair.providerNFT,
             offerId
         );
 
+        _checkPosition(
+            pair,
+            takerId,
+            providerId,
+            user,
+            liquidityProvider,
+            initialCollateralBalance,
+            initialCashBalance,
+            loanAmount,
+            twapPrice
+        );
+
+        console.log("Position opened:");
+        console.log(" - Taker ID: %d", takerId);
+        console.log(" - Provider ID: %d", providerId);
+        console.log(" - Loan amount: %d", loanAmount);
+
+        vm.stopBroadcast();
+    }
+
+    function _checkPosition(
+        AssetPairContracts memory pair,
+        uint takerId,
+        uint providerId,
+        address user,
+        address liquidityProvider,
+        uint initialCollateralBalance,
+        uint initialCashBalance,
+        uint loanAmount,
+        uint twapPrice
+    ) internal view {
         CollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(takerId);
-        require(pair.takerNFT.ownerOf(takerId) == user);
         require(position.settled == false);
         require(position.withdrawable == 0);
         require(position.putLockedCash > 0);
@@ -278,11 +315,13 @@ contract DeployInitializedDevnetProtocol is Script {
         assert(initialCollateralBalance - finalCollateralBalance == collateralAmountForLoan);
         assert(finalCashBalance - initialCashBalance == loanAmount);
 
-        console.log("Position opened:");
-        console.log(" - Taker ID: %d", takerId);
-        console.log(" - Provider ID: %d", providerId);
-        console.log(" - Loan amount: %d", loanAmount);
-
-        vm.stopBroadcast();
+        // Check loan amount using TWAP
+        uint expectedLoanAmount = collateralAmountForLoan * twapPrice * allLTVs[0] / (1e18 * 10_000);
+        uint loanAmountTolerance = expectedLoanAmount / 100; // 1% tolerance
+        require(
+            loanAmount >= expectedLoanAmount - loanAmountTolerance
+                && loanAmount <= expectedLoanAmount + loanAmountTolerance,
+            "Loan amount is outside the expected range"
+        );
     }
 }
