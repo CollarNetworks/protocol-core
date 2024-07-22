@@ -173,7 +173,7 @@ contract Loans is ILoans, Ownable, Pausable {
      */
     function setKeeperAllowedBy(uint takerId, bool enabled) external whenNotPaused onlyNFTOwner(takerId) {
         Loan storage loan = loans[takerId];
-        _requireValidLoan(loan);
+        require(loan.active, "not active");
         loan.keeperAllowedBy = enabled ? msg.sender : address(0);
         emit ClosingKeeperAllowed(msg.sender, takerId, enabled);
     }
@@ -208,8 +208,8 @@ contract Loans is ILoans, Ownable, Pausable {
         returns (uint collateralOut)
     {
         Loan storage loan = loans[takerId];
-        _requireValidLoan(loan);
-        loan.closed = true; // set here to add reentrancy protection
+        require(loan.active, "not active");
+        loan.active = false; // set here to add reentrancy protection
 
         // @dev user is the NFT owner, since msg.sender can be a keeper
         // If called by keeper, the user must trust it because:
@@ -243,9 +243,9 @@ contract Loans is ILoans, Ownable, Pausable {
 
         // loan
         Loan storage loan = loans[takerId];
-        _requireValidLoan(loan);
+        require(loan.active, "not active");
         // close the previous loan, done here to add reentrancy protection
-        loan.closed = true;
+        loan.active = false;
 
         // pull and push NFT and cash, execute roll
         (newTakerId, newLoanAmount) = _rollLoan(takerId, rollId, minLoanChange, loan.loanAmount);
@@ -256,7 +256,7 @@ contract Loans is ILoans, Ownable, Pausable {
             collateralAmount: loan.collateralAmount,
             loanAmount: newLoanAmount,
             keeperAllowedBy: loan.keeperAllowedBy,
-            closed: false
+            active: true
         });
     }
 
@@ -317,7 +317,7 @@ contract Loans is ILoans, Ownable, Pausable {
             collateralAmount: collateralAmount,
             loanAmount: loanAmount,
             keeperAllowedBy: address(0),
-            closed: false
+            active: true
         });
     }
 
@@ -395,8 +395,7 @@ contract Loans is ILoans, Ownable, Pausable {
         uint initialBalance = cashAsset.balanceOf(address(this));
 
         // calculate cash to pull
-        (int loanChangePreview,,) =
-            rollsContract.calculateTransferAmounts(rollId, takerNFT.getReferenceTWAPPrice(block.timestamp));
+        (int loanChangePreview,,) = rollsContract.calculateTransferAmounts(rollId, _currentTWAPPrice());
 
         // update loan amount
         if (loanChangePreview < 0) {
@@ -442,24 +441,20 @@ contract Loans is ILoans, Ownable, Pausable {
 
     // ----- INTERNAL VIEWS ----- //
 
-    function _requireValidLoan(Loan storage loan) internal view {
-        // no loan taken. Note that loanAmount 0 can happen for 0 putStrikePrice
-        // so only collateral should be checked
-        require(loan.collateralAmount != 0, "loan does not exist");
-        // TODO: add a reentrancy test (via one of the assets) to cover this check
-        require(!loan.closed, "already closed");
-    }
-
     /// The swap price is only used for "pot sizing", but not for payouts division on expiry.
     /// Due to this, price manipulation *should* NOT leak value from provider / protocol.
     /// The caller (user) is protected via a slippage parameter, and SHOULD use it to avoid MEV (if present).
     /// So, this check is just extra precaution and avoidance of manipulation edge-cases.
     function _checkSwapPrice(uint cashFromSwap, uint collateralAmount) internal view {
-        uint twapPrice = takerNFT.getReferenceTWAPPrice(block.timestamp);
+        uint twapPrice = _currentTWAPPrice();
         // collateral is checked on open to not be 0
         uint swapPrice = cashFromSwap * engine.TWAP_BASE_TOKEN_AMOUNT() / collateralAmount;
         uint diff = swapPrice > twapPrice ? swapPrice - twapPrice : twapPrice - swapPrice;
         uint deviation = diff * BIPS_BASE / twapPrice;
         require(deviation <= MAX_SWAP_TWAP_DEVIATION_BIPS, "swap and twap price too different");
+    }
+
+    function _currentTWAPPrice() internal view returns (uint) {
+        return takerNFT.getReferenceTWAPPrice(block.timestamp);
     }
 }

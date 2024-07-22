@@ -153,7 +153,7 @@ contract LoansTest is Test {
         assertEq(loan.collateralAmount, collateralAmount);
         assertEq(loan.loanAmount, loanAmount);
         assertEq(loan.keeperAllowedBy, address(0));
-        assertFalse(loan.closed);
+        assertTrue(loan.active);
 
         // Check taker position
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(takerId);
@@ -209,7 +209,7 @@ contract LoansTest is Test {
         assertEq(cashAsset.balanceOf(user1), initialCashBalance - loanAmount);
 
         // Check loan state
-        assertTrue(loans.getLoan(takerId).closed);
+        assertFalse(loans.getLoan(takerId).active);
 
         // Check that the NFT has been burned
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, takerId));
@@ -494,7 +494,7 @@ contract LoansTest is Test {
         vm.startPrank(user1);
         // create taker NFT not through loans
         (uint takerId,) = takerNFT.openPairedPosition(0, providerNFT, offerId);
-        vm.expectRevert("loan does not exist");
+        vm.expectRevert("not active");
         loans.closeLoan(takerId, 0);
     }
 
@@ -508,7 +508,7 @@ contract LoansTest is Test {
         closer.setParams(loans, takerNFT, takerId, user1);
         cashAsset.setAttacker(address(closer));
         takerNFT.approve(address(closer), takerId); // allow attacker to pull nft
-        vm.expectRevert("already closed");
+        vm.expectRevert("not active");
         loans.closeLoan(takerId, 0);
 
         // setup attack: reenter from closeLoan to setKeeperAllowedBy
@@ -516,7 +516,7 @@ contract LoansTest is Test {
         keeperSetter.setParams(loans, takerNFT, takerId, user1);
         cashAsset.setAttacker(address(keeperSetter));
         takerNFT.approve(address(keeperSetter), takerId); // allow attacker to pull nft
-        vm.expectRevert("already closed");
+        vm.expectRevert("not active");
         loans.closeLoan(takerId, 0);
     }
 
@@ -611,7 +611,7 @@ contract LoansTest is Test {
         // close from keeper
         vm.startPrank(keeper);
         loans.closeLoan(takerId, 0);
-        assertTrue(loans.getLoan(takerId).closed);
+        assertFalse(loans.getLoan(takerId).active);
     }
 
     function test_revert_setKeeperAllowedBy_notNFTOwner() public {
@@ -641,7 +641,7 @@ contract LoansTest is Test {
         vm.startPrank(user1);
         // create taker NFT not through loans
         (uint takerId,) = takerNFT.openPairedPosition(0, providerNFT, offerId);
-        vm.expectRevert("loan does not exist");
+        vm.expectRevert("not active");
         loans.setKeeperAllowedBy(takerId, true);
     }
 

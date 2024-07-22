@@ -17,7 +17,7 @@ interface ILoans {
         uint collateralAmount;
         uint loanAmount;
         address keeperAllowedBy;
-        bool closed;
+        bool active;
     }
 
     // events
