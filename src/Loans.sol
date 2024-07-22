@@ -228,7 +228,7 @@ contract Loans is ILoans, Ownable, Pausable {
         emit LoanClosed(takerId, msg.sender, user, loan.loanAmount, cashAmount, collateralOut);
     }
 
-    // TODO: event, tests, docs
+    // TODO: tests, docs
     function rollLoan(uint takerId, Rolls rolls, uint rollId, int minLoanChange)
         external
         whenNotPaused
@@ -263,15 +263,15 @@ contract Loans is ILoans, Ownable, Pausable {
     // admin methods
 
     /// @notice Sets the address of the closing keeper
-    /// @dev This function can only be called by the contract owner
-    /// @param keeper The address of the new closing keeper
+    /// @dev only owner
     function setKeeper(address keeper) external onlyOwner {
         address previous = closingKeeper;
         closingKeeper = keeper;
         emit ClosingKeeperUpdated(previous, keeper);
     }
 
-    // TODO: tests, docs
+    /// @notice Sets the Rolls contract to be used for rolling loans
+    /// @dev only owner
     function setRollsContract(Rolls rolls) external onlyOwner {
         if (rolls != Rolls(address(0))) {
             require(rolls.takerNFT() == takerNFT, "rolls taker NFT mismatch");

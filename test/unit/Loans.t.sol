@@ -24,6 +24,7 @@ contract LoansTest is Test {
     CollarTakerNFT takerNFT;
     ProviderPositionNFT providerNFT;
     Loans loans;
+    Rolls rolls;
 
     address owner = makeAddr("owner");
     address user1 = makeAddr("user1");
@@ -54,10 +55,14 @@ contract LoansTest is Test {
         providerNFT = new ProviderPositionNFT(
             owner, engine, cashAsset, collateralAsset, address(takerNFT), "ProviderNFT", "PRVNFT"
         );
+        rolls = new Rolls(owner, takerNFT, cashAsset);
         loans = new Loans(owner, takerNFT);
 
         engine.setCollarTakerContractAuth(address(takerNFT), true);
         engine.setProviderContractAuth(address(providerNFT), true);
+
+        vm.prank(owner);
+        loans.setRollsContract(rolls);
 
         collateralAsset.mint(user1, collateralAmount * 10);
         cashAsset.mint(user1, minSwapCash * 10);
@@ -361,6 +366,27 @@ contract LoansTest is Test {
         assertEq(loans.closingKeeper(), keeper);
     }
 
+    function test_setRollsContract() public {
+        // check setup
+        assertEq(address(loans.rollsContract()), address(rolls));
+        // check can upted
+        Rolls newRolls = new Rolls(owner, takerNFT, cashAsset);
+        vm.startPrank(owner);
+        vm.expectEmit(address(loans));
+        emit ILoans.RollsContractUpdated(rolls, newRolls);
+        loans.setRollsContract(newRolls);
+        // check effect
+        assertEq(address(loans.rollsContract()), address(newRolls));
+
+        // check can unset (set to zero address)
+        Rolls unsetRolls = Rolls(address(0));
+        vm.expectEmit(address(loans));
+        emit ILoans.RollsContractUpdated(newRolls, unsetRolls);
+        loans.setRollsContract(unsetRolls);
+        // check effect
+        assertEq(address(loans.rollsContract()), address(unsetRolls));
+    }
+
     function test_pause() public {
         (uint takerId,,) = createAndCheckLoan();
 
@@ -658,6 +684,27 @@ contract LoansTest is Test {
         vm.startPrank(user1);
         vm.expectRevert("not taker NFT owner");
         loans.setKeeperAllowedBy(takerId, true);
+    }
+
+    function test_revert_setRollsContract() public {
+        vm.startPrank(owner);
+
+        // Test revert when taker NFT doesn't match
+        CollarTakerNFT invalidTakerNFT =
+            new CollarTakerNFT(owner, engine, cashAsset, collateralAsset, "InvalidTakerNFT", "INVTKR");
+        Rolls invalidTakerRolls = new Rolls(owner, invalidTakerNFT, cashAsset);
+        vm.expectRevert("rolls taker NFT mismatch");
+        loans.setRollsContract(invalidTakerRolls);
+
+        // Test revert when cash asset doesn't match
+        Rolls invalidRolls = new Rolls(owner, takerNFT, collateralAsset); // collateralAsset instead of cashAsset
+        vm.expectRevert("rolls cash asset mismatch");
+        loans.setRollsContract(invalidRolls);
+
+        // Test revert when called by non-owner (tested elsewhere as well)
+        vm.startPrank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user1));
+        loans.setRollsContract(Rolls(address(0)));
     }
 }
 
