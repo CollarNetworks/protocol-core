@@ -11,6 +11,7 @@ import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockUniRouter } from "../utils/MockUniRouter.sol";
 
+import { ICollarEngine } from "../../src/interfaces/ICollarEngine.sol";
 import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
@@ -46,57 +47,58 @@ contract CollarEngineTest is Test {
 
     function test_addSupportedCashAsset() public {
         assertFalse(engine.isSupportedCashAsset(address(token1)));
-        engine.addSupportedCashAsset(address(token1));
+        engine.setCashAssetSupport(address(token1), true);
         assertTrue(engine.isSupportedCashAsset(address(token1)));
     }
 
     function test_addSupportedCashAsset_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
-        engine.addSupportedCashAsset(address(token1));
+        engine.setCashAssetSupport(address(token1), true);
         vm.stopPrank();
     }
 
     function test_removeSupportedCashAsset() public {
-        engine.addSupportedCashAsset(address(token1));
-        engine.removeSupportedCashAsset(address(token1));
+        engine.setCashAssetSupport(address(token1), true);
+        engine.setCashAssetSupport(address(token1), false);
         assertFalse(engine.isSupportedCashAsset(address(token1)));
     }
 
     function test_removeSupportedCashAsset_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
-        engine.removeSupportedCashAsset(address(token1));
+        engine.setCashAssetSupport(address(token1), false);
         vm.stopPrank();
     }
 
     function test_addSupportedCollateralAsset() public {
         assertFalse(engine.isSupportedCollateralAsset(address(token1)));
-        engine.addSupportedCollateralAsset(address(token1));
+        engine.setCollateralAssetSupport(address(token1), true);
         assertTrue(engine.isSupportedCollateralAsset(address(token1)));
     }
 
     function test_addSupportedCollateralAsset_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
-        engine.addSupportedCollateralAsset(address(token1));
+        engine.setCollateralAssetSupport(address(token1), true);
         vm.stopPrank();
     }
 
     function test_removeSupportedCollateralAsset() public {
-        engine.addSupportedCollateralAsset(address(token1));
-        engine.removeSupportedCollateralAsset(address(token1));
+        engine.setCollateralAssetSupport(address(token1), true);
+        engine.setCollateralAssetSupport(address(token1), false);
         assertFalse(engine.isSupportedCollateralAsset(address(token1)));
     }
 
     function test_removeSupportedCollateralAsset_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
-        engine.removeSupportedCollateralAsset(address(token1));
+        engine.setCollateralAssetSupport(address(token1), false);
         vm.stopPrank();
     }
 
-    function test_isValidDuration() public view {
+    function test_isValidDuration() public {
+        engine.setCollarDurationRange(300, 365 days);
         assertFalse(engine.isValidCollarDuration(1));
         assertTrue(engine.isValidCollarDuration(301));
         assertFalse(engine.isValidCollarDuration(366 days));
@@ -107,7 +109,8 @@ contract CollarEngineTest is Test {
         engine.getHistoricalAssetPriceViaTWAP(address(token1), address(token2), 0, 0);
     }
 
-    function test_isValidLTV() public view {
+    function test_isValidLTV() public {
+        engine.setLTVRange(1000, 9000);
         assertFalse(engine.isValidLTV(100));
         assertTrue(engine.isValidLTV(9000));
         assertFalse(engine.isValidLTV(10_000));
@@ -129,23 +132,27 @@ contract CollarEngineTest is Test {
         assertFalse(engine.isProviderNFT(testContract));
     }
 
-    function test_setMaxLTV() public {
-        engine.setMaxLTV(1000);
-        assertEq(engine.MAX_LTV(), 1000);
+    function test_setLTVRange() public {
+        vm.expectEmit(address(engine));
+        emit ICollarEngine.LTVRangeSet(1000, 2000);
+        engine.setLTVRange(1000, 2000);
+        assertEq(engine.minLTV(), 1000);
+        assertEq(engine.maxLTV(), 2000);
     }
 
-    function test_setMinLTV() public {
-        engine.setMinLTV(1000);
-        assertEq(engine.MIN_LTV(), 1000);
+    function test_revert_setLTVRange() public {
+        vm.expectRevert("min too low");
+        engine.setLTVRange(0, 2000);
+
+        vm.expectRevert("max too high");
+        engine.setLTVRange(1000, 10_000);
     }
 
-    function test_setMinCollarDuration() public {
-        engine.setMinCollarDuration(1000);
-        assertEq(engine.MIN_COLLAR_DURATION(), 1000);
-    }
-
-    function test_setMaxCollarDuration() public {
-        engine.setMaxCollarDuration(1000);
-        assertEq(engine.MAX_COLLAR_DURATION(), 1000);
+    function test_setDurationRange() public {
+        vm.expectEmit(address(engine));
+        emit ICollarEngine.CollarDurationRangeSet(1000, 2000);
+        engine.setCollarDurationRange(1000, 2000);
+        assertEq(engine.minDuration(), 1000);
+        assertEq(engine.maxDuration(), 2000);
     }
 }

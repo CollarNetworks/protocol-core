@@ -80,15 +80,15 @@ contract DeployInitializedDevnetProtocol is Script {
         engine = address(new CollarEngine(router));
 
         // add supported cash assets
-        CollarEngine(engine).addSupportedCashAsset(USDC);
-        CollarEngine(engine).addSupportedCashAsset(USDT);
-        CollarEngine(engine).addSupportedCashAsset(WETH);
+        CollarEngine(engine).setCashAssetSupport(USDC, true);
+        CollarEngine(engine).setCashAssetSupport(USDT, true);
+        CollarEngine(engine).setCashAssetSupport(WETH, true);
         // add supported collateral assets
-        CollarEngine(engine).addSupportedCollateralAsset(WETH);
-        CollarEngine(engine).addSupportedCollateralAsset(WBTC);
-        CollarEngine(engine).addSupportedCollateralAsset(MATIC);
-        CollarEngine(engine).addSupportedCollateralAsset(weETH);
-        CollarEngine(engine).addSupportedCollateralAsset(stETH);
+        CollarEngine(engine).setCollateralAssetSupport(WETH, true);
+        CollarEngine(engine).setCollateralAssetSupport(WBTC, true);
+        CollarEngine(engine).setCollateralAssetSupport(MATIC, true);
+        CollarEngine(engine).setCollateralAssetSupport(weETH, true);
+        CollarEngine(engine).setCollateralAssetSupport(stETH, true);
         console.log("\n --- Dev Environment Deployed ---");
         console.log("\n # Contract Addresses\n");
         console.log(" - Router:  - - - - - - ", router);

@@ -11,14 +11,10 @@ interface ICollarEngine {
     // EVENTS
 
     // auth'd actions
-    event CollateralAssetAdded(address indexed collateralAsset);
-    event CollateralAssetRemoved(address indexed collateralAsset);
-    event CashAssetAdded(address indexed cashAsset);
-    event CashAssetRemoved(address indexed cashAsset);
-    event CollarDurationAdded(uint indexed duration);
-    event CollarDurationRemoved(uint indexed duration);
-    event LTVAdded(uint indexed ltv);
-    event LTVRemoved(uint indexed ltv);
+    event CollateralAssetSupportSet(address indexed collateralAsset, bool indexed enabled);
+    event CashAssetSupportSet(address indexed cashAsset, bool indexed enabled);
+    event LTVRangeSet(uint indexed minLTV, uint indexed maxLTV);
+    event CollarDurationRangeSet(uint indexed minDuration, uint indexed maxDuration);
     event CollarTakerNFTAuthSet(
         address indexed contractAddress, bool indexed enabled, address cashAsset, address collateralAsset
     );
@@ -34,43 +30,31 @@ interface ICollarEngine {
 
     // ltv
 
-    /// @notice Sets the minimum LTV for the engine
-    /// @param ltv The new minimum LTV
-    function setMaxLTV(uint ltv) external;
-
-    /// @notice Sets the maximum LTV for the engine
-    /// @param ltv The new maximum LTV
-    function setMinLTV(uint ltv) external;
+    /// @notice Sets the LTV minimum and max values for the engine
+    /// @param minLTV The new minimum LTV
+    /// @param maxLTV The new maximum LTV
+    function setLTVRange(uint minLTV, uint maxLTV) external;
 
     // collar durations
 
-    /// @notice Sets the minimum collar duration for the engine
-    /// @param duration The new minimum collar duration
-    function setMinCollarDuration(uint duration) external;
-
-    /// @notice Sets the maximum collar duration for the engine
-    /// @param duration The new maximum collar duration
-    function setMaxCollarDuration(uint duration) external;
+    /// @notice Sets the minimum and maximum collar durations for the engine
+    /// @param minDuration The new minimum collar duration
+    /// @param maxDuration The new maximum collar duration
+    function setCollarDurationRange(uint minDuration, uint maxDuration) external;
 
     // collateral assets
 
-    /// @notice Adds an asset to the list of supported collateral assets
-    /// @param asset The address of the asset to add
-    function addSupportedCollateralAsset(address asset) external;
-
-    /// @notice Removes an asset from the list of supported collateral assets
-    /// @param asset The address of the asset to remove
-    function removeSupportedCollateralAsset(address asset) external;
+    /// @notice Sets whether a particular collateral asset is supported
+    /// @param collateralAsset The address of the collateral asset
+    /// @param enabled Whether the asset is supported
+    function setCollateralAssetSupport(address collateralAsset, bool enabled) external;
 
     // cash assets
 
-    /// @notice Adds an asset to the list of supported cash assets
-    /// @param asset The address of the asset to add
-    function addSupportedCashAsset(address asset) external;
-
-    /// @notice Removes an asset from the list of supported cash assets
-    /// @param asset The address of the asset to remove
-    function removeSupportedCashAsset(address asset) external;
+    /// @notice Sets whether a particular cash asset is supported
+    /// @param cashAsset The address of the cash asset
+    /// @param enabled Whether the asset is supported
+    function setCashAssetSupport(address cashAsset, bool enabled) external;
 
     // ----- view functions
 

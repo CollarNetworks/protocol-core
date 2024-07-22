@@ -59,8 +59,10 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
         CALL_STRIKE_TICK = callStrikeTickToUse;
 
         engine = new CollarEngine(swapRouterAddress);
-        engine.addSupportedCashAsset(cashAssetAddress);
-        engine.addSupportedCollateralAsset(collateralAssetAddress);
+        engine.setCashAssetSupport(cashAssetAddress, true);
+        engine.setCollateralAssetSupport(collateralAssetAddress, true);
+        engine.setLTVRange(1000, 9999);
+        engine.setCollarDurationRange(300, 30 days);
         takerNFT = new CollarTakerNFT(address(this), engine, cashAsset, collateralAsset, "Borrow NFT", "BNFT");
 
         loanContract = new Loans(address(this), engine, takerNFT, cashAsset, collateralAsset);
