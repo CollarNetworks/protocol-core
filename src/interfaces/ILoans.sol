@@ -11,6 +11,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { CollarEngine } from "../implementations/CollarEngine.sol";
 import { CollarTakerNFT } from "../CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../ProviderPositionNFT.sol";
+import { Rolls } from "../Rolls.sol";
 
 interface ILoans {
     struct Loan {
@@ -38,8 +39,17 @@ interface ILoans {
         uint cashAmount,
         uint collateralOut
     );
+    event LoanRolled(
+        address indexed sender,
+        uint indexed takerId,
+        uint indexed rollId,
+        uint newTakerId,
+        uint loanAmount,
+        uint newLoanAmount
+    );
     event ClosingKeeperAllowed(address indexed sender, uint indexed takerId, bool indexed enabled);
     event ClosingKeeperUpdated(address indexed previousKeeper, address indexed newKeeper);
+    event RollsContractUpdated(Rolls indexed previousRolls, Rolls indexed newRolls);
 
     // constants
     function MAX_SWAP_TWAP_DEVIATION_BIPS() external view returns (uint);
@@ -55,6 +65,7 @@ interface ILoans {
     function closingKeeper() external view returns (address);
     // mutative contract owner
     function setKeeper(address keeper) external;
+    function setRollsContract(Rolls rolls) external;
     // mutative user / keeper
     function createLoan(
         uint collateralAmount,
@@ -65,4 +76,7 @@ interface ILoans {
     ) external returns (uint takerId, uint providerId, uint loanAmount);
     function setKeeperAllowedBy(uint takerId, bool enabled) external;
     function closeLoan(uint takerId, uint minCollateralAmount) external returns (uint collateralReturned);
+    function rollLoan(uint takerId, Rolls rolls, uint rollId, int minLoanChange)
+        external
+        returns (uint newTakerId, uint newLoanAmount);
 }

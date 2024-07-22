@@ -271,12 +271,13 @@ contract Loans is ILoans, Ownable, Pausable {
         emit ClosingKeeperUpdated(previous, keeper);
     }
 
-    // TODO: event, tests, docs
+    // TODO: tests, docs
     function setRollsContract(Rolls rolls) external onlyOwner {
         if (rolls != Rolls(address(0))) {
             require(rolls.takerNFT() == takerNFT, "rolls taker NFT mismatch");
             require(rolls.cashAsset() == cashAsset, "rolls cash asset mismatch");
         }
+        emit RollsContractUpdated(rollsContract, rolls); // emit before for the prev value
         rollsContract = rolls;
     }
 
@@ -437,6 +438,8 @@ contract Loans is ILoans, Ownable, Pausable {
         // there should be no balance change for the contract (e.g., rolls contract
         // didn't overestimate amount to pull from user, or under-report return value)
         require(cashAsset.balanceOf(address(this)) == initialBalance, "contract balance changed");
+
+        emit LoanRolled(msg.sender, takerId, rollId, newTakerId, loanAmount, newLoanAmount);
     }
 
     // ----- INTERNAL VIEWS ----- //

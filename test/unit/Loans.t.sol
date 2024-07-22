@@ -14,6 +14,7 @@ import { MockUniRouter } from "../../test/utils/MockUniRouter.sol";
 import { Loans, ILoans } from "../../src/Loans.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
+import { Rolls } from "../../src/Rolls.sol";
 
 contract LoansTest is Test {
     TestERC20 cashAsset;
@@ -402,6 +403,8 @@ contract LoansTest is Test {
         loans.unpause();
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
         loans.setKeeper(keeper);
+        vm.expectRevert(abi.encodeWithSelector(selector, user1));
+        loans.setRollsContract(Rolls(address(0)));
     }
 
     function test_revert_createLoan_params() public {
