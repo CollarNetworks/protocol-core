@@ -495,6 +495,28 @@ contract LoansTest is Test {
         checkCloseRolledLoan(newTakerId, expected.newLoanAmount);
     }
 
+    function test_rollLoan_no_change_multiple() public {
+        (uint takerId,,) = createAndCheckLoan();
+        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(takerId);
+
+        ExpectedRoll memory expected;
+        uint newTakerId = takerId;
+        // roll 10 times
+        for (uint i; i < 10; ++i) {
+            (newTakerId, expected) = checkRollLoan(newTakerId, twapPrice);
+        }
+        // no change in locked amounts
+        assertEq(expected.newPutLocked, takerPosition.putLockedCash);
+        assertEq(expected.newCallLocked, takerPosition.callLockedCash);
+        // only fee paid
+        assertEq(expected.toTaker, -1 ether); // single fee
+        // final loan is lower by 10 times the fee (10 roll fees)
+        assertEq(expected.newLoanAmount, loans.getLoan(takerId).loanAmount - 10 ether);
+        assertEq(expected.newLoanAmount, loans.getLoan(newTakerId).loanAmount);
+
+        checkCloseRolledLoan(newTakerId, expected.newLoanAmount);
+    }
+
     function test_rollLoan_price_increase() public {
         (uint takerId,,) = createAndCheckLoan();
         // +5%
