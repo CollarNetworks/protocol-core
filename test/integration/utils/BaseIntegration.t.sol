@@ -61,8 +61,8 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
         engine = new CollarEngine(swapRouterAddress);
         engine.setCashAssetSupport(cashAssetAddress, true);
         engine.setCollateralAssetSupport(collateralAssetAddress, true);
-        engine.setLTVRange(1000, 9999);
-        engine.setCollarDurationRange(300, 30 days);
+        engine.setLTVRange(_offerLTV, _offerLTV + 1);
+        engine.setCollarDurationRange(_positionDuration, _positionDuration + 1);
         takerNFT = new CollarTakerNFT(address(this), engine, cashAsset, collateralAsset, "Borrow NFT", "BNFT");
 
         loanContract = new Loans(address(this), engine, takerNFT, cashAsset, collateralAsset);

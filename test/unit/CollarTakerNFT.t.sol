@@ -38,6 +38,7 @@ contract CollarTakerNFTTest is Test {
     uint pastPutStrikePrice = 0.8 ether; // 80% of the price | to use when price goes under put strike price
     uint callStrikeDeviationToUse = 12_000;
     uint amountToProvide = 100_000 ether;
+    uint constant maxLTVToUse = 9999;
 
     function setUp() public {
         cashAsset = new TestERC20("TestCash", "TestCash");
@@ -61,8 +62,8 @@ contract CollarTakerNFTTest is Test {
         mockEngine = new MockEngine(address(0));
         mockEngine.setCashAssetSupport(address(cashAsset), true);
         mockEngine.setCollateralAssetSupport(address(collateralAsset), true);
-        mockEngine.setLTVRange(1000, 9999);
-        mockEngine.setCollarDurationRange(300, 1 days);
+        mockEngine.setLTVRange(ltvToUse - 1, maxLTVToUse);
+        mockEngine.setCollarDurationRange(durationToUse - 1, durationToUse + 1);
     }
 
     function setPricesAtTimestamp(MockEngine engineToUse, uint timestamp, uint price) internal {

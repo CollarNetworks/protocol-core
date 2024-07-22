@@ -46,8 +46,8 @@ contract ProviderPositionNFTTest is Test {
 
     function setupMockEngine() public returns (MockEngine mockEngine) {
         mockEngine = new MockEngine(address(0));
-        mockEngine.setLTVRange(1000, 9999);
-        mockEngine.setCollarDurationRange(300, 1 days);
+        mockEngine.setLTVRange(putDeviation - 1, putDeviation + 1);
+        mockEngine.setCollarDurationRange(duration - 1, duration + 1);
     }
 
     function createAndCheckOffer(address provider, uint amount)
@@ -608,12 +608,12 @@ contract ProviderPositionNFTTest is Test {
 
     function test_revert_mintPositionFromOffer_EngineValidations() public {
         // set a putdeviation that willbe invalid later
-        engine.setLTVRange(1001, engine.maxLTV());
-        putDeviation = 1001;
+        engine.setLTVRange(putDeviation - 100, engine.maxLTV());
+        putDeviation = putDeviation - 100;
         (uint offerId,) = createAndCheckOffer(provider1, largeAmount);
         vm.stopPrank();
         putDeviation = 9000;
-        engine.setLTVRange(9000, engine.maxLTV());
+        engine.setLTVRange(putDeviation, engine.maxLTV());
         vm.startPrank(address(takerContract));
 
         vm.expectRevert("unsupported LTV");
@@ -626,7 +626,7 @@ contract ProviderPositionNFTTest is Test {
         (offerId,) = createAndCheckOffer(provider1, largeAmount);
         duration = 300;
         vm.stopPrank();
-        engine.setCollarDurationRange(300, engine.maxDuration());
+        engine.setCollarDurationRange(duration, engine.maxDuration());
         vm.startPrank(address(takerContract));
         vm.expectRevert("unsupported duration");
         providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);

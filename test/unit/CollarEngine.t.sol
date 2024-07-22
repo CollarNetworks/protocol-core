@@ -21,7 +21,12 @@ contract CollarEngineTest is Test {
     TestERC20 token2;
     MockUniRouter router;
     CollarEngine engine;
-
+    uint constant durationToUse = 1 days;
+    uint constant minDurationToUse = 300;
+    uint constant maxDurationToUse = 365 days;
+    uint constant ltvToUse = 9000;
+    uint constant minLTVToUse = 1000;
+    uint constant maxLTVToUse = 9999;
     address user1 = makeAddr("user1");
     address user2 = makeAddr("user2");
 
@@ -98,10 +103,10 @@ contract CollarEngineTest is Test {
     }
 
     function test_isValidDuration() public {
-        engine.setCollarDurationRange(300, 365 days);
-        assertFalse(engine.isValidCollarDuration(1));
-        assertTrue(engine.isValidCollarDuration(301));
-        assertFalse(engine.isValidCollarDuration(366 days));
+        engine.setCollarDurationRange(minDurationToUse, maxDurationToUse);
+        assertFalse(engine.isValidCollarDuration(minDurationToUse - 1));
+        assertTrue(engine.isValidCollarDuration(minDurationToUse));
+        assertFalse(engine.isValidCollarDuration(maxDurationToUse + 1));
     }
 
     function test_getHistoricalAssetPriceViaTWAP_InvalidAsset() public {
@@ -110,10 +115,10 @@ contract CollarEngineTest is Test {
     }
 
     function test_isValidLTV() public {
-        engine.setLTVRange(1000, 9000);
-        assertFalse(engine.isValidLTV(100));
-        assertTrue(engine.isValidLTV(9000));
-        assertFalse(engine.isValidLTV(10_000));
+        engine.setLTVRange(minLTVToUse, maxLTVToUse);
+        assertFalse(engine.isValidLTV(minLTVToUse - 1));
+        assertTrue(engine.isValidLTV(maxLTVToUse));
+        assertFalse(engine.isValidLTV(maxLTVToUse + 1));
     }
 
     function test_setCollarTakerContractAuth_non_taker_contract() public {
@@ -134,25 +139,25 @@ contract CollarEngineTest is Test {
 
     function test_setLTVRange() public {
         vm.expectEmit(address(engine));
-        emit ICollarEngine.LTVRangeSet(1000, 2000);
-        engine.setLTVRange(1000, 2000);
-        assertEq(engine.minLTV(), 1000);
-        assertEq(engine.maxLTV(), 2000);
+        emit ICollarEngine.LTVRangeSet(minLTVToUse, maxLTVToUse);
+        engine.setLTVRange(minLTVToUse, maxLTVToUse);
+        assertEq(engine.minLTV(), minLTVToUse);
+        assertEq(engine.maxLTV(), maxLTVToUse);
     }
 
     function test_revert_setLTVRange() public {
         vm.expectRevert("min too low");
-        engine.setLTVRange(0, 2000);
+        engine.setLTVRange(0, maxLTVToUse);
 
         vm.expectRevert("max too high");
-        engine.setLTVRange(1000, 10_000);
+        engine.setLTVRange(minLTVToUse, 10_000);
     }
 
     function test_setDurationRange() public {
         vm.expectEmit(address(engine));
-        emit ICollarEngine.CollarDurationRangeSet(1000, 2000);
-        engine.setCollarDurationRange(1000, 2000);
-        assertEq(engine.minDuration(), 1000);
-        assertEq(engine.maxDuration(), 2000);
+        emit ICollarEngine.CollarDurationRangeSet(minLTVToUse, maxDurationToUse);
+        engine.setCollarDurationRange(minLTVToUse, maxDurationToUse);
+        assertEq(engine.minDuration(), minLTVToUse);
+        assertEq(engine.maxDuration(), maxDurationToUse);
     }
 }
