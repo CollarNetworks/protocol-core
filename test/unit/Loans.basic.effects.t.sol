@@ -41,7 +41,7 @@ contract LoansTestBase is Test {
     uint minLoanAmount = minSwapCash * (ltv / BIPS_100PCT);
     uint amountToProvide = 100_000 ether;
 
-    // rolld
+    // rolls
     int rollFee = 1 ether;
 
     function setUp() public {

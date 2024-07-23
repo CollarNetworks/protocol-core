@@ -30,7 +30,7 @@ import { ILoans } from "./interfaces/ILoans.sol";
  * 4. Manages loan closure, including repayment and swapping back to collateral.
  * 5. Provides keeper functionality for automated loan closure to allow avoiding price
  * fluctuations negatively impacting swapping back to collateral.
- * 6. Allows rolling (extending) the laon via an owner and user approved Rolls contract.
+ * 6. Allows rolling (extending) the loan via an owner and user approved Rolls contract.
  *
  * Role in the Protocol:
  * This contract acts as the main entry point for borrowers in the Collar Protocol.
@@ -70,7 +70,7 @@ contract Loans is ILoans, Ownable, Pausable {
     // ----- STATE VARIABLES ----- //
     /// @notice Stores loan information for each taker NFT ID
     mapping(uint takerId => Loan) internal loans;
-    // keeper for closing set by contract owner. Keeper is needed for time-sensitive actions (swapping back)
+    // optional keeper (set by contract owner) that's needed for swap back on expiry (time-sensitive)
     address public closingKeeper;
     // the currently configured & allowed rolls contract for this takerNFT and cash asset
     Rolls public rollsContract;
@@ -414,13 +414,14 @@ contract Loans is ILoans, Ownable, Pausable {
     {
         uint initialBalance = cashAsset.balanceOf(address(this));
 
-        // calculate cash to pull
+        // get transfer amount and fee from rolls
         (int transferPreview,, int rollFee) =
             rollsContract.calculateTransferAmounts(rollId, _currentTWAPPrice());
 
+        // update loan amount
         newLoanAmount = _calculateNewLoan(transferPreview, rollFee, loanAmount);
 
-        // update loan amount
+        // pull cash
         if (transferPreview < 0) {
             uint fromUser = uint(-transferPreview); // will revert for type(int).min
             // pull cash first, because rolls will try to pull it (if needed) from this contract
@@ -482,10 +483,10 @@ contract Loans is ILoans, Ownable, Pausable {
         returns (uint newLoanAmount)
     {
         // The transfer subtracted the fee, so it needs to be added back. The fee is not part of
-        // the loan such that if nothing has changed (except the fee being charged), the updated
-        // loan will should still be equivalent to the initial collateral.
-        // Example: price rose, the transfer = position-gain - fee = 100 - 1 = 99.
-        //   position-gain = transfer + fee = 99 + 1 = 100
+        // the loan so that if price hasn't changed, after rolling, the updated
+        // loan amount would still be equivalent to the initial collateral.
+        // Example: transfer = position-gain - fee = 100 - 1 = 99
+        //      So: position-gain = transfer + fee = 99 + 1 = 100
         int loanChange = rollTransferIn + rollFee;
         if (loanChange < 0) {
             uint repayment = uint(-loanChange); // will revert for type(int).min
