@@ -10,7 +10,7 @@ import { TestERC20 } from "../utils/TestERC20.sol";
 import { Loans } from "../../src/Loans.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
-import { LoansRollTestBase } from "./Loans.rolls.happy.t.sol";
+import { LoansRollTestBase } from "./Loans.rolls.effects.t.sol";
 
 contract LoansRollsRevertsTest is LoansRollTestBase {
     function test_revert_rollLoan_rolls_contract_checks() public {

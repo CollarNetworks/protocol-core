@@ -9,7 +9,7 @@ import { Loans, ILoans } from "../../src/Loans.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
-import { LoansTestBase } from "./Loans.basic.happy.t.sol";
+import { LoansTestBase } from "./Loans.basic.effects.t.sol";
 
 contract LoansRollTestBase is LoansTestBase {
     struct ExpectedRoll {

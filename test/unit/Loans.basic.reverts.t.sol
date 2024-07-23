@@ -12,7 +12,7 @@ import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
-import { LoansTestBase } from "./Loans.basic.happy.t.sol";
+import { LoansTestBase } from "./Loans.basic.effects.t.sol";
 
 contract LoansBasicRevertsTest is LoansTestBase {
     function test_revert_createLoan_params() public {
