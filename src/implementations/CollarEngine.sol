@@ -34,6 +34,8 @@ contract CollarEngine is Ownable, ICollarEngine {
     // configuration validation (validate on set)
     uint public MIN_CONFIGURABLE_LTV = 1000;
     uint public MAX_CONFIGURABLE_LTV = 9999;
+    uint public MIN_CONFIGURABLE_DURATION = 300;
+    uint public MAX_CONFIGURABLE_DURATION = 5 * 365 days;
     // configured values (set by owner)
     uint public minLTV;
     uint public maxLTV;
@@ -84,6 +86,8 @@ contract CollarEngine is Ownable, ICollarEngine {
 
     function setCollarDurationRange(uint min, uint max) external onlyOwner {
         require(min <= max, "min > max");
+        require(min >= MIN_CONFIGURABLE_DURATION, "min too low");
+        require(max <= MAX_CONFIGURABLE_DURATION, "max too high");
         minDuration = min;
         maxDuration = max;
         emit CollarDurationRangeSet(min, max);

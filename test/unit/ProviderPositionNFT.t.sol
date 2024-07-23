@@ -46,8 +46,8 @@ contract ProviderPositionNFTTest is Test {
 
     function setupMockEngine() public returns (MockEngine mockEngine) {
         mockEngine = new MockEngine(address(0));
-        mockEngine.setLTVRange(putDeviation - 1, putDeviation + 1);
-        mockEngine.setCollarDurationRange(duration - 1, duration + 1);
+        mockEngine.setLTVRange(putDeviation, putDeviation);
+        mockEngine.setCollarDurationRange(duration, duration);
     }
 
     function createAndCheckOffer(address provider, uint amount)
@@ -608,30 +608,28 @@ contract ProviderPositionNFTTest is Test {
 
     function test_revert_mintPositionFromOffer_EngineValidations() public {
         // set a putdeviation that willbe invalid later
-        engine.setLTVRange(putDeviation - 100, engine.maxLTV());
-        putDeviation = putDeviation - 100;
         (uint offerId,) = createAndCheckOffer(provider1, largeAmount);
+        vm.stopPrank();
+        putDeviation = putDeviation + 100;
+        engine.setLTVRange(putDeviation, putDeviation);
+        vm.startPrank(address(takerContract));
+        vm.expectRevert("unsupported LTV");
+        providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);
         vm.stopPrank();
         putDeviation = 9000;
         engine.setLTVRange(putDeviation, engine.maxLTV());
-        vm.startPrank(address(takerContract));
-
-        vm.expectRevert("unsupported LTV");
-        providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);
-
-        vm.stopPrank();
         // set a duration that will be invalid later
-        engine.setCollarDurationRange(200, engine.maxDuration());
-        duration = 200;
-        (offerId,) = createAndCheckOffer(provider1, largeAmount);
-        duration = 300;
-        vm.stopPrank();
         engine.setCollarDurationRange(duration, engine.maxDuration());
+        (offerId,) = createAndCheckOffer(provider1, largeAmount);
+        vm.stopPrank();
+        duration = duration + 100;
+        engine.setCollarDurationRange(duration, duration);
         vm.startPrank(address(takerContract));
         vm.expectRevert("unsupported duration");
         providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);
-
         vm.stopPrank();
+        duration = 300;
+        engine.setCollarDurationRange(duration, engine.maxDuration());
         engine.setCashAssetSupport(address(cashAsset), false);
         vm.expectRevert("unsupported asset");
         vm.startPrank(address(takerContract));

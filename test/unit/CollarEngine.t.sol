@@ -112,6 +112,9 @@ contract CollarEngineTest is Test {
     function test_getHistoricalAssetPriceViaTWAP_InvalidAsset() public {
         vm.expectRevert("not supported");
         engine.getHistoricalAssetPriceViaTWAP(address(token1), address(token2), 0, 0);
+        engine.setCashAssetSupport(address(token1), true);
+        vm.expectRevert("not supported");
+        engine.getHistoricalAssetPriceViaTWAP(address(token1), address(token2), 0, 0);
     }
 
     function test_isValidLTV() public {
@@ -146,6 +149,9 @@ contract CollarEngineTest is Test {
     }
 
     function test_revert_setLTVRange() public {
+        vm.expectRevert("min > max");
+        engine.setLTVRange(maxLTVToUse, minLTVToUse);
+
         vm.expectRevert("min too low");
         engine.setLTVRange(0, maxLTVToUse);
 
@@ -159,5 +165,16 @@ contract CollarEngineTest is Test {
         engine.setCollarDurationRange(minLTVToUse, maxDurationToUse);
         assertEq(engine.minDuration(), minLTVToUse);
         assertEq(engine.maxDuration(), maxDurationToUse);
+    }
+
+    function test_revert_setCollarDurationRange() public {
+        vm.expectRevert("min > max");
+        engine.setCollarDurationRange(maxDurationToUse, minDurationToUse);
+
+        vm.expectRevert("min too low");
+        engine.setCollarDurationRange(0, maxDurationToUse);
+
+        vm.expectRevert("max too high");
+        engine.setCollarDurationRange(minDurationToUse, 10 * 365 days);
     }
 }

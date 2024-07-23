@@ -66,8 +66,8 @@ contract CollarTakerNFTTest is Test {
         mockEngine = new MockEngine(address(0));
         mockEngine.setCashAssetSupport(address(cashAsset), true);
         mockEngine.setCollateralAssetSupport(address(collateralAsset), true);
-        mockEngine.setLTVRange(ltvToUse - 1, maxLTVToUse);
-        mockEngine.setCollarDurationRange(durationToUse - 1, durationToUse + 1);
+        mockEngine.setLTVRange(ltvToUse, maxLTVToUse);
+        mockEngine.setCollarDurationRange(durationToUse, durationToUse);
     }
 
     function setPricesAtTimestamp(MockEngine engineToUse, uint timestamp, uint price) internal {

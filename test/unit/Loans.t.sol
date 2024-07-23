@@ -76,8 +76,8 @@ contract LoansTest is Test {
     function setupEngine() public {
         engine.setCashAssetSupport(address(cashAsset), true);
         engine.setCollateralAssetSupport(address(collateralAsset), true);
-        engine.setLTVRange(ltv - 1, ltv + 1);
-        engine.setCollarDurationRange(duration - 1, duration + 1);
+        engine.setLTVRange(ltv, ltv);
+        engine.setCollarDurationRange(duration, duration);
     }
 
     function prepareSwap(TestERC20 asset, uint amount) public {
