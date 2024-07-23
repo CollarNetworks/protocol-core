@@ -31,8 +31,8 @@ contract ProviderPositionNFTTest is Test {
         collateralAsset = new TestERC20("TestCollat", "TestCollat");
         cashAsset.mint(provider1, 1_000_000 ether);
         engine = setupMockEngine();
-        engine.addSupportedCashAsset(address(cashAsset));
-        engine.addSupportedCollateralAsset(address(collateralAsset));
+        engine.setCashAssetSupport(address(cashAsset), true);
+        engine.setCollateralAssetSupport(address(collateralAsset), true);
         CollarTakerNFT collarTakerNFT =
             new CollarTakerNFT(owner, engine, cashAsset, collateralAsset, "TakerNFT", "TakerNFT");
         takerContract = address(collarTakerNFT);
@@ -46,8 +46,8 @@ contract ProviderPositionNFTTest is Test {
 
     function setupMockEngine() public returns (MockEngine mockEngine) {
         mockEngine = new MockEngine(address(0));
-        mockEngine.addLTV(putDeviation);
-        mockEngine.addCollarDuration(duration);
+        mockEngine.setLTVRange(putDeviation, putDeviation);
+        mockEngine.setCollarDurationRange(duration, duration);
     }
 
     function createAndCheckOffer(address provider, uint amount)
@@ -567,19 +567,20 @@ contract ProviderPositionNFTTest is Test {
         uint maxPutStrike = providerNFT.MAX_PUT_STRIKE_BIPS();
         vm.expectRevert("invalid put strike deviation");
         providerNFT.createOffer(callDeviation, largeAmount, maxPutStrike + 1, duration);
-
+        putDeviation = engine.minLTV() - 1;
         vm.expectRevert("unsupported LTV");
-        providerNFT.createOffer(callDeviation, largeAmount, putDeviation + 1, duration);
-
+        providerNFT.createOffer(callDeviation, largeAmount, putDeviation, duration);
+        putDeviation = 9000;
+        duration = engine.maxDuration() + 1;
         vm.expectRevert("unsupported duration");
-        providerNFT.createOffer(callDeviation, largeAmount, putDeviation, duration + 1);
+        providerNFT.createOffer(callDeviation, largeAmount, putDeviation, duration);
 
-        engine.removeSupportedCashAsset(address(cashAsset));
+        engine.setCashAssetSupport(address(cashAsset), false);
         vm.expectRevert("unsupported asset");
         providerNFT.createOffer(callDeviation, largeAmount, putDeviation, duration);
-        engine.addSupportedCashAsset(address(cashAsset));
+        engine.setCashAssetSupport(address(cashAsset), true);
 
-        engine.removeSupportedCollateralAsset(address(collateralAsset));
+        engine.setCollateralAssetSupport(address(collateralAsset), false);
         vm.expectRevert("unsupported asset");
         providerNFT.createOffer(callDeviation, largeAmount, putDeviation, duration);
     }
@@ -606,31 +607,37 @@ contract ProviderPositionNFTTest is Test {
     }
 
     function test_revert_mintPositionFromOffer_EngineValidations() public {
+        // set a putdeviation that willbe invalid later
         (uint offerId,) = createAndCheckOffer(provider1, largeAmount);
-
-        vm.stopPrank(); // sender is engine owner
-        engine.removeLTV(putDeviation);
+        vm.stopPrank();
+        putDeviation = putDeviation + 100;
+        engine.setLTVRange(putDeviation, putDeviation);
         vm.startPrank(address(takerContract));
         vm.expectRevert("unsupported LTV");
         providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);
-
         vm.stopPrank();
-        engine.addLTV(putDeviation);
-        engine.removeCollarDuration(duration);
+        putDeviation = 9000;
+        engine.setLTVRange(putDeviation, engine.maxLTV());
+        // set a duration that will be invalid later
+        engine.setCollarDurationRange(duration, engine.maxDuration());
+        (offerId,) = createAndCheckOffer(provider1, largeAmount);
+        vm.stopPrank();
+        duration = duration + 100;
+        engine.setCollarDurationRange(duration, duration);
         vm.startPrank(address(takerContract));
         vm.expectRevert("unsupported duration");
         providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);
-
         vm.stopPrank();
-        engine.addCollarDuration(duration);
-        engine.removeSupportedCashAsset(address(cashAsset));
+        duration = 300;
+        engine.setCollarDurationRange(duration, engine.maxDuration());
+        engine.setCashAssetSupport(address(cashAsset), false);
         vm.expectRevert("unsupported asset");
         vm.startPrank(address(takerContract));
         providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);
 
         vm.stopPrank();
-        engine.addSupportedCashAsset(address(cashAsset));
-        engine.removeSupportedCollateralAsset(address(collateralAsset));
+        engine.setCashAssetSupport(address(cashAsset), true);
+        engine.setCollateralAssetSupport(address(collateralAsset), false);
         vm.startPrank(address(takerContract));
         vm.expectRevert("unsupported asset");
         providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);

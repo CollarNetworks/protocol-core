@@ -86,24 +86,18 @@ contract DeployInitializedDevnetProtocol is Script {
         router = swapRouterAddress;
         engine = new CollarEngine(router);
 
-        // add supported LTV values
-        engine.addLTV(allLTVs[0]);
-        engine.addLTV(allLTVs[1]);
-
-        // add supported durations
-        engine.addCollarDuration(allDurations[0]);
-        engine.addCollarDuration(allDurations[1]);
-        engine.addCollarDuration(allDurations[2]);
-
-        // add supported assets
-        engine.addSupportedCashAsset(USDC);
-        engine.addSupportedCashAsset(USDT);
-        engine.addSupportedCashAsset(WETH);
-        engine.addSupportedCollateralAsset(WETH);
-        engine.addSupportedCollateralAsset(WBTC);
-        engine.addSupportedCollateralAsset(MATIC);
-        engine.addSupportedCollateralAsset(stETH);
-        engine.addSupportedCollateralAsset(weETH);
+        // add supported cash assets
+        engine.setCashAssetSupport(USDC, true);
+        engine.setCashAssetSupport(USDT, true);
+        engine.setCashAssetSupport(WETH, true);
+        // add supported collateral assets
+        engine.setCollateralAssetSupport(WETH, true);
+        engine.setCollateralAssetSupport(WBTC, true);
+        engine.setCollateralAssetSupport(MATIC, true);
+        engine.setCollateralAssetSupport(weETH, true);
+        engine.setCollateralAssetSupport(stETH, true);
+        engine.setLTVRange(allLTVs[1], allLTVs[0]);
+        engine.setCollarDurationRange(allDurations[0], allDurations[2]);
 
         console.log("\n --- Dev Environment Deployed ---");
         console.log("\n # Contract Addresses\n");
