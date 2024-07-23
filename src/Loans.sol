@@ -228,7 +228,20 @@ contract Loans is ILoans, Ownable, Pausable {
         emit LoanClosed(takerId, msg.sender, user, loan.loanAmount, cashAmount, collateralOut);
     }
 
-    // TODO: docs
+    /**
+     * @notice Rolls an existing loan to a new taker position with updated terms via a Rolls contract.
+     * The loan amount is updated according to the funds transferred, and the collateral is unchanged.
+     * Keeper settings are applied as for the initial loan.
+     * @dev The user must have approved this contract prior to calling:
+     *      - Cash asset for potential repayment (if needed according for Roll execution)
+     *      - The old CollarTakerNFT for transfer
+     * @param takerId The ID of the CollarTakerNFT representing the loan to be rolled
+     * @param rolls The Rolls contract to be used for this operation (must match the configured one)
+     * @param rollId The ID of the roll offer to be executed
+     * @param minLoanChange The minimum acceptable change in loan amount (negative if expecting to pay)
+     * @return newTakerId The ID of the newly created CollarTakerNFT representing the rolled loan
+     * @return newLoanAmount The updated loan amount after rolling
+     */
     function rollLoan(uint takerId, Rolls rolls, uint rollId, int minLoanChange)
         external
         whenNotPaused
