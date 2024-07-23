@@ -161,7 +161,7 @@ contract LoansTest is Test {
         assertEq(takerPosition.providerPositionId, providerId);
         assertEq(takerPosition.initialPrice, twapPrice);
         assertEq(takerPosition.putLockedCash, swapOut - loanAmount);
-        assertEq(takerPosition.openedAt, block.timestamp);
+        assertEq(takerPosition.duration, duration);
         assertEq(takerPosition.expiration, block.timestamp + duration);
         assertFalse(takerPosition.settled);
         assertEq(takerPosition.withdrawable, 0);
@@ -248,7 +248,6 @@ contract LoansTest is Test {
         assertEq(address(loans.takerNFT()), address(takerNFT));
         assertEq(address(loans.cashAsset()), address(cashAsset));
         assertEq(address(loans.collateralAsset()), address(collateralAsset));
-        assertEq(loans.TWAP_LENGTH(), 15 minutes);
         assertEq(loans.MAX_SWAP_TWAP_DEVIATION_BIPS(), 500);
         assertEq(loans.VERSION(), "0.2.0");
         assertEq(loans.owner(), owner);

@@ -52,7 +52,6 @@ contract Loans is ILoans, Ownable, Pausable {
 
     uint24 internal constant FEE_TIER_30_BIPS = 3000;
     uint internal constant BIPS_BASE = 10_000;
-    uint32 public constant TWAP_LENGTH = 15 minutes;
     /// should be set to not be overly restrictive since is mostly sanity-check
     uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 500;
 
@@ -366,17 +365,11 @@ contract Loans is ILoans, Ownable, Pausable {
     /// The caller (user) is protected via a slippage parameter, and SHOULD use it to avoid MEV (if present).
     /// So, this check is just extra precaution and avoidance of manipulation edge-cases.
     function _checkSwapPrice(uint cashFromSwap, uint collateralAmount) internal view {
-        uint twapPrice = _getTWAPPrice(block.timestamp);
+        uint twapPrice = takerNFT.getReferenceTWAPPrice(block.timestamp);
         // collateral is checked on open to not be 0
         uint swapPrice = cashFromSwap * engine.TWAP_BASE_TOKEN_AMOUNT() / collateralAmount;
         uint diff = swapPrice > twapPrice ? swapPrice - twapPrice : twapPrice - swapPrice;
         uint deviation = diff * BIPS_BASE / twapPrice;
         require(deviation <= MAX_SWAP_TWAP_DEVIATION_BIPS, "swap and twap price too different");
-    }
-
-    function _getTWAPPrice(uint twapEndTime) internal view returns (uint price) {
-        return engine.getHistoricalAssetPriceViaTWAP(
-            address(collateralAsset), address(cashAsset), uint32(twapEndTime), TWAP_LENGTH
-        );
     }
 }

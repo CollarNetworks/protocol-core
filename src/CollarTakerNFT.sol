@@ -59,6 +59,35 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         return nextTokenId;
     }
 
+    /// @dev TWAP price that's used in this contract for opening and settling positions
+    function getReferenceTWAPPrice(uint twapEndTime) public view returns (uint price) {
+        return engine.getHistoricalAssetPriceViaTWAP(
+            address(collateralAsset), address(cashAsset), uint32(twapEndTime), TWAP_LENGTH
+        );
+    }
+
+    /// @dev calculate the amount of cash the provider will lock for specific terms and taker
+    /// locked amount
+    function calculateProviderLocked(uint putLockedCash, uint putStrikeDeviation, uint callStrikeDeviation)
+        public
+        pure
+        returns (uint)
+    {
+        uint putRange = BIPS_BASE - putStrikeDeviation;
+        uint callRange = callStrikeDeviation - BIPS_BASE;
+        require(putRange != 0, "invalid put strike deviation"); // avoid division by zero
+        return callRange * putLockedCash / putRange; // proportionally scaled according to ranges
+    }
+
+    /// @dev preview the settlement calculation updates at a particular price
+    function previewSettlement(TakerPosition memory takerPos, uint endPrice)
+        external
+        pure
+        returns (uint takerBalance, int providerChange)
+    {
+        return _settlementCalculations(takerPos, endPrice);
+    }
+
     // ----- STATE CHANGING FUNCTIONS ----- //
 
     function openPairedPosition(
@@ -72,7 +101,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         cashAsset.safeTransferFrom(msg.sender, address(this), putLockedCash);
 
         // get TWAP price
-        uint twapPrice = _getTWAPPrice(block.timestamp);
+        uint twapPrice = getReferenceTWAPPrice(block.timestamp);
 
         // stores, mints, calls providerNFT and mints there, emits the event
         (takerId, providerId) = _openPairedPositionInternal(twapPrice, putLockedCash, providerNFT, offerId);
@@ -83,7 +112,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         ProviderPositionNFT providerNFT = position.providerNFT;
         uint providerId = position.providerPositionId;
 
-        require(position.openedAt != 0, "position doesn't exist");
+        require(position.expiration != 0, "position doesn't exist");
         // access is restricted because NFT owners might want to cancel (unwind) instead
         require(
             msg.sender == ownerOf(takerId) || msg.sender == providerNFT.ownerOf(providerId),
@@ -95,7 +124,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         position.settled = true; // set here to prevent reentrancy
 
         // get settlement price
-        uint endPrice = _getTWAPPrice(position.expiration);
+        uint endPrice = getReferenceTWAPPrice(position.expiration);
 
         (uint withdrawable, int providerChange) = _settlementCalculations(position, endPrice);
 
@@ -167,7 +196,8 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         ProviderPositionNFT providerNFT,
         uint offerId
     ) internal returns (uint takerId, uint providerId) {
-        uint callLockedCash = _calculateProviderLocked(putLockedCash, providerNFT, offerId);
+        ProviderPositionNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
+        uint callLockedCash = _calculateProviderLocked(putLockedCash, offer);
 
         // open the provider position with duration and callLockedCash locked liquidity (reverts if can't)
         // and sends the provider NFT to the provider
@@ -182,7 +212,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         TakerPosition memory takerPosition = TakerPosition({
             providerNFT: providerNFT,
             providerPositionId: providerId,
-            openedAt: block.timestamp,
+            duration: offer.duration,
             expiration: providerPosition.expiration,
             initialPrice: twapPrice,
             putStrikePrice: putStrikePrice,
@@ -236,30 +266,20 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         // is trusted by user (passed in input), and trusted by engine (was checked vs. engine above)
     }
 
-    function _getTWAPPrice(uint twapEndTime) internal view returns (uint price) {
-        return engine.getHistoricalAssetPriceViaTWAP(
-            address(collateralAsset), address(cashAsset), uint32(twapEndTime), TWAP_LENGTH
-        );
-    }
-
     // calculations
 
-    function _calculateProviderLocked(uint putLockedCash, ProviderPositionNFT providerNFT, uint offerId)
+    function _calculateProviderLocked(uint putLockedCash, ProviderPositionNFT.LiquidityOffer memory offer)
         internal
-        view
+        pure
         returns (uint)
     {
-        ProviderPositionNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
         require(offer.provider != address(0), "invalid offer");
-        uint putRange = BIPS_BASE - offer.putStrikeDeviation;
-        uint callRange = offer.callStrikeDeviation - BIPS_BASE;
-        require(putRange != 0, "invalid put strike deviation"); // avoid division by zero
-        return callRange * putLockedCash / putRange; // proportionally scaled according to ranges
+        return calculateProviderLocked(putLockedCash, offer.putStrikeDeviation, offer.callStrikeDeviation);
     }
 
-    function _settlementCalculations(TakerPosition storage position, uint endPrice)
+    function _settlementCalculations(TakerPosition memory position, uint endPrice)
         internal
-        view
+        pure
         returns (uint withdrawable, int providerChange)
     {
         uint startPrice = position.initialPrice;

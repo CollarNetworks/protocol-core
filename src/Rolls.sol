@@ -1,0 +1,492 @@
+// SPDX-License-Identifier: MIT
+
+/*
+ * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocolentAsset.xyz>
+ * All rights reserved. No warranty, explicit or implicit, provided.
+ */
+
+pragma solidity 0.8.22;
+
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+// internal imports
+import { IRolls } from "./interfaces/IRolls.sol";
+import { CollarTakerNFT } from "./CollarTakerNFT.sol";
+import { ProviderPositionNFT } from "./ProviderPositionNFT.sol";
+
+/**
+ * @title Rolls
+ * @dev This contract manages the "rolling" of existing collar positions before expiry to new strikes and
+ * expiry.
+ *
+ * Main Functionality:
+ * 1. Allows providers to create roll offers for existing positions.
+ * 2. Handles the cancellation of created roll offers.
+ * 3. Executes rolls, cancelling (settling) existing positions and creating new ones with updated terms.
+ * 4. Manages the transfer of funds between takers and providers during rolls.
+ *
+ * Role in the Protocol:
+ * Allows for the extension or modification of existing positions prior to expiry if both parties agree.
+ *
+ * Key Assumptions and Prerequisites:
+ * 1. The CollarTakerNFT and ProviderPositionNFT contracts are correctly implemented and authorized.
+ * 2. The cash asset (ERC-20) used is standard compliant (non-rebasing, no transfer fees, no callbacks).
+ * 3. Providers must approve this contract to transfer their ProviderPositionNFTs and cash when creating
+ * and offer. The NFT is transferred on offer creation, and cash will be transferred on execution, if
+ * and when the user accepts the offer.
+ * 4. Takers must approve this contract to transfer their CollarTakerNFTs and any cash that's needed
+ * to be pulled.
+ *
+ * Design Considerations:
+ * 1. Offers are made by providers, and accepted (and executed) by takers.
+ * 2. Implements pausability for emergency situations.
+ * 3. Calculates fees based on price changes to allow correct fee pricing when asset price moves.
+ * 4. Settles existing positions and creates new ones atomically to ensure consistency.
+ *
+ * Security Considerations:
+ * 1. Does not hold cash (only during execution), but will have approvals to spend cash.
+ * 2. Signed integers are used for many input and output values, and proper care should be
+ * taken in understanding the semantics of the positive and negative values.
+ */
+contract Rolls is IRolls, Ownable, Pausable {
+    using SafeERC20 for IERC20;
+    using SafeCast for uint;
+
+    uint internal constant BIPS_BASE = 10_000;
+
+    string public constant VERSION = "0.2.0";
+
+    // ----- IMMUTABLES ----- //
+    CollarTakerNFT public immutable takerNFT;
+    IERC20 public immutable cashAsset;
+
+    // ----- STATE VARIABLES ----- //
+
+    uint public nextRollId;
+
+    mapping(uint rollId => RollOffer) internal rollOffers;
+
+    constructor(address initialOwner, CollarTakerNFT _takerNFT, IERC20 _cashAsset) Ownable(initialOwner) {
+        takerNFT = _takerNFT;
+        cashAsset = _cashAsset;
+    }
+
+    // ----- VIEW FUNCTIONS ----- //
+
+    /// @dev return memory struct (the default getter returns tuple)
+    function getRollOffer(uint rollId) external view returns (RollOffer memory) {
+        return rollOffers[rollId];
+    }
+
+    /**
+     * @notice Calculates the roll fee based on the price
+     * @dev The fee changes based on the price change since the offer was created.
+     * All three of - price change, roll fee, and delta-factor - can be negative. The fee is adjusted
+     * such that positive `price-change x delta-factor` increase the fee (provider benefits), and decrease
+     * the fee (taker benefits) if negative.
+     * 0 delta-factor means the fee is constant, 100% delta-factor (10_000 in bips), means the price
+     * linearly scales the fee (according to the sign logic)
+     * @param offer The roll offer to calculate the fee for
+     * @param currentPrice The current price to use for the calculation
+     * @return rollFee The calculated roll fee (in cash amount)
+     */
+    function calculateRollFee(RollOffer memory offer, uint currentPrice) public pure returns (int rollFee) {
+        int prevPrice = offer.rollFeeReferencePrice.toInt256();
+        int priceChange = currentPrice.toInt256() - prevPrice;
+        // Scaling the fee magnitude by the delta (price change) multiplied by the factor.
+        // For deltaFactor of 100%, this results in linear scaling of the fee with price.
+        // If factor is BIPS_BASE the amount moves with the price. E.g., 5% price increase, 5% fee increase.
+        // If factor is, e.g., 50% the fee increases only 2.5% for a 5% price increase.
+        int feeSize = _abs(offer.rollFeeAmount).toInt256();
+        int change = feeSize * offer.rollFeeDeltaFactorBIPS * priceChange / prevPrice / int(BIPS_BASE);
+        // Apply the change depending on the sign of the delta * price-change.
+        // Positive factor means provider gets more money with higher price.
+        // Negative factor means user gets more money with higher price.
+        // E.g., if the fee is -5, the sign of the factor specifies whether provider gains (+5% -> -4.75)
+        // or user gains (+5% -> -5.25) with price increase.
+        rollFee = offer.rollFeeAmount + change;
+    }
+
+    /**
+     * @notice Calculates the amounts to be transferred during a roll execution at a specific price.
+     * This does not check any of the execution validity conditions (deadline, price range, etc...).
+     * @dev If validity is important, a staticcall to the executeRoll method should be used instead of
+     * this view.
+     * @param rollId The ID of the roll offer
+     * @param price The price to use for the calculation
+     * @return toTaker The amount that would be transferred to (or from, if negative) the taker
+     * @return toProvider The amount that would be transferred to (or from, if negative) the provider
+     * @return rollFee The roll fee that would be applied
+     */
+    function calculateTransferAmounts(uint rollId, uint price)
+        external
+        view
+        returns (int toTaker, int toProvider, int rollFee)
+    {
+        RollOffer memory offer = rollOffers[rollId];
+        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offer.takerId);
+        rollFee = calculateRollFee(offer, price);
+        (toTaker, toProvider) = _calculateTransferAmounts({
+            startPrice: takerPos.initialPrice,
+            newPrice: price,
+            rollFeeAmount: rollFee,
+            takerPos: takerPos,
+            providerPos: takerPos.providerNFT.getPosition(takerPos.providerPositionId)
+        });
+    }
+
+    // ----- MUTATIVE FUNCTIONS ----- //
+
+    /**
+     * @notice Creates a new roll offer for an existing taker NFT position and pulls the provider NFT.
+     * @dev The provider must own the ProviderPositionNFT for the position to be rolled
+     * @param takerId The ID of the CollarTakerNFT position to be rolled
+     * @param rollFeeAmount The base fee for the roll, can be positive (paid by taker) or
+     *     negative (paid by provider)
+     * @param rollFeeDeltaFactorBIPS How much the fee changes with price, in basis points, can be
+     *     negative. Positive means asset price increase benefits provider, and negative benefits user.
+     * @param minPrice The minimum acceptable price for roll execution
+     * @param maxPrice The maximum acceptable price for roll execution
+     * @param minToProvider The minimum amount the provider is willing to receive, or maximum willing to pay if negative. The execution transfer (in or out) will be checked to be >= this value.
+     * @param deadline The timestamp after which this offer can no longer be executed
+     * @return rollId The ID of the newly created roll offer
+     *
+     * @dev if the provider will need to provide cash on execution, they must approve the contract to pull that
+     * cash when submitting the offer (and have those funds available), so that it is executable.
+     * If offer becomes unexecutable due to insufficient provider cash approval or balance it should ideally be
+     * filtered out by the FE as not executable (and provider be made aware).
+     */
+    function createRollOffer(
+        uint takerId,
+        int rollFeeAmount,
+        int rollFeeDeltaFactorBIPS,
+        // provider protection
+        uint minPrice,
+        uint maxPrice,
+        int minToProvider,
+        uint deadline
+    ) external whenNotPaused returns (uint rollId) {
+        // taker position is valid
+        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
+        require(takerPos.expiration != 0, "taker position doesn't exist");
+        require(!takerPos.settled, "taker position settled");
+
+        ProviderPositionNFT providerNFT = takerPos.providerNFT;
+        uint providerId = takerPos.providerPositionId;
+        // caller is owner
+        require(msg.sender == providerNFT.ownerOf(providerId), "not provider ID owner");
+
+        // sanity check bounds
+        require(minPrice < maxPrice, "max price not higher than min price");
+        require(_abs(rollFeeDeltaFactorBIPS) <= BIPS_BASE, "invalid fee delta change");
+        require(deadline >= block.timestamp, "deadline passed");
+
+        // pull the NFT
+        providerNFT.transferFrom(msg.sender, address(this), providerId);
+
+        // @dev if provider expects to pay, check that they have granted sufficient balance and approvals already
+        // according to their max payment expectation
+        if (minToProvider < 0) {
+            uint maxFromProvider = uint(-minToProvider);
+            // @dev provider may still have insufficient allowance or balance when user will try to accept
+            // but this check makes it a tiny bit harder to spoof offers, and reduces chance of errors.
+            // Depositing the funds for each roll offer is avoided because it's capital inefficient, since
+            // each offer is for a specific position.
+            require(cashAsset.balanceOf(msg.sender) >= maxFromProvider, "insufficient cash balance");
+            require(
+                cashAsset.allowance(msg.sender, address(this)) >= maxFromProvider,
+                "insufficient cash allowance"
+            );
+        }
+
+        // store the offer
+        rollId = nextRollId++;
+        rollOffers[rollId] = RollOffer({
+            takerId: takerId,
+            rollFeeAmount: rollFeeAmount,
+            rollFeeDeltaFactorBIPS: rollFeeDeltaFactorBIPS,
+            rollFeeReferencePrice: _getCurrentPrice(), // the roll offer fees are for current price
+            minPrice: minPrice,
+            maxPrice: maxPrice,
+            minToProvider: minToProvider,
+            deadline: deadline,
+            providerNFT: providerNFT,
+            providerId: providerId,
+            provider: msg.sender,
+            active: true
+        });
+
+        emit OfferCreated(takerId, msg.sender, providerNFT, providerId, rollFeeAmount, rollId);
+    }
+
+    /**
+     * @notice Cancels an existing roll offer and returns the provider NFT to the sender.
+     * @dev Can only be called by the original offer creator
+     * @param rollId The ID of the roll offer to cancel
+     *
+     * @dev only cancel and no updating, to prevent frontrunning a user's acceptance
+     * The risk of update is different here from providerNFT.updateOfferAmount because
+     * the most an update can cause there is a revert of taking the offer.
+     */
+    function cancelOffer(uint rollId) external whenNotPaused {
+        RollOffer storage offer = rollOffers[rollId];
+        require(msg.sender == offer.provider, "not initial provider");
+        require(offer.active, "offer not active");
+        // cancel offer
+        offer.active = false;
+        // return the NFT
+        offer.providerNFT.transferFrom(address(this), msg.sender, offer.providerId);
+        emit OfferCancelled(rollId, offer.takerId, offer.provider);
+    }
+
+    /**
+     * @notice Executes a roll, settling the existing paired position and creating a new one.
+     * This pulls and distributes cash, pulls taker NFT, and sends out new taker and provider NFTs.
+     * @dev The caller must be the owner of the CollarTakerNFT for the position being rolled,
+     * and must have approved sufficient cash if cash needs to be paid (depends on offer and current price)
+     * @param rollId The ID of the roll offer to execute
+     * @param minToUser The minimum amount the user (taker) is willing to receive, or maximum willing to pay if negative. The execution transfer (in or out) will be checked to be >= this value.
+     * @return newTakerId The ID of the newly created CollarTakerNFT position
+     * @return newProviderId The ID of the newly created ProviderPositionNFT position
+     * @return toTaker The amount transferred to (or from, if negative) the taker
+     * @return toProvider The amount transferred to (or from, if negative) the provider
+     */
+    function executeRoll(
+        uint rollId,
+        int minToUser // signed "slippage", user protection
+    ) external whenNotPaused returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider) {
+        RollOffer storage offer = rollOffers[rollId];
+        // offer was cancelled (if taken tokens would be burned)
+        require(offer.active, "invalid offer");
+        // store the inactive state before external calls as extra reentrancy precaution
+        // @dev this writes to storage
+        offer.active = false;
+
+        // auth, will revert if takerId was burned already
+        require(msg.sender == takerNFT.ownerOf(offer.takerId), "not taker ID owner");
+
+        // position is not settled yet. it must exist still (otherwise ownerOf would revert)
+        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offer.takerId);
+        require(!takerPos.settled, "taker position settled");
+
+        // offer is within its terms
+        uint currentPrice = _getCurrentPrice();
+        require(currentPrice <= offer.maxPrice, "price too high");
+        require(currentPrice >= offer.minPrice, "price too low");
+        require(offer.deadline >= block.timestamp, "deadline passed");
+
+        (newTakerId, newProviderId, toTaker, toProvider) = _executeRoll(rollId, currentPrice, takerPos);
+
+        // check transfers are sufficient / or pulls are not excessive
+        require(toTaker >= minToUser, "taker transfer slippage");
+        require(toProvider >= offer.minToProvider, "provider transfer slippage");
+    }
+
+    // admin mutative
+
+    /// @notice Pauses the contract in an emergency, pausing all user callable mutative methods
+    function pause() public onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpauses the contract
+    function unpause() public onlyOwner {
+        _unpause();
+    }
+
+    // ----- INTERNAL MUTATIVE ----- //
+
+    function _executeRoll(uint rollId, uint currentPrice, CollarTakerNFT.TakerPosition memory takerPos)
+        internal
+        returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider)
+    {
+        // @dev this is memory, not storage
+        RollOffer memory offer = rollOffers[rollId];
+        // pull the taker NFT from the user (we already have the provider NFT)
+        takerNFT.transferFrom(msg.sender, address(this), offer.takerId);
+        // now that we have both NFTs, cancel the positions and withdraw
+        _cancelPairedPositionAndWithdraw(offer.takerId, takerPos);
+
+        ProviderPositionNFT providerNFT = takerPos.providerNFT;
+        ProviderPositionNFT.ProviderPosition memory providerPos =
+            providerNFT.getPosition(takerPos.providerPositionId);
+        // calculate the transfer amounts
+        int rollFee = calculateRollFee(offer, currentPrice);
+        (toTaker, toProvider) = _calculateTransferAmounts({
+            startPrice: takerPos.initialPrice,
+            newPrice: currentPrice,
+            rollFeeAmount: rollFee,
+            takerPos: takerPos,
+            providerPos: providerPos
+        });
+
+        // pull cash as needed
+        _pullCash(toTaker, msg.sender, toProvider, offer.provider);
+
+        // open the new positions
+        (newTakerId, newProviderId) = _openNewPairedPosition(currentPrice, providerNFT, takerPos, providerPos);
+
+        // pay cash as needed
+        _payCash(toTaker, msg.sender, toProvider, offer.provider);
+
+        // we now own both of the NFT IDs, so send them out to their new proud owners
+        takerNFT.transferFrom(address(this), msg.sender, newTakerId);
+        providerNFT.transferFrom(address(this), offer.provider, newProviderId);
+
+        emit OfferExecuted(
+            rollId,
+            offer.takerId,
+            offer.providerNFT,
+            offer.providerId,
+            toTaker,
+            toProvider,
+            rollFee,
+            newTakerId,
+            newProviderId
+        );
+    }
+
+    function _pullCash(int toTaker, address taker, int toProvider, address provider) internal {
+        if (toTaker < 0) {
+            // assumes approval from the taker
+            cashAsset.safeTransferFrom(taker, address(this), uint(-toTaker));
+        }
+        if (toProvider < 0) {
+            // @dev this requires the original owner of the providerId (stored in the offer) when
+            // the roll offer was created to still allow this contract to pull their funds, and
+            // still have sufficient balance for that.
+            cashAsset.safeTransferFrom(provider, address(this), uint(-toProvider));
+        }
+    }
+
+    function _payCash(int toTaker, address taker, int toProvider, address provider) internal {
+        if (toTaker > 0) {
+            cashAsset.safeTransfer(taker, uint(toTaker));
+        }
+        if (toProvider > 0) {
+            cashAsset.safeTransfer(provider, uint(toProvider));
+        }
+    }
+
+    function _cancelPairedPositionAndWithdraw(uint takerId, CollarTakerNFT.TakerPosition memory takerPos)
+        internal
+    {
+        // approve the takerNFT to pull the provider NFT, as both NFTs are needed for cancellation
+        takerPos.providerNFT.approve(address(takerNFT), takerPos.providerPositionId);
+        // cancel and withdraw the cash from the existing paired position
+        // @dev this relies on being the owner of both NFTs. it burns both NFTs, and withdraws
+        // both put and locked cash to this contract
+        uint balanceBefore = cashAsset.balanceOf(address(this));
+        takerNFT.cancelPairedPosition(takerId, address(this));
+        uint withdrawn = cashAsset.balanceOf(address(this)) - balanceBefore;
+        // @dev if this changes, the calculations need to be updated
+        uint expectedAmount = takerPos.putLockedCash + takerPos.callLockedCash;
+        require(withdrawn == expectedAmount, "unexpected withdrawal amount");
+    }
+
+    function _openNewPairedPosition(
+        uint currentPrice,
+        ProviderPositionNFT providerNFT,
+        CollarTakerNFT.TakerPosition memory takerPos,
+        ProviderPositionNFT.ProviderPosition memory providerPos
+    ) internal returns (uint newTakerId, uint newProviderId) {
+        // calculate locked amounts for new positions
+        (uint newPutLocked, uint newCallLocked) = _newLockedAmounts({
+            startPrice: takerPos.initialPrice,
+            newPrice: currentPrice,
+            putLocked: takerPos.putLockedCash,
+            putDeviation: providerPos.putStrikeDeviation,
+            callDeviation: providerPos.callStrikeDeviation
+        });
+
+        // create a liquidity offer just for this roll
+        cashAsset.forceApprove(address(providerNFT), newCallLocked);
+        uint liquidityOfferId = providerNFT.createOffer({
+            callStrikeDeviation: providerPos.callStrikeDeviation,
+            amount: newCallLocked,
+            putStrikeDeviation: providerPos.putStrikeDeviation,
+            duration: takerPos.duration
+        });
+
+        // take the liquidity offer as taker
+        cashAsset.forceApprove(address(takerNFT), newPutLocked);
+        (newTakerId, newProviderId) = takerNFT.openPairedPosition(newPutLocked, providerNFT, liquidityOfferId);
+
+        // withdraw any dust from the liquidity offer, in case of possible rounding in calculations.
+        // should be 0 because the same calculation method is used
+        providerNFT.updateOfferAmount(liquidityOfferId, 0);
+    }
+
+    // ----- INTERNAL VIEWS ----- //
+
+    function _abs(int a) internal pure returns (uint) {
+        return a > 0 ? uint(a) : uint(-a);
+    }
+
+    function _calculateTransferAmounts(
+        uint startPrice,
+        uint newPrice,
+        int rollFeeAmount,
+        CollarTakerNFT.TakerPosition memory takerPos,
+        ProviderPositionNFT.ProviderPosition memory providerPos
+    ) internal view returns (int toTaker, int toProvider) {
+        // what would the taker and provider get from a settlement of the old position at current price
+        (uint takerSettled, int providerChange) = takerNFT.previewSettlement(takerPos, newPrice);
+        int providerSettled = takerPos.callLockedCash.toInt256() + providerChange;
+
+        // what are the new locked amounts as they will be calculated when opening the new positions
+        (uint newPutLocked, uint newCallLocked) = _newLockedAmounts({
+            startPrice: startPrice,
+            newPrice: newPrice,
+            putLocked: takerPos.putLockedCash,
+            putDeviation: providerPos.putStrikeDeviation,
+            callDeviation: providerPos.callStrikeDeviation
+        });
+
+        // The taker and provider external balances (before fee) should be updated according to
+        // their PNL: the money released from their settled position minus the cost of opening the new position.
+        // The roll-fee is applied, and can represent any arbitrary adjustment to this (that's expressed by the offer).
+        toTaker = takerSettled.toInt256() - newPutLocked.toInt256() - rollFeeAmount;
+        toProvider = providerSettled - newCallLocked.toInt256() + rollFeeAmount;
+
+        /*
+            Does this balance out? After settlement (aligned to see what cancels out):
+
+            The contract balance    = takerSettled + providerSettled
+
+            The contract receives / pays:
+                1. toPairedPosition =                                  newPutLocked + newCallLocked
+                2. toTaker          = takerSettled                   - newPutLocked                 - fee
+                3. toProvider       =                providerSettled                - newCallLocked + fee
+
+            All payments summed     = takerSettled + providerSettled
+
+            So the contract pays out everything it receives, and everyone gets their correct updates.
+        */
+    }
+
+    // @dev the amounts needed for a new position given the old position
+    function _newLockedAmounts(
+        uint startPrice,
+        uint newPrice,
+        uint putLocked,
+        uint putDeviation,
+        uint callDeviation
+    ) internal view returns (uint newPutLocked, uint newCallLocked) {
+        // simply scale up using price. As the putLockedCash is the main input to CollarTakerNFT's
+        // open, this determines the new funds needed.
+        // The reason this needs to be scaled with price, instead of just using the previous amount
+        // is that this can serve the loans use-case, where the "collateral" value (price exposure) is
+        // maintained constant (instead of the dollar amount).
+        newPutLocked = putLocked * newPrice / startPrice;
+        // use the method that CollarTakerNFT will use to calculate the provider part
+        newCallLocked = takerNFT.calculateProviderLocked(newPutLocked, putDeviation, callDeviation);
+    }
+
+    function _getCurrentPrice() internal view returns (uint) {
+        return takerNFT.getReferenceTWAPPrice(block.timestamp);
+    }
+}

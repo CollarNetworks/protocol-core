@@ -31,7 +31,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
 
         // Perform checks
         assertEq(address(position.providerNFT), address(providerNFT));
-        assertEq(position.openedAt, block.timestamp);
+        assertEq(position.duration, positionDuration);
         assertEq(position.expiration, block.timestamp + positionDuration);
         assertEq(position.putStrikePrice, position.initialPrice * offerLTV / 10_000);
         assert(position.callStrikePrice > position.initialPrice);
