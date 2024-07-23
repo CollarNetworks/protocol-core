@@ -228,7 +228,7 @@ contract Loans is ILoans, Ownable, Pausable {
         emit LoanClosed(takerId, msg.sender, user, loan.loanAmount, cashAmount, collateralOut);
     }
 
-    // TODO: tests, docs
+    // TODO: docs
     function rollLoan(uint takerId, Rolls rolls, uint rollId, int minLoanChange)
         external
         whenNotPaused
@@ -241,6 +241,7 @@ contract Loans is ILoans, Ownable, Pausable {
         // @dev user intent validation in case rolls contract config value was updated
         require(rolls == rollsContract, "rolls contract mismatch");
         require(rollsContract.getRollOffer(rollId).active, "invalid rollId"); // avoid using invalid data
+        // @dev Rolls will check if taker position is still valid (unsettled)
 
         // loan
         Loan storage loan = loans[takerId];

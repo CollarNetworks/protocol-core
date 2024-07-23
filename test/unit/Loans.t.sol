@@ -517,6 +517,13 @@ contract LoansTest is Test {
         checkCloseRolledLoan(newTakerId, expected.newLoanAmount);
     }
 
+    function test_rollLoan_keeperAllowedBy_preserved() public {
+        (uint takerId,,) = createAndCheckLoan();
+        loans.setKeeperAllowedBy(takerId, true);
+        // checked to correspond to previous value in checkRollLoan
+        checkRollLoan(takerId, twapPrice);
+    }
+
     function test_rollLoan_price_increase() public {
         (uint takerId,,) = createAndCheckLoan();
         // +5%
@@ -889,6 +896,15 @@ contract LoansTest is Test {
         vm.startPrank(user1);
         vm.expectRevert("invalid rollId");
         loans.rollLoan(takerId, rolls, rollId + 1, type(int).min);
+
+        // cancelled roll offer
+        vm.startPrank(provider);
+        rolls.cancelOffer(rollId);
+        vm.startPrank(user1);
+        vm.expectRevert("invalid rollId");
+        loans.rollLoan(takerId, rolls, rollId, type(int).min);
+
+        rollId = createRollOffer(takerId);
 
         // Caller is not the taker NFT owner
         vm.startPrank(address(0xdead));
