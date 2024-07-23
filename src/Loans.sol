@@ -30,6 +30,7 @@ import { ILoans } from "./interfaces/ILoans.sol";
  * 4. Manages loan closure, including repayment and swapping back to collateral.
  * 5. Provides keeper functionality for automated loan closure to allow avoiding price
  * fluctuations negatively impacting swapping back to collateral.
+ * 6. Allows rolling (extending) the laon via an owner and user approved Rolls contract.
  *
  * Role in the Protocol:
  * This contract acts as the main entry point for borrowers in the Collar Protocol.
@@ -39,6 +40,7 @@ import { ILoans } from "./interfaces/ILoans.sol";
  * 2. The CollarTakerNFT and ProviderPositionNFT contracts are correctly implemented and authorized.
  * 3. The CollarEngine contract correctly manages protocol parameters and reports prices.
  * 4. Assets (ERC-20) used are standard compliant (non-rebasing, no transfer fees, no callbacks).
+ * 5. The Rolls contract is trusted by user (and allowed by owner) and correctly rolls the taker position.
  *
  * Design Considerations:
  * 1. Uses CollarTakerNFT NFTs to represent loan positions, allowing for potential secondary market trading.
@@ -230,7 +232,8 @@ contract Loans is ILoans, Ownable, Pausable {
 
     /**
      * @notice Rolls an existing loan to a new taker position with updated terms via a Rolls contract.
-     * The loan amount is updated according to the funds transferred, and the collateral is unchanged.
+     * The loan amount is updated according to the funds transferred (excluding the roll-fee), and the
+     * collateral is unchanged.
      * Keeper settings are applied as for the initial loan.
      * @dev The user must have approved this contract prior to calling:
      *      - Cash asset for potential repayment (if needed according for Roll execution)
@@ -241,7 +244,7 @@ contract Loans is ILoans, Ownable, Pausable {
      * @param minToUser The minimum acceptable transfer to user (negative if expecting to pay)
      * @return newTakerId The ID of the newly created CollarTakerNFT representing the rolled loan
      * @return newLoanAmount The updated loan amount after rolling
-     * @return transferAmount The actual transfer to user (or from user if negative)
+     * @return transferAmount The actual transfer to user (or from user if negative) including roll-fee
      */
     function rollLoan(uint takerId, Rolls rolls, uint rollId, int minToUser)
         external
