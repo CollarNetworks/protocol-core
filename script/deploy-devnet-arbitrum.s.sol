@@ -1,47 +1,33 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.18;
+pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
 
-import { ICollarVaultState } from "../src/interfaces/ICollarVaultState.sol";
-import { CollarPool } from "../src/implementations/CollarPool.sol";
-import { CollarVaultManager } from "../src/implementations/CollarVaultManager.sol";
 import { CollarEngine } from "../src/implementations/CollarEngine.sol";
+import { ProviderPositionNFT } from "../src/ProviderPositionNFT.sol";
+import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
+import { Loans } from "../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+// import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 /**
- * THIS SCRIPT ASSUMES A POLYGON MAINNET FORK ENVIRONMENT
+ * @title DeployInitializedDevnetProtocol
+ * @dev This script deploys and initializes the Collar Protocol for a development environment.
  *
- * 1. deploys the following contracts:
- * cashToken:  cash asset for the collar pool
- * collateralToken :  colaterall asset for the collar pool
- * router: uniswap router for the engine
- * engine: collar engine
- * oneDayPool: Collar pool with 1 day duration
- * oneWeekPool: Collar pool with 7 days duration
+ * It performs the following actions:
+ * 1. Deploys the CollarEngine contract.
+ * 2. Creates 11 pairs of ProviderPositionNFT, CollarTakerNFT, and Loans contracts.
+ * 3. Sets up supported assets, LTVs, and durations in the CollarEngine.
+ * 4. Creates initial liquidity offers for each pair.
+ * 5. Performs various checks to ensure correct deployment and initialization.
  *
- * 2. adds liquidity pools,assets and durations to the engine
- * 3. mints a million of each asset to the router
- * 4. mints 100k and 200k to test addresses
- * 5. creates vault managers for two test addresses
- * 6. adds liquidity to the slots `11_100,11_200,11_500,12_000` for both pools
+ * The script is designed to work on an Arbitrum fork, but can be adapted for other networks.
  */
-
 contract DeployInitializedDevnetProtocol is Script {
-    using SafeERC20 for IERC20;
-
     address router;
-    address engine;
+    CollarEngine engine;
 
-    /**
-     * @dev config for script:
-     * setup token addresses depending on the forked network
-     * setup the swap router address
-     * setup the number of pools to create (modify if `_createPools` is modified)
-     * setup chainId for the forked network to use
-     * CURRENT FORKED NETWORK: ETHEREUM MAINNET
-     */
     uint chainId = 137_999; // id for ethereum mainnet fork on tenderly
     address USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
     address USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
@@ -51,7 +37,25 @@ contract DeployInitializedDevnetProtocol is Script {
     address WBTC = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
     address MATIC = 0x561877b6b3DD7651313794e5F2894B2F18bE0766;
     address swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
-    uint constant numOfPools = 11;
+    uint constant numOfPairs = 11;
+    uint[] callStrikeTicks = [11_100, 11_200, 11_500, 12_000];
+    uint[] allDurations = [5 minutes, 30 days, 12 * 30 days];
+    uint[] allLTVs = [9000, 5000];
+    uint cashAmountPerOffer = 100_000e6;
+    uint collateralAmountForLoan = 1 ether;
+    uint expectedOfferCount = 44;
+
+    struct AssetPairContracts {
+        ProviderPositionNFT providerNFT;
+        CollarTakerNFT takerNFT;
+        Loans loansContract;
+        IERC20 cashAsset;
+        IERC20 collateralAsset;
+        uint[] durations;
+        uint[] ltvs;
+    }
+
+    AssetPairContracts[] public assetPairContracts;
 
     function setup()
         internal
@@ -60,7 +64,7 @@ contract DeployInitializedDevnetProtocol is Script {
         VmSafe.Wallet memory deployerWallet = vm.createWallet(vm.envUint("PRIVKEY_DEV_DEPLOYER"));
         VmSafe.Wallet memory user1Wallet = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST1"));
         VmSafe.Wallet memory user2Wallet = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST2"));
-        VmSafe.Wallet memory liquidityProviderWallet = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST3"));
+        VmSafe.Wallet memory liquidityProviderWallet = vm.createWallet(vm.envUint("PRIVKEY_DEV_DEPLOYER"));
 
         vm.rememberKey(deployerWallet.privateKey);
         vm.rememberKey(user1Wallet.privateKey);
@@ -80,166 +84,238 @@ contract DeployInitializedDevnetProtocol is Script {
 
     function _deployandSetupEngine() internal {
         router = swapRouterAddress;
-        engine = address(new CollarEngine(router));
+        engine = new CollarEngine(router);
 
-        // add supported LTV values
-        CollarEngine(engine).addLTV(9000);
-        CollarEngine(engine).addLTV(5000);
-        // add supported durations
-        CollarEngine(engine).addCollarDuration(5 minutes);
-        CollarEngine(engine).addCollarDuration(30 days);
-        CollarEngine(engine).addCollarDuration(12 * 30 days);
         // add supported cash assets
-        CollarEngine(engine).addSupportedCashAsset(USDC);
-        CollarEngine(engine).addSupportedCashAsset(USDT);
-        CollarEngine(engine).addSupportedCashAsset(WETH);
+        engine.setCashAssetSupport(USDC, true);
+        engine.setCashAssetSupport(USDT, true);
+        engine.setCashAssetSupport(WETH, true);
         // add supported collateral assets
-        CollarEngine(engine).addSupportedCollateralAsset(WETH);
-        CollarEngine(engine).addSupportedCollateralAsset(WBTC);
-        CollarEngine(engine).addSupportedCollateralAsset(MATIC);
-        CollarEngine(engine).addSupportedCollateralAsset(weETH);
-        CollarEngine(engine).addSupportedCollateralAsset(stETH);
+        engine.setCollateralAssetSupport(WETH, true);
+        engine.setCollateralAssetSupport(WBTC, true);
+        engine.setCollateralAssetSupport(MATIC, true);
+        engine.setCollateralAssetSupport(weETH, true);
+        engine.setCollateralAssetSupport(stETH, true);
+        engine.setLTVRange(allLTVs[1], allLTVs[0]);
+        engine.setCollarDurationRange(allDurations[0], allDurations[2]);
+
         console.log("\n --- Dev Environment Deployed ---");
         console.log("\n # Contract Addresses\n");
         console.log(" - Router:  - - - - - - ", router);
-        console.log(" - Engine - - - - - - - ", engine);
+        console.log(" - Engine - - - - - - - ", address(engine));
     }
 
-    function _createPools() internal returns (address[numOfPools] memory pools) {
-        // create main WETH pools
-        address fiveMin90ltvPool = address(new CollarPool(engine, 1, USDC, WETH, 5 minutes, 9000));
-        address fiveMin90LTVTetherPool = address(new CollarPool(engine, 1, USDT, WETH, 5 minutes, 9000));
-        address fiveMin50LTVPool = address(new CollarPool(engine, 1, USDC, WETH, 5 minutes, 5000));
-        address oneMonth90LTVPool = address(new CollarPool(engine, 1, USDC, WETH, 30 days, 9000));
-        address oneMonth50LTVPool = address(new CollarPool(engine, 1, USDC, WETH, 30 days, 5000));
-        address oneYear90LTVPool = address(new CollarPool(engine, 1, USDC, WETH, 12 * 30 days, 9000));
-        address oneYear50LTVPool = address(new CollarPool(engine, 1, USDC, WETH, 12 * 30 days, 5000));
+    function _createContractPairs() internal {
+        uint[] memory singleDuration = new uint[](1);
+        singleDuration[0] = allDurations[0];
 
-        CollarEngine(engine).addLiquidityPool(fiveMin90ltvPool);
-        CollarEngine(engine).addLiquidityPool(fiveMin90LTVTetherPool);
-        CollarEngine(engine).addLiquidityPool(fiveMin50LTVPool);
-        CollarEngine(engine).addLiquidityPool(oneMonth90LTVPool);
-        CollarEngine(engine).addLiquidityPool(oneMonth50LTVPool);
-        CollarEngine(engine).addLiquidityPool(oneYear90LTVPool);
-        CollarEngine(engine).addLiquidityPool(oneYear50LTVPool);
+        uint[] memory singleLTV = new uint[](1);
+        singleLTV[0] = allLTVs[0];
+        console.log("ltv: %d", singleLTV[0]);
+        _createContractPair(IERC20(USDC), IERC20(WETH), "USDC/WETH", allDurations, allLTVs);
+        _createContractPair(IERC20(USDT), IERC20(WETH), "USDT/WETH", singleDuration, singleLTV);
+        _createContractPair(IERC20(USDC), IERC20(WBTC), "USDC/WBTC", singleDuration, singleLTV);
+        _createContractPair(IERC20(USDC), IERC20(MATIC), "USDC/MATIC", singleDuration, singleLTV);
+        _createContractPair(IERC20(USDC), IERC20(stETH), "USDC/stETH", singleDuration, singleLTV);
+        _createContractPair(IERC20(WETH), IERC20(weETH), "WETH/weETH", singleDuration, singleLTV);
+    }
 
-        // rest of pools all 5 minutes with usdc
-
-        address fiveMin90LTVWBTCPool = address(new CollarPool(engine, 1, USDC, WBTC, 5 minutes, 9000));
-        address fiveMin90LTVMATICPool = address(new CollarPool(engine, 1, USDC, MATIC, 5 minutes, 9000));
-        address fiveMin90LTVstETHPool = address(new CollarPool(engine, 1, USDC, stETH, 5 minutes, 9000));
-        address fiveMin90LTVweETHPool = address(new CollarPool(engine, 1, WETH, weETH, 5 minutes, 9000));
-
-        CollarEngine(engine).addLiquidityPool(fiveMin90LTVWBTCPool);
-        CollarEngine(engine).addLiquidityPool(fiveMin90LTVMATICPool);
-        CollarEngine(engine).addLiquidityPool(fiveMin90LTVstETHPool);
-        CollarEngine(engine).addLiquidityPool(fiveMin90LTVweETHPool);
-        console.log(" - Collar 5 minutes 90LTV WETH/USDC Pool - - - - - - - ", fiveMin90ltvPool);
-        console.log(" - Collar 5 minutes 90LTV USDT/WETH Pool - - - - - - - ", fiveMin90LTVTetherPool);
-        console.log(" - Collar 5 minutes 50LTV WETH/USDC Pool - - - - - - - ", fiveMin50LTVPool);
-        console.log(" - Collar 30 days 90LTV WETH/USDC Pool - - - - - - - - ", oneMonth90LTVPool);
-        console.log(" - Collar 30 days 50LTV WETH/USDC Pool - - - - - - - - ", oneMonth50LTVPool);
-        console.log(" - Collar 12 months 90LTV WETH/USDC Pool - - - - - - - ", oneYear90LTVPool);
-        console.log(" - Collar 12 months 50LTV WETH/USDC Pool - - - - - - - ", oneYear50LTVPool);
-        console.log(" - Collar 5 minutes 90LTV WBTC/USDC Pool - - - - - - - ", fiveMin90LTVWBTCPool);
-        console.log(" - Collar 5 minutes 90LTV MATIC/USDC Pool - - - - - - - ", fiveMin90LTVMATICPool);
-        console.log(" - Collar 5 minutes 90LTV stETH/USDC Pool - - - - - - - ", fiveMin90LTVstETHPool);
-        console.log(" - Collar 5 minutes 90LTV weETH/WETH Pool - - - - - - - ", fiveMin90LTVweETHPool);
-        pools = [
-            fiveMin90ltvPool,
-            fiveMin90LTVTetherPool,
-            fiveMin50LTVPool,
-            oneMonth90LTVPool,
-            oneMonth50LTVPool,
-            oneYear90LTVPool,
-            oneYear50LTVPool,
-            fiveMin90LTVWBTCPool,
-            fiveMin90LTVMATICPool,
-            fiveMin90LTVstETHPool,
-            fiveMin90LTVweETHPool
-        ];
-        require(
-            pools.length == numOfPools,
-            "config error: number of pools created does not match the number of pools expected"
+    function _createContractPair(
+        IERC20 cashAsset,
+        IERC20 collateralAsset,
+        string memory pairName,
+        uint[] memory durations,
+        uint[] memory ltvs
+    ) internal {
+        CollarTakerNFT takerNFT = new CollarTakerNFT(
+            address(this),
+            engine,
+            cashAsset,
+            collateralAsset,
+            string(abi.encodePacked("Taker ", pairName)),
+            string(abi.encodePacked("T", pairName))
         );
+        ProviderPositionNFT providerNFT = new ProviderPositionNFT(
+            address(this),
+            engine,
+            cashAsset,
+            collateralAsset,
+            address(takerNFT),
+            string(abi.encodePacked("Provider ", pairName)),
+            string(abi.encodePacked("P", pairName))
+        );
+        Loans loansContract = new Loans(address(this), engine, takerNFT, cashAsset, collateralAsset);
+
+        engine.setCollarTakerContractAuth(address(takerNFT), true);
+        engine.setProviderContractAuth(address(providerNFT), true);
+        AssetPairContracts memory contracts = AssetPairContracts(
+            providerNFT, takerNFT, loansContract, cashAsset, collateralAsset, durations, ltvs
+        );
+        require(address(contracts.providerNFT) != address(0), "Provider NFT not created");
+        require(address(contracts.takerNFT) != address(0), "Taker NFT not created");
+        require(address(contracts.loansContract) != address(0), "Loans contract not created");
+        require(engine.isProviderNFT(address(contracts.providerNFT)), "Provider NFT not authorized in engine");
+        require(engine.isCollarTakerNFT(address(contracts.takerNFT)), "Taker NFT not authorized in engine");
+        assetPairContracts.push(contracts);
+        console.log(" - %s Taker NFT: %s", pairName, address(takerNFT));
+        console.log(" - %s Provider NFT: %s", pairName, address(providerNFT));
+        console.log(" - %s Loans Contract: %s", pairName, address(loansContract));
     }
 
-    function _verifyVaultManagerCreation(address user1, address user2) internal {
-        vm.startBroadcast(user1);
+    function _createOffers(address liquidityProvider) internal {
+        vm.startBroadcast(liquidityProvider);
 
-        address user1VaultManager = address(CollarEngine(engine).createVaultManager());
+        uint totalOffers = 0;
+        /**
+         * @dev Create offers for all contract pairs with all durations and LTVs , they're not all equal so they depend on the contract pair ltv and duration combo
+         */
+        for (uint i = 0; i < assetPairContracts.length; i++) {
+            AssetPairContracts memory pair = assetPairContracts[i];
+            pair.cashAsset.approve(address(pair.providerNFT), type(uint).max);
 
-        vm.stopBroadcast();
-
-        vm.startBroadcast(user2);
-
-        address user2VaultManager = address(CollarEngine(engine).createVaultManager());
-
-        vm.stopBroadcast();
-
-        require(CollarEngine(engine).addressToVaultManager(user1) == user1VaultManager);
-        require(CollarEngine(engine).addressToVaultManager(user2) == user2VaultManager);
-        console.log("\n # Vault Managers\n");
-        console.log(" - User 1 Vault Manager: ", user1VaultManager);
-        console.log(" - User 2 Vault Manager: ", user2VaultManager);
-    }
-
-    function _verifyPoolCreation(uint expectedLength, address firstPool, address lastPool) internal view {
-        // supportedLiquidityPoolsLength
-        uint shouldBePoolLength = CollarEngine(engine).supportedLiquidityPoolsLength();
-        console.log(" shouldBePoolLength", shouldBePoolLength);
-        require(shouldBePoolLength == expectedLength);
-
-        // getSupportedLiquidityPool
-        address shouldBeFirstPoolCreated = CollarEngine(engine).getSupportedLiquidityPool(0);
-        console.log(" shouldBeFirstPoolCreated", shouldBeFirstPoolCreated);
-        require(shouldBeFirstPoolCreated == firstPool);
-
-        address shouldBeLastPoolCreated =
-            CollarEngine(engine).getSupportedLiquidityPool(shouldBePoolLength - 1);
-        console.log(" shouldBeLastPoolCreated", shouldBeLastPoolCreated);
-        require(shouldBeLastPoolCreated == lastPool);
-    }
-
-    function _addLiquidityToPools(address[numOfPools] memory pools, uint amountToAdd) internal {
-        // setup pool liquidity // assume provider has enough funds
-
-        // add liquidity to each pool
-        for (uint i = 0; i < pools.length; i++) {
-            address cashAssetToUse = CollarPool(pools[i]).cashAsset();
-            IERC20(cashAssetToUse).forceApprove(pools[i], amountToAdd * 5);
-            CollarPool(pools[i]).addLiquidityToSlot(11_100, amountToAdd);
-            CollarPool(pools[i]).addLiquidityToSlot(11_200, amountToAdd);
-            CollarPool(pools[i]).addLiquidityToSlot(11_500, amountToAdd);
-            CollarPool(pools[i]).addLiquidityToSlot(12_000, amountToAdd);
+            for (uint j = 0; j < pair.durations.length; j++) {
+                for (uint k = 0; k < pair.ltvs.length; k++) {
+                    for (uint l = 0; l < callStrikeTicks.length; l++) {
+                        uint offerId = pair.providerNFT.createOffer(
+                            callStrikeTicks[l], cashAmountPerOffer, pair.ltvs[k], pair.durations[j]
+                        );
+                        ProviderPositionNFT.LiquidityOffer memory offer = pair.providerNFT.getOffer(offerId);
+                        require(
+                            offer.provider == liquidityProvider, "Offer not created for liquidity provider"
+                        );
+                        require(offer.available == cashAmountPerOffer, "Incorrect offer amount");
+                        require(offer.putStrikeDeviation == pair.ltvs[k], "Incorrect LTV");
+                        require(offer.duration == pair.durations[j], "Incorrect duration");
+                        require(
+                            offer.callStrikeDeviation == callStrikeTicks[l], "Incorrect call strike deviation"
+                        );
+                        totalOffers++;
+                    }
+                }
+            }
         }
+
+        vm.stopBroadcast();
+        console.log("Total offers created: ", totalOffers);
     }
 
     function run() external {
         require(chainId == block.chainid, "chainId does not match the chainId in config");
-        (address deployer, address user1, address user2, address liquidityProvider) = setup();
-        vm.startBroadcast(deployer);
-        _deployandSetupEngine();
-        // create main WETH pools
-        address[numOfPools] memory createdPools = _createPools();
-        vm.stopBroadcast();
+        (address deployer, address user1,, address liquidityProvider) = setup();
 
-        console.log("\n");
-        console.log("Verifying deployment : ");
-        _verifyVaultManagerCreation(user1, user2);
-        _verifyPoolCreation(numOfPools, createdPools[0], createdPools[numOfPools - 1]);
-
-        /**
-         * @dev in order for this part to work provider address needs to be funded with casdh assets through
-         * tenderly previously
-         */
         require(liquidityProvider != address(0), "liquidity provider address not set");
         require(liquidityProvider.balance > 1000, "liquidity provider address not funded");
-        uint amountToAdd = 100_000e6;
-        uint lpBalance = IERC20(CollarPool(createdPools[0]).cashAsset()).balanceOf(liquidityProvider);
-        require(lpBalance >= amountToAdd * 4, "liquidity provider does not have enough funds");
-        vm.startBroadcast(liquidityProvider);
-        _addLiquidityToPools(createdPools, amountToAdd);
+
+        vm.startBroadcast(deployer);
+        _deployandSetupEngine();
+        _createContractPairs();
         vm.stopBroadcast();
+
+        IERC20 firstCashAsset = assetPairContracts[0].cashAsset;
+        uint lpBalance = firstCashAsset.balanceOf(liquidityProvider);
+        require(
+            lpBalance >= cashAmountPerOffer * expectedOfferCount,
+            "liquidity provider does not have enough funds"
+        );
+
+        _createOffers(liquidityProvider);
+
+        console.log("\nDeployment and initialization completed successfully");
+
+        // Open a position as user1 to test the protocol
+        _openUserPosition(user1, liquidityProvider);
+
+        console.log("\nDeployment, initialization, and user position creation completed successfully");
+    }
+
+    function _openUserPosition(address user, address liquidityProvider) internal {
+        vm.startBroadcast(user);
+
+        // Use the first contract pair (USDC/WETH) for this example
+        AssetPairContracts memory pair = assetPairContracts[0];
+        uint userCollateralBalance = pair.collateralAsset.balanceOf(user);
+        require(userCollateralBalance >= collateralAmountForLoan, "User does not have enough collateral");
+        // Approve collateral spending
+        pair.collateralAsset.approve(address(pair.loansContract), type(uint).max);
+
+        // Find the first available offer
+        uint offerId = 0;
+        require(offerId < pair.providerNFT.nextOfferId(), "No available offers");
+        // Check initial balances
+        uint initialCollateralBalance = pair.collateralAsset.balanceOf(user);
+        uint initialCashBalance = pair.cashAsset.balanceOf(user);
+
+        // Get TWAP price before loan creation
+        uint twapPrice = engine.getHistoricalAssetPriceViaTWAP(
+            address(pair.collateralAsset),
+            address(pair.cashAsset),
+            uint32(block.timestamp),
+            pair.takerNFT.TWAP_LENGTH()
+        );
+
+        // Open a position
+        (uint takerId, uint providerId, uint loanAmount) = pair.loansContract.createLoan(
+            collateralAmountForLoan,
+            0, // slippage
+            0,
+            pair.providerNFT,
+            offerId
+        );
+
+        _checkPosition(
+            pair,
+            takerId,
+            providerId,
+            user,
+            liquidityProvider,
+            initialCollateralBalance,
+            initialCashBalance,
+            loanAmount,
+            twapPrice
+        );
+
+        console.log("Position opened:");
+        console.log(" - Taker ID: %d", takerId);
+        console.log(" - Provider ID: %d", providerId);
+        console.log(" - Loan amount: %d", loanAmount);
+
+        vm.stopBroadcast();
+    }
+
+    function _checkPosition(
+        AssetPairContracts memory pair,
+        uint takerId,
+        uint providerId,
+        address user,
+        address liquidityProvider,
+        uint initialCollateralBalance,
+        uint initialCashBalance,
+        uint loanAmount,
+        uint twapPrice
+    ) internal view {
+        CollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(takerId);
+        require(position.settled == false);
+        require(position.withdrawable == 0);
+        require(position.putLockedCash > 0);
+        require(position.callLockedCash > 0);
+
+        require(pair.takerNFT.ownerOf(takerId) == user);
+        require(pair.providerNFT.ownerOf(providerId) == liquidityProvider);
+
+        // Check balance changes
+        uint finalCollateralBalance = pair.collateralAsset.balanceOf(user);
+        uint finalCashBalance = pair.cashAsset.balanceOf(user);
+
+        assert(initialCollateralBalance - finalCollateralBalance == collateralAmountForLoan);
+        assert(finalCashBalance - initialCashBalance == loanAmount);
+
+        // Check loan amount using TWAP
+        uint expectedLoanAmount = collateralAmountForLoan * twapPrice * allLTVs[0] / (1e18 * 10_000);
+        uint loanAmountTolerance = expectedLoanAmount / 100; // 1% tolerance
+        require(
+            loanAmount >= expectedLoanAmount - loanAmountTolerance
+                && loanAmount <= expectedLoanAmount + loanAmountTolerance,
+            "Loan amount is outside the expected range"
+        );
     }
 }

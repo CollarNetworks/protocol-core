@@ -80,10 +80,10 @@ contract LoansTestBase is Test {
     }
 
     function setupEngine() public {
-        engine.addLTV(ltv);
-        engine.addCollarDuration(duration);
-        engine.addSupportedCashAsset(address(cashAsset));
-        engine.addSupportedCollateralAsset(address(collateralAsset));
+        engine.setCashAssetSupport(address(cashAsset), true);
+        engine.setCollateralAssetSupport(address(collateralAsset), true);
+        engine.setLTVRange(ltv, ltv);
+        engine.setCollarDurationRange(duration, duration);
     }
 
     function prepareSwap(TestERC20 asset, uint amount) public {

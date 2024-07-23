@@ -10,19 +10,23 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockUniRouter } from "../utils/MockUniRouter.sol";
-import { CollarVaultManager } from "../../src/implementations/CollarVaultManager.sol";
+
+import { ICollarEngine } from "../../src/interfaces/ICollarEngine.sol";
 import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
+import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { CollarPool } from "../../src/implementations/CollarPool.sol";
 
 contract CollarEngineTest is Test {
     TestERC20 token1;
     TestERC20 token2;
     MockUniRouter router;
-    CollarVaultManager manager;
     CollarEngine engine;
-    address pool1;
-
+    uint constant durationToUse = 1 days;
+    uint constant minDurationToUse = 300;
+    uint constant maxDurationToUse = 365 days;
+    uint constant ltvToUse = 9000;
+    uint constant minLTVToUse = 1000;
+    uint constant maxLTVToUse = 9999;
     address user1 = makeAddr("user1");
     address user2 = makeAddr("user2");
 
@@ -39,20 +43,6 @@ contract CollarEngineTest is Test {
         router = new MockUniRouter();
 
         engine = new CollarEngine(address(router));
-        manager = CollarVaultManager(engine.createVaultManager());
-
-        engine.addLTV(9000);
-
-        pool1 = address(new CollarPool(address(engine), 1, address(token1), address(token2), 100, 9000));
-    }
-
-    function mintTokensAndApprovePool(address recipient) public {
-        startHoax(recipient);
-        token1.mint(recipient, 100_000);
-        token2.mint(recipient, 100_000);
-        token1.approve(address(pool1), 100_000);
-        token2.approve(address(pool1), 100_000);
-        vm.stopPrank();
     }
 
     function test_deploymentAndDeployParams() public view {
@@ -60,257 +50,131 @@ contract CollarEngineTest is Test {
         assertEq(engine.owner(), address(this));
     }
 
-    function test_addLiquidityPool() public {
-        assertFalse(engine.isSupportedLiquidityPool(address(pool1)));
-        engine.addLiquidityPool(address(pool1));
-        assertTrue(engine.isSupportedLiquidityPool(address(pool1)));
-    }
-
-    function test_supportedLiquidityPoolsLength() public {
-        engine.addLiquidityPool(address(pool1));
-        assertEq(engine.supportedLiquidityPoolsLength(), 1);
-        engine.removeLiquidityPool(address(pool1));
-        assertEq(engine.supportedLiquidityPoolsLength(), 0);
-    }
-
-    function test_removeLiquidityPool() public {
-        engine.addLiquidityPool(address(pool1));
-        engine.removeLiquidityPool(address(pool1));
-        assertFalse(engine.isSupportedLiquidityPool(address(pool1)));
-    }
-
-    function test_addLiquidityPool_NoAuth() public {
-        startHoax(user1);
-
-        vm.expectRevert(user1NotAuthorized);
-        engine.addLiquidityPool(address(pool1));
-
-        vm.stopPrank();
-    }
-
-    function test_removeLiquidityPool_NoAuth() public {
-        startHoax(user1);
-
-        vm.expectRevert(user1NotAuthorized);
-        engine.removeLiquidityPool(address(pool1));
-
-        vm.stopPrank();
-    }
-
     function test_addSupportedCashAsset() public {
         assertFalse(engine.isSupportedCashAsset(address(token1)));
-        engine.addSupportedCashAsset(address(token1));
+        engine.setCashAssetSupport(address(token1), true);
         assertTrue(engine.isSupportedCashAsset(address(token1)));
     }
 
     function test_addSupportedCashAsset_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
-        engine.addSupportedCashAsset(address(token1));
+        engine.setCashAssetSupport(address(token1), true);
         vm.stopPrank();
     }
 
-    function test_addSupportedCashAsset_Duplicate() public {
-        engine.addSupportedCashAsset(address(token1));
-        vm.expectRevert("already added");
-        engine.addSupportedCashAsset(address(token1));
-    }
-
     function test_removeSupportedCashAsset() public {
-        engine.addSupportedCashAsset(address(token1));
-        engine.removeSupportedCashAsset(address(token1));
+        engine.setCashAssetSupport(address(token1), true);
+        engine.setCashAssetSupport(address(token1), false);
         assertFalse(engine.isSupportedCashAsset(address(token1)));
     }
 
     function test_removeSupportedCashAsset_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
-        engine.removeSupportedCashAsset(address(token1));
+        engine.setCashAssetSupport(address(token1), false);
         vm.stopPrank();
-    }
-
-    function test_removeSupportedCashAsset_NonExistent() public {
-        vm.expectRevert("not found");
-        engine.removeSupportedCashAsset(address(token1));
-
-        vm.expectRevert("not found");
-        engine.removeSupportedCollateralAsset(address(token2));
     }
 
     function test_addSupportedCollateralAsset() public {
         assertFalse(engine.isSupportedCollateralAsset(address(token1)));
-        engine.addSupportedCollateralAsset(address(token1));
+        engine.setCollateralAssetSupport(address(token1), true);
         assertTrue(engine.isSupportedCollateralAsset(address(token1)));
     }
 
     function test_addSupportedCollateralAsset_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
-        engine.addSupportedCollateralAsset(address(token1));
+        engine.setCollateralAssetSupport(address(token1), true);
         vm.stopPrank();
     }
 
-    function test_addSupportedCollateralAsset_Duplicate() public {
-        engine.addSupportedCollateralAsset(address(token1));
-        vm.expectRevert("already added");
-        engine.addSupportedCollateralAsset(address(token1));
-    }
-
     function test_removeSupportedCollateralAsset() public {
-        engine.addSupportedCollateralAsset(address(token1));
-        engine.removeSupportedCollateralAsset(address(token1));
+        engine.setCollateralAssetSupport(address(token1), true);
+        engine.setCollateralAssetSupport(address(token1), false);
         assertFalse(engine.isSupportedCollateralAsset(address(token1)));
     }
 
     function test_removeSupportedCollateralAsset_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
-        engine.removeSupportedCollateralAsset(address(token1));
+        engine.setCollateralAssetSupport(address(token1), false);
         vm.stopPrank();
     }
 
-    function test_addCollarDuration() public {
-        assertFalse(engine.isValidCollarDuration(1));
-        engine.addCollarDuration(1);
-        assertTrue(engine.isValidCollarDuration(1));
-    }
-
-    function test_addCollarDuration_NoAuth() public {
-        startHoax(user1);
-        vm.expectRevert(user1NotAuthorized);
-        engine.addCollarDuration(1);
-        vm.stopPrank();
-    }
-
-    function test_removeCollarDuration() public {
-        engine.addCollarDuration(1);
-        engine.removeCollarDuration(1);
-        assertFalse(engine.isValidCollarDuration(1));
-    }
-
-    function test_removeCollarDuration_NoAuth() public {
-        startHoax(user1);
-        vm.expectRevert(user1NotAuthorized);
-        engine.removeCollarDuration(1);
-        vm.stopPrank();
+    function test_isValidDuration() public {
+        engine.setCollarDurationRange(minDurationToUse, maxDurationToUse);
+        assertFalse(engine.isValidCollarDuration(minDurationToUse - 1));
+        assertTrue(engine.isValidCollarDuration(minDurationToUse));
+        assertFalse(engine.isValidCollarDuration(maxDurationToUse + 1));
     }
 
     function test_getHistoricalAssetPriceViaTWAP_InvalidAsset() public {
         vm.expectRevert("not supported");
         engine.getHistoricalAssetPriceViaTWAP(address(token1), address(token2), 0, 0);
+        engine.setCashAssetSupport(address(token1), true);
+        vm.expectRevert("not supported");
+        engine.getHistoricalAssetPriceViaTWAP(address(token1), address(token2), 0, 0);
     }
 
-    function test_createVaultManager() public {
-        startHoax(user1);
-
-        address createdVaultManager = engine.createVaultManager();
-        address storedVaultManager = engine.addressToVaultManager(user1);
-
-        assertEq(createdVaultManager, storedVaultManager);
-
-        address vaultManager = createdVaultManager;
-
-        address vaultManagerOwner = CollarVaultManager(vaultManager).owner();
-        address vaultManagerUSer = CollarVaultManager(vaultManager).user();
-        address vaultManagerEngine = CollarVaultManager(vaultManager).engine();
-
-        assertEq(vaultManagerOwner, user1);
-        assertEq(vaultManagerUSer, user1);
-        assertEq(vaultManagerEngine, address(engine));
-
-        vm.stopPrank();
+    function test_isValidLTV() public {
+        engine.setLTVRange(minLTVToUse, maxLTVToUse);
+        assertFalse(engine.isValidLTV(minLTVToUse - 1));
+        assertTrue(engine.isValidLTV(maxLTVToUse));
+        assertFalse(engine.isValidLTV(maxLTVToUse + 1));
     }
 
-    function test_createVaultManager_Duplicate() public {
-        startHoax(user1);
-
-        address vaultManager = engine.createVaultManager();
-
-        vm.expectRevert("manager exists for sender");
-        engine.createVaultManager();
-
-        vm.stopPrank();
+    function test_setCollarTakerContractAuth_non_taker_contract() public {
+        address testContract = address(0x123);
+        // testContract doesnt support calling .cashAsset();
+        vm.expectRevert();
+        engine.setCollarTakerContractAuth(testContract, true);
+        assertFalse(engine.isCollarTakerNFT(testContract));
     }
 
-    function test_removeLTV() public {
-        engine.removeLTV(9000);
-        assertFalse(engine.isValidLTV(9000));
+    function test_setProviderContractAuth_non_taker_contract() public {
+        address testContract = address(0x456);
+        // testContract doesnt support calling .cashAsset();
+        vm.expectRevert();
+        engine.setProviderContractAuth(testContract, true);
+        assertFalse(engine.isProviderNFT(testContract));
     }
 
-    function test_vaultManagersLength() public {
-        vm.startPrank(user1);
-        engine.createVaultManager();
-        vm.stopPrank();
-        vm.startPrank(user2);
-        engine.createVaultManager();
-        vm.stopPrank();
-        assertEq(engine.vaultManagersLength(), 3);
+    function test_setLTVRange() public {
+        vm.expectEmit(address(engine));
+        emit ICollarEngine.LTVRangeSet(minLTVToUse, maxLTVToUse);
+        engine.setLTVRange(minLTVToUse, maxLTVToUse);
+        assertEq(engine.minLTV(), minLTVToUse);
+        assertEq(engine.maxLTV(), maxLTVToUse);
     }
 
-    function test_getVaultManager() public {
-        vm.startPrank(user1);
-        uint vaultManagerCount = engine.vaultManagersLength();
-        engine.createVaultManager();
-        address vaultManager = engine.getVaultManager(vaultManagerCount);
+    function test_revert_setLTVRange() public {
+        vm.expectRevert("min > max");
+        engine.setLTVRange(maxLTVToUse, minLTVToUse);
 
-        assertEq(vaultManager, engine.addressToVaultManager(user1));
-        vm.stopPrank();
+        vm.expectRevert("min too low");
+        engine.setLTVRange(0, maxLTVToUse);
+
+        vm.expectRevert("max too high");
+        engine.setLTVRange(minLTVToUse, 10_000);
     }
 
-    function testFail_getVaultManager() public view {
-        engine.getVaultManager(1);
+    function test_setDurationRange() public {
+        vm.expectEmit(address(engine));
+        emit ICollarEngine.CollarDurationRangeSet(minLTVToUse, maxDurationToUse);
+        engine.setCollarDurationRange(minLTVToUse, maxDurationToUse);
+        assertEq(engine.minDuration(), minLTVToUse);
+        assertEq(engine.maxDuration(), maxDurationToUse);
     }
 
-    function test_supportedCashAssetsLength() public {
-        engine.addSupportedCashAsset(address(token1));
-        assertEq(engine.supportedCashAssetsLength(), 1);
-        engine.removeSupportedCashAsset(address(token1));
-        assertEq(engine.supportedCashAssetsLength(), 0);
-    }
+    function test_revert_setCollarDurationRange() public {
+        vm.expectRevert("min > max");
+        engine.setCollarDurationRange(maxDurationToUse, minDurationToUse);
 
-    function test_getSupportedCashAsset() public {
-        engine.addSupportedCashAsset(address(token1));
-        assertEq(engine.getSupportedCashAsset(0), address(token1));
-    }
+        vm.expectRevert("min too low");
+        engine.setCollarDurationRange(0, maxDurationToUse);
 
-    function test_supportedCollateralAssetsLength() public {
-        engine.addSupportedCollateralAsset(address(token1));
-        assertEq(engine.supportedCollateralAssetsLength(), 1);
-        engine.removeSupportedCollateralAsset(address(token1));
-        assertEq(engine.supportedCollateralAssetsLength(), 0);
-    }
-
-    function test_getSupportedCollateralAsset() public {
-        engine.addSupportedCollateralAsset(address(token1));
-        assertEq(engine.getSupportedCollateralAsset(0), address(token1));
-    }
-
-    function test_getSupportedLiquidityPool() public {
-        engine.addLiquidityPool(address(pool1));
-        assertEq(engine.getSupportedLiquidityPool(0), address(pool1));
-    }
-
-    function test_validCollarDurationsLength() public {
-        engine.addCollarDuration(1);
-        assertEq(engine.validCollarDurationsLength(), 1);
-        engine.removeCollarDuration(1);
-        assertEq(engine.validCollarDurationsLength(), 0);
-    }
-
-    function test_getValidCollarDuration() public {
-        engine.addCollarDuration(1);
-        assertEq(engine.getValidCollarDuration(0), 1);
-    }
-
-    function test_validLTVsLength() public {
-        engine.addLTV(8000);
-        assertEq(engine.validLTVsLength(), 2);
-        engine.removeLTV(8000);
-        assertEq(engine.validLTVsLength(), 1);
-    }
-
-    function test_getValidLTV() public {
-        engine.addLTV(8000);
-        assertEq(engine.getValidLTV(1), 8000);
+        vm.expectRevert("max too high");
+        engine.setCollarDurationRange(minDurationToUse, 10 * 365 days);
     }
 }

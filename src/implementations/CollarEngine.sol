@@ -13,8 +13,6 @@ import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 // internal imports
 import { ICollarEngine } from "../interfaces/ICollarEngine.sol";
-import { CollarPool } from "./CollarPool.sol";
-import { CollarVaultManager } from "./CollarVaultManager.sol";
 import { UniV3OracleLib } from "../libs/UniV3OracleLib.sol";
 import { IProviderPositionNFT } from "../interfaces/IProviderPositionNFT.sol";
 import { ICollarTakerNFT } from "../interfaces/ICollarTakerNFT.sol";
@@ -33,19 +31,20 @@ contract CollarEngine is Ownable, ICollarEngine {
     address public immutable univ3SwapRouter;
 
     uint public constant TWAP_BASE_TOKEN_AMOUNT = uint(UniV3OracleLib.BASE_TOKEN_AMOUNT);
-
-    /// @notice This mapping stores the address of the vault contract per user (or market maker)
-    /// @dev This will be zero if the user has not yet created a vault
-    mapping(address => address) public addressToVaultManager;
+    // configuration validation (validate on set)
+    uint public constant MIN_CONFIGURABLE_LTV = 1000;
+    uint public constant MAX_CONFIGURABLE_LTV = 9999;
+    uint public constant MIN_CONFIGURABLE_DURATION = 300;
+    uint public constant MAX_CONFIGURABLE_DURATION = 5 * 365 days;
+    // configured values (set by owner)
+    uint public minLTV;
+    uint public maxLTV;
+    uint public minDuration;
+    uint public maxDuration;
 
     // -- internal state variables ---
-    EnumerableSet.AddressSet internal vaultManagers;
-    EnumerableSet.AddressSet internal collarLiquidityPools;
-    EnumerableSet.AddressSet internal supportedCollateralAssets;
-    EnumerableSet.AddressSet internal supportedCashAssets;
-    EnumerableSet.UintSet internal validLTVs;
-    EnumerableSet.UintSet internal validCollarDurations;
-
+    mapping(address collateralAssetAddress => bool isSupported) public isSupportedCollateralAsset;
+    mapping(address cashAssetAddress => bool isSupported) public isSupportedCashAsset;
     mapping(address contractAddress => bool enabled) public isCollarTakerNFT;
     mapping(address contractAddress => bool enabled) public isProviderNFT;
 
@@ -72,180 +71,54 @@ contract CollarEngine is Ownable, ICollarEngine {
         );
     }
 
-    function createVaultManager() external override returns (address _vaultManager) {
-        require(addressToVaultManager[msg.sender] == address(0), "manager exists for sender");
+    // ltv
 
-        address vaultManager = address(new CollarVaultManager(address(this), msg.sender));
-
-        vaultManagers.add(vaultManager);
-        addressToVaultManager[msg.sender] = vaultManager;
-
-        emit VaultManagerCreated(vaultManager, msg.sender);
-
-        return vaultManager;
-    }
-
-    // liquidity pools
-
-    function addLiquidityPool(address pool) external override onlyOwner {
-        require(!collarLiquidityPools.contains(pool), "already added");
-        collarLiquidityPools.add(pool);
-        emit LiquidityPoolAdded(pool);
-    }
-
-    function removeLiquidityPool(address pool) external override onlyOwner {
-        require(collarLiquidityPools.contains(pool), "not found");
-        collarLiquidityPools.remove(pool);
-        emit LiquidityPoolRemoved(pool);
-    }
-
-    // collateral assets
-
-    function addSupportedCollateralAsset(address asset) external override onlyOwner {
-        require(!supportedCollateralAssets.contains(asset), "already added");
-        supportedCollateralAssets.add(asset);
-        emit CollateralAssetAdded(asset);
-    }
-
-    function removeSupportedCollateralAsset(address asset) external override onlyOwner {
-        require(supportedCollateralAssets.contains(asset), "not found");
-        supportedCollateralAssets.remove(asset);
-        emit CollateralAssetRemoved(asset);
-    }
-
-    // cash assets
-
-    function addSupportedCashAsset(address asset) external override onlyOwner {
-        require(!supportedCashAssets.contains(asset), "already added");
-        supportedCashAssets.add(asset);
-        emit CashAssetAdded(asset);
-    }
-
-    function removeSupportedCashAsset(address asset) external override onlyOwner {
-        require(supportedCashAssets.contains(asset), "not found");
-        supportedCashAssets.remove(asset);
-        emit CashAssetRemoved(asset);
-    }
-
-    // durations
-
-    function addCollarDuration(uint duration) external override onlyOwner {
-        require(!validCollarDurations.contains(duration), "already added");
-        validCollarDurations.add(duration);
-        emit CollarDurationAdded(duration);
-    }
-
-    function removeCollarDuration(uint duration) external override onlyOwner {
-        require(validCollarDurations.contains(duration), "not found");
-        validCollarDurations.remove(duration);
-        emit CollarDurationRemoved(duration);
-    }
-
-    // ltvs
-
-    function addLTV(uint ltv) external override onlyOwner {
-        require(!validLTVs.contains(ltv), "already added");
-        validLTVs.add(ltv);
-        emit LTVAdded(ltv);
-    }
-
-    function removeLTV(uint ltv) external override onlyOwner {
-        require(validLTVs.contains(ltv), "not found");
-        validLTVs.remove(ltv);
-        emit LTVRemoved(ltv);
-    }
-
-    // ----- view functions (see ICollarEngine for documentation) -----
-
-    // vault managers
-
-    function isVaultManager(address vaultManager) external view override returns (bool) {
-        return vaultManagers.contains(vaultManager);
-    }
-
-    function vaultManagersLength() external view override returns (uint) {
-        return vaultManagers.length();
-    }
-
-    function getVaultManager(uint index) external view override returns (address) {
-        return vaultManagers.at(index);
-    }
-
-    // cash assets
-
-    function isSupportedCashAsset(address asset) public view override returns (bool) {
-        return supportedCashAssets.contains(asset);
-    }
-
-    function supportedCashAssetsLength() external view override returns (uint) {
-        return supportedCashAssets.length();
-    }
-
-    function getSupportedCashAsset(uint index) external view override returns (address) {
-        return supportedCashAssets.at(index);
-    }
-
-    // collateral assets
-
-    function isSupportedCollateralAsset(address asset) public view override returns (bool) {
-        return supportedCollateralAssets.contains(asset);
-    }
-
-    function supportedCollateralAssetsLength() external view override returns (uint) {
-        return supportedCollateralAssets.length();
-    }
-
-    function getSupportedCollateralAsset(uint index) external view override returns (address) {
-        return supportedCollateralAssets.at(index);
-    }
-
-    // liquidity pools
-
-    function isSupportedLiquidityPool(address pool) external view override returns (bool) {
-        return collarLiquidityPools.contains(pool);
-    }
-
-    function supportedLiquidityPoolsLength() external view override returns (uint) {
-        return collarLiquidityPools.length();
-    }
-
-    function getSupportedLiquidityPool(uint index) external view override returns (address) {
-        return collarLiquidityPools.at(index);
+    function setLTVRange(uint min, uint max) external onlyOwner {
+        require(min >= MIN_CONFIGURABLE_LTV, "min too low");
+        require(max <= MAX_CONFIGURABLE_LTV, "max too high");
+        require(min <= max, "min > max");
+        minLTV = min;
+        maxLTV = max;
+        emit LTVRangeSet(min, max);
     }
 
     // collar durations
 
-    function isValidCollarDuration(uint duration) external view override returns (bool) {
-        return validCollarDurations.contains(duration);
+    function setCollarDurationRange(uint min, uint max) external onlyOwner {
+        require(min <= max, "min > max");
+        require(min >= MIN_CONFIGURABLE_DURATION, "min too low");
+        require(max <= MAX_CONFIGURABLE_DURATION, "max too high");
+        minDuration = min;
+        maxDuration = max;
+        emit CollarDurationRangeSet(min, max);
     }
 
-    function validCollarDurationsLength() external view override returns (uint) {
-        return validCollarDurations.length();
+    // collateral assets
+
+    function setCollateralAssetSupport(address collateralAsset, bool enabled) external onlyOwner {
+        isSupportedCollateralAsset[collateralAsset] = enabled;
+        emit CollateralAssetSupportSet(collateralAsset, enabled);
     }
 
-    function getValidCollarDuration(uint index) external view override returns (uint) {
-        return validCollarDurations.at(index);
+    // cash assets
+
+    function setCashAssetSupport(address cashAsset, bool enabled) external onlyOwner {
+        isSupportedCashAsset[cashAsset] = enabled;
+        emit CashAssetSupportSet(cashAsset, enabled);
+    }
+
+    // ----- view functions (see ICollarEngine for documentation) -----
+
+    // collar durations
+
+    function isValidCollarDuration(uint duration) external view returns (bool) {
+        return duration >= minDuration && duration <= maxDuration;
     }
 
     // ltvs
 
-    function isValidLTV(uint ltv) external view override returns (bool) {
-        return validLTVs.contains(ltv);
-    }
-
-    function validLTVsLength() external view override returns (uint) {
-        return validLTVs.length();
-    }
-
-    function getValidLTV(uint index) external view override returns (uint) {
-        return validLTVs.at(index);
-    }
-
-    // asset pricing
-
-    function validateAssetsIsSupported(address token) internal view {
-        bool isSupportedBase = isSupportedCashAsset(token) || isSupportedCollateralAsset(token);
-        require(isSupportedBase, "not supported");
+    function isValidLTV(uint ltv) external view returns (bool) {
+        return ltv >= minLTV && ltv <= maxLTV;
     }
 
     function getHistoricalAssetPriceViaTWAP(
@@ -253,9 +126,9 @@ contract CollarEngine is Ownable, ICollarEngine {
         address quoteToken,
         uint32 twapEndTimestamp,
         uint32 twapLength
-    ) external view virtual override returns (uint price) {
-        validateAssetsIsSupported(baseToken);
-        validateAssetsIsSupported(quoteToken);
+    ) external view virtual returns (uint price) {
+        require(isSupportedCashAsset[baseToken] || isSupportedCollateralAsset[baseToken], "not supported");
+        require(isSupportedCashAsset[quoteToken] || isSupportedCollateralAsset[quoteToken], "not supported");
         address uniV3Factory = IPeripheryImmutableState(univ3SwapRouter).factory();
         price = UniV3OracleLib.getTWAP(baseToken, quoteToken, twapEndTimestamp, twapLength, uniV3Factory);
     }

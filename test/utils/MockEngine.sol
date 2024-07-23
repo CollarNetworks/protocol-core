@@ -39,9 +39,4 @@ contract MockEngine is CollarEngine {
     ) external view virtual override returns (uint) {
         return historicalAssetPrices[baseToken][timeStampStart];
     }
-
-    function forceRegisterVaultManager(address user, address vaultManager) external {
-        addressToVaultManager[user] = vaultManager;
-        vaultManagers.add(vaultManager);
-    }
 }
