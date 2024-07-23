@@ -45,7 +45,8 @@ interface ILoans {
         uint indexed rollId,
         uint newTakerId,
         uint loanAmount,
-        uint newLoanAmount
+        uint newLoanAmount,
+        int transferAmount
     );
     event ClosingKeeperAllowed(address indexed sender, uint indexed takerId, bool indexed enabled);
     event ClosingKeeperUpdated(address indexed previousKeeper, address indexed newKeeper);
@@ -76,7 +77,7 @@ interface ILoans {
     ) external returns (uint takerId, uint providerId, uint loanAmount);
     function setKeeperAllowedBy(uint takerId, bool enabled) external;
     function closeLoan(uint takerId, uint minCollateralAmount) external returns (uint collateralReturned);
-    function rollLoan(uint takerId, Rolls rolls, uint rollId, int minLoanChange)
+    function rollLoan(uint takerId, Rolls rolls, uint rollId, int minToUser)
         external
-        returns (uint newTakerId, uint newLoanAmount);
+        returns (uint newTakerId, uint newLoanAmount, int transferAmount);
 }

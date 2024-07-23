@@ -273,8 +273,9 @@ contract LoansTest is Test {
         expected.newCallLocked =
             expected.newPutLocked * (callStrikeDeviation - BIPS_100PCT) / (BIPS_100PCT - ltv);
 
-        // new loan
-        expected.newLoanAmount = uint(int(loans.getLoan(takerId).loanAmount) + expected.toTaker);
+        // toTaker = userGain - rollFee, so userGain (loan increase) = toTaker + rollFee
+        expected.newLoanAmount =
+            uint(int(loans.getLoan(takerId).loanAmount) + expected.toTaker + expected.rollFee);
 
         return expected;
     }
@@ -312,12 +313,19 @@ contract LoansTest is Test {
         uint expectedPositionId = takerNFT.nextPositionId();
         vm.expectEmit(address(loans));
         emit ILoans.LoanRolled(
-            user1, takerId, rollId, expectedPositionId, initialLoanAmount, expected.newLoanAmount
+            user1,
+            takerId,
+            rollId,
+            expectedPositionId,
+            initialLoanAmount,
+            expected.newLoanAmount,
+            expected.toTaker
         );
         // min change param
-        int minLoanChange = int(expected.newLoanAmount) - int(initialLoanAmount);
+        int minToUser = int(expected.newLoanAmount) - int(initialLoanAmount) - rollFee;
         uint newLoanAmount;
-        (newTakerId, newLoanAmount) = loans.rollLoan(takerId, rolls, rollId, minLoanChange);
+        int toUser;
+        (newTakerId, newLoanAmount, toUser) = loans.rollLoan(takerId, rolls, rollId, minToUser);
 
         // id
         assertEq(newTakerId, expectedPositionId);
@@ -328,7 +336,8 @@ contract LoansTest is Test {
         assertEq(cashAsset.balanceOf(user1), uint(int(initialBalance) + expected.toTaker));
         // loan change matches balance change
         int loanChange = int(newLoanAmount) - int(initialLoanAmount);
-        assertEq(expected.toTaker, loanChange);
+        assertEq(expected.toTaker, toUser);
+        assertEq(expected.toTaker + expected.rollFee, loanChange);
 
         // check laons and NFT views
         checkLoansAndNFT(takerId, newTakerId, expected, newPrice);
@@ -488,8 +497,8 @@ contract LoansTest is Test {
         assertEq(expected.newPutLocked, takerPosition.putLockedCash);
         assertEq(expected.newCallLocked, takerPosition.callLockedCash);
         // only fee paid
-        assertEq(expected.toTaker, -1 ether);
-        assertEq(expected.newLoanAmount, loans.getLoan(takerId).loanAmount - 1 ether);
+        assertEq(expected.toTaker, -rollFee);
+        assertEq(expected.newLoanAmount, loans.getLoan(takerId).loanAmount);
         assertEq(expected.newLoanAmount, loans.getLoan(newTakerId).loanAmount);
 
         checkCloseRolledLoan(newTakerId, expected.newLoanAmount);
@@ -501,6 +510,7 @@ contract LoansTest is Test {
 
         ExpectedRoll memory expected;
         uint newTakerId = takerId;
+        uint balanceBefore = cashAsset.balanceOf(user1);
         // roll 10 times
         for (uint i; i < 10; ++i) {
             (newTakerId, expected) = checkRollLoan(newTakerId, twapPrice);
@@ -509,9 +519,10 @@ contract LoansTest is Test {
         assertEq(expected.newPutLocked, takerPosition.putLockedCash);
         assertEq(expected.newCallLocked, takerPosition.callLockedCash);
         // only fee paid
-        assertEq(expected.toTaker, -1 ether); // single fee
-        // final loan is lower by 10 times the fee (10 roll fees)
-        assertEq(expected.newLoanAmount, loans.getLoan(takerId).loanAmount - 10 ether);
+        assertEq(expected.toTaker, -rollFee); // single fee
+        // paid the rollFee 10 times
+        assertEq(cashAsset.balanceOf(user1), balanceBefore - (10 * uint(rollFee)));
+        assertEq(expected.newLoanAmount, loans.getLoan(takerId).loanAmount);
         assertEq(expected.newLoanAmount, loans.getLoan(newTakerId).loanAmount);
 
         checkCloseRolledLoan(newTakerId, expected.newLoanAmount);

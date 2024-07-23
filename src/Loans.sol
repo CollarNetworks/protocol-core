@@ -238,15 +238,16 @@ contract Loans is ILoans, Ownable, Pausable {
      * @param takerId The ID of the CollarTakerNFT representing the loan to be rolled
      * @param rolls The Rolls contract to be used for this operation (must match the configured one)
      * @param rollId The ID of the roll offer to be executed
-     * @param minLoanChange The minimum acceptable change in loan amount (negative if expecting to pay)
+     * @param minToUser The minimum acceptable transfer to user (negative if expecting to pay)
      * @return newTakerId The ID of the newly created CollarTakerNFT representing the rolled loan
      * @return newLoanAmount The updated loan amount after rolling
+     * @return transferAmount The actual transfer to user (or from user if negative)
      */
-    function rollLoan(uint takerId, Rolls rolls, uint rollId, int minLoanChange)
+    function rollLoan(uint takerId, Rolls rolls, uint rollId, int minToUser)
         external
         whenNotPaused
         onlyNFTOwner(takerId)
-        returns (uint newTakerId, uint newLoanAmount)
+        returns (uint newTakerId, uint newLoanAmount, int transferAmount)
     {
         // rolls contract is valid
         require(rollsContract != Rolls(address(0)), "rolls contract unset");
@@ -263,7 +264,7 @@ contract Loans is ILoans, Ownable, Pausable {
         loan.active = false;
 
         // pull and push NFT and cash, execute roll, emit event
-        (newTakerId, newLoanAmount) = _rollLoan(takerId, rollId, minLoanChange, loan.loanAmount);
+        (newTakerId, newLoanAmount, transferAmount) = _rollLoan(takerId, rollId, minToUser, loan.loanAmount);
 
         // store the new loan data
         // takerId is assumed to be just minted, so storage must be empty
@@ -404,29 +405,26 @@ contract Loans is ILoans, Ownable, Pausable {
         cashAmount = repaymentAmount + withdrawnAmount;
     }
 
-    function _rollLoan(uint takerId, uint rollId, int minLoanChange, uint loanAmount)
+    function _rollLoan(uint takerId, uint rollId, int minToUser, uint loanAmount)
         internal
-        returns (uint newTakerId, uint newLoanAmount)
+        returns (uint newTakerId, uint newLoanAmount, int transferAmount)
     {
         uint initialBalance = cashAsset.balanceOf(address(this));
 
         // calculate cash to pull
-        (int loanChangePreview,,) = rollsContract.calculateTransferAmounts(rollId, _currentTWAPPrice());
+        (int transferPreview,, int rollFee) =
+            rollsContract.calculateTransferAmounts(rollId, _currentTWAPPrice());
+
+        newLoanAmount = _calculateNewLoan(transferPreview, rollFee, loanAmount);
 
         // update loan amount
-        if (loanChangePreview < 0) {
-            uint repayment = uint(-loanChangePreview); // will revert for type(int).min
-            require(repayment <= loanAmount, "repayment larger than loan");
-            // update loan
-            newLoanAmount = loanAmount - repayment;
+        if (transferPreview < 0) {
+            uint fromUser = uint(-transferPreview); // will revert for type(int).min
             // pull cash first, because rolls will try to pull it (if needed) from this contract
             // @dev assumes approval
-            cashAsset.safeTransferFrom(msg.sender, address(this), repayment);
+            cashAsset.safeTransferFrom(msg.sender, address(this), fromUser);
             // allow rolls to pull this cash
-            cashAsset.forceApprove(address(rollsContract), repayment);
-        } else {
-            // update loan
-            newLoanAmount = loanAmount + uint(loanChangePreview);
+            cashAsset.forceApprove(address(rollsContract), fromUser);
         }
 
         // transfer the NFT to this contract so it can accept the roll
@@ -435,26 +433,25 @@ contract Loans is ILoans, Ownable, Pausable {
         // approve the taker NFT for rolls to pull
         takerNFT.approve(address(rollsContract), takerId);
         // execute roll
-        int loanChange;
-        (newTakerId,, loanChange,) = rollsContract.executeRoll(rollId, minLoanChange);
+        (newTakerId,, transferAmount,) = rollsContract.executeRoll(rollId, minToUser);
         // check return value matches preview, which was used for updating the loan and pulling cash
-        require(loanChange == loanChangePreview, "unexpected loan update");
+        require(transferAmount == transferPreview, "unexpected loan update");
         // check slippage (would have been checked in Rolls as well)
-        require(loanChange >= minLoanChange, "loan update slippage");
+        require(transferAmount >= minToUser, "loan update slippage");
 
         // transfer new NFT, @dev expects approval
         takerNFT.transferFrom(address(this), msg.sender, newTakerId);
         // transfer cash if should have received any
-        if (loanChange > 0) {
+        if (transferAmount > 0) {
             // @dev this will revert if rolls contract didn't actually pay above
-            cashAsset.safeTransfer(msg.sender, uint(loanChange));
+            cashAsset.safeTransfer(msg.sender, uint(transferAmount));
         }
 
         // there should be no balance change for the contract (e.g., rolls contract
         // didn't overestimate amount to pull from user, or under-report return value)
         require(cashAsset.balanceOf(address(this)) == initialBalance, "contract balance changed");
 
-        emit LoanRolled(msg.sender, takerId, rollId, newTakerId, loanAmount, newLoanAmount);
+        emit LoanRolled(msg.sender, takerId, rollId, newTakerId, loanAmount, newLoanAmount, transferAmount);
     }
 
     // ----- INTERNAL VIEWS ----- //
@@ -474,5 +471,25 @@ contract Loans is ILoans, Ownable, Pausable {
 
     function _currentTWAPPrice() internal view returns (uint) {
         return takerNFT.getReferenceTWAPPrice(block.timestamp);
+    }
+
+    function _calculateNewLoan(int rollTransferIn, int rollFee, uint initialLoanAmount)
+        internal
+        pure
+        returns (uint newLoanAmount)
+    {
+        // The transfer subtracted the fee, so it needs to be added back. The fee is not part of
+        // the loan such that if nothing has changed (except the fee being charged), the updated
+        // loan will should still be equivalent to the initial collateral.
+        // Example: price rose, the transfer = position-gain - fee = 100 - 1 = 99.
+        //   position-gain = transfer + fee = 99 + 1 = 100
+        int loanChange = rollTransferIn + rollFee;
+        if (loanChange < 0) {
+            uint repayment = uint(-loanChange); // will revert for type(int).min
+            require(repayment <= initialLoanAmount, "repayment larger than loan");
+            newLoanAmount = initialLoanAmount - repayment;
+        } else {
+            newLoanAmount = initialLoanAmount + uint(loanChange);
+        }
     }
 }
