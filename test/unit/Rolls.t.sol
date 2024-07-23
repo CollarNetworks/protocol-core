@@ -82,10 +82,10 @@ contract RollsTest is Test {
     }
 
     function setupEngine() public {
-        engine.addLTV(ltv);
-        engine.addCollarDuration(duration);
-        engine.addSupportedCashAsset(address(cashAsset));
-        engine.addSupportedCollateralAsset(address(collateralAsset));
+        engine.setLTVRange(ltv, ltv);
+        engine.setCollarDurationRange(duration, duration);
+        engine.setCashAssetSupport(address(cashAsset), true);
+        engine.setCollateralAssetSupport(address(collateralAsset), true);
     }
 
     function createProviderOffers() internal returns (uint offerId, uint offerId2) {
@@ -157,6 +157,7 @@ contract RollsTest is Test {
 
     function calculateRollAmounts(uint rollId, uint newPrice, int rollFee)
         internal
+        view
         returns (ExpectedRoll memory expected)
     {
         // set the fee, whose calculation is NOT tested here
@@ -185,6 +186,7 @@ contract RollsTest is Test {
 
     function checkCalculateTransferAmounts(ExpectedRoll memory expected, uint rollId, uint newPrice)
         internal
+        view
     {
         // compare to view
         (int toTakerView, int toProviderView, int rollFeeView) =
@@ -264,7 +266,7 @@ contract RollsTest is Test {
         uint newProviderId,
         uint newPrice,
         ExpectedRoll memory expected
-    ) internal {
+    ) internal view {
         // Check new taker position details
         CollarTakerNFT.TakerPosition memory newTakerPos = takerNFT.getPosition(newTakerId);
         assertEq(address(newTakerPos.providerNFT), address(providerNFT));
@@ -434,7 +436,7 @@ contract RollsTest is Test {
     }
 
     function test_calculateRollFee() public {
-        (, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
+        (,, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
 
         // No price change
         assertEq(rolls.calculateRollFee(offer, twapPrice), rollFeeAmount, "no price change");
@@ -508,7 +510,7 @@ contract RollsTest is Test {
     }
 
     function test_calculateRollFee_additional() public {
-        (, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
+        (,, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
 
         // Edge cases for price changes
         assertEq(rolls.calculateRollFee(offer, 0), 0.5 ether, "-100% price");
@@ -748,7 +750,7 @@ contract RollsTest is Test {
     }
 
     function test_revert_executeRoll_offer_terms() public {
-        (uint takerId, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
+        (, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
 
         // Price too high
         uint highPrice = offer.maxPrice + 1;
@@ -796,7 +798,7 @@ contract RollsTest is Test {
     }
 
     function test_revert_executeRoll_taker_approvals() public {
-        (uint takerId, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
+        (uint takerId, uint rollId,) = createAndCheckRollOffer();
 
         // Insufficient taker NFT approval
         startHoax(user1);
@@ -821,7 +823,7 @@ contract RollsTest is Test {
     }
 
     function test_revert_executeRoll_provider_approval() public {
-        (uint takerId, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
+        (uint takerId, uint rollId,) = createAndCheckRollOffer();
 
         uint highPrice = twapPrice * 11 / 10;
         engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, highPrice);
@@ -845,7 +847,7 @@ contract RollsTest is Test {
     }
 
     function test_revert_executeRoll_unexpected_withdrawal_amount() public {
-        (uint takerId, uint rollId, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
+        (uint takerId, uint rollId,) = createAndCheckRollOffer();
 
         startHoax(user1);
         takerNFT.approve(address(rolls), takerId);

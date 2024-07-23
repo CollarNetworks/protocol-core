@@ -60,8 +60,8 @@ contract DeployArbitrumSepoliaProtocol is Script {
 
         // Deploy and setup engine
         CollarEngine engine = new CollarEngine(address(SWAP_ROUTER));
-        engine.addLTV(ltvToUse);
-        engine.addCollarDuration(durationToUse);
+        engine.setLTVRange(ltvToUse, ltvToUse);
+        engine.setCollarDurationRange(durationToUse, durationToUse);
 
         DeployedContracts memory contracts = deployContracts(engine, deployer);
 
@@ -129,8 +129,8 @@ contract DeployArbitrumSepoliaProtocol is Script {
         }
 
         // Add support for assets in the engine
-        engine.addSupportedCollateralAsset(address(collateralAsset));
-        engine.addSupportedCashAsset(address(cashAsset));
+        engine.setCollateralAssetSupport(address(collateralAsset), true);
+        engine.setCashAssetSupport(address(cashAsset), true);
 
         // Deploy contract pair
         CollarTakerNFT takerNFT =
