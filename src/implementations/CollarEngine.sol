@@ -32,10 +32,10 @@ contract CollarEngine is Ownable, ICollarEngine {
 
     uint public constant TWAP_BASE_TOKEN_AMOUNT = uint(UniV3OracleLib.BASE_TOKEN_AMOUNT);
     // configuration validation (validate on set)
-    uint public MIN_CONFIGURABLE_LTV = 1000;
-    uint public MAX_CONFIGURABLE_LTV = 9999;
-    uint public MIN_CONFIGURABLE_DURATION = 300;
-    uint public MAX_CONFIGURABLE_DURATION = 5 * 365 days;
+    uint public constant MIN_CONFIGURABLE_LTV = 1000;
+    uint public constant MAX_CONFIGURABLE_LTV = 9999;
+    uint public constant MIN_CONFIGURABLE_DURATION = 300;
+    uint public constant MAX_CONFIGURABLE_DURATION = 5 * 365 days;
     // configured values (set by owner)
     uint public minLTV;
     uint public maxLTV;
