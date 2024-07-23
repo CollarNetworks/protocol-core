@@ -144,7 +144,7 @@ contract DeployInitializedDevnetProtocol is Script {
             string(abi.encodePacked("Provider ", pairName)),
             string(abi.encodePacked("P", pairName))
         );
-        Loans loansContract = new Loans(address(this), engine, takerNFT, cashAsset, collateralAsset);
+        Loans loansContract = new Loans(address(this), takerNFT);
 
         engine.setCollarTakerContractAuth(address(takerNFT), true);
         engine.setProviderContractAuth(address(providerNFT), true);

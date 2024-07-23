@@ -202,7 +202,7 @@ contract LoansRollsHappyPathsTest is LoansRollTestBase {
         assertEq(expected.toTaker, 44 ether); // 45 (+5% * 90% LTV) - 1 (fee)
 
         // LTV & collateral relationship maintained (because within collar bounds)
-        assertEq(collateralAmount * newPrice * ltv / 1e18 / BIPS_100PCT,  expected.newLoanAmount);
+        assertEq(collateralAmount * newPrice * ltv / 1e18 / BIPS_100PCT, expected.newLoanAmount);
 
         twapPrice = newPrice;
         checkCloseRolledLoan(newTakerId, expected.newLoanAmount);
@@ -219,7 +219,7 @@ contract LoansRollsHappyPathsTest is LoansRollTestBase {
         assertEq(expected.toTaker, -46 ether); // -45 (-5% * 90% LTV) - 1 (fee)
 
         // LTV & collateral relationship maintained (because within collar bounds)
-        assertEq(collateralAmount * newPrice * ltv / 1e18 / BIPS_100PCT,  expected.newLoanAmount);
+        assertEq(collateralAmount * newPrice * ltv / 1e18 / BIPS_100PCT, expected.newLoanAmount);
 
         twapPrice = newPrice;
         checkCloseRolledLoan(newTakerId, expected.newLoanAmount);
