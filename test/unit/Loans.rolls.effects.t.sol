@@ -201,6 +201,9 @@ contract LoansRollsHappyPathsTest is LoansRollTestBase {
         assertEq(expected.newCallLocked, 210 ether); // scaled by price
         assertEq(expected.toTaker, 44 ether); // 45 (+5% * 90% LTV) - 1 (fee)
 
+        // LTV & collateral relationship maintained (because within collar bounds)
+        assertEq(collateralAmount * newPrice * ltv / 1e18 / BIPS_100PCT,  expected.newLoanAmount);
+
         twapPrice = newPrice;
         checkCloseRolledLoan(newTakerId, expected.newLoanAmount);
     }
@@ -214,6 +217,9 @@ contract LoansRollsHappyPathsTest is LoansRollTestBase {
         assertEq(expected.newPutLocked, 95 ether); // scaled by price
         assertEq(expected.newCallLocked, 190 ether); // scaled by price
         assertEq(expected.toTaker, -46 ether); // -45 (-5% * 90% LTV) - 1 (fee)
+
+        // LTV & collateral relationship maintained (because within collar bounds)
+        assertEq(collateralAmount * newPrice * ltv / 1e18 / BIPS_100PCT,  expected.newLoanAmount);
 
         twapPrice = newPrice;
         checkCloseRolledLoan(newTakerId, expected.newLoanAmount);
@@ -229,6 +235,9 @@ contract LoansRollsHappyPathsTest is LoansRollTestBase {
         assertEq(expected.newCallLocked, 300 ether); // scaled by price
         assertEq(expected.toTaker, 149 ether); // 150 (300 collar settle - 150 collar open) - 1 fee
 
+        // LTV & collateral relationship NOT maintained because outside of collar bounds
+        assertTrue(expected.newLoanAmount < collateralAmount * newPrice * ltv / 1e18 / BIPS_100PCT);
+
         twapPrice = newPrice;
         checkCloseRolledLoan(newTakerId, expected.newLoanAmount);
     }
@@ -242,6 +251,9 @@ contract LoansRollsHappyPathsTest is LoansRollTestBase {
         assertEq(expected.newPutLocked, 50 ether); // scaled by price
         assertEq(expected.newCallLocked, 100 ether); // scaled by price
         assertEq(expected.toTaker, -51 ether); // -50 (0 collar settle - 50 collar open) - 1 fee
+
+        // LTV & collateral relationship NOT maintained because outside of collar bounds
+        assertTrue(expected.newLoanAmount > collateralAmount * newPrice * ltv / 1e18 / BIPS_100PCT);
 
         twapPrice = newPrice;
         checkCloseRolledLoan(newTakerId, expected.newLoanAmount);
