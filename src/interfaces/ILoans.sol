@@ -44,7 +44,7 @@ interface ILoans {
         uint indexed takerId,
         uint indexed rollId,
         uint newTakerId,
-        uint loanAmount,
+        uint prevLoanAmount,
         uint newLoanAmount,
         int transferAmount
     );

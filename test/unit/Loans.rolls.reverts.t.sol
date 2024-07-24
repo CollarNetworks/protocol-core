@@ -98,7 +98,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
             abi.encodeWithSelector(rolls.executeRoll.selector, rollId, loanChangePreview + 1),
             abi.encode(0, 0, loanChangePreview, 0) // return less than previewed
         );
-        vm.expectRevert("loan update slippage");
+        vm.expectRevert("roll transfer < minToUser");
         loans.rollLoan(takerId, rolls, rollId, loanChangePreview + 1); // expect more
 
         // Mock the executeRoll function to return unexpected value (-1)
@@ -107,7 +107,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
             abi.encodeWithSelector(rolls.executeRoll.selector, rollId, loanChangePreview),
             abi.encode(0, 0, loanChangePreview - 1, 0)
         );
-        vm.expectRevert("unexpected loan update");
+        vm.expectRevert("unexpected transfer amount");
         loans.rollLoan(takerId, rolls, rollId, loanChangePreview);
 
         // Mock the executeRoll function to return unexpected value (+1)
@@ -116,7 +116,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
             abi.encodeWithSelector(rolls.executeRoll.selector, rollId, loanChangePreview),
             abi.encode(0, 0, loanChangePreview + 1, 0)
         );
-        vm.expectRevert("unexpected loan update");
+        vm.expectRevert("unexpected transfer amount");
         loans.rollLoan(takerId, rolls, rollId, loanChangePreview);
     }
 

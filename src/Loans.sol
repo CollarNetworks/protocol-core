@@ -439,11 +439,11 @@ contract Loans is ILoans, Ownable, Pausable {
         // execute roll
         (newTakerId,, transferAmount,) = rollsContract.executeRoll(rollId, minToUser);
         // check return value matches preview, which was used for updating the loan and pulling cash
-        require(transferAmount == transferPreview, "unexpected loan update");
+        require(transferAmount == transferPreview, "unexpected transfer amount");
         // check slippage (would have been checked in Rolls as well)
-        require(transferAmount >= minToUser, "loan update slippage");
+        require(transferAmount >= minToUser, "roll transfer < minToUser");
 
-        // transfer new NFT, @dev expects approval
+        // transfer new NFT
         takerNFT.transferFrom(address(this), msg.sender, newTakerId);
         // transfer cash if should have received any
         if (transferAmount > 0) {
@@ -451,8 +451,8 @@ contract Loans is ILoans, Ownable, Pausable {
             cashAsset.safeTransfer(msg.sender, uint(transferAmount));
         }
 
-        // there should be no balance change for the contract (e.g., rolls contract
-        // didn't overestimate amount to pull from user, or under-report return value)
+        // there should be no balance change for the contract (which might happen e.g., if rolls contract
+        // overestimated amount to pull from user, or under-reported return value)
         require(cashAsset.balanceOf(address(this)) == initialBalance, "contract balance changed");
 
         emit LoanRolled(msg.sender, takerId, rollId, newTakerId, loanAmount, newLoanAmount, transferAmount);
