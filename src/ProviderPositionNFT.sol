@@ -136,7 +136,6 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         _validateOfferParamsSupported(putStrikeDeviation, duration);
         require(callStrikeDeviation > MIN_CALL_STRIKE_BIPS, "strike deviation too low");
         require(callStrikeDeviation <= MAX_CALL_STRIKE_BIPS, "strike deviation too high");
-        // TODO validate provider can receive NFTs (via the same check that's in _safeMint)
         offerId = nextOfferId++;
         liquidityOffers[offerId] = LiquidityOffer({
             provider: msg.sender,
