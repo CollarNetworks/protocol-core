@@ -60,6 +60,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
     }
 
     /// @dev TWAP price that's used in this contract for opening and settling positions
+    /// and should be used by other contracts to get inputs for previewSettlement
     function getReferenceTWAPPrice(uint twapEndTime) public view returns (uint price) {
         return engine.getHistoricalAssetPriceViaTWAP(
             address(collateralAsset), address(cashAsset), uint32(twapEndTime), TWAP_LENGTH
@@ -80,12 +81,13 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
     }
 
     /// @dev preview the settlement calculation updates at a particular price
-    function previewSettlement(TakerPosition memory takerPos, uint endPrice)
+    /// @dev no validation, so may revert with division by zero for bad values
+    function previewSettlement(TakerPosition memory takerPos, uint endReferencePrice)
         external
         pure
         returns (uint takerBalance, int providerChange)
     {
-        return _settlementCalculations(takerPos, endPrice);
+        return _settlementCalculations(takerPos, endReferencePrice);
     }
 
     // ----- STATE CHANGING FUNCTIONS ----- //
@@ -203,7 +205,6 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         // and sends the provider NFT to the provider
         ProviderPositionNFT.ProviderPosition memory providerPosition;
         (providerId, providerPosition) = providerNFT.mintPositionFromOffer(offerId, callLockedCash);
-        // put and call deviations are assumed to be identical for offer and resulting position
         uint putStrikePrice = twapPrice * providerPosition.putStrikeDeviation / BIPS_BASE;
         uint callStrikePrice = twapPrice * providerPosition.callStrikeDeviation / BIPS_BASE;
         // avoid boolean edge cases and division by zero when settling

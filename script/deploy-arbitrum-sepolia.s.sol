@@ -146,7 +146,7 @@ contract DeployArbitrumSepoliaProtocol is Script {
             "PCOLL/CASH"
         );
 
-        Loans loansContract = new Loans(deployer, engine, takerNFT, cashAsset, collateralAsset);
+        Loans loansContract = new Loans(deployer, takerNFT);
 
         engine.setCollarTakerContractAuth(address(takerNFT), true);
         engine.setProviderContractAuth(address(providerNFT), true);
@@ -258,7 +258,7 @@ contract DeployArbitrumSepoliaProtocol is Script {
         console.log("Loan collateral amount:", loan.collateralAmount);
         console.log("Loan loan amount:", loan.loanAmount);
         console.log("Loan keeper allowed by:", loan.keeperAllowedBy);
-        console.log("Loan closed:", loan.closed);
+        console.log("Loan active:", loan.active);
         vm.stopBroadcast();
     }
 }
