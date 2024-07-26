@@ -16,6 +16,7 @@ import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { IRolls } from "./interfaces/IRolls.sol";
 import { CollarTakerNFT } from "./CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "./ProviderPositionNFT.sol";
+import { BaseEmergencyAdmin } from "./base/BaseEmergencyAdmin.sol";
 
 /**
  * @title Rolls
@@ -51,7 +52,7 @@ import { ProviderPositionNFT } from "./ProviderPositionNFT.sol";
  * 2. Signed integers are used for many input and output values, and proper care should be
  * taken in understanding the semantics of the positive and negative values.
  */
-contract Rolls is IRolls, Ownable, Pausable {
+contract Rolls is IRolls, BaseEmergencyAdmin {
     using SafeERC20 for IERC20;
     using SafeCast for uint;
 
@@ -69,9 +70,10 @@ contract Rolls is IRolls, Ownable, Pausable {
 
     mapping(uint rollId => RollOffer) internal rollOffers;
 
-    constructor(address initialOwner, CollarTakerNFT _takerNFT, IERC20 _cashAsset) Ownable(initialOwner) {
+    constructor(address initialOwner, CollarTakerNFT _takerNFT, IERC20 _cashAsset) BaseEmergencyAdmin(initialOwner) {
         takerNFT = _takerNFT;
         cashAsset = _cashAsset;
+        _setConfigHub(_takerNFT.configHub());
     }
 
     // ----- VIEW FUNCTIONS ----- //
@@ -283,18 +285,6 @@ contract Rolls is IRolls, Ownable, Pausable {
         // check transfers are sufficient / or pulls are not excessive
         require(toTaker >= minToUser, "taker transfer slippage");
         require(toProvider >= offer.minToProvider, "provider transfer slippage");
-    }
-
-    // admin mutative
-
-    /// @notice Pauses the contract in an emergency, pausing all user callable mutative methods
-    function pause() public onlyOwner {
-        _pause();
-    }
-
-    /// @notice Unpauses the contract
-    function unpause() public onlyOwner {
-        _unpause();
     }
 
     // ----- INTERNAL MUTATIVE ----- //

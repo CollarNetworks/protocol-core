@@ -9,6 +9,7 @@ import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockConfigHub } from "../../test/utils/MockConfigHub.sol";
+import { BaseEmergencyAdminTestBase } from "./BaseEmergencyAdmin.t.sol";
 
 import { Rolls, IRolls } from "../../src/Rolls.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
@@ -551,10 +552,13 @@ contract RollsTest is Test {
         assertTrue(rolls.paused());
         // methods are paused
         vm.startPrank(user1);
+
         vm.expectRevert(Pausable.EnforcedPause.selector);
         rolls.createRollOffer(0, 0, 0, 0, 0, 0, 0);
+
         vm.expectRevert(Pausable.EnforcedPause.selector);
         rolls.cancelOffer(0);
+
         vm.expectRevert(Pausable.EnforcedPause.selector);
         rolls.executeRoll(0, 0);
     }
@@ -571,15 +575,6 @@ contract RollsTest is Test {
     }
 
     // reverts
-
-    function test_onlyOwnerMethods() public {
-        vm.startPrank(user1);
-        bytes4 selector = Ownable.OwnableUnauthorizedAccount.selector;
-        vm.expectRevert(abi.encodeWithSelector(selector, user1));
-        rolls.pause();
-        vm.expectRevert(abi.encodeWithSelector(selector, user1));
-        rolls.unpause();
-    }
 
     function test_revert_createRollOffer() public {
         (uint takerId, uint providerId) = createTakerPositions();
@@ -865,5 +860,23 @@ contract RollsTest is Test {
         // Attempt to execute the roll
         vm.expectRevert("unexpected withdrawal amount");
         rolls.executeRoll(rollId, type(int).min);
+    }
+}
+
+contract LoansEmergencyAdminTest is BaseEmergencyAdminTestBase {
+    function setupTestedContract() internal override {
+        TestERC20 cashAsset = new TestERC20("TestCash", "TestCash");
+        TestERC20 collateralAsset = new TestERC20("TestCollat", "TestCollat");
+
+        vm.startPrank(owner);
+        configHub.setCashAssetSupport(address(cashAsset), true);
+        configHub.setCollateralAssetSupport(address(collateralAsset), true);
+        vm.stopPrank();
+
+        CollarTakerNFT takerNFT = new CollarTakerNFT(
+            owner, configHub, cashAsset, collateralAsset, "CollarTakerNFT", "CollarTakerNFT"
+        );
+
+        testedContract = new Rolls(owner, takerNFT, cashAsset);
     }
 }
