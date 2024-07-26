@@ -50,7 +50,8 @@ contract RollsTest is Test {
     function setUp() public {
         cashAsset = new TestERC20("TestCash", "TestCash");
         collateralAsset = new TestERC20("TestCollat", "TestCollat");
-        configHub = new MockConfigHub(address(0));
+        configHub = new MockConfigHub(owner, address(0));
+        startHoax(owner);
         setupConfigHub();
 
         takerNFT =

@@ -32,7 +32,7 @@ contract LoansAdminTest is LoansTestBase {
     function test_setKeeper() public {
         assertEq(loans.closingKeeper(), address(0));
 
-        vm.prank(owner);
+        vm.startPrank(owner);
         vm.expectEmit(address(loans));
         emit ILoans.ClosingKeeperUpdated(address(0), keeper);
         loans.setKeeper(keeper);

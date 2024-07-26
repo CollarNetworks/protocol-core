@@ -14,6 +14,7 @@ import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfac
 abstract contract CollarBaseIntegrationTestConfig is Test {
     using SafeERC20 for IERC20;
 
+    address owner = makeAddr("owner");
     address user1 = makeAddr("user1");
     address provider = makeAddr("provider");
     address swapRouterAddress;
@@ -58,7 +59,8 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
         COLLATERAL_PRICE_ON_BLOCK = priceOnBlock;
         CALL_STRIKE_TICK = callStrikeTickToUse;
 
-        configHub = new ConfigHub(swapRouterAddress);
+        configHub = new ConfigHub(owner, swapRouterAddress);
+        startHoax(owner);
         configHub.setCashAssetSupport(cashAssetAddress, true);
         configHub.setCollateralAssetSupport(collateralAssetAddress, true);
         configHub.setLTVRange(_offerLTV, _offerLTV + 1);

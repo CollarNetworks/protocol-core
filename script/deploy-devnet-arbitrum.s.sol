@@ -84,7 +84,7 @@ contract DeployInitializedDevnetProtocol is Script {
 
     function _deployandSetupConfigHub() internal {
         router = swapRouterAddress;
-        configHub = new ConfigHub(router);
+        configHub = new ConfigHub(msg.sender, router);
 
         // add supported cash assets
         configHub.setCashAssetSupport(USDC, true);
