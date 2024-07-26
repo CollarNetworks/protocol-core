@@ -29,7 +29,7 @@ abstract contract BaseEmergencyAdmin is Ownable2Step, Pausable {
     // ----- Non-owner ----- //
 
     // @notice Pause method called from the guardian authorized by the ConfigHub
-    // Reverts if calles is no guardian, or if owner is revoked (since unpusing would be impossible)
+    // Reverts if sender is not guardian, or if owner is revoked (since unpausing would be impossible)
     function pauseByGuardian() external {
         address guardian = configHub.pauseGuardian();
         require(msg.sender == guardian, "not guardian");

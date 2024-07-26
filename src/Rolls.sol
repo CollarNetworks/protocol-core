@@ -70,7 +70,9 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
 
     mapping(uint rollId => RollOffer) internal rollOffers;
 
-    constructor(address initialOwner, CollarTakerNFT _takerNFT, IERC20 _cashAsset) BaseEmergencyAdmin(initialOwner) {
+    constructor(address initialOwner, CollarTakerNFT _takerNFT, IERC20 _cashAsset)
+        BaseEmergencyAdmin(initialOwner)
+    {
         takerNFT = _takerNFT;
         cashAsset = _cashAsset;
         _setConfigHub(_takerNFT.configHub());

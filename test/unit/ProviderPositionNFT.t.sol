@@ -758,10 +758,8 @@ contract ProviderNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
         configHub.setCollateralAssetSupport(address(collateralAsset), true);
         vm.stopPrank();
 
-        ProviderPositionNFT providerNFT = new ProviderPositionNFT(
+        testedContract = new ProviderPositionNFT(
             owner, configHub, cashAsset, collateralAsset, address(0), "ProviderNFT", "ProviderNFT"
         );
-
-        testedContract = providerNFT;
     }
 }

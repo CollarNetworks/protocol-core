@@ -4,14 +4,11 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 
-import { ERC721, IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockConfigHub } from "../../test/utils/MockConfigHub.sol";
-import { MockUniRouter } from "../../test/utils/MockUniRouter.sol";
 
 import { BaseEmergencyAdmin } from "../../src/base/BaseEmergencyAdmin.sol";
 import { ConfigHub } from "../../src/ConfigHub.sol";
@@ -20,7 +17,6 @@ import { ConfigHub } from "../../src/ConfigHub.sol";
 abstract contract BaseEmergencyAdminTestBase is Test {
     TestERC20 erc20;
     MockConfigHub configHub;
-    MockUniRouter uniRouter;
 
     BaseEmergencyAdmin testedContract;
 
@@ -30,14 +26,12 @@ abstract contract BaseEmergencyAdminTestBase is Test {
 
     function setUp() public virtual {
         erc20 = new TestERC20("TestERC20", "TestERC20");
-        uniRouter = new MockUniRouter();
-        configHub = new MockConfigHub(owner, address(uniRouter));
+        configHub = new MockConfigHub(owner, address(0));
 
         setupTestedContract();
 
         vm.label(address(erc20), "TestERC20");
         vm.label(address(configHub), "ConfigHub");
-        vm.label(address(uniRouter), "UniRouter");
     }
 
     /// @dev this is virtual to be filled by inheriting test contracts
@@ -163,6 +157,18 @@ abstract contract BaseEmergencyAdminTestBase is Test {
         vm.expectRevert("owner renounced");
         testedContract.pauseByGuardian();
     }
+
+    function test_revert_guardian_unpause() public {
+        vm.prank(owner);
+        configHub.setPauseGuardian(guardian);
+
+        vm.startPrank(guardian);
+        // can pause
+        testedContract.pauseByGuardian();
+        // cannot unpause
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, guardian));
+        testedContract.unpause();
+    }
 }
 
 contract BadConfigHub1 {
@@ -180,7 +186,7 @@ contract TestableBaseEmergencyAdmin is BaseEmergencyAdmin {
     }
 }
 
-// the tests for the
+// the tests for the mock contract
 contract BaseEmergencyAdminMockTest is BaseEmergencyAdminTestBase {
     function setupTestedContract() internal override {
         testedContract = new TestableBaseEmergencyAdmin(owner, configHub);
@@ -198,5 +204,4 @@ contract BaseEmergencyAdminMockTest is BaseEmergencyAdminTestBase {
         vm.expectRevert("unexpected version length");
         new TestableBaseEmergencyAdmin(owner, badHub);
     }
-
 }

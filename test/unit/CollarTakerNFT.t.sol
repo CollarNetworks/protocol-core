@@ -646,9 +646,7 @@ contract TakerNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
         configHub.setCollateralAssetSupport(address(collateralAsset), true);
         vm.stopPrank();
 
-        CollarTakerNFT takerNFT =
+        testedContract =
             new CollarTakerNFT(owner, configHub, cashAsset, collateralAsset, "CollarTakerNFT", "BRWTST");
-
-        testedContract = takerNFT;
     }
 }
