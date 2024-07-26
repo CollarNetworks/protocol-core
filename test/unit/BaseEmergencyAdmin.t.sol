@@ -16,39 +16,36 @@ import { MockUniRouter } from "../../test/utils/MockUniRouter.sol";
 import { BaseEmergencyAdmin } from "../../src/base/BaseEmergencyAdmin.sol";
 import { ConfigHub } from "../../src/ConfigHub.sol";
 
-contract TestableBaseEmergencyAdmin is BaseEmergencyAdmin {
-    constructor(address _initialOwner, ConfigHub _configHub) BaseEmergencyAdmin(_initialOwner, _configHub) {}
-    // non abstract
-    function pausableMethod() external whenNotPaused {}
-    function unPausableMethod() external {}
-}
-
-contract BaseEmergencyAdminTest is Test {
+// base contract for other tests that will check this functionality
+abstract contract BaseEmergencyAdminTestBase is Test {
     TestERC20 erc20;
     MockConfigHub configHub;
     MockUniRouter uniRouter;
 
-    BaseEmergencyAdmin sut;
+    BaseEmergencyAdmin testedContract;
 
     address owner = makeAddr("owner");
     address user1 = makeAddr("user1");
     address guardian = makeAddr("guardian");
 
-    function setUp() public {
+    function setUp() public virtual {
         erc20 = new TestERC20("TestERC20", "TestERC20");
         uniRouter = new MockUniRouter();
         configHub = new MockConfigHub(owner, address(uniRouter));
 
-        sut = new TestableBaseEmergencyAdmin(owner, configHub);
+        setupTestedContract();
 
         vm.label(address(erc20), "TestERC20");
         vm.label(address(configHub), "ConfigHub");
         vm.label(address(uniRouter), "UniRouter");
     }
 
+    /// @dev this is virtual to be filled by inheriting test contracts
+    function setupTestedContract() internal virtual;
+
     function test_constructor() public {
-        assertEq(sut.owner(), owner);
-        assertEq(address(sut.configHub()), address(configHub));
+        assertEq(testedContract.owner(), owner);
+        assertEq(address(testedContract.configHub()), address(configHub));
     }
 
     function test_pauseByGuardian() public {
@@ -56,70 +53,57 @@ contract BaseEmergencyAdminTest is Test {
         configHub.setPauseGuardian(guardian);
 
         vm.prank(guardian);
-        vm.expectEmit(address(sut));
+        vm.expectEmit(address(testedContract));
         emit Pausable.Paused(guardian);
-        vm.expectEmit(address(sut));
+        vm.expectEmit(address(testedContract));
         emit BaseEmergencyAdmin.PausedByGuardian(guardian);
-        sut.pauseByGuardian();
+        testedContract.pauseByGuardian();
 
-        assertTrue(sut.paused());
+        assertTrue(testedContract.paused());
     }
 
     function test_pause() public {
         vm.prank(owner);
-        vm.expectEmit(address(sut));
+        vm.expectEmit(address(testedContract));
         emit Pausable.Paused(owner);
-        sut.pause();
+        testedContract.pause();
 
-        assertTrue(sut.paused());
+        assertTrue(testedContract.paused());
     }
 
     function test_unpause() public {
         vm.startPrank(owner);
-        sut.pause();
-        vm.expectEmit(address(sut));
+        testedContract.pause();
+        vm.expectEmit(address(testedContract));
         emit Pausable.Unpaused(owner);
-        sut.unpause();
+        testedContract.unpause();
         vm.stopPrank();
 
-        assertFalse(sut.paused());
+        assertFalse(testedContract.paused());
     }
 
     function test_setConfigHub() public {
         ConfigHub newConfigHub = new ConfigHub(owner, address(0));
 
         vm.prank(owner);
-        vm.expectEmit(address(sut));
+        vm.expectEmit(address(testedContract));
         emit BaseEmergencyAdmin.ConfigHubUpdated(configHub, newConfigHub);
-        sut.setConfigHub(newConfigHub);
+        testedContract.setConfigHub(newConfigHub);
 
-        assertEq(address(sut.configHub()), address(newConfigHub));
+        assertEq(address(testedContract.configHub()), address(newConfigHub));
     }
 
     function test_rescueTokens_ERC20() public {
-        uint256 amount = 1000;
-        erc20.mint(address(sut), amount);
+        uint amount = 1000;
+        erc20.mint(address(testedContract), amount);
 
         vm.prank(owner);
-        vm.expectEmit(address(sut));
+        vm.expectEmit(address(testedContract));
         emit BaseEmergencyAdmin.TokensRescued(address(erc20), amount);
-        sut.rescueTokens(address(erc20), amount);
+        testedContract.rescueTokens(address(erc20), amount);
 
         assertEq(erc20.balanceOf(owner), amount);
-        assertEq(erc20.balanceOf(address(sut)), 0);
-    }
-
-    function test_pausableMethods() public virtual {
-        TestableBaseEmergencyAdmin tSut = TestableBaseEmergencyAdmin(address(sut));
-        tSut.pausableMethod();
-
-        vm.prank(owner);
-        tSut.pause();
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        tSut.pausableMethod();
-
-        tSut.unPausableMethod(); // Should work even when paused
+        assertEq(erc20.balanceOf(address(testedContract)), 0);
     }
 
     // reverts
@@ -141,15 +125,15 @@ contract BaseEmergencyAdminTest is Test {
         vm.startPrank(owner);
 
         vm.expectRevert(new bytes(0));
-        sut.setConfigHub(ConfigHub(address(0)));
+        testedContract.setConfigHub(ConfigHub(address(0)));
 
         ConfigHub badHub = ConfigHub(address(new BadConfigHub1()));
         vm.expectRevert();
-        sut.setConfigHub(badHub);
+        testedContract.setConfigHub(badHub);
 
         badHub = ConfigHub(address(new BadConfigHub2()));
         vm.expectRevert("unexpected version length");
-        sut.setConfigHub(badHub);
+        testedContract.setConfigHub(badHub);
     }
 
     function test_onlyOwnerMethods() public {
@@ -157,28 +141,28 @@ contract BaseEmergencyAdminTest is Test {
         bytes4 selector = Ownable.OwnableUnauthorizedAccount.selector;
 
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
-        sut.pause();
+        testedContract.pause();
 
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
-        sut.unpause();
+        testedContract.unpause();
 
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
-        sut.setConfigHub(configHub);
+        testedContract.setConfigHub(configHub);
 
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
-        sut.rescueTokens(address(0), 0);
+        testedContract.rescueTokens(address(0), 0);
     }
 
     function test_revert_pauseByGuardian_notGuardian() public {
         vm.prank(user1);
         vm.expectRevert("not guardian");
-        sut.pauseByGuardian();
+        testedContract.pauseByGuardian();
 
         vm.prank(owner);
         configHub.setPauseGuardian(user1);
         vm.prank(user1);
-        sut.pauseByGuardian();
-        assertTrue(sut.paused());
+        testedContract.pauseByGuardian();
+        assertTrue(testedContract.paused());
     }
 
     function test_revert_pauseByGuardian_ownerRenounced() public {
@@ -186,18 +170,30 @@ contract BaseEmergencyAdminTest is Test {
         configHub.setPauseGuardian(guardian);
 
         vm.prank(owner);
-        sut.renounceOwnership();
+        testedContract.renounceOwnership();
 
         vm.prank(guardian);
         vm.expectRevert("owner renounced");
-        sut.pauseByGuardian();
+        testedContract.pauseByGuardian();
     }
 }
 
 contract BadConfigHub1 {
-    fallback() external {}
+    fallback() external { }
 }
 
 contract BadConfigHub2 {
-    function VERSION() external returns (string memory) {}
+    function VERSION() external returns (string memory) { }
+}
+
+// mock of an inheriting contract (because base is abstract)
+contract TestableBaseEmergencyAdmin is BaseEmergencyAdmin {
+    constructor(address _initialOwner, ConfigHub _configHub) BaseEmergencyAdmin(_initialOwner, _configHub) { }
+}
+
+// the tests for the
+contract BaseEmergencyAdminMockTest is BaseEmergencyAdminTestBase {
+    function setupTestedContract() internal override {
+        testedContract = new TestableBaseEmergencyAdmin(owner, configHub);
+    }
 }

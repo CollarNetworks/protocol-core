@@ -8,13 +8,16 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockConfigHub } from "../../test/utils/MockConfigHub.sol";
+import { BaseEmergencyAdminTestBase } from "./BaseEmergencyAdmin.t.sol";
+
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ICollarTakerNFT } from "../../src/interfaces/ICollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 import { IProviderPositionNFT } from "../../src/interfaces/IProviderPositionNFT.sol";
-import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 
 contract CollarTakerNFTTest is Test {
     TestERC20 cashAsset;
@@ -215,7 +218,7 @@ contract CollarTakerNFTTest is Test {
     /**
      * Pausable
      */
-    function test_pause() public {
+    function test_pausableMethods() public {
         // create a position
         createOfferMintTouserAndSetPrice();
         (uint takerId,) = createTakerPositionAsUser(0, takerNFT, providerNFT);
@@ -630,5 +633,22 @@ contract CollarTakerNFTTest is Test {
 
         vm.expectRevert("invalid put strike deviation");
         takerNFT.calculateProviderLocked(putLockedCash, putStrikeDeviation, callStrikeDeviation);
+    }
+}
+
+contract TakerNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
+    function setupTestedContract() internal override {
+        TestERC20 cashAsset = new TestERC20("TestCash", "TestCash");
+        TestERC20 collateralAsset = new TestERC20("TestCollat", "TestCollat");
+
+        vm.startPrank(owner);
+        configHub.setCashAssetSupport(address(cashAsset), true);
+        configHub.setCollateralAssetSupport(address(collateralAsset), true);
+        vm.stopPrank();
+
+        CollarTakerNFT takerNFT =
+            new CollarTakerNFT(owner, configHub, cashAsset, collateralAsset, "CollarTakerNFT", "BRWTST");
+
+        testedContract = takerNFT;
     }
 }

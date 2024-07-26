@@ -9,6 +9,8 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockConfigHub } from "../../test/utils/MockConfigHub.sol";
 
+import { BaseEmergencyAdminTestBase } from "./BaseEmergencyAdmin.t.sol";
+
 import { ProviderPositionNFT, IProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 
@@ -513,7 +515,7 @@ contract ProviderPositionNFTTest is Test {
         );
     }
 
-    function test_pause() public {
+    function test_pausableMethods() public {
         // create a position
         (uint positionId,) = createAndCheckPosition(provider1, largeAmount, largeAmount);
 
@@ -526,16 +528,22 @@ contract ProviderPositionNFTTest is Test {
         assertTrue(providerNFT.paused());
         // methods are paused
         vm.startPrank(provider1);
+
         vm.expectRevert(Pausable.EnforcedPause.selector);
         providerNFT.createOffer(0, 0, 0, 0);
+
         vm.expectRevert(Pausable.EnforcedPause.selector);
         providerNFT.updateOfferAmount(0, 0);
+
         vm.expectRevert(Pausable.EnforcedPause.selector);
         providerNFT.mintPositionFromOffer(0, 0);
+
         vm.expectRevert(Pausable.EnforcedPause.selector);
         providerNFT.settlePosition(0, 0);
+
         vm.expectRevert(Pausable.EnforcedPause.selector);
         providerNFT.withdrawFromSettled(0, address(0));
+
         vm.expectRevert(Pausable.EnforcedPause.selector);
         providerNFT.cancelAndWithdraw(0, address(0));
 
@@ -543,15 +551,6 @@ contract ProviderPositionNFTTest is Test {
         vm.startPrank(provider1);
         vm.expectRevert(Pausable.EnforcedPause.selector);
         providerNFT.transferFrom(provider1, recipient1, positionId);
-    }
-
-    function test_onlyOwnerCanPauseUnpause() public {
-        vm.startPrank(provider1);
-        bytes4 selector = Ownable.OwnableUnauthorizedAccount.selector;
-        vm.expectRevert(abi.encodeWithSelector(selector, provider1));
-        providerNFT.pause();
-        vm.expectRevert(abi.encodeWithSelector(selector, provider1));
-        providerNFT.unpause();
     }
 
     function test_revert_createOffer_invalidCallStrike() public {
@@ -746,5 +745,23 @@ contract ProviderPositionNFTTest is Test {
         vm.startPrank(address(takerContract));
         vm.expectRevert("already settled");
         providerNFT.cancelAndWithdraw(positionId, provider1);
+    }
+}
+
+contract ProviderNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
+    function setupTestedContract() internal override {
+        TestERC20 cashAsset = new TestERC20("TestCash", "TestCash");
+        TestERC20 collateralAsset = new TestERC20("TestCollat", "TestCollat");
+
+        vm.startPrank(owner);
+        configHub.setCashAssetSupport(address(cashAsset), true);
+        configHub.setCollateralAssetSupport(address(collateralAsset), true);
+        vm.stopPrank();
+
+        ProviderPositionNFT providerNFT = new ProviderPositionNFT(
+            owner, configHub, cashAsset, collateralAsset, address(0), "ProviderNFT", "ProviderNFT"
+        );
+
+        testedContract = providerNFT;
     }
 }
