@@ -30,6 +30,7 @@ contract ConfigHubTest is Test {
     address owner = makeAddr("owner");
     address user1 = makeAddr("user1");
     address user2 = makeAddr("user2");
+    address guardian = makeAddr("guardian");
 
     // below we copy error messages from contracts since they aren't by default "public" or otherwise
     // accessible
@@ -190,5 +191,18 @@ contract ConfigHubTest is Test {
 
         vm.expectRevert("max too high");
         configHub.setCollarDurationRange(minDurationToUse, 10 * 365 days);
+    }
+
+    function test_setPauseGuardian() public {
+        startHoax(owner);
+        vm.expectEmit(address(configHub));
+        emit IConfigHub.PauseGuardianSet(address(0), guardian);
+        configHub.setPauseGuardian(guardian);
+        assertEq(configHub.pauseGuardian(), guardian);
+
+        vm.expectEmit(address(configHub));
+        emit IConfigHub.PauseGuardianSet(guardian, address(0));
+        configHub.setPauseGuardian(address(0));
+        assertEq(configHub.pauseGuardian(), address(0));
     }
 }

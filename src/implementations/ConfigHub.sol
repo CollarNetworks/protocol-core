@@ -36,6 +36,8 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     uint public maxLTV;
     uint public minDuration;
     uint public maxDuration;
+    // pause guardian for other contracts
+    address public pauseGuardian;
 
     // -- internal state variables ---
     mapping(address collateralAssetAddress => bool isSupported) public isSupportedCollateralAsset;
@@ -100,6 +102,13 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     function setCashAssetSupport(address cashAsset, bool enabled) external onlyOwner {
         isSupportedCashAsset[cashAsset] = enabled;
         emit CashAssetSupportSet(cashAsset, enabled);
+    }
+
+    // pausing
+
+    function setPauseGuardian(address newGuardian) external onlyOwner {
+        emit PauseGuardianSet(pauseGuardian, newGuardian); // emit before for the prev-value
+        pauseGuardian = newGuardian;
     }
 
     // ----- view functions (see IConfigHub for documentation) -----
