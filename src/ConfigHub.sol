@@ -11,12 +11,11 @@ import { Ownable2Step, Ownable } from "@openzeppelin/contracts/access/Ownable2St
 import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 // internal imports
-import { IConfigHub } from "../interfaces/IConfigHub.sol";
-import { UniV3OracleLib } from "../libs/UniV3OracleLib.sol";
-import { IProviderPositionNFT } from "../interfaces/IProviderPositionNFT.sol";
-import { ICollarTakerNFT } from "../interfaces/ICollarTakerNFT.sol";
+import { IConfigHub } from "./interfaces/IConfigHub.sol";
+import { UniV3OracleLib } from "./libs/UniV3OracleLib.sol";
+import { IProviderPositionNFT } from "./interfaces/IProviderPositionNFT.sol";
+import { ICollarTakerNFT } from "./interfaces/ICollarTakerNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "forge-std/console.sol";
 
 contract ConfigHub is Ownable2Step, IConfigHub {
     // -- public state variables ---

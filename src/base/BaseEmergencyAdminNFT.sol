@@ -12,38 +12,31 @@ import {
 } from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import { ERC721Pausable } from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+// internal
+import { BaseEmergencyAdmin, ConfigHub } from "./BaseEmergencyAdmin.sol";
 
-abstract contract BaseGovernedNFT is Ownable, ERC721, ERC721Enumerable, ERC721Pausable {
+abstract contract BaseEmergencyAdminNFT is BaseEmergencyAdmin, ERC721, ERC721Enumerable {
     // ----- State ----- //
     uint internal nextTokenId; // NFT token ID
 
-    constructor(address initialOwner, string memory _name, string memory _symbol)
+    constructor(address _initialOwner, ConfigHub _configHub, string memory _name, string memory _symbol)
+        BaseEmergencyAdmin(_initialOwner, _configHub)
         ERC721(_name, _symbol)
-        Ownable(initialOwner)
     { }
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    // Emergency actions
-
-    function pause() public onlyOwner {
-        _pause();
-    }
-
-    function unpause() public onlyOwner {
-        _unpause();
-    }
-
-    // Internal overrides required by Solidity for ERC721
-
+    // @dev from ERC721Pausable, to allow pausing transfers
     function _update(address to, uint tokenId, address auth)
         internal
-        override(ERC721, ERC721Enumerable, ERC721Pausable)
+        override(ERC721, ERC721Enumerable)
+        whenNotPaused // @dev pauses transfers
         returns (address)
     {
         return super._update(to, tokenId, auth);
     }
 
+    // Internal overrides required by Solidity for ERC721
     function _increaseBalance(address account, uint128 value) internal override(ERC721, ERC721Enumerable) {
         super._increaseBalance(account, value);
     }

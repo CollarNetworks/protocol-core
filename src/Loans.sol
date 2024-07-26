@@ -13,7 +13,7 @@ import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfac
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 // internal imports
-import { ConfigHub } from "./implementations/ConfigHub.sol";
+import { ConfigHub } from "./ConfigHub.sol";
 import { CollarTakerNFT } from "./CollarTakerNFT.sol";
 import { Rolls } from "./Rolls.sol";
 import { ProviderPositionNFT } from "./ProviderPositionNFT.sol";

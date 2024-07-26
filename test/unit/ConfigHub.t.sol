@@ -12,7 +12,7 @@ import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockUniRouter } from "../utils/MockUniRouter.sol";
 
 import { IConfigHub } from "../../src/interfaces/IConfigHub.sol";
-import { ConfigHub } from "../../src/implementations/ConfigHub.sol";
+import { ConfigHub } from "../../src/ConfigHub.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 

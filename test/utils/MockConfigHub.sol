@@ -7,7 +7,7 @@
 
 pragma solidity 0.8.22;
 
-import { ConfigHub } from "../../src/implementations/ConfigHub.sol";
+import { ConfigHub } from "../../src/ConfigHub.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 contract MockConfigHub is ConfigHub {
