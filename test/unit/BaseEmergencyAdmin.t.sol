@@ -108,19 +108,6 @@ abstract contract BaseEmergencyAdminTestBase is Test {
 
     // reverts
 
-    function test_revert_constructor_invalidConfigHub() public {
-        vm.expectRevert(new bytes(0));
-        new TestableBaseEmergencyAdmin(owner, ConfigHub(address(0)));
-
-        ConfigHub badHub = ConfigHub(address(new BadConfigHub1()));
-        vm.expectRevert();
-        new TestableBaseEmergencyAdmin(owner, badHub);
-
-        badHub = ConfigHub(address(new BadConfigHub2()));
-        vm.expectRevert("unexpected version length");
-        new TestableBaseEmergencyAdmin(owner, badHub);
-    }
-
     function test_revert_setConfigHub_invalidConfigHub() public {
         vm.startPrank(owner);
 
@@ -188,7 +175,9 @@ contract BadConfigHub2 {
 
 // mock of an inheriting contract (because base is abstract)
 contract TestableBaseEmergencyAdmin is BaseEmergencyAdmin {
-    constructor(address _initialOwner, ConfigHub _configHub) BaseEmergencyAdmin(_initialOwner, _configHub) { }
+    constructor(address _initialOwner, ConfigHub _configHub) BaseEmergencyAdmin(_initialOwner) {
+        _setConfigHub(_configHub);
+    }
 }
 
 // the tests for the
@@ -196,4 +185,18 @@ contract BaseEmergencyAdminMockTest is BaseEmergencyAdminTestBase {
     function setupTestedContract() internal override {
         testedContract = new TestableBaseEmergencyAdmin(owner, configHub);
     }
+
+    function test_revert_constructor_invalidConfigHub() public {
+        vm.expectRevert(new bytes(0));
+        new TestableBaseEmergencyAdmin(owner, ConfigHub(address(0)));
+
+        ConfigHub badHub = ConfigHub(address(new BadConfigHub1()));
+        vm.expectRevert();
+        new TestableBaseEmergencyAdmin(owner, badHub);
+
+        badHub = ConfigHub(address(new BadConfigHub2()));
+        vm.expectRevert("unexpected version length");
+        new TestableBaseEmergencyAdmin(owner, badHub);
+    }
+
 }

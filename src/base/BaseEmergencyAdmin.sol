@@ -22,9 +22,7 @@ abstract contract BaseEmergencyAdmin is Ownable2Step, Pausable {
     event PausedByGuardian(address guardian);
     event TokensRescued(address tokenContract, uint amountOrId);
 
-    constructor(address _initialOwner, ConfigHub _configHub) Ownable(_initialOwner) {
-        _setConfigHub(_configHub);
-    }
+    constructor(address _initialOwner) Ownable(_initialOwner) { }
 
     // ----- MUTATIVE ----- //
 

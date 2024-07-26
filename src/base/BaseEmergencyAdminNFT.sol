@@ -20,9 +20,11 @@ abstract contract BaseEmergencyAdminNFT is BaseEmergencyAdmin, ERC721, ERC721Enu
     uint internal nextTokenId; // NFT token ID
 
     constructor(address _initialOwner, ConfigHub _configHub, string memory _name, string memory _symbol)
-        BaseEmergencyAdmin(_initialOwner, _configHub)
+        BaseEmergencyAdmin(_initialOwner)
         ERC721(_name, _symbol)
-    { }
+    {
+        _setConfigHub(_configHub);
+    }
 
     // ----- INTERNAL MUTATIVE ----- //
 

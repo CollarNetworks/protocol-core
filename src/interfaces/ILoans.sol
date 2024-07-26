@@ -59,7 +59,6 @@ interface ILoans {
     // immutables
     function cashAsset() external view returns (IERC20);
     function collateralAsset() external view returns (IERC20);
-    function configHub() external view returns (ConfigHub);
     function takerNFT() external view returns (CollarTakerNFT);
     // state
     function getLoan(uint takerId) external view returns (Loan memory);
