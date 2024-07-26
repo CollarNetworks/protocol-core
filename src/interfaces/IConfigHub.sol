@@ -7,7 +7,7 @@
 
 pragma solidity 0.8.22;
 
-interface ICollarEngine {
+interface IConfigHub {
     // EVENTS
 
     // auth'd actions
@@ -30,14 +30,14 @@ interface ICollarEngine {
 
     // ltv
 
-    /// @notice Sets the LTV minimum and max values for the engine
+    /// @notice Sets the LTV minimum and max values for the configHub
     /// @param minLTV The new minimum LTV
     /// @param maxLTV The new maximum LTV
     function setLTVRange(uint minLTV, uint maxLTV) external;
 
     // collar durations
 
-    /// @notice Sets the minimum and maximum collar durations for the engine
+    /// @notice Sets the minimum and maximum collar durations for the configHub
     /// @param minDuration The new minimum collar duration
     /// @param maxDuration The new maximum collar duration
     function setCollarDurationRange(uint minDuration, uint maxDuration) external;

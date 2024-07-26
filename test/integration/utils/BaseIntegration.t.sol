@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import { CollarEngine } from "../../../src/implementations/CollarEngine.sol";
+import { ConfigHub } from "../../../src/implementations/ConfigHub.sol";
 import { ProviderPositionNFT } from "../../../src/ProviderPositionNFT.sol";
 import { CollarTakerNFT } from "../../../src/CollarTakerNFT.sol";
 import { Loans } from "../../../src/Loans.sol";
@@ -30,7 +30,7 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
     IERC20 cashAsset;
     IV3SwapRouter swapRouter;
 
-    CollarEngine engine;
+    ConfigHub configHub;
     ProviderPositionNFT providerNFT;
     CollarTakerNFT takerNFT;
     Loans loanContract;
@@ -58,26 +58,27 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
         COLLATERAL_PRICE_ON_BLOCK = priceOnBlock;
         CALL_STRIKE_TICK = callStrikeTickToUse;
 
-        engine = new CollarEngine(swapRouterAddress);
-        engine.setCashAssetSupport(cashAssetAddress, true);
-        engine.setCollateralAssetSupport(collateralAssetAddress, true);
-        engine.setLTVRange(_offerLTV, _offerLTV + 1);
-        engine.setCollarDurationRange(_positionDuration, _positionDuration + 1);
-        takerNFT = new CollarTakerNFT(address(this), engine, cashAsset, collateralAsset, "Borrow NFT", "BNFT");
+        configHub = new ConfigHub(swapRouterAddress);
+        configHub.setCashAssetSupport(cashAssetAddress, true);
+        configHub.setCollateralAssetSupport(collateralAssetAddress, true);
+        configHub.setLTVRange(_offerLTV, _offerLTV + 1);
+        configHub.setCollarDurationRange(_positionDuration, _positionDuration + 1);
+        takerNFT =
+            new CollarTakerNFT(address(this), configHub, cashAsset, collateralAsset, "Borrow NFT", "BNFT");
 
         loanContract = new Loans(address(this), takerNFT);
-        engine.setCollarTakerContractAuth(address(takerNFT), true);
+        configHub.setCollarTakerContractAuth(address(takerNFT), true);
         providerNFT = new ProviderPositionNFT(
-            address(this), engine, cashAsset, collateralAsset, address(takerNFT), "Provider NFT", "PNFT"
+            address(this), configHub, cashAsset, collateralAsset, address(takerNFT), "Provider NFT", "PNFT"
         );
-        engine.setProviderContractAuth(address(providerNFT), true);
+        configHub.setProviderContractAuth(address(providerNFT), true);
 
         positionDuration = _positionDuration;
         offerLTV = _offerLTV;
 
         vm.label(user1, "USER");
         vm.label(provider, "LIQUIDITY PROVIDER");
-        vm.label(address(engine), "ENGINE");
+        vm.label(address(configHub), "CONFIG-HUB");
         vm.label(address(providerNFT), "PROVIDER NFT");
         vm.label(address(takerNFT), "BORROW NFT");
         vm.label(swapRouterAddress, "SWAP ROUTER 02");
@@ -98,11 +99,11 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
     }
 
     function _validateSetup(uint _duration, uint _offerLTV) internal view {
-        assertEq(engine.isValidCollarDuration(_duration), true);
-        assertEq(engine.isValidLTV(_offerLTV), true);
-        assertEq(engine.isSupportedCashAsset(cashAssetAddress), true);
-        assertEq(engine.isSupportedCollateralAsset(collateralAssetAddress), true);
-        assertEq(engine.isCollarTakerNFT(address(takerNFT)), true);
-        assertEq(engine.isProviderNFT(address(providerNFT)), true);
+        assertEq(configHub.isValidCollarDuration(_duration), true);
+        assertEq(configHub.isValidLTV(_offerLTV), true);
+        assertEq(configHub.isSupportedCashAsset(cashAssetAddress), true);
+        assertEq(configHub.isSupportedCollateralAsset(collateralAssetAddress), true);
+        assertEq(configHub.isCollarTakerNFT(address(takerNFT)), true);
+        assertEq(configHub.isProviderNFT(address(providerNFT)), true);
     }
 }

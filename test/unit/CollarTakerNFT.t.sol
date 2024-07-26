@@ -9,7 +9,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
-import { MockEngine } from "../../test/utils/MockEngine.sol";
+import { MockConfigHub } from "../../test/utils/MockConfigHub.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ICollarTakerNFT } from "../../src/interfaces/ICollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
@@ -19,7 +19,7 @@ import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 contract CollarTakerNFTTest is Test {
     TestERC20 cashAsset;
     TestERC20 collateralAsset;
-    MockEngine engine;
+    MockConfigHub configHub;
     CollarTakerNFT takerNFT;
     ProviderPositionNFT providerNFT;
     address user1 = makeAddr("user1");
@@ -50,29 +50,30 @@ contract CollarTakerNFTTest is Test {
         cashAsset.mint(provider, 100_000_000 ether);
         vm.label(address(cashAsset), "TestCash");
         vm.label(address(collateralAsset), "TestCollat");
-        engine = setupMockEngine();
-        vm.label(address(engine), "CollarEngine");
-        takerNFT = new CollarTakerNFT(owner, engine, cashAsset, collateralAsset, "CollarTakerNFT", "BRWTST");
+        configHub = setupMockConfigHub();
+        vm.label(address(configHub), "ConfigHub");
+        takerNFT =
+            new CollarTakerNFT(owner, configHub, cashAsset, collateralAsset, "CollarTakerNFT", "BRWTST");
         providerNFT = new ProviderPositionNFT(
-            owner, engine, cashAsset, collateralAsset, address(takerNFT), "CollarTakerNFT", "BRWTST"
+            owner, configHub, cashAsset, collateralAsset, address(takerNFT), "CollarTakerNFT", "BRWTST"
         );
-        engine.setCollarTakerContractAuth(address(takerNFT), true);
-        engine.setProviderContractAuth(address(providerNFT), true);
+        configHub.setCollarTakerContractAuth(address(takerNFT), true);
+        configHub.setProviderContractAuth(address(providerNFT), true);
         vm.label(address(takerNFT), "CollarTakerNFT");
         vm.label(address(providerNFT), "ProviderPositionNFT");
     }
 
-    function setupMockEngine() public returns (MockEngine mockEngine) {
-        mockEngine = new MockEngine(address(0));
-        mockEngine.setCashAssetSupport(address(cashAsset), true);
-        mockEngine.setCollateralAssetSupport(address(collateralAsset), true);
-        mockEngine.setLTVRange(ltvToUse, maxLTVToUse);
-        mockEngine.setCollarDurationRange(durationToUse, durationToUse);
+    function setupMockConfigHub() public returns (MockConfigHub mockConfigHub) {
+        mockConfigHub = new MockConfigHub(address(0));
+        mockConfigHub.setCashAssetSupport(address(cashAsset), true);
+        mockConfigHub.setCollateralAssetSupport(address(collateralAsset), true);
+        mockConfigHub.setLTVRange(ltvToUse, maxLTVToUse);
+        mockConfigHub.setCollarDurationRange(durationToUse, durationToUse);
     }
 
-    function setPricesAtTimestamp(MockEngine engineToUse, uint timestamp, uint price) internal {
-        engineToUse.setHistoricalAssetPrice(address(collateralAsset), timestamp, price);
-        engineToUse.setHistoricalAssetPrice(address(cashAsset), timestamp, price);
+    function setPricesAtTimestamp(MockConfigHub configHubToUse, uint timestamp, uint price) internal {
+        configHubToUse.setHistoricalAssetPrice(address(collateralAsset), timestamp, price);
+        configHubToUse.setHistoricalAssetPrice(address(cashAsset), timestamp, price);
         // check the TWAP view
         assertEq(takerNFT.getReferenceTWAPPrice(timestamp), price);
     }
@@ -121,7 +122,7 @@ contract CollarTakerNFTTest is Test {
     function createOfferMintTouserAndSetPrice() internal {
         createOfferAsProvider(callStrikeDeviationToUse, ltvToUse, providerNFT);
         mintTokensToUserandApproveNFT();
-        setPricesAtTimestamp(engine, 1, priceToUse);
+        setPricesAtTimestamp(configHub, 1, priceToUse);
     }
 
     function checkTakerPosition() internal view {
@@ -169,7 +170,7 @@ contract CollarTakerNFTTest is Test {
         createOfferMintTouserAndSetPrice();
         (takerId, providerNFTId) = createTakerPositionAsUser(0, takerNFT, providerNFT);
         skip(301);
-        setPricesAtTimestamp(engine, 301, priceToSettleAt);
+        setPricesAtTimestamp(configHub, 301, priceToSettleAt);
 
         // check the view
         (uint takerBalanceView, int providerChangeView) =
@@ -196,9 +197,9 @@ contract CollarTakerNFTTest is Test {
 
     function test_constructor() public {
         CollarTakerNFT newTakerNFT =
-            new CollarTakerNFT(owner, engine, cashAsset, collateralAsset, "NewCollarTakerNFT", "NBPNFT");
+            new CollarTakerNFT(owner, configHub, cashAsset, collateralAsset, "NewCollarTakerNFT", "NBPNFT");
 
-        assertEq(address(newTakerNFT.engine()), address(engine));
+        assertEq(address(newTakerNFT.configHub()), address(configHub));
         assertEq(address(newTakerNFT.cashAsset()), address(cashAsset));
         assertEq(address(newTakerNFT.collateralAsset()), address(collateralAsset));
         assertEq(uint(newTakerNFT.TWAP_LENGTH()), TWAP_LENGTH);
@@ -280,8 +281,8 @@ contract CollarTakerNFTTest is Test {
         assertEq(address(takerNFT.collateralAsset()), address(collateralAsset));
     }
 
-    function test_engine() public view {
-        assertEq(address(takerNFT.engine()), address(engine));
+    function test_configHub() public view {
+        assertEq(address(takerNFT.configHub()), address(configHub));
     }
 
     function test_nextPositionId() public view {
@@ -319,7 +320,7 @@ contract CollarTakerNFTTest is Test {
     function test_openPairedPositionUnsupportedCashAsset() public {
         createOfferMintTouserAndSetPrice();
         vm.stopPrank();
-        engine.setCashAssetSupport(address(cashAsset), false);
+        configHub.setCashAssetSupport(address(cashAsset), false);
         startHoax(user1);
         vm.expectRevert("unsupported asset");
         takerNFT.openPairedPosition(putLockedCashToUse, providerNFT, 0);
@@ -328,7 +329,7 @@ contract CollarTakerNFTTest is Test {
     function test_openPairedPositionUnsupportedCollateralAsset() public {
         createOfferMintTouserAndSetPrice();
         vm.stopPrank();
-        engine.setCollateralAssetSupport(address(collateralAsset), false);
+        configHub.setCollateralAssetSupport(address(collateralAsset), false);
         startHoax(user1);
         vm.expectRevert("unsupported asset");
         takerNFT.openPairedPosition(putLockedCashToUse, providerNFT, 0);
@@ -337,7 +338,7 @@ contract CollarTakerNFTTest is Test {
     function test_openPairedPositionUnsupportedTakerContract() public {
         createOfferMintTouserAndSetPrice();
         vm.stopPrank();
-        engine.setCollarTakerContractAuth(address(takerNFT), false);
+        configHub.setCollarTakerContractAuth(address(takerNFT), false);
         startHoax(user1);
         vm.expectRevert("unsupported taker contract");
         takerNFT.openPairedPosition(putLockedCashToUse, providerNFT, 0);
@@ -346,7 +347,7 @@ contract CollarTakerNFTTest is Test {
     function test_openPairedPositionUnsupportedProviderContract() public {
         createOfferMintTouserAndSetPrice();
         vm.stopPrank();
-        engine.setProviderContractAuth(address(providerNFT), false);
+        configHub.setProviderContractAuth(address(providerNFT), false);
         startHoax(user1);
         vm.expectRevert("unsupported provider contract");
         takerNFT.openPairedPosition(putLockedCashToUse, providerNFT, 0);
@@ -363,17 +364,17 @@ contract CollarTakerNFTTest is Test {
     function test_openPairedPositionBadCashAssetMismatch() public {
         createOfferMintTouserAndSetPrice();
         vm.stopPrank();
-        engine.setCashAssetSupport(address(collateralAsset), true);
+        configHub.setCashAssetSupport(address(collateralAsset), true);
         ProviderPositionNFT providerNFTBad = new ProviderPositionNFT(
             owner,
-            engine,
+            configHub,
             collateralAsset,
             collateralAsset,
             address(takerNFT),
             "CollarTakerNFTBad",
             "BRWTSTBAD"
         );
-        engine.setProviderContractAuth(address(providerNFTBad), true);
+        configHub.setProviderContractAuth(address(providerNFTBad), true);
         startHoax(user1);
         cashAsset.approve(address(takerNFT), putLockedCashToUse);
         vm.expectRevert("asset mismatch");
@@ -383,11 +384,11 @@ contract CollarTakerNFTTest is Test {
     function test_openPairedPositionBadCollateralAssetMismatch() public {
         createOfferMintTouserAndSetPrice();
         vm.stopPrank();
-        engine.setCollateralAssetSupport(address(cashAsset), true);
+        configHub.setCollateralAssetSupport(address(cashAsset), true);
         ProviderPositionNFT providerNFTBad = new ProviderPositionNFT(
-            owner, engine, cashAsset, cashAsset, address(takerNFT), "CollarTakerNFTBad", "BRWTSTBAD"
+            owner, configHub, cashAsset, cashAsset, address(takerNFT), "CollarTakerNFTBad", "BRWTSTBAD"
         );
-        engine.setProviderContractAuth(address(providerNFTBad), true);
+        configHub.setProviderContractAuth(address(providerNFTBad), true);
         startHoax(user1);
         cashAsset.approve(address(takerNFT), putLockedCashToUse);
         vm.expectRevert("asset mismatch");
@@ -397,7 +398,7 @@ contract CollarTakerNFTTest is Test {
     function test_openPairedPositionStrikePricesArentDifferent() public {
         uint badOfferId = createOfferAsProvider(10_010, 9990, providerNFT);
         mintTokensToUserandApproveNFT();
-        setPricesAtTimestamp(engine, 1, 991);
+        setPricesAtTimestamp(configHub, 1, 991);
         startHoax(user1);
         cashAsset.approve(address(takerNFT), putLockedCashToUse);
         vm.expectRevert("strike prices aren't different");

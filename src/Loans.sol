@@ -13,7 +13,7 @@ import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfac
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 // internal imports
-import { CollarEngine } from "./implementations/CollarEngine.sol";
+import { ConfigHub } from "./implementations/ConfigHub.sol";
 import { CollarTakerNFT } from "./CollarTakerNFT.sol";
 import { Rolls } from "./Rolls.sol";
 import { ProviderPositionNFT } from "./ProviderPositionNFT.sol";
@@ -38,7 +38,7 @@ import { ILoans } from "./interfaces/ILoans.sol";
  * Key Assumptions and Prerequisites:
  * 1. The Uniswap V3 router is trusted and properly implemented.
  * 2. The CollarTakerNFT and ProviderPositionNFT contracts are correctly implemented and authorized.
- * 3. The CollarEngine contract correctly manages protocol parameters and reports prices.
+ * 3. The ConfigHub contract correctly manages protocol parameters and reports prices.
  * 4. Assets (ERC-20) used are standard compliant (non-rebasing, no transfer fees, no callbacks).
  * 5. The Rolls contract is trusted by user (and allowed by owner) and correctly rolls the taker position.
  *
@@ -62,7 +62,7 @@ contract Loans is ILoans, Ownable, Pausable {
     string public constant VERSION = "0.2.0";
 
     // ----- IMMUTABLES ----- //
-    CollarEngine public immutable engine;
+    ConfigHub public immutable configHub;
     CollarTakerNFT public immutable takerNFT;
     IERC20 public immutable cashAsset;
     IERC20 public immutable collateralAsset;
@@ -77,12 +77,12 @@ contract Loans is ILoans, Ownable, Pausable {
 
     constructor(address initialOwner, CollarTakerNFT _takerNFT) Ownable(initialOwner) {
         takerNFT = _takerNFT;
-        engine = _takerNFT.engine();
+        configHub = _takerNFT.configHub();
         cashAsset = _takerNFT.cashAsset();
         collateralAsset = _takerNFT.collateralAsset();
-        /// @dev this contract might as well be a third party contract (since not authed by engine),
+        /// @dev this contract might as well be a third party contract (since not authed by configHub),
         /// this is because it's not trusted by any other contract (only its users).
-        /// @dev similarly this contract is not checking any engine auth, since taker and provider contracts
+        /// @dev similarly this contract is not checking any configHub auth, since taker and provider contracts
         /// are assumed to check the configs
     }
 
@@ -357,7 +357,7 @@ contract Loans is ILoans, Ownable, Pausable {
         returns (uint amountOut)
     {
         // approve the dex router
-        assetIn.forceApprove(engine.univ3SwapRouter(), amountIn);
+        assetIn.forceApprove(configHub.univ3SwapRouter(), amountIn);
 
         // build the swap transaction
         IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
@@ -372,7 +372,8 @@ contract Loans is ILoans, Ownable, Pausable {
 
         uint balanceBefore = assetOut.balanceOf(address(this));
         // reentrancy assumptions: router is trusted + swap path is direct (not through multiple pools)
-        uint amountOutRouter = IV3SwapRouter(payable(engine.univ3SwapRouter())).exactInputSingle(swapParams);
+        uint amountOutRouter =
+            IV3SwapRouter(payable(configHub.univ3SwapRouter())).exactInputSingle(swapParams);
         // Calculate the actual amount received
         amountOut = assetOut.balanceOf(address(this)) - balanceBefore;
         // check balance is updated as expected and as reported by router (no other balance changes)
@@ -467,7 +468,7 @@ contract Loans is ILoans, Ownable, Pausable {
     function _checkSwapPrice(uint cashFromSwap, uint collateralAmount) internal view {
         uint twapPrice = _currentTWAPPrice();
         // collateral is checked on open to not be 0
-        uint swapPrice = cashFromSwap * engine.TWAP_BASE_TOKEN_AMOUNT() / collateralAmount;
+        uint swapPrice = cashFromSwap * configHub.TWAP_BASE_TOKEN_AMOUNT() / collateralAmount;
         uint diff = swapPrice > twapPrice ? swapPrice - twapPrice : twapPrice - swapPrice;
         uint deviation = diff * BIPS_BASE / twapPrice;
         require(deviation <= MAX_SWAP_TWAP_DEVIATION_BIPS, "swap and twap price too different");

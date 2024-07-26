@@ -7,7 +7,7 @@ import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
-import { MockEngine } from "../../test/utils/MockEngine.sol";
+import { MockConfigHub } from "../../test/utils/MockConfigHub.sol";
 
 import { ProviderPositionNFT, IProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
@@ -15,7 +15,7 @@ import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 contract ProviderPositionNFTTest is Test {
     TestERC20 cashAsset;
     TestERC20 collateralAsset;
-    MockEngine engine;
+    MockConfigHub configHub;
     ProviderPositionNFT providerNFT;
     address owner = makeAddr("owner");
     address takerContract;
@@ -30,24 +30,24 @@ contract ProviderPositionNFTTest is Test {
         cashAsset = new TestERC20("TestCash", "TestCash");
         collateralAsset = new TestERC20("TestCollat", "TestCollat");
         cashAsset.mint(provider1, 1_000_000 ether);
-        engine = setupMockEngine();
-        engine.setCashAssetSupport(address(cashAsset), true);
-        engine.setCollateralAssetSupport(address(collateralAsset), true);
+        configHub = setupMockConfigHub();
+        configHub.setCashAssetSupport(address(cashAsset), true);
+        configHub.setCollateralAssetSupport(address(collateralAsset), true);
         CollarTakerNFT collarTakerNFT =
-            new CollarTakerNFT(owner, engine, cashAsset, collateralAsset, "TakerNFT", "TakerNFT");
+            new CollarTakerNFT(owner, configHub, cashAsset, collateralAsset, "TakerNFT", "TakerNFT");
         takerContract = address(collarTakerNFT);
         cashAsset.mint(takerContract, 1_000_000 ether);
         providerNFT = new ProviderPositionNFT(
-            owner, engine, cashAsset, collateralAsset, address(takerContract), "ProviderNFT", "ProviderNFT"
+            owner, configHub, cashAsset, collateralAsset, address(takerContract), "ProviderNFT", "ProviderNFT"
         );
-        engine.setCollarTakerContractAuth(address(takerContract), true);
-        engine.setProviderContractAuth(address(providerNFT), true);
+        configHub.setCollarTakerContractAuth(address(takerContract), true);
+        configHub.setProviderContractAuth(address(providerNFT), true);
     }
 
-    function setupMockEngine() public returns (MockEngine mockEngine) {
-        mockEngine = new MockEngine(address(0));
-        mockEngine.setLTVRange(putDeviation, putDeviation);
-        mockEngine.setCollarDurationRange(duration, duration);
+    function setupMockConfigHub() public returns (MockConfigHub mockConfigHub) {
+        mockConfigHub = new MockConfigHub(address(0));
+        mockConfigHub.setLTVRange(putDeviation, putDeviation);
+        mockConfigHub.setCollarDurationRange(duration, duration);
     }
 
     function createAndCheckOffer(address provider, uint amount)
@@ -123,7 +123,7 @@ contract ProviderPositionNFTTest is Test {
     function test_constructor() public {
         ProviderPositionNFT newProviderNFT = new ProviderPositionNFT(
             owner,
-            engine,
+            configHub,
             cashAsset,
             collateralAsset,
             address(takerContract),
@@ -132,7 +132,7 @@ contract ProviderPositionNFTTest is Test {
         );
 
         assertEq(address(newProviderNFT.owner()), owner);
-        assertEq(address(newProviderNFT.engine()), address(engine));
+        assertEq(address(newProviderNFT.configHub()), address(configHub));
         assertEq(address(newProviderNFT.cashAsset()), address(cashAsset));
         assertEq(address(newProviderNFT.collateralAsset()), address(collateralAsset));
         assertEq(address(newProviderNFT.collarTakerContract()), takerContract);
@@ -492,7 +492,7 @@ contract ProviderPositionNFTTest is Test {
         vm.expectRevert("unsupported asset");
         new ProviderPositionNFT(
             owner,
-            engine,
+            configHub,
             TestERC20(address(0xdead)),
             collateralAsset,
             address(takerContract),
@@ -503,7 +503,7 @@ contract ProviderPositionNFTTest is Test {
         vm.expectRevert("unsupported asset");
         new ProviderPositionNFT(
             owner,
-            engine,
+            configHub,
             cashAsset,
             TestERC20(address(0xdead)),
             address(takerContract),
@@ -563,24 +563,24 @@ contract ProviderPositionNFTTest is Test {
         providerNFT.createOffer(maxStrike + 1, largeAmount, putDeviation, duration);
     }
 
-    function test_revert_createOffer_EngineValidations() public {
+    function test_revert_createOffer_ConfigHubValidations() public {
         uint maxPutStrike = providerNFT.MAX_PUT_STRIKE_BIPS();
         vm.expectRevert("invalid put strike deviation");
         providerNFT.createOffer(callDeviation, largeAmount, maxPutStrike + 1, duration);
-        putDeviation = engine.minLTV() - 1;
+        putDeviation = configHub.minLTV() - 1;
         vm.expectRevert("unsupported LTV");
         providerNFT.createOffer(callDeviation, largeAmount, putDeviation, duration);
         putDeviation = 9000;
-        duration = engine.maxDuration() + 1;
+        duration = configHub.maxDuration() + 1;
         vm.expectRevert("unsupported duration");
         providerNFT.createOffer(callDeviation, largeAmount, putDeviation, duration);
 
-        engine.setCashAssetSupport(address(cashAsset), false);
+        configHub.setCashAssetSupport(address(cashAsset), false);
         vm.expectRevert("unsupported asset");
         providerNFT.createOffer(callDeviation, largeAmount, putDeviation, duration);
-        engine.setCashAssetSupport(address(cashAsset), true);
+        configHub.setCashAssetSupport(address(cashAsset), true);
 
-        engine.setCollateralAssetSupport(address(collateralAsset), false);
+        configHub.setCollateralAssetSupport(address(collateralAsset), false);
         vm.expectRevert("unsupported asset");
         providerNFT.createOffer(callDeviation, largeAmount, putDeviation, duration);
     }
@@ -601,43 +601,43 @@ contract ProviderPositionNFTTest is Test {
         providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);
 
         vm.stopPrank();
-        engine.setCollarTakerContractAuth(takerContract, false);
+        configHub.setCollarTakerContractAuth(takerContract, false);
         vm.expectRevert("unsupported taker contract");
         providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);
     }
 
-    function test_revert_mintPositionFromOffer_EngineValidations() public {
+    function test_revert_mintPositionFromOffer_ConfigHubValidations() public {
         // set a putdeviation that willbe invalid later
         (uint offerId,) = createAndCheckOffer(provider1, largeAmount);
         vm.stopPrank();
         putDeviation = putDeviation + 100;
-        engine.setLTVRange(putDeviation, putDeviation);
+        configHub.setLTVRange(putDeviation, putDeviation);
         vm.startPrank(address(takerContract));
         vm.expectRevert("unsupported LTV");
         providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);
         vm.stopPrank();
         putDeviation = 9000;
-        engine.setLTVRange(putDeviation, engine.maxLTV());
+        configHub.setLTVRange(putDeviation, configHub.maxLTV());
         // set a duration that will be invalid later
-        engine.setCollarDurationRange(duration, engine.maxDuration());
+        configHub.setCollarDurationRange(duration, configHub.maxDuration());
         (offerId,) = createAndCheckOffer(provider1, largeAmount);
         vm.stopPrank();
         duration = duration + 100;
-        engine.setCollarDurationRange(duration, duration);
+        configHub.setCollarDurationRange(duration, duration);
         vm.startPrank(address(takerContract));
         vm.expectRevert("unsupported duration");
         providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);
         vm.stopPrank();
         duration = 300;
-        engine.setCollarDurationRange(duration, engine.maxDuration());
-        engine.setCashAssetSupport(address(cashAsset), false);
+        configHub.setCollarDurationRange(duration, configHub.maxDuration());
+        configHub.setCashAssetSupport(address(cashAsset), false);
         vm.expectRevert("unsupported asset");
         vm.startPrank(address(takerContract));
         providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);
 
         vm.stopPrank();
-        engine.setCashAssetSupport(address(cashAsset), true);
-        engine.setCollateralAssetSupport(address(collateralAsset), false);
+        configHub.setCashAssetSupport(address(cashAsset), true);
+        configHub.setCollateralAssetSupport(address(collateralAsset), false);
         vm.startPrank(address(takerContract));
         vm.expectRevert("unsupported asset");
         providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);
@@ -659,13 +659,13 @@ contract ProviderPositionNFTTest is Test {
         providerNFT.settlePosition(positionId, 0);
 
         vm.stopPrank();
-        engine.setCollarTakerContractAuth(takerContract, false);
+        configHub.setCollarTakerContractAuth(takerContract, false);
         vm.expectRevert("unsupported taker contract");
         providerNFT.settlePosition(positionId, 0);
 
         // allow taker contract
         vm.stopPrank();
-        engine.setCollarTakerContractAuth(takerContract, true);
+        configHub.setCollarTakerContractAuth(takerContract, true);
 
         vm.startPrank(address(takerContract));
         vm.expectRevert("not expired");
@@ -727,11 +727,11 @@ contract ProviderPositionNFTTest is Test {
         providerNFT.cancelAndWithdraw(positionId, provider1);
 
         vm.stopPrank();
-        engine.setCollarTakerContractAuth(takerContract, false);
+        configHub.setCollarTakerContractAuth(takerContract, false);
         vm.expectRevert("unsupported taker contract");
         providerNFT.cancelAndWithdraw(positionId, provider1);
 
-        engine.setCollarTakerContractAuth(takerContract, true);
+        configHub.setCollarTakerContractAuth(takerContract, true);
         vm.startPrank(address(takerContract));
         vm.expectRevert("caller does not own token");
         providerNFT.cancelAndWithdraw(positionId, provider1);

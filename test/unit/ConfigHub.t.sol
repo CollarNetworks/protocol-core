@@ -11,16 +11,16 @@ import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockUniRouter } from "../utils/MockUniRouter.sol";
 
-import { ICollarEngine } from "../../src/interfaces/ICollarEngine.sol";
-import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
+import { IConfigHub } from "../../src/interfaces/IConfigHub.sol";
+import { ConfigHub } from "../../src/implementations/ConfigHub.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-contract CollarEngineTest is Test {
+contract ConfigHubTest is Test {
     TestERC20 token1;
     TestERC20 token2;
     MockUniRouter router;
-    CollarEngine engine;
+    ConfigHub configHub;
     uint constant durationToUse = 1 days;
     uint constant minDurationToUse = 300;
     uint constant maxDurationToUse = 365 days;
@@ -42,139 +42,139 @@ contract CollarEngineTest is Test {
         token2 = new TestERC20("Test2", "TST2");
         router = new MockUniRouter();
 
-        engine = new CollarEngine(address(router));
+        configHub = new ConfigHub(address(router));
     }
 
     function test_deploymentAndDeployParams() public view {
-        assertEq(address(engine.univ3SwapRouter()), address(router));
-        assertEq(engine.owner(), address(this));
+        assertEq(address(configHub.univ3SwapRouter()), address(router));
+        assertEq(configHub.owner(), address(this));
     }
 
     function test_addSupportedCashAsset() public {
-        assertFalse(engine.isSupportedCashAsset(address(token1)));
-        engine.setCashAssetSupport(address(token1), true);
-        assertTrue(engine.isSupportedCashAsset(address(token1)));
+        assertFalse(configHub.isSupportedCashAsset(address(token1)));
+        configHub.setCashAssetSupport(address(token1), true);
+        assertTrue(configHub.isSupportedCashAsset(address(token1)));
     }
 
     function test_addSupportedCashAsset_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
-        engine.setCashAssetSupport(address(token1), true);
+        configHub.setCashAssetSupport(address(token1), true);
         vm.stopPrank();
     }
 
     function test_removeSupportedCashAsset() public {
-        engine.setCashAssetSupport(address(token1), true);
-        engine.setCashAssetSupport(address(token1), false);
-        assertFalse(engine.isSupportedCashAsset(address(token1)));
+        configHub.setCashAssetSupport(address(token1), true);
+        configHub.setCashAssetSupport(address(token1), false);
+        assertFalse(configHub.isSupportedCashAsset(address(token1)));
     }
 
     function test_removeSupportedCashAsset_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
-        engine.setCashAssetSupport(address(token1), false);
+        configHub.setCashAssetSupport(address(token1), false);
         vm.stopPrank();
     }
 
     function test_addSupportedCollateralAsset() public {
-        assertFalse(engine.isSupportedCollateralAsset(address(token1)));
-        engine.setCollateralAssetSupport(address(token1), true);
-        assertTrue(engine.isSupportedCollateralAsset(address(token1)));
+        assertFalse(configHub.isSupportedCollateralAsset(address(token1)));
+        configHub.setCollateralAssetSupport(address(token1), true);
+        assertTrue(configHub.isSupportedCollateralAsset(address(token1)));
     }
 
     function test_addSupportedCollateralAsset_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
-        engine.setCollateralAssetSupport(address(token1), true);
+        configHub.setCollateralAssetSupport(address(token1), true);
         vm.stopPrank();
     }
 
     function test_removeSupportedCollateralAsset() public {
-        engine.setCollateralAssetSupport(address(token1), true);
-        engine.setCollateralAssetSupport(address(token1), false);
-        assertFalse(engine.isSupportedCollateralAsset(address(token1)));
+        configHub.setCollateralAssetSupport(address(token1), true);
+        configHub.setCollateralAssetSupport(address(token1), false);
+        assertFalse(configHub.isSupportedCollateralAsset(address(token1)));
     }
 
     function test_removeSupportedCollateralAsset_NoAuth() public {
         startHoax(user1);
         vm.expectRevert(user1NotAuthorized);
-        engine.setCollateralAssetSupport(address(token1), false);
+        configHub.setCollateralAssetSupport(address(token1), false);
         vm.stopPrank();
     }
 
     function test_isValidDuration() public {
-        engine.setCollarDurationRange(minDurationToUse, maxDurationToUse);
-        assertFalse(engine.isValidCollarDuration(minDurationToUse - 1));
-        assertTrue(engine.isValidCollarDuration(minDurationToUse));
-        assertFalse(engine.isValidCollarDuration(maxDurationToUse + 1));
+        configHub.setCollarDurationRange(minDurationToUse, maxDurationToUse);
+        assertFalse(configHub.isValidCollarDuration(minDurationToUse - 1));
+        assertTrue(configHub.isValidCollarDuration(minDurationToUse));
+        assertFalse(configHub.isValidCollarDuration(maxDurationToUse + 1));
     }
 
     function test_getHistoricalAssetPriceViaTWAP_InvalidAsset() public {
         vm.expectRevert("not supported");
-        engine.getHistoricalAssetPriceViaTWAP(address(token1), address(token2), 0, 0);
-        engine.setCashAssetSupport(address(token1), true);
+        configHub.getHistoricalAssetPriceViaTWAP(address(token1), address(token2), 0, 0);
+        configHub.setCashAssetSupport(address(token1), true);
         vm.expectRevert("not supported");
-        engine.getHistoricalAssetPriceViaTWAP(address(token1), address(token2), 0, 0);
+        configHub.getHistoricalAssetPriceViaTWAP(address(token1), address(token2), 0, 0);
     }
 
     function test_isValidLTV() public {
-        engine.setLTVRange(minLTVToUse, maxLTVToUse);
-        assertFalse(engine.isValidLTV(minLTVToUse - 1));
-        assertTrue(engine.isValidLTV(maxLTVToUse));
-        assertFalse(engine.isValidLTV(maxLTVToUse + 1));
+        configHub.setLTVRange(minLTVToUse, maxLTVToUse);
+        assertFalse(configHub.isValidLTV(minLTVToUse - 1));
+        assertTrue(configHub.isValidLTV(maxLTVToUse));
+        assertFalse(configHub.isValidLTV(maxLTVToUse + 1));
     }
 
     function test_setCollarTakerContractAuth_non_taker_contract() public {
         address testContract = address(0x123);
         // testContract doesnt support calling .cashAsset();
         vm.expectRevert();
-        engine.setCollarTakerContractAuth(testContract, true);
-        assertFalse(engine.isCollarTakerNFT(testContract));
+        configHub.setCollarTakerContractAuth(testContract, true);
+        assertFalse(configHub.isCollarTakerNFT(testContract));
     }
 
     function test_setProviderContractAuth_non_taker_contract() public {
         address testContract = address(0x456);
         // testContract doesnt support calling .cashAsset();
         vm.expectRevert();
-        engine.setProviderContractAuth(testContract, true);
-        assertFalse(engine.isProviderNFT(testContract));
+        configHub.setProviderContractAuth(testContract, true);
+        assertFalse(configHub.isProviderNFT(testContract));
     }
 
     function test_setLTVRange() public {
-        vm.expectEmit(address(engine));
-        emit ICollarEngine.LTVRangeSet(minLTVToUse, maxLTVToUse);
-        engine.setLTVRange(minLTVToUse, maxLTVToUse);
-        assertEq(engine.minLTV(), minLTVToUse);
-        assertEq(engine.maxLTV(), maxLTVToUse);
+        vm.expectEmit(address(configHub));
+        emit IConfigHub.LTVRangeSet(minLTVToUse, maxLTVToUse);
+        configHub.setLTVRange(minLTVToUse, maxLTVToUse);
+        assertEq(configHub.minLTV(), minLTVToUse);
+        assertEq(configHub.maxLTV(), maxLTVToUse);
     }
 
     function test_revert_setLTVRange() public {
         vm.expectRevert("min > max");
-        engine.setLTVRange(maxLTVToUse, minLTVToUse);
+        configHub.setLTVRange(maxLTVToUse, minLTVToUse);
 
         vm.expectRevert("min too low");
-        engine.setLTVRange(0, maxLTVToUse);
+        configHub.setLTVRange(0, maxLTVToUse);
 
         vm.expectRevert("max too high");
-        engine.setLTVRange(minLTVToUse, 10_000);
+        configHub.setLTVRange(minLTVToUse, 10_000);
     }
 
     function test_setDurationRange() public {
-        vm.expectEmit(address(engine));
-        emit ICollarEngine.CollarDurationRangeSet(minLTVToUse, maxDurationToUse);
-        engine.setCollarDurationRange(minLTVToUse, maxDurationToUse);
-        assertEq(engine.minDuration(), minLTVToUse);
-        assertEq(engine.maxDuration(), maxDurationToUse);
+        vm.expectEmit(address(configHub));
+        emit IConfigHub.CollarDurationRangeSet(minLTVToUse, maxDurationToUse);
+        configHub.setCollarDurationRange(minLTVToUse, maxDurationToUse);
+        assertEq(configHub.minDuration(), minLTVToUse);
+        assertEq(configHub.maxDuration(), maxDurationToUse);
     }
 
     function test_revert_setCollarDurationRange() public {
         vm.expectRevert("min > max");
-        engine.setCollarDurationRange(maxDurationToUse, minDurationToUse);
+        configHub.setCollarDurationRange(maxDurationToUse, minDurationToUse);
 
         vm.expectRevert("min too low");
-        engine.setCollarDurationRange(0, maxDurationToUse);
+        configHub.setCollarDurationRange(0, maxDurationToUse);
 
         vm.expectRevert("max too high");
-        engine.setCollarDurationRange(minDurationToUse, 10 * 365 days);
+        configHub.setCollarDurationRange(minDurationToUse, 10 * 365 days);
     }
 }

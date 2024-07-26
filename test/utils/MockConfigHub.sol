@@ -7,17 +7,17 @@
 
 pragma solidity 0.8.22;
 
-import { CollarEngine } from "../../src/implementations/CollarEngine.sol";
+import { ConfigHub } from "../../src/implementations/ConfigHub.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
-contract MockEngine is CollarEngine {
+contract MockConfigHub is ConfigHub {
     using EnumerableSet for EnumerableSet.AddressSet;
     using EnumerableSet for EnumerableSet.UintSet;
 
     mapping(address => uint) public currentAssetPrices;
     mapping(address => mapping(uint => uint)) public historicalAssetPrices;
 
-    constructor(address _univ3SwapRouter) CollarEngine(_univ3SwapRouter) { }
+    constructor(address _univ3SwapRouter) ConfigHub(_univ3SwapRouter) { }
 
     function setHistoricalAssetPrice(address asset, uint timestamp, uint value) external {
         historicalAssetPrices[asset][timestamp] = value;

@@ -13,7 +13,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 // internal imports
 import { ProviderPositionNFT } from "./ProviderPositionNFT.sol";
 import { BaseGovernedNFT } from "./base/BaseGovernedNFT.sol";
-import { CollarEngine } from "./implementations/CollarEngine.sol";
+import { ConfigHub } from "./implementations/ConfigHub.sol";
 import { ICollarTakerNFT } from "./interfaces/ICollarTakerNFT.sol";
 
 contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
@@ -27,7 +27,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
     string public constant VERSION = "0.2.0"; // allow checking version on-chain
 
     // ----- IMMUTABLES ----- //
-    CollarEngine public immutable engine;
+    ConfigHub public immutable configHub;
     IERC20 public immutable cashAsset;
     IERC20 public immutable collateralAsset;
 
@@ -36,13 +36,13 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
 
     constructor(
         address initialOwner,
-        CollarEngine _engine,
+        ConfigHub _configHub,
         IERC20 _cashAsset,
         IERC20 _collateralAsset,
         string memory _name,
         string memory _symbol
     ) BaseGovernedNFT(initialOwner, _name, _symbol) {
-        engine = _engine;
+        configHub = _configHub;
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
         // check params are supported
@@ -62,7 +62,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
     /// @dev TWAP price that's used in this contract for opening and settling positions
     /// and should be used by other contracts to get inputs for previewSettlement
     function getReferenceTWAPPrice(uint twapEndTime) public view returns (uint price) {
-        return engine.getHistoricalAssetPriceViaTWAP(
+        return configHub.getHistoricalAssetPriceViaTWAP(
             address(collateralAsset), address(cashAsset), uint32(twapEndTime), TWAP_LENGTH
         );
     }
@@ -247,24 +247,24 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
     // ----- INTERNAL VIEWS ----- //
 
     function _validateAssetsSupported() internal view {
-        require(engine.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
-        require(engine.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
+        require(configHub.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
+        require(configHub.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
     }
 
     function _openPositionValidations(ProviderPositionNFT providerNFT) internal view {
         _validateAssetsSupported();
 
         // check self (provider will check too)
-        require(engine.isCollarTakerNFT(address(this)), "unsupported taker contract");
+        require(configHub.isCollarTakerNFT(address(this)), "unsupported taker contract");
 
         // check provider
-        require(engine.isProviderNFT(address(providerNFT)), "unsupported provider contract");
+        require(configHub.isProviderNFT(address(providerNFT)), "unsupported provider contract");
         // check assets match
         require(providerNFT.collateralAsset() == collateralAsset, "asset mismatch");
         require(providerNFT.cashAsset() == cashAsset, "asset mismatch");
 
         // checking LTV and duration (from provider offer) is redundant since provider offer
-        // is trusted by user (passed in input), and trusted by engine (was checked vs. engine above)
+        // is trusted by user (passed in input), and trusted by configHub (was checked vs. configHub above)
     }
 
     // calculations
