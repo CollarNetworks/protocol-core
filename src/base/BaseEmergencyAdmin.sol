@@ -59,7 +59,7 @@ abstract contract BaseEmergencyAdmin is Ownable2Step, Pausable {
     /// in case of emergency
     function rescueTokens(address token, uint amount) external onlyOwner {
         /// The transfer is to the owner so that only full owner compromise can steal tokens
-        /// and not a single bad transaction (which can be phished).
+        /// and not a single rescue transaction with bad params (which can be phished more easily).
         SafeERC20.safeTransfer(IERC20(token), owner(), amount);
         emit TokensRescued(token, amount);
     }

@@ -38,6 +38,7 @@ abstract contract BaseEmergencyAdminTestBase is Test {
     function setupTestedContract() internal virtual;
 
     function test_constructor() public {
+        setupTestedContract();
         assertEq(testedContract.owner(), owner);
         assertEq(address(testedContract.configHub()), address(configHub));
     }
@@ -109,7 +110,7 @@ abstract contract BaseEmergencyAdminTestBase is Test {
         testedContract.setConfigHub(ConfigHub(address(0)));
 
         ConfigHub badHub = ConfigHub(address(new BadConfigHub1()));
-        vm.expectRevert();
+        vm.expectRevert(new bytes(0));
         testedContract.setConfigHub(badHub);
 
         badHub = ConfigHub(address(new BadConfigHub2()));
