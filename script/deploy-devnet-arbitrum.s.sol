@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
 
-import { CollarEngine } from "../src/implementations/CollarEngine.sol";
+import { ConfigHub } from "../src/implementations/ConfigHub.sol";
 import { ProviderPositionNFT } from "../src/ProviderPositionNFT.sol";
 import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
 import { Loans } from "../src/Loans.sol";
@@ -16,9 +16,9 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  * @dev This script deploys and initializes the Collar Protocol for a development environment.
  *
  * It performs the following actions:
- * 1. Deploys the CollarEngine contract.
+ * 1. Deploys the ConfigHub contract.
  * 2. Creates 11 pairs of ProviderPositionNFT, CollarTakerNFT, and Loans contracts.
- * 3. Sets up supported assets, LTVs, and durations in the CollarEngine.
+ * 3. Sets up supported assets, LTVs, and durations in the ConfigHub.
  * 4. Creates initial liquidity offers for each pair.
  * 5. Performs various checks to ensure correct deployment and initialization.
  *
@@ -26,7 +26,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
  */
 contract DeployInitializedDevnetProtocol is Script {
     address router;
-    CollarEngine engine;
+    ConfigHub configHub;
 
     uint chainId = 137_999; // id for ethereum mainnet fork on tenderly
     address USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
@@ -82,27 +82,27 @@ contract DeployInitializedDevnetProtocol is Script {
         return (deployerWallet.addr, user1Wallet.addr, user2Wallet.addr, liquidityProviderWallet.addr);
     }
 
-    function _deployandSetupEngine() internal {
+    function _deployandSetupConfigHub() internal {
         router = swapRouterAddress;
-        engine = new CollarEngine(router);
+        configHub = new ConfigHub(router);
 
         // add supported cash assets
-        engine.setCashAssetSupport(USDC, true);
-        engine.setCashAssetSupport(USDT, true);
-        engine.setCashAssetSupport(WETH, true);
+        configHub.setCashAssetSupport(USDC, true);
+        configHub.setCashAssetSupport(USDT, true);
+        configHub.setCashAssetSupport(WETH, true);
         // add supported collateral assets
-        engine.setCollateralAssetSupport(WETH, true);
-        engine.setCollateralAssetSupport(WBTC, true);
-        engine.setCollateralAssetSupport(MATIC, true);
-        engine.setCollateralAssetSupport(weETH, true);
-        engine.setCollateralAssetSupport(stETH, true);
-        engine.setLTVRange(allLTVs[1], allLTVs[0]);
-        engine.setCollarDurationRange(allDurations[0], allDurations[2]);
+        configHub.setCollateralAssetSupport(WETH, true);
+        configHub.setCollateralAssetSupport(WBTC, true);
+        configHub.setCollateralAssetSupport(MATIC, true);
+        configHub.setCollateralAssetSupport(weETH, true);
+        configHub.setCollateralAssetSupport(stETH, true);
+        configHub.setLTVRange(allLTVs[1], allLTVs[0]);
+        configHub.setCollarDurationRange(allDurations[0], allDurations[2]);
 
         console.log("\n --- Dev Environment Deployed ---");
         console.log("\n # Contract Addresses\n");
         console.log(" - Router:  - - - - - - ", router);
-        console.log(" - Engine - - - - - - - ", address(engine));
+        console.log(" - ConfigHub - - - - - - - ", address(configHub));
     }
 
     function _createContractPairs() internal {
@@ -129,7 +129,7 @@ contract DeployInitializedDevnetProtocol is Script {
     ) internal {
         CollarTakerNFT takerNFT = new CollarTakerNFT(
             address(this),
-            engine,
+            configHub,
             cashAsset,
             collateralAsset,
             string(abi.encodePacked("Taker ", pairName)),
@@ -137,7 +137,7 @@ contract DeployInitializedDevnetProtocol is Script {
         );
         ProviderPositionNFT providerNFT = new ProviderPositionNFT(
             address(this),
-            engine,
+            configHub,
             cashAsset,
             collateralAsset,
             address(takerNFT),
@@ -146,16 +146,21 @@ contract DeployInitializedDevnetProtocol is Script {
         );
         Loans loansContract = new Loans(address(this), takerNFT);
 
-        engine.setCollarTakerContractAuth(address(takerNFT), true);
-        engine.setProviderContractAuth(address(providerNFT), true);
+        configHub.setCollarTakerContractAuth(address(takerNFT), true);
+        configHub.setProviderContractAuth(address(providerNFT), true);
         AssetPairContracts memory contracts = AssetPairContracts(
             providerNFT, takerNFT, loansContract, cashAsset, collateralAsset, durations, ltvs
         );
         require(address(contracts.providerNFT) != address(0), "Provider NFT not created");
         require(address(contracts.takerNFT) != address(0), "Taker NFT not created");
         require(address(contracts.loansContract) != address(0), "Loans contract not created");
-        require(engine.isProviderNFT(address(contracts.providerNFT)), "Provider NFT not authorized in engine");
-        require(engine.isCollarTakerNFT(address(contracts.takerNFT)), "Taker NFT not authorized in engine");
+        require(
+            configHub.isProviderNFT(address(contracts.providerNFT)),
+            "Provider NFT not authorized in configHub"
+        );
+        require(
+            configHub.isCollarTakerNFT(address(contracts.takerNFT)), "Taker NFT not authorized in configHub"
+        );
         assetPairContracts.push(contracts);
         console.log(" - %s Taker NFT: %s", pairName, address(takerNFT));
         console.log(" - %s Provider NFT: %s", pairName, address(providerNFT));
@@ -207,7 +212,7 @@ contract DeployInitializedDevnetProtocol is Script {
         require(liquidityProvider.balance > 1000, "liquidity provider address not funded");
 
         vm.startBroadcast(deployer);
-        _deployandSetupEngine();
+        _deployandSetupConfigHub();
         _createContractPairs();
         vm.stopBroadcast();
 
@@ -246,7 +251,7 @@ contract DeployInitializedDevnetProtocol is Script {
         uint initialCashBalance = pair.cashAsset.balanceOf(user);
 
         // Get TWAP price before loan creation
-        uint twapPrice = engine.getHistoricalAssetPriceViaTWAP(
+        uint twapPrice = configHub.getHistoricalAssetPriceViaTWAP(
             address(pair.collateralAsset),
             address(pair.cashAsset),
             uint32(block.timestamp),

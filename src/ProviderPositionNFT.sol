@@ -11,7 +11,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 // internal
-import { CollarEngine } from "./implementations/CollarEngine.sol";
+import { ConfigHub } from "./implementations/ConfigHub.sol";
 import { BaseGovernedNFT } from "./base/BaseGovernedNFT.sol";
 import { IProviderPositionNFT } from "./interfaces/IProviderPositionNFT.sol";
 
@@ -35,7 +35,7 @@ import { IProviderPositionNFT } from "./interfaces/IProviderPositionNFT.sol";
  * 1. Liquidity providers must be able to receive ERC-721 tokens and withdraw offers or earnings
  *    from this contract.
  * 2. The associated borrow contract is trusted and properly implemented.
- * 3. The CollarEngine contract correctly manages protocol parameters and authorization.
+ * 3. The ConfigHub contract correctly manages protocol parameters and authorization.
  * 4. Put strike deviation is assumed to always equal the Loan-to-Value (LTV) ratio.
  * 5. Asset (ERC-20) contracts are simple (non rebasing) and do not allow reentrancy.
  *
@@ -48,7 +48,7 @@ import { IProviderPositionNFT } from "./interfaces/IProviderPositionNFT.sol";
  *
  * Security Notes:
  * 1. Critical functions are only callable by the trusted borrow contract.
- * 2. Offer and position parameters are validated against the engine's configurations.
+ * 2. Offer and position parameters are validated against the configHub's configurations.
  * 3. Asset transfers use SafeERC20 to handle non-standard token implementations.
  */
 contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
@@ -62,7 +62,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
     string public constant VERSION = "0.2.0"; // allow checking version on-chain
 
     // ----- IMMUTABLES ----- //
-    CollarEngine public immutable engine;
+    ConfigHub public immutable configHub;
     IERC20 public immutable cashAsset;
     IERC20 public immutable collateralAsset;
     address public immutable collarTakerContract;
@@ -74,14 +74,14 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
 
     constructor(
         address initialOwner,
-        CollarEngine _engine,
+        ConfigHub _configHub,
         IERC20 _cashAsset,
         IERC20 _collateralAsset,
         address _collarTakerContract,
         string memory _name,
         string memory _symbol
     ) BaseGovernedNFT(initialOwner, _name, _symbol) {
-        engine = _engine;
+        configHub = _configHub;
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
         collarTakerContract = _collarTakerContract;
@@ -90,7 +90,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
     }
 
     modifier onlyTrustedTakerContract() {
-        require(engine.isCollarTakerNFT(collarTakerContract), "unsupported taker contract");
+        require(configHub.isCollarTakerNFT(collarTakerContract), "unsupported taker contract");
         require(msg.sender == collarTakerContract, "unauthorized taker contract");
         _;
     }
@@ -130,8 +130,8 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
     function createOffer(
         uint callStrikeDeviation, // up to the provider
         uint amount, // up to the provider
-        uint putStrikeDeviation, // validated vs. engine
-        uint duration // validated vs. engine
+        uint putStrikeDeviation, // validated vs. configHub
+        uint duration // validated vs. configHub
     ) external whenNotPaused returns (uint offerId) {
         _validateOfferParamsSupported(putStrikeDeviation, duration);
         require(callStrikeDeviation > MIN_CALL_STRIKE_BIPS, "strike deviation too low");
@@ -338,15 +338,15 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
     // ----- INTERNAL VIEWS ----- //
 
     function _validateAssetsSupported() internal view {
-        require(engine.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
-        require(engine.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
+        require(configHub.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
+        require(configHub.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
     }
 
     function _validateOfferParamsSupported(uint putStrikeDeviation, uint duration) internal view {
         _validateAssetsSupported();
         require(putStrikeDeviation <= MAX_PUT_STRIKE_BIPS, "invalid put strike deviation");
         uint ltv = putStrikeDeviation; // assumed to be always equal
-        require(engine.isValidLTV(ltv), "unsupported LTV");
-        require(engine.isValidCollarDuration(duration), "unsupported duration");
+        require(configHub.isValidLTV(ltv), "unsupported LTV");
+        require(configHub.isValidCollarDuration(duration), "unsupported duration");
     }
 }

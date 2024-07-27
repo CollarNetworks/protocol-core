@@ -26,7 +26,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
         // bad provider
         ProviderPositionNFT invalidProviderNFT = new ProviderPositionNFT(
-            owner, engine, cashAsset, collateralAsset, address(takerNFT), "InvalidProviderNFT", "INVPRV"
+            owner, configHub, cashAsset, collateralAsset, address(takerNFT), "InvalidProviderNFT", "INVPRV"
         );
         vm.expectRevert("unsupported provider contract");
         loans.createLoan(collateralAmount, minLoanAmount, minSwapCash, invalidProviderNFT, 0);

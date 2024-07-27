@@ -63,7 +63,7 @@ contract LoansRollTestBase is LoansTestBase {
         expected = calculateRollAmounts(rollId, newPrice);
 
         // Update price
-        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, newPrice);
+        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, newPrice);
 
         // Execute roll
         vm.startPrank(user1);

@@ -97,7 +97,7 @@ contract LoansAdminTest is LoansTestBase {
 
         // Test revert when taker NFT doesn't match
         CollarTakerNFT invalidTakerNFT =
-            new CollarTakerNFT(owner, engine, cashAsset, collateralAsset, "InvalidTakerNFT", "INVTKR");
+            new CollarTakerNFT(owner, configHub, cashAsset, collateralAsset, "InvalidTakerNFT", "INVTKR");
         Rolls invalidTakerRolls = new Rolls(owner, invalidTakerNFT, cashAsset);
         vm.expectRevert("rolls taker NFT mismatch");
         loans.setRollsContract(invalidTakerRolls);

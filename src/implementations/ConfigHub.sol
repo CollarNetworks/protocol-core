@@ -7,23 +7,18 @@
 
 pragma solidity 0.8.22;
 
-import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 // internal imports
-import { ICollarEngine } from "../interfaces/ICollarEngine.sol";
+import { IConfigHub } from "../interfaces/IConfigHub.sol";
 import { UniV3OracleLib } from "../libs/UniV3OracleLib.sol";
 import { IProviderPositionNFT } from "../interfaces/IProviderPositionNFT.sol";
 import { ICollarTakerNFT } from "../interfaces/ICollarTakerNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "forge-std/console.sol";
 
-contract CollarEngine is Ownable, ICollarEngine {
-    // -- lib delcarations --
-    using EnumerableSet for EnumerableSet.AddressSet;
-    using EnumerableSet for EnumerableSet.UintSet;
-
+contract ConfigHub is Ownable, IConfigHub {
     // -- public state variables ---
 
     string public constant VERSION = "0.2.0";
@@ -52,7 +47,7 @@ contract CollarEngine is Ownable, ICollarEngine {
         univ3SwapRouter = _univ3SwapRouter;
     }
 
-    // ----- state-changing functions (see ICollarEngine for documentation) -----
+    // ----- state-changing functions (see IConfigHub for documentation) -----
 
     function setCollarTakerContractAuth(address contractAddress, bool enabled) external onlyOwner {
         isCollarTakerNFT[contractAddress] = enabled;
@@ -107,7 +102,7 @@ contract CollarEngine is Ownable, ICollarEngine {
         emit CashAssetSupportSet(cashAsset, enabled);
     }
 
-    // ----- view functions (see ICollarEngine for documentation) -----
+    // ----- view functions (see IConfigHub for documentation) -----
 
     // collar durations
 

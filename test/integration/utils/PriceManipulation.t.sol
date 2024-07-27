@@ -9,7 +9,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import { CollarEngine } from "../../../src/implementations/CollarEngine.sol";
+import { ConfigHub } from "../../../src/implementations/ConfigHub.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
@@ -24,7 +24,7 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
     uint public constant PRICE_DEVIATION_TOLERANCE = 1000; // 10% in basis points
 
     function getCurrentAssetPrice() internal view returns (uint) {
-        address uniV3Factory = IPeripheryImmutableState(engine.univ3SwapRouter()).factory();
+        address uniV3Factory = IPeripheryImmutableState(configHub.univ3SwapRouter()).factory();
         return TestPriceOracle.getUnsafePrice(address(collateralAsset), address(cashAsset), uniV3Factory);
     }
 
@@ -94,8 +94,8 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
         });
 
         startHoax(whale);
-        IERC20(swapParams.tokenIn).forceApprove(engine.univ3SwapRouter(), amount);
-        IV3SwapRouter(payable(engine.univ3SwapRouter())).exactInputSingle(swapParams);
+        IERC20(swapParams.tokenIn).forceApprove(configHub.univ3SwapRouter(), amount);
+        IV3SwapRouter(payable(configHub.univ3SwapRouter())).exactInputSingle(swapParams);
         vm.stopPrank();
 
         currentPrice = getCurrentAssetPrice();

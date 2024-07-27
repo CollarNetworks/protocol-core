@@ -8,7 +8,7 @@ import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
-import { MockEngine } from "../../test/utils/MockEngine.sol";
+import { MockConfigHub } from "../../test/utils/MockConfigHub.sol";
 
 import { Rolls, IRolls } from "../../src/Rolls.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
@@ -17,7 +17,7 @@ import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 contract RollsTest is Test {
     TestERC20 cashAsset;
     TestERC20 collateralAsset;
-    MockEngine engine;
+    MockConfigHub configHub;
     CollarTakerNFT takerNFT;
     ProviderPositionNFT providerNFT;
     ProviderPositionNFT providerNFT2;
@@ -50,42 +50,43 @@ contract RollsTest is Test {
     function setUp() public {
         cashAsset = new TestERC20("TestCash", "TestCash");
         collateralAsset = new TestERC20("TestCollat", "TestCollat");
-        engine = new MockEngine(address(0));
-        setupEngine();
+        configHub = new MockConfigHub(address(0));
+        setupConfigHub();
 
-        takerNFT = new CollarTakerNFT(owner, engine, cashAsset, collateralAsset, "CollarTakerNFT", "TKRNFT");
+        takerNFT =
+            new CollarTakerNFT(owner, configHub, cashAsset, collateralAsset, "CollarTakerNFT", "TKRNFT");
         providerNFT = new ProviderPositionNFT(
-            owner, engine, cashAsset, collateralAsset, address(takerNFT), "ProviderNFT", "PRVNFT"
+            owner, configHub, cashAsset, collateralAsset, address(takerNFT), "ProviderNFT", "PRVNFT"
         );
         rolls = new Rolls(owner, takerNFT, cashAsset);
         // this is to avoid having the paired IDs being equal
         providerNFT2 = new ProviderPositionNFT(
-            owner, engine, cashAsset, collateralAsset, address(takerNFT), "ProviderNFT-2", "PRVNFT-2"
+            owner, configHub, cashAsset, collateralAsset, address(takerNFT), "ProviderNFT-2", "PRVNFT-2"
         );
 
-        engine.setCollarTakerContractAuth(address(takerNFT), true);
-        engine.setProviderContractAuth(address(providerNFT), true);
-        engine.setProviderContractAuth(address(providerNFT2), true);
+        configHub.setCollarTakerContractAuth(address(takerNFT), true);
+        configHub.setProviderContractAuth(address(providerNFT), true);
+        configHub.setProviderContractAuth(address(providerNFT2), true);
 
         cashAsset.mint(user1, putLocked * 10);
         cashAsset.mint(provider, amountToProvide * 10);
 
-        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
 
         vm.label(address(cashAsset), "TestCash");
         vm.label(address(collateralAsset), "TestCollat");
-        vm.label(address(engine), "CollarEngine");
+        vm.label(address(configHub), "ConfigHub");
         vm.label(address(takerNFT), "CollarTakerNFT");
         vm.label(address(providerNFT), "ProviderNFT");
         vm.label(address(providerNFT2), "ProviderNFT-2");
         vm.label(address(rolls), "Rolls");
     }
 
-    function setupEngine() public {
-        engine.setLTVRange(ltv, ltv);
-        engine.setCollarDurationRange(duration, duration);
-        engine.setCashAssetSupport(address(cashAsset), true);
-        engine.setCollateralAssetSupport(address(collateralAsset), true);
+    function setupConfigHub() public {
+        configHub.setLTVRange(ltv, ltv);
+        configHub.setCollarDurationRange(duration, duration);
+        configHub.setCashAssetSupport(address(cashAsset), true);
+        configHub.setCollateralAssetSupport(address(collateralAsset), true);
     }
 
     function createProviderOffers() internal returns (uint offerId, uint offerId2) {
@@ -210,7 +211,7 @@ contract RollsTest is Test {
         uint rollsBalance = cashAsset.balanceOf(address(rolls));
 
         // update to new price
-        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, newPrice);
+        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, newPrice);
         // Execute roll
         startHoax(user1);
         takerNFT.approve(address(rolls), offer.takerId);
@@ -602,7 +603,7 @@ contract RollsTest is Test {
         );
 
         // new taker position
-        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
         (takerId, providerId) = createTakerPositions();
         startHoax(provider);
         providerNFT.approve(address(rolls), providerId);
@@ -738,7 +739,7 @@ contract RollsTest is Test {
         rolls.executeRoll(rollId, type(int).min);
 
         // new offer
-        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
         (takerId, rollId, offer) = createAndCheckRollOffer();
         // Offer already executed
         startHoax(user1);
@@ -754,20 +755,20 @@ contract RollsTest is Test {
 
         // Price too high
         uint highPrice = offer.maxPrice + 1;
-        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, highPrice);
+        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, highPrice);
         startHoax(user1);
         vm.expectRevert("price too high");
         rolls.executeRoll(rollId, type(int).min);
 
         // Price too low
         uint lowPrice = offer.minPrice - 1;
-        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, lowPrice);
+        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, lowPrice);
         vm.expectRevert("price too low");
         rolls.executeRoll(rollId, type(int).min);
 
         // Deadline passed
         skip(deadline + 1);
-        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
         vm.expectRevert("deadline passed");
         rolls.executeRoll(rollId, type(int).min);
     }
@@ -792,7 +793,7 @@ contract RollsTest is Test {
         takerNFT.approve(address(rolls), takerId);
         cashAsset.approve(address(rolls), type(uint).max);
         uint newPrice = twapPrice * 110 / 100;
-        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, newPrice);
+        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, newPrice);
         vm.expectRevert("provider transfer slippage");
         rolls.executeRoll(rollId, type(int).min);
     }
@@ -812,7 +813,7 @@ contract RollsTest is Test {
         takerNFT.approve(address(rolls), takerId);
         cashAsset.approve(address(rolls), 0);
         uint lowPrice = twapPrice * 9 / 10;
-        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, lowPrice);
+        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, lowPrice);
         (int toTaker,,) = rolls.calculateTransferAmounts(rollId, lowPrice);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -826,7 +827,7 @@ contract RollsTest is Test {
         (uint takerId, uint rollId,) = createAndCheckRollOffer();
 
         uint highPrice = twapPrice * 11 / 10;
-        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, highPrice);
+        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, highPrice);
         (, int toProvider,) = rolls.calculateTransferAmounts(rollId, highPrice);
 
         // provider revoked approval

@@ -5,7 +5,7 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
-import { MockEngine } from "../../test/utils/MockEngine.sol";
+import { MockConfigHub } from "../../test/utils/MockConfigHub.sol";
 import { MockUniRouter } from "../../test/utils/MockUniRouter.sol";
 
 import { Loans, ILoans } from "../../src/Loans.sol";
@@ -16,7 +16,7 @@ import { Rolls } from "../../src/Rolls.sol";
 contract LoansTestBase is Test {
     TestERC20 cashAsset;
     TestERC20 collateralAsset;
-    MockEngine engine;
+    MockConfigHub configHub;
     MockUniRouter uniRouter;
     CollarTakerNFT takerNFT;
     ProviderPositionNFT providerNFT;
@@ -48,18 +48,19 @@ contract LoansTestBase is Test {
         cashAsset = new TestERC20("TestCash", "TestCash");
         collateralAsset = new TestERC20("TestCollat", "TestCollat");
         uniRouter = new MockUniRouter();
-        engine = new MockEngine(address(uniRouter));
-        setupEngine();
+        configHub = new MockConfigHub(address(uniRouter));
+        setupConfigHub();
 
-        takerNFT = new CollarTakerNFT(owner, engine, cashAsset, collateralAsset, "CollarTakerNFT", "TKRNFT");
+        takerNFT =
+            new CollarTakerNFT(owner, configHub, cashAsset, collateralAsset, "CollarTakerNFT", "TKRNFT");
         providerNFT = new ProviderPositionNFT(
-            owner, engine, cashAsset, collateralAsset, address(takerNFT), "ProviderNFT", "PRVNFT"
+            owner, configHub, cashAsset, collateralAsset, address(takerNFT), "ProviderNFT", "PRVNFT"
         );
         rolls = new Rolls(owner, takerNFT, cashAsset);
         loans = new Loans(owner, takerNFT);
 
-        engine.setCollarTakerContractAuth(address(takerNFT), true);
-        engine.setProviderContractAuth(address(providerNFT), true);
+        configHub.setCollarTakerContractAuth(address(takerNFT), true);
+        configHub.setProviderContractAuth(address(providerNFT), true);
 
         vm.prank(owner);
         loans.setRollsContract(rolls);
@@ -68,22 +69,22 @@ contract LoansTestBase is Test {
         cashAsset.mint(user1, minSwapCash * 10);
         cashAsset.mint(provider, amountToProvide * 10);
 
-        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
 
         vm.label(address(cashAsset), "TestCash");
         vm.label(address(collateralAsset), "TestCollat");
-        vm.label(address(engine), "CollarEngine");
+        vm.label(address(configHub), "ConfigHub");
         vm.label(address(uniRouter), "UniRouter");
         vm.label(address(takerNFT), "CollarTakerNFT");
         vm.label(address(providerNFT), "ProviderPositionNFT");
         vm.label(address(loans), "Loans");
     }
 
-    function setupEngine() public {
-        engine.setCashAssetSupport(address(cashAsset), true);
-        engine.setCollateralAssetSupport(address(collateralAsset), true);
-        engine.setLTVRange(ltv, ltv);
-        engine.setCollarDurationRange(duration, duration);
+    function setupConfigHub() public {
+        configHub.setCashAssetSupport(address(cashAsset), true);
+        configHub.setCollateralAssetSupport(address(collateralAsset), true);
+        configHub.setLTVRange(ltv, ltv);
+        configHub.setCollarDurationRange(duration, duration);
     }
 
     function prepareSwap(TestERC20 asset, uint amount) public {
@@ -112,7 +113,7 @@ contract LoansTestBase is Test {
         uint offerId = createOfferAsProvider();
 
         // TWAP price must be set for every block
-        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
 
         // convert at twap price
         uint swapOut = collateralAmount * twapPrice / 1e18;
@@ -190,7 +191,7 @@ contract LoansTestBase is Test {
         uint expectedCollateralOut
     ) internal {
         // TWAP price must be set for every block
-        engine.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
 
         vm.startPrank(user1);
         // Approve loan contract to spend user's cash for repayment
@@ -250,7 +251,7 @@ contract LoansTestBase is Test {
 contract LoansBasicHappyPathsTest is LoansTestBase {
     function test_constructor() public {
         loans = new Loans(owner, takerNFT);
-        assertEq(address(loans.engine()), address(engine));
+        assertEq(address(loans.configHub()), address(configHub));
         assertEq(address(loans.takerNFT()), address(takerNFT));
         assertEq(address(loans.cashAsset()), address(cashAsset));
         assertEq(address(loans.collateralAsset()), address(collateralAsset));

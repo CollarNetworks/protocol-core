@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
 
-import { CollarEngine } from "../src/implementations/CollarEngine.sol";
+import { ConfigHub } from "../src/implementations/ConfigHub.sol";
 import { ProviderPositionNFT } from "../src/ProviderPositionNFT.sol";
 import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
 import { Loans } from "../src/Loans.sol";
@@ -58,20 +58,20 @@ contract DeployArbitrumSepoliaProtocol is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy and setup engine
-        CollarEngine engine = new CollarEngine(address(SWAP_ROUTER));
-        engine.setLTVRange(ltvToUse, ltvToUse);
-        engine.setCollarDurationRange(durationToUse, durationToUse);
+        // Deploy and setup configHub
+        ConfigHub configHub = new ConfigHub(address(SWAP_ROUTER));
+        configHub.setLTVRange(ltvToUse, ltvToUse);
+        configHub.setCollarDurationRange(durationToUse, durationToUse);
 
-        DeployedContracts memory contracts = deployContracts(engine, deployer);
+        DeployedContracts memory contracts = deployContracts(configHub, deployer);
 
-        _verifyDeployment(engine, contracts);
+        _verifyDeployment(configHub, contracts);
 
         contracts.cashAsset.mint(liquidityProvider, amountToMintForLP);
 
         vm.stopBroadcast();
 
-        console.log("Engine deployed at:", address(engine));
+        console.log("ConfigHub deployed at:", address(configHub));
         console.log("Cash Asset deployed at:", address(contracts.cashAsset));
         console.log("Collateral Asset deployed at:", address(contracts.collateralAsset));
         console.log("TakerNFT deployed at:", address(contracts.takerNFT));
@@ -102,7 +102,7 @@ contract DeployArbitrumSepoliaProtocol is Script {
         );
     }
 
-    function deployContracts(CollarEngine engine, address deployer)
+    function deployContracts(ConfigHub configHub, address deployer)
         internal
         returns (DeployedContracts memory)
     {
@@ -128,17 +128,18 @@ contract DeployArbitrumSepoliaProtocol is Script {
             pool = factory.createPool(address(cashAsset), address(collateralAsset), POOL_FEE);
         }
 
-        // Add support for assets in the engine
-        engine.setCollateralAssetSupport(address(collateralAsset), true);
-        engine.setCashAssetSupport(address(cashAsset), true);
+        // Add support for assets in the configHub
+        configHub.setCollateralAssetSupport(address(collateralAsset), true);
+        configHub.setCashAssetSupport(address(cashAsset), true);
 
         // Deploy contract pair
-        CollarTakerNFT takerNFT =
-            new CollarTakerNFT(deployer, engine, cashAsset, collateralAsset, "Taker COLL/CASH", "TCOLL/CASH");
+        CollarTakerNFT takerNFT = new CollarTakerNFT(
+            deployer, configHub, cashAsset, collateralAsset, "Taker COLL/CASH", "TCOLL/CASH"
+        );
 
         ProviderPositionNFT providerNFT = new ProviderPositionNFT(
             deployer,
-            engine,
+            configHub,
             cashAsset,
             collateralAsset,
             address(takerNFT),
@@ -148,8 +149,8 @@ contract DeployArbitrumSepoliaProtocol is Script {
 
         Loans loansContract = new Loans(deployer, takerNFT);
 
-        engine.setCollarTakerContractAuth(address(takerNFT), true);
-        engine.setProviderContractAuth(address(providerNFT), true);
+        configHub.setCollarTakerContractAuth(address(takerNFT), true);
+        configHub.setProviderContractAuth(address(providerNFT), true);
 
         return DeployedContracts({
             cashAsset: cashAsset,
@@ -161,16 +162,16 @@ contract DeployArbitrumSepoliaProtocol is Script {
         });
     }
 
-    function _verifyDeployment(CollarEngine engine, DeployedContracts memory contracts) internal view {
-        require(engine.isCollarTakerNFT(address(contracts.takerNFT)), "TakerNFT not authorized");
-        require(engine.isProviderNFT(address(contracts.providerNFT)), "ProviderNFT not authorized");
-        require(engine.isSupportedCashAsset(address(contracts.cashAsset)), "Cash asset not supported");
+    function _verifyDeployment(ConfigHub configHub, DeployedContracts memory contracts) internal view {
+        require(configHub.isCollarTakerNFT(address(contracts.takerNFT)), "TakerNFT not authorized");
+        require(configHub.isProviderNFT(address(contracts.providerNFT)), "ProviderNFT not authorized");
+        require(configHub.isSupportedCashAsset(address(contracts.cashAsset)), "Cash asset not supported");
         require(
-            engine.isSupportedCollateralAsset(address(contracts.collateralAsset)),
+            configHub.isSupportedCollateralAsset(address(contracts.collateralAsset)),
             "Collateral asset not supported"
         );
-        require(engine.isValidLTV(ltvToUse), "LTV  not supported");
-        require(engine.isValidCollarDuration(durationToUse), "duration not supported");
+        require(configHub.isValidLTV(ltvToUse), "LTV  not supported");
+        require(configHub.isValidCollarDuration(durationToUse), "duration not supported");
         console.log("Deployment verified successfully");
     }
 
