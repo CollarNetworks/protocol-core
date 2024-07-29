@@ -48,7 +48,8 @@ contract LoansTestBase is Test {
         cashAsset = new TestERC20("TestCash", "TestCash");
         collateralAsset = new TestERC20("TestCollat", "TestCollat");
         uniRouter = new MockUniRouter();
-        configHub = new MockConfigHub(address(uniRouter));
+        configHub = new MockConfigHub(owner, address(uniRouter));
+        startHoax(owner);
         setupConfigHub();
 
         takerNFT =
@@ -62,7 +63,6 @@ contract LoansTestBase is Test {
         configHub.setCollarTakerContractAuth(address(takerNFT), true);
         configHub.setProviderContractAuth(address(providerNFT), true);
 
-        vm.prank(owner);
         loans.setRollsContract(rolls);
 
         collateralAsset.mint(user1, collateralAmount * 10);

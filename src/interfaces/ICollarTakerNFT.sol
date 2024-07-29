@@ -8,7 +8,7 @@
 pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ConfigHub } from "../implementations/ConfigHub.sol";
+import { ConfigHub } from "../ConfigHub.sol";
 import { ProviderPositionNFT } from "../ProviderPositionNFT.sol";
 
 interface ICollarTakerNFT {
@@ -63,7 +63,6 @@ interface ICollarTakerNFT {
     // immutables
     function cashAsset() external view returns (IERC20);
     function collateralAsset() external view returns (IERC20);
-    function configHub() external view returns (ConfigHub);
     // state
     function getPosition(uint takerId) external view returns (TakerPosition memory);
     function nextPositionId() external view returns (uint);

@@ -13,8 +13,9 @@ import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfac
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 // internal imports
-import { ConfigHub } from "./implementations/ConfigHub.sol";
+import { ConfigHub } from "./ConfigHub.sol";
 import { CollarTakerNFT } from "./CollarTakerNFT.sol";
+import { BaseEmergencyAdmin } from "./base/BaseEmergencyAdmin.sol";
 import { Rolls } from "./Rolls.sol";
 import { ProviderPositionNFT } from "./ProviderPositionNFT.sol";
 import { ILoans } from "./interfaces/ILoans.sol";
@@ -50,7 +51,7 @@ import { ILoans } from "./interfaces/ILoans.sol";
  * 4. Uses TWAP prices from Uniswap V3 for price manipulation protection when swapping during borrowing
  * (but not during closing).
  */
-contract Loans is ILoans, Ownable, Pausable {
+contract Loans is ILoans, BaseEmergencyAdmin {
     using SafeERC20 for IERC20;
 
     uint24 internal constant FEE_TIER_30_BIPS = 3000;
@@ -62,7 +63,6 @@ contract Loans is ILoans, Ownable, Pausable {
     string public constant VERSION = "0.2.0";
 
     // ----- IMMUTABLES ----- //
-    ConfigHub public immutable configHub;
     CollarTakerNFT public immutable takerNFT;
     IERC20 public immutable cashAsset;
     IERC20 public immutable collateralAsset;
@@ -75,11 +75,11 @@ contract Loans is ILoans, Ownable, Pausable {
     // the currently configured & allowed rolls contract for this takerNFT and cash asset
     Rolls public rollsContract;
 
-    constructor(address initialOwner, CollarTakerNFT _takerNFT) Ownable(initialOwner) {
+    constructor(address initialOwner, CollarTakerNFT _takerNFT) BaseEmergencyAdmin(initialOwner) {
         takerNFT = _takerNFT;
-        configHub = _takerNFT.configHub();
         cashAsset = _takerNFT.cashAsset();
         collateralAsset = _takerNFT.collateralAsset();
+        _setConfigHub(_takerNFT.configHub());
         /// @dev this contract might as well be a third party contract (since not authed by configHub),
         /// this is because it's not trusted by any other contract (only its users).
         /// @dev similarly this contract is not checking any configHub auth, since taker and provider contracts
@@ -298,16 +298,6 @@ contract Loans is ILoans, Ownable, Pausable {
         }
         emit RollsContractUpdated(rollsContract, rolls); // emit before for the prev value
         rollsContract = rolls;
-    }
-
-    /// @notice Pauses the contract in an emergency, pausing all user callable mutative methods
-    function pause() public onlyOwner {
-        _pause();
-    }
-
-    /// @notice Unpauses the contract
-    function unpause() public onlyOwner {
-        _unpause();
     }
 
     // ----- INTERNAL MUTATIVE ----- //

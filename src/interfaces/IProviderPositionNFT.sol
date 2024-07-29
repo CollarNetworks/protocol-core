@@ -8,7 +8,7 @@
 pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ConfigHub } from "../implementations/ConfigHub.sol";
+import { ConfigHub } from "../ConfigHub.sol";
 
 interface IProviderPositionNFT {
     struct LiquidityOffer {
@@ -64,7 +64,6 @@ interface IProviderPositionNFT {
     function collarTakerContract() external view returns (address);
     function cashAsset() external view returns (IERC20);
     function collateralAsset() external view returns (IERC20);
-    function configHub() external view returns (ConfigHub);
     // state
     function nextOfferId() external view returns (uint);
     function nextPositionId() external view returns (uint);

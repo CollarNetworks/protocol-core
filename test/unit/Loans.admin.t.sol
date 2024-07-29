@@ -13,18 +13,23 @@ import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
-import { LoansTestBase } from "./Loans.basic.effects.t.sol";
+import { LoansTestBase, TestERC20 } from "./Loans.basic.effects.t.sol";
+import { BaseEmergencyAdminTestBase } from "./BaseEmergencyAdmin.t.sol";
 
 contract LoansAdminTest is LoansTestBase {
     function test_onlyOwnerMethods() public {
         vm.startPrank(user1);
         bytes4 selector = Ownable.OwnableUnauthorizedAccount.selector;
+
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
         loans.pause();
+
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
         loans.unpause();
+
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
         loans.setKeeper(keeper);
+
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
         loans.setRollsContract(Rolls(address(0)));
     }
@@ -32,7 +37,7 @@ contract LoansAdminTest is LoansTestBase {
     function test_setKeeper() public {
         assertEq(loans.closingKeeper(), address(0));
 
-        vm.prank(owner);
+        vm.startPrank(owner);
         vm.expectEmit(address(loans));
         emit ILoans.ClosingKeeperUpdated(address(0), keeper);
         loans.setKeeper(keeper);
@@ -73,10 +78,13 @@ contract LoansAdminTest is LoansTestBase {
         assertTrue(loans.paused());
         // methods are paused
         vm.startPrank(user1);
+
         vm.expectRevert(Pausable.EnforcedPause.selector);
         loans.createLoan(0, 0, 0, providerNFT, 0);
+
         vm.expectRevert(Pausable.EnforcedPause.selector);
         loans.setKeeperAllowedBy(takerId, true);
+
         vm.expectRevert(Pausable.EnforcedPause.selector);
         loans.closeLoan(takerId, 0);
     }
@@ -111,5 +119,23 @@ contract LoansAdminTest is LoansTestBase {
         vm.startPrank(user1);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user1));
         loans.setRollsContract(Rolls(address(0)));
+    }
+}
+
+contract LoansEmergencyAdminTest is BaseEmergencyAdminTestBase {
+    function setupTestedContract() internal override {
+        TestERC20 cashAsset = new TestERC20("TestCash", "TestCash");
+        TestERC20 collateralAsset = new TestERC20("TestCollat", "TestCollat");
+
+        vm.startPrank(owner);
+        configHub.setCashAssetSupport(address(cashAsset), true);
+        configHub.setCollateralAssetSupport(address(collateralAsset), true);
+        vm.stopPrank();
+
+        CollarTakerNFT takerNFT = new CollarTakerNFT(
+            owner, configHub, cashAsset, collateralAsset, "CollarTakerNFT", "CollarTakerNFT"
+        );
+
+        testedContract = new Loans(owner, takerNFT);
     }
 }

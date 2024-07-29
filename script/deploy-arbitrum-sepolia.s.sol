@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
 
-import { ConfigHub } from "../src/implementations/ConfigHub.sol";
+import { ConfigHub } from "../src/ConfigHub.sol";
 import { ProviderPositionNFT } from "../src/ProviderPositionNFT.sol";
 import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
 import { Loans } from "../src/Loans.sol";
@@ -59,7 +59,7 @@ contract DeployArbitrumSepoliaProtocol is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy and setup configHub
-        ConfigHub configHub = new ConfigHub(address(SWAP_ROUTER));
+        ConfigHub configHub = new ConfigHub(msg.sender, address(SWAP_ROUTER));
         configHub.setLTVRange(ltvToUse, ltvToUse);
         configHub.setCollarDurationRange(durationToUse, durationToUse);
 
