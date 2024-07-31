@@ -9,6 +9,7 @@ import { ProviderPositionNFT } from "../src/ProviderPositionNFT.sol";
 import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
 import { Loans } from "../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Rolls } from "../src/Rolls.sol";
 // import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
@@ -45,10 +46,13 @@ contract DeployInitializedDevnetProtocol is Script {
     uint collateralAmountForLoan = 1 ether;
     uint expectedOfferCount = 44;
 
+    address deployerAddress;
+
     struct AssetPairContracts {
         ProviderPositionNFT providerNFT;
         CollarTakerNFT takerNFT;
         Loans loansContract;
+        Rolls rollsContract;
         IERC20 cashAsset;
         IERC20 collateralAsset;
         uint[] durations;
@@ -128,7 +132,7 @@ contract DeployInitializedDevnetProtocol is Script {
         uint[] memory ltvs
     ) internal {
         CollarTakerNFT takerNFT = new CollarTakerNFT(
-            address(this),
+            deployerAddress,
             configHub,
             cashAsset,
             collateralAsset,
@@ -136,7 +140,7 @@ contract DeployInitializedDevnetProtocol is Script {
             string(abi.encodePacked("T", pairName))
         );
         ProviderPositionNFT providerNFT = new ProviderPositionNFT(
-            address(this),
+            deployerAddress,
             configHub,
             cashAsset,
             collateralAsset,
@@ -144,12 +148,15 @@ contract DeployInitializedDevnetProtocol is Script {
             string(abi.encodePacked("Provider ", pairName)),
             string(abi.encodePacked("P", pairName))
         );
-        Loans loansContract = new Loans(address(this), takerNFT);
+        Loans loansContract = new Loans(deployerAddress, takerNFT);
 
         configHub.setCollarTakerContractAuth(address(takerNFT), true);
         configHub.setProviderContractAuth(address(providerNFT), true);
+        Rolls rollsContract = new Rolls(deployerAddress, takerNFT, cashAsset);
+        loansContract.setRollsContract(rollsContract);
+
         AssetPairContracts memory contracts = AssetPairContracts(
-            providerNFT, takerNFT, loansContract, cashAsset, collateralAsset, durations, ltvs
+            providerNFT, takerNFT, loansContract, rollsContract, cashAsset, collateralAsset, durations, ltvs
         );
         require(address(contracts.providerNFT) != address(0), "Provider NFT not created");
         require(address(contracts.takerNFT) != address(0), "Taker NFT not created");
@@ -161,10 +168,12 @@ contract DeployInitializedDevnetProtocol is Script {
         require(
             configHub.isCollarTakerNFT(address(contracts.takerNFT)), "Taker NFT not authorized in configHub"
         );
+        require(address(contracts.rollsContract) != address(0), "Rolls contract not created");
         assetPairContracts.push(contracts);
         console.log(" - %s Taker NFT: %s", pairName, address(takerNFT));
         console.log(" - %s Provider NFT: %s", pairName, address(providerNFT));
         console.log(" - %s Loans Contract: %s", pairName, address(loansContract));
+        console.log(" - %s Rolls Contract: %s", pairName, address(rollsContract));
     }
 
     function _createOffers(address liquidityProvider) internal {
@@ -207,7 +216,7 @@ contract DeployInitializedDevnetProtocol is Script {
     function run() external {
         require(chainId == block.chainid, "chainId does not match the chainId in config");
         (address deployer, address user1,, address liquidityProvider) = setup();
-
+        deployerAddress = deployer;
         require(liquidityProvider != address(0), "liquidity provider address not set");
         require(liquidityProvider.balance > 1000, "liquidity provider address not funded");
 
@@ -285,6 +294,7 @@ contract DeployInitializedDevnetProtocol is Script {
         console.log(" - Loan amount: %d", loanAmount);
 
         vm.stopBroadcast();
+        _createAndExecuteRoll(liquidityProvider, user, pair, takerId, providerId);
     }
 
     function _checkPosition(
@@ -322,5 +332,95 @@ contract DeployInitializedDevnetProtocol is Script {
                 && loanAmount <= expectedLoanAmount + loanAmountTolerance,
             "Loan amount is outside the expected range"
         );
+    }
+
+    function _createAndExecuteRoll(
+        address provider,
+        address user,
+        AssetPairContracts memory pair,
+        uint loanId,
+        uint providerId
+    ) internal {
+        // Record initial balances
+        uint initialUserCashBalance = pair.cashAsset.balanceOf(user);
+        uint initialLoanAmount = pair.loansContract.getLoan(loanId).loanAmount;
+
+        vm.startBroadcast(provider);
+        uint currentPrice = pair.takerNFT.getReferenceTWAPPrice(block.timestamp);
+        pair.cashAsset.approve(address(pair.rollsContract), type(uint).max);
+        pair.providerNFT.approve(address(pair.rollsContract), providerId);
+        uint rollOfferId = pair.rollsContract.createRollOffer(
+            loanId,
+            1e6, // Roll fee
+            10_000, // Roll fee delta factor (100%)
+            currentPrice * 90 / 100, // Min price (90% of current price)
+            currentPrice * 110 / 100, // Max price (110% of current price)
+            0, // Min to provider
+            block.timestamp + 1 hours // Deadline
+        );
+        vm.stopBroadcast();
+
+        vm.startBroadcast(user);
+        pair.cashAsset.approve(address(pair.loansContract), type(uint).max);
+        pair.takerNFT.approve(address(pair.loansContract), loanId);
+        (int toTaker,,) = pair.rollsContract.calculateTransferAmounts(rollOfferId, currentPrice);
+        (uint newTakerId, uint newLoanAmount, int actualTransferAmount) =
+            pair.loansContract.rollLoan(loanId, pair.rollsContract, rollOfferId, toTaker);
+        vm.stopBroadcast();
+
+        console.log("Roll executed:");
+        console.log(" - New Taker ID: %d", newTakerId);
+        console.log(" - New Loan Amount: %d", newLoanAmount);
+
+        _verifyRollExecution(
+            user,
+            pair,
+            newTakerId,
+            newLoanAmount,
+            initialUserCashBalance,
+            initialLoanAmount,
+            currentPrice,
+            toTaker,
+            actualTransferAmount
+        );
+    }
+
+    function _verifyRollExecution(
+        address user,
+        AssetPairContracts memory pair,
+        uint newTakerId,
+        uint newLoanAmount,
+        uint initialUserCashBalance,
+        uint initialLoanAmount,
+        uint currentPrice,
+        int toTaker,
+        int actualTransferAmount
+    ) internal view {
+        require(pair.takerNFT.ownerOf(newTakerId) == user, "New taker NFT not owned by user");
+        require(newLoanAmount > 0, "Invalid new loan amount");
+        CollarTakerNFT.TakerPosition memory newPosition = pair.takerNFT.getPosition(newTakerId);
+        require(newPosition.settled == false, "New position should not be settled");
+        require(newPosition.withdrawable == 0, "New position should have no withdrawable amount");
+        require(newPosition.putLockedCash > 0, "New position should have put locked cash");
+        require(newPosition.callLockedCash > 0, "New position should have call locked cash");
+
+        // Check balance changes
+        uint finalUserCashBalance = pair.cashAsset.balanceOf(user);
+        int userBalanceChange = int(finalUserCashBalance) - int(initialUserCashBalance);
+
+        require(userBalanceChange == toTaker, "User balance change doesn't match expected transfer");
+        require(actualTransferAmount == toTaker, "Actual transfer amount doesn't match calculated amount");
+
+        // Check loan amount change
+        int loanAmountChange = int(newLoanAmount) - int(initialLoanAmount);
+        require(loanAmountChange == userBalanceChange + 1e6, "Loan amount change is incorrect");
+
+        // Additional checks
+        require(newPosition.expiration > block.timestamp, "New position expiration should be in the future");
+        require(
+            newPosition.initialPrice == currentPrice, "New position initial price should match current price"
+        );
+        require(newPosition.putStrikePrice < currentPrice, "Put strike price should be below current price");
+        require(newPosition.callStrikePrice > currentPrice, "Call strike price should be above current price");
     }
 }

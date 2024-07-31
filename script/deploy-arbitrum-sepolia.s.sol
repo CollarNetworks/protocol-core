@@ -16,6 +16,7 @@ import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 import { CollarOwnedERC20 } from "../test/utils/CollarOwnedERC20.sol";
+import { Rolls } from "../src/Rolls.sol";
 
 contract DeployArbitrumSepoliaProtocol is Script {
     using SafeERC20 for IERC20;
@@ -39,6 +40,7 @@ contract DeployArbitrumSepoliaProtocol is Script {
         ProviderPositionNFT providerNFT;
         CollarTakerNFT takerNFT;
         Loans loansContract;
+        Rolls rollsContract;
         address uniswapPool;
     }
 
@@ -85,21 +87,23 @@ contract DeployArbitrumSepoliaProtocol is Script {
 
         // // add liquidity to the new asset pool
 
-        _initializePool(
-            liquidityProviderKey,
-            liquidityProvider,
-            contracts.uniswapPool,
-            contracts.cashAsset,
-            contracts.collateralAsset
-        );
+        // _initializePool(
+        //     liquidityProviderKey,
+        //     liquidityProvider,
+        //     contracts.uniswapPool,
+        //     contracts.cashAsset,
+        //     contracts.collateralAsset
+        // );
 
-        _createLoan(
+        (uint loanId, uint providerId) = _createLoan(
             deployerPrivateKey,
             contracts.loansContract,
             ProviderPositionNFT(contracts.providerNFT),
             contracts.cashAsset,
             contracts.collateralAsset
         );
+
+        _createAndAcceptRoll(liquidityProviderKey, deployerPrivateKey, contracts, loanId, providerId);
     }
 
     function deployContracts(ConfigHub configHub, address deployer)
@@ -147,10 +151,17 @@ contract DeployArbitrumSepoliaProtocol is Script {
             "PCOLL/CASH"
         );
 
+        configHub.setCollarTakerContractAuth(address(takerNFT), true);
+        configHub.setProviderContractAuth(address(providerNFT), true);
+
         Loans loansContract = new Loans(deployer, takerNFT);
+        Rolls rollsContract = new Rolls(deployer, takerNFT, cashAsset);
 
         configHub.setCollarTakerContractAuth(address(takerNFT), true);
         configHub.setProviderContractAuth(address(providerNFT), true);
+
+        // Set the Rolls contract in the Loans contract
+        loansContract.setRollsContract(rollsContract);
 
         return DeployedContracts({
             cashAsset: cashAsset,
@@ -158,6 +169,7 @@ contract DeployArbitrumSepoliaProtocol is Script {
             providerNFT: providerNFT,
             takerNFT: takerNFT,
             loansContract: loansContract,
+            rollsContract: rollsContract,
             uniswapPool: pool
         });
     }
@@ -247,19 +259,60 @@ contract DeployArbitrumSepoliaProtocol is Script {
         ProviderPositionNFT providerNFT,
         CollarOwnedERC20 cashAsset,
         CollarOwnedERC20 collateralAsset
-    ) internal {
+    ) internal returns (uint loanId, uint providerId) {
         vm.startBroadcast(privKey);
         // Create loan
         cashAsset.approve(address(loansContract), amountPerOffer);
         collateralAsset.approve(address(loansContract), amountPerOffer);
-        (uint loanId,,) =
+        (loanId, providerId,) =
             loansContract.createLoan(amountForLoanCollateral, amountExpectedForCashLoan, 0, providerNFT, 0);
         // Get loan
         Loans.Loan memory loan = loansContract.getLoan(loanId);
         console.log("Loan collateral amount:", loan.collateralAmount);
         console.log("Loan loan amount:", loan.loanAmount);
-        console.log("Loan keeper allowed by:", loan.keeperAllowedBy);
-        console.log("Loan active:", loan.active);
+        vm.stopBroadcast();
+    }
+
+    function _createAndAcceptRoll(
+        uint providerKey,
+        uint userKey,
+        DeployedContracts memory contracts,
+        uint loanId,
+        uint providerId
+    ) internal {
+        // Get current price
+        uint currentPrice = contracts.takerNFT.getReferenceTWAPPrice(block.timestamp);
+        console.log("Current TWAP price:", currentPrice);
+
+        // Create roll offer
+        vm.startBroadcast(providerKey);
+
+        contracts.cashAsset.approve(address(contracts.rollsContract), type(uint).max);
+        contracts.providerNFT.approve(address(contracts.rollsContract), providerId);
+        uint rollOfferId = contracts.rollsContract.createRollOffer(
+            loanId,
+            1 ether, // user pays for roll
+            5000,
+            currentPrice * 90 / 100, // 90% of the current price
+            currentPrice * 110 / 100, // 110% of the current price
+            0,
+            block.timestamp + 1 hours
+        );
+        vm.stopBroadcast();
+        console.log("Roll offer created with ID:", rollOfferId);
+        // Accept roll offer
+        vm.startBroadcast(userKey);
+        contracts.cashAsset.approve(address(contracts.loansContract), type(uint).max);
+        contracts.takerNFT.approve(address(contracts.loansContract), loanId);
+
+        // Calculate roll parameters
+        (int toTaker,,) = contracts.rollsContract.calculateTransferAmounts(rollOfferId, currentPrice);
+        (uint newTakerId, uint newLoanAmount,) =
+            contracts.loansContract.rollLoan(loanId, contracts.rollsContract, rollOfferId, toTaker);
+        console.log("Roll executed successfully");
+        console.log("New Taker ID:", newTakerId);
+        console.log("New Loan Amount:", newLoanAmount);
+
         vm.stopBroadcast();
     }
 }
