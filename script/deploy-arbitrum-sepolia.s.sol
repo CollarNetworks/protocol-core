@@ -308,7 +308,7 @@ contract DeployArbitrumSepoliaProtocol is Script {
         // Calculate roll parameters
         (int toTaker,,) = contracts.rollsContract.calculateTransferAmounts(rollOfferId, currentPrice);
         (uint newTakerId, uint newLoanAmount,) =
-            contracts.loansContract.rollLoan(loanId, contracts.rollsContract, rollOfferId, toTaker);
+            contracts.loansContract.rollLoan(loanId, contracts.rollsContract, rollOfferId, toTaker - 0.3e6); // 0.3e6 slippage
         console.log("Roll executed successfully");
         console.log("New Taker ID:", newTakerId);
         console.log("New Loan Amount:", newLoanAmount);

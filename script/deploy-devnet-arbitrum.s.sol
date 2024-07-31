@@ -45,6 +45,8 @@ contract DeployInitializedDevnetProtocol is Script {
     uint cashAmountPerOffer = 100_000e6;
     uint collateralAmountForLoan = 1 ether;
     uint expectedOfferCount = 44;
+    int rollFee = 1e6;
+    int rollDeltaFactor = 10_000;
 
     address deployerAddress;
 
@@ -351,8 +353,8 @@ contract DeployInitializedDevnetProtocol is Script {
         pair.providerNFT.approve(address(pair.rollsContract), providerId);
         uint rollOfferId = pair.rollsContract.createRollOffer(
             loanId,
-            1e6, // Roll fee
-            10_000, // Roll fee delta factor (100%)
+            rollFee, // Roll fee
+            rollDeltaFactor, // Roll fee delta factor (100%)
             currentPrice * 90 / 100, // Min price (90% of current price)
             currentPrice * 110 / 100, // Max price (110% of current price)
             0, // Min to provider
@@ -365,7 +367,8 @@ contract DeployInitializedDevnetProtocol is Script {
         pair.takerNFT.approve(address(pair.loansContract), loanId);
         (int toTaker,,) = pair.rollsContract.calculateTransferAmounts(rollOfferId, currentPrice);
         (uint newTakerId, uint newLoanAmount, int actualTransferAmount) =
-            pair.loansContract.rollLoan(loanId, pair.rollsContract, rollOfferId, toTaker);
+            pair.loansContract.rollLoan(loanId, pair.rollsContract, rollOfferId, toTaker - 0.3e6); // 0.3e6 slippage
+        console.logInt(actualTransferAmount);
         vm.stopBroadcast();
 
         console.log("Roll executed:");
@@ -413,7 +416,7 @@ contract DeployInitializedDevnetProtocol is Script {
 
         // Check loan amount change
         int loanAmountChange = int(newLoanAmount) - int(initialLoanAmount);
-        require(loanAmountChange == userBalanceChange + 1e6, "Loan amount change is incorrect");
+        require(loanAmountChange == userBalanceChange + rollFee, "Loan amount change is incorrect");
 
         // Additional checks
         require(newPosition.expiration > block.timestamp, "New position expiration should be in the future");
