@@ -47,6 +47,7 @@ contract DeployInitializedDevnetProtocol is Script {
     uint expectedOfferCount = 44;
     int rollFee = 1e6;
     int rollDeltaFactor = 10_000;
+    int slippage = 3000;
 
     address deployerAddress;
 
@@ -365,9 +366,17 @@ contract DeployInitializedDevnetProtocol is Script {
         vm.startBroadcast(user);
         pair.cashAsset.approve(address(pair.loansContract), type(uint).max);
         pair.takerNFT.approve(address(pair.loansContract), loanId);
+
+        currentPrice = pair.takerNFT.getReferenceTWAPPrice(block.timestamp);
+        console.log("current price: ", currentPrice);
         (int toTaker,,) = pair.rollsContract.calculateTransferAmounts(rollOfferId, currentPrice);
+        console.log("to taker");
+        console.logInt(toTaker);
+        int minToUserSlippage = toTaker + (toTaker * slippage / 10_000);
+        console.log("min to user");
+        console.logInt(minToUserSlippage);
         (uint newTakerId, uint newLoanAmount, int actualTransferAmount) =
-            pair.loansContract.rollLoan(loanId, pair.rollsContract, rollOfferId, toTaker - 0.3e6); // 0.3e6 slippage
+            pair.loansContract.rollLoan(loanId, pair.rollsContract, rollOfferId, minToUserSlippage);
         console.logInt(actualTransferAmount);
         vm.stopBroadcast();
 
