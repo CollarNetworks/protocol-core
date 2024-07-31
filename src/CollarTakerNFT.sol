@@ -12,11 +12,11 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 // internal imports
 import { ProviderPositionNFT } from "./ProviderPositionNFT.sol";
-import { BaseGovernedNFT } from "./base/BaseGovernedNFT.sol";
-import { ConfigHub } from "./implementations/ConfigHub.sol";
+import { BaseEmergencyAdminNFT } from "./base/BaseEmergencyAdminNFT.sol";
+import { ConfigHub } from "./ConfigHub.sol";
 import { ICollarTakerNFT } from "./interfaces/ICollarTakerNFT.sol";
 
-contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
+contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
     using SafeERC20 for IERC20;
     using SafeCast for uint;
 
@@ -27,7 +27,6 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
     string public constant VERSION = "0.2.0"; // allow checking version on-chain
 
     // ----- IMMUTABLES ----- //
-    ConfigHub public immutable configHub;
     IERC20 public immutable cashAsset;
     IERC20 public immutable collateralAsset;
 
@@ -41,8 +40,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseGovernedNFT {
         IERC20 _collateralAsset,
         string memory _name,
         string memory _symbol
-    ) BaseGovernedNFT(initialOwner, _name, _symbol) {
-        configHub = _configHub;
+    ) BaseEmergencyAdminNFT(initialOwner, _configHub, _name, _symbol) {
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
         // check params are supported

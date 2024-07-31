@@ -8,13 +8,16 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
+import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockConfigHub } from "../../test/utils/MockConfigHub.sol";
+import { BaseEmergencyAdminTestBase } from "./BaseEmergencyAdmin.t.sol";
+
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ICollarTakerNFT } from "../../src/interfaces/ICollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 import { IProviderPositionNFT } from "../../src/interfaces/IProviderPositionNFT.sol";
-import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 
 contract CollarTakerNFTTest is Test {
     TestERC20 cashAsset;
@@ -50,6 +53,7 @@ contract CollarTakerNFTTest is Test {
         cashAsset.mint(provider, 100_000_000 ether);
         vm.label(address(cashAsset), "TestCash");
         vm.label(address(collateralAsset), "TestCollat");
+        startHoax(owner);
         configHub = setupMockConfigHub();
         vm.label(address(configHub), "ConfigHub");
         takerNFT =
@@ -64,7 +68,7 @@ contract CollarTakerNFTTest is Test {
     }
 
     function setupMockConfigHub() public returns (MockConfigHub mockConfigHub) {
-        mockConfigHub = new MockConfigHub(address(0));
+        mockConfigHub = new MockConfigHub(owner, address(0));
         mockConfigHub.setCashAssetSupport(address(cashAsset), true);
         mockConfigHub.setCollateralAssetSupport(address(collateralAsset), true);
         mockConfigHub.setLTVRange(ltvToUse, maxLTVToUse);
@@ -214,7 +218,7 @@ contract CollarTakerNFTTest is Test {
     /**
      * Pausable
      */
-    function test_pause() public {
+    function test_pausableMethods() public {
         // create a position
         createOfferMintTouserAndSetPrice();
         (uint takerId,) = createTakerPositionAsUser(0, takerNFT, providerNFT);
@@ -319,7 +323,7 @@ contract CollarTakerNFTTest is Test {
      */
     function test_openPairedPositionUnsupportedCashAsset() public {
         createOfferMintTouserAndSetPrice();
-        vm.stopPrank();
+        vm.startPrank(owner);
         configHub.setCashAssetSupport(address(cashAsset), false);
         startHoax(user1);
         vm.expectRevert("unsupported asset");
@@ -328,7 +332,7 @@ contract CollarTakerNFTTest is Test {
 
     function test_openPairedPositionUnsupportedCollateralAsset() public {
         createOfferMintTouserAndSetPrice();
-        vm.stopPrank();
+        vm.startPrank(owner);
         configHub.setCollateralAssetSupport(address(collateralAsset), false);
         startHoax(user1);
         vm.expectRevert("unsupported asset");
@@ -337,7 +341,7 @@ contract CollarTakerNFTTest is Test {
 
     function test_openPairedPositionUnsupportedTakerContract() public {
         createOfferMintTouserAndSetPrice();
-        vm.stopPrank();
+        vm.startPrank(owner);
         configHub.setCollarTakerContractAuth(address(takerNFT), false);
         startHoax(user1);
         vm.expectRevert("unsupported taker contract");
@@ -346,7 +350,7 @@ contract CollarTakerNFTTest is Test {
 
     function test_openPairedPositionUnsupportedProviderContract() public {
         createOfferMintTouserAndSetPrice();
-        vm.stopPrank();
+        vm.startPrank(owner);
         configHub.setProviderContractAuth(address(providerNFT), false);
         startHoax(user1);
         vm.expectRevert("unsupported provider contract");
@@ -363,7 +367,7 @@ contract CollarTakerNFTTest is Test {
 
     function test_openPairedPositionBadCashAssetMismatch() public {
         createOfferMintTouserAndSetPrice();
-        vm.stopPrank();
+        vm.startPrank(owner);
         configHub.setCashAssetSupport(address(collateralAsset), true);
         ProviderPositionNFT providerNFTBad = new ProviderPositionNFT(
             owner,
@@ -383,7 +387,7 @@ contract CollarTakerNFTTest is Test {
 
     function test_openPairedPositionBadCollateralAssetMismatch() public {
         createOfferMintTouserAndSetPrice();
-        vm.stopPrank();
+        vm.startPrank(owner);
         configHub.setCollateralAssetSupport(address(cashAsset), true);
         ProviderPositionNFT providerNFTBad = new ProviderPositionNFT(
             owner, configHub, cashAsset, cashAsset, address(takerNFT), "CollarTakerNFTBad", "BRWTSTBAD"
@@ -629,5 +633,20 @@ contract CollarTakerNFTTest is Test {
 
         vm.expectRevert("invalid put strike deviation");
         takerNFT.calculateProviderLocked(putLockedCash, putStrikeDeviation, callStrikeDeviation);
+    }
+}
+
+contract TakerNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
+    function setupTestedContract() internal override {
+        TestERC20 cashAsset = new TestERC20("TestCash", "TestCash");
+        TestERC20 collateralAsset = new TestERC20("TestCollat", "TestCollat");
+
+        vm.startPrank(owner);
+        configHub.setCashAssetSupport(address(cashAsset), true);
+        configHub.setCollateralAssetSupport(address(collateralAsset), true);
+        vm.stopPrank();
+
+        testedContract =
+            new CollarTakerNFT(owner, configHub, cashAsset, collateralAsset, "CollarTakerNFT", "BRWTST");
     }
 }
