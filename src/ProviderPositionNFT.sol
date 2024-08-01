@@ -11,8 +11,8 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 // internal
-import { ConfigHub } from "./implementations/ConfigHub.sol";
-import { BaseGovernedNFT } from "./base/BaseGovernedNFT.sol";
+import { ConfigHub } from "./ConfigHub.sol";
+import { BaseEmergencyAdminNFT } from "./base/BaseEmergencyAdminNFT.sol";
 import { IProviderPositionNFT } from "./interfaces/IProviderPositionNFT.sol";
 
 /**
@@ -51,7 +51,7 @@ import { IProviderPositionNFT } from "./interfaces/IProviderPositionNFT.sol";
  * 2. Offer and position parameters are validated against the configHub's configurations.
  * 3. Asset transfers use SafeERC20 to handle non-standard token implementations.
  */
-contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
+contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
@@ -62,7 +62,6 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
     string public constant VERSION = "0.2.0"; // allow checking version on-chain
 
     // ----- IMMUTABLES ----- //
-    ConfigHub public immutable configHub;
     IERC20 public immutable cashAsset;
     IERC20 public immutable collateralAsset;
     address public immutable collarTakerContract;
@@ -80,8 +79,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseGovernedNFT {
         address _collarTakerContract,
         string memory _name,
         string memory _symbol
-    ) BaseGovernedNFT(initialOwner, _name, _symbol) {
-        configHub = _configHub;
+    ) BaseEmergencyAdminNFT(initialOwner, _configHub, _name, _symbol) {
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
         collarTakerContract = _collarTakerContract;

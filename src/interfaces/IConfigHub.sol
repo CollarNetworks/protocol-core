@@ -18,6 +18,7 @@ interface IConfigHub {
     event CollarTakerNFTAuthSet(
         address indexed contractAddress, bool indexed enabled, address cashAsset, address collateralAsset
     );
+    event PauseGuardianSet(address prevGaurdian, address newGuardian);
     event ProviderNFTAuthSet(
         address indexed contractAddress,
         bool indexed enabled,

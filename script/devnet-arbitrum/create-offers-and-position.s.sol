@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
-import { ConfigHub } from "../../src/implementations/ConfigHub.sol";
+import { ConfigHub } from "../../src/ConfigHub.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { DeploymentUtils } from "../utils/deployment-exporter.s.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";

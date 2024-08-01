@@ -7,18 +7,17 @@
 
 pragma solidity 0.8.22;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { Ownable2Step, Ownable } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 // internal imports
-import { IConfigHub } from "../interfaces/IConfigHub.sol";
-import { UniV3OracleLib } from "../libs/UniV3OracleLib.sol";
-import { IProviderPositionNFT } from "../interfaces/IProviderPositionNFT.sol";
-import { ICollarTakerNFT } from "../interfaces/ICollarTakerNFT.sol";
+import { IConfigHub } from "./interfaces/IConfigHub.sol";
+import { UniV3OracleLib } from "./libs/UniV3OracleLib.sol";
+import { IProviderPositionNFT } from "./interfaces/IProviderPositionNFT.sol";
+import { ICollarTakerNFT } from "./interfaces/ICollarTakerNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "forge-std/console.sol";
 
-contract ConfigHub is Ownable, IConfigHub {
+contract ConfigHub is Ownable2Step, IConfigHub {
     // -- public state variables ---
 
     string public constant VERSION = "0.2.0";
@@ -36,6 +35,8 @@ contract ConfigHub is Ownable, IConfigHub {
     uint public maxLTV;
     uint public minDuration;
     uint public maxDuration;
+    // pause guardian for other contracts
+    address public pauseGuardian;
 
     // -- internal state variables ---
     mapping(address collateralAssetAddress => bool isSupported) public isSupportedCollateralAsset;
@@ -43,7 +44,7 @@ contract ConfigHub is Ownable, IConfigHub {
     mapping(address contractAddress => bool enabled) public isCollarTakerNFT;
     mapping(address contractAddress => bool enabled) public isProviderNFT;
 
-    constructor(address _univ3SwapRouter) Ownable(msg.sender) {
+    constructor(address _initialOwner, address _univ3SwapRouter) Ownable(_initialOwner) {
         univ3SwapRouter = _univ3SwapRouter;
     }
 
@@ -100,6 +101,13 @@ contract ConfigHub is Ownable, IConfigHub {
     function setCashAssetSupport(address cashAsset, bool enabled) external onlyOwner {
         isSupportedCashAsset[cashAsset] = enabled;
         emit CashAssetSupportSet(cashAsset, enabled);
+    }
+
+    // pausing
+
+    function setPauseGuardian(address newGuardian) external onlyOwner {
+        emit PauseGuardianSet(pauseGuardian, newGuardian); // emit before for the prev-value
+        pauseGuardian = newGuardian;
     }
 
     // ----- view functions (see IConfigHub for documentation) -----

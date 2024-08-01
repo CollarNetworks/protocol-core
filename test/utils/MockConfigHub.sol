@@ -7,7 +7,7 @@
 
 pragma solidity 0.8.22;
 
-import { ConfigHub } from "../../src/implementations/ConfigHub.sol";
+import { ConfigHub } from "../../src/ConfigHub.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 contract MockConfigHub is ConfigHub {
@@ -17,7 +17,7 @@ contract MockConfigHub is ConfigHub {
     mapping(address => uint) public currentAssetPrices;
     mapping(address => mapping(uint => uint)) public historicalAssetPrices;
 
-    constructor(address _univ3SwapRouter) ConfigHub(_univ3SwapRouter) { }
+    constructor(address _initialOwner, address _univ3SwapRouter) ConfigHub(_initialOwner, _univ3SwapRouter) { }
 
     function setHistoricalAssetPrice(address asset, uint timestamp, uint value) external {
         historicalAssetPrices[asset][timestamp] = value;
