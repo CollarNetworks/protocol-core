@@ -155,7 +155,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
 
         position.settled = true; // set here to prevent reentrancy
 
-        // get settlement price. casting is safe since expiration is checked
+        // get settlement price. casting is safe since expiration was checked
         (uint endPrice, bool historical) = historicalOraclePriceWithFallback(uint32(position.expiration));
 
         (uint withdrawable, int providerChange) = _settlementCalculations(position, endPrice);

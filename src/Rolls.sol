@@ -276,6 +276,10 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offer.takerId);
         require(!takerPos.settled, "taker position settled");
 
+        // @dev an expired position settles at historic price, so if rolling after expiry is allowed, a different
+        // price should be used in settlement calculations instead of current price
+        require(takerPos.expiration > block.timestamp, "taker position expired");
+
         // offer is within its terms
         uint currentPrice = _getCurrentPrice();
         require(currentPrice <= offer.maxPrice, "price too high");
