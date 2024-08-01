@@ -13,6 +13,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 // internal imports
 import { ProviderPositionNFT } from "./ProviderPositionNFT.sol";
 import { BaseEmergencyAdminNFT } from "./base/BaseEmergencyAdminNFT.sol";
+import { OracleUniV3 } from "./OracleUniV3.sol";
 import { ConfigHub } from "./ConfigHub.sol";
 import { ICollarTakerNFT } from "./interfaces/ICollarTakerNFT.sol";
 
@@ -31,6 +32,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
     IERC20 public immutable collateralAsset;
 
     // ----- STATE VARIABLES ----- //
+    OracleUniV3 public oracleUniV3;
     mapping(uint positionId => TakerPosition) internal positions;
 
     constructor(
@@ -38,6 +40,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
         ConfigHub _configHub,
         IERC20 _cashAsset,
         IERC20 _collateralAsset,
+        OracleUniV3 _oracleUniV3,
         string memory _name,
         string memory _symbol
     ) BaseEmergencyAdminNFT(initialOwner, _configHub, _name, _symbol) {
@@ -45,6 +48,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
         collateralAsset = _collateralAsset;
         // check params are supported
         _validateAssetsSupported();
+        _setOracle(_oracleUniV3);
     }
 
     // ----- VIEW FUNCTIONS ----- //
@@ -57,12 +61,38 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
         return nextTokenId;
     }
 
-    /// @dev TWAP price that's used in this contract for opening and settling positions
-    /// and should be used by other contracts to get inputs for previewSettlement
-    function getReferenceTWAPPrice(uint twapEndTime) public view returns (uint price) {
-        return configHub.getHistoricalAssetPriceViaTWAP(
-            address(collateralAsset), address(cashAsset), uint32(twapEndTime), TWAP_LENGTH
-        );
+    /// @dev TWAP price that's used in this contract for opening positions
+    function currentOraclePrice() public view returns (uint price) {
+        return oracleUniV3.currentTWAP();
+    }
+
+    /// @dev TWAP price that's used in this contract for settling positions, so the right price
+    /// for use with previewSettlement().
+    /// It tries to use a historical price, but if that fails (because TWAP values for timestamp aren't available)
+    /// it uses the current price.
+    /// Current simple fallback means that there is a sharp difference in settlement
+    /// price once the historical price becomes unavailable (because the price jumps to latest).
+    /// @dev Use the oracle's `increaseCardinality` (or the pool's `increaseObservationCardinalityNext` directly)
+    /// to force the pool to store a longer history of prices to increase the time span during which settlement
+    /// uses the actual expiry price instead of the latest price.
+    /// A more sophisticated fallback is possible - that will try to use the oldest historical price available,
+    /// but that requires a more complex and tight integration with the pool.
+    function historicalOraclePriceWithFallback(uint32 twapEndTime)
+        public
+        view
+        returns (uint price, bool historical)
+    {
+        // old school try-catch, because solidity's try-catch was a mistake
+        bytes memory retVal;
+        (historical, retVal) =
+            address(oracleUniV3).call(abi.encodeCall(oracleUniV3.historicalTWAP, twapEndTime));
+        // the caller cannot make the above call fail using too little gas (e.g., to force the fallback)
+        // because this will cause the fallback to fail too (since it requires a non-trivial amount of gas too)
+        if (historical) {
+            price = abi.decode(retVal, (uint));
+        } else {
+            price = currentOraclePrice();
+        }
     }
 
     /// @dev calculate the amount of cash the provider will lock for specific terms and taker
@@ -101,30 +131,32 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
         cashAsset.safeTransferFrom(msg.sender, address(this), putLockedCash);
 
         // get TWAP price
-        uint twapPrice = getReferenceTWAPPrice(block.timestamp);
+        uint twapPrice = currentOraclePrice();
 
         // stores, mints, calls providerNFT and mints there, emits the event
         (takerId, providerId) = _openPairedPositionInternal(twapPrice, putLockedCash, providerNFT, offerId);
     }
 
+    /// @dev this should be called as soon after expiry as possible, because if the expiry TWAP price becomes
+    /// unavailable in the UniV3 oracle, the current price will be used instead of it.
+    /// Both taker and providder should be incentivised to call this method, however it's possible that
+    /// one side is not (e.g., due to being at max loss). For this reason a keeper should be run to
+    /// prevent regular users with gains from neglecting to settle their positions on time.
+    /// @dev To increase the timespan during which the price is available use
+    /// `increaseCardinality` (or the pool's `increaseObservationCardinalityNext`).
     function settlePairedPosition(uint takerId) external whenNotPaused {
         TakerPosition storage position = positions[takerId];
         ProviderPositionNFT providerNFT = position.providerNFT;
         uint providerId = position.providerPositionId;
 
         require(position.expiration != 0, "position doesn't exist");
-        // access is restricted because NFT owners might want to cancel (unwind) instead
-        require(
-            msg.sender == ownerOf(takerId) || msg.sender == providerNFT.ownerOf(providerId),
-            "not owner of either position"
-        );
         require(block.timestamp >= position.expiration, "not expired");
         require(!position.settled, "already settled");
 
         position.settled = true; // set here to prevent reentrancy
 
-        // get settlement price
-        uint endPrice = getReferenceTWAPPrice(position.expiration);
+        // get settlement price. casting is safe since expiration is checked
+        (uint endPrice, bool historical) = historicalOraclePriceWithFallback(uint32(position.expiration));
 
         (uint withdrawable, int providerChange) = _settlementCalculations(position, endPrice);
 
@@ -134,7 +166,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
         position.withdrawable = withdrawable;
 
         emit PairedPositionSettled(
-            takerId, address(providerNFT), providerId, endPrice, withdrawable, providerChange
+            takerId, address(providerNFT), providerId, endPrice, withdrawable, providerChange, historical
         );
     }
 
@@ -186,6 +218,12 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
         emit PairedPositionCanceled(
             takerId, address(providerNFT), providerId, recipient, position.putLockedCash, position.expiration
         );
+    }
+
+    // ----- Owner Mutative ----- //
+
+    function setOracle(OracleUniV3 _oracleUniV3) external onlyOwner {
+        _setOracle(_oracleUniV3);
     }
 
     // ----- INTERNAL MUTATIVE ----- //
@@ -240,6 +278,21 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
         }
 
         position.providerNFT.settlePosition(position.providerPositionId, providerChange);
+    }
+
+    // internal owner
+
+    function _setOracle(OracleUniV3 _oracleUniV3) internal {
+        require(_oracleUniV3.baseToken() == address(collateralAsset), "oracle asset mismatch");
+        require(_oracleUniV3.quoteToken() == address(cashAsset), "oracle asset mismatch");
+        // Ensure works at least right now. Only a sanity check, since this doesn't ensure that it
+        // will work in the future, since the observations buffer can be filled such that the required
+        // time window is not available.
+        // @dev this means this contract can be temporarily DoSed unless the cardinality is set
+        // to at least twap-window / chain-block-time. For 5 minutes TWAP on Arbitrum this is 1200.
+        uint price = _oracleUniV3.currentTWAP();
+        emit OracleSet(oracleUniV3, _oracleUniV3); // emit before for the prev value
+        oracleUniV3 = _oracleUniV3;
     }
 
     // ----- INTERNAL VIEWS ----- //

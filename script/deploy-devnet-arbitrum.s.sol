@@ -251,12 +251,7 @@ contract DeployInitializedDevnetProtocol is Script {
         uint initialCashBalance = pair.cashAsset.balanceOf(user);
 
         // Get TWAP price before loan creation
-        uint twapPrice = configHub.getHistoricalAssetPriceViaTWAP(
-            address(pair.collateralAsset),
-            address(pair.cashAsset),
-            uint32(block.timestamp),
-            pair.takerNFT.TWAP_LENGTH()
-        );
+        uint twapPrice = pair.takerNFT.currentOraclePrice();
 
         // Open a position
         (uint takerId, uint providerId, uint loanAmount) = pair.loansContract.createLoan(

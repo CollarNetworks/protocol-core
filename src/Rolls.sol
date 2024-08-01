@@ -479,6 +479,6 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
     }
 
     function _getCurrentPrice() internal view returns (uint) {
-        return takerNFT.getReferenceTWAPPrice(block.timestamp);
+        return takerNFT.currentOraclePrice();
     }
 }

@@ -10,6 +10,7 @@ pragma solidity 0.8.22;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ConfigHub } from "../ConfigHub.sol";
 import { ProviderPositionNFT } from "../ProviderPositionNFT.sol";
+import { OracleUniV3 } from "../OracleUniV3.sol";
 
 interface ICollarTakerNFT {
     // @dev Some data can be trimmed down from this struct, since some of the fields aren't needed on-chain,
@@ -45,7 +46,8 @@ interface ICollarTakerNFT {
         uint indexed providerId,
         uint endPrice,
         uint withdrawable,
-        int providerChange
+        int providerChange,
+        bool historicalPriceUsed
     );
     event PairedPositionCanceled(
         uint indexed takerId,
@@ -56,6 +58,7 @@ interface ICollarTakerNFT {
         uint expiration
     );
     event WithdrawalFromSettled(uint indexed takerId, address indexed recipient, uint withdrawn);
+    event OracleSet(OracleUniV3 prevOracle, OracleUniV3 newOracle);
 
     // constants
     function TWAP_LENGTH() external view returns (uint32);
@@ -64,6 +67,7 @@ interface ICollarTakerNFT {
     function cashAsset() external view returns (IERC20);
     function collateralAsset() external view returns (IERC20);
     // state
+    function oracleUniV3() external view returns (OracleUniV3);
     function getPosition(uint takerId) external view returns (TakerPosition memory);
     function nextPositionId() external view returns (uint);
     // mutative
@@ -73,4 +77,6 @@ interface ICollarTakerNFT {
     function settlePairedPosition(uint takerId) external;
     function cancelPairedPosition(uint takerId, address recipient) external;
     function withdrawFromSettled(uint takerId, address recipient) external returns (uint amount);
+    // owner
+    function setOracle(OracleUniV3 _oracleUniV3) external;
 }

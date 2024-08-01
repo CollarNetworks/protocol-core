@@ -388,7 +388,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         bool settled = takerNFT.getPosition(takerId).settled;
         if (!settled) {
             /// @dev this will revert on:
-            ///     not owner, too early, no position, calculation issues, ...
+            ///     too early, no position, calculation issues, ...
             takerNFT.settlePairedPosition(takerId);
         }
 
@@ -458,14 +458,14 @@ contract Loans is ILoans, BaseEmergencyAdmin {
     function _checkSwapPrice(uint cashFromSwap, uint collateralAmount) internal view {
         uint twapPrice = _currentTWAPPrice();
         // collateral is checked on open to not be 0
-        uint swapPrice = cashFromSwap * configHub.TWAP_BASE_TOKEN_AMOUNT() / collateralAmount;
+        uint swapPrice = cashFromSwap * takerNFT.oracleUniV3().BASE_TOKEN_AMOUNT() / collateralAmount;
         uint diff = swapPrice > twapPrice ? swapPrice - twapPrice : twapPrice - swapPrice;
         uint deviation = diff * BIPS_BASE / twapPrice;
         require(deviation <= MAX_SWAP_TWAP_DEVIATION_BIPS, "swap and twap price too different");
     }
 
     function _currentTWAPPrice() internal view returns (uint) {
-        return takerNFT.getReferenceTWAPPrice(block.timestamp);
+        return takerNFT.currentOraclePrice();
     }
 
     function _calculateNewLoan(int rollTransferIn, int rollFee, uint initialLoanAmount)

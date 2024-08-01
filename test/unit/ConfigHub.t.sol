@@ -116,15 +116,6 @@ contract ConfigHubTest is Test {
         assertFalse(configHub.isValidCollarDuration(maxDurationToUse + 1));
     }
 
-    function test_getHistoricalAssetPriceViaTWAP_InvalidAsset() public {
-        vm.expectRevert("not supported");
-        configHub.getHistoricalAssetPriceViaTWAP(address(token1), address(token2), 0, 0);
-        startHoax(owner);
-        configHub.setCashAssetSupport(address(token1), true);
-        vm.expectRevert("not supported");
-        configHub.getHistoricalAssetPriceViaTWAP(address(token1), address(token2), 0, 0);
-    }
-
     function test_isValidLTV() public {
         startHoax(owner);
         configHub.setLTVRange(minLTVToUse, maxLTVToUse);

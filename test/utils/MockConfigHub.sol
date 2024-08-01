@@ -36,7 +36,7 @@ contract MockConfigHub is ConfigHub {
         address quoteToken,
         uint32 timeStampStart,
         uint32 twapLength
-    ) external view virtual override returns (uint) {
+    ) external view returns (uint) {
         return historicalAssetPrices[baseToken][timeStampStart];
     }
 }

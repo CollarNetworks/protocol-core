@@ -79,7 +79,7 @@ contract CollarTakerNFTTest is Test {
         configHubToUse.setHistoricalAssetPrice(address(collateralAsset), timestamp, price);
         configHubToUse.setHistoricalAssetPrice(address(cashAsset), timestamp, price);
         // check the TWAP view
-        assertEq(takerNFT.getReferenceTWAPPrice(timestamp), price);
+        assertEq(takerNFT.currentOraclePrice(), price);
     }
 
     function mintTokensToUserandApproveNFT() internal {

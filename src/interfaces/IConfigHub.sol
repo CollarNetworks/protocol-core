@@ -70,18 +70,4 @@ interface IConfigHub {
     /// @notice Checks to see if a particular LTV is supported
     /// @param ltv The LTV to check
     function isValidLTV(uint ltv) external view returns (bool);
-
-    // asset pricing
-
-    /// @notice Gets the price of a particular asset at a particular timestamp
-    /// @param baseToken The address of the asset to get the price of
-    /// @param quoteToken The address of the asset to quote the price in
-    /// @param twapEndTimestamp The timestamp to END the TWAP at
-    /// @param twapLength The length of the TWAP to calculate
-    function getHistoricalAssetPriceViaTWAP(
-        address baseToken,
-        address quoteToken,
-        uint32 twapEndTimestamp,
-        uint32 twapLength
-    ) external view returns (uint);
 }
