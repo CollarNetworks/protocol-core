@@ -45,9 +45,9 @@ interface ICollarTakerNFT {
         address indexed providerNFT,
         uint indexed providerId,
         uint endPrice,
+        bool historicalPriceUsed,
         uint withdrawable,
-        int providerChange,
-        bool historicalPriceUsed
+        int providerChange
     );
     event PairedPositionCanceled(
         uint indexed takerId,
@@ -61,7 +61,6 @@ interface ICollarTakerNFT {
     event OracleSet(OracleUniV3TWAP prevOracle, OracleUniV3TWAP newOracle);
 
     // constants
-    function TWAP_LENGTH() external view returns (uint32);
     function VERSION() external view returns (string memory);
     // immutables
     function cashAsset() external view returns (IERC20);

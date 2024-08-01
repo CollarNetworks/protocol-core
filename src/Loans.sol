@@ -294,7 +294,6 @@ contract Loans is ILoans, BaseEmergencyAdmin {
     function setRollsContract(Rolls rolls) external onlyOwner {
         if (rolls != Rolls(address(0))) {
             require(rolls.takerNFT() == takerNFT, "rolls taker NFT mismatch");
-            require(rolls.cashAsset() == cashAsset, "rolls cash asset mismatch");
         }
         emit RollsContractUpdated(rollsContract, rolls); // emit before for the prev value
         rollsContract = rolls;

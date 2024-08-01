@@ -12,17 +12,25 @@ import { MockConfigHub } from "../../test/utils/MockConfigHub.sol";
 import { BaseEmergencyAdminTestBase } from "./BaseEmergencyAdmin.t.sol";
 
 import { ProviderPositionNFT, IProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
+import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 
 contract ProviderPositionNFTTest is Test {
     TestERC20 cashAsset;
     TestERC20 collateralAsset;
     MockConfigHub configHub;
+    CollarTakerNFT takerNFT;
+    OracleUniV3TWAP oracle;
     ProviderPositionNFT providerNFT;
+    address swapRouterAddress = address(0);
     address owner = makeAddr("owner");
     address takerContract;
     address provider1 = makeAddr("provider");
     address recipient1 = makeAddr("recipient");
+
+    uint24 constant FEE_TIER = 3000;
+    uint32 constant TWAP_WINDOW = 15 minutes;
+
     uint largeAmount = 100_000 ether;
     uint putDeviation = 9000;
     uint duration = 300;
@@ -36,9 +44,12 @@ contract ProviderPositionNFTTest is Test {
         configHub = setupMockConfigHub();
         configHub.setCashAssetSupport(address(cashAsset), true);
         configHub.setCollateralAssetSupport(address(collateralAsset), true);
-        CollarTakerNFT collarTakerNFT =
-            new CollarTakerNFT(owner, configHub, cashAsset, collateralAsset, "TakerNFT", "TakerNFT");
-        takerContract = address(collarTakerNFT);
+        oracle = new OracleUniV3TWAP(
+            address(collateralAsset), address(cashAsset), FEE_TIER, TWAP_WINDOW, swapRouterAddress
+        );
+        takerNFT =
+            new CollarTakerNFT(owner, configHub, cashAsset, collateralAsset, oracle, "TakerNFT", "TakerNFT");
+        takerContract = address(takerNFT);
         cashAsset.mint(takerContract, 1_000_000 ether);
         providerNFT = new ProviderPositionNFT(
             owner, configHub, cashAsset, collateralAsset, address(takerContract), "ProviderNFT", "ProviderNFT"
@@ -239,8 +250,7 @@ contract ProviderPositionNFTTest is Test {
 
     function test_settlePositionIncrease() public {
         uint amountToMint = largeAmount / 2;
-        (uint positionId, ProviderPositionNFT.ProviderPosition memory position) =
-            createAndCheckPosition(provider1, largeAmount, amountToMint);
+        (uint positionId,) = createAndCheckPosition(provider1, largeAmount, amountToMint);
 
         skip(duration);
 
@@ -265,8 +275,7 @@ contract ProviderPositionNFTTest is Test {
 
     function test_settlePositionDecrease() public {
         uint amountToMint = largeAmount / 2;
-        (uint positionId, ProviderPositionNFT.ProviderPosition memory position) =
-            createAndCheckPosition(provider1, largeAmount, amountToMint);
+        (uint positionId,) = createAndCheckPosition(provider1, largeAmount, amountToMint);
 
         skip(duration);
 
@@ -288,15 +297,13 @@ contract ProviderPositionNFTTest is Test {
     }
 
     function test_settlePosition_expirationTimeSensitivity() public {
-        (uint positionId, ProviderPositionNFT.ProviderPosition memory position) =
-            createAndCheckPosition(provider1, largeAmount, largeAmount);
+        (uint positionId,) = createAndCheckPosition(provider1, largeAmount, largeAmount);
         skip(duration + 1); // 1 second after expiration still works
         providerNFT.settlePosition(positionId, -1 ether);
     }
 
     function test_settlePosition_maxLoss() public {
-        (uint positionId, ProviderPositionNFT.ProviderPosition memory position) =
-            createAndCheckPosition(provider1, largeAmount, largeAmount);
+        (uint positionId,) = createAndCheckPosition(provider1, largeAmount, largeAmount);
         skip(duration);
         providerNFT.settlePosition(positionId, -int(largeAmount));
         assertEq(providerNFT.getPosition(positionId).withdrawable, 0);
@@ -305,8 +312,7 @@ contract ProviderPositionNFTTest is Test {
     function test_withdrawFromSettled() public {
         // create settled position
         uint amountToMint = largeAmount / 2;
-        (uint positionId, ProviderPositionNFT.ProviderPosition memory position) =
-            createAndCheckPosition(provider1, largeAmount, amountToMint);
+        (uint positionId,) = createAndCheckPosition(provider1, largeAmount, amountToMint);
         skip(duration);
         int positionChange = 1000 ether;
         cashAsset.approve(address(providerNFT), uint(positionChange));

@@ -23,8 +23,6 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
 
     uint internal constant BIPS_BASE = 10_000;
 
-    uint32 public constant TWAP_LENGTH = 15 minutes;
-
     string public constant VERSION = "0.2.0"; // allow checking version on-chain
 
     // ----- IMMUTABLES ----- //
@@ -88,13 +86,14 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
     /// uses the actual expiry price instead of the latest price.
     /// A more sophisticated fallback is possible - that will try to use the oldest historical price available,
     /// but that requires a more complex and tight integration with the pool.
-    function settlementPrice(uint32 timestamp) public view returns (uint price, bool historical) {
-        // old school try-catch, because solidity's try-catch was a mistake
+    function settlementPrice(uint32 timestamp) public view returns (uint price, bool historicalOk) {
+        // low level try-catch, because high level try-catch is a mistake
         bytes memory retVal;
-        (historical, retVal) = address(oracle).call(abi.encodeCall(oracle.historicalPrice, timestamp));
-        // the caller cannot make the above call fail using too little gas (e.g., to force the fallback)
+        (historicalOk, retVal) = address(oracle).staticcall(abi.encodeCall(oracle.historicalPrice, timestamp));
+        // the caller cannot make the above call fail OOG using too little gas (e.g., to force the fallback)
         // because this will cause the fallback to fail too (since it requires a non-trivial amount of gas too)
-        if (historical) {
+        if (historicalOk) {
+            // this will revert if cannot be decoded, which means oracle interface doesn't match
             price = abi.decode(retVal, (uint));
         } else {
             price = currentOraclePrice();
@@ -159,7 +158,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
         position.withdrawable = withdrawable;
 
         emit PairedPositionSettled(
-            takerId, address(providerNFT), providerId, endPrice, withdrawable, providerChange, historical
+            takerId, address(providerNFT), providerId, endPrice, historical, withdrawable, providerChange
         );
     }
 

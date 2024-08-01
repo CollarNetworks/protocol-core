@@ -8,7 +8,6 @@ import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 import { TestERC20 } from "../utils/TestERC20.sol";
-import { MockConfigHub } from "../../test/utils/MockConfigHub.sol";
 
 import { BaseEmergencyAdmin } from "../../src/base/BaseEmergencyAdmin.sol";
 import { ConfigHub } from "../../src/ConfigHub.sol";
@@ -16,7 +15,7 @@ import { ConfigHub } from "../../src/ConfigHub.sol";
 // base contract for other tests that will check this functionality
 abstract contract BaseEmergencyAdminTestBase is Test {
     TestERC20 erc20;
-    MockConfigHub configHub;
+    ConfigHub configHub;
 
     BaseEmergencyAdmin testedContract;
 
@@ -26,7 +25,7 @@ abstract contract BaseEmergencyAdminTestBase is Test {
 
     function setUp() public virtual {
         erc20 = new TestERC20("TestERC20", "TestERC20");
-        configHub = new MockConfigHub(owner, address(0));
+        configHub = new ConfigHub(owner, address(0));
 
         setupTestedContract();
 

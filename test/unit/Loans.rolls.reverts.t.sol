@@ -25,7 +25,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         loans.rollLoan(takerId, rolls, rollId, type(int).min);
 
         // Rolls contract mismatch
-        Rolls newRolls = new Rolls(owner, takerNFT, cashAsset);
+        Rolls newRolls = new Rolls(owner, takerNFT);
         vm.startPrank(owner);
         loans.setRollsContract(newRolls);
         vm.startPrank(user1);

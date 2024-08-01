@@ -17,6 +17,7 @@ import { BaseEmergencyAdminTestBase } from "./BaseEmergencyAdmin.t.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ICollarTakerNFT } from "../../src/interfaces/ICollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
+import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 import { IProviderPositionNFT } from "../../src/interfaces/IProviderPositionNFT.sol";
 
 contract CollarTakerNFTTest is Test {
@@ -24,12 +25,15 @@ contract CollarTakerNFTTest is Test {
     TestERC20 collateralAsset;
     MockConfigHub configHub;
     CollarTakerNFT takerNFT;
+    OracleUniV3TWAP oracle;
     ProviderPositionNFT providerNFT;
+    address swapRouterAddress = address(0);
     address user1 = makeAddr("user1");
     address provider = makeAddr("provider");
     address owner = makeAddr("owner");
 
-    uint constant TWAP_LENGTH = 15 minutes;
+    uint24 constant FEE_TIER = 3000;
+    uint32 constant TWAP_WINDOW = 15 minutes;
     uint constant BIPS_BASE = 10_000;
 
     uint amountToUse = 10_000 ether;
@@ -56,8 +60,12 @@ contract CollarTakerNFTTest is Test {
         startHoax(owner);
         configHub = setupMockConfigHub();
         vm.label(address(configHub), "ConfigHub");
-        takerNFT =
-            new CollarTakerNFT(owner, configHub, cashAsset, collateralAsset, "CollarTakerNFT", "BRWTST");
+        oracle = new OracleUniV3TWAP(
+            address(collateralAsset), address(cashAsset), FEE_TIER, TWAP_WINDOW, swapRouterAddress
+        );
+        takerNFT = new CollarTakerNFT(
+            owner, configHub, cashAsset, collateralAsset, oracle, "CollarTakerNFT", "BRWTST"
+        );
         providerNFT = new ProviderPositionNFT(
             owner, configHub, cashAsset, collateralAsset, address(takerNFT), "CollarTakerNFT", "BRWTST"
         );
@@ -68,7 +76,7 @@ contract CollarTakerNFTTest is Test {
     }
 
     function setupMockConfigHub() public returns (MockConfigHub mockConfigHub) {
-        mockConfigHub = new MockConfigHub(owner, address(0));
+        mockConfigHub = new MockConfigHub(owner, swapRouterAddress);
         mockConfigHub.setCashAssetSupport(address(cashAsset), true);
         mockConfigHub.setCollateralAssetSupport(address(collateralAsset), true);
         mockConfigHub.setLTVRange(ltvToUse, maxLTVToUse);
@@ -193,6 +201,7 @@ contract CollarTakerNFTTest is Test {
             address(providerNFT),
             providerNFTId,
             priceToSettleAt,
+            true,
             expectedTakerWithdrawable,
             expectedProviderChange
         );
@@ -200,13 +209,13 @@ contract CollarTakerNFTTest is Test {
     }
 
     function test_constructor() public {
-        CollarTakerNFT newTakerNFT =
-            new CollarTakerNFT(owner, configHub, cashAsset, collateralAsset, "NewCollarTakerNFT", "NBPNFT");
+        CollarTakerNFT newTakerNFT = new CollarTakerNFT(
+            owner, configHub, cashAsset, collateralAsset, oracle, "NewCollarTakerNFT", "NBPNFT"
+        );
 
         assertEq(address(newTakerNFT.configHub()), address(configHub));
         assertEq(address(newTakerNFT.cashAsset()), address(cashAsset));
         assertEq(address(newTakerNFT.collateralAsset()), address(collateralAsset));
-        assertEq(uint(newTakerNFT.TWAP_LENGTH()), TWAP_LENGTH);
         assertEq(newTakerNFT.name(), "NewCollarTakerNFT");
         assertEq(newTakerNFT.symbol(), "NBPNFT");
     }
@@ -637,7 +646,11 @@ contract CollarTakerNFTTest is Test {
 }
 
 contract TakerNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
-    function setupTestedContract() internal override {
+    uint24 constant FEE_TIER = 3000;
+    uint32 constant TWAP_WINDOW = 15 minutes;
+    address swapRouterAddress = address(0);
+
+    function setupTestedContract() internal virtual override {
         TestERC20 cashAsset = new TestERC20("TestCash", "TestCash");
         TestERC20 collateralAsset = new TestERC20("TestCollat", "TestCollat");
 
@@ -646,7 +659,12 @@ contract TakerNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
         configHub.setCollateralAssetSupport(address(collateralAsset), true);
         vm.stopPrank();
 
-        testedContract =
-            new CollarTakerNFT(owner, configHub, cashAsset, collateralAsset, "CollarTakerNFT", "BRWTST");
+        OracleUniV3TWAP oracle = new OracleUniV3TWAP(
+            address(collateralAsset), address(cashAsset), FEE_TIER, TWAP_WINDOW, swapRouterAddress
+        );
+
+        testedContract = new CollarTakerNFT(
+            owner, configHub, cashAsset, collateralAsset, oracle, "CollarTakerNFT", "BRWTST"
+        );
     }
 }

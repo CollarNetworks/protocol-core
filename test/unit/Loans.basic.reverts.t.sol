@@ -29,12 +29,12 @@ contract LoansBasicRevertsTest is LoansTestBase {
             owner, configHub, cashAsset, collateralAsset, address(takerNFT), "InvalidProviderNFT", "INVPRV"
         );
         vm.expectRevert("unsupported provider contract");
-        loans.createLoan(collateralAmount, minLoanAmount, minSwapCash, invalidProviderNFT, 0);
+        loans.createLoan(collateralAmount, minLoanAmount, swapCashAmount, invalidProviderNFT, 0);
 
         // bad offer
         uint invalidOfferId = 999;
         vm.expectRevert("invalid offer");
-        loans.createLoan(collateralAmount, minLoanAmount, minSwapCash, providerNFT, invalidOfferId);
+        loans.createLoan(collateralAmount, minLoanAmount, swapCashAmount, providerNFT, invalidOfferId);
 
         uint offerId = createOfferAsProvider();
         // not enough approval for collatearal
@@ -47,28 +47,28 @@ contract LoansBasicRevertsTest is LoansTestBase {
                 collateralAmount + 1
             )
         );
-        loans.createLoan(collateralAmount + 1, minLoanAmount, minSwapCash, providerNFT, offerId);
+        loans.createLoan(collateralAmount + 1, minLoanAmount, swapCashAmount, providerNFT, offerId);
     }
 
     function test_revert_createLoan_swaps() public {
         uint offerId = createOfferAsProvider();
-        prepareSwap(cashAsset, minSwapCash);
+        prepareSwap(cashAsset, swapCashAmount);
 
         vm.startPrank(user1);
         collateralAsset.approve(address(loans), collateralAmount);
 
         // balance mismatch
-        uniRouter.setAmountToReturn(minSwapCash - 1);
+        uniRouter.setAmountToReturn(swapCashAmount - 1);
         vm.expectRevert("balance update mismatch");
-        loans.createLoan(collateralAmount, minLoanAmount, minSwapCash, providerNFT, offerId);
+        loans.createLoan(collateralAmount, minLoanAmount, swapCashAmount, providerNFT, offerId);
 
         // slippage params
-        uniRouter.setAmountToReturn(minSwapCash);
+        uniRouter.setAmountToReturn(swapCashAmount);
         vm.expectRevert("slippage exceeded");
-        loans.createLoan(collateralAmount, minLoanAmount, minSwapCash + 1, providerNFT, offerId);
+        loans.createLoan(collateralAmount, minLoanAmount, swapCashAmount + 1, providerNFT, offerId);
 
         // deviation vs.TWAP
-        prepareSwap(cashAsset, minSwapCash / 2);
+        prepareSwap(cashAsset, swapCashAmount / 2);
         vm.expectRevert("swap and twap price too different");
         loans.createLoan(collateralAmount, minLoanAmount, 0, providerNFT, offerId);
     }
@@ -82,7 +82,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
         uint highMinLoanAmount = (swapOut * ltv / BIPS_100PCT) + 1; // 1 wei more than ltv
         vm.expectRevert("loan amount too low");
-        loans.createLoan(collateralAmount, highMinLoanAmount, minSwapCash, providerNFT, offerId);
+        loans.createLoan(collateralAmount, highMinLoanAmount, swapCashAmount, providerNFT, offerId);
     }
 
     function test_revert_closeLoan_notNFTOwnerOrKeeper() public {
