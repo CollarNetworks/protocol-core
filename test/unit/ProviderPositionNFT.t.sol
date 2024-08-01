@@ -13,6 +13,13 @@ import { BaseEmergencyAdminTestBase } from "./BaseEmergencyAdmin.t.sol";
 
 import { ProviderPositionNFT, IProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 
+contract ProviderNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
+    function setupTestedContract() internal override {
+        testedContract =
+            new ProviderPositionNFT(owner, configHub, erc20, erc20, address(0), "ProviderNFT", "ProviderNFT");
+    }
+}
+
 contract ProviderPositionNFTTest is BaseTestSetup {
     address takerContract;
 
@@ -690,21 +697,5 @@ contract ProviderPositionNFTTest is BaseTestSetup {
         vm.startPrank(address(takerContract));
         vm.expectRevert("already settled");
         providerNFT.cancelAndWithdraw(positionId, provider);
-    }
-}
-
-contract ProviderNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
-    function setupTestedContract() internal override {
-        TestERC20 cashAsset = new TestERC20("TestCash", "TestCash");
-        TestERC20 collateralAsset = new TestERC20("TestCollat", "TestCollat");
-
-        vm.startPrank(owner);
-        configHub.setCashAssetSupport(address(cashAsset), true);
-        configHub.setCollateralAssetSupport(address(collateralAsset), true);
-        vm.stopPrank();
-
-        testedContract = new ProviderPositionNFT(
-            owner, configHub, cashAsset, collateralAsset, address(0), "ProviderNFT", "ProviderNFT"
-        );
     }
 }
