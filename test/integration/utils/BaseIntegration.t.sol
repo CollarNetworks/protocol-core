@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import { ConfigHub } from "../../../src/ConfigHub.sol";
 import { ProviderPositionNFT } from "../../../src/ProviderPositionNFT.sol";
+import { OracleUniV3TWAP } from "../../../src/OracleUniV3TWAP.sol";
 import { CollarTakerNFT } from "../../../src/CollarTakerNFT.sol";
 import { Loans } from "../../../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -13,6 +14,9 @@ import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfac
 
 abstract contract CollarBaseIntegrationTestConfig is Test {
     using SafeERC20 for IERC20;
+
+    uint24 constant FEE_TIER = 3000;
+    uint32 constant TWAP_WINDOW = 15 minutes;
 
     address owner = makeAddr("owner");
     address user1 = makeAddr("user1");
@@ -30,7 +34,7 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
     IERC20 collateralAsset;
     IERC20 cashAsset;
     IV3SwapRouter swapRouter;
-
+    OracleUniV3TWAP oracle;
     ConfigHub configHub;
     ProviderPositionNFT providerNFT;
     CollarTakerNFT takerNFT;
@@ -65,8 +69,14 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
         configHub.setCollateralAssetSupport(collateralAssetAddress, true);
         configHub.setLTVRange(_offerLTV, _offerLTV + 1);
         configHub.setCollarDurationRange(_positionDuration, _positionDuration + 1);
-        takerNFT =
-            new CollarTakerNFT(address(this), configHub, cashAsset, collateralAsset, "Borrow NFT", "BNFT");
+
+        oracle = new OracleUniV3TWAP(
+            address(collateralAsset), address(cashAsset), FEE_TIER, TWAP_WINDOW, swapRouterAddress
+        );
+
+        takerNFT = new CollarTakerNFT(
+            address(this), configHub, cashAsset, collateralAsset, oracle, "Borrow NFT", "BNFT"
+        );
 
         loanContract = new Loans(address(this), takerNFT);
         configHub.setCollarTakerContractAuth(address(takerNFT), true);

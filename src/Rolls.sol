@@ -288,7 +288,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
 
         // check the settlementPrice assumption using the right view, assuming settlement is now.
         // it should be the same as current price, otherwise some logic assumptions are violated.
-        uint settlementPrice = takerNFT.settlementPrice(uint32(block.timestamp));
+        (uint settlementPrice,) = takerNFT.settlementPrice(uint32(block.timestamp));
         require(newPrice == settlementPrice, "settlement price mismatch");
 
         (newTakerId, newProviderId, toTaker, toProvider) =

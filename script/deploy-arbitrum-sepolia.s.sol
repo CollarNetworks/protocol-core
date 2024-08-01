@@ -6,6 +6,7 @@ import "forge-std/console.sol";
 
 import { ConfigHub } from "../src/ConfigHub.sol";
 import { ProviderPositionNFT } from "../src/ProviderPositionNFT.sol";
+import { OracleUniV3TWAP } from "../src/OracleUniV3TWAP.sol";
 import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
 import { Loans } from "../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -22,7 +23,8 @@ contract DeployArbitrumSepoliaProtocol is Script {
 
     uint constant chainId = 421_614; // Arbitrum Sepolia
     address constant uniswapV3FactoryAddress = 0x248AB79Bbb9bC29bB72f7Cd42F17e054Fc40188e; // Arbitrum Sepolia UniswapV3Factory
-    uint24 constant POOL_FEE = 3000;
+    uint24 constant FEE_TIER = 3000;
+    uint32 constant TWAP_WINDOW = 15 minutes;
     uint[] public callStrikeDeviations = [11_100, 11_200, 11_500, 12_000];
     uint ltvToUse = 9000;
     uint durationToUse = 300;
@@ -37,6 +39,7 @@ contract DeployArbitrumSepoliaProtocol is Script {
         CollarOwnedERC20 cashAsset;
         CollarOwnedERC20 collateralAsset;
         ProviderPositionNFT providerNFT;
+        OracleUniV3TWAP oracle;
         CollarTakerNFT takerNFT;
         Loans loansContract;
         address uniswapPool;
@@ -118,14 +121,14 @@ contract DeployArbitrumSepoliaProtocol is Script {
         // check factory owner
         console.log("Factory owner:", factory.owner());
         // check fee tier is enabled
-        console.logInt(factory.feeAmountTickSpacing(POOL_FEE));
+        console.logInt(factory.feeAmountTickSpacing(FEE_TIER));
         // Check if pool already exists
-        address existingPool = factory.getPool(address(collateralAsset), address(cashAsset), POOL_FEE);
+        address existingPool = factory.getPool(address(collateralAsset), address(cashAsset), FEE_TIER);
         console.log("Existing pool address:", existingPool);
         // Create Uniswap V3 pool
         address pool = existingPool;
         if (existingPool == address(0)) {
-            pool = factory.createPool(address(cashAsset), address(collateralAsset), POOL_FEE);
+            pool = factory.createPool(address(cashAsset), address(collateralAsset), FEE_TIER);
         }
 
         // Add support for assets in the configHub
@@ -133,8 +136,12 @@ contract DeployArbitrumSepoliaProtocol is Script {
         configHub.setCashAssetSupport(address(cashAsset), true);
 
         // Deploy contract pair
+        OracleUniV3TWAP oracle = new OracleUniV3TWAP(
+            address(collateralAsset), address(cashAsset), FEE_TIER, TWAP_WINDOW, uniswapV3FactoryAddress
+        );
+
         CollarTakerNFT takerNFT = new CollarTakerNFT(
-            deployer, configHub, cashAsset, collateralAsset, "Taker COLL/CASH", "TCOLL/CASH"
+            deployer, configHub, cashAsset, collateralAsset, oracle, "Taker COLL/CASH", "TCOLL/CASH"
         );
 
         ProviderPositionNFT providerNFT = new ProviderPositionNFT(
@@ -156,6 +163,7 @@ contract DeployArbitrumSepoliaProtocol is Script {
             cashAsset: cashAsset,
             collateralAsset: collateralAsset,
             providerNFT: providerNFT,
+            oracle: oracle,
             takerNFT: takerNFT,
             loansContract: loansContract,
             uniswapPool: pool
@@ -226,7 +234,7 @@ contract DeployArbitrumSepoliaProtocol is Script {
         INonfungiblePositionManager.MintParams memory params = INonfungiblePositionManager.MintParams({
             token1: address(collateralAsset),
             token0: address(cashAsset),
-            fee: POOL_FEE,
+            fee: FEE_TIER,
             tickLower: tickLower,
             tickUpper: tickUpper,
             amount0Desired: amountToProvideToPool,
