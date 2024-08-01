@@ -4,11 +4,12 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
-import { MockConfigHub } from "../utils/MockConfigHub.sol";
-import { MockUniRouter } from "../utils/MockUniRouter.sol";
+import { MockSwapRouter } from "../utils/MockSwapRouter.sol";
+import { MockOracleUniV3TWAP } from "../utils/MockOracleUniV3TWAP.sol";
 
 import { Loans } from "../../src/Loans.sol";
 import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
+import { ConfigHub } from "../../src/ConfigHub.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
@@ -16,8 +17,9 @@ import { Rolls } from "../../src/Rolls.sol";
 contract BaseTestSetup is Test {
     TestERC20 cashAsset;
     TestERC20 collateralAsset;
-    MockConfigHub configHub;
-    MockUniRouter uniRouter;
+    ConfigHub configHub;
+    MockSwapRouter mockSwapRouter;
+    MockOracleUniV3TWAP mockOracle;
     OracleUniV3TWAP oracle;
     CollarTakerNFT takerNFT;
     ProviderPositionNFT providerNFT;
@@ -39,7 +41,7 @@ contract BaseTestSetup is Test {
     uint callStrikeDeviation = 12_000;
 
     uint collateralAmount = 1 ether;
-    uint amountToProvide = 100_000 ether;
+    uint largeAmount = 100_000 ether;
     uint twapPrice = 1000 ether;
     uint swapCashAmount = (collateralAmount * twapPrice / 1e18);
 
@@ -61,19 +63,20 @@ contract BaseTestSetup is Test {
         vm.label(address(collateralAsset), "TestCollat");
 
         // router (swaps and oracle)
-        uniRouter = new MockUniRouter();
-        vm.label(address(uniRouter), "UniRouter");
+        mockSwapRouter = new MockSwapRouter();
+        vm.label(address(mockSwapRouter), "UniRouter");
 
         // system
-        configHub = new MockConfigHub(owner, address(uniRouter));
+        configHub = new ConfigHub(owner, address(mockSwapRouter));
         vm.label(address(configHub), "ConfigHub");
 
         // asset pair contracts
-        oracle = new OracleUniV3TWAP(
-            address(collateralAsset), address(cashAsset), FEE_TIER, TWAP_WINDOW, address(uniRouter)
+        mockOracle = new MockOracleUniV3TWAP(
+            address(collateralAsset), address(cashAsset), FEE_TIER, TWAP_WINDOW, address(0), twapPrice
         );
+
         takerNFT = new CollarTakerNFT(
-            owner, configHub, cashAsset, collateralAsset, oracle, "CollarTakerNFT", "TKRNFT"
+            owner, configHub, cashAsset, collateralAsset, mockOracle, "CollarTakerNFT", "TKRNFT"
         );
         providerNFT = new ProviderPositionNFT(
             owner, configHub, cashAsset, collateralAsset, address(takerNFT), "ProviderNFT", "PRVNFT"
@@ -82,7 +85,7 @@ contract BaseTestSetup is Test {
         providerNFT2 = new ProviderPositionNFT(
             owner, configHub, cashAsset, collateralAsset, address(takerNFT), "ProviderNFT-2", "PRVNFT-2"
         );
-        vm.label(address(oracle), "OracleUniV3TWAP");
+        vm.label(address(mockOracle), "MockOracleUniV3TWAP");
         vm.label(address(takerNFT), "CollarTakerNFT");
         vm.label(address(providerNFT), "ProviderPositionNFT");
 
@@ -109,12 +112,16 @@ contract BaseTestSetup is Test {
     }
 
     function updatePrice() public {
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        mockOracle.setHistoricalAssetPrice(block.timestamp, twapPrice);
+    }
+
+    function updatePrice(uint price) public {
+        mockOracle.setHistoricalAssetPrice(block.timestamp, price);
     }
 
     function mintAssets() public {
         collateralAsset.mint(user1, collateralAmount * 10);
         cashAsset.mint(user1, swapCashAmount * 10);
-        cashAsset.mint(provider, amountToProvide * 10);
+        cashAsset.mint(provider, largeAmount * 10);
     }
 }

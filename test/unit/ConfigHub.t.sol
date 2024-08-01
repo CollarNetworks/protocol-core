@@ -9,7 +9,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
-import { MockUniRouter } from "../utils/MockUniRouter.sol";
+import { MockSwapRouter } from "../utils/MockSwapRouter.sol";
 
 import { IConfigHub } from "../../src/interfaces/IConfigHub.sol";
 import { ConfigHub } from "../../src/ConfigHub.sol";
@@ -19,7 +19,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 contract ConfigHubTest is Test {
     TestERC20 token1;
     TestERC20 token2;
-    MockUniRouter router;
+    MockSwapRouter router;
     ConfigHub configHub;
     uint constant durationToUse = 1 days;
     uint constant minDurationToUse = 300;
@@ -42,7 +42,7 @@ contract ConfigHubTest is Test {
     function setUp() public {
         token1 = new TestERC20("Test1", "TST1");
         token2 = new TestERC20("Test2", "TST2");
-        router = new MockUniRouter();
+        router = new MockSwapRouter();
 
         configHub = new ConfigHub(owner, address(router));
     }

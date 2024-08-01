@@ -49,7 +49,7 @@ contract LoansRollTestBase is LoansTestBase {
         providerNFT.approve(address(rolls), providerId);
         cashAsset.approve(address(rolls), type(uint).max);
         rollId = rolls.createRollOffer(
-            takerId, rollFee, 0, 0, type(uint).max, -int(amountToProvide), block.timestamp + duration
+            takerId, rollFee, 0, 0, type(uint).max, -int(largeAmount), block.timestamp + duration
         );
     }
 
@@ -63,7 +63,7 @@ contract LoansRollTestBase is LoansTestBase {
         expected = calculateRollAmounts(rollId, newPrice);
 
         // Update price
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, newPrice);
+        updatePrice(newPrice);
 
         // Execute roll
         vm.startPrank(user1);

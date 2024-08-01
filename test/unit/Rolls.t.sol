@@ -27,11 +27,11 @@ contract RollsTest is BaseTestSetup {
 
     function createProviderOffers() internal returns (uint offerId, uint offerId2) {
         startHoax(provider);
-        cashAsset.approve(address(providerNFT), amountToProvide);
-        offerId = providerNFT.createOffer(callStrikeDeviation, amountToProvide, ltv, duration);
+        cashAsset.approve(address(providerNFT), largeAmount);
+        offerId = providerNFT.createOffer(callStrikeDeviation, largeAmount, ltv, duration);
         // another provider NFT
-        cashAsset.approve(address(providerNFT2), amountToProvide);
-        offerId2 = providerNFT2.createOffer(callStrikeDeviation, amountToProvide, ltv, duration);
+        cashAsset.approve(address(providerNFT2), largeAmount);
+        offerId2 = providerNFT2.createOffer(callStrikeDeviation, largeAmount, ltv, duration);
     }
 
     function createTakerPositions() internal returns (uint takerId, uint providerId) {
@@ -147,7 +147,7 @@ contract RollsTest is BaseTestSetup {
         uint rollsBalance = cashAsset.balanceOf(address(rolls));
 
         // update to new price
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, newPrice);
+        updatePrice(newPrice);
         // Execute roll
         startHoax(user1);
         takerNFT.approve(address(rolls), offer.takerId);
@@ -533,7 +533,7 @@ contract RollsTest is BaseTestSetup {
         );
 
         // new taker position
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        updatePrice();
         (takerId, providerId) = createTakerPositions();
         startHoax(provider);
         providerNFT.approve(address(rolls), providerId);
@@ -669,7 +669,7 @@ contract RollsTest is BaseTestSetup {
         rolls.executeRoll(rollId, type(int).min);
 
         // new offer
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        updatePrice();
         (takerId, rollId, offer) = createAndCheckRollOffer();
         // Offer already executed
         startHoax(user1);
@@ -685,20 +685,20 @@ contract RollsTest is BaseTestSetup {
 
         // Price too high
         uint highPrice = offer.maxPrice + 1;
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, highPrice);
+        updatePrice(highPrice);
         startHoax(user1);
         vm.expectRevert("price too high");
         rolls.executeRoll(rollId, type(int).min);
 
         // Price too low
         uint lowPrice = offer.minPrice - 1;
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, lowPrice);
+        updatePrice(lowPrice);
         vm.expectRevert("price too low");
         rolls.executeRoll(rollId, type(int).min);
 
         // Deadline passed
         skip(deadline + 1);
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        updatePrice(twapPrice);
         vm.expectRevert("deadline passed");
         rolls.executeRoll(rollId, type(int).min);
     }
@@ -723,7 +723,7 @@ contract RollsTest is BaseTestSetup {
         takerNFT.approve(address(rolls), takerId);
         cashAsset.approve(address(rolls), type(uint).max);
         uint newPrice = twapPrice * 110 / 100;
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, newPrice);
+        updatePrice(newPrice);
         vm.expectRevert("provider transfer slippage");
         rolls.executeRoll(rollId, type(int).min);
     }
@@ -743,7 +743,7 @@ contract RollsTest is BaseTestSetup {
         takerNFT.approve(address(rolls), takerId);
         cashAsset.approve(address(rolls), 0);
         uint lowPrice = twapPrice * 9 / 10;
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, lowPrice);
+        updatePrice(lowPrice);
         (int toTaker,,) = rolls.calculateTransferAmounts(rollId, lowPrice);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -757,7 +757,7 @@ contract RollsTest is BaseTestSetup {
         (uint takerId, uint rollId,) = createAndCheckRollOffer();
 
         uint highPrice = twapPrice * 11 / 10;
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, highPrice);
+        updatePrice(highPrice);
         (, int toProvider,) = rolls.calculateTransferAmounts(rollId, highPrice);
 
         // provider revoked approval

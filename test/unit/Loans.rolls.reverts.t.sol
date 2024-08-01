@@ -137,7 +137,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         takerNFT.approve(address(loans), takerId);
         // Set price to ensure taker needs to pay
         uint lowPrice = twapPrice * 95 / 100;
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, lowPrice);
+        updatePrice(lowPrice);
 
         // Calculate expected loan change
         (int loanChangePreview,,) = rolls.calculateTransferAmounts(rollId, lowPrice);
@@ -181,7 +181,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         vm.startPrank(user1);
         takerNFT.approve(address(loans), takerId);
         cashAsset.approve(address(loans), type(uint).max);
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        updatePrice();
         prepareSwapToCollateralAtTWAPPrice();
         loans.closeLoan(takerId, 0);
 

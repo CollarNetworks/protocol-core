@@ -58,12 +58,12 @@ contract LoansBasicRevertsTest is LoansTestBase {
         collateralAsset.approve(address(loans), collateralAmount);
 
         // balance mismatch
-        uniRouter.setAmountToReturn(swapCashAmount - 1);
+        mockSwapRouter.setAmountToReturn(swapCashAmount - 1);
         vm.expectRevert("balance update mismatch");
         loans.createLoan(collateralAmount, minLoanAmount, swapCashAmount, providerNFT, offerId);
 
         // slippage params
-        uniRouter.setAmountToReturn(swapCashAmount);
+        mockSwapRouter.setAmountToReturn(swapCashAmount);
         vm.expectRevert("slippage exceeded");
         loans.createLoan(collateralAmount, minLoanAmount, swapCashAmount + 1, providerNFT, offerId);
 

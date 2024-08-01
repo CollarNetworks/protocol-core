@@ -16,9 +16,9 @@ contract LoansTestBase is BaseTestSetup {
     uint minLoanAmount = swapCashAmount * (ltv / BIPS_100PCT);
 
     function prepareSwap(TestERC20 asset, uint amount) public {
-        asset.mint(address(uniRouter), amount);
-        uniRouter.setAmountToReturn(amount);
-        uniRouter.setTransferAmount(amount);
+        asset.mint(address(mockSwapRouter), amount);
+        mockSwapRouter.setAmountToReturn(amount);
+        mockSwapRouter.setTransferAmount(amount);
     }
 
     function prepareSwapToCollateralAtTWAPPrice() public returns (uint swapOut) {
@@ -33,15 +33,15 @@ contract LoansTestBase is BaseTestSetup {
 
     function createOfferAsProvider() internal returns (uint offerId) {
         startHoax(provider);
-        cashAsset.approve(address(providerNFT), amountToProvide);
-        offerId = providerNFT.createOffer(callStrikeDeviation, amountToProvide, ltv, duration);
+        cashAsset.approve(address(providerNFT), largeAmount);
+        offerId = providerNFT.createOffer(callStrikeDeviation, largeAmount, ltv, duration);
     }
 
     function createAndCheckLoan() internal returns (uint takerId, uint providerId, uint loanAmount) {
         uint offerId = createOfferAsProvider();
 
         // TWAP price must be set for every block
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        updatePrice();
 
         // convert at twap price
         uint swapOut = collateralAmount * twapPrice / 1e18;
@@ -119,7 +119,7 @@ contract LoansTestBase is BaseTestSetup {
         uint expectedCollateralOut
     ) internal {
         // TWAP price must be set for every block
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        updatePrice();
 
         vm.startPrank(user1);
         // Approve loan contract to spend user's cash for repayment

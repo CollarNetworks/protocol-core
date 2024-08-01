@@ -24,8 +24,6 @@ import { IPeripheryImmutableState } from
 /// The chosen pool must have had sufficient liquidity when past observations were recorded in the buffer.
 /// Networks with short block times are highly susceptible to TWAP manipulation due to the reduced attack cost.
 contract OracleUniV3TWAP {
-    uint32 internal constant MIN_TWAP_WINDOW = 5 minutes;
-
     uint128 public constant BASE_TOKEN_AMOUNT = 1e18;
     string public constant VERSION = "0.2.0";
 
@@ -43,18 +41,12 @@ contract OracleUniV3TWAP {
         uint32 _twapWindow,
         address _uniV3SwapRouter
     ) {
-        if (_twapWindow < MIN_TWAP_WINDOW || _twapWindow > uint32(type(int32).max)) {
-            revert("invalid TWAP window");
-        }
         baseToken = _baseToken;
         quoteToken = _quoteToken;
         feeTier = _feeTier;
         twapWindow = _twapWindow;
         // get and check the pool
-        address uniV3Factory = IPeripheryImmutableState(_uniV3SwapRouter).factory();
-        address poolAddress = IUniswapV3Factory(uniV3Factory).getPool(baseToken, quoteToken, feeTier);
-        if (poolAddress == address(0)) revert("invalid oracle config");
-        pool = IUniswapV3Pool(poolAddress);
+        pool = IUniswapV3Pool(_getPoolAddress(_uniV3SwapRouter));
     }
 
     // ----- Views ----- //
@@ -70,8 +62,8 @@ contract OracleUniV3TWAP {
     function historicalPrice(uint32 timestamp) public view returns (uint) {
         // _secondsAgos is in offsets format. e.g., [120, 60] means that observations 120 and 60
         // seconds ago will be used for the TWAP calculation
-        uint32[] memory secondsAgos = new uint32[](2);
         uint32 twapEndOffset = uint32(block.timestamp) - timestamp;
+        uint32[] memory secondsAgos = new uint32[](2);
         secondsAgos[0] = twapEndOffset + twapWindow;
         secondsAgos[1] = twapEndOffset;
 
@@ -85,6 +77,11 @@ contract OracleUniV3TWAP {
     }
 
     // ----- Internal Views ----- //
+
+    function _getPoolAddress(address _uniV3SwapRouter) internal view virtual returns (address poolAddress) {
+        address uniV3Factory = IPeripheryImmutableState(_uniV3SwapRouter).factory();
+        poolAddress = IUniswapV3Factory(uniV3Factory).getPool(baseToken, quoteToken, feeTier);
+    }
 
     /// Adapted from Euler: https://github.com/euler-xyz/euler-price-oracle/blob/95e5d325cd9f4290d147821ff08add14ca99b136/src/adapter/uniswap/UniswapV3Oracle.sol#L73-L78
     function _getQuote(uint32[] memory secondsAgos) internal view virtual returns (uint) {
