@@ -46,8 +46,6 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
     ) BaseEmergencyAdminNFT(initialOwner, _configHub, _name, _symbol) {
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
-        // check params are supported
-        _validateAssetsSupported();
         _setOracle(_oracle);
     }
 
@@ -293,13 +291,10 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
 
     // ----- INTERNAL VIEWS ----- //
 
-    function _validateAssetsSupported() internal view {
+    function _openPositionValidations(ProviderPositionNFT providerNFT) internal view {
+        // check assets supported
         require(configHub.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
         require(configHub.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
-    }
-
-    function _openPositionValidations(ProviderPositionNFT providerNFT) internal view {
-        _validateAssetsSupported();
 
         // check self (provider will check too)
         require(configHub.isCollarTakerNFT(address(this)), "unsupported taker contract");

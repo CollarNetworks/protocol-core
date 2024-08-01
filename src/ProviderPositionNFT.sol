@@ -83,8 +83,6 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
         collarTakerContract = _collarTakerContract;
-        // check params are supported
-        _validateAssetsSupported();
     }
 
     modifier onlyTrustedTakerContract() {
@@ -335,13 +333,11 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
 
     // ----- INTERNAL VIEWS ----- //
 
-    function _validateAssetsSupported() internal view {
+    function _validateOfferParamsSupported(uint putStrikeDeviation, uint duration) internal view {
+        // assets
         require(configHub.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
         require(configHub.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
-    }
-
-    function _validateOfferParamsSupported(uint putStrikeDeviation, uint duration) internal view {
-        _validateAssetsSupported();
+        // terms
         require(putStrikeDeviation <= MAX_PUT_STRIKE_BIPS, "invalid put strike deviation");
         uint ltv = putStrikeDeviation; // assumed to be always equal
         require(configHub.isValidLTV(ltv), "unsupported LTV");
