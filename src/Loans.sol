@@ -407,7 +407,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
 
         // get transfer amount and fee from rolls
         (int transferPreview,, int rollFee) =
-            rollsContract.calculateTransferAmounts(rollId, _currentTWAPPrice());
+            rollsContract.calculateTransferAmounts(rollId, takerNFT.currentOraclePrice());
 
         // update loan amount
         newLoanAmount = _calculateNewLoan(transferPreview, rollFee, loanAmount);
@@ -456,16 +456,12 @@ contract Loans is ILoans, BaseEmergencyAdmin {
     /// The caller (user) is protected via a slippage parameter, and SHOULD use it to avoid MEV (if present).
     /// So, this check is just extra precaution and avoidance of manipulation edge-cases.
     function _checkSwapPrice(uint cashFromSwap, uint collateralAmount) internal view {
-        uint twapPrice = _currentTWAPPrice();
+        uint twapPrice = takerNFT.currentOraclePrice();
         // collateral is checked on open to not be 0
-        uint swapPrice = cashFromSwap * takerNFT.oracleUniV3().BASE_TOKEN_AMOUNT() / collateralAmount;
+        uint swapPrice = cashFromSwap * takerNFT.oracle().BASE_TOKEN_AMOUNT() / collateralAmount;
         uint diff = swapPrice > twapPrice ? swapPrice - twapPrice : twapPrice - swapPrice;
         uint deviation = diff * BIPS_BASE / twapPrice;
         require(deviation <= MAX_SWAP_TWAP_DEVIATION_BIPS, "swap and twap price too different");
-    }
-
-    function _currentTWAPPrice() internal view returns (uint) {
-        return takerNFT.currentOraclePrice();
     }
 
     function _calculateNewLoan(int rollTransferIn, int rollFee, uint initialLoanAmount)

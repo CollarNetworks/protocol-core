@@ -23,7 +23,7 @@ import { IPeripheryImmutableState } from
 /// The chosen pool must have enough total liquidity and some full-range liquidity to resist manipulation.
 /// The chosen pool must have had sufficient liquidity when past observations were recorded in the buffer.
 /// Networks with short block times are highly susceptible to TWAP manipulation due to the reduced attack cost.
-contract OracleUniV3 {
+contract OracleUniV3TWAP {
     uint32 internal constant MIN_TWAP_WINDOW = 5 minutes;
 
     uint128 public constant BASE_TOKEN_AMOUNT = 1e18;
@@ -60,18 +60,18 @@ contract OracleUniV3 {
     // ----- Views ----- //
 
     function currentCardinality() public view returns (uint16 observationCardinalityNext) {
-        (,,,,observationCardinalityNext,,) = pool.slot0();
+        (,,,, observationCardinalityNext,,) = pool.slot0();
     }
 
-    function currentTWAP() external view returns (uint) {
-        return historicalTWAP(uint32(block.timestamp));
+    function currentPrice() external view returns (uint) {
+        return historicalPrice(uint32(block.timestamp));
     }
 
-    function historicalTWAP(uint32 twapEndTime) public view returns (uint) {
+    function historicalPrice(uint32 timestamp) public view returns (uint) {
         // _secondsAgos is in offsets format. e.g., [120, 60] means that observations 120 and 60
         // seconds ago will be used for the TWAP calculation
         uint32[] memory secondsAgos = new uint32[](2);
-        uint32 twapEndOffset = uint32(block.timestamp) - twapEndTime;
+        uint32 twapEndOffset = uint32(block.timestamp) - timestamp;
         secondsAgos[0] = twapEndOffset + twapWindow;
         secondsAgos[1] = twapEndOffset;
 
