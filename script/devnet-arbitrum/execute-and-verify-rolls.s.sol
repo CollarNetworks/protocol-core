@@ -13,67 +13,43 @@ import { Rolls } from "../../src/Rolls.sol";
 import { BaseDeployment } from "../base.s.sol";
 
 contract VerifyRolls is Script, DeploymentUtils, BaseDeployment {
-    int rollFee = 1e6;
-    int rollDeltaFactor = 10_000;
+    int rollFee = 100e6; // 100USDC
     int slippage = 3000;
     address USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
     address WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
 
     function run() external {
-        (, address user1,, address liquidityProvider) = setup();
+        (, address user1,,) = setup();
 
         // Load deployed contract addresses
         AssetPairContracts memory pair = getByAssetPair(USDC, WETH);
 
         // You'll need to pass or retrieve the loanId and providerId from the previous step
-        uint loanId = 0; /* retrieve or pass loanId */
-        uint providerId = 0; /* retrieve or pass providerId */
-
-        _createAndExecuteRoll(liquidityProvider, user1, pair, loanId, providerId);
+        uint loanId = 1; /* retrieve or pass loanId */
+        uint rollOfferId = 1; /* retrieve or pass rollOfferId */
+        _executeRoll(user1, pair, loanId, rollOfferId);
 
         console.log("\nRoll executed and verified successfully");
     }
 
-    function _createAndExecuteRoll(
-        address provider,
-        address user,
-        AssetPairContracts memory pair,
-        uint loanId,
-        uint providerId
-    ) internal {
+    function _executeRoll(address user, AssetPairContracts memory pair, uint loanId, uint rollOfferId)
+        internal
+    {
         // Record initial balances
         uint initialUserCashBalance = pair.cashAsset.balanceOf(user);
         uint initialLoanAmount = pair.loansContract.getLoan(loanId).loanAmount;
-
-        vm.startBroadcast(provider);
-        uint currentPrice = pair.takerNFT.getReferenceTWAPPrice(block.timestamp);
-        pair.cashAsset.approve(address(pair.rollsContract), type(uint).max);
-        pair.providerNFT.approve(address(pair.rollsContract), providerId);
-        uint rollOfferId = pair.rollsContract.createRollOffer(
-            loanId,
-            rollFee, // Roll fee
-            rollDeltaFactor, // Roll fee delta factor (100%)
-            currentPrice * 90 / 100, // Min price (90% of current price)
-            currentPrice * 110 / 100, // Max price (110% of current price)
-            0, // Min to provider
-            block.timestamp + 1 hours // Deadline
-        );
-        vm.stopBroadcast();
 
         vm.startBroadcast(user);
         pair.cashAsset.approve(address(pair.loansContract), type(uint).max);
         pair.takerNFT.approve(address(pair.loansContract), loanId);
 
-        currentPrice = pair.takerNFT.getReferenceTWAPPrice(block.timestamp);
+        uint currentPrice = pair.takerNFT.getReferenceTWAPPrice(block.timestamp);
         console.log("current price: ", currentPrice);
         (int toTaker,,) = pair.rollsContract.calculateTransferAmounts(rollOfferId, currentPrice);
         console.log("to taker");
         console.logInt(toTaker);
-        int minToUserSlippage = toTaker + (toTaker * slippage / 10_000);
-        console.log("min to user");
-        console.logInt(minToUserSlippage);
         (uint newTakerId, uint newLoanAmount, int actualTransferAmount) =
-            pair.loansContract.rollLoan(loanId, pair.rollsContract, rollOfferId, minToUserSlippage);
+            pair.loansContract.rollLoan(loanId, pair.rollsContract, rollOfferId, toTaker);
         console.logInt(actualTransferAmount);
         vm.stopBroadcast();
 
@@ -122,6 +98,12 @@ contract VerifyRolls is Script, DeploymentUtils, BaseDeployment {
 
         // Check loan amount change
         int loanAmountChange = int(newLoanAmount) - int(initialLoanAmount);
+        console.log("loan amount change");
+        console.logInt(loanAmountChange);
+        console.log("user balance change");
+        console.logInt(userBalanceChange);
+        console.log("roll fee");
+        console.logInt(rollFee);
         require(loanAmountChange == userBalanceChange + rollFee, "Loan amount change is incorrect");
 
         // Additional checks

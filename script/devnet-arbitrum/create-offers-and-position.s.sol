@@ -18,6 +18,8 @@ contract CreateOffersAndOpenPosition is Script, DeploymentUtils, BaseDeployment 
     uint expectedOfferCount = 44;
     address USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
     address WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
+    int rollFee = 100e6;
+    int rollDeltaFactor = 10_000;
 
     function run() external {
         (, address user1,, address liquidityProvider) = setup();
@@ -39,13 +41,17 @@ contract CreateOffersAndOpenPosition is Script, DeploymentUtils, BaseDeployment 
             "liquidity provider does not have enough funds"
         );
 
-        _createOffers(liquidityProvider, allPairs);
+        // _createOffers(liquidityProvider, allPairs);
 
-        console.log("\nOffers created successfully");
+        // console.log("\nOffers created successfully");
 
-        _openUserPosition(user1, liquidityProvider, usdcWethPair);
-
+        (uint takerId, uint providerId,) = _openUserPosition(user1, liquidityProvider, usdcWethPair);
         console.log("\nUser position opened successfully");
+        console.log(" - Taker ID: %d", takerId);
+        console.log(" - Provider ID: %d", providerId);
+
+        uint rollOfferId = _createRollOffer(liquidityProvider, usdcWethPair, takerId, providerId);
+        console.log("roll offer created successfully with id: %d", rollOfferId);
     }
 
     function _createOffers(address liquidityProvider, AssetPairContracts[] memory assetPairContracts)
@@ -90,6 +96,7 @@ contract CreateOffersAndOpenPosition is Script, DeploymentUtils, BaseDeployment 
 
     function _openUserPosition(address user, address liquidityProvider, AssetPairContracts memory pair)
         internal
+        returns (uint takerId, uint providerId, uint loanAmount)
     {
         vm.startBroadcast(user);
         // Use the first contract pair (USDC/WETH) for this example
@@ -114,7 +121,7 @@ contract CreateOffersAndOpenPosition is Script, DeploymentUtils, BaseDeployment 
         );
 
         // Open a position
-        (uint takerId, uint providerId, uint loanAmount) = pair.loansContract.createLoan(
+        (takerId, providerId, loanAmount) = pair.loansContract.createLoan(
             collateralAmountForLoan,
             0, // slippage
             0,
@@ -177,5 +184,25 @@ contract CreateOffersAndOpenPosition is Script, DeploymentUtils, BaseDeployment 
                 && loanAmount <= expectedLoanAmount + loanAmountTolerance,
             "Loan amount is outside the expected range"
         );
+    }
+
+    function _createRollOffer(address provider, AssetPairContracts memory pair, uint loanId, uint providerId)
+        internal
+        returns (uint rollOfferId)
+    {
+        vm.startBroadcast(provider);
+        uint currentPrice = pair.takerNFT.getReferenceTWAPPrice(block.timestamp);
+        pair.cashAsset.approve(address(pair.rollsContract), type(uint).max);
+        pair.providerNFT.approve(address(pair.rollsContract), providerId);
+        rollOfferId = pair.rollsContract.createRollOffer(
+            loanId,
+            rollFee, // Roll fee
+            rollDeltaFactor, // Roll fee delta factor (100%)
+            currentPrice * 90 / 100, // Min price (90% of current price)
+            currentPrice * 110 / 100, // Max price (110% of current price)
+            0, // Min to provider
+            block.timestamp + 1 hours // Deadline
+        );
+        vm.stopBroadcast();
     }
 }
