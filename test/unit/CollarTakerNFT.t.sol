@@ -13,8 +13,6 @@ import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 
 import { BaseTestSetup } from "./BaseTestSetup.sol";
-import { MockOracleUniV3TWAP } from "../utils/MockOracleUniV3TWAP.sol";
-import { BaseEmergencyAdminTestBase } from "./BaseEmergencyAdmin.t.sol";
 
 import { CollarTakerNFT, ICollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ICollarTakerNFT } from "../../src/interfaces/ICollarTakerNFT.sol";
@@ -559,14 +557,5 @@ contract CollarTakerNFTTest is BaseTestSetup {
 
         vm.expectRevert("invalid put strike deviation");
         takerNFT.calculateProviderLocked(putLockedCash, putStrikeDeviation, callStrikeDeviation);
-    }
-}
-
-contract TakerNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
-    function setupTestedContract() internal virtual override {
-        MockOracleUniV3TWAP oracle = new MockOracleUniV3TWAP(address(erc20), address(erc20));
-
-        testedContract =
-            new CollarTakerNFT(owner, configHub, erc20, erc20, oracle, "CollarTakerNFT", "BRWTST");
     }
 }

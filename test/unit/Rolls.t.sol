@@ -9,7 +9,6 @@ import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 import { BaseTestSetup, CollarTakerNFT, ProviderPositionNFT } from "./BaseTestSetup.sol";
-import { TakerNFTEmergencyAdminTest } from "./CollarTakerNFT.t.sol";
 
 import { Rolls, IRolls } from "../../src/Rolls.sol";
 
@@ -794,14 +793,5 @@ contract RollsTest is BaseTestSetup {
         // Attempt to execute the roll
         vm.expectRevert("unexpected withdrawal amount");
         rolls.executeRoll(rollId, type(int).min);
-    }
-}
-
-contract RollsEmergencyAdminTest is TakerNFTEmergencyAdminTest {
-    function setupTestedContract() internal override {
-        super.setupTestedContract();
-        // take the taker contract setup by the super
-        CollarTakerNFT takerNFT = CollarTakerNFT(address(testedContract));
-        testedContract = new Rolls(owner, takerNFT);
     }
 }

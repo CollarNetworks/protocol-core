@@ -44,7 +44,6 @@ contract OracleUniV3TWAP {
         quoteToken = _quoteToken;
         feeTier = _feeTier;
         twapWindow = _twapWindow;
-        // set the pool
         pool = IUniswapV3Pool(_getPoolAddress(_uniV3SwapRouter));
     }
 

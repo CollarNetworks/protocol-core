@@ -9,16 +9,8 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 
 import { BaseTestSetup } from "./BaseTestSetup.sol";
-import { BaseEmergencyAdminTestBase } from "./BaseEmergencyAdmin.t.sol";
 
 import { ProviderPositionNFT, IProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
-
-contract ProviderNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
-    function setupTestedContract() internal override {
-        testedContract =
-            new ProviderPositionNFT(owner, configHub, erc20, erc20, address(0), "ProviderNFT", "ProviderNFT");
-    }
-}
 
 contract ProviderPositionNFTTest is BaseTestSetup {
     address takerContract;

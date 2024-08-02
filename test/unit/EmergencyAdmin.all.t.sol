@@ -8,9 +8,14 @@ import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 import { TestERC20 } from "../utils/TestERC20.sol";
+import { MockOracleUniV3TWAP } from "../utils/MockOracleUniV3TWAP.sol";
 
 import { BaseEmergencyAdmin } from "../../src/base/BaseEmergencyAdmin.sol";
 import { ConfigHub } from "../../src/ConfigHub.sol";
+import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
+import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
+import { Loans } from "../../src/Loans.sol";
+import { Rolls } from "../../src/Rolls.sol";
 
 // base contract for other tests that will check this functionality
 abstract contract BaseEmergencyAdminTestBase is Test {
@@ -203,5 +208,39 @@ contract BaseEmergencyAdminMockTest is BaseEmergencyAdminTestBase {
         badHub = ConfigHub(address(new BadConfigHub2()));
         vm.expectRevert("unexpected version length");
         new TestableBaseEmergencyAdmin(owner, badHub);
+    }
+}
+
+contract ProviderNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
+    function setupTestedContract() internal override {
+        testedContract =
+            new ProviderPositionNFT(owner, configHub, erc20, erc20, address(0), "ProviderNFT", "ProviderNFT");
+    }
+}
+
+contract TakerNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
+    function setupTestedContract() internal virtual override {
+        MockOracleUniV3TWAP oracle = new MockOracleUniV3TWAP(address(erc20), address(erc20));
+
+        testedContract =
+            new CollarTakerNFT(owner, configHub, erc20, erc20, oracle, "CollarTakerNFT", "BRWTST");
+    }
+}
+
+contract LoansEmergencyAdminTest is TakerNFTEmergencyAdminTest {
+    function setupTestedContract() internal override {
+        super.setupTestedContract();
+        // take the taker contract setup by the super
+        CollarTakerNFT takerNFT = CollarTakerNFT(address(testedContract));
+        testedContract = new Loans(owner, takerNFT);
+    }
+}
+
+contract RollsEmergencyAdminTest is TakerNFTEmergencyAdminTest {
+    function setupTestedContract() internal override {
+        super.setupTestedContract();
+        // take the taker contract setup by the super
+        CollarTakerNFT takerNFT = CollarTakerNFT(address(testedContract));
+        testedContract = new Rolls(owner, takerNFT);
     }
 }

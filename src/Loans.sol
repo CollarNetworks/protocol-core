@@ -386,8 +386,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         // position could have been settled by user or provider already
         bool settled = takerNFT.getPosition(takerId).settled;
         if (!settled) {
-            /// @dev this will revert on:
-            ///     too early, no position, calculation issues, ...
+            /// @dev this will revert on: too early, no position, calculation issues, ...
             takerNFT.settlePairedPosition(takerId);
         }
 

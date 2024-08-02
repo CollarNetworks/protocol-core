@@ -14,8 +14,6 @@ import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
 import { LoansTestBase, TestERC20 } from "./Loans.basic.effects.t.sol";
-import { BaseEmergencyAdminTestBase } from "./BaseEmergencyAdmin.t.sol";
-import { TakerNFTEmergencyAdminTest } from "./CollarTakerNFT.t.sol";
 
 contract LoansAdminTest is LoansTestBase {
     function test_onlyOwnerMethods() public {
@@ -116,14 +114,5 @@ contract LoansAdminTest is LoansTestBase {
         vm.startPrank(user1);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user1));
         loans.setRollsContract(Rolls(address(0)));
-    }
-}
-
-contract LoansEmergencyAdminTest is TakerNFTEmergencyAdminTest {
-    function setupTestedContract() internal override {
-        super.setupTestedContract();
-        // take the taker contract setup by the super
-        CollarTakerNFT takerNFT = CollarTakerNFT(address(testedContract));
-        testedContract = new Loans(owner, takerNFT);
     }
 }

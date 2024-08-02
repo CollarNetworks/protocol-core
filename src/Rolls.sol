@@ -280,13 +280,17 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         // position is not settled yet. it must exist still (otherwise ownerOf would revert)
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offer.takerId);
         require(!takerPos.settled, "taker position settled");
-        // @dev an expired position settles at historic price, so if rolling after expiry is allowed, a different
-        // price should be used in settlement calculations instead of current price
+        // @dev an expired position settles at historic price, so if rolling after expiry is allowed,
+        // a different price may be used in settlement calculations instead of current price
+        // and that complexity of scenarios is not needed for now.
         require(takerPos.expiration > block.timestamp, "taker position expired");
 
-        // check the settlementPrice assumption using the right view, assuming settlement is now.
-        // it should be the same as current price, otherwise some logic assumptions are violated.
+        // Check the settlementPrice assumption (Taker NFT is the authority on prices),
+        // assuming settlement is now. The settlement is "theoretical" since position is cancelled,
+        // but it dictates what part of the position is earned by what side.
         (uint settlementPrice,) = takerNFT.settlementPrice(uint32(block.timestamp));
+        // @dev this check may not be needed, since we're passing the right price into the internal method
+        // but this simplifies the analysis and testing by removing the scenarios of different prices.
         require(newPrice == settlementPrice, "settlement price mismatch");
 
         (newTakerId, newProviderId, toTaker, toProvider) =
