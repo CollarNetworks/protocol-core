@@ -8,6 +8,8 @@
 pragma solidity 0.8.22;
 
 import { Ownable2Step, Ownable } from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import { IPeripheryImmutableState } from
+    "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 // internal imports
 import { IConfigHub } from "./interfaces/IConfigHub.sol";
 import { IProviderPositionNFT } from "./interfaces/IProviderPositionNFT.sol";
@@ -24,13 +26,13 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     uint public constant MAX_CONFIGURABLE_LTV = 9999;
     uint public constant MIN_CONFIGURABLE_DURATION = 300;
     uint public constant MAX_CONFIGURABLE_DURATION = 5 * 365 days;
-    address public immutable univ3SwapRouter;
     // configured values (set by owner)
     uint public minLTV;
     uint public maxLTV;
     uint public minDuration;
     uint public maxDuration;
     // pause guardian for other contracts
+    address public uniV3SwapRouter;
     address public pauseGuardian;
 
     // -- internal state variables ---
@@ -39,9 +41,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     mapping(address contractAddress => bool enabled) public isCollarTakerNFT;
     mapping(address contractAddress => bool enabled) public isProviderNFT;
 
-    constructor(address _initialOwner, address _univ3SwapRouter) Ownable(_initialOwner) {
-        univ3SwapRouter = _univ3SwapRouter;
-    }
+    constructor(address _initialOwner) Ownable(_initialOwner) { }
 
     // ----- state-changing functions (see IConfigHub for documentation) -----
 
@@ -103,6 +103,14 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     function setPauseGuardian(address newGuardian) external onlyOwner {
         emit PauseGuardianSet(pauseGuardian, newGuardian); // emit before for the prev-value
         pauseGuardian = newGuardian;
+    }
+
+    // swap router
+
+    function setUniV3Router(address _uniV3SwapRouter) external onlyOwner {
+        require(IPeripheryImmutableState(_uniV3SwapRouter).factory() != address(0), "invalid router");
+        emit UniV3RouterSet(uniV3SwapRouter, _uniV3SwapRouter); // emit before for the prev-value
+        uniV3SwapRouter = _uniV3SwapRouter;
     }
 
     // ----- view functions (see IConfigHub for documentation) -----

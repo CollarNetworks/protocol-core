@@ -33,7 +33,6 @@ contract OracleUniV3TWAP {
     uint32 public immutable twapWindow;
     IUniswapV3Pool public immutable pool;
 
-    /// Adapted from Euler: https://github.com/euler-xyz/euler-price-oracle/blob/95e5d325cd9f4290d147821ff08add14ca99b136/src/adapter/uniswap/UniswapV3Oracle.sol#L46-L56
     constructor(
         address _baseToken,
         address _quoteToken,
@@ -45,7 +44,7 @@ contract OracleUniV3TWAP {
         quoteToken = _quoteToken;
         feeTier = _feeTier;
         twapWindow = _twapWindow;
-        // get and check the pool
+        // set the pool
         pool = IUniswapV3Pool(_getPoolAddress(_uniV3SwapRouter));
     }
 
@@ -78,6 +77,7 @@ contract OracleUniV3TWAP {
 
     // ----- Internal Views ----- //
 
+    /// Adapted from Euler: https://github.com/euler-xyz/euler-price-oracle/blob/95e5d325cd9f4290d147821ff08add14ca99b136/src/adapter/uniswap/UniswapV3Oracle.sol#L46-L56
     function _getPoolAddress(address _uniV3SwapRouter) internal view virtual returns (address poolAddress) {
         address uniV3Factory = IPeripheryImmutableState(_uniV3SwapRouter).factory();
         poolAddress = IUniswapV3Factory(uniV3Factory).getPool(baseToken, quoteToken, feeTier);

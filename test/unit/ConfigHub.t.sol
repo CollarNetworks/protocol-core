@@ -9,17 +9,12 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
-import { MockSwapRouter } from "../utils/MockSwapRouter.sol";
-
-import { IConfigHub } from "../../src/interfaces/IConfigHub.sol";
-import { ConfigHub } from "../../src/ConfigHub.sol";
-import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
+import { ConfigHub, IConfigHub } from "../../src/ConfigHub.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract ConfigHubTest is Test {
     TestERC20 token1;
     TestERC20 token2;
-    MockSwapRouter router;
     ConfigHub configHub;
     uint constant durationToUse = 1 days;
     uint constant minDurationToUse = 300;
@@ -27,29 +22,31 @@ contract ConfigHubTest is Test {
     uint constant ltvToUse = 9000;
     uint constant minLTVToUse = 1000;
     uint constant maxLTVToUse = 9999;
+    address router = makeAddr("router");
     address owner = makeAddr("owner");
     address user1 = makeAddr("user1");
-    address user2 = makeAddr("user2");
     address guardian = makeAddr("guardian");
 
-    // below we copy error messages from contracts since they aren't by default "public" or otherwise
-    // accessible
-
-    error OwnableUnauthorizedAccount(address account);
-
-    bytes user1NotAuthorized = abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, address(user1));
+    bytes user1NotAuthorized = abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user1);
 
     function setUp() public {
         token1 = new TestERC20("Test1", "TST1");
         token2 = new TestERC20("Test2", "TST2");
-        router = new MockSwapRouter();
-
-        configHub = new ConfigHub(owner, address(router));
+        configHub = new ConfigHub(owner);
     }
 
     function test_deploymentAndDeployParams() public view {
-        assertEq(address(configHub.univ3SwapRouter()), address(router));
         assertEq(configHub.owner(), owner);
+        assertEq(configHub.MIN_CONFIGURABLE_LTV(), 1000);
+        assertEq(configHub.MAX_CONFIGURABLE_LTV(), 9999);
+        assertEq(configHub.MIN_CONFIGURABLE_DURATION(), 300);
+        assertEq(configHub.MAX_CONFIGURABLE_DURATION(), 5 * 365 days);
+        assertEq(configHub.uniV3SwapRouter(), address(0));
+        assertEq(configHub.pauseGuardian(), address(0));
+        assertEq(configHub.minDuration(), 0);
+        assertEq(configHub.maxDuration(), 0);
+        assertEq(configHub.minLTV(), 0);
+        assertEq(configHub.maxLTV(), 0);
     }
 
     function test_addSupportedCashAsset() public {

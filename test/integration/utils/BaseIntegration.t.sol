@@ -63,8 +63,9 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
         COLLATERAL_PRICE_ON_BLOCK = priceOnBlock;
         CALL_STRIKE_TICK = callStrikeTickToUse;
 
-        configHub = new ConfigHub(owner, swapRouterAddress);
+        configHub = new ConfigHub(owner);
         startHoax(owner);
+        configHub.setUniV3Router(swapRouterAddress);
         configHub.setCashAssetSupport(cashAssetAddress, true);
         configHub.setCollateralAssetSupport(collateralAssetAddress, true);
         configHub.setLTVRange(_offerLTV, _offerLTV + 1);

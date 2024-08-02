@@ -563,18 +563,8 @@ contract CollarTakerNFTTest is BaseTestSetup {
 }
 
 contract TakerNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
-    uint24 constant FEE_TIER = 3000;
-    uint32 constant TWAP_WINDOW = 15 minutes;
-
     function setupTestedContract() internal virtual override {
-        MockOracleUniV3TWAP oracle = new MockOracleUniV3TWAP(
-            address(erc20),
-            address(erc20),
-            FEE_TIER,
-            TWAP_WINDOW,
-            address(0),
-            1 // non-zero price
-        );
+        MockOracleUniV3TWAP oracle = new MockOracleUniV3TWAP(address(erc20), address(erc20));
 
         testedContract =
             new CollarTakerNFT(owner, configHub, erc20, erc20, oracle, "CollarTakerNFT", "BRWTST");

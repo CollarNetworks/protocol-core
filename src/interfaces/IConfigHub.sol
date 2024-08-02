@@ -19,6 +19,7 @@ interface IConfigHub {
         address indexed contractAddress, bool indexed enabled, address cashAsset, address collateralAsset
     );
     event PauseGuardianSet(address prevGaurdian, address newGuardian);
+    event UniV3RouterSet(address prevRouter, address newRouter);
     event ProviderNFTAuthSet(
         address indexed contractAddress,
         bool indexed enabled,

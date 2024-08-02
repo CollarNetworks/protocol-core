@@ -25,7 +25,7 @@ abstract contract BaseEmergencyAdminTestBase is Test {
 
     function setUp() public virtual {
         erc20 = new TestERC20("TestERC20", "TestERC20");
-        configHub = new ConfigHub(owner, address(0));
+        configHub = new ConfigHub(owner);
 
         setupTestedContract();
 
@@ -77,7 +77,7 @@ abstract contract BaseEmergencyAdminTestBase is Test {
     }
 
     function test_setConfigHub() public {
-        ConfigHub newConfigHub = new ConfigHub(owner, address(0));
+        ConfigHub newConfigHub = new ConfigHub(owner);
 
         vm.prank(owner);
         vm.expectEmit(address(testedContract));

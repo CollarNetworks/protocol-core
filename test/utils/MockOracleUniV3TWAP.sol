@@ -12,15 +12,11 @@ import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 contract MockOracleUniV3TWAP is OracleUniV3TWAP {
     mapping(uint timestamp => uint value) historicalPrices;
 
-    constructor(
-        address _baseToken,
-        address _quoteToken,
-        uint24 _feeTier,
-        uint32 _twapWindow,
-        address _uniV3SwapRouter,
-        uint currentPrice
-    ) OracleUniV3TWAP(_baseToken, _quoteToken, _feeTier, _twapWindow, _uniV3SwapRouter) {
-        setHistoricalAssetPrice(block.timestamp, currentPrice);
+    constructor(address _baseToken, address _quoteToken)
+        OracleUniV3TWAP(_baseToken, _quoteToken, 0, 0, address(0))
+    {
+        // setup a non zero price for taker constructor sanity checks
+        setHistoricalAssetPrice(block.timestamp, 1);
     }
 
     function setHistoricalAssetPrice(uint timestamp, uint value) public {

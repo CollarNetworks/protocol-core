@@ -4,7 +4,6 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
-import { MockSwapRouter } from "../utils/MockSwapRouter.sol";
 import { MockOracleUniV3TWAP } from "../utils/MockOracleUniV3TWAP.sol";
 
 import { Loans } from "../../src/Loans.sol";
@@ -18,9 +17,7 @@ contract BaseTestSetup is Test {
     TestERC20 cashAsset;
     TestERC20 collateralAsset;
     ConfigHub configHub;
-    MockSwapRouter mockSwapRouter;
     MockOracleUniV3TWAP mockOracle;
-    OracleUniV3TWAP oracle;
     CollarTakerNFT takerNFT;
     ProviderPositionNFT providerNFT;
     ProviderPositionNFT providerNFT2;
@@ -32,8 +29,6 @@ contract BaseTestSetup is Test {
     address provider = makeAddr("provider");
     address keeper = makeAddr("keeper");
 
-    uint24 constant FEE_TIER = 3000;
-    uint32 constant TWAP_WINDOW = 15 minutes;
     uint constant BIPS_100PCT = 10_000;
 
     uint ltv = 9000;
@@ -45,7 +40,6 @@ contract BaseTestSetup is Test {
     uint twapPrice = 1000 ether;
     uint swapCashAmount = (collateralAmount * twapPrice / 1e18);
 
-    // rolls
     int rollFee = 1 ether;
 
     function setUp() public virtual {
@@ -56,25 +50,16 @@ contract BaseTestSetup is Test {
     }
 
     function deployContracts() internal {
-        // assets
         cashAsset = new TestERC20("TestCash", "TestCash");
         collateralAsset = new TestERC20("TestCollat", "TestCollat");
         vm.label(address(cashAsset), "TestCash");
         vm.label(address(collateralAsset), "TestCollat");
 
-        // router (swaps and oracle)
-        mockSwapRouter = new MockSwapRouter();
-        vm.label(address(mockSwapRouter), "UniRouter");
-
-        // system
-        configHub = new ConfigHub(owner, address(mockSwapRouter));
+        configHub = new ConfigHub(owner);
         vm.label(address(configHub), "ConfigHub");
 
         // asset pair contracts
-        mockOracle = new MockOracleUniV3TWAP(
-            address(collateralAsset), address(cashAsset), FEE_TIER, TWAP_WINDOW, address(0), twapPrice
-        );
-
+        mockOracle = new MockOracleUniV3TWAP(address(collateralAsset), address(cashAsset));
         takerNFT = new CollarTakerNFT(
             owner, configHub, cashAsset, collateralAsset, mockOracle, "CollarTakerNFT", "TKRNFT"
         );
@@ -89,7 +74,7 @@ contract BaseTestSetup is Test {
         vm.label(address(takerNFT), "CollarTakerNFT");
         vm.label(address(providerNFT), "ProviderPositionNFT");
 
-        // periphery
+        // asset pair periphery
         rolls = new Rolls(owner, takerNFT);
         loans = new Loans(owner, takerNFT);
         vm.label(address(rolls), "Rolls");

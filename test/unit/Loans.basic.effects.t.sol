@@ -6,14 +6,27 @@ import "forge-std/Test.sol";
 import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { BaseTestSetup } from "./BaseTestSetup.sol";
+import { MockSwapRouter } from "../utils/MockSwapRouter.sol";
 
 import { Loans, ILoans } from "../../src/Loans.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 
 contract LoansTestBase is BaseTestSetup {
+    MockSwapRouter mockSwapRouter;
+
     // swap amount * ltv
     uint minLoanAmount = swapCashAmount * (ltv / BIPS_100PCT);
+
+    function setUp() public override {
+        super.setUp();
+
+        mockSwapRouter = new MockSwapRouter();
+        vm.label(address(mockSwapRouter), "UniRouter");
+
+        vm.prank(owner);
+        configHub.setUniV3Router(address(mockSwapRouter));
+    }
 
     function prepareSwap(TestERC20 asset, uint amount) public {
         asset.mint(address(mockSwapRouter), amount);

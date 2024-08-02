@@ -11,6 +11,7 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 
 contract MockSwapRouter {
+    address public factory = address(1); // not zero
     uint amountToReturn;
     uint amountToTransfer;
 

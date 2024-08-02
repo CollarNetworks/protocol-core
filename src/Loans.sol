@@ -346,7 +346,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         returns (uint amountOut)
     {
         // approve the dex router
-        assetIn.forceApprove(configHub.univ3SwapRouter(), amountIn);
+        assetIn.forceApprove(configHub.uniV3SwapRouter(), amountIn);
 
         // build the swap transaction
         IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
@@ -362,7 +362,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         uint balanceBefore = assetOut.balanceOf(address(this));
         // reentrancy assumptions: router is trusted + swap path is direct (not through multiple pools)
         uint amountOutRouter =
-            IV3SwapRouter(payable(configHub.univ3SwapRouter())).exactInputSingle(swapParams);
+            IV3SwapRouter(payable(configHub.uniV3SwapRouter())).exactInputSingle(swapParams);
         // Calculate the actual amount received
         amountOut = assetOut.balanceOf(address(this)) - balanceBefore;
         // check balance is updated as expected and as reported by router (no other balance changes)

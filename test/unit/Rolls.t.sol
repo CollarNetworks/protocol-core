@@ -664,12 +664,12 @@ contract RollsTest is BaseTestSetup {
         // Taker position already settled
         startHoax(user1);
         skip(duration);
+        updatePrice();
         takerNFT.settlePairedPosition(takerId);
         vm.expectRevert("taker position settled");
         rolls.executeRoll(rollId, type(int).min);
 
         // new offer
-        updatePrice();
         (takerId, rollId, offer) = createAndCheckRollOffer();
         // Offer already executed
         startHoax(user1);
