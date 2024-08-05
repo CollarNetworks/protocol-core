@@ -41,9 +41,9 @@ contract CreateOffersAndOpenPosition is Script, DeploymentUtils, BaseDeployment 
             "liquidity provider does not have enough funds"
         );
 
-        // _createOffers(liquidityProvider, allPairs);
+        _createOffers(liquidityProvider, allPairs);
 
-        // console.log("\nOffers created successfully");
+        console.log("\nOffers created successfully");
 
         (uint takerId, uint providerId,) = _openUserPosition(user1, liquidityProvider, usdcWethPair);
         console.log("\nUser position opened successfully");

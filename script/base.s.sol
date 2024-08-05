@@ -11,7 +11,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../src/Rolls.sol";
 import { DeploymentUtils } from "./utils/deployment-exporter.s.sol";
 
-contract BaseDeployment is Script, DeploymentUtils {
+contract BaseDeployment is Script {
     address router;
     ConfigHub configHub;
     address deployerAddress;
@@ -36,7 +36,7 @@ contract BaseDeployment is Script, DeploymentUtils {
         VmSafe.Wallet memory deployerWallet = vm.createWallet(vm.envUint("PRIVKEY_DEV_DEPLOYER"));
         VmSafe.Wallet memory user1Wallet = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST1"));
         VmSafe.Wallet memory user2Wallet = vm.createWallet(vm.envUint("PRIVKEY_DEV_TEST2"));
-        VmSafe.Wallet memory liquidityProviderWallet = vm.createWallet(vm.envUint("PRIVKEY_DEV_DEPLOYER"));
+        VmSafe.Wallet memory liquidityProviderWallet = vm.createWallet(vm.envUint("LIQUIDITY_PROVIDER_KEY"));
 
         vm.rememberKey(deployerWallet.privateKey);
         vm.rememberKey(user1Wallet.privateKey);
