@@ -7,38 +7,14 @@ import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { TestERC20 } from "../utils/TestERC20.sol";
-import { MockConfigHub } from "../../test/utils/MockConfigHub.sol";
-import { BaseEmergencyAdminTestBase } from "./BaseEmergencyAdmin.t.sol";
+
+import { BaseTestSetup, CollarTakerNFT, ProviderPositionNFT } from "./BaseTestSetup.sol";
 
 import { Rolls, IRolls } from "../../src/Rolls.sol";
-import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
-import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 
-contract RollsTest is Test {
-    TestERC20 cashAsset;
-    TestERC20 collateralAsset;
-    MockConfigHub configHub;
-    CollarTakerNFT takerNFT;
-    ProviderPositionNFT providerNFT;
-    ProviderPositionNFT providerNFT2;
-    Rolls rolls;
-
-    address owner = makeAddr("owner");
-    address user1 = makeAddr("user1");
-    address provider = makeAddr("provider");
-
-    uint constant BIPS_100PCT = 10_000;
-    uint ltv = 9000;
-    uint duration = 300;
-    uint callStrikeDeviation = 12_000;
-
-    uint twapPrice = 1000 ether;
-    uint collateralAmount = 1 ether;
-    uint swapAmount = collateralAmount * twapPrice / 1 ether; // 1000
-    uint putLocked = swapAmount * (BIPS_100PCT - ltv) / BIPS_100PCT; // 100
-    uint callLocked = swapAmount * (callStrikeDeviation - BIPS_100PCT) / BIPS_100PCT; // 100
-    uint amountToProvide = 100_000 ether;
+contract RollsTest is BaseTestSetup {
+    uint putLocked = swapCashAmount * (BIPS_100PCT - ltv) / BIPS_100PCT; // 100
+    uint callLocked = swapCashAmount * (callStrikeDeviation - BIPS_100PCT) / BIPS_100PCT; // 100
 
     // roll offer params
     int rollFeeAmount = 1 ether;
@@ -48,56 +24,13 @@ contract RollsTest is Test {
     int minToProvider = -int(callLocked) / 2;
     uint deadline = block.timestamp + 1 days;
 
-    function setUp() public {
-        cashAsset = new TestERC20("TestCash", "TestCash");
-        collateralAsset = new TestERC20("TestCollat", "TestCollat");
-        configHub = new MockConfigHub(owner, address(0));
-        startHoax(owner);
-        setupConfigHub();
-
-        takerNFT =
-            new CollarTakerNFT(owner, configHub, cashAsset, collateralAsset, "CollarTakerNFT", "TKRNFT");
-        providerNFT = new ProviderPositionNFT(
-            owner, configHub, cashAsset, collateralAsset, address(takerNFT), "ProviderNFT", "PRVNFT"
-        );
-        rolls = new Rolls(owner, takerNFT, cashAsset);
-        // this is to avoid having the paired IDs being equal
-        providerNFT2 = new ProviderPositionNFT(
-            owner, configHub, cashAsset, collateralAsset, address(takerNFT), "ProviderNFT-2", "PRVNFT-2"
-        );
-
-        configHub.setCollarTakerContractAuth(address(takerNFT), true);
-        configHub.setProviderContractAuth(address(providerNFT), true);
-        configHub.setProviderContractAuth(address(providerNFT2), true);
-
-        cashAsset.mint(user1, putLocked * 10);
-        cashAsset.mint(provider, amountToProvide * 10);
-
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
-
-        vm.label(address(cashAsset), "TestCash");
-        vm.label(address(collateralAsset), "TestCollat");
-        vm.label(address(configHub), "ConfigHub");
-        vm.label(address(takerNFT), "CollarTakerNFT");
-        vm.label(address(providerNFT), "ProviderNFT");
-        vm.label(address(providerNFT2), "ProviderNFT-2");
-        vm.label(address(rolls), "Rolls");
-    }
-
-    function setupConfigHub() public {
-        configHub.setLTVRange(ltv, ltv);
-        configHub.setCollarDurationRange(duration, duration);
-        configHub.setCashAssetSupport(address(cashAsset), true);
-        configHub.setCollateralAssetSupport(address(collateralAsset), true);
-    }
-
     function createProviderOffers() internal returns (uint offerId, uint offerId2) {
         startHoax(provider);
-        cashAsset.approve(address(providerNFT), amountToProvide);
-        offerId = providerNFT.createOffer(callStrikeDeviation, amountToProvide, ltv, duration);
+        cashAsset.approve(address(providerNFT), largeAmount);
+        offerId = providerNFT.createOffer(callStrikeDeviation, largeAmount, ltv, duration);
         // another provider NFT
-        cashAsset.approve(address(providerNFT2), amountToProvide);
-        offerId2 = providerNFT2.createOffer(callStrikeDeviation, amountToProvide, ltv, duration);
+        cashAsset.approve(address(providerNFT2), largeAmount);
+        offerId2 = providerNFT2.createOffer(callStrikeDeviation, largeAmount, ltv, duration);
     }
 
     function createTakerPositions() internal returns (uint takerId, uint providerId) {
@@ -213,7 +146,7 @@ contract RollsTest is Test {
         uint rollsBalance = cashAsset.balanceOf(address(rolls));
 
         // update to new price
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, newPrice);
+        updatePrice(newPrice);
         // Execute roll
         startHoax(user1);
         takerNFT.approve(address(rolls), offer.takerId);
@@ -308,7 +241,7 @@ contract RollsTest is Test {
     // happy cases
 
     function test_constructor() public {
-        Rolls newRolls = new Rolls(owner, takerNFT, cashAsset);
+        Rolls newRolls = new Rolls(owner, takerNFT);
         assertEq(address(newRolls.takerNFT()), address(takerNFT));
         assertEq(address(newRolls.cashAsset()), address(cashAsset));
         assertEq(newRolls.VERSION(), "0.2.0");
@@ -599,7 +532,7 @@ contract RollsTest is Test {
         );
 
         // new taker position
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        updatePrice();
         (takerId, providerId) = createTakerPositions();
         startHoax(provider);
         providerNFT.approve(address(rolls), providerId);
@@ -730,12 +663,12 @@ contract RollsTest is Test {
         // Taker position already settled
         startHoax(user1);
         skip(duration);
+        updatePrice();
         takerNFT.settlePairedPosition(takerId);
         vm.expectRevert("taker position settled");
         rolls.executeRoll(rollId, type(int).min);
 
         // new offer
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
         (takerId, rollId, offer) = createAndCheckRollOffer();
         // Offer already executed
         startHoax(user1);
@@ -751,20 +684,20 @@ contract RollsTest is Test {
 
         // Price too high
         uint highPrice = offer.maxPrice + 1;
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, highPrice);
+        updatePrice(highPrice);
         startHoax(user1);
         vm.expectRevert("price too high");
         rolls.executeRoll(rollId, type(int).min);
 
         // Price too low
         uint lowPrice = offer.minPrice - 1;
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, lowPrice);
+        updatePrice(lowPrice);
         vm.expectRevert("price too low");
         rolls.executeRoll(rollId, type(int).min);
 
         // Deadline passed
         skip(deadline + 1);
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        updatePrice(twapPrice);
         vm.expectRevert("deadline passed");
         rolls.executeRoll(rollId, type(int).min);
     }
@@ -789,7 +722,7 @@ contract RollsTest is Test {
         takerNFT.approve(address(rolls), takerId);
         cashAsset.approve(address(rolls), type(uint).max);
         uint newPrice = twapPrice * 110 / 100;
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, newPrice);
+        updatePrice(newPrice);
         vm.expectRevert("provider transfer slippage");
         rolls.executeRoll(rollId, type(int).min);
     }
@@ -809,7 +742,7 @@ contract RollsTest is Test {
         takerNFT.approve(address(rolls), takerId);
         cashAsset.approve(address(rolls), 0);
         uint lowPrice = twapPrice * 9 / 10;
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, lowPrice);
+        updatePrice(lowPrice);
         (int toTaker,,) = rolls.calculateTransferAmounts(rollId, lowPrice);
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -823,7 +756,7 @@ contract RollsTest is Test {
         (uint takerId, uint rollId,) = createAndCheckRollOffer();
 
         uint highPrice = twapPrice * 11 / 10;
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, highPrice);
+        updatePrice(highPrice);
         (, int toProvider,) = rolls.calculateTransferAmounts(rollId, highPrice);
 
         // provider revoked approval
@@ -860,23 +793,5 @@ contract RollsTest is Test {
         // Attempt to execute the roll
         vm.expectRevert("unexpected withdrawal amount");
         rolls.executeRoll(rollId, type(int).min);
-    }
-}
-
-contract LoansEmergencyAdminTest is BaseEmergencyAdminTestBase {
-    function setupTestedContract() internal override {
-        TestERC20 cashAsset = new TestERC20("TestCash", "TestCash");
-        TestERC20 collateralAsset = new TestERC20("TestCollat", "TestCollat");
-
-        vm.startPrank(owner);
-        configHub.setCashAssetSupport(address(cashAsset), true);
-        configHub.setCollateralAssetSupport(address(collateralAsset), true);
-        vm.stopPrank();
-
-        CollarTakerNFT takerNFT = new CollarTakerNFT(
-            owner, configHub, cashAsset, collateralAsset, "CollarTakerNFT", "CollarTakerNFT"
-        );
-
-        testedContract = new Rolls(owner, takerNFT, cashAsset);
     }
 }

@@ -7,6 +7,7 @@ import "forge-std/console.sol";
 import { ConfigHub } from "../src/ConfigHub.sol";
 import { ProviderPositionNFT } from "../src/ProviderPositionNFT.sol";
 import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
+import { OracleUniV3TWAP } from "../src/OracleUniV3TWAP.sol";
 import { Loans } from "../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 // import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -37,6 +38,10 @@ contract DeployInitializedDevnetProtocol is Script {
     address WBTC = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
     address MATIC = 0x561877b6b3DD7651313794e5F2894B2F18bE0766;
     address swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
+
+    uint24 constant FEE_TIER = 3000;
+    uint32 constant TWAP_WINDOW = 15 minutes;
+
     uint constant numOfPairs = 11;
     uint[] callStrikeTicks = [11_100, 11_200, 11_500, 12_000];
     uint[] allDurations = [5 minutes, 30 days, 12 * 30 days];
@@ -48,6 +53,7 @@ contract DeployInitializedDevnetProtocol is Script {
     struct AssetPairContracts {
         ProviderPositionNFT providerNFT;
         CollarTakerNFT takerNFT;
+        OracleUniV3TWAP oracle;
         Loans loansContract;
         IERC20 cashAsset;
         IERC20 collateralAsset;
@@ -83,8 +89,10 @@ contract DeployInitializedDevnetProtocol is Script {
     }
 
     function _deployandSetupConfigHub() internal {
+        configHub = new ConfigHub(msg.sender);
+
         router = swapRouterAddress;
-        configHub = new ConfigHub(msg.sender, router);
+        configHub.setUniV3Router(router);
 
         // add supported cash assets
         configHub.setCashAssetSupport(USDC, true);
@@ -127,11 +135,15 @@ contract DeployInitializedDevnetProtocol is Script {
         uint[] memory durations,
         uint[] memory ltvs
     ) internal {
+        OracleUniV3TWAP oracle = new OracleUniV3TWAP(
+            address(collateralAsset), address(cashAsset), FEE_TIER, TWAP_WINDOW, swapRouterAddress
+        );
         CollarTakerNFT takerNFT = new CollarTakerNFT(
             address(this),
             configHub,
             cashAsset,
             collateralAsset,
+            oracle,
             string(abi.encodePacked("Taker ", pairName)),
             string(abi.encodePacked("T", pairName))
         );
@@ -149,7 +161,7 @@ contract DeployInitializedDevnetProtocol is Script {
         configHub.setCollarTakerContractAuth(address(takerNFT), true);
         configHub.setProviderContractAuth(address(providerNFT), true);
         AssetPairContracts memory contracts = AssetPairContracts(
-            providerNFT, takerNFT, loansContract, cashAsset, collateralAsset, durations, ltvs
+            providerNFT, takerNFT, oracle, loansContract, cashAsset, collateralAsset, durations, ltvs
         );
         require(address(contracts.providerNFT) != address(0), "Provider NFT not created");
         require(address(contracts.takerNFT) != address(0), "Taker NFT not created");
@@ -251,12 +263,7 @@ contract DeployInitializedDevnetProtocol is Script {
         uint initialCashBalance = pair.cashAsset.balanceOf(user);
 
         // Get TWAP price before loan creation
-        uint twapPrice = configHub.getHistoricalAssetPriceViaTWAP(
-            address(pair.collateralAsset),
-            address(pair.cashAsset),
-            uint32(block.timestamp),
-            pair.takerNFT.TWAP_LENGTH()
-        );
+        uint twapPrice = pair.takerNFT.currentOraclePrice();
 
         // Open a position
         (uint takerId, uint providerId, uint loanAmount) = pair.loansContract.createLoan(

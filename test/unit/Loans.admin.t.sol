@@ -14,7 +14,6 @@ import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
 import { LoansTestBase, TestERC20 } from "./Loans.basic.effects.t.sol";
-import { BaseEmergencyAdminTestBase } from "./BaseEmergencyAdmin.t.sol";
 
 contract LoansAdminTest is LoansTestBase {
     function test_onlyOwnerMethods() public {
@@ -49,7 +48,7 @@ contract LoansAdminTest is LoansTestBase {
         // check setup
         assertEq(address(loans.rollsContract()), address(rolls));
         // check can upted
-        Rolls newRolls = new Rolls(owner, takerNFT, cashAsset);
+        Rolls newRolls = new Rolls(owner, takerNFT);
         vm.startPrank(owner);
         vm.expectEmit(address(loans));
         emit ILoans.RollsContractUpdated(rolls, newRolls);
@@ -104,38 +103,16 @@ contract LoansAdminTest is LoansTestBase {
         vm.startPrank(owner);
 
         // Test revert when taker NFT doesn't match
-        CollarTakerNFT invalidTakerNFT =
-            new CollarTakerNFT(owner, configHub, cashAsset, collateralAsset, "InvalidTakerNFT", "INVTKR");
-        Rolls invalidTakerRolls = new Rolls(owner, invalidTakerNFT, cashAsset);
+        CollarTakerNFT invalidTakerNFT = new CollarTakerNFT(
+            owner, configHub, cashAsset, collateralAsset, mockOracle, "InvalidTakerNFT", "INVTKR"
+        );
+        Rolls invalidTakerRolls = new Rolls(owner, invalidTakerNFT);
         vm.expectRevert("rolls taker NFT mismatch");
         loans.setRollsContract(invalidTakerRolls);
-
-        // Test revert when cash asset doesn't match
-        Rolls invalidRolls = new Rolls(owner, takerNFT, collateralAsset); // collateralAsset instead of cashAsset
-        vm.expectRevert("rolls cash asset mismatch");
-        loans.setRollsContract(invalidRolls);
 
         // Test revert when called by non-owner (tested elsewhere as well)
         vm.startPrank(user1);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user1));
         loans.setRollsContract(Rolls(address(0)));
-    }
-}
-
-contract LoansEmergencyAdminTest is BaseEmergencyAdminTestBase {
-    function setupTestedContract() internal override {
-        TestERC20 cashAsset = new TestERC20("TestCash", "TestCash");
-        TestERC20 collateralAsset = new TestERC20("TestCollat", "TestCollat");
-
-        vm.startPrank(owner);
-        configHub.setCashAssetSupport(address(cashAsset), true);
-        configHub.setCollateralAssetSupport(address(collateralAsset), true);
-        vm.stopPrank();
-
-        CollarTakerNFT takerNFT = new CollarTakerNFT(
-            owner, configHub, cashAsset, collateralAsset, "CollarTakerNFT", "CollarTakerNFT"
-        );
-
-        testedContract = new Loans(owner, takerNFT);
     }
 }

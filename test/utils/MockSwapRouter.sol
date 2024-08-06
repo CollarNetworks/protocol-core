@@ -10,8 +10,8 @@ pragma solidity 0.8.22;
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 
-contract MockUniRouter {
-    address public factory = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
+contract MockSwapRouter {
+    address public factory = address(1); // not zero
     uint amountToReturn;
     uint amountToTransfer;
 

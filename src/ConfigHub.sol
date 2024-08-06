@@ -12,7 +12,6 @@ import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 // internal imports
 import { IConfigHub } from "./interfaces/IConfigHub.sol";
-import { UniV3OracleLib } from "./libs/UniV3OracleLib.sol";
 import { IProviderPositionNFT } from "./interfaces/IProviderPositionNFT.sol";
 import { ICollarTakerNFT } from "./interfaces/ICollarTakerNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -22,9 +21,6 @@ contract ConfigHub is Ownable2Step, IConfigHub {
 
     string public constant VERSION = "0.2.0";
 
-    address public immutable univ3SwapRouter;
-
-    uint public constant TWAP_BASE_TOKEN_AMOUNT = uint(UniV3OracleLib.BASE_TOKEN_AMOUNT);
     // configuration validation (validate on set)
     uint public constant MIN_CONFIGURABLE_LTV = 1000;
     uint public constant MAX_CONFIGURABLE_LTV = 9999;
@@ -36,6 +32,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     uint public minDuration;
     uint public maxDuration;
     // pause guardian for other contracts
+    address public uniV3SwapRouter;
     address public pauseGuardian;
 
     // -- internal state variables ---
@@ -44,9 +41,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     mapping(address contractAddress => bool enabled) public isCollarTakerNFT;
     mapping(address contractAddress => bool enabled) public isProviderNFT;
 
-    constructor(address _initialOwner, address _univ3SwapRouter) Ownable(_initialOwner) {
-        univ3SwapRouter = _univ3SwapRouter;
-    }
+    constructor(address _initialOwner) Ownable(_initialOwner) { }
 
     // ----- state-changing functions (see IConfigHub for documentation) -----
 
@@ -110,6 +105,14 @@ contract ConfigHub is Ownable2Step, IConfigHub {
         pauseGuardian = newGuardian;
     }
 
+    // swap router
+
+    function setUniV3Router(address _uniV3SwapRouter) external onlyOwner {
+        require(IPeripheryImmutableState(_uniV3SwapRouter).factory() != address(0), "invalid router");
+        emit UniV3RouterSet(uniV3SwapRouter, _uniV3SwapRouter); // emit before for the prev-value
+        uniV3SwapRouter = _uniV3SwapRouter;
+    }
+
     // ----- view functions (see IConfigHub for documentation) -----
 
     // collar durations
@@ -122,17 +125,5 @@ contract ConfigHub is Ownable2Step, IConfigHub {
 
     function isValidLTV(uint ltv) external view returns (bool) {
         return ltv >= minLTV && ltv <= maxLTV;
-    }
-
-    function getHistoricalAssetPriceViaTWAP(
-        address baseToken,
-        address quoteToken,
-        uint32 twapEndTimestamp,
-        uint32 twapLength
-    ) external view virtual returns (uint price) {
-        require(isSupportedCashAsset[baseToken] || isSupportedCollateralAsset[baseToken], "not supported");
-        require(isSupportedCashAsset[quoteToken] || isSupportedCollateralAsset[quoteToken], "not supported");
-        address uniV3Factory = IPeripheryImmutableState(univ3SwapRouter).factory();
-        price = UniV3OracleLib.getTWAP(baseToken, quoteToken, twapEndTimestamp, twapLength, uniV3Factory);
     }
 }

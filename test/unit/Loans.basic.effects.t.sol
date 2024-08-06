@@ -5,92 +5,33 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
-import { MockConfigHub } from "../../test/utils/MockConfigHub.sol";
-import { MockUniRouter } from "../../test/utils/MockUniRouter.sol";
+import { BaseTestSetup } from "./BaseTestSetup.sol";
+import { MockSwapRouter } from "../utils/MockSwapRouter.sol";
 
 import { Loans, ILoans } from "../../src/Loans.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
-import { Rolls } from "../../src/Rolls.sol";
 
-contract LoansTestBase is Test {
-    TestERC20 cashAsset;
-    TestERC20 collateralAsset;
-    MockConfigHub configHub;
-    MockUniRouter uniRouter;
-    CollarTakerNFT takerNFT;
-    ProviderPositionNFT providerNFT;
-    Loans loans;
-    Rolls rolls;
+contract LoansTestBase is BaseTestSetup {
+    MockSwapRouter mockSwapRouter;
 
-    address owner = makeAddr("owner");
-    address user1 = makeAddr("user1");
-    address provider = makeAddr("provider");
-    address keeper = makeAddr("keeper");
-
-    uint constant BIPS_100PCT = 10_000;
-    uint ltv = 9000;
-    uint duration = 300;
-    uint callStrikeDeviation = 12_000;
-
-    uint twapPrice = 1000 ether;
-    uint collateralAmount = 1 ether;
-    // swap amount
-    uint minSwapCash = (collateralAmount * twapPrice / 1e18);
     // swap amount * ltv
-    uint minLoanAmount = minSwapCash * (ltv / BIPS_100PCT);
-    uint amountToProvide = 100_000 ether;
+    uint minLoanAmount = swapCashAmount * (ltv / BIPS_100PCT);
 
-    // rolls
-    int rollFee = 1 ether;
+    function setUp() public override {
+        super.setUp();
 
-    function setUp() public {
-        cashAsset = new TestERC20("TestCash", "TestCash");
-        collateralAsset = new TestERC20("TestCollat", "TestCollat");
-        uniRouter = new MockUniRouter();
-        configHub = new MockConfigHub(owner, address(uniRouter));
-        startHoax(owner);
-        setupConfigHub();
+        mockSwapRouter = new MockSwapRouter();
+        vm.label(address(mockSwapRouter), "UniRouter");
 
-        takerNFT =
-            new CollarTakerNFT(owner, configHub, cashAsset, collateralAsset, "CollarTakerNFT", "TKRNFT");
-        providerNFT = new ProviderPositionNFT(
-            owner, configHub, cashAsset, collateralAsset, address(takerNFT), "ProviderNFT", "PRVNFT"
-        );
-        rolls = new Rolls(owner, takerNFT, cashAsset);
-        loans = new Loans(owner, takerNFT);
-
-        configHub.setCollarTakerContractAuth(address(takerNFT), true);
-        configHub.setProviderContractAuth(address(providerNFT), true);
-
-        loans.setRollsContract(rolls);
-
-        collateralAsset.mint(user1, collateralAmount * 10);
-        cashAsset.mint(user1, minSwapCash * 10);
-        cashAsset.mint(provider, amountToProvide * 10);
-
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
-
-        vm.label(address(cashAsset), "TestCash");
-        vm.label(address(collateralAsset), "TestCollat");
-        vm.label(address(configHub), "ConfigHub");
-        vm.label(address(uniRouter), "UniRouter");
-        vm.label(address(takerNFT), "CollarTakerNFT");
-        vm.label(address(providerNFT), "ProviderPositionNFT");
-        vm.label(address(loans), "Loans");
-    }
-
-    function setupConfigHub() public {
-        configHub.setCashAssetSupport(address(cashAsset), true);
-        configHub.setCollateralAssetSupport(address(collateralAsset), true);
-        configHub.setLTVRange(ltv, ltv);
-        configHub.setCollarDurationRange(duration, duration);
+        vm.prank(owner);
+        configHub.setUniV3Router(address(mockSwapRouter));
     }
 
     function prepareSwap(TestERC20 asset, uint amount) public {
-        asset.mint(address(uniRouter), amount);
-        uniRouter.setAmountToReturn(amount);
-        uniRouter.setTransferAmount(amount);
+        asset.mint(address(mockSwapRouter), amount);
+        mockSwapRouter.setAmountToReturn(amount);
+        mockSwapRouter.setTransferAmount(amount);
     }
 
     function prepareSwapToCollateralAtTWAPPrice() public returns (uint swapOut) {
@@ -105,15 +46,15 @@ contract LoansTestBase is Test {
 
     function createOfferAsProvider() internal returns (uint offerId) {
         startHoax(provider);
-        cashAsset.approve(address(providerNFT), amountToProvide);
-        offerId = providerNFT.createOffer(callStrikeDeviation, amountToProvide, ltv, duration);
+        cashAsset.approve(address(providerNFT), largeAmount);
+        offerId = providerNFT.createOffer(callStrikeDeviation, largeAmount, ltv, duration);
     }
 
     function createAndCheckLoan() internal returns (uint takerId, uint providerId, uint loanAmount) {
         uint offerId = createOfferAsProvider();
 
         // TWAP price must be set for every block
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        updatePrice();
 
         // convert at twap price
         uint swapOut = collateralAmount * twapPrice / 1e18;
@@ -140,7 +81,7 @@ contract LoansTestBase is Test {
         );
 
         (takerId, providerId, loanAmount) =
-            loans.createLoan(collateralAmount, minLoanAmount, minSwapCash, providerNFT, offerId);
+            loans.createLoan(collateralAmount, minLoanAmount, swapCashAmount, providerNFT, offerId);
 
         // Check return values
         assertEq(takerId, nextTakerId);
@@ -191,7 +132,7 @@ contract LoansTestBase is Test {
         uint expectedCollateralOut
     ) internal {
         // TWAP price must be set for every block
-        configHub.setHistoricalAssetPrice(address(collateralAsset), block.timestamp, twapPrice);
+        updatePrice();
 
         vm.startPrank(user1);
         // Approve loan contract to spend user's cash for repayment
@@ -284,7 +225,7 @@ contract LoansBasicHappyPathsTest is LoansTestBase {
     }
 
     function test_closeLoan_simple() public {
-        (uint takerId, uint providerId, uint loanAmount) = createAndCheckLoan();
+        (uint takerId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
 
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(takerId);
@@ -296,7 +237,7 @@ contract LoansBasicHappyPathsTest is LoansTestBase {
     }
 
     function test_closeLoan_byKeeper() public {
-        (uint takerId, uint providerId, uint loanAmount) = createAndCheckLoan();
+        (uint takerId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
 
         // Set the keeper
