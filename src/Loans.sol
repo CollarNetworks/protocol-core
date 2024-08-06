@@ -294,7 +294,6 @@ contract Loans is ILoans, BaseEmergencyAdmin {
     function setRollsContract(Rolls rolls) external onlyOwner {
         if (rolls != Rolls(address(0))) {
             require(rolls.takerNFT() == takerNFT, "rolls taker NFT mismatch");
-            require(rolls.cashAsset() == cashAsset, "rolls cash asset mismatch");
         }
         emit RollsContractUpdated(rollsContract, rolls); // emit before for the prev value
         rollsContract = rolls;
@@ -347,7 +346,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         returns (uint amountOut)
     {
         // approve the dex router
-        assetIn.forceApprove(configHub.univ3SwapRouter(), amountIn);
+        assetIn.forceApprove(configHub.uniV3SwapRouter(), amountIn);
 
         // build the swap transaction
         IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
@@ -363,7 +362,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         uint balanceBefore = assetOut.balanceOf(address(this));
         // reentrancy assumptions: router is trusted + swap path is direct (not through multiple pools)
         uint amountOutRouter =
-            IV3SwapRouter(payable(configHub.univ3SwapRouter())).exactInputSingle(swapParams);
+            IV3SwapRouter(payable(configHub.uniV3SwapRouter())).exactInputSingle(swapParams);
         // Calculate the actual amount received
         amountOut = assetOut.balanceOf(address(this)) - balanceBefore;
         // check balance is updated as expected and as reported by router (no other balance changes)
@@ -387,8 +386,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         // position could have been settled by user or provider already
         bool settled = takerNFT.getPosition(takerId).settled;
         if (!settled) {
-            /// @dev this will revert on:
-            ///     not owner, too early, no position, calculation issues, ...
+            /// @dev this will revert on: too early, no position, calculation issues, ...
             takerNFT.settlePairedPosition(takerId);
         }
 
@@ -407,7 +405,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
 
         // get transfer amount and fee from rolls
         (int transferPreview,, int rollFee) =
-            rollsContract.calculateTransferAmounts(rollId, _currentTWAPPrice());
+            rollsContract.calculateTransferAmounts(rollId, takerNFT.currentOraclePrice());
 
         // update loan amount
         newLoanAmount = _calculateNewLoan(transferPreview, rollFee, loanAmount);
@@ -456,16 +454,12 @@ contract Loans is ILoans, BaseEmergencyAdmin {
     /// The caller (user) is protected via a slippage parameter, and SHOULD use it to avoid MEV (if present).
     /// So, this check is just extra precaution and avoidance of manipulation edge-cases.
     function _checkSwapPrice(uint cashFromSwap, uint collateralAmount) internal view {
-        uint twapPrice = _currentTWAPPrice();
+        uint twapPrice = takerNFT.currentOraclePrice();
         // collateral is checked on open to not be 0
-        uint swapPrice = cashFromSwap * configHub.TWAP_BASE_TOKEN_AMOUNT() / collateralAmount;
+        uint swapPrice = cashFromSwap * takerNFT.oracle().BASE_TOKEN_AMOUNT() / collateralAmount;
         uint diff = swapPrice > twapPrice ? swapPrice - twapPrice : twapPrice - swapPrice;
         uint deviation = diff * BIPS_BASE / twapPrice;
         require(deviation <= MAX_SWAP_TWAP_DEVIATION_BIPS, "swap and twap price too different");
-    }
-
-    function _currentTWAPPrice() internal view returns (uint) {
-        return takerNFT.getReferenceTWAPPrice(block.timestamp);
     }
 
     function _calculateNewLoan(int rollTransferIn, int rollFee, uint initialLoanAmount)

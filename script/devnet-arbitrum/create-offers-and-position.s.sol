@@ -113,12 +113,7 @@ contract CreateOffersAndOpenPosition is Script, DeploymentUtils, BaseDeployment 
         uint initialCashBalance = pair.cashAsset.balanceOf(user);
 
         // Get TWAP price before loan creation
-        uint twapPrice = configHub.getHistoricalAssetPriceViaTWAP(
-            address(pair.collateralAsset),
-            address(pair.cashAsset),
-            uint32(block.timestamp),
-            pair.takerNFT.TWAP_LENGTH()
-        );
+        uint twapPrice = pair.takerNFT.currentOraclePrice();
 
         // Open a position
         (takerId, providerId, loanAmount) = pair.loansContract.createLoan(
@@ -191,7 +186,7 @@ contract CreateOffersAndOpenPosition is Script, DeploymentUtils, BaseDeployment 
         returns (uint rollOfferId)
     {
         vm.startBroadcast(provider);
-        uint currentPrice = pair.takerNFT.getReferenceTWAPPrice(block.timestamp);
+        uint currentPrice = pair.takerNFT.currentOraclePrice();
         pair.cashAsset.approve(address(pair.rollsContract), type(uint).max);
         pair.providerNFT.approve(address(pair.rollsContract), providerId);
         rollOfferId = pair.rollsContract.createRollOffer(

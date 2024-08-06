@@ -8,24 +8,36 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import "forge-std/console.sol";
-import { ConfigHub } from "../../../src/ConfigHub.sol";
+
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
-import { TestPriceOracle } from "../../utils/TestPriceOracle.sol";
+import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import { OracleLibrary } from "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
+
 import { CollarBaseIntegrationTestConfig } from "./BaseIntegration.t.sol";
+
+import { ConfigHub } from "../../../src/ConfigHub.sol";
 
 abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTestConfig {
     using SafeERC20 for IERC20;
 
-    uint public constant PRICE_DEVIATION_TOLERANCE = 1000; // 10% in basis points
-
     function getCurrentAssetPrice() internal view returns (uint) {
-        address uniV3Factory = IPeripheryImmutableState(configHub.univ3SwapRouter()).factory();
-        return TestPriceOracle.getUnsafePrice(address(collateralAsset), address(cashAsset), uniV3Factory);
+        address baseToken = address(collateralAsset);
+        address quoteToken = address(cashAsset);
+
+        address uniV3Factory = IPeripheryImmutableState(configHub.uniV3SwapRouter()).factory();
+        IUniswapV3Pool pool =
+            IUniswapV3Pool(IUniswapV3Factory(uniV3Factory).getPool(baseToken, quoteToken, FEE_TIER));
+
+        (, int24 tick,,,,,) = pool.slot0();
+
+        uint128 baseTokenAmount = 1e18;
+
+        return OracleLibrary.getQuoteAtTick(tick, baseTokenAmount, baseToken, quoteToken);
     }
 
     function manipulatePriceGradually(uint amountToSwap, bool swapCash, uint targetPrice, bool isFuzzTest)
@@ -94,8 +106,8 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
         });
 
         startHoax(whale);
-        IERC20(swapParams.tokenIn).forceApprove(configHub.univ3SwapRouter(), amount);
-        IV3SwapRouter(payable(configHub.univ3SwapRouter())).exactInputSingle(swapParams);
+        IERC20(swapParams.tokenIn).forceApprove(configHub.uniV3SwapRouter(), amount);
+        IV3SwapRouter(payable(configHub.uniV3SwapRouter())).exactInputSingle(swapParams);
         vm.stopPrank();
 
         currentPrice = getCurrentAssetPrice();

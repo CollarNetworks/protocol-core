@@ -11,6 +11,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../../src/Rolls.sol";
 import { DeploymentUtils } from "../utils/deployment-exporter.s.sol";
 import { BaseDeployment } from "../base.s.sol";
+import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 
 contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
     uint chainId = 137_999; // id for ethereum mainnet fork on tenderly
@@ -44,7 +45,8 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
 
     function _deployandSetupConfigHub() internal {
         router = swapRouterAddress;
-        configHub = new ConfigHub(deployerAddress, router);
+        configHub = new ConfigHub(deployerAddress);
+        configHub.setUniV3Router(router);
 
         // add supported cash assets
         configHub.setCashAssetSupport(USDC, true);
@@ -87,11 +89,15 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         uint[] memory durations,
         uint[] memory ltvs
     ) internal {
+        OracleUniV3TWAP oracle =
+            new OracleUniV3TWAP(address(cashAsset), address(collateralAsset), FEE_TIER, TWAP_WINDOW, router);
+
         CollarTakerNFT takerNFT = new CollarTakerNFT(
             deployerAddress,
             configHub,
             cashAsset,
             collateralAsset,
+            oracle,
             string(abi.encodePacked("Taker ", pairName)),
             string(abi.encodePacked("T", pairName))
         );
@@ -108,11 +114,19 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
 
         configHub.setCollarTakerContractAuth(address(takerNFT), true);
         configHub.setProviderContractAuth(address(providerNFT), true);
-        Rolls rollsContract = new Rolls(deployerAddress, takerNFT, cashAsset);
+        Rolls rollsContract = new Rolls(deployerAddress, takerNFT);
         loansContract.setRollsContract(rollsContract);
 
         AssetPairContracts memory contracts = AssetPairContracts(
-            providerNFT, takerNFT, loansContract, rollsContract, cashAsset, collateralAsset, durations, ltvs
+            providerNFT,
+            takerNFT,
+            loansContract,
+            rollsContract,
+            cashAsset,
+            collateralAsset,
+            oracle,
+            durations,
+            ltvs
         );
         require(address(contracts.providerNFT) != address(0), "Provider NFT not created");
         require(address(contracts.takerNFT) != address(0), "Taker NFT not created");

@@ -10,6 +10,7 @@ import { Loans } from "../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../src/Rolls.sol";
 import { DeploymentUtils } from "./utils/deployment-exporter.s.sol";
+import { OracleUniV3TWAP } from "../src/OracleUniV3TWAP.sol";
 
 contract BaseDeployment is Script {
     address router;
@@ -23,11 +24,15 @@ contract BaseDeployment is Script {
         Rolls rollsContract;
         IERC20 cashAsset;
         IERC20 collateralAsset;
+        OracleUniV3TWAP oracle;
         uint[] durations;
         uint[] ltvs;
     }
 
     uint[] callStrikeTicks = [11_100, 11_200, 11_500, 12_000];
+
+    uint24 constant FEE_TIER = 3000;
+    uint32 constant TWAP_WINDOW = 15 minutes;
 
     function setup()
         internal

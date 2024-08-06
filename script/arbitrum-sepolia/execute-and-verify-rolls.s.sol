@@ -42,7 +42,7 @@ contract ExecuteAndVerifyRolls is Script, DeploymentUtils, BaseDeployment {
         pair.cashAsset.approve(address(pair.loansContract), type(uint).max);
         pair.takerNFT.approve(address(pair.loansContract), loanId);
 
-        uint currentPrice = pair.takerNFT.getReferenceTWAPPrice(block.timestamp);
+        uint currentPrice = pair.takerNFT.currentOraclePrice();
         (int toTaker,,) = pair.rollsContract.calculateTransferAmounts(rollOfferId, currentPrice);
         (uint newTakerId, uint newLoanAmount, int actualTransferAmount) =
             pair.loansContract.rollLoan(loanId, pair.rollsContract, rollOfferId, toTaker);

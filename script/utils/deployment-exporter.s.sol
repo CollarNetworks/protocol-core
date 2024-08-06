@@ -1,4 +1,4 @@
-// DeploymentUtils.sol
+// SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
@@ -8,6 +8,7 @@ import { Loans } from "../../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../../src/Rolls.sol";
 import { BaseDeployment } from "../base.s.sol";
+import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 
 contract DeploymentUtils is Script {
     function exportDeployment(
@@ -57,6 +58,10 @@ contract DeploymentUtils is Script {
                 abi.encodePacked(
                     json, '"', pairName, '_rollsContract": "', vm.toString(address(pair.rollsContract)), '",'
                 )
+            );
+
+            json = string(
+                abi.encodePacked(json, '"', pairName, '_oracle": "', vm.toString(address(pair.oracle)), '",')
             );
 
             json = string(
@@ -171,6 +176,9 @@ contract DeploymentUtils is Script {
                 string memory baseKey = substring(allKeys[i], 0, bytes(allKeys[i]).length - 9);
 
                 result[resultIndex] = BaseDeployment.AssetPairContracts({
+                    oracle: OracleUniV3TWAP(
+                        _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_oracle")))
+                    ),
                     takerNFT: CollarTakerNFT(
                         _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_takerNFT")))
                     ),

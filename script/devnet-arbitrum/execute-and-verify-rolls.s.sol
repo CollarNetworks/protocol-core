@@ -43,7 +43,7 @@ contract VerifyRolls is Script, DeploymentUtils, BaseDeployment {
         pair.cashAsset.approve(address(pair.loansContract), type(uint).max);
         pair.takerNFT.approve(address(pair.loansContract), loanId);
 
-        uint currentPrice = pair.takerNFT.getReferenceTWAPPrice(block.timestamp);
+        uint currentPrice = pair.takerNFT.currentOraclePrice();
         console.log("current price: ", currentPrice);
         (int toTaker,,) = pair.rollsContract.calculateTransferAmounts(rollOfferId, currentPrice);
         console.log("to taker");

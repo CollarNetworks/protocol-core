@@ -18,6 +18,7 @@ import { CollarOwnedERC20 } from "../../test/utils/CollarOwnedERC20.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
+import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 
 contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
     uint chainId = 421_614; // Arbitrum Sepolia chain ID
@@ -26,7 +27,6 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
     CollarOwnedERC20 constant collateralAsset = CollarOwnedERC20(0x9A6E1a5f94De0aD8ca15b55eA0d39bEaEc579434);
     INonfungiblePositionManager constant POSITION_MANAGER =
         INonfungiblePositionManager(0x6b2937Bde17889EDCf8fbD8dE31C3C2a70Bc4d65);
-    uint24 FEE_TIER = 3000;
     uint duration = 300;
     uint ltv = 9000;
     AssetPairContracts public assetPairContract;
@@ -51,7 +51,8 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
 
     function _deployandSetupConfigHub() internal {
         router = address(SWAP_ROUTER);
-        configHub = new ConfigHub(deployerAddress, router);
+        configHub = new ConfigHub(deployerAddress);
+        configHub.setUniV3Router(router);
 
         configHub.setCashAssetSupport(address(cashAsset), true);
         configHub.setCollateralAssetSupport(address(collateralAsset), true);
@@ -124,11 +125,15 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         uint[] memory ltvs = new uint[](1);
         ltvs[0] = ltv;
 
+        OracleUniV3TWAP oracle =
+            new OracleUniV3TWAP(address(cashAsset), address(collateralAsset), FEE_TIER, TWAP_WINDOW, router);
+
         CollarTakerNFT takerNFT = new CollarTakerNFT(
             deployerAddress,
             configHub,
-            IERC20(cashAsset),
-            IERC20(collateralAsset),
+            cashAsset,
+            collateralAsset,
+            oracle,
             string(abi.encodePacked("Taker ", pairName)),
             string(abi.encodePacked("T", pairName))
         );
@@ -145,7 +150,7 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
 
         configHub.setCollarTakerContractAuth(address(takerNFT), true);
         configHub.setProviderContractAuth(address(providerNFT), true);
-        Rolls rollsContract = new Rolls(deployerAddress, takerNFT, IERC20(cashAsset));
+        Rolls rollsContract = new Rolls(deployerAddress, takerNFT);
         loansContract.setRollsContract(rollsContract);
 
         assetPairContract = AssetPairContracts(
@@ -155,6 +160,7 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             rollsContract,
             IERC20(cashAsset),
             IERC20(collateralAsset),
+            oracle,
             durations,
             ltvs
         );

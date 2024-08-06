@@ -109,7 +109,7 @@ contract CreateOffersAndOpenPosition is Script, DeploymentUtils, BaseDeployment 
         internal
         returns (uint rollOfferId)
     {
-        uint currentPrice = pair.takerNFT.getReferenceTWAPPrice(block.timestamp);
+        uint currentPrice = pair.takerNFT.currentOraclePrice();
         pair.cashAsset.approve(address(pair.rollsContract), type(uint).max);
         pair.providerNFT.approve(address(pair.rollsContract), providerId);
         rollOfferId = pair.rollsContract.createRollOffer(
