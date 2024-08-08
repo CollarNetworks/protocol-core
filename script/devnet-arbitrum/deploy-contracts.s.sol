@@ -90,7 +90,7 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         uint[] memory ltvs
     ) internal {
         OracleUniV3TWAP oracle =
-            new OracleUniV3TWAP(address(cashAsset), address(collateralAsset), FEE_TIER, TWAP_WINDOW, router);
+            new OracleUniV3TWAP(address(collateralAsset), address(cashAsset), FEE_TIER, TWAP_WINDOW, router);
 
         CollarTakerNFT takerNFT = new CollarTakerNFT(
             deployerAddress,

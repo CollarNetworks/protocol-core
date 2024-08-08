@@ -126,7 +126,7 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         ltvs[0] = ltv;
 
         OracleUniV3TWAP oracle =
-            new OracleUniV3TWAP(address(cashAsset), address(collateralAsset), FEE_TIER, TWAP_WINDOW, router);
+            new OracleUniV3TWAP(address(collateralAsset), address(cashAsset), FEE_TIER, TWAP_WINDOW, router);
 
         CollarTakerNFT takerNFT = new CollarTakerNFT(
             deployerAddress,
@@ -169,6 +169,7 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         console.log(" - %s Provider NFT: %s", pairName, address(providerNFT));
         console.log(" - %s Loans Contract: %s", pairName, address(loansContract));
         console.log(" - %s Rolls Contract: %s", pairName, address(rollsContract));
+        console.log(" - %s Oracle: %s", pairName, address(oracle));
 
         return assetPairContract;
     }
