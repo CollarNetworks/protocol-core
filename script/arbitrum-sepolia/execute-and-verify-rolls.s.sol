@@ -23,8 +23,8 @@ contract ExecuteAndVerifyRolls is Script, DeploymentUtils, BaseDeployment {
 
         AssetPairContracts memory pair = getByAssetPair(address(cashAsset), address(collateralAsset));
 
-        uint loanId = 2; // Assuming this is the ID of the loan created in the previous step
-        uint rollOfferId = 2; // Assuming this is the ID of the roll offer created in the previous step
+        uint loanId = 0; // Assuming this is the ID of the loan created in the previous step
+        uint rollOfferId = 0; // Assuming this is the ID of the roll offer created in the previous step
 
         vm.startBroadcast(user);
         _executeRoll(user, pair, loanId, rollOfferId);

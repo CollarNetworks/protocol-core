@@ -34,37 +34,30 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         deployerAddress = deployer;
 
         vm.startBroadcast(deployer);
-        _deployandSetupConfigHub();
+        address[] memory collateralAssets = new address[](5);
+        collateralAssets[0] = WETH;
+        collateralAssets[1] = WBTC;
+        collateralAssets[2] = MATIC;
+        collateralAssets[3] = weETH;
+        collateralAssets[4] = stETH;
+        address[] memory cashAssets = new address[](3);
+        cashAssets[0] = USDC;
+        cashAssets[1] = USDT;
+        cashAssets[2] = WETH;
+        uint minLTV = allLTVs[1];
+        uint maxLTV = allLTVs[0];
+        uint minDuration = allDurations[0];
+        uint maxDuration = allDurations[2];
+
+        _deployandSetupConfigHub(
+            swapRouterAddress, collateralAssets, cashAssets, minLTV, maxLTV, minDuration, maxDuration
+        );
         _createContractPairs();
         vm.stopBroadcast();
 
-        _exportDeployment();
+        exportDeployment("collar_protocol_deployment", address(configHub), router, assetPairContracts);
 
         console.log("\nDeployment completed successfully");
-    }
-
-    function _deployandSetupConfigHub() internal {
-        router = swapRouterAddress;
-        configHub = new ConfigHub(deployerAddress);
-        configHub.setUniV3Router(router);
-
-        // add supported cash assets
-        configHub.setCashAssetSupport(USDC, true);
-        configHub.setCashAssetSupport(USDT, true);
-        configHub.setCashAssetSupport(WETH, true);
-        // add supported collateral assets
-        configHub.setCollateralAssetSupport(WETH, true);
-        configHub.setCollateralAssetSupport(WBTC, true);
-        configHub.setCollateralAssetSupport(MATIC, true);
-        configHub.setCollateralAssetSupport(weETH, true);
-        configHub.setCollateralAssetSupport(stETH, true);
-        configHub.setLTVRange(allLTVs[1], allLTVs[0]);
-        configHub.setCollarDurationRange(allDurations[0], allDurations[2]);
-
-        console.log("\n --- Dev Environment Deployed ---");
-        console.log("\n # Contract Addresses\n");
-        console.log(" - Router:  - - - - - - ", router);
-        console.log(" - ConfigHub - - - - - - - ", address(configHub));
     }
 
     function _createContractPairs() internal {
@@ -74,79 +67,23 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         uint[] memory singleLTV = new uint[](1);
         singleLTV[0] = allLTVs[0];
         console.log("ltv: %d", singleLTV[0]);
-        _createContractPair(IERC20(USDC), IERC20(WETH), "USDC/WETH", allDurations, allLTVs);
-        _createContractPair(IERC20(USDT), IERC20(WETH), "USDT/WETH", singleDuration, singleLTV);
-        _createContractPair(IERC20(USDC), IERC20(WBTC), "USDC/WBTC", singleDuration, singleLTV);
-        _createContractPair(IERC20(USDC), IERC20(MATIC), "USDC/MATIC", singleDuration, singleLTV);
-        _createContractPair(IERC20(USDC), IERC20(stETH), "USDC/stETH", singleDuration, singleLTV);
-        _createContractPair(IERC20(WETH), IERC20(weETH), "WETH/weETH", singleDuration, singleLTV);
-    }
-
-    function _createContractPair(
-        IERC20 cashAsset,
-        IERC20 collateralAsset,
-        string memory pairName,
-        uint[] memory durations,
-        uint[] memory ltvs
-    ) internal {
-        OracleUniV3TWAP oracle =
-            new OracleUniV3TWAP(address(collateralAsset), address(cashAsset), FEE_TIER, TWAP_WINDOW, router);
-
-        CollarTakerNFT takerNFT = new CollarTakerNFT(
-            deployerAddress,
-            configHub,
-            cashAsset,
-            collateralAsset,
-            oracle,
-            string(abi.encodePacked("Taker ", pairName)),
-            string(abi.encodePacked("T", pairName))
+        assetPairContracts.push(
+            _createContractPair(IERC20(USDC), IERC20(WETH), "USDC/WETH", allDurations, allLTVs)
         );
-        ProviderPositionNFT providerNFT = new ProviderPositionNFT(
-            deployerAddress,
-            configHub,
-            cashAsset,
-            collateralAsset,
-            address(takerNFT),
-            string(abi.encodePacked("Provider ", pairName)),
-            string(abi.encodePacked("P", pairName))
+        assetPairContracts.push(
+            _createContractPair(IERC20(USDT), IERC20(WETH), "USDT/WETH", singleDuration, singleLTV)
         );
-        Loans loansContract = new Loans(deployerAddress, takerNFT);
-
-        configHub.setCollarTakerContractAuth(address(takerNFT), true);
-        configHub.setProviderContractAuth(address(providerNFT), true);
-        Rolls rollsContract = new Rolls(deployerAddress, takerNFT);
-        loansContract.setRollsContract(rollsContract);
-
-        AssetPairContracts memory contracts = AssetPairContracts(
-            providerNFT,
-            takerNFT,
-            loansContract,
-            rollsContract,
-            cashAsset,
-            collateralAsset,
-            oracle,
-            durations,
-            ltvs
+        assetPairContracts.push(
+            _createContractPair(IERC20(USDC), IERC20(WBTC), "USDC/WBTC", singleDuration, singleLTV)
         );
-        require(address(contracts.providerNFT) != address(0), "Provider NFT not created");
-        require(address(contracts.takerNFT) != address(0), "Taker NFT not created");
-        require(address(contracts.loansContract) != address(0), "Loans contract not created");
-        require(
-            configHub.isProviderNFT(address(contracts.providerNFT)),
-            "Provider NFT not authorized in configHub"
+        assetPairContracts.push(
+            _createContractPair(IERC20(USDC), IERC20(MATIC), "USDC/MATIC", singleDuration, singleLTV)
         );
-        require(
-            configHub.isCollarTakerNFT(address(contracts.takerNFT)), "Taker NFT not authorized in configHub"
+        assetPairContracts.push(
+            _createContractPair(IERC20(USDC), IERC20(stETH), "USDC/stETH", singleDuration, singleLTV)
         );
-        require(address(contracts.rollsContract) != address(0), "Rolls contract not created");
-        assetPairContracts.push(contracts);
-        console.log(" - %s Taker NFT: %s", pairName, address(takerNFT));
-        console.log(" - %s Provider NFT: %s", pairName, address(providerNFT));
-        console.log(" - %s Loans Contract: %s", pairName, address(loansContract));
-        console.log(" - %s Rolls Contract: %s", pairName, address(rollsContract));
-    }
-
-    function _exportDeployment() internal {
-        exportDeployment("collar_protocol_deployment", address(configHub), router, assetPairContracts);
+        assetPairContracts.push(
+            _createContractPair(IERC20(WETH), IERC20(weETH), "WETH/weETH", singleDuration, singleLTV)
+        );
     }
 }

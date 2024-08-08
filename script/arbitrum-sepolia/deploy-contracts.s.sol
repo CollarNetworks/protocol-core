@@ -29,7 +29,6 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         INonfungiblePositionManager(0x6b2937Bde17889EDCf8fbD8dE31C3C2a70Bc4d65);
     uint duration = 300;
     uint ltv = 9000;
-    AssetPairContracts public assetPairContract;
     uint amountToProvideToPool = 10_000_000 ether;
 
     function run() external {
@@ -38,31 +37,29 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         deployerAddress = deployer;
 
         vm.startBroadcast(deployer);
-        _deployandSetupConfigHub();
+        address[] memory collateralAssets = new address[](1);
+        collateralAssets[0] = address(collateralAsset);
+        address[] memory cashAssets = new address[](1);
+        cashAssets[0] = address(cashAsset);
+        _deployandSetupConfigHub(
+            address(SWAP_ROUTER), collateralAssets, cashAssets, ltv, ltv, duration, duration
+        );
         _createOrValidateUniswapPool(provider);
-        AssetPairContracts memory contracts = _createContractPair();
+        uint[] memory durations = new uint[](1);
+        durations[0] = duration;
+        uint[] memory ltvs = new uint[](1);
+        ltvs[0] = ltv;
+        AssetPairContracts memory contracts = _createContractPair(
+            IERC20(cashAsset), IERC20(collateralAsset), "COLLATERAL/CASH", durations, ltvs
+        );
         _verifyDeployment(configHub, contracts);
         vm.stopBroadcast();
 
-        _exportDeployment();
+        AssetPairContracts[] memory contractsArray = new AssetPairContracts[](1);
+        contractsArray[0] = contracts;
+        exportDeployment("collar_protocol_deployment", address(configHub), router, contractsArray);
 
         console.log("\nDeployment completed successfully");
-    }
-
-    function _deployandSetupConfigHub() internal {
-        router = address(SWAP_ROUTER);
-        configHub = new ConfigHub(deployerAddress);
-        configHub.setUniV3Router(router);
-
-        configHub.setCashAssetSupport(address(cashAsset), true);
-        configHub.setCollateralAssetSupport(address(collateralAsset), true);
-        configHub.setLTVRange(ltv, ltv);
-        configHub.setCollarDurationRange(duration, duration);
-
-        console.log("\n --- Dev Environment Deployed ---");
-        console.log("\n # Contract Addresses\n");
-        console.log(" - Router:  - - - - - - ", router);
-        console.log(" - ConfigHub - - - - - - - ", address(configHub));
     }
 
     function _verifyDeployment(ConfigHub configHub, AssetPairContracts memory contracts) internal view {
@@ -116,67 +113,5 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         }
 
         console.log("Uniswap V3 Pool: ", pool);
-    }
-
-    function _createContractPair() internal returns (AssetPairContracts memory) {
-        string memory pairName = "CustomAsset/CustomCash";
-        uint[] memory durations = new uint[](1);
-        durations[0] = duration;
-        uint[] memory ltvs = new uint[](1);
-        ltvs[0] = ltv;
-
-        OracleUniV3TWAP oracle =
-            new OracleUniV3TWAP(address(collateralAsset), address(cashAsset), FEE_TIER, TWAP_WINDOW, router);
-
-        CollarTakerNFT takerNFT = new CollarTakerNFT(
-            deployerAddress,
-            configHub,
-            cashAsset,
-            collateralAsset,
-            oracle,
-            string(abi.encodePacked("Taker ", pairName)),
-            string(abi.encodePacked("T", pairName))
-        );
-        ProviderPositionNFT providerNFT = new ProviderPositionNFT(
-            deployerAddress,
-            configHub,
-            IERC20(cashAsset),
-            IERC20(collateralAsset),
-            address(takerNFT),
-            string(abi.encodePacked("Provider ", pairName)),
-            string(abi.encodePacked("P", pairName))
-        );
-        Loans loansContract = new Loans(deployerAddress, takerNFT);
-
-        configHub.setCollarTakerContractAuth(address(takerNFT), true);
-        configHub.setProviderContractAuth(address(providerNFT), true);
-        Rolls rollsContract = new Rolls(deployerAddress, takerNFT);
-        loansContract.setRollsContract(rollsContract);
-
-        assetPairContract = AssetPairContracts(
-            providerNFT,
-            takerNFT,
-            loansContract,
-            rollsContract,
-            IERC20(cashAsset),
-            IERC20(collateralAsset),
-            oracle,
-            durations,
-            ltvs
-        );
-
-        console.log(" - %s Taker NFT: %s", pairName, address(takerNFT));
-        console.log(" - %s Provider NFT: %s", pairName, address(providerNFT));
-        console.log(" - %s Loans Contract: %s", pairName, address(loansContract));
-        console.log(" - %s Rolls Contract: %s", pairName, address(rollsContract));
-        console.log(" - %s Oracle: %s", pairName, address(oracle));
-
-        return assetPairContract;
-    }
-
-    function _exportDeployment() internal {
-        AssetPairContracts[] memory contracts = new AssetPairContracts[](1);
-        contracts[0] = assetPairContract;
-        exportDeployment("collar_protocol_deployment", address(configHub), router, contracts);
     }
 }

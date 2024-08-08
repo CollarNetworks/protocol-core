@@ -44,13 +44,15 @@ contract CreateOffersAndOpenPosition is Script, DeploymentUtils, BaseDeployment 
         _createOffers(liquidityProvider, allPairs);
 
         console.log("\nOffers created successfully");
-
-        (uint takerId, uint providerId,) = _openUserPosition(user1, liquidityProvider, usdcWethPair);
+        uint offerId = 0;
+        (uint takerId, uint providerId,) =
+            _openUserPosition(user1, liquidityProvider, usdcWethPair, collateralAmountForLoan, offerId);
         console.log("\nUser position opened successfully");
         console.log(" - Taker ID: %d", takerId);
         console.log(" - Provider ID: %d", providerId);
 
-        uint rollOfferId = _createRollOffer(liquidityProvider, usdcWethPair, takerId, providerId);
+        uint rollOfferId =
+            _createRollOffer(liquidityProvider, usdcWethPair, takerId, providerId, rollFee, rollDeltaFactor);
         console.log("roll offer created successfully with id: %d", rollOfferId);
     }
 
@@ -59,145 +61,15 @@ contract CreateOffersAndOpenPosition is Script, DeploymentUtils, BaseDeployment 
     {
         vm.startBroadcast(liquidityProvider);
 
-        uint totalOffers = 0;
         /**
          * @dev Create offers for all contract pairs with all durations and LTVs , they're not all equal so they depend on the contract pair ltv and duration combo
          */
         for (uint i = 0; i < assetPairContracts.length; i++) {
             AssetPairContracts memory pair = assetPairContracts[i];
             pair.cashAsset.approve(address(pair.providerNFT), type(uint).max);
-
-            for (uint j = 0; j < pair.durations.length; j++) {
-                for (uint k = 0; k < pair.ltvs.length; k++) {
-                    for (uint l = 0; l < callStrikeTicks.length; l++) {
-                        console.log("test", pair.providerNFT.symbol());
-                        uint offerId = pair.providerNFT.createOffer(
-                            callStrikeTicks[l], cashAmountPerOffer, pair.ltvs[k], pair.durations[j]
-                        );
-                        ProviderPositionNFT.LiquidityOffer memory offer = pair.providerNFT.getOffer(offerId);
-                        require(
-                            offer.provider == liquidityProvider, "Offer not created for liquidity provider"
-                        );
-                        require(offer.available == cashAmountPerOffer, "Incorrect offer amount");
-                        require(offer.putStrikeDeviation == pair.ltvs[k], "Incorrect LTV");
-                        require(offer.duration == pair.durations[j], "Incorrect duration");
-                        require(
-                            offer.callStrikeDeviation == callStrikeTicks[l], "Incorrect call strike deviation"
-                        );
-                        totalOffers++;
-                    }
-                }
-            }
+            _createOffersForPair(liquidityProvider, pair, cashAmountPerOffer);
         }
 
-        vm.stopBroadcast();
-        console.log("Total offers created: ", totalOffers);
-    }
-
-    function _openUserPosition(address user, address liquidityProvider, AssetPairContracts memory pair)
-        internal
-        returns (uint takerId, uint providerId, uint loanAmount)
-    {
-        vm.startBroadcast(user);
-        // Use the first contract pair (USDC/WETH) for this example
-        uint userCollateralBalance = pair.collateralAsset.balanceOf(user);
-        require(userCollateralBalance >= collateralAmountForLoan, "User does not have enough collateral");
-        // Approve collateral spending
-        pair.collateralAsset.approve(address(pair.loansContract), type(uint).max);
-
-        // Find the first available offer
-        uint offerId = 0;
-        require(offerId < pair.providerNFT.nextOfferId(), "No available offers");
-        // Check initial balances
-        uint initialCollateralBalance = pair.collateralAsset.balanceOf(user);
-        uint initialCashBalance = pair.cashAsset.balanceOf(user);
-
-        // Get TWAP price before loan creation
-        uint twapPrice = pair.takerNFT.currentOraclePrice();
-
-        // Open a position
-        (takerId, providerId, loanAmount) = pair.loansContract.createLoan(
-            collateralAmountForLoan,
-            0, // slippage
-            0,
-            pair.providerNFT,
-            offerId
-        );
-
-        _checkPosition(
-            pair,
-            takerId,
-            providerId,
-            user,
-            liquidityProvider,
-            initialCollateralBalance,
-            initialCashBalance,
-            loanAmount,
-            twapPrice
-        );
-
-        console.log("Position opened:");
-        console.log(" - Taker ID: %d", takerId);
-        console.log(" - Provider ID: %d", providerId);
-        console.log(" - Loan amount: %d", loanAmount);
-
-        vm.stopBroadcast();
-    }
-
-    function _checkPosition(
-        AssetPairContracts memory pair,
-        uint takerId,
-        uint providerId,
-        address user,
-        address liquidityProvider,
-        uint initialCollateralBalance,
-        uint initialCashBalance,
-        uint loanAmount,
-        uint twapPrice
-    ) internal view {
-        CollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(takerId);
-        require(position.settled == false);
-        require(position.withdrawable == 0);
-        require(position.putLockedCash > 0);
-        require(position.callLockedCash > 0);
-
-        require(pair.takerNFT.ownerOf(takerId) == user);
-        require(pair.providerNFT.ownerOf(providerId) == liquidityProvider);
-
-        // Check balance changes
-        uint finalCollateralBalance = pair.collateralAsset.balanceOf(user);
-        uint finalCashBalance = pair.cashAsset.balanceOf(user);
-
-        assert(initialCollateralBalance - finalCollateralBalance == collateralAmountForLoan);
-        assert(finalCashBalance - initialCashBalance == loanAmount);
-
-        // Check loan amount using TWAP
-        uint expectedLoanAmount = collateralAmountForLoan * twapPrice * pair.ltvs[0] / (1e18 * 10_000);
-        uint loanAmountTolerance = expectedLoanAmount / 100; // 1% tolerance
-        require(
-            loanAmount >= expectedLoanAmount - loanAmountTolerance
-                && loanAmount <= expectedLoanAmount + loanAmountTolerance,
-            "Loan amount is outside the expected range"
-        );
-    }
-
-    function _createRollOffer(address provider, AssetPairContracts memory pair, uint loanId, uint providerId)
-        internal
-        returns (uint rollOfferId)
-    {
-        vm.startBroadcast(provider);
-        uint currentPrice = pair.takerNFT.currentOraclePrice();
-        pair.cashAsset.approve(address(pair.rollsContract), type(uint).max);
-        pair.providerNFT.approve(address(pair.rollsContract), providerId);
-        rollOfferId = pair.rollsContract.createRollOffer(
-            loanId,
-            rollFee, // Roll fee
-            rollDeltaFactor, // Roll fee delta factor (100%)
-            currentPrice * 90 / 100, // Min price (90% of current price)
-            currentPrice * 110 / 100, // Max price (110% of current price)
-            0, // Min to provider
-            block.timestamp + 1 hours // Deadline
-        );
         vm.stopBroadcast();
     }
 }
