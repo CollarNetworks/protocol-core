@@ -40,19 +40,23 @@ contract CreateOffersAndOpenPosition is Script, DeploymentUtils, BaseDeployment 
             lpBalance >= cashAmountPerOffer * expectedOfferCount,
             "liquidity provider does not have enough funds"
         );
-
+        vm.startBroadcast(liquidityProvider);
         _createOffers(liquidityProvider, allPairs);
-
+        vm.stopBroadcast();
         console.log("\nOffers created successfully");
         uint offerId = 0;
+        vm.startBroadcast(user1);
         (uint takerId, uint providerId,) =
             _openUserPosition(user1, liquidityProvider, usdcWethPair, collateralAmountForLoan, offerId);
+        vm.stopBroadcast();
         console.log("\nUser position opened successfully");
         console.log(" - Taker ID: %d", takerId);
         console.log(" - Provider ID: %d", providerId);
 
+        vm.startBroadcast(liquidityProvider);
         uint rollOfferId =
             _createRollOffer(liquidityProvider, usdcWethPair, takerId, providerId, rollFee, rollDeltaFactor);
+        vm.stopBroadcast();
         console.log("roll offer created successfully with id: %d", rollOfferId);
     }
 

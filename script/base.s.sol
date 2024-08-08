@@ -190,7 +190,6 @@ contract BaseDeployment is Script {
         int rollFee,
         int rollDeltaFactor
     ) internal returns (uint rollOfferId) {
-        vm.startBroadcast(provider);
         uint currentPrice = pair.takerNFT.currentOraclePrice();
         pair.cashAsset.approve(address(pair.rollsContract), type(uint).max);
         pair.providerNFT.approve(address(pair.rollsContract), providerId);
@@ -203,7 +202,6 @@ contract BaseDeployment is Script {
             0, // Min to provider
             block.timestamp + 1 hours // Deadline
         );
-        vm.stopBroadcast();
     }
 
     function _openUserPosition(
@@ -213,7 +211,6 @@ contract BaseDeployment is Script {
         uint collateralAmountForLoan,
         uint offerId
     ) internal returns (uint takerId, uint providerId, uint loanAmount) {
-        vm.startBroadcast(user);
         // Use the first contract pair (USDC/WETH) for this example
         uint userCollateralBalance = pair.collateralAsset.balanceOf(user);
         require(userCollateralBalance >= collateralAmountForLoan, "User does not have enough collateral");
@@ -254,8 +251,6 @@ contract BaseDeployment is Script {
         console.log(" - Taker ID: %d", takerId);
         console.log(" - Provider ID: %d", providerId);
         console.log(" - Loan amount: %d", loanAmount);
-
-        vm.stopBroadcast();
     }
 
     function _checkPosition(
