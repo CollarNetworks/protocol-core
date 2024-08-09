@@ -36,7 +36,10 @@ contract OracleUniV3TWAPTest is Test {
         price to tick: math.log2(1000) / math.log2(1.0001)
     */
     int24 tick1000 = 69_082;
-    uint priceTick1000 = 1_000_099_338_977_258_828_485;
+    uint priceTick1000 = 1_000_099_338_977_258_828_485; // 1000
+    int24 tickNeg1000 = -69_082;
+    uint priceTickInverse1000 = 999_900_670_889_993; // 0.00099
+    uint priceTickInverse1001 = 999_800_690_820_911; // 0.00099
 
     function setUp() public {
         mockRouterAndFactoryCalls();
@@ -66,12 +69,11 @@ contract OracleUniV3TWAPTest is Test {
         int56[] memory tickCumulatives = new int56[](2);
         tickCumulatives[0] = int56(tick) * 300;
         tickCumulatives[1] = int56(tick) * (300 + int56(uint56(twapWindow)));
-        uint160[] memory secondsPerLiquidityCumulativeX128s = new uint160[](2);
 
         vm.mockCall(
             mockPool,
             abi.encodeCall(IUniswapV3PoolDerivedState.observe, (secondsAgos)),
-            abi.encode(tickCumulatives, secondsPerLiquidityCumulativeX128s)
+            abi.encode(tickCumulatives, new uint160[](2))
         );
     }
 
@@ -106,6 +108,14 @@ contract OracleUniV3TWAPTest is Test {
 
         uint price = oracle.currentPrice();
         assertEq(price, priceTick1000);
+    }
+
+    function test_currentPrice_negTick() public {
+        int24 mockTick = tickNeg1000;
+        mockObserve(mockTick, 0);
+
+        uint price = oracle.currentPrice();
+        assertEq(price, priceTickInverse1000);
     }
 
     function test_pastPrice() public {
@@ -185,6 +195,30 @@ contract OracleUniV3TWAPTest is Test {
         );
 
         oracle.increaseCardinality(toAdd);
+    }
+
+    function test_negativeTickCumulativeDelta() public {
+        // To cover the `tick--` branch in _getQoute
+
+        int56[] memory tickCumulatives = new int56[](2);
+        tickCumulatives[0] = int56(tickNeg1000) * 300;
+        tickCumulatives[1] = int56(tickNeg1000) * (300 + int56(uint56(twapWindow))) - 1;
+        // This creates a delta of -301
+        // The delta (-301) divided by twapWindow (300) is -1 with a remainder
+
+        uint32[] memory secondsAgos = new uint32[](2);
+        secondsAgos[0] = twapWindow;
+        secondsAgos[1] = 0;
+
+        vm.mockCall(
+            mockPool,
+            abi.encodeCall(IUniswapV3PoolDerivedState.observe, (secondsAgos)),
+            abi.encode(tickCumulatives, new uint160[](2))
+        );
+
+        uint price = oracle.currentPrice();
+
+        assertEq(price, priceTickInverse1001);
     }
 
     // revert tests
