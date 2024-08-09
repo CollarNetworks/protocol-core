@@ -9,7 +9,13 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
-import { ConfigHub, IConfigHub } from "../../src/ConfigHub.sol";
+import {
+    ConfigHub,
+    IConfigHub,
+    IProviderPositionNFT,
+    ICollarTakerNFT,
+    IPeripheryImmutableState
+} from "../../src/ConfigHub.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract ConfigHubTest is Test {
@@ -35,8 +41,11 @@ contract ConfigHubTest is Test {
         configHub = new ConfigHub(owner);
     }
 
-    function test_deploymentAndDeployParams() public view {
+    function test_deploymentAndDeployParams() public {
+        configHub = new ConfigHub(owner);
         assertEq(configHub.owner(), owner);
+        assertEq(configHub.pendingOwner(), address(0));
+        assertEq(configHub.VERSION(), "0.2.0");
         assertEq(configHub.MIN_CONFIGURABLE_LTV(), 1000);
         assertEq(configHub.MAX_CONFIGURABLE_LTV(), 9999);
         assertEq(configHub.MIN_CONFIGURABLE_DURATION(), 300);
@@ -49,18 +58,130 @@ contract ConfigHubTest is Test {
         assertEq(configHub.maxLTV(), 0);
     }
 
+    function test_onlyOwnerAuth() public {
+        startHoax(user1);
+
+        vm.expectRevert(user1NotAuthorized);
+        configHub.setCollarTakerContractAuth(address(0), true);
+
+        vm.expectRevert(user1NotAuthorized);
+        configHub.setProviderContractAuth(address(0), true);
+
+        vm.expectRevert(user1NotAuthorized);
+        configHub.setLTVRange(0, 0);
+
+        vm.expectRevert(user1NotAuthorized);
+        configHub.setCollarDurationRange(0, 0);
+
+        vm.expectRevert(user1NotAuthorized);
+        configHub.setCollateralAssetSupport(address(0), true);
+
+        vm.expectRevert(user1NotAuthorized);
+        configHub.setCashAssetSupport(address(0), true);
+
+        vm.expectRevert(user1NotAuthorized);
+        configHub.setPauseGuardian(guardian);
+
+        vm.expectRevert(user1NotAuthorized);
+        configHub.setUniV3Router(router);
+    }
+
+    function test_setCollarTakerContractAuth() public {
+        startHoax(owner);
+        address collarTakerContract = address(0x123);
+
+        // Mock the cashAsset and collateralAsset calls
+        vm.mockCall(
+            collarTakerContract,
+            abi.encodeWithSelector(ICollarTakerNFT.cashAsset.selector),
+            abi.encode(address(token1))
+        );
+        vm.mockCall(
+            collarTakerContract,
+            abi.encodeWithSelector(ICollarTakerNFT.collateralAsset.selector),
+            abi.encode(address(token2))
+        );
+
+        assertFalse(configHub.isCollarTakerNFT(collarTakerContract));
+
+        vm.expectEmit(address(configHub));
+        emit IConfigHub.CollarTakerNFTAuthSet(collarTakerContract, true, address(token1), address(token2));
+        configHub.setCollarTakerContractAuth(collarTakerContract, true);
+
+        assertTrue(configHub.isCollarTakerNFT(collarTakerContract));
+
+        // disabling
+        vm.expectEmit(address(configHub));
+        emit IConfigHub.CollarTakerNFTAuthSet(collarTakerContract, false, address(token1), address(token2));
+        configHub.setCollarTakerContractAuth(collarTakerContract, false);
+
+        assertFalse(configHub.isCollarTakerNFT(collarTakerContract));
+    }
+
+    function test_setProviderContractAuth() public {
+        startHoax(owner);
+        address providerContract = address(0x456);
+
+        // Mock the cashAsset, collateralAsset, and collarTakerContract calls
+        vm.mockCall(
+            providerContract,
+            abi.encodeWithSelector(IProviderPositionNFT.cashAsset.selector),
+            abi.encode(address(token1))
+        );
+        vm.mockCall(
+            providerContract,
+            abi.encodeWithSelector(IProviderPositionNFT.collateralAsset.selector),
+            abi.encode(address(token2))
+        );
+        vm.mockCall(
+            providerContract,
+            abi.encodeWithSelector(IProviderPositionNFT.collarTakerContract.selector),
+            abi.encode(address(0x789))
+        );
+
+        assertFalse(configHub.isProviderNFT(providerContract));
+
+        vm.expectEmit(address(configHub));
+        emit IConfigHub.ProviderNFTAuthSet(
+            providerContract, true, address(token1), address(token2), address(0x789)
+        );
+        configHub.setProviderContractAuth(providerContract, true);
+
+        assertTrue(configHub.isProviderNFT(providerContract));
+
+        // disabling
+        vm.expectEmit(address(configHub));
+        emit IConfigHub.ProviderNFTAuthSet(
+            providerContract, false, address(token1), address(token2), address(0x789)
+        );
+        configHub.setProviderContractAuth(providerContract, false);
+
+        assertFalse(configHub.isProviderNFT(providerContract));
+    }
+
+    function test_revert_setCollarTakerContractAuth_invalidContract() public {
+        startHoax(owner);
+        address invalidContract = address(0xABC);
+
+        // fails to call non existing methods
+        vm.expectRevert(new bytes(0));
+        configHub.setCollarTakerContractAuth(invalidContract, true);
+    }
+
+    function test_revert_setProviderContractAuth_invalidContract() public {
+        startHoax(owner);
+        address invalidContract = address(0xDEF);
+
+        // fails to call non existing methods
+        vm.expectRevert(new bytes(0));
+        configHub.setProviderContractAuth(invalidContract, true);
+    }
+
     function test_addSupportedCashAsset() public {
         startHoax(owner);
         assertFalse(configHub.isSupportedCashAsset(address(token1)));
         configHub.setCashAssetSupport(address(token1), true);
         assertTrue(configHub.isSupportedCashAsset(address(token1)));
-    }
-
-    function test_addSupportedCashAsset_NoAuth() public {
-        startHoax(user1);
-        vm.expectRevert(user1NotAuthorized);
-        configHub.setCashAssetSupport(address(token1), true);
-        vm.stopPrank();
     }
 
     function test_removeSupportedCashAsset() public {
@@ -70,25 +191,11 @@ contract ConfigHubTest is Test {
         assertFalse(configHub.isSupportedCashAsset(address(token1)));
     }
 
-    function test_removeSupportedCashAsset_NoAuth() public {
-        startHoax(user1);
-        vm.expectRevert(user1NotAuthorized);
-        configHub.setCashAssetSupport(address(token1), false);
-        vm.stopPrank();
-    }
-
     function test_addSupportedCollateralAsset() public {
         startHoax(owner);
         assertFalse(configHub.isSupportedCollateralAsset(address(token1)));
         configHub.setCollateralAssetSupport(address(token1), true);
         assertTrue(configHub.isSupportedCollateralAsset(address(token1)));
-    }
-
-    function test_addSupportedCollateralAsset_NoAuth() public {
-        startHoax(user1);
-        vm.expectRevert(user1NotAuthorized);
-        configHub.setCollateralAssetSupport(address(token1), true);
-        vm.stopPrank();
     }
 
     function test_removeSupportedCollateralAsset() public {
@@ -98,18 +205,12 @@ contract ConfigHubTest is Test {
         assertFalse(configHub.isSupportedCollateralAsset(address(token1)));
     }
 
-    function test_removeSupportedCollateralAsset_NoAuth() public {
-        startHoax(user1);
-        vm.expectRevert(user1NotAuthorized);
-        configHub.setCollateralAssetSupport(address(token1), false);
-        vm.stopPrank();
-    }
-
     function test_isValidDuration() public {
         startHoax(owner);
         configHub.setCollarDurationRange(minDurationToUse, maxDurationToUse);
         assertFalse(configHub.isValidCollarDuration(minDurationToUse - 1));
         assertTrue(configHub.isValidCollarDuration(minDurationToUse));
+        assertTrue(configHub.isValidCollarDuration(maxDurationToUse));
         assertFalse(configHub.isValidCollarDuration(maxDurationToUse + 1));
     }
 
@@ -117,6 +218,7 @@ contract ConfigHubTest is Test {
         startHoax(owner);
         configHub.setLTVRange(minLTVToUse, maxLTVToUse);
         assertFalse(configHub.isValidLTV(minLTVToUse - 1));
+        assertTrue(configHub.isValidLTV(minLTVToUse));
         assertTrue(configHub.isValidLTV(maxLTVToUse));
         assertFalse(configHub.isValidLTV(maxLTVToUse + 1));
     }
@@ -192,5 +294,33 @@ contract ConfigHubTest is Test {
         emit IConfigHub.PauseGuardianSet(guardian, address(0));
         configHub.setPauseGuardian(address(0));
         assertEq(configHub.pauseGuardian(), address(0));
+    }
+
+    function test_setUniV3Router() public {
+        startHoax(owner);
+
+        // invalid no return
+        vm.expectRevert(new bytes(0));
+        configHub.setUniV3Router(address(0));
+
+        // invalid 0 address return
+        vm.mockCall(
+            address(router),
+            abi.encodeCall(IPeripheryImmutableState.factory, ()),
+            abi.encode(address(0)) // zero
+        );
+        vm.expectRevert("invalid router");
+        configHub.setUniV3Router(router);
+
+        // valid
+        vm.mockCall(
+            address(router),
+            abi.encodeCall(IPeripheryImmutableState.factory, ()),
+            abi.encode(address(1)) // not zero
+        );
+        vm.expectEmit(address(configHub));
+        emit IConfigHub.UniV3RouterSet(address(0), router);
+        configHub.setUniV3Router(router);
+        assertEq(configHub.uniV3SwapRouter(), router);
     }
 }

@@ -293,11 +293,10 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    function _executeRoll(
-        uint rollId,
-        uint newPrice,
-        CollarTakerNFT.TakerPosition memory takerPos
-    ) internal returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider) {
+    function _executeRoll(uint rollId, uint newPrice, CollarTakerNFT.TakerPosition memory takerPos)
+        internal
+        returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider)
+    {
         // @dev this is memory, not storage
         RollOffer memory offer = rollOffers[rollId];
         // pull the taker NFT from the user (we already have the provider NFT)
