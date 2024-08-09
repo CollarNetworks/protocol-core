@@ -175,6 +175,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
         require(takerPos.expiration != 0, "taker position doesn't exist");
         require(!takerPos.settled, "taker position settled");
+        require(takerPos.expiration >= block.timestamp, "taker position expired");
 
         ProviderPositionNFT providerNFT = takerPos.providerNFT;
         uint providerId = takerPos.providerPositionId;
@@ -282,7 +283,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         // @dev an expired position should settle at some past price, so if rolling after expiry is allowed,
         // a different price may be used in settlement calculations instead of current price.
         // This is prevented by this check, since supporting the complexity of such scenarios is not needed.
-        require(takerPos.expiration > block.timestamp, "taker position expired");
+        require(takerPos.expiration >= block.timestamp, "taker position expired");
 
         (newTakerId, newProviderId, toTaker, toProvider) = _executeRoll(rollId, newPrice, takerPos);
 
