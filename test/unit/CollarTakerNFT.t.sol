@@ -21,110 +21,118 @@ import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 import { IProviderPositionNFT } from "../../src/interfaces/IProviderPositionNFT.sol";
 
 contract CollarTakerNFTTest is BaseTestSetup {
-    uint putLockedCashToUse = 1000 ether;
-    uint callLockedCashToUse = 2000 ether;
+    uint putLocked = 1000 ether;
+    uint callLocked = 2000 ether;
     uint callStrikePrice = 1200 ether; // 120% of the price
     uint pastCallStrikePrice = 1250 ether; // 125% of the price | to use when price goes over call strike
         // price
     uint putStrikePrice = 900 ether; // 90% of the price corresponding to 9000 LTV
     uint pastPutStrikePrice = 800 ether; // 80% of the price | to use when price goes under put strike price
 
-    function createOffer(uint callStrike, uint putStrikeDeviation, ProviderPositionNFT providerNFTToUse)
-        internal
-        returns (uint offerId)
-    {
-        startHoax(provider);
-        cashAsset.approve(address(providerNFTToUse), 1_000_000 ether);
+    uint offerId = 999; // stores latest ID, init to invalid
 
-        uint expectedOfferId = providerNFTToUse.nextPositionId();
-        vm.expectEmit(address(providerNFTToUse));
+    function createOffer() internal {
+        startHoax(provider);
+        cashAsset.approve(address(providerNFT), largeAmount);
+
+        uint expectedOfferId = providerNFT.nextPositionId();
+        vm.expectEmit(address(providerNFT));
         emit IProviderPositionNFT.OfferCreated(
-            provider, putStrikeDeviation, duration, callStrike, largeAmount, expectedOfferId
+            provider, ltv, duration, callStrikeDeviation, largeAmount, expectedOfferId
         );
-        offerId = providerNFTToUse.createOffer(callStrike, largeAmount, putStrikeDeviation, duration);
-        ProviderPositionNFT.LiquidityOffer memory offer = providerNFTToUse.getOffer(offerId);
-        assertEq(offer.callStrikeDeviation, callStrike);
+        offerId = providerNFT.createOffer(callStrikeDeviation, largeAmount, ltv, duration);
+        ProviderPositionNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
+        assertEq(offer.callStrikeDeviation, callStrikeDeviation);
         assertEq(offer.available, largeAmount);
         assertEq(offer.provider, provider);
         assertEq(offer.duration, duration);
-        assertEq(offer.callStrikeDeviation, callStrike);
-        assertEq(offer.putStrikeDeviation, putStrikeDeviation);
+        assertEq(offer.callStrikeDeviation, callStrikeDeviation);
+        assertEq(offer.putStrikeDeviation, ltv);
     }
 
-    function createTakerPosition(
-        uint offerId,
-        CollarTakerNFT takerNFTToUse,
-        ProviderPositionNFT providerNFTToUse
-    ) internal returns (uint takerId, uint providerNFTId) {
+    function checkOpenPairedPosition() internal returns (uint takerId, uint providerNFTId) {
         startHoax(user1);
-        cashAsset.approve(address(takerNFT), putLockedCashToUse);
-        (takerId, providerNFTId) =
-            takerNFTToUse.openPairedPosition(putLockedCashToUse, providerNFTToUse, offerId);
+        cashAsset.approve(address(takerNFT), putLocked);
 
-        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(0);
-        assertEq(takerPos.callStrikePrice, callStrikePrice);
-        assertEq(takerPos.putLockedCash, putLockedCashToUse);
-        assertEq(takerPos.callLockedCash, callLockedCashToUse);
-        assertEq(takerPos.settled, false);
-        assertEq(takerPos.withdrawable, 0);
+        // expected values
+        uint expectedTakerId = takerNFT.nextPositionId();
+        uint expectedProviderId = providerNFT.nextPositionId();
+        uint _callLocked = checkCalculateProviderLocked(putLocked, ltv, callStrikeDeviation);
 
-        // check the view
-        uint callLocked = checkCalculateProviderLocked(putLockedCashToUse, ltv, callStrikeDeviation);
-        assertEq(callLockedCashToUse, callLocked);
-        // check position
-        ProviderPositionNFT.ProviderPosition memory providerPos = providerNFT.getPosition(0);
-        assertEq(providerPos.expiration, 301);
-        assertEq(providerPos.principal, callLockedCashToUse);
+        ICollarTakerNFT.TakerPosition memory expectedTakerPos = ICollarTakerNFT.TakerPosition({
+            providerNFT: providerNFT,
+            providerPositionId: expectedProviderId,
+            duration: duration,
+            expiration: block.timestamp + duration,
+            initialPrice: twapPrice,
+            putStrikePrice: putStrikePrice,
+            callStrikePrice: callStrikePrice,
+            putLockedCash: putLocked,
+            callLockedCash: _callLocked,
+            settled: false,
+            withdrawable: 0
+        });
+        vm.expectEmit(address(takerNFT));
+        emit ICollarTakerNFT.PairedPositionOpened(
+            expectedTakerId, address(providerNFT), expectedProviderId, offerId, expectedTakerPos
+        );
+        (takerId, providerNFTId) = takerNFT.openPairedPosition(putLocked, providerNFT, offerId);
+        // return values
+        assertEq(takerId, expectedTakerId);
+        assertEq(providerNFTId, expectedProviderId);
+
+        // position view
+        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
+        assertEq(abi.encode(takerPos), abi.encode(expectedTakerPos));
+
+        // provider position
+        ProviderPositionNFT.ProviderPosition memory providerPos = providerNFT.getPosition(providerNFTId);
+        assertEq(providerPos.expiration, block.timestamp + duration);
+        assertEq(providerPos.principal, callLocked);
         assertEq(providerPos.putStrikeDeviation, ltv);
         assertEq(providerPos.callStrikeDeviation, callStrikeDeviation);
         assertEq(providerPos.settled, false);
         assertEq(providerPos.withdrawable, 0);
     }
 
-    function createOfferAndSetPrice() internal {
-        createOffer(callStrikeDeviation, ltv, providerNFT);
-        updatePrice();
-        // check the TWAP view
-        assertEq(takerNFT.currentOraclePrice(), twapPrice);
-    }
-
-    function checkCalculateProviderLocked(uint putLocked, uint putStrike, uint callStrike)
+    function checkCalculateProviderLocked(uint _putLocked, uint putStrike, uint callStrike)
         internal
         view
-        returns (uint callLocked)
+        returns (uint _callLocked)
     {
         // calculate
         uint putRange = BIPS_100PCT - putStrike;
         uint callRange = callStrike - BIPS_100PCT;
-        callLocked = callRange * putLocked / putRange;
+        _callLocked = callRange * _putLocked / putRange;
         // check view agrees
-        assertEq(callLocked, takerNFT.calculateProviderLocked(putLocked, putStrike, callStrike));
+        assertEq(_callLocked, takerNFT.calculateProviderLocked(_putLocked, putStrike, callStrike));
     }
 
     function createAndSettlePositionOnPrice(
         uint priceToSettleAt,
-        uint expectedTakerWithdrawable,
-        uint expectedProviderWithdrawable,
+        uint expectedTakerOut,
+        uint expectedProviderOut,
         int expectedProviderChange
     ) internal returns (uint takerId, uint providerNFTId) {
-        createOfferAndSetPrice();
-        (takerId, providerNFTId) = createTakerPosition(0, takerNFT, providerNFT);
-        skip(duration + 1);
+        createOffer();
+        (takerId, providerNFTId) = checkOpenPairedPosition();
+        skip(duration);
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
         // set settlement price
         mockOracle.setHistoricalAssetPrice(takerPos.expiration, priceToSettleAt);
 
+        uint takerNFTBalanceBefore = cashAsset.balanceOf(address(takerNFT));
+        uint providerNFTBalanceBefore = cashAsset.balanceOf(address(providerNFT));
+
         // check the view
         (uint takerBalanceView, int providerChangeView) =
             takerNFT.previewSettlement(takerPos, priceToSettleAt);
-        assertEq(takerBalanceView, expectedTakerWithdrawable);
+        assertEq(takerBalanceView, expectedTakerOut);
         assertEq(providerChangeView, expectedProviderChange);
 
         startHoax(user1);
         vm.expectEmit(address(providerNFT));
-        emit IProviderPositionNFT.PositionSettled(
-            providerNFTId, expectedProviderChange, expectedProviderWithdrawable
-        );
+        emit IProviderPositionNFT.PositionSettled(providerNFTId, expectedProviderChange, expectedProviderOut);
         vm.expectEmit(address(takerNFT));
         emit ICollarTakerNFT.PairedPositionSettled(
             takerId,
@@ -132,10 +140,39 @@ contract CollarTakerNFTTest is BaseTestSetup {
             providerNFTId,
             priceToSettleAt,
             true,
-            expectedTakerWithdrawable,
+            expectedTakerOut,
             expectedProviderChange
         );
         takerNFT.settlePairedPosition(takerId);
+
+        // balance changes
+        assertEq(
+            int(cashAsset.balanceOf(address(takerNFT))), int(takerNFTBalanceBefore) - expectedProviderChange
+        );
+        assertEq(
+            int(cashAsset.balanceOf(address(providerNFT))),
+            int(providerNFTBalanceBefore) + expectedProviderChange
+        );
+
+        // positions changes
+        CollarTakerNFT.TakerPosition memory takerPosAfter = takerNFT.getPosition(takerId);
+        assertEq(takerPosAfter.settled, true);
+        assertEq(takerPosAfter.withdrawable, expectedTakerOut);
+
+        ProviderPositionNFT.ProviderPosition memory providerPosAfter = providerNFT.getPosition(providerNFTId);
+        assertEq(providerPosAfter.settled, true);
+        assertEq(providerPosAfter.withdrawable, expectedProviderOut);
+    }
+
+    function checkWithdrawFromSettled(uint takerId, uint expectedTakerOut) public {
+        uint cashBalanceBefore = cashAsset.balanceOf(user1);
+        vm.expectEmit(address(takerNFT));
+        emit ICollarTakerNFT.WithdrawalFromSettled(takerId, user1, expectedTakerOut);
+        uint withdrawal = takerNFT.withdrawFromSettled(takerId, user1);
+        assertEq(withdrawal, expectedTakerOut);
+        assertEq(cashAsset.balanceOf(user1), cashBalanceBefore + expectedTakerOut);
+        CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(takerId);
+        assertEq(position.withdrawable, 0);
     }
 
     // tests
@@ -158,7 +195,8 @@ contract CollarTakerNFTTest is BaseTestSetup {
 
     function test_revert_constructor() public {
         // Create an oracle with mismatched assets
-        MockOracleUniV3TWAP invalidOracle = new MockOracleUniV3TWAP(address(cashAsset), address(collateralAsset));
+        MockOracleUniV3TWAP invalidOracle =
+            new MockOracleUniV3TWAP(address(cashAsset), address(collateralAsset));
         vm.expectRevert("oracle asset mismatch");
         new CollarTakerNFT(
             owner, configHub, cashAsset, collateralAsset, invalidOracle, "NewCollarTakerNFT", "NBPNFT"
@@ -192,8 +230,8 @@ contract CollarTakerNFTTest is BaseTestSetup {
 
     function test_pausableMethods() public {
         // create a position
-        createOfferAndSetPrice();
-        (uint takerId,) = createTakerPosition(0, takerNFT, providerNFT);
+        createOffer();
+        (uint takerId,) = checkOpenPairedPosition();
 
         startHoax(owner);
         takerNFT.pause();
@@ -201,7 +239,7 @@ contract CollarTakerNFTTest is BaseTestSetup {
 
         // Try to open a position while paused
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        takerNFT.openPairedPosition(putLockedCashToUse, providerNFT, 0);
+        takerNFT.openPairedPosition(putLocked, providerNFT, 0);
         // Try to settle a position while paused
         vm.expectRevert(Pausable.EnforcedPause.selector);
         takerNFT.settlePairedPosition(0);
@@ -227,8 +265,8 @@ contract CollarTakerNFTTest is BaseTestSetup {
         assertFalse(takerNFT.paused());
 
         // Should be able to open a position after unpausing
-        createOfferAndSetPrice();
-        createTakerPosition(0, takerNFT, providerNFT);
+        createOffer();
+        checkOpenPairedPosition();
     }
 
     function test_supportsInterface() public view {
@@ -257,12 +295,12 @@ contract CollarTakerNFTTest is BaseTestSetup {
      * function cancelPairedPosition(uint takerId, address recipient) external;
      */
     function test_openPairedPosition() public {
-        createOfferAndSetPrice();
+        createOffer();
         uint userBalanceBefore = cashAsset.balanceOf(user1);
-        (uint takerId, uint providerNFTId) = createTakerPosition(0, takerNFT, providerNFT);
+        (uint takerId, uint providerNFTId) = checkOpenPairedPosition();
         assertEq(takerId, 0);
         assertEq(providerNFTId, 0);
-        assertEq(cashAsset.balanceOf(user1), userBalanceBefore - putLockedCashToUse);
+        assertEq(cashAsset.balanceOf(user1), userBalanceBefore - putLocked);
     }
 
     /**
@@ -271,51 +309,51 @@ contract CollarTakerNFTTest is BaseTestSetup {
      * and create offer doesnt allow you to put a put strike deviation > 10000
      */
     function test_openPairedPositionUnsupportedCashAsset() public {
-        createOfferAndSetPrice();
+        createOffer();
         vm.startPrank(owner);
         configHub.setCashAssetSupport(address(cashAsset), false);
         startHoax(user1);
         vm.expectRevert("unsupported asset");
-        takerNFT.openPairedPosition(putLockedCashToUse, providerNFT, 0);
+        takerNFT.openPairedPosition(putLocked, providerNFT, 0);
     }
 
     function test_openPairedPositionUnsupportedCollateralAsset() public {
-        createOfferAndSetPrice();
+        createOffer();
         vm.startPrank(owner);
         configHub.setCollateralAssetSupport(address(collateralAsset), false);
         startHoax(user1);
         vm.expectRevert("unsupported asset");
-        takerNFT.openPairedPosition(putLockedCashToUse, providerNFT, 0);
+        takerNFT.openPairedPosition(putLocked, providerNFT, 0);
     }
 
     function test_openPairedPositionUnsupportedTakerContract() public {
-        createOfferAndSetPrice();
+        createOffer();
         vm.startPrank(owner);
         configHub.setCollarTakerContractAuth(address(takerNFT), false);
         startHoax(user1);
         vm.expectRevert("unsupported taker contract");
-        takerNFT.openPairedPosition(putLockedCashToUse, providerNFT, 0);
+        takerNFT.openPairedPosition(putLocked, providerNFT, 0);
     }
 
     function test_openPairedPositionUnsupportedProviderContract() public {
-        createOfferAndSetPrice();
+        createOffer();
         vm.startPrank(owner);
         configHub.setProviderContractAuth(address(providerNFT), false);
         startHoax(user1);
         vm.expectRevert("unsupported provider contract");
-        takerNFT.openPairedPosition(putLockedCashToUse, providerNFT, 0);
+        takerNFT.openPairedPosition(putLocked, providerNFT, 0);
     }
 
     function test_openPairedPosition_badOfferId() public {
-        createOfferAndSetPrice();
+        createOffer();
         startHoax(user1);
-        cashAsset.approve(address(takerNFT), putLockedCashToUse);
+        cashAsset.approve(address(takerNFT), putLocked);
         vm.expectRevert("invalid offer");
-        takerNFT.openPairedPosition(putLockedCashToUse, providerNFT, 1000);
+        takerNFT.openPairedPosition(putLocked, providerNFT, 1000);
     }
 
     function test_openPairedPositionBadCashAssetMismatch() public {
-        createOfferAndSetPrice();
+        createOffer();
         vm.startPrank(owner);
         configHub.setCashAssetSupport(address(collateralAsset), true);
         ProviderPositionNFT providerNFTBad = new ProviderPositionNFT(
@@ -329,13 +367,13 @@ contract CollarTakerNFTTest is BaseTestSetup {
         );
         configHub.setProviderContractAuth(address(providerNFTBad), true);
         startHoax(user1);
-        cashAsset.approve(address(takerNFT), putLockedCashToUse);
+        cashAsset.approve(address(takerNFT), putLocked);
         vm.expectRevert("asset mismatch");
-        takerNFT.openPairedPosition(putLockedCashToUse, providerNFTBad, 0);
+        takerNFT.openPairedPosition(putLocked, providerNFTBad, 0);
     }
 
     function test_openPairedPositionBadCollateralAssetMismatch() public {
-        createOfferAndSetPrice();
+        createOffer();
         vm.startPrank(owner);
         configHub.setCollateralAssetSupport(address(cashAsset), true);
         ProviderPositionNFT providerNFTBad = new ProviderPositionNFT(
@@ -343,94 +381,64 @@ contract CollarTakerNFTTest is BaseTestSetup {
         );
         configHub.setProviderContractAuth(address(providerNFTBad), true);
         startHoax(user1);
-        cashAsset.approve(address(takerNFT), putLockedCashToUse);
+        cashAsset.approve(address(takerNFT), putLocked);
         vm.expectRevert("asset mismatch");
-        takerNFT.openPairedPosition(putLockedCashToUse, providerNFTBad, 0);
+        takerNFT.openPairedPosition(putLocked, providerNFTBad, 0);
     }
 
     function test_openPairedPositionStrikePricesArentDifferent() public {
         vm.startPrank(owner);
         configHub.setLTVRange(9990, 9990);
-        uint badOfferId = createOffer(10_010, 9990, providerNFT);
+        callStrikeDeviation = 10_010;
+        ltv = 9990;
+        createOffer();
         updatePrice(991);
         startHoax(user1);
-        cashAsset.approve(address(takerNFT), putLockedCashToUse);
+        cashAsset.approve(address(takerNFT), putLocked);
         vm.expectRevert("strike prices aren't different");
-        takerNFT.openPairedPosition(twapPrice, providerNFT, badOfferId);
+        takerNFT.openPairedPosition(twapPrice, providerNFT, offerId);
     }
 
-    function test_settlePairedPositionPriceUp() public {
-        uint takerContractCashBalanceBefore = cashAsset.balanceOf(address(takerNFT));
-        uint providerContractCashBalanceBefore = cashAsset.balanceOf(address(providerNFT));
-
-        (uint takerId, uint providerNFTId) = createAndSettlePositionOnPrice(
-            pastCallStrikePrice, putLockedCashToUse + callLockedCashToUse, 0, -int(callLockedCashToUse)
-        );
-
-        uint providerContractCashBalanceAfter = cashAsset.balanceOf(address(providerNFT));
-        uint takerContractCashBalanceAfter = cashAsset.balanceOf(address(takerNFT));
-
-        assertEq(
-            providerContractCashBalanceAfter - providerContractCashBalanceBefore,
-            largeAmount - callLockedCashToUse
-        );
-        assertEq(
-            takerContractCashBalanceAfter - takerContractCashBalanceBefore,
-            putLockedCashToUse + callLockedCashToUse
-        );
-
-        CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(takerId);
-        assertEq(position.settled, true);
-        assertEq(position.withdrawable, putLockedCashToUse + callLockedCashToUse);
-
-        ProviderPositionNFT.ProviderPosition memory providerPosition = providerNFT.getPosition(providerNFTId);
-        assertEq(providerPosition.settled, true);
-    }
-
-    function test_settlePairedPositionNoPriceChange() public {
-        uint takerContractCashBalanceBefore = cashAsset.balanceOf(address(takerNFT));
-        uint providerContractCashBalanceBefore = cashAsset.balanceOf(address(providerNFT));
-
+    function test_settleAndWIthdrawPriceUp() public {
         (uint takerId, uint providerNFTId) =
-            createAndSettlePositionOnPrice(twapPrice, putLockedCashToUse, callLockedCashToUse, 0);
-
-        uint providerContractCashBalanceAfter = cashAsset.balanceOf(address(providerNFT));
-        uint takerContractCashBalanceAfter = cashAsset.balanceOf(address(takerNFT));
-
-        assertEq(providerContractCashBalanceAfter - providerContractCashBalanceBefore, largeAmount);
-        assertEq(takerContractCashBalanceAfter - takerContractCashBalanceBefore, putLockedCashToUse);
-
-        CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(takerId);
-        assertEq(position.settled, true);
-        assertEq(position.withdrawable, putLockedCashToUse);
-
-        ProviderPositionNFT.ProviderPosition memory providerPosition = providerNFT.getPosition(providerNFTId);
-        assertEq(providerPosition.settled, true);
+            createAndSettlePositionOnPrice(pastCallStrikePrice, putLocked + callLocked, 0, -int(callLocked));
+        checkWithdrawFromSettled(takerId, putLocked + callLocked);
     }
 
-    function test_settlePairedPositionPriceDown() public {
-        uint takerContractCashBalanceBefore = cashAsset.balanceOf(address(takerNFT));
-        uint providerContractCashBalanceBefore = cashAsset.balanceOf(address(providerNFT));
+    function test_settleAndWIthdrawNoChange() public {
+        (uint takerId, uint providerNFTId) =
+            createAndSettlePositionOnPrice(twapPrice, putLocked, callLocked, 0);
+        checkWithdrawFromSettled(takerId, putLocked);
+    }
 
-        (uint takerId, uint providerNFTId) = createAndSettlePositionOnPrice(
-            pastPutStrikePrice, 0, callLockedCashToUse + putLockedCashToUse, int(putLockedCashToUse)
-        );
+    function test_settleAndWIthdrawPriceDown() public {
+        (uint takerId, uint providerNFTId) =
+            createAndSettlePositionOnPrice(pastPutStrikePrice, 0, callLocked + putLocked, int(putLocked));
+        checkWithdrawFromSettled(takerId, 0);
+    }
 
-        uint providerContractCashBalanceAfter = cashAsset.balanceOf(address(providerNFT));
-        uint takerContractCashBalanceAfter = cashAsset.balanceOf(address(takerNFT));
+//    function test_settleAndWIthdrawFallBackPrice() public {
+//        (uint takerId, uint providerNFTId) =
+//                        createAndSettlePositionOnPrice(pastPutStrikePrice, 0, callLocked + putLocked, int(putLocked));
+//        checkWithdrawFromSettled(takerId, 0);
+//    }
 
-        assertEq(
-            providerContractCashBalanceAfter - providerContractCashBalanceBefore,
-            largeAmount + putLockedCashToUse
-        );
-        assertEq(takerContractCashBalanceAfter, takerContractCashBalanceBefore);
-
+    function test_withdrawRecipient() public {
+        uint expectedTakerOut = putLocked;
+        (uint takerId, uint providerNFTId) =
+            createAndSettlePositionOnPrice(twapPrice, expectedTakerOut, callLocked, 0);
+        // non owner recipient
+        address recipient = address(0x123);
+        uint cashBalanceBefore = cashAsset.balanceOf(recipient);
+        uint cashBalanceUserBefore = cashAsset.balanceOf(user1);
+        vm.expectEmit(address(takerNFT));
+        emit ICollarTakerNFT.WithdrawalFromSettled(takerId, recipient, expectedTakerOut);
+        uint withdrawal = takerNFT.withdrawFromSettled(takerId, recipient);
+        assertEq(withdrawal, expectedTakerOut);
+        assertEq(cashAsset.balanceOf(recipient), cashBalanceBefore + expectedTakerOut);
+        assertEq(cashAsset.balanceOf(user1), cashBalanceUserBefore);
         CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(takerId);
-        assertEq(position.settled, true);
         assertEq(position.withdrawable, 0);
-
-        ProviderPositionNFT.ProviderPosition memory providerPosition = providerNFT.getPosition(providerNFTId);
-        assertEq(providerPosition.settled, true);
     }
 
     function test_settlePairedPosition_NonExistentPosition() public {
@@ -439,8 +447,8 @@ contract CollarTakerNFTTest is BaseTestSetup {
     }
 
     function test_settlePairedPosition_NotExpired() public {
-        createOfferAndSetPrice();
-        (uint takerId,) = createTakerPosition(0, takerNFT, providerNFT);
+        createOffer();
+        (uint takerId,) = checkOpenPairedPosition();
 
         // Try to settle before expiration
         startHoax(user1);
@@ -449,8 +457,8 @@ contract CollarTakerNFTTest is BaseTestSetup {
     }
 
     function test_settlePairedPosition_AlreadySettled() public {
-        createOfferAndSetPrice();
-        (uint takerId,) = createTakerPosition(0, takerNFT, providerNFT);
+        createOffer();
+        (uint takerId,) = checkOpenPairedPosition();
 
         // Settle the position
         skip(301);
@@ -462,23 +470,9 @@ contract CollarTakerNFTTest is BaseTestSetup {
         takerNFT.settlePairedPosition(takerId);
     }
 
-    function test_withdrawFromSettled() public {
-        (uint takerId,) = createAndSettlePositionOnPrice(
-            pastCallStrikePrice, putLockedCashToUse + callLockedCashToUse, 0, -int(callLockedCashToUse)
-        );
-        uint cashBalanceBefore = cashAsset.balanceOf(user1);
-        uint withdrawal = takerNFT.withdrawFromSettled(takerId, user1);
-        assertEq(withdrawal, putLockedCashToUse + callLockedCashToUse);
-        // price went up past call strike (120%) so the balance after withdrawing should be
-        // userLocked + providerLocked
-        assertEq(cashAsset.balanceOf(user1), cashBalanceBefore + withdrawal);
-        CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(takerId);
-        assertEq(position.withdrawable, 0);
-    }
-
     function test_withdrawFromSettled_NotOwner() public {
-        createOfferAndSetPrice();
-        (uint takerId,) = createTakerPosition(0, takerNFT, providerNFT);
+        createOffer();
+        (uint takerId,) = checkOpenPairedPosition();
 
         // Settle the position
         skip(301);
@@ -492,8 +486,8 @@ contract CollarTakerNFTTest is BaseTestSetup {
     }
 
     function test_withdrawFromSettled_NotSettled() public {
-        createOfferAndSetPrice();
-        (uint takerId,) = createTakerPosition(0, takerNFT, providerNFT);
+        createOffer();
+        (uint takerId,) = checkOpenPairedPosition();
 
         // Try to withdraw before settling
         startHoax(user1);
@@ -502,10 +496,10 @@ contract CollarTakerNFTTest is BaseTestSetup {
     }
 
     function test_cancelPairedPosition() public {
-        createOfferAndSetPrice();
+        createOffer();
         uint userCashBalanceBefore = cashAsset.balanceOf(user1);
         uint providerCashBalanceBefore = cashAsset.balanceOf(provider);
-        (uint takerId, uint providerNFTId) = createTakerPosition(0, takerNFT, providerNFT);
+        (uint takerId, uint providerNFTId) = checkOpenPairedPosition();
         startHoax(user1);
         takerNFT.safeTransferFrom(user1, provider, takerId);
         startHoax(provider);
@@ -520,7 +514,7 @@ contract CollarTakerNFTTest is BaseTestSetup {
         uint userCashBalanceDiff = userCashBalanceAfter - userCashBalanceBefore;
         // we set the user1 address at recipient so both the putLockedCash and the callLockedCash should be
         // returned to user1  putLockedCash + callLockedCash
-        uint shouldBeDiff = callLockedCashToUse;
+        uint shouldBeDiff = callLocked;
         assertEq(userCashBalanceDiff, shouldBeDiff);
 
         uint providerCashBalanceDiff = providerCashBalanceAfter - providerCashBalanceBefore;
@@ -528,8 +522,8 @@ contract CollarTakerNFTTest is BaseTestSetup {
     }
 
     function test_cancelPairedPosition_NotOwnerOfTakerID() public {
-        createOfferAndSetPrice();
-        (uint takerId,) = createTakerPosition(0, takerNFT, providerNFT);
+        createOffer();
+        (uint takerId,) = checkOpenPairedPosition();
 
         // Try to cancel with a different address
         startHoax(address(0xdead));
@@ -538,8 +532,8 @@ contract CollarTakerNFTTest is BaseTestSetup {
     }
 
     function test_cancelPairedPosition_NotOwnerOfProviderID() public {
-        createOfferAndSetPrice();
-        (uint takerId,) = createTakerPosition(0, takerNFT, providerNFT);
+        createOffer();
+        (uint takerId,) = checkOpenPairedPosition();
 
         // Transfer the taker NFT to another address, but not the provider NFT
         startHoax(user1);
@@ -552,8 +546,8 @@ contract CollarTakerNFTTest is BaseTestSetup {
     }
 
     function test_cancelPairedPosition_AlreadySettled() public {
-        createOfferAndSetPrice();
-        (uint takerId,) = createTakerPosition(0, takerNFT, providerNFT);
+        createOffer();
+        (uint takerId,) = checkOpenPairedPosition();
 
         // Settle the position
         skip(301);
@@ -599,7 +593,8 @@ contract CollarTakerNFTTest is BaseTestSetup {
         startHoax(owner);
 
         // Create an oracle with mismatched assets
-        MockOracleUniV3TWAP invalidOracle = new MockOracleUniV3TWAP(address(cashAsset), address(collateralAsset));
+        MockOracleUniV3TWAP invalidOracle =
+            new MockOracleUniV3TWAP(address(cashAsset), address(collateralAsset));
         vm.expectRevert("oracle asset mismatch");
         takerNFT.setOracle(invalidOracle);
 
