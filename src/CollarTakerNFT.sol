@@ -75,31 +75,6 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
         return oracle.currentPrice();
     }
 
-    /// @dev TWAP price that's used in this contract for settling positions, so the right price
-    /// for use with previewSettlement().
-    /// It tries to use a historical price, but if that fails (because TWAP values for timestamp aren't available)
-    /// it uses the current price.
-    /// Current simple fallback means that there is a sharp difference in settlement
-    /// price once the historical price becomes unavailable (because the price jumps to latest).
-    /// @dev Use the oracle's `increaseCardinality` (or the pool's `increaseObservationCardinalityNext` directly)
-    /// to force the pool to store a longer history of prices to increase the time span during which settlement
-    /// uses the actual expiry price instead of the latest price.
-    /// A more sophisticated fallback is possible - that will try to use the oldest historical price available,
-    /// but that requires a more complex and tight integration with the pool.
-    function settlementPrice(uint32 timestamp) public view returns (uint price, bool historicalOk) {
-        // low level try-catch, because high level try-catch is a mistake
-        bytes memory retVal;
-        (historicalOk, retVal) = address(oracle).staticcall(abi.encodeCall(oracle.historicalPrice, timestamp));
-        // the caller cannot make the above call fail OOG using too little gas (e.g., to force the fallback)
-        // because this will cause the fallback to fail too (since it requires a non-trivial amount of gas too)
-        if (historicalOk) {
-            // this will revert if cannot be decoded, which means oracle interface doesn't match
-            price = abi.decode(retVal, (uint));
-        } else {
-            price = currentOraclePrice();
-        }
-    }
-
     /// @dev preview the settlement calculation updates at a particular price
     /// @dev no validation, so may revert with division by zero for bad values
     function previewSettlement(TakerPosition memory takerPos, uint endPrice)
@@ -148,7 +123,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
         position.settled = true; // set here to prevent reentrancy
 
         // get settlement price. casting is safe since expiration was checked
-        (uint endPrice, bool historical) = settlementPrice(uint32(position.expiration));
+        (uint endPrice, bool historical) = oracle.pastPriceWithFallback(uint32(position.expiration));
 
         (uint withdrawable, int providerChange) = _settlementCalculations(position, endPrice);
 
@@ -282,7 +257,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
         // will work in the future, since the observations buffer can be filled such that the required
         // time window is not available.
         // @dev this means this contract can be temporarily DoSed unless the cardinality is set
-        // to at least twap-window / chain-block-time. For 5 minutes TWAP on Arbitrum this is 1200.
+        // to at least twap-window. For 5 minutes TWAP on Arbitrum this is 300 (obs. are set by timestamps)
         require(_oracle.currentPrice() != 0, "invalid price");
         emit OracleSet(oracle, _oracle); // emit before for the prev value
         oracle = _oracle;
