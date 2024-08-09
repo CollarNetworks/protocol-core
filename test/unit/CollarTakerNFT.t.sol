@@ -200,6 +200,7 @@ contract CollarTakerNFTTest is BaseTestSetup {
         assertEq(address(takerNFT.cashAsset()), address(cashAsset));
         assertEq(address(takerNFT.collateralAsset()), address(collateralAsset));
         assertEq(address(takerNFT.oracle()), address(mockOracle));
+        assertEq(takerNFT.VERSION(), "0.2.0");
         assertEq(takerNFT.name(), "NewCollarTakerNFT");
         assertEq(takerNFT.symbol(), "NBPNFT");
         assertEq(takerNFT.nextPositionId(), 0);
@@ -451,7 +452,7 @@ contract CollarTakerNFTTest is BaseTestSetup {
         checkWithdrawFromSettled(takerId, putLocked + callLocked / 2);
     }
 
-    function test_settleAndWIthdrawFallbackToCurrentMockOracle() public {
+    function test_settleAndWIthdrawFallbackToCurrent_MockOracle() public {
         uint currentPrice = twapPrice * 120 / 100;
 
         (uint takerId,) = checkOpenPairedPosition();
@@ -471,7 +472,7 @@ contract CollarTakerNFTTest is BaseTestSetup {
         checkWithdrawFromSettled(takerId, putLocked + callLocked);
     }
 
-    function test_settleAndWIthdrawFallbackToCurrentMockInternalRevert() public {
+    function test_settleAndWIthdrawFallbackToCurrent_MockInternalRevert() public {
         uint currentPrice = twapPrice * 120 / 100;
 
         (uint takerId,) = checkOpenPairedPosition();

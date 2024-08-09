@@ -25,6 +25,7 @@ import { IPeripheryImmutableState } from
 /// Networks with short block times are highly susceptible to TWAP manipulation due to the reduced attack cost.
 contract OracleUniV3TWAP {
     uint128 public constant BASE_TOKEN_AMOUNT = 1e18;
+    uint32 public constant MIN_TWAP_WINDOW = 300;
     string public constant VERSION = "0.2.0";
 
     address public immutable baseToken;
@@ -40,6 +41,7 @@ contract OracleUniV3TWAP {
         uint32 _twapWindow,
         address _uniV3SwapRouter
     ) {
+        require(_twapWindow >= MIN_TWAP_WINDOW, "twap window too short");
         baseToken = _baseToken;
         quoteToken = _quoteToken;
         feeTier = _feeTier;
