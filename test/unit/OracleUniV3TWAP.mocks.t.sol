@@ -3,7 +3,6 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 import {
     IUniswapV3Pool,
     IUniswapV3PoolState,
@@ -13,6 +12,8 @@ import {
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
+
+import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 
 contract OracleUniV3TWAPTest is Test {
     OracleUniV3TWAP public oracle;
@@ -33,7 +34,7 @@ contract OracleUniV3TWAPTest is Test {
         https://uniswapv3book.com/milestone_0/uniswap-v3.html?highlight=tick#ticks
         https://docs.uniswap.org/contracts/v3/reference/core/libraries/TickMath
         tick to price: 1.0001 ^ (tick)
-        price to tick: math.log2(1000) / math.log2(1.0001)
+        price to tick: math.log2(price-ratio) / math.log2(1.0001)
     */
     int24 tick1000 = 69_082;
     uint priceTick1000 = 1_000_099_338_977_258_828_485; // 1000
