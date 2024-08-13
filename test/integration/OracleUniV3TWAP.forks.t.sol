@@ -4,15 +4,8 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 
-import {
-    IUniswapV3Pool,
-    IUniswapV3PoolState,
-    IUniswapV3PoolActions,
-    IUniswapV3PoolDerivedState
-} from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
-import { IPeripheryImmutableState } from
-    "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 import { INonfungiblePositionManager } from
     "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
 
