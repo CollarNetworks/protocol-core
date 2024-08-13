@@ -200,6 +200,8 @@ contract LoansBasicHappyPathsTest is LoansTestBase {
         assertEq(loans.VERSION(), "0.2.0");
         assertEq(loans.owner(), owner);
         assertEq(loans.closingKeeper(), address(0));
+        assertEq(address(loans.rollsContract()), address(0));
+        assertEq(loans.swapFeeTier(), 500);
     }
 
     function test_createLoan() public {
