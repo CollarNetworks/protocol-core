@@ -16,14 +16,15 @@ import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 contract OracleUniV3TWAP_USDCWETH_ForkTest is Test {
     OracleUniV3TWAP public oracle;
 
+    address router = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
+    address factory = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
+    uint24 feeTier = 500;
+
     uint32 twapWindow = 300;
 
     // setup for particular test class
     address baseToken;
     address quoteToken;
-    address router = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
-    address factory = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
-    uint24 feeTier = 500;
     address pool;
 
     // test values
@@ -42,12 +43,12 @@ contract OracleUniV3TWAP_USDCWETH_ForkTest is Test {
     }
 
     function _setUp() internal virtual {
-        baseToken = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
-        quoteToken = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
+        baseToken = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
+        quoteToken = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // USDC
         pool = 0xC6962004f452bE9203591991D15f6b388e09E8D0;
 
         expectedCardinality = 8000;
-        expectedCurPrice = 2_713_263_289;
+        expectedCurPrice = 2_713_263_289; // 2713 USDC per 1 ETH
         expectedPriceTwapWindowAgo = 2_720_326_598;
     }
 
@@ -110,9 +111,10 @@ contract OracleUniV3TWAP_USDCWETH_ForkTest is Test {
 contract OracleUniV3TWAP_WETHUSDC_ForkTest is OracleUniV3TWAP_USDCWETH_ForkTest {
     function _setUp() internal override {
         super._setUp();
-        baseToken = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
-        quoteToken = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
+        baseToken = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // USDC
+        quoteToken = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
 
+        // 368M ETH (= 1 trillion / 2713) for 1e18 USDC (1 trillion USDC)
         expectedCurPrice = 368_559_882_855_728_784_761_983_870;
         expectedPriceTwapWindowAgo = 367_602_919_598_965_378_923_333_340;
     }
@@ -120,10 +122,6 @@ contract OracleUniV3TWAP_WETHUSDC_ForkTest is OracleUniV3TWAP_USDCWETH_ForkTest 
 
 contract OracleUniV3TWAP_NewPool_ForkTest is OracleUniV3TWAP_USDCWETH_ForkTest {
     uint initialAmount = 10 ether;
-
-    // price 1:1, because otherwise liquidity amounts calc is a bit much
-    //  if another initial price and liquidity are needed use this: https://uniswapv3book.com/milestone_1/calculating-liquidity.html
-    uint160 sqrtPriceX96Tick0 = 79_228_162_514_264_337_593_543_950_336;
 
     function _setUp() internal virtual override {
         super._setUp();
@@ -134,19 +132,29 @@ contract OracleUniV3TWAP_NewPool_ForkTest is OracleUniV3TWAP_USDCWETH_ForkTest {
 
         expectedCardinality = uint16(twapWindow);
 
-        _setupNewPool(expectedCardinality);
-
-        _setupInitialObservations(2 * twapWindow); // twice the window for testing pastPrice
+        _setupNewPool(expectedCardinality, 2 * twapWindow); // twice the window for testing pastPrice
 
         expectedCurPrice = 1 ether;
         expectedPriceTwapWindowAgo = expectedCurPrice;
     }
 
-    function _setupNewPool(uint16 cardinality) internal {
+    function _setupNewPool(uint16 cardinality, uint32 initialObservationsSpan) internal {
         address newPool = IUniswapV3Factory(factory).createPool(baseToken, quoteToken, feeTier);
+
+        // price 1:1, because otherwise liquidity amounts calc is a bit much
+        //  if another initial price and liquidity are needed use this: https://uniswapv3book.com/milestone_1/calculating-liquidity.html
+        uint160 sqrtPriceX96Tick0 = 79_228_162_514_264_337_593_543_950_336;
         IUniswapV3Pool(newPool).initialize(sqrtPriceX96Tick0);
-        IUniswapV3Pool(newPool).increaseObservationCardinalityNext(cardinality);
+
         _provideAmount1to1(initialAmount);
+
+        // set the cardinality to what is needed
+        IUniswapV3Pool(newPool).increaseObservationCardinalityNext(cardinality);
+
+        for (uint i; i < initialObservationsSpan / 60; ++i) {
+            skip(60); // skip 1 minute
+            _provideAmount1to1(1); // provide 1 wei to record an observation
+        }
     }
 
     function _provideAmount1to1(uint amount) internal {
@@ -174,12 +182,5 @@ contract OracleUniV3TWAP_NewPool_ForkTest is OracleUniV3TWAP_USDCWETH_ForkTest {
         CollarOwnedERC20(quoteToken).approve(address(positionManager), amount);
 
         INonfungiblePositionManager(positionManager).mint(params);
-    }
-
-    function _setupInitialObservations(uint32 timeSpan) internal {
-        for (uint i; i < timeSpan / 60; ++i) {
-            skip(60); // skip 1 minute
-            _provideAmount1to1(1); // provide 1 wei to record an observation
-        }
     }
 }
