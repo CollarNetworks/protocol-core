@@ -296,8 +296,7 @@ contract BaseDeployment is Script {
         AssetPairContracts memory pair,
         uint loanId,
         uint rollOfferId,
-        int slippage,
-        int rollFee
+        int slippage
     ) internal {
         // Record initial balances
         uint initialUserCashBalance = pair.cashAsset.balanceOf(user);
@@ -331,8 +330,7 @@ contract BaseDeployment is Script {
             initialLoanAmount,
             currentPrice,
             toTaker,
-            actualTransferAmount,
-            rollFee
+            actualTransferAmount
         );
     }
 
@@ -345,8 +343,7 @@ contract BaseDeployment is Script {
         uint initialLoanAmount,
         uint currentPrice,
         int toTaker,
-        int actualTransferAmount,
-        int rollFee
+        int actualTransferAmount
     ) internal view {
         require(pair.takerNFT.ownerOf(newTakerId) == user, "New taker NFT not owned by user");
         require(newLoanAmount > 0, "Invalid new loan amount");
@@ -370,7 +367,6 @@ contract BaseDeployment is Script {
         console.log("user balance change");
         console.logInt(userBalanceChange);
         console.log("roll fee");
-        console.logInt(rollFee);
         /**
          * @dev commented out because of mismatch between the script and the tx execution in virtual testnet
          */

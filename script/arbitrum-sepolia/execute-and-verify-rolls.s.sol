@@ -27,92 +27,9 @@ contract ExecuteAndVerifyRolls is Script, DeploymentUtils, BaseDeployment {
         uint rollOfferId = 0; // Assuming this is the ID of the roll offer created in the previous step
 
         vm.startBroadcast(user);
-        _executeRoll(user, pair, loanId, rollOfferId);
+        _executeRoll(user, pair, loanId, rollOfferId, slippage);
         vm.stopBroadcast();
 
         console.log("\nRoll executed and verified successfully");
-    }
-
-    function _executeRoll(address user, AssetPairContracts memory pair, uint loanId, uint rollOfferId)
-        internal
-    {
-        uint initialUserCashBalance = pair.cashAsset.balanceOf(user);
-        uint initialLoanAmount = pair.loansContract.getLoan(loanId).loanAmount;
-
-        pair.cashAsset.approve(address(pair.loansContract), type(uint).max);
-        pair.takerNFT.approve(address(pair.loansContract), loanId);
-
-        uint currentPrice = pair.takerNFT.currentOraclePrice();
-        (int toTaker,,) = pair.rollsContract.calculateTransferAmounts(rollOfferId, currentPrice);
-        (uint newTakerId, uint newLoanAmount, int actualTransferAmount) =
-            pair.loansContract.rollLoan(loanId, pair.rollsContract, rollOfferId, toTaker);
-
-        console.log("Roll executed:");
-        console.log(" - New Taker ID: %d", newTakerId);
-        console.log(" - New Loan Amount: %d", newLoanAmount);
-
-        _verifyRollExecution(
-            user,
-            pair,
-            newTakerId,
-            newLoanAmount,
-            initialUserCashBalance,
-            initialLoanAmount,
-            currentPrice,
-            toTaker,
-            actualTransferAmount
-        );
-    }
-
-    function _verifyRollExecution(
-        address user,
-        AssetPairContracts memory pair,
-        uint newTakerId,
-        uint newLoanAmount,
-        uint initialUserCashBalance,
-        uint initialLoanAmount,
-        uint currentPrice,
-        int toTaker,
-        int actualTransferAmount
-    ) internal view {
-        require(pair.takerNFT.ownerOf(newTakerId) == user, "New taker NFT not owned by user");
-        require(newLoanAmount > 0, "Invalid new loan amount");
-
-        CollarTakerNFT.TakerPosition memory newPosition = pair.takerNFT.getPosition(newTakerId);
-        require(newPosition.settled == false, "New position should not be settled");
-        require(newPosition.withdrawable == 0, "New position should have no withdrawable amount");
-        require(newPosition.putLockedCash > 0, "New position should have put locked cash");
-        require(newPosition.callLockedCash > 0, "New position should have call locked cash");
-
-        uint finalUserCashBalance = pair.cashAsset.balanceOf(user);
-        int userBalanceChange = int(finalUserCashBalance) - int(initialUserCashBalance);
-
-        console.log("initial user cash balance: ", initialUserCashBalance);
-
-        console.log("final user cash balance: ", finalUserCashBalance);
-
-        console.log("User balance change: ");
-        console.logInt(userBalanceChange);
-
-        console.log("Actual transfer amount: ");
-        console.logInt(actualTransferAmount);
-
-        console.log("To taker: ");
-        console.logInt(toTaker);
-
-        require(userBalanceChange == toTaker, "User balance change doesn't match expected transfer");
-        require(actualTransferAmount == toTaker, "Actual transfer amount doesn't match calculated amount");
-
-        int loanAmountChange = int(newLoanAmount) - int(initialLoanAmount);
-        require(loanAmountChange == userBalanceChange + rollFee, "Loan amount change is incorrect");
-
-        require(newPosition.expiration > block.timestamp, "New position expiration should be in the future");
-        require(
-            newPosition.initialPrice == currentPrice, "New position initial price should match current price"
-        );
-        require(newPosition.putStrikePrice < currentPrice, "Put strike price should be below current price");
-        require(newPosition.callStrikePrice > currentPrice, "Call strike price should be above current price");
-
-        console.log("Roll verification passed successfully");
     }
 }
