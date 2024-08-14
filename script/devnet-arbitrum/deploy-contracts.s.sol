@@ -14,7 +14,7 @@ import { BaseDeployment } from "../base.s.sol";
 import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 
 contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
-    uint chainId = 137_999; // id for ethereum mainnet fork on tenderly
+    uint chainId = 42_161; // id for ethereum mainnet fork on tenderly
     address USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
     address USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
     address WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
