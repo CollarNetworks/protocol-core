@@ -51,6 +51,7 @@ interface ILoans {
     event ClosingKeeperAllowed(address indexed sender, uint indexed takerId, bool indexed enabled);
     event ClosingKeeperUpdated(address indexed previousKeeper, address indexed newKeeper);
     event RollsContractUpdated(Rolls indexed previousRolls, Rolls indexed newRolls);
+    event SwapFeeTiertUpdated(uint24 indexed previousFeeTier, uint24 indexed newFeeTier);
 
     // constants
     function MAX_SWAP_TWAP_DEVIATION_BIPS() external view returns (uint);

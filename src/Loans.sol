@@ -54,8 +54,8 @@ import { ILoans } from "./interfaces/ILoans.sol";
 contract Loans is ILoans, BaseEmergencyAdmin {
     using SafeERC20 for IERC20;
 
-    uint24 internal constant FEE_TIER_30_BIPS = 3000;
     uint internal constant BIPS_BASE = 10_000;
+    uint24 internal constant INITIAL_FEE_TIER = 500;
     /// should be set to not be overly restrictive since is mostly sanity-check
     uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 500;
 
@@ -74,11 +74,13 @@ contract Loans is ILoans, BaseEmergencyAdmin {
     address public closingKeeper;
     // the currently configured & allowed rolls contract for this takerNFT and cash asset
     Rolls public rollsContract;
+    uint24 public swapFeeTier;
 
     constructor(address initialOwner, CollarTakerNFT _takerNFT) BaseEmergencyAdmin(initialOwner) {
         takerNFT = _takerNFT;
         cashAsset = _takerNFT.cashAsset();
         collateralAsset = _takerNFT.collateralAsset();
+        swapFeeTier = INITIAL_FEE_TIER;
         _setConfigHub(_takerNFT.configHub());
         /// @dev this contract might as well be a third party contract (since not authed by configHub),
         /// this is because it's not trusted by any other contract (only its users).
@@ -299,6 +301,14 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         rollsContract = rolls;
     }
 
+    /// @notice Sets the fee tier to use for swaps
+    /// @dev only owner
+    function setSwapFeeTier(uint24 newFeeTier) external onlyOwner {
+        require(newFeeTier == 500 || newFeeTier == 3000 || newFeeTier == 10000, "invalid fee tier");
+        emit SwapFeeTiertUpdated(swapFeeTier, newFeeTier);
+        swapFeeTier = newFeeTier;
+    }
+
     // ----- INTERNAL MUTATIVE ----- //
 
     function _createLoan(
@@ -352,7 +362,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
             tokenIn: address(assetIn),
             tokenOut: address(assetOut),
-            fee: FEE_TIER_30_BIPS,
+            fee: swapFeeTier,
             recipient: address(this),
             amountIn: amountIn,
             amountOutMinimum: minAmountOut,

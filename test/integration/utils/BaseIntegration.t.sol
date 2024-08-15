@@ -79,7 +79,7 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
             address(this), configHub, cashAsset, collateralAsset, oracle, "Borrow NFT", "BNFT"
         );
 
-        loanContract = new Loans(address(this), takerNFT);
+        loanContract = new Loans(owner, takerNFT);
         configHub.setCollarTakerContractAuth(address(takerNFT), true);
         providerNFT = new ProviderPositionNFT(
             address(this), configHub, cashAsset, collateralAsset, address(takerNFT), "Provider NFT", "PNFT"
