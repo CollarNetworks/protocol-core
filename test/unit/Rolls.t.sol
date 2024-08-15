@@ -523,8 +523,14 @@ contract RollsTest is BaseTestSetup {
             999, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
         );
 
+        // expired taker position
+        skip(duration + 1);
+        vm.expectRevert("taker position expired");
+        rolls.createRollOffer(
+            takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
+        );
+
         // Settled taker position
-        skip(duration);
         takerNFT.settlePairedPosition(takerId);
         vm.expectRevert("taker position settled");
         rolls.createRollOffer(
@@ -660,10 +666,14 @@ contract RollsTest is BaseTestSetup {
         vm.expectRevert("not taker ID owner");
         rolls.executeRoll(rollId, type(int).min);
 
-        // Taker position already settled
+        // Taker position expired
         startHoax(user1);
-        skip(duration);
+        skip(duration + 1);
         updatePrice();
+        vm.expectRevert("taker position expired");
+        rolls.executeRoll(rollId, type(int).min);
+
+        // Taker position settled
         takerNFT.settlePairedPosition(takerId);
         vm.expectRevert("taker position settled");
         rolls.executeRoll(rollId, type(int).min);

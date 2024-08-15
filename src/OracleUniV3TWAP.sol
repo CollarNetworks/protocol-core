@@ -25,6 +25,7 @@ import { IPeripheryImmutableState } from
 /// Networks with short block times are highly susceptible to TWAP manipulation due to the reduced attack cost.
 contract OracleUniV3TWAP {
     uint128 public constant BASE_TOKEN_AMOUNT = 1e18;
+    uint32 public constant MIN_TWAP_WINDOW = 300;
     string public constant VERSION = "0.2.0";
 
     address public immutable baseToken;
@@ -40,6 +41,7 @@ contract OracleUniV3TWAP {
         uint32 _twapWindow,
         address _uniV3SwapRouter
     ) {
+        require(_twapWindow >= MIN_TWAP_WINDOW, "twap window too short");
         baseToken = _baseToken;
         quoteToken = _quoteToken;
         feeTier = _feeTier;
@@ -53,11 +55,11 @@ contract OracleUniV3TWAP {
         (,,,, observationCardinalityNext,,) = pool.slot0();
     }
 
-    function currentPrice() external view returns (uint) {
-        return historicalPrice(uint32(block.timestamp));
+    function currentPrice() public view returns (uint) {
+        return pastPrice(uint32(block.timestamp));
     }
 
-    function historicalPrice(uint32 timestamp) public view returns (uint) {
+    function pastPrice(uint32 timestamp) public view returns (uint) {
         // _secondsAgos is in offsets format. e.g., [120, 60] means that observations 120 and 60
         // seconds ago will be used for the TWAP calculation
         uint32 twapEndOffset = uint32(block.timestamp) - timestamp;
@@ -66,6 +68,29 @@ contract OracleUniV3TWAP {
         secondsAgos[1] = twapEndOffset;
 
         return _getQuote(secondsAgos);
+    }
+
+    /// Tries to use a past price, but if that fails (because TWAP values for timestamp aren't available)
+    /// it uses the current price.
+    /// Current simple fallback means that there is a sharp difference in settlement
+    /// price once the historical price becomes unavailable (because the price jumps to latest).
+    /// @dev Use the oracle's `increaseCardinality` (or the pool's `increaseObservationCardinalityNext` directly)
+    /// to force the pool to store a longer history of prices to increase the time span during which settlement
+    /// uses the actual expiry price instead of the latest price.
+    /// A more sophisticated fallback is possible - that will try to use the oldest historical price available,
+    /// but that requires a more complex and tight integration with the pool.
+    function pastPriceWithFallback(uint32 timestamp) public view returns (uint price, bool pastPriceOk) {
+        // low level try-catch, because high level try-catch is a mistake
+        bytes memory retVal;
+        (pastPriceOk, retVal) = address(this).staticcall(abi.encodeCall(this.pastPrice, timestamp));
+        // the caller cannot make the above call fail OOG using too little gas (e.g., to force the fallback)
+        // because this will cause the fallback to fail too (since it requires a non-trivial amount of gas too)
+        if (pastPriceOk) {
+            // this will revert if cannot be decoded, which means oracle interface doesn't match
+            price = abi.decode(retVal, (uint));
+        } else {
+            price = currentPrice();
+        }
     }
 
     // ----- Mutative ----- //

@@ -134,7 +134,6 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         (toTaker, toProvider) = _calculateTransferAmounts({
             startPrice: takerPos.initialPrice,
             newPrice: price,
-            settlementPrice: price, // assumes settlement is using current price
             rollFeeAmount: rollFee,
             takerPos: takerPos,
             providerPos: takerPos.providerNFT.getPosition(takerPos.providerPositionId)
@@ -176,6 +175,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
         require(takerPos.expiration != 0, "taker position doesn't exist");
         require(!takerPos.settled, "taker position settled");
+        require(takerPos.expiration >= block.timestamp, "taker position expired");
 
         ProviderPositionNFT providerNFT = takerPos.providerNFT;
         uint providerId = takerPos.providerPositionId;
@@ -280,21 +280,12 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         // position is not settled yet. it must exist still (otherwise ownerOf would revert)
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offer.takerId);
         require(!takerPos.settled, "taker position settled");
-        // @dev an expired position settles at historic price, so if rolling after expiry is allowed,
-        // a different price may be used in settlement calculations instead of current price
-        // and that complexity of scenarios is not needed for now.
-        require(takerPos.expiration > block.timestamp, "taker position expired");
+        // @dev an expired position should settle at some past price, so if rolling after expiry is allowed,
+        // a different price may be used in settlement calculations instead of current price.
+        // This is prevented by this check, since supporting the complexity of such scenarios is not needed.
+        require(takerPos.expiration >= block.timestamp, "taker position expired");
 
-        // Check the settlementPrice assumption (Taker NFT is the authority on prices),
-        // assuming settlement is now. The settlement is "theoretical" since position is cancelled,
-        // but it dictates what part of the position is earned by what side.
-        (uint settlementPrice,) = takerNFT.settlementPrice(uint32(block.timestamp));
-        // @dev this check may not be needed, since we're passing the right price into the internal method
-        // but this simplifies the analysis and testing by removing the scenarios of different prices.
-        require(newPrice == settlementPrice, "settlement price mismatch");
-
-        (newTakerId, newProviderId, toTaker, toProvider) =
-            _executeRoll(rollId, newPrice, settlementPrice, takerPos);
+        (newTakerId, newProviderId, toTaker, toProvider) = _executeRoll(rollId, newPrice, takerPos);
 
         // check transfers are sufficient / or pulls are not excessive
         require(toTaker >= minToUser, "taker transfer slippage");
@@ -303,12 +294,10 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    function _executeRoll(
-        uint rollId,
-        uint newPrice,
-        uint settlementPrice,
-        CollarTakerNFT.TakerPosition memory takerPos
-    ) internal returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider) {
+    function _executeRoll(uint rollId, uint newPrice, CollarTakerNFT.TakerPosition memory takerPos)
+        internal
+        returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider)
+    {
         // @dev this is memory, not storage
         RollOffer memory offer = rollOffers[rollId];
         // pull the taker NFT from the user (we already have the provider NFT)
@@ -324,7 +313,6 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         (toTaker, toProvider) = _calculateTransferAmounts({
             startPrice: takerPos.initialPrice,
             newPrice: newPrice,
-            settlementPrice: settlementPrice,
             rollFeeAmount: rollFee,
             takerPos: takerPos,
             providerPos: providerPos
@@ -436,13 +424,12 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
     function _calculateTransferAmounts(
         uint startPrice,
         uint newPrice,
-        uint settlementPrice,
         int rollFeeAmount,
         CollarTakerNFT.TakerPosition memory takerPos,
         ProviderPositionNFT.ProviderPosition memory providerPos
     ) internal view returns (int toTaker, int toProvider) {
         // what would the taker and provider get from a settlement of the old position at current settlement price
-        (uint takerSettled, int providerChange) = takerNFT.previewSettlement(takerPos, settlementPrice);
+        (uint takerSettled, int providerChange) = takerNFT.previewSettlement(takerPos, newPrice);
         int providerSettled = takerPos.callLockedCash.toInt256() + providerChange;
 
         // what are the new locked amounts as they will be calculated when opening the new positions
