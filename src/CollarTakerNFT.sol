@@ -10,7 +10,7 @@ pragma solidity 0.8.22;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-// internal imports
+// internal
 import { ProviderPositionNFT } from "./ProviderPositionNFT.sol";
 import { BaseEmergencyAdminNFT } from "./base/BaseEmergencyAdminNFT.sol";
 import { OracleUniV3TWAP } from "./OracleUniV3TWAP.sol";
@@ -23,7 +23,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
 
     uint internal constant BIPS_BASE = 10_000;
 
-    string public constant VERSION = "0.2.0"; // allow checking version on-chain
+    string public constant VERSION = "0.2.0";
 
     // ----- IMMUTABLES ----- //
     IERC20 public immutable cashAsset;
@@ -48,13 +48,16 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
     }
 
     // ----- VIEW FUNCTIONS ----- //
-    // @dev return memory struct (the default getter returns tuple)
-    function getPosition(uint takerId) external view returns (TakerPosition memory) {
-        return positions[takerId];
-    }
 
+    /// @notice Returns the ID of the next taker position to be minted
     function nextPositionId() external view returns (uint) {
         return nextTokenId;
+    }
+
+    /// @notice Retrieves the details of a specific position (corresponds to the NFT token ID)
+    /// @dev This is used instead of the default getter because the default getter returns a tuple
+    function getPosition(uint takerId) external view returns (TakerPosition memory) {
+        return positions[takerId];
     }
 
     /// @dev calculate the amount of cash the provider will lock for specific terms and taker
@@ -92,7 +95,16 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
         ProviderPositionNFT providerNFT,
         uint offerId // @dev implies specific provider, put & call deviations, duration
     ) external whenNotPaused returns (uint takerId, uint providerId) {
-        _openPositionValidations(providerNFT);
+        // check assets allowed
+        require(configHub.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
+        require(configHub.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
+        // check self allowed
+        require(configHub.isCollarTakerNFT(address(this)), "unsupported taker contract");
+        // check provider allowed
+        require(configHub.isProviderNFT(address(providerNFT)), "unsupported provider contract");
+        // check assets match
+        require(providerNFT.collateralAsset() == collateralAsset, "asset mismatch");
+        require(providerNFT.cashAsset() == cashAsset, "asset mismatch");
 
         // pull the user side of the locked cash
         cashAsset.safeTransferFrom(msg.sender, address(this), putLockedCash);
@@ -253,9 +265,8 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
         require(_oracle.baseToken() == address(collateralAsset), "oracle asset mismatch");
         require(_oracle.quoteToken() == address(cashAsset), "oracle asset mismatch");
         // Ensure doesn't revert and returns a price at least right now.
-        // Only a sanity check, since this doesn't ensure that it
-        // will work in the future, since the observations buffer can be filled such that the required
-        // time window is not available.
+        // Only a sanity check, since this doesn't ensure that it will work in the future,
+        // since the observations buffer can be filled such that the required time window is not available.
         // @dev this means this contract can be temporarily DoSed unless the cardinality is set
         // to at least twap-window. For 5 minutes TWAP on Arbitrum this is 300 (obs. are set by timestamps)
         require(_oracle.currentPrice() != 0, "invalid price");
@@ -264,24 +275,6 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
     }
 
     // ----- INTERNAL VIEWS ----- //
-
-    function _openPositionValidations(ProviderPositionNFT providerNFT) internal view {
-        // check assets supported
-        require(configHub.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
-        require(configHub.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
-
-        // check self (provider will check too)
-        require(configHub.isCollarTakerNFT(address(this)), "unsupported taker contract");
-
-        // check provider
-        require(configHub.isProviderNFT(address(providerNFT)), "unsupported provider contract");
-        // check assets match
-        require(providerNFT.collateralAsset() == collateralAsset, "asset mismatch");
-        require(providerNFT.cashAsset() == cashAsset, "asset mismatch");
-
-        // checking LTV and duration (from provider offer) is redundant since provider offer
-        // is trusted by user (passed in input), and trusted by configHub (was checked vs. configHub above)
-    }
 
     // calculations
 

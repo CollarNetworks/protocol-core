@@ -620,6 +620,9 @@ contract ProviderPositionNFTTest is BaseTestSetup {
         vm.expectRevert("loss is too high");
         providerNFT.settlePosition(positionId, -int(largeAmount / 2 + 1));
 
+        vm.expectRevert(stdError.arithmeticError);
+        providerNFT.settlePosition(positionId, type(int).min);
+
         // settle
         vm.startPrank(address(takerContract));
         providerNFT.settlePosition(positionId, 0);
