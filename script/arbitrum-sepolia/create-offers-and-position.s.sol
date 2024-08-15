@@ -55,8 +55,7 @@ contract CreateOffersAndOpenPosition is Script, DeploymentUtils, BaseDeployment 
         console.log(" - Loan Amount: %d", loanAmount);
 
         vm.startBroadcast(liquidityProvider);
-        uint rollOfferId =
-            _createRollOffer(liquidityProvider, pair, takerId, providerId, rollFee, rollDeltaFactor);
+        uint rollOfferId = _createRollOffer(pair, takerId, providerId, rollFee, rollDeltaFactor);
         vm.stopBroadcast();
 
         console.log("Roll offer created successfully with id: %d", rollOfferId);

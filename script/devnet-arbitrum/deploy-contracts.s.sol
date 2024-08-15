@@ -31,8 +31,6 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
     function run() external {
         require(chainId == block.chainid, "chainId does not match the chainId in config");
         (address deployer,,,) = setup();
-        deployerAddress = deployer;
-
         vm.startBroadcast(deployer);
         address[] memory collateralAssets = new address[](5);
         collateralAssets[0] = WETH;

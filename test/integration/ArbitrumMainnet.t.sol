@@ -33,7 +33,8 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
             priceOnBlock: 3_547_988_497, // $3547.988497 WETH/USDC price on specified block
             callStrikeTickToUse: 120,
             _positionDuration: 1 days,
-            _offerLTV: 9000
+            _offerLTV: 9000,
+            pairName: "USDC-WETH"
         });
 
         _fundWallets();
@@ -80,20 +81,20 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
 
         // vm.warp(block.timestamp + positionDuration + 1);
 
-        // uint userCashBalanceBefore = cashAsset.balanceOf(user1);
-        // uint providerCashBalanceBefore = cashAsset.balanceOf(provider);
+        // uint userCashBalanceBefore = pair.cashAsset.balanceOf(user);
+        // uint providerCashBalanceBefore = pair.cashAsset.balanceOf(provider);
 
         // (uint userWithdrawnAmount, uint providerWithdrawnAmount) = settleAndWithdraw(borrowId);
         // assertEq(userWithdrawnAmount, position.putLockedCash, "User should receive put locked cash");
         // assertEq(providerWithdrawnAmount, position.callLockedCash, "Provider should receive call locked cash");
 
         // assertEq(
-        //     cashAsset.balanceOf(user1),
+        //     pair.cashAsset.balanceOf(user),
         //     userCashBalanceBefore + userWithdrawnAmount,
         //     "Incorrect user balance after settlement"
         // );
         // assertEq(
-        //     cashAsset.balanceOf(provider),
+        //     pair.cashAsset.balanceOf(provider),
         //     providerCashBalanceBefore + providerWithdrawnAmount,
         //     "Incorrect provider balance after settlement"
         // );
@@ -108,8 +109,8 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
 
         (uint borrowId,) =
             openTakerPositionAndCheckValues(collateralAmount, 0.3e6, getOfferIndex(callStrikeTick));
-        uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
-        uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
+        uint userCashBalanceAfterOpen = pair.cashAsset.balanceOf(user);
+        uint providerCashBalanceBeforeClose = pair.cashAsset.balanceOf(provider);
 
         manipulatePriceDownwardPastPutStrike(true);
 
@@ -120,8 +121,8 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
 
     function test_openAndClosePositionPriceUnderPutStrike() public {
         (uint borrowId,) = openTakerPositionAndCheckValues(1 ether, 0.3e6, getOfferIndex(120));
-        uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
-        uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
+        uint userCashBalanceAfterOpen = pair.cashAsset.balanceOf(user);
+        uint providerCashBalanceBeforeClose = pair.cashAsset.balanceOf(provider);
 
         manipulatePriceDownwardPastPutStrike(false);
 
@@ -139,8 +140,8 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
 
         (uint borrowId,) =
             openTakerPositionAndCheckValues(collateralAmount, 0.3e6, getOfferIndex(callStrikeTick));
-        uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
-        uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
+        uint userCashBalanceAfterOpen = pair.cashAsset.balanceOf(user);
+        uint providerCashBalanceBeforeClose = pair.cashAsset.balanceOf(provider);
 
         uint finalPrice = manipulatePriceDownwardShortOfPutStrike(true);
 
@@ -153,8 +154,8 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
 
     function test_openAndClosePositionPriceDownShortOfPutStrike() public {
         (uint borrowId,) = openTakerPositionAndCheckValues(1 ether, 0.3e6, getOfferIndex(120));
-        uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
-        uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
+        uint userCashBalanceAfterOpen = pair.cashAsset.balanceOf(user);
+        uint providerCashBalanceBeforeClose = pair.cashAsset.balanceOf(provider);
 
         uint finalPrice = manipulatePriceDownwardShortOfPutStrike(false);
 
@@ -174,8 +175,8 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
 
         (uint borrowId,) =
             openTakerPositionAndCheckValues(collateralAmount, 0.3e6, getOfferIndex(callStrikeTick));
-        uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
-        uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
+        uint userCashBalanceAfterOpen = pair.cashAsset.balanceOf(user);
+        uint providerCashBalanceBeforeClose = pair.cashAsset.balanceOf(provider);
 
         manipulatePriceUpwardPastCallStrike(true);
 
@@ -186,8 +187,8 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
 
     function test_openAndClosePositionPriceUpPastCallStrike() public {
         (uint borrowId,) = openTakerPositionAndCheckValues(1 ether, 0.3e6, getOfferIndex(120));
-        uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
-        uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
+        uint userCashBalanceAfterOpen = pair.cashAsset.balanceOf(user);
+        uint providerCashBalanceBeforeClose = pair.cashAsset.balanceOf(provider);
 
         manipulatePriceUpwardPastCallStrike(false);
 
@@ -205,8 +206,8 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
 
         (uint borrowId,) =
             openTakerPositionAndCheckValues(collateralAmount, 0.3e6, getOfferIndex(callStrikeTick));
-        uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
-        uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
+        uint userCashBalanceAfterOpen = pair.cashAsset.balanceOf(user);
+        uint providerCashBalanceBeforeClose = pair.cashAsset.balanceOf(provider);
 
         uint finalPrice = manipulatePriceUpwardShortOfCallStrike(true);
 
@@ -219,8 +220,8 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
 
     function test_openAndClosePositionPriceUpShortOfCallStrike() public {
         (uint borrowId,) = openTakerPositionAndCheckValues(1 ether, 0.3e6, getOfferIndex(120));
-        uint userCashBalanceAfterOpen = cashAsset.balanceOf(user1);
-        uint providerCashBalanceBeforeClose = cashAsset.balanceOf(provider);
+        uint userCashBalanceAfterOpen = pair.cashAsset.balanceOf(user);
+        uint providerCashBalanceBeforeClose = pair.cashAsset.balanceOf(provider);
 
         uint finalPrice = manipulatePriceUpwardShortOfCallStrike(false);
 

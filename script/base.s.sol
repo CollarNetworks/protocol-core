@@ -57,7 +57,7 @@ contract BaseDeployment is Script {
         console.log(" - User 2 Privkey: %x", user2Wallet.privateKey);
         console.log(" - Liquidity provider Address: %s", liquidityProviderWallet.addr);
         console.log(" - Liquidity provider Privkey: %x", liquidityProviderWallet.privateKey);
-
+        deployerAddress = deployerWallet.addr;
         return (deployerWallet.addr, user1Wallet.addr, user2Wallet.addr, liquidityProviderWallet.addr);
     }
 
@@ -118,10 +118,10 @@ contract BaseDeployment is Script {
             configHub.isCollarTakerNFT(address(contracts.takerNFT)), "Taker NFT not authorized in configHub"
         );
         require(address(contracts.rollsContract) != address(0), "Rolls contract not created");
-        console.log(" - %s Taker NFT: %s", pairName, address(takerNFT));
-        console.log(" - %s Provider NFT: %s", pairName, address(providerNFT));
-        console.log(" - %s Loans Contract: %s", pairName, address(loansContract));
-        console.log(" - %s Rolls Contract: %s", pairName, address(rollsContract));
+        vm.label(address(contracts.providerNFT), string(abi.encodePacked("PROVIDER-", pairName)));
+        vm.label(address(contracts.takerNFT), string(abi.encodePacked("TAKER-", pairName)));
+        vm.label(address(contracts.loansContract), string(abi.encodePacked("LOANS-", pairName)));
+        vm.label(address(contracts.rollsContract), string(abi.encodePacked("ROLLS-", pairName)));
     }
 
     function _deployandSetupConfigHub(
@@ -152,6 +152,7 @@ contract BaseDeployment is Script {
         console.log("\n # Contract Addresses\n");
         console.log(" - Router:  - - - - - - ", router);
         console.log(" - ConfigHub - - - - - - - ", address(configHub));
+        vm.label(address(configHub), "CONFIG-HUB");
     }
 
     function _createOffersForPair(
@@ -183,7 +184,6 @@ contract BaseDeployment is Script {
     }
 
     function _createRollOffer(
-        address provider,
         AssetPairContracts memory pair,
         uint loanId,
         uint providerId,
