@@ -37,6 +37,9 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
             pairName: "USDC-WETH"
         });
 
+        // fee tier for which the test values were set
+        pair.loansContract.setSwapFeeTier(3000);
+
         _fundWallets();
 
         uint amountPerOffer = 100_000e6;
