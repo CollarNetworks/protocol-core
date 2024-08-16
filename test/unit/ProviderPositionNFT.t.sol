@@ -65,7 +65,7 @@ contract ProviderPositionNFTTest is BaseTestSetup {
         startHoax(address(takerContract));
         vm.expectEmit(address(providerNFT));
         emit IProviderPositionNFT.PositionCreated(
-            0, putDeviation, duration, callStrikeDeviation, positionAmount, offerId
+            0, putDeviation, duration, callStrikeDeviation, positionAmount, offerId, 0
         );
         vm.expectEmit(address(providerNFT));
         emit IProviderPositionNFT.OfferUpdated(

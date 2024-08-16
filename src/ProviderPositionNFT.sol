@@ -108,6 +108,13 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
         return liquidityOffers[offerId];
     }
 
+    /// @notice Calculates the protocol fee charged from offers on position creation.
+    function protocolFee(uint providerLocked, uint duration) public view returns (uint) {
+        uint numerator = providerLocked * configHub.protocolFeeAPR() * duration;
+        // @dev rounds up to prevent avoiding fee using many small positions. divUp(x,y) = (x-1 / y) + 1
+        return numerator == 0 ? 0 : ((numerator - 1) / BIPS_BASE / 365 days) + 1;
+    }
+
     // ----- MUTATIVE ----- //
 
     // ----- Liquidity actions ----- //
@@ -179,7 +186,8 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
     /// @notice Mints a new position from an existing offer. Can ONLY be called through the
     /// taker contract, which is trusted to open and settle the offer according to the terms.
     /// Offer parameters are checked vs. the global config to ensure they are still supported.
-    /// Offer amount is updated as well.
+    /// Protocol fee (based on the provider amount and duration) is deducted from offer, and sent
+    /// to fee recipient. Offer amount is updated as well.
     /// The NFT representing ownership of the position, is minted to original provider of the offer.
     /// @param offerId The ID of the offer to mint from
     /// @param amount The amount of cash asset to use for the new position
@@ -196,10 +204,13 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
         // check params are still supported
         _configHubValidations(offer.putStrikeDeviation, offer.duration);
 
+        // calc protocol fee to subtract from offer (on top of amount)
+        uint fee = protocolFee(amount, offer.duration);
+
         // update offer
         uint prevOfferAmount = offer.available;
-        require(amount <= prevOfferAmount, "amount too high");
-        offer.available -= amount;
+        require(amount + fee <= prevOfferAmount, "amount too high");
+        offer.available -= amount + fee;
 
         // create position
         position = ProviderPosition({
@@ -221,11 +232,18 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
             offer.duration,
             position.callStrikeDeviation,
             amount,
-            offerId
+            offerId,
+            fee
         );
         // mint the NFT to the provider
         // @dev does not use _safeMint to avoid reentrancy
         _mint(offer.provider, positionId);
+
+        // send fee
+        address feeRecipient = configHub.feeRecipient();
+        if (feeRecipient != address(0)) {
+            cashAsset.safeTransfer(feeRecipient, fee); // zero-value-transfers assumed ok
+        }
 
         emit OfferUpdated(offerId, msg.sender, prevOfferAmount, offer.available);
     }

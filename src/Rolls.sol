@@ -397,11 +397,14 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
             callDeviation: providerPos.callStrikeDeviation
         });
 
+        // add the protocol fee that will be taken from the offer
+        uint offerAmount = newCallLocked + providerNFT.protocolFee(newCallLocked, takerPos.duration);
+
         // create a liquidity offer just for this roll
-        cashAsset.forceApprove(address(providerNFT), newCallLocked);
+        cashAsset.forceApprove(address(providerNFT), offerAmount);
         uint liquidityOfferId = providerNFT.createOffer({
             callStrikeDeviation: providerPos.callStrikeDeviation,
-            amount: newCallLocked,
+            amount: offerAmount,
             putStrikeDeviation: providerPos.putStrikeDeviation,
             duration: takerPos.duration
         });
@@ -441,23 +444,28 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
             callDeviation: providerPos.callStrikeDeviation
         });
 
+        uint protocolFee = takerPos.providerNFT.protocolFee(newCallLocked, takerPos.duration);
+
         // The taker and provider external balances (before fee) should be updated according to
         // their PNL: the money released from their settled position minus the cost of opening the new position.
         // The roll-fee is applied, and can represent any arbitrary adjustment to this (that's expressed by the offer).
         toTaker = takerSettled.toInt256() - newPutLocked.toInt256() - rollFeeAmount;
-        toProvider = providerSettled - newCallLocked.toInt256() + rollFeeAmount;
+        toProvider = providerSettled - newCallLocked.toInt256() + rollFeeAmount - protocolFee.toInt256();
 
-        /*
-            Does this balance out? After settlement (aligned to see what cancels out):
+        /*  Does this balance out? Vars:
+                Ts: takerSettled, Ps: providerSettled, put: newPutLocked,
+                call: newCallLocked, rollFee: rollFee, proFee: protocolFee
 
-            The contract balance    = takerSettled + providerSettled
+            After settlement (after cancelling and withdrawing old position):
+                Contract balance    = Ts + Ps
 
-            The contract receives / pays:
-                1. toPairedPosition =                                  newPutLocked + newCallLocked
-                2. toTaker          = takerSettled                   - newPutLocked                 - fee
-                3. toProvider       =                providerSettled                - newCallLocked + fee
+            Then contract receives / pays:
+                1. toPairedPosition =           put + call
+                2. toTaker          = Ts      - put        - rollFee
+                3. toProvider       =      Ps       - call + rollFee - proFee
+                4. toProtocol       =                                + proFee
 
-            All payments summed     = takerSettled + providerSettled
+            All payments summed     = Ts + Ps
 
             So the contract pays out everything it receives, and everyone gets their correct updates.
         */

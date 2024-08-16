@@ -47,7 +47,8 @@ interface IProviderPositionNFT {
         uint indexed duration,
         uint callStrikeDeviation,
         uint amount,
-        uint offerId
+        uint offerId,
+        uint feeAmount
     );
     event PositionSettled(uint indexed positionId, int positionChange, uint withdrawable);
     event WithdrawalFromSettled(uint indexed positionId, address indexed recipient, uint withdrawn);
