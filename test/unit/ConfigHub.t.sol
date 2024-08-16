@@ -336,8 +336,8 @@ contract ConfigHubTest is Test {
         vm.expectRevert("invalid fee");
         configHub.setProtocolFeeParams(10_000 + 1, address(0)); // more than 100%
 
-        vm.expectRevert("invalid fee recipient");
-        configHub.setProtocolFeeParams(0, address(0));
+        vm.expectRevert("must set recipient for non-zero APR");
+        configHub.setProtocolFeeParams(1, address(0));
 
         // effects
         vm.expectEmit(address(configHub));
@@ -346,5 +346,12 @@ contract ConfigHubTest is Test {
         configHub.setProtocolFeeParams(1, user1);
         assertEq(configHub.protocolFeeAPR(), apr);
         assertEq(configHub.feeRecipient(), user1);
+
+        // unset
+        vm.expectEmit(address(configHub));
+        emit IConfigHub.ProtocolFeeParamsUpdated(apr, 0, user1, address(0));
+        configHub.setProtocolFeeParams(0, address(0));
+        assertEq(configHub.protocolFeeAPR(), 0);
+        assertEq(configHub.feeRecipient(), address(0));
     }
 }

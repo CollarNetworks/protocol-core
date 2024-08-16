@@ -109,10 +109,12 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
     }
 
     /// @notice Calculates the protocol fee charged from offers on position creation.
-    function protocolFee(uint providerLocked, uint duration) public view returns (uint) {
+    /// @dev fee is set to 0 if recipient is zero because no transfer will be done
+    function protocolFee(uint providerLocked, uint duration) public view returns (uint fee, address to) {
+        to = configHub.feeRecipient();
         uint numerator = providerLocked * configHub.protocolFeeAPR() * duration;
         // @dev rounds up to prevent avoiding fee using many small positions. divUp(x,y) = (x-1 / y) + 1
-        return numerator == 0 ? 0 : ((numerator - 1) / BIPS_BASE / 365 days) + 1;
+        fee = (to == address(0) || numerator == 0) ? 0 : ((numerator - 1) / BIPS_BASE / 365 days) + 1;
     }
 
     // ----- MUTATIVE ----- //
@@ -205,12 +207,12 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
         _configHubValidations(offer.putStrikeDeviation, offer.duration);
 
         // calc protocol fee to subtract from offer (on top of amount)
-        uint fee = protocolFee(amount, offer.duration);
+        (uint fee, address feeRecipient) = protocolFee(amount, offer.duration);
 
         // update offer
         uint prevOfferAmount = offer.available;
         require(amount + fee <= prevOfferAmount, "amount too high");
-        offer.available -= amount + fee;
+        offer.available = prevOfferAmount - amount - fee;
 
         // create position
         position = ProviderPosition({
@@ -239,10 +241,10 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
         // @dev does not use _safeMint to avoid reentrancy
         _mint(offer.provider, positionId);
 
-        // send fee
-        address feeRecipient = configHub.feeRecipient();
-        if (feeRecipient != address(0)) {
-            cashAsset.safeTransfer(feeRecipient, fee); // zero-value-transfers assumed ok
+        // fee amount check is redundant because zero-value-transfers are assumed to not revert
+        // non-zero fee for zero-recipient is prevented in protocolFee() view and in ConfigHub setter
+        if (feeRecipient != address(0) && fee != 0) {
+            cashAsset.safeTransfer(feeRecipient, fee);
         }
 
         emit OfferUpdated(offerId, msg.sender, prevOfferAmount, offer.available);

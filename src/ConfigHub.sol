@@ -120,7 +120,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
 
     function setProtocolFeeParams(uint _apr, address _recipient) external onlyOwner {
         require(_apr <= BIPS_BASE, "invalid fee");
-        require(_recipient != address(0), "invalid fee recipient");
+        require(_recipient != address(0) || _apr == 0, "must set recipient for non-zero APR");
         emit ProtocolFeeParamsUpdated(protocolFeeAPR, _apr, feeRecipient, _recipient);
         protocolFeeAPR = _apr;
         feeRecipient = _recipient;

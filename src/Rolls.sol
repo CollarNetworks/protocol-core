@@ -398,7 +398,8 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         });
 
         // add the protocol fee that will be taken from the offer
-        uint offerAmount = newCallLocked + providerNFT.protocolFee(newCallLocked, takerPos.duration);
+        (uint protocolFee,) = providerNFT.protocolFee(newCallLocked, takerPos.duration);
+        uint offerAmount = newCallLocked + protocolFee;
 
         // create a liquidity offer just for this roll
         cashAsset.forceApprove(address(providerNFT), offerAmount);
@@ -444,7 +445,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
             callDeviation: providerPos.callStrikeDeviation
         });
 
-        uint protocolFee = takerPos.providerNFT.protocolFee(newCallLocked, takerPos.duration);
+        (uint protocolFee,) = takerPos.providerNFT.protocolFee(newCallLocked, takerPos.duration);
 
         // The taker and provider external balances (before fee) should be updated according to
         // their PNL: the money released from their settled position minus the cost of opening the new position.
