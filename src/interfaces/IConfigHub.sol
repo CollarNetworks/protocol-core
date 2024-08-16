@@ -27,6 +27,7 @@ interface IConfigHub {
         address collateralAsset,
         address collarTakerNFT
     );
+    event ProtocolFeeParamsUpdated(uint prevFeeAPR, uint newFeeAPR, address prevRecipient, address newRecipient);
 
     // ----- state changing transactions
 

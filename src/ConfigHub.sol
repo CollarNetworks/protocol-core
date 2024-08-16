@@ -17,8 +17,9 @@ import { ICollarTakerNFT } from "./interfaces/ICollarTakerNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract ConfigHub is Ownable2Step, IConfigHub {
-    // -- public state variables ---
+    uint internal constant BIPS_BASE = 10_000;
 
+    // -- public state variables ---
     string public constant VERSION = "0.2.0";
 
     // configuration validation (validate on set)
@@ -31,9 +32,11 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     uint public maxLTV;
     uint public minDuration;
     uint public maxDuration;
+    uint public protocolFeeAPR; // bips
     // pause guardian for other contracts
     address public uniV3SwapRouter;
     address public pauseGuardian;
+    address public feeRecipient;
 
     // -- internal state variables ---
     mapping(address collateralAssetAddress => bool isSupported) public isSupportedCollateralAsset;
@@ -111,6 +114,16 @@ contract ConfigHub is Ownable2Step, IConfigHub {
         require(IPeripheryImmutableState(_uniV3SwapRouter).factory() != address(0), "invalid router");
         emit UniV3RouterSet(uniV3SwapRouter, _uniV3SwapRouter); // emit before for the prev-value
         uniV3SwapRouter = _uniV3SwapRouter;
+    }
+
+    // protocol fee
+
+    function setProtocolFeeParams(uint _apr, address _recipient) external onlyOwner {
+        require(_apr <= BIPS_BASE, "invalid fee");
+        require(_recipient != address(0), "invalid fee recipient");
+        emit ProtocolFeeParamsUpdated(protocolFeeAPR, _apr, feeRecipient, _recipient);
+        protocolFeeAPR = _apr;
+        feeRecipient = _recipient;
     }
 
     // ----- view functions (see IConfigHub for documentation) -----

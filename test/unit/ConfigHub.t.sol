@@ -52,8 +52,10 @@ contract ConfigHubTest is Test {
         assertEq(configHub.MAX_CONFIGURABLE_DURATION(), 5 * 365 days);
         assertEq(configHub.uniV3SwapRouter(), address(0));
         assertEq(configHub.pauseGuardian(), address(0));
+        assertEq(configHub.feeRecipient(), address(0));
         assertEq(configHub.minDuration(), 0);
         assertEq(configHub.maxDuration(), 0);
+        assertEq(configHub.protocolFeeAPR(), 0);
         assertEq(configHub.minLTV(), 0);
         assertEq(configHub.maxLTV(), 0);
     }
@@ -84,6 +86,9 @@ contract ConfigHubTest is Test {
 
         vm.expectRevert(user1NotAuthorized);
         configHub.setUniV3Router(router);
+
+        vm.expectRevert(user1NotAuthorized);
+        configHub.setProtocolFeeParams(0, address(0));
     }
 
     function test_setCollarTakerContractAuth() public {
@@ -322,5 +327,24 @@ contract ConfigHubTest is Test {
         emit IConfigHub.UniV3RouterSet(address(0), router);
         configHub.setUniV3Router(router);
         assertEq(configHub.uniV3SwapRouter(), router);
+    }
+
+    function test_setProtocolFeeParams() public {
+        startHoax(owner);
+
+        // reverts
+        vm.expectRevert("invalid fee");
+        configHub.setProtocolFeeParams(10_000 + 1, address(0)); // more than 100%
+
+        vm.expectRevert("invalid fee recipient");
+        configHub.setProtocolFeeParams(0, address(0));
+
+        // effects
+        vm.expectEmit(address(configHub));
+        uint apr = 1;
+        emit IConfigHub.ProtocolFeeParamsUpdated(0, apr, address(0), user1);
+        configHub.setProtocolFeeParams(1, user1);
+        assertEq(configHub.protocolFeeAPR(), apr);
+        assertEq(configHub.feeRecipient(), user1);
     }
 }
