@@ -22,6 +22,7 @@ abstract contract BaseEmergencyAdmin is Ownable2Step, Pausable {
     event PausedByGuardian(address guardian);
     event TokensRescued(address tokenContract, uint amountOrId);
 
+    // @dev use _setConfigHub() in child contract to initialize the configHub on construction
     constructor(address _initialOwner) Ownable(_initialOwner) { }
 
     // ----- MUTATIVE ----- //
