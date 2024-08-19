@@ -8,16 +8,18 @@ import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 
-import { BaseTestSetup } from "./BaseTestSetup.sol";
+import {BaseAssetPairTestSetup} from "./BaseAssetPairTestSetup.sol";
 
 import { ProviderPositionNFT, IProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 
-contract ProviderPositionNFTTest is BaseTestSetup {
+contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
     address takerContract;
 
     address recipient = makeAddr("recipient");
 
     uint putDeviation = ltv;
+
+    bool nonZeroProtocolFee = true;
 
     function setUp() public override {
         super.setUp();
@@ -54,22 +56,41 @@ contract ProviderPositionNFTTest is BaseTestSetup {
         assertEq(cashAsset.balanceOf(provider), balance - amount);
     }
 
+    function checkProtocolFeeView(uint positionAmount) internal returns (uint expectedFee) {
+        // calculate expected
+        uint numer = positionAmount * protocolFeeAPR * duration;
+        // round up = ((x - 1) / y) + 1
+        expectedFee = numer == 0 ? 0 : (1 + ((numer - 1) / BIPS_100PCT / 365 days));
+        // no fee for 0 recipient
+        expectedFee = (configHub.feeRecipient() == address(0)) ? 0 : expectedFee;
+        if (nonZeroProtocolFee) { // do we expect zero fee?
+            assertTrue(expectedFee > 0);
+        }
+        // check the view
+        (uint feeView, address toView) = providerNFT.protocolFee(positionAmount, duration);
+        assertEq(feeView, expectedFee);
+        assertEq(toView, configHub.feeRecipient());
+    }
+
     function createAndCheckPosition(address provider, uint offerAmount, uint positionAmount)
         public
         returns (uint positionId, ProviderPositionNFT.ProviderPosition memory position)
     {
         (uint offerId,) = createAndCheckOffer(provider, offerAmount);
-        uint initialBalance = cashAsset.balanceOf(address(providerNFT));
+        uint balanceBefore = cashAsset.balanceOf(address(providerNFT));
+        uint feeBalanceBefore = cashAsset.balanceOf(protocolFeeRecipient);
         uint nextPosId = providerNFT.nextPositionId();
+
+        uint fee = checkProtocolFeeView(positionAmount);
 
         startHoax(address(takerContract));
         vm.expectEmit(address(providerNFT));
         emit IProviderPositionNFT.PositionCreated(
-            0, putDeviation, duration, callStrikeDeviation, positionAmount, offerId, 0
+            0, putDeviation, duration, callStrikeDeviation, positionAmount, offerId, fee
         );
         vm.expectEmit(address(providerNFT));
         emit IProviderPositionNFT.OfferUpdated(
-            offerId, address(takerContract), offerAmount, offerAmount - positionAmount
+            offerId, address(takerContract), offerAmount, offerAmount - positionAmount - fee
         );
         (positionId, position) = providerNFT.mintPositionFromOffer(offerId, positionAmount);
 
@@ -86,13 +107,14 @@ contract ProviderPositionNFTTest is BaseTestSetup {
 
         // Check updated offer
         ProviderPositionNFT.LiquidityOffer memory updatedOffer = providerNFT.getOffer(offerId);
-        assertEq(updatedOffer.available, offerAmount - positionAmount);
+        assertEq(updatedOffer.available, offerAmount - positionAmount - fee);
 
         // Check NFT ownership
         assertEq(providerNFT.ownerOf(positionId), provider);
 
-        // no balance change
-        assertEq(cashAsset.balanceOf(address(providerNFT)), initialBalance);
+        // balance change
+        assertEq(cashAsset.balanceOf(address(providerNFT)), balanceBefore - fee);
+        assertEq(cashAsset.balanceOf(protocolFeeRecipient), feeBalanceBefore + fee);
     }
 
     function test_constructor() public {
@@ -206,7 +228,65 @@ contract ProviderPositionNFTTest is BaseTestSetup {
         public
         returns (uint positionId, ProviderPositionNFT.ProviderPosition memory position)
     {
-        (positionId, position) = createAndCheckPosition(provider, largeAmount, largeAmount);
+        uint fee = checkProtocolFeeView(largeAmount);
+        cashAsset.mint(provider, fee);
+        (positionId, position) = createAndCheckPosition(provider, largeAmount + fee, largeAmount);
+    }
+
+    function test_protocolFee_zeroAddressRecipient() public {
+        // check fee is on
+        assertFalse(configHub.feeRecipient() == address(0));
+        assertFalse(configHub.protocolFeeAPR() == 0);
+
+        // expect zero fee in createAndCheckPosition()
+        nonZeroProtocolFee = false;
+        uint amount = 1 ether;
+
+        // zero recipient, non-zero fee (prevented by config-hub setter so mocked)
+        vm.mockCall(
+            address(configHub),
+            abi.encodeCall(configHub.feeRecipient, ()),
+            abi.encode(address(0))
+        );
+        (uint fee, address feeRecipient) = providerNFT.protocolFee(amount, duration);
+        assertEq(fee, 0);
+        assertEq(feeRecipient, address(0));
+        // this value is checked in the helper
+        uint feeChecked = checkProtocolFeeView(amount);
+        assertEq(feeChecked, 0);
+        // check minting with 0 recipient non-zero APR works (doesn't try to transfer to zero-address)
+        createAndCheckPosition(provider, largeAmount, amount);
+    }
+
+    function test_protocolFee_nonDefaultValues() public {
+        // check fee is on
+        assertFalse(configHub.feeRecipient() == address(0));
+        assertFalse(configHub.protocolFeeAPR() == 0);
+
+        // zero APR
+        vm.startPrank(owner);
+        configHub.setProtocolFeeParams(0, protocolFeeRecipient);
+        (uint fee, address feeRecipient) = providerNFT.protocolFee(largeAmount, duration);
+        assertEq(feeRecipient, protocolFeeRecipient);
+        assertEq(fee, 0);
+
+        // test round up
+        configHub.setProtocolFeeParams(1, feeRecipient);
+        (fee,) = providerNFT.protocolFee(1, 1); // very small fee
+        assertEq(fee, 1); // rounded up
+
+        // test zero numerator
+        (fee,) = providerNFT.protocolFee(0, 1);
+        assertEq(fee, 0);
+        (fee,) = providerNFT.protocolFee(1, 0);
+        assertEq(fee, 0);
+
+        // check calculation for specific hardcoded value
+        configHub.setProtocolFeeParams(1_000, feeRecipient); // 10% per year
+        (fee,) = providerNFT.protocolFee(10 ether, 365 days);
+        assertEq(fee, 1 ether);
+        (fee,) = providerNFT.protocolFee(10 ether + 1, 365 days);
+        assertEq(fee, 1 ether + 1); // rounds up
     }
 
     function test_settlePositionIncrease() public {
@@ -258,15 +338,15 @@ contract ProviderPositionNFTTest is BaseTestSetup {
     }
 
     function test_settlePosition_expirationTimeSensitivity() public {
-        (uint positionId,) = createAndCheckPosition(provider, largeAmount, largeAmount);
+        (uint positionId,) = createAndCheckPosition(provider, largeAmount, largeAmount / 2);
         skip(duration + 1); // 1 second after expiration still works
         providerNFT.settlePosition(positionId, -1 ether);
     }
 
     function test_settlePosition_maxLoss() public {
-        (uint positionId,) = createAndCheckPosition(provider, largeAmount, largeAmount);
+        (uint positionId,) = createAndCheckPosition(provider, largeAmount, largeAmount / 2);
         skip(duration);
-        providerNFT.settlePosition(positionId, -int(largeAmount));
+        providerNFT.settlePosition(positionId, -int(largeAmount / 2));
         assertEq(providerNFT.getPosition(positionId).withdrawable, 0);
     }
 
@@ -390,7 +470,8 @@ contract ProviderPositionNFTTest is BaseTestSetup {
     function test_mintMultiplePositionsFromSameOffer() public {
         uint positionCount = 3;
         uint[] memory positionIds = new uint[](positionCount);
-        uint offerAmount = largeAmount * positionCount;
+        uint fee = checkProtocolFeeView(largeAmount);
+        uint offerAmount = (largeAmount + fee) * positionCount;
 
         (uint offerId,) = createAndCheckOffer(provider, offerAmount);
 
@@ -402,6 +483,8 @@ contract ProviderPositionNFTTest is BaseTestSetup {
 
         ProviderPositionNFT.LiquidityOffer memory updatedOffer = providerNFT.getOffer(offerId);
         assertEq(updatedOffer.available, 0);
+
+        assertEq(cashAsset.balanceOf(protocolFeeRecipient), fee * positionCount);
 
         for (uint i = 0; i < positionCount; i++) {
             ProviderPositionNFT.ProviderPosition memory position = providerNFT.getPosition(positionIds[i]);
@@ -460,7 +543,7 @@ contract ProviderPositionNFTTest is BaseTestSetup {
 
     function test_pausableMethods() public {
         // create a position
-        (uint positionId,) = createAndCheckPosition(provider, largeAmount, largeAmount);
+        (uint positionId,) = createAndCheckPosition(provider, largeAmount, largeAmount / 2);
 
         // pause
         vm.startPrank(owner);

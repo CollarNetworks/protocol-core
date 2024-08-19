@@ -13,7 +13,7 @@ import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
-contract BaseTestSetup is Test {
+contract BaseAssetPairTestSetup is Test {
     TestERC20 cashAsset;
     TestERC20 collateralAsset;
     ConfigHub configHub;
@@ -28,12 +28,14 @@ contract BaseTestSetup is Test {
     address user1 = makeAddr("user1");
     address provider = makeAddr("provider");
     address keeper = makeAddr("keeper");
+    address protocolFeeRecipient = makeAddr("feeRecipient");
 
     uint constant BIPS_100PCT = 10_000;
 
     uint ltv = 9000;
     uint duration = 300;
     uint callStrikeDeviation = 12_000;
+    uint protocolFeeAPR = 100;
 
     uint collateralAmount = 1 ether;
     uint largeAmount = 100_000 ether;
@@ -84,15 +86,21 @@ contract BaseTestSetup is Test {
     function configureContracts() public {
         startHoax(owner);
 
+        // assets
         configHub.setCashAssetSupport(address(cashAsset), true);
         configHub.setCollateralAssetSupport(address(collateralAsset), true);
+        // terms
         configHub.setLTVRange(ltv, ltv);
         configHub.setCollarDurationRange(duration, duration);
+        // contracts auth
         configHub.setCollarTakerContractAuth(address(takerNFT), true);
         configHub.setProviderContractAuth(address(providerNFT), true);
         configHub.setProviderContractAuth(address(providerNFT2), true);
+        // fees
+        configHub.setProtocolFeeParams(protocolFeeAPR, protocolFeeRecipient);
 
         loans.setRollsContract(rolls);
+
         vm.stopPrank();
     }
 

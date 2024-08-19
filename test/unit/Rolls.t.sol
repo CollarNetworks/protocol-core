@@ -8,11 +8,11 @@ import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-import { BaseTestSetup, CollarTakerNFT, ProviderPositionNFT } from "./BaseTestSetup.sol";
+import {BaseAssetPairTestSetup, CollarTakerNFT, ProviderPositionNFT } from "./BaseAssetPairTestSetup.sol";
 
 import { Rolls, IRolls } from "../../src/Rolls.sol";
 
-contract RollsTest is BaseTestSetup {
+contract RollsTest is BaseAssetPairTestSetup {
     uint putLocked = swapCashAmount * (BIPS_100PCT - ltv) / BIPS_100PCT; // 100
     uint callLocked = swapCashAmount * (callStrikeDeviation - BIPS_100PCT) / BIPS_100PCT; // 100
 

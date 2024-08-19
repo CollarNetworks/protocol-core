@@ -13,14 +13,14 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 import { TestERC20 } from "../utils/TestERC20.sol";
 
-import { BaseTestSetup, MockOracleUniV3TWAP } from "./BaseTestSetup.sol";
+import {BaseAssetPairTestSetup, MockOracleUniV3TWAP } from "./BaseAssetPairTestSetup.sol";
 
 import { CollarTakerNFT, ICollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ICollarTakerNFT } from "../../src/interfaces/ICollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 import { IProviderPositionNFT } from "../../src/interfaces/IProviderPositionNFT.sol";
 
-contract CollarTakerNFTTest is BaseTestSetup {
+contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     uint putLocked = 1000 ether;
     uint callLocked = 2000 ether;
     uint callStrikePrice = 1200 ether; // 120% of the price

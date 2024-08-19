@@ -112,9 +112,10 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
     /// @dev fee is set to 0 if recipient is zero because no transfer will be done
     function protocolFee(uint providerLocked, uint duration) public view returns (uint fee, address to) {
         to = configHub.feeRecipient();
-        uint numerator = providerLocked * configHub.protocolFeeAPR() * duration;
-        // @dev rounds up to prevent avoiding fee using many small positions. divUp(x,y) = (x-1 / y) + 1
-        fee = (to == address(0) || numerator == 0) ? 0 : ((numerator - 1) / BIPS_BASE / 365 days) + 1;
+        fee = to == address(0)
+            ? 0
+            // @dev rounds up to prevent avoiding fee using many small positions.
+            : _divUp(providerLocked * configHub.protocolFeeAPR() * duration, BIPS_BASE * 365 days);
     }
 
     // ----- MUTATIVE ----- //
@@ -241,9 +242,8 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
         // @dev does not use _safeMint to avoid reentrancy
         _mint(offer.provider, positionId);
 
-        // fee amount check is redundant because zero-value-transfers are assumed to not revert
         // non-zero fee for zero-recipient is prevented in protocolFee() view and in ConfigHub setter
-        if (feeRecipient != address(0) && fee != 0) {
+        if (feeRecipient != address(0)) {
             cashAsset.safeTransfer(feeRecipient, fee);
         }
 
@@ -367,5 +367,9 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
         uint ltv = putStrikeDeviation; // assumed to be always equal
         require(configHub.isValidLTV(ltv), "unsupported LTV");
         require(configHub.isValidCollarDuration(duration), "unsupported duration");
+    }
+
+    function _divUp(uint x, uint y) internal pure returns (uint) {
+        return (x == 0) ? 0 : ((x - 1) / y) + 1; // divUp(x,y) = (x-1 / y) + 1
     }
 }
