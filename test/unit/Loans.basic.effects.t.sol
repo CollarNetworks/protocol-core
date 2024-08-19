@@ -5,7 +5,7 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
-import {BaseAssetPairTestSetup} from "./BaseAssetPairTestSetup.sol";
+import { BaseAssetPairTestSetup } from "./BaseAssetPairTestSetup.sol";
 import { MockSwapRouter } from "../utils/MockSwapRouter.sol";
 
 import { Loans, ILoans } from "../../src/Loans.sol";

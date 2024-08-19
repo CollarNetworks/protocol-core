@@ -13,7 +13,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 import { TestERC20 } from "../utils/TestERC20.sol";
 
-import {BaseAssetPairTestSetup, MockOracleUniV3TWAP } from "./BaseAssetPairTestSetup.sol";
+import { BaseAssetPairTestSetup, MockOracleUniV3TWAP } from "./BaseAssetPairTestSetup.sol";
 
 import { CollarTakerNFT, ICollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ICollarTakerNFT } from "../../src/interfaces/ICollarTakerNFT.sol";

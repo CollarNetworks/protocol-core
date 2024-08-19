@@ -8,7 +8,7 @@ import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 
-import {BaseAssetPairTestSetup} from "./BaseAssetPairTestSetup.sol";
+import { BaseAssetPairTestSetup } from "./BaseAssetPairTestSetup.sol";
 
 import { ProviderPositionNFT, IProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 
@@ -56,14 +56,15 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         assertEq(cashAsset.balanceOf(provider), balance - amount);
     }
 
-    function checkProtocolFeeView(uint positionAmount) internal returns (uint expectedFee) {
+    function checkProtocolFeeView(uint positionAmount) internal view returns (uint expectedFee) {
         // calculate expected
         uint numer = positionAmount * protocolFeeAPR * duration;
         // round up = ((x - 1) / y) + 1
         expectedFee = numer == 0 ? 0 : (1 + ((numer - 1) / BIPS_100PCT / 365 days));
         // no fee for 0 recipient
         expectedFee = (configHub.feeRecipient() == address(0)) ? 0 : expectedFee;
-        if (nonZeroProtocolFee) { // do we expect zero fee?
+        if (nonZeroProtocolFee) {
+            // do we expect zero fee?
             assertTrue(expectedFee > 0);
         }
         // check the view
@@ -243,11 +244,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         uint amount = 1 ether;
 
         // zero recipient, non-zero fee (prevented by config-hub setter so mocked)
-        vm.mockCall(
-            address(configHub),
-            abi.encodeCall(configHub.feeRecipient, ()),
-            abi.encode(address(0))
-        );
+        vm.mockCall(address(configHub), abi.encodeCall(configHub.feeRecipient, ()), abi.encode(address(0)));
         (uint fee, address feeRecipient) = providerNFT.protocolFee(amount, duration);
         assertEq(fee, 0);
         assertEq(feeRecipient, address(0));
@@ -282,7 +279,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         assertEq(fee, 0);
 
         // check calculation for specific hardcoded value
-        configHub.setProtocolFeeParams(1_000, feeRecipient); // 10% per year
+        configHub.setProtocolFeeParams(1000, feeRecipient); // 10% per year
         (fee,) = providerNFT.protocolFee(10 ether, 365 days);
         assertEq(fee, 1 ether);
         (fee,) = providerNFT.protocolFee(10 ether + 1, 365 days);
