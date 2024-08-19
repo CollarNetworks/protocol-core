@@ -19,7 +19,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
 
     uint putDeviation = ltv;
 
-    bool nonZeroProtocolFee = true;
+    bool expectNonZeroFee = true;
 
     function setUp() public override {
         super.setUp();
@@ -63,7 +63,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         expectedFee = numer == 0 ? 0 : (1 + ((numer - 1) / BIPS_100PCT / 365 days));
         // no fee for 0 recipient
         expectedFee = (configHub.feeRecipient() == address(0)) ? 0 : expectedFee;
-        if (nonZeroProtocolFee) {
+        if (expectNonZeroFee) {
             // do we expect zero fee?
             assertTrue(expectedFee > 0);
         }
@@ -240,15 +240,15 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         assertFalse(configHub.protocolFeeAPR() == 0);
 
         // expect zero fee in createAndCheckPosition()
-        nonZeroProtocolFee = false;
+        expectNonZeroFee = false;
         uint amount = 1 ether;
 
-        // zero recipient, non-zero fee (prevented by config-hub setter so mocked)
+        // zero recipient, non-zero fee (prevented by config-hub setter, so needs to be mocked)
         vm.mockCall(address(configHub), abi.encodeCall(configHub.feeRecipient, ()), abi.encode(address(0)));
         (uint fee, address feeRecipient) = providerNFT.protocolFee(amount, duration);
         assertEq(fee, 0);
         assertEq(feeRecipient, address(0));
-        // this value is checked in the helper
+        // this value is checked in the createAndCheckPosition helper to be deducted
         uint feeChecked = checkProtocolFeeView(amount);
         assertEq(feeChecked, 0);
         // check minting with 0 recipient non-zero APR works (doesn't try to transfer to zero-address)
