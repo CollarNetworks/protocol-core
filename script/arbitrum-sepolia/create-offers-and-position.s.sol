@@ -40,7 +40,6 @@ contract CreateOffersAndOpenPosition is Script, DeploymentUtils, BaseDeployment 
         vm.startBroadcast(liquidityProvider);
         _createOffersForPair(liquidityProvider, pair, cashAmountPerOffer);
         vm.stopBroadcast();
-
         console.log("\nOffers created successfully");
 
         vm.startBroadcast(user);

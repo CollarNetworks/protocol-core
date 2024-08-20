@@ -29,6 +29,7 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         INonfungiblePositionManager(0x6b2937Bde17889EDCf8fbD8dE31C3C2a70Bc4d65);
     uint duration = 300;
     uint ltv = 9000;
+    uint32 twapWindow = 15 minutes;
     uint amountToProvideToPool = 10_000_000 ether;
 
     function run() external {
@@ -36,21 +37,38 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         (address deployer,,, address provider) = setup();
 
         vm.startBroadcast(deployer);
+        _deployConfigHub(
+        );
         address[] memory collateralAssets = new address[](1);
         collateralAssets[0] = address(collateralAsset);
         address[] memory cashAssets = new address[](1);
         cashAssets[0] = address(cashAsset);
-        _deployandSetupConfigHub(
-            address(SWAP_ROUTER), collateralAssets, cashAssets, ltv, ltv, duration, duration
-        );
+            
+        _setupConfigHub( BaseDeployment.HubParams(address(SWAP_ROUTER),
+            cashAssets,
+            collateralAssets,
+            ltv,
+            ltv,
+            duration,
+            duration));
         _createOrValidateUniswapPool(provider);
         uint[] memory durations = new uint[](1);
         durations[0] = duration;
         uint[] memory ltvs = new uint[](1);
         ltvs[0] = ltv;
-        AssetPairContracts memory contracts = _createContractPair(
-            IERC20(cashAsset), IERC20(collateralAsset), "COLLATERAL/CASH", durations, ltvs
-        );
+        uint24 feeTier=3000; 
+        BaseDeployment.PairConfig memory pairConfig = BaseDeployment.PairConfig({
+            name: "COLLATERAL/CASH",
+            durations: durations,
+            ltvs: ltvs,
+            cashAsset: IERC20(cashAsset),
+            collateralAsset: IERC20(collateralAsset),
+            feeTier:feeTier,
+            twapWindow: twapWindow
+
+        });
+        AssetPairContracts memory contracts = _createContractPair(pairConfig);
+        _setupContractPair(configHub, contracts);
         _verifyDeployment(configHub, contracts);
         vm.stopBroadcast();
 
@@ -61,21 +79,11 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         console.log("\nDeployment completed successfully");
     }
 
-    function _verifyDeployment(ConfigHub configHub, AssetPairContracts memory contracts) internal view {
-        require(configHub.isCollarTakerNFT(address(contracts.takerNFT)), "TakerNFT not authorized");
-        require(configHub.isProviderNFT(address(contracts.providerNFT)), "ProviderNFT not authorized");
-        require(configHub.isSupportedCashAsset(address(contracts.cashAsset)), "Cash asset not supported");
-        require(
-            configHub.isSupportedCollateralAsset(address(contracts.collateralAsset)),
-            "Collateral asset not supported"
-        );
-        require(configHub.isValidLTV(ltv), "LTV  not supported");
-        require(configHub.isValidCollarDuration(duration), "duration not supported");
-        console.log("Deployment verified successfully");
-    }
+   
 
     function _createOrValidateUniswapPool(address provider) internal {
         IUniswapV3Factory factory = IUniswapV3Factory(IPeripheryImmutableState(router).factory());
+        uint24 FEE_TIER = 3000;
         address pool = factory.getPool(address(cashAsset), address(collateralAsset), FEE_TIER);
 
         if (pool == address(0)) {

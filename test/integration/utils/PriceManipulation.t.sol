@@ -31,7 +31,7 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
 
         address uniV3Factory = IPeripheryImmutableState(configHub.uniV3SwapRouter()).factory();
         IUniswapV3Pool pool =
-            IUniswapV3Pool(IUniswapV3Factory(uniV3Factory).getPool(baseToken, quoteToken, FEE_TIER));
+            IUniswapV3Pool(IUniswapV3Factory(uniV3Factory).getPool(baseToken, quoteToken, pair.feeTier));
 
         (, int24 tick,,,,,) = pool.slot0();
 

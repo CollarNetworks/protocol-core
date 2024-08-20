@@ -27,8 +27,9 @@ contract VerifyRolls is Script, DeploymentUtils, BaseDeployment {
         // You'll need to pass or retrieve the loanId and providerId from the previous step
         uint loanId = 2; /* retrieve or pass loanId */
         uint rollOfferId = 2; /* retrieve or pass rollOfferId */
+        vm.startBroadcast(user1);
         _executeRoll(user1, pair, loanId, rollOfferId, slippage);
-
+        vm.stopBroadcast();
         console.log("\nRoll executed and verified successfully");
     }
 }

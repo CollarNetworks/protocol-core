@@ -62,25 +62,33 @@ abstract contract CollarBaseIntegrationTestConfig is Test, BaseDeployment {
         internal
     {
         startHoax(owner);
+        _deployConfigHub();
         address[] memory collateralAssets = new address[](1);
         collateralAssets[0] = _collateralAsset;
         address[] memory cashAssets = new address[](1);
         cashAssets[0] = _cashAsset;
-        _deployandSetupConfigHub(
-            swapRouterAddress,
-            collateralAssets,
+        _setupConfigHub(BaseDeployment.HubParams(swapRouterAddress,
             cashAssets,
+            collateralAssets,
             offerLTV,
             offerLTV,
             positionDuration,
-            positionDuration
-        );
+            positionDuration));
         uint[] memory durations = new uint[](1);
         durations[0] = positionDuration;
         uint[] memory ltvs = new uint[](1);
         ltvs[0] = offerLTV;
-        pair = _createContractPair(IERC20(_cashAsset), IERC20(_collateralAsset), pairName, durations, ltvs);
-
+        BaseDeployment.PairConfig memory pairConfig = BaseDeployment.PairConfig({
+            name: pairName,
+            durations: durations,
+            ltvs: ltvs,
+            cashAsset: IERC20(_cashAsset),
+            collateralAsset: IERC20(_collateralAsset),
+            feeTier: 3000,
+            twapWindow: 15 minutes
+        });
+        pair = _createContractPair(pairConfig);
+        _setupContractPair(configHub, pair);
         pair.cashAsset.forceApprove(address(pair.takerNFT), type(uint).max);
         pair.collateralAsset.forceApprove(address(pair.takerNFT), type(uint).max);
     }

@@ -27,11 +27,14 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
     AssetPairContracts[] public assetPairContracts;
     uint[] allDurations = [5 minutes, 30 days, 12 * 30 days];
     uint[] allLTVs = [9000, 5000];
+    uint24 feeTier = 500;
+    uint32 twapWindow = 15 minutes;
 
     function run() external {
         require(chainId == block.chainid, "chainId does not match the chainId in config");
         (address deployer,,,) = setup();
         vm.startBroadcast(deployer);
+        _deployConfigHub();
         address[] memory collateralAssets = new address[](5);
         collateralAssets[0] = WETH;
         collateralAssets[1] = WBTC;
@@ -47,9 +50,19 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         uint minDuration = allDurations[0];
         uint maxDuration = allDurations[2];
 
-        _deployandSetupConfigHub(
-            swapRouterAddress, collateralAssets, cashAssets, minLTV, maxLTV, minDuration, maxDuration
+        _deployConfigHub(
         );
+
+        _setupConfigHub(
+            BaseDeployment.HubParams(swapRouterAddress,
+            cashAssets,
+            collateralAssets,
+            minLTV,
+            maxLTV,
+            minDuration,
+            maxDuration)
+        );
+
         _createContractPairs();
         vm.stopBroadcast();
 
@@ -64,24 +77,96 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
 
         uint[] memory singleLTV = new uint[](1);
         singleLTV[0] = allLTVs[0];
-        console.log("ltv: %d", singleLTV[0]);
+
+        BaseDeployment.PairConfig memory USDCWETHPairConfig = BaseDeployment.PairConfig({
+            name: "USDC/WETH",
+            durations: allDurations,
+            ltvs: allLTVs,
+            cashAsset: IERC20(USDC),
+            collateralAsset: IERC20(WETH),
+            feeTier: feeTier,
+            twapWindow: twapWindow
+        });
+        
         assetPairContracts.push(
-            _createContractPair(IERC20(USDC), IERC20(WETH), "USDC/WETH", allDurations, allLTVs)
+            _createContractPair(USDCWETHPairConfig)
         );
+
+        BaseDeployment.PairConfig memory USDTWETHPairConfig = BaseDeployment.PairConfig({
+            name: "USDT/WETH",
+            durations: singleDuration,
+            ltvs: singleLTV,
+            cashAsset: IERC20(USDT),
+            collateralAsset: IERC20(WETH),
+            feeTier: feeTier,
+            twapWindow: twapWindow
+        });
+
+
         assetPairContracts.push(
-            _createContractPair(IERC20(USDT), IERC20(WETH), "USDT/WETH", singleDuration, singleLTV)
+            _createContractPair(USDTWETHPairConfig)
         );
+
+        BaseDeployment.PairConfig memory USDCWBTCPairConfig = BaseDeployment.PairConfig({
+            name: "USDC/WBTC",
+            durations: singleDuration,
+            ltvs: singleLTV,
+            cashAsset: IERC20(USDC),
+            collateralAsset: IERC20(WBTC),
+            feeTier: feeTier,
+            twapWindow: twapWindow
+        });
+
         assetPairContracts.push(
-            _createContractPair(IERC20(USDC), IERC20(WBTC), "USDC/WBTC", singleDuration, singleLTV)
+            _createContractPair(USDCWBTCPairConfig)
         );
+
+        BaseDeployment.PairConfig memory USDCMATICPairConfig = BaseDeployment.PairConfig({
+            name: "USDC/MATIC",
+            durations: singleDuration,
+            ltvs: singleLTV,
+            cashAsset: IERC20(USDC),
+            collateralAsset: IERC20(MATIC),
+            feeTier: feeTier,
+            twapWindow: twapWindow
+        });
+
         assetPairContracts.push(
-            _createContractPair(IERC20(USDC), IERC20(MATIC), "USDC/MATIC", singleDuration, singleLTV)
+            _createContractPair(USDCMATICPairConfig)
         );
+
+        BaseDeployment.PairConfig memory USDCstEthPairConfig = BaseDeployment.PairConfig({
+            name: "USDC/stETH",
+            durations: singleDuration,
+            ltvs: singleLTV,
+            cashAsset: IERC20(USDC),
+            collateralAsset: IERC20(stETH),
+            feeTier: feeTier,
+            twapWindow: twapWindow
+        });
+
         assetPairContracts.push(
-            _createContractPair(IERC20(USDC), IERC20(stETH), "USDC/stETH", singleDuration, singleLTV)
+            _createContractPair(USDCstEthPairConfig)
         );
+
+        BaseDeployment.PairConfig memory WETHweEthPairConfig = BaseDeployment.PairConfig({
+            name: "WETH/weETH",
+            durations: singleDuration,
+            ltvs: singleLTV,
+            cashAsset: IERC20(WETH),
+            collateralAsset: IERC20(weETH),
+            feeTier: feeTier,
+            twapWindow: twapWindow
+        });
+
         assetPairContracts.push(
-            _createContractPair(IERC20(WETH), IERC20(weETH), "WETH/weETH", singleDuration, singleLTV)
+            _createContractPair(WETHweEthPairConfig)
         );
+
+        for(uint i =0; i< assetPairContracts.length; i++){
+            _setupContractPair(configHub, assetPairContracts[i]);
+            _verifyDeployment(configHub, assetPairContracts[i]);
+        }
+       
     }
 }

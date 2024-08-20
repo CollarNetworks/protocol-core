@@ -94,6 +94,7 @@ contract DeploymentUtils is Script {
                 json = string(abi.encodePacked(json, vm.toString(pair.ltvs[j]), ","));
             }
             json = string(abi.encodePacked(substring(json, 0, bytes(json).length - 1), "],"));
+            json = string(abi.encodePacked(json, '"', pairName, '_feeTier":',vm.toString(pair.feeTier),','));
         }
 
         // Remove the trailing comma and close the JSON object
@@ -198,7 +199,8 @@ contract DeploymentUtils is Script {
                         _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_collateralAsset")))
                     ),
                     durations: _parseUintArray(parsedJson, string(abi.encodePacked(".", baseKey, "_durations"))),
-                    ltvs: _parseUintArray(parsedJson, string(abi.encodePacked(".", baseKey, "_ltvs")))
+                    ltvs: _parseUintArray(parsedJson, string(abi.encodePacked(".", baseKey, "_ltvs"))),
+                    feeTier: uint24(vm.parseJsonUint(json, string(abi.encodePacked(".", baseKey, "_feeTier"))))
                 });
                 resultIndex++;
             }
