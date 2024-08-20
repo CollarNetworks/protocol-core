@@ -304,7 +304,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
     /// @notice Sets the fee tier to use for swaps
     /// @dev only owner
     function setSwapFeeTier(uint24 newFeeTier) external onlyOwner {
-        require(newFeeTier == 500 || newFeeTier == 3000 || newFeeTier == 10000, "invalid fee tier");
+        require(newFeeTier == 500 || newFeeTier == 3000 || newFeeTier == 10_000, "invalid fee tier");
         emit SwapFeeTiertUpdated(swapFeeTier, newFeeTier);
         swapFeeTier = newFeeTier;
     }

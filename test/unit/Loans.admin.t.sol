@@ -80,7 +80,7 @@ contract LoansAdminTest is LoansTestBase {
         // check effect
         assertEq(loans.swapFeeTier(), newFeeTier);
         // check other valid tiers
-        loans.setSwapFeeTier(10000);
+        loans.setSwapFeeTier(10_000);
         loans.setSwapFeeTier(500);
     }
 

@@ -8,11 +8,11 @@ import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-import { BaseTestSetup, CollarTakerNFT, ProviderPositionNFT } from "./BaseTestSetup.sol";
+import { BaseAssetPairTestSetup, CollarTakerNFT, ProviderPositionNFT } from "./BaseAssetPairTestSetup.sol";
 
 import { Rolls, IRolls } from "../../src/Rolls.sol";
 
-contract RollsTest is BaseTestSetup {
+contract RollsTest is BaseAssetPairTestSetup {
     uint putLocked = swapCashAmount * (BIPS_100PCT - ltv) / BIPS_100PCT; // 100
     uint callLocked = swapCashAmount * (callStrikeDeviation - BIPS_100PCT) / BIPS_100PCT; // 100
 
@@ -89,6 +89,7 @@ contract RollsTest is BaseTestSetup {
         int toTaker;
         int toProvider;
         int rollFee;
+        uint toProtocol;
     }
 
     function calculateRollAmounts(uint rollId, uint newPrice, int rollFee)
@@ -112,11 +113,14 @@ contract RollsTest is BaseTestSetup {
             expected.newCallLocked,
             takerNFT.calculateProviderLocked(expected.newPutLocked, ltv, callStrikeDeviation)
         );
+        // protocol fee
+        (expected.toProtocol,) = providerNFT.protocolFee(expected.newCallLocked, duration);
         // _calculateTransferAmounts
         (uint takerSettled, int providerChange) = takerNFT.previewSettlement(oldTakerPos, newPrice);
         int providerSettled = int(oldTakerPos.callLockedCash) + providerChange;
         expected.toTaker = int(takerSettled) - int(expected.newPutLocked) - rollFee;
-        expected.toProvider = providerSettled - int(expected.newCallLocked) + rollFee;
+        expected.toProvider =
+            providerSettled - int(expected.newCallLocked) + rollFee - int(expected.toProtocol);
         return expected; // linter wasn't happy without this
     }
 
@@ -132,6 +136,14 @@ contract RollsTest is BaseTestSetup {
         assertEq(rollFeeView, expected.rollFee);
     }
 
+    // stack too deep
+    struct Balances {
+        uint user;
+        uint provider;
+        uint rolls;
+        uint feeRecipient;
+    }
+
     function checkExecuteRoll(uint rollId, uint newPrice, ExpectedRoll memory expected) internal {
         IRolls.RollOffer memory offer = rolls.getRollOffer(rollId);
         // ids
@@ -141,9 +153,12 @@ contract RollsTest is BaseTestSetup {
         uint newProviderId;
 
         // balances
-        uint userBalance = cashAsset.balanceOf(user1);
-        uint providerBalance = cashAsset.balanceOf(provider);
-        uint rollsBalance = cashAsset.balanceOf(address(rolls));
+        Balances memory balances = Balances({
+            user: cashAsset.balanceOf(user1),
+            provider: cashAsset.balanceOf(provider),
+            rolls: cashAsset.balanceOf(address(rolls)),
+            feeRecipient: cashAsset.balanceOf(protocolFeeRecipient)
+        });
 
         // update to new price
         updatePrice(newPrice);
@@ -174,9 +189,10 @@ contract RollsTest is BaseTestSetup {
         assertEq(toProvider, expected.toProvider);
 
         // check balances
-        assertEq(cashAsset.balanceOf(user1), uint(int(userBalance) + expected.toTaker));
-        assertEq(cashAsset.balanceOf(provider), uint(int(providerBalance) + expected.toProvider));
-        assertEq(cashAsset.balanceOf(address(rolls)), rollsBalance); // no change
+        assertEq(cashAsset.balanceOf(user1), uint(int(balances.user) + expected.toTaker));
+        assertEq(cashAsset.balanceOf(provider), uint(int(balances.provider) + expected.toProvider));
+        assertEq(cashAsset.balanceOf(protocolFeeRecipient), balances.feeRecipient + expected.toProtocol);
+        assertEq(cashAsset.balanceOf(address(rolls)), balances.rolls); // no change
 
         // Check offer is no longer active
         assertFalse(rolls.getRollOffer(rollId).active);
@@ -277,7 +293,7 @@ contract RollsTest is BaseTestSetup {
         assertEq(expected.newPutLocked, 100 ether);
         assertEq(expected.newCallLocked, 200 ether);
         assertEq(expected.toTaker, -expected.rollFee);
-        assertEq(expected.toProvider, expected.rollFee);
+        assertEq(expected.toProvider, expected.rollFee - int(expected.toProtocol));
     }
 
     function test_executeRoll_no_change_no_fee() public {
@@ -291,7 +307,7 @@ contract RollsTest is BaseTestSetup {
         assertEq(expected.newPutLocked, 100 ether);
         assertEq(expected.newCallLocked, 200 ether);
         assertEq(expected.toTaker, 0);
-        assertEq(expected.toProvider, 0);
+        assertEq(expected.toProvider, -int(expected.toProtocol));
     }
 
     function test_executeRoll_5_pct_up_simple() public {
@@ -309,7 +325,7 @@ contract RollsTest is BaseTestSetup {
         assertEq(expected.newPutLocked, 105 ether);
         assertEq(expected.newCallLocked, 210 ether);
         assertEq(expected.toTaker, 45 ether - expected.rollFee);
-        assertEq(expected.toProvider, -60 ether + expected.rollFee);
+        assertEq(expected.toProvider, -60 ether + expected.rollFee - int(expected.toProtocol));
     }
 
     function test_executeRoll_5_pct_down_simple() public {
@@ -327,7 +343,7 @@ contract RollsTest is BaseTestSetup {
         assertEq(expected.newPutLocked, 95 ether);
         assertEq(expected.newCallLocked, 190 ether);
         assertEq(expected.toTaker, -45 ether - expected.rollFee);
-        assertEq(expected.toProvider, 60 ether + expected.rollFee);
+        assertEq(expected.toProvider, 60 ether + expected.rollFee - int(expected.toProtocol));
     }
 
     function test_executeRoll_30_pct_up_simple() public {
@@ -348,7 +364,7 @@ contract RollsTest is BaseTestSetup {
         assertEq(expected.newPutLocked, 130 ether);
         assertEq(expected.newCallLocked, 260 ether);
         assertEq(expected.toTaker, 170 ether - expected.rollFee);
-        assertEq(expected.toProvider, -260 ether + expected.rollFee);
+        assertEq(expected.toProvider, -260 ether + expected.rollFee - int(expected.toProtocol));
     }
 
     function test_executeRoll_20_pct_down_simple() public {
@@ -368,7 +384,7 @@ contract RollsTest is BaseTestSetup {
         assertEq(expected.newPutLocked, 80 ether);
         assertEq(expected.newCallLocked, 160 ether);
         assertEq(expected.toTaker, -80 ether - expected.rollFee);
-        assertEq(expected.toProvider, 140 ether + expected.rollFee);
+        assertEq(expected.toProvider, 140 ether + expected.rollFee - int(expected.toProtocol));
     }
 
     function test_calculateRollFee() public {
