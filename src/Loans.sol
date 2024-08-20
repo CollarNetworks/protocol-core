@@ -459,6 +459,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
 
     // ----- INTERNAL VIEWS ----- //
 
+    /// @dev should be used for opening only. If used for close will prevent closing if slippage is too high.
     /// The swap price is only used for "pot sizing", but not for payouts division on expiry.
     /// Due to this, price manipulation *should* NOT leak value from provider / protocol.
     /// The caller (user) is protected via a slippage parameter, and SHOULD use it to avoid MEV (if present).

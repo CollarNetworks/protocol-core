@@ -92,7 +92,6 @@ contract DeployInitializedDevnetProtocol is Script {
         configHub = new ConfigHub(msg.sender);
 
         router = swapRouterAddress;
-        configHub.setUniV3Router(router);
 
         // add supported cash assets
         configHub.setCashAssetSupport(USDC, true);

@@ -29,9 +29,9 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
         address baseToken = address(collateralAsset);
         address quoteToken = address(cashAsset);
 
-        address uniV3Factory = IPeripheryImmutableState(configHub.uniV3SwapRouter()).factory();
+        address uniV3Factory = IPeripheryImmutableState(swapRouterAddress).factory();
         IUniswapV3Pool pool =
-            IUniswapV3Pool(IUniswapV3Factory(uniV3Factory).getPool(baseToken, quoteToken, FEE_TIER));
+            IUniswapV3Pool(IUniswapV3Factory(uniV3Factory).getPool(baseToken, quoteToken, ORACLE_FEE_TIER));
 
         (, int24 tick,,,,,) = pool.slot0();
 
@@ -106,8 +106,8 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
         });
 
         startHoax(whale);
-        IERC20(swapParams.tokenIn).forceApprove(configHub.uniV3SwapRouter(), amount);
-        IV3SwapRouter(payable(configHub.uniV3SwapRouter())).exactInputSingle(swapParams);
+        IERC20(swapParams.tokenIn).forceApprove(swapRouterAddress, amount);
+        IV3SwapRouter(payable(swapRouterAddress)).exactInputSingle(swapParams);
         vm.stopPrank();
 
         currentPrice = getCurrentAssetPrice();

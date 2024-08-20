@@ -63,7 +63,6 @@ contract DeployArbitrumSepoliaProtocol is Script {
 
         // Deploy and setup configHub
         ConfigHub configHub = new ConfigHub(msg.sender);
-        configHub.setUniV3Router(address(SWAP_ROUTER));
         configHub.setLTVRange(ltvToUse, ltvToUse);
         configHub.setCollarDurationRange(durationToUse, durationToUse);
 

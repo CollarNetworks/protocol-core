@@ -16,7 +16,8 @@ import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfac
 abstract contract CollarBaseIntegrationTestConfig is Test {
     using SafeERC20 for IERC20;
 
-    uint24 constant FEE_TIER = 3000;
+    uint24 constant ORACLE_FEE_TIER = 3000;
+    uint24 constant SWAP_FEE_TIER = 3000;
     uint32 constant TWAP_WINDOW = 15 minutes;
 
     address owner = makeAddr("owner");
@@ -34,7 +35,6 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
     uint offerLTV;
     IERC20 collateralAsset;
     IERC20 cashAsset;
-    IV3SwapRouter swapRouter;
     OracleUniV3TWAP oracle;
     ConfigHub configHub;
     ProviderPositionNFT providerNFT;
@@ -67,14 +67,13 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
 
         configHub = new ConfigHub(owner);
         startHoax(owner);
-        configHub.setUniV3Router(swapRouterAddress);
         configHub.setCashAssetSupport(cashAssetAddress, true);
         configHub.setCollateralAssetSupport(collateralAssetAddress, true);
         configHub.setLTVRange(_offerLTV, _offerLTV + 1);
         configHub.setCollarDurationRange(_positionDuration, _positionDuration + 1);
 
         oracle = new OracleUniV3TWAP(
-            address(collateralAsset), address(cashAsset), FEE_TIER, TWAP_WINDOW, swapRouterAddress
+            address(collateralAsset), address(cashAsset), ORACLE_FEE_TIER, TWAP_WINDOW, swapRouterAddress
         );
 
         takerNFT = new CollarTakerNFT(
@@ -82,7 +81,7 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
         );
 
         loanContract = new Loans(owner, takerNFT);
-        swapperUniDirect = new SwapperUniV3Direct(owner, configHub);
+        swapperUniDirect = new SwapperUniV3Direct(swapRouterAddress, SWAP_FEE_TIER);
         loanContract.setSwapperAllowed(address(swapperUniDirect), true, true);
 
         configHub.setCollarTakerContractAuth(address(takerNFT), true);

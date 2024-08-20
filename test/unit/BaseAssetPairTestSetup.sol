@@ -11,8 +11,6 @@ import { ConfigHub } from "../../src/ConfigHub.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
-import { Loans } from "../../src/Loans.sol";
-import { SwapperUniV3Direct } from "../../src/SwapperUniV3Direct.sol";
 
 contract BaseAssetPairTestSetup is Test {
     TestERC20 cashAsset;
@@ -23,8 +21,6 @@ contract BaseAssetPairTestSetup is Test {
     ProviderPositionNFT providerNFT;
     ProviderPositionNFT providerNFT2;
     Rolls rolls;
-    SwapperUniV3Direct swapperUniDirect;
-    Loans loans;
 
     address owner = makeAddr("owner");
     address user1 = makeAddr("user1");
@@ -81,11 +77,6 @@ contract BaseAssetPairTestSetup is Test {
         // asset pair periphery
         rolls = new Rolls(owner, takerNFT);
         vm.label(address(rolls), "Rolls");
-
-        swapperUniDirect = new SwapperUniV3Direct(owner, configHub);
-        loans = new Loans(owner, takerNFT);
-        vm.label(address(swapperUniDirect), "SwapperUniV3Direct");
-        vm.label(address(loans), "Loans");
     }
 
     function configureContracts() public {
@@ -103,11 +94,6 @@ contract BaseAssetPairTestSetup is Test {
         configHub.setProviderContractAuth(address(providerNFT2), true);
         // fees
         configHub.setProtocolFeeParams(protocolFeeAPR, protocolFeeRecipient);
-
-        // loans
-        loans.setRollsContract(rolls);
-        loans.setSwapperAllowed(address(swapperUniDirect), true, true);
-        /// @dev swapper and loans don't actually work at this point bc config has no UniV3Router set yet
 
         vm.stopPrank();
     }

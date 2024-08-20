@@ -11,9 +11,14 @@ import { MockSwapRouter } from "../utils/MockSwapRouter.sol";
 import { Loans, ILoans } from "../../src/Loans.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
+import { SwapperUniV3Direct } from "../../src/SwapperUniV3Direct.sol";
 
 contract LoansTestBase is BaseAssetPairTestSetup {
     MockSwapRouter mockSwapRouter;
+    SwapperUniV3Direct swapperUniDirect;
+    Loans loans;
+
+    uint24 swapFeeTier = 500;
 
     // swap amount * ltv
     uint minLoanAmount = swapCashAmount * (ltv / BIPS_100PCT);
@@ -21,11 +26,19 @@ contract LoansTestBase is BaseAssetPairTestSetup {
     function setUp() public override {
         super.setUp();
 
+        // deploy
         mockSwapRouter = new MockSwapRouter();
-        vm.label(address(mockSwapRouter), "UniRouter");
+        swapperUniDirect = new SwapperUniV3Direct(address(mockSwapRouter), swapFeeTier);
+        loans = new Loans(owner, takerNFT);
+        vm.label(address(mockSwapRouter), "MockSwapRouter");
+        vm.label(address(swapperUniDirect), "SwapperUniV3Direct");
+        vm.label(address(loans), "Loans");
 
+        // config
         vm.startPrank(owner);
-        configHub.setUniV3Router(address(mockSwapRouter));
+        loans.setRollsContract(rolls);
+        loans.setSwapperAllowed(address(swapperUniDirect), true, true);
+        vm.stopPrank();
     }
 
     function prepareSwap(TestERC20 asset, uint amount) public {

@@ -9,43 +9,30 @@ pragma solidity 0.8.22;
 
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
-import { BaseEmergencyAdmin, ConfigHub } from "./base/BaseEmergencyAdmin.sol";
+import { IPeripheryImmutableState } from
+    "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 import { ISwapper } from "./interfaces/ISwapper.sol";
 
-contract SwapperUniV3Direct is BaseEmergencyAdmin, ISwapper {
+contract SwapperUniV3Direct is ISwapper {
     using SafeERC20 for IERC20;
-
-    uint24 internal constant INITIAL_FEE_TIER = 500;
 
     string public constant VERSION = "0.2.0";
 
-    // ----- State ----- //
-    uint24 public swapFeeTier = INITIAL_FEE_TIER;
+    IV3SwapRouter public immutable uniV3SwapRouter;
+    uint24 public immutable swapFeeTier;
 
-    // ----- Events ----- //
-    event SwapFeeTierUpdated(uint24 indexed previousFeeTier, uint24 indexed newFeeTier);
-
-    /// @dev BaseEmergencyAdmin is used for it's ownable, token rescue, and configHub features.
-    constructor(address initialOwner, ConfigHub _configHub) BaseEmergencyAdmin(initialOwner) {
-        _setConfigHub(_configHub);
-        // assumes that 500 is supported b Uniswap V3 which is a safe assumption (see setSwapFeeTier())
-        swapFeeTier = INITIAL_FEE_TIER;
-    }
-
-    // ----- Owner mutative ----- //
-
-    /// @notice Sets the fee tier to use for swaps
-    /// @dev only owner
-    function setSwapFeeTier(uint24 newFeeTier) external onlyOwner {
+    constructor(address _uniV3SwapRouter, uint24 _feeTier) {
+        // sanity check router
+        require(IPeripheryImmutableState(_uniV3SwapRouter).factory() != address(0), "invalid router");
         // @dev The most precise check would be to check via factory's feeAmountTickSpacing():
         //      require(IUniswapV3Factory(factory).feeAmountTickSpacing(newFeeTier) != 0, .. );
         // KISS is fine here: known tiers aren't likely to change, and swappers can easily be replaced.
         require(
-            newFeeTier == 100 || newFeeTier == 500 || newFeeTier == 3000 || newFeeTier == 10_000,
-            "invalid fee tier"
+            _feeTier == 100 || _feeTier == 500 || _feeTier == 3000 || _feeTier == 10_000, "invalid fee tier"
         );
-        emit SwapFeeTierUpdated(swapFeeTier, newFeeTier);
-        swapFeeTier = newFeeTier;
+        uniV3SwapRouter = IV3SwapRouter(payable(_uniV3SwapRouter));
+        // assumes that 500 is supported b Uniswap V3 which is a safe assumption (see setSwapFeeTier())
+        swapFeeTier = _feeTier;
     }
 
     // ----- Mutative ----- //
@@ -53,7 +40,6 @@ contract SwapperUniV3Direct is BaseEmergencyAdmin, ISwapper {
     // TODO: docs
     function swap(IERC20 assetIn, IERC20 assetOut, uint amountIn, uint minAmountOut, bytes calldata extraData)
         external
-        whenNotPaused
         returns (uint amountOut)
     {
         // unused in this swapper
@@ -63,8 +49,6 @@ contract SwapperUniV3Direct is BaseEmergencyAdmin, ISwapper {
         assetIn.safeTransferFrom(msg.sender, address(this), amountIn);
 
         uint balanceBefore = assetOut.balanceOf(address(this));
-
-        IV3SwapRouter uniV3SwapRouter = IV3SwapRouter(payable(configHub.uniV3SwapRouter()));
 
         // approve router
         assetIn.forceApprove(address(uniV3SwapRouter), amountIn);

@@ -36,9 +36,6 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
             _offerLTV: 9000
         });
 
-        // fee tier for which the test values were set
-        swapperUniDirect.setSwapFeeTier(3000);
-
         _fundWallets();
 
         uint amountPerOffer = 100_000e6;

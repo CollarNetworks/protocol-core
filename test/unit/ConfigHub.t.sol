@@ -9,13 +9,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
-import {
-    ConfigHub,
-    IConfigHub,
-    IProviderPositionNFT,
-    ICollarTakerNFT,
-    IPeripheryImmutableState
-} from "../../src/ConfigHub.sol";
+import { ConfigHub, IConfigHub, IProviderPositionNFT, ICollarTakerNFT } from "../../src/ConfigHub.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract ConfigHubTest is Test {
@@ -50,7 +44,6 @@ contract ConfigHubTest is Test {
         assertEq(configHub.MAX_CONFIGURABLE_LTV(), 9999);
         assertEq(configHub.MIN_CONFIGURABLE_DURATION(), 300);
         assertEq(configHub.MAX_CONFIGURABLE_DURATION(), 5 * 365 days);
-        assertEq(configHub.uniV3SwapRouter(), address(0));
         assertEq(configHub.pauseGuardian(), address(0));
         assertEq(configHub.feeRecipient(), address(0));
         assertEq(configHub.minDuration(), 0);
@@ -83,9 +76,6 @@ contract ConfigHubTest is Test {
 
         vm.expectRevert(user1NotAuthorized);
         configHub.setPauseGuardian(guardian);
-
-        vm.expectRevert(user1NotAuthorized);
-        configHub.setUniV3Router(router);
 
         vm.expectRevert(user1NotAuthorized);
         configHub.setProtocolFeeParams(0, address(0));
@@ -301,33 +291,33 @@ contract ConfigHubTest is Test {
         assertEq(configHub.pauseGuardian(), address(0));
     }
 
-    function test_setUniV3Router() public {
-        startHoax(owner);
-
-        // invalid no return
-        vm.expectRevert(new bytes(0));
-        configHub.setUniV3Router(address(0));
-
-        // invalid 0 address return
-        vm.mockCall(
-            address(router),
-            abi.encodeCall(IPeripheryImmutableState.factory, ()),
-            abi.encode(address(0)) // zero
-        );
-        vm.expectRevert("invalid router");
-        configHub.setUniV3Router(router);
-
-        // valid
-        vm.mockCall(
-            address(router),
-            abi.encodeCall(IPeripheryImmutableState.factory, ()),
-            abi.encode(address(1)) // not zero
-        );
-        vm.expectEmit(address(configHub));
-        emit IConfigHub.UniV3RouterSet(address(0), router);
-        configHub.setUniV3Router(router);
-        assertEq(configHub.uniV3SwapRouter(), router);
-    }
+    //    function test_setUniV3Router() public {
+    //        startHoax(owner);
+    //
+    //        // invalid no return
+    //        vm.expectRevert(new bytes(0));
+    //        configHub.setUniV3Router(address(0));
+    //
+    //        // invalid 0 address return
+    //        vm.mockCall(
+    //            address(router),
+    //            abi.encodeCall(IPeripheryImmutableState.factory, ()),
+    //            abi.encode(address(0)) // zero
+    //        );
+    //        vm.expectRevert("invalid router");
+    //        configHub.setUniV3Router(router);
+    //
+    //        // valid
+    //        vm.mockCall(
+    //            address(router),
+    //            abi.encodeCall(IPeripheryImmutableState.factory, ()),
+    //            abi.encode(address(1)) // not zero
+    //        );
+    //        vm.expectEmit(address(configHub));
+    //        emit IConfigHub.UniV3RouterSet(address(0), router);
+    //        configHub.setUniV3Router(router);
+    //        assertEq(configHub.uniV3SwapRouter(), router);
+    //    }
 
     function test_setProtocolFeeParams() public {
         startHoax(owner);

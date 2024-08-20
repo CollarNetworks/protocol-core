@@ -8,8 +8,6 @@
 pragma solidity 0.8.22;
 
 import { Ownable2Step, Ownable } from "@openzeppelin/contracts/access/Ownable2Step.sol";
-import { IPeripheryImmutableState } from
-    "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 // internal imports
 import { IConfigHub } from "./interfaces/IConfigHub.sol";
 import { IProviderPositionNFT } from "./interfaces/IProviderPositionNFT.sol";
@@ -34,7 +32,6 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     uint public maxDuration;
     uint public protocolFeeAPR; // bips
     // pause guardian for other contracts
-    address public uniV3SwapRouter;
     address public pauseGuardian;
     address public feeRecipient;
 
@@ -106,14 +103,6 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     function setPauseGuardian(address newGuardian) external onlyOwner {
         emit PauseGuardianSet(pauseGuardian, newGuardian); // emit before for the prev-value
         pauseGuardian = newGuardian;
-    }
-
-    // swap router
-
-    function setUniV3Router(address _uniV3SwapRouter) external onlyOwner {
-        require(IPeripheryImmutableState(_uniV3SwapRouter).factory() != address(0), "invalid router");
-        emit UniV3RouterSet(uniV3SwapRouter, _uniV3SwapRouter); // emit before for the prev-value
-        uniV3SwapRouter = _uniV3SwapRouter;
     }
 
     // protocol fee
