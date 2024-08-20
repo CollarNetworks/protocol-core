@@ -8,7 +8,7 @@ import { ConfigHub } from "../src/ConfigHub.sol";
 import { ProviderPositionNFT } from "../src/ProviderPositionNFT.sol";
 import { OracleUniV3TWAP } from "../src/OracleUniV3TWAP.sol";
 import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
-import { Loans } from "../src/Loans.sol";
+import { Loans, ILoans } from "../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
@@ -261,8 +261,13 @@ contract DeployArbitrumSepoliaProtocol is Script {
         // Create loan
         cashAsset.approve(address(loansContract), amountPerOffer);
         collateralAsset.approve(address(loansContract), amountPerOffer);
-        (uint loanId,,) =
-            loansContract.createLoan(amountForLoanCollateral, amountExpectedForCashLoan, 0, providerNFT, 0);
+        (uint loanId,,) = loansContract.createLoan(
+            amountForLoanCollateral,
+            amountExpectedForCashLoan,
+            ILoans.SwapParams(0, address(loansContract.defaultSwapper()), ""),
+            providerNFT,
+            0
+        );
         // Get loan
         Loans.Loan memory loan = loansContract.getLoan(loanId);
         console.log("Loan collateral amount:", loan.collateralAmount);

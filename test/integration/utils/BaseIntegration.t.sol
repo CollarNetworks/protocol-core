@@ -7,7 +7,8 @@ import { ConfigHub } from "../../../src/ConfigHub.sol";
 import { ProviderPositionNFT } from "../../../src/ProviderPositionNFT.sol";
 import { OracleUniV3TWAP } from "../../../src/OracleUniV3TWAP.sol";
 import { CollarTakerNFT } from "../../../src/CollarTakerNFT.sol";
-import { Loans } from "../../../src/Loans.sol";
+import { Loans, ILoans } from "../../../src/Loans.sol";
+import { SwapperUniV3Direct } from "../../../src/SwapperUniV3Direct.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
@@ -39,6 +40,7 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
     ProviderPositionNFT providerNFT;
     CollarTakerNFT takerNFT;
     Loans loanContract;
+    SwapperUniV3Direct swapperUniDirect;
 
     function _setupConfig(
         address _swapRouter,
@@ -80,6 +82,9 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
         );
 
         loanContract = new Loans(owner, takerNFT);
+        swapperUniDirect = new SwapperUniV3Direct(owner, configHub);
+        loanContract.setSwapperAllowed(address(swapperUniDirect), true, true);
+
         configHub.setCollarTakerContractAuth(address(takerNFT), true);
         providerNFT = new ProviderPositionNFT(
             address(this), configHub, cashAsset, collateralAsset, address(takerNFT), "Provider NFT", "PNFT"

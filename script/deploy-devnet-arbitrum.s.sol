@@ -8,7 +8,7 @@ import { ConfigHub } from "../src/ConfigHub.sol";
 import { ProviderPositionNFT } from "../src/ProviderPositionNFT.sol";
 import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
 import { OracleUniV3TWAP } from "../src/OracleUniV3TWAP.sol";
-import { Loans } from "../src/Loans.sol";
+import { Loans, ILoans } from "../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 // import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
@@ -269,7 +269,7 @@ contract DeployInitializedDevnetProtocol is Script {
         (uint takerId, uint providerId, uint loanAmount) = pair.loansContract.createLoan(
             collateralAmountForLoan,
             0, // slippage
-            0,
+            ILoans.SwapParams(0, address(pair.loansContract.defaultSwapper()), ""),
             pair.providerNFT,
             offerId
         );

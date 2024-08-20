@@ -37,7 +37,7 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
         });
 
         // fee tier for which the test values were set
-        loanContract.setSwapFeeTier(3000);
+        swapperUniDirect.setSwapFeeTier(3000);
 
         _fundWallets();
 

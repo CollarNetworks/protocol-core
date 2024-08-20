@@ -6,12 +6,13 @@ import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockOracleUniV3TWAP } from "../utils/MockOracleUniV3TWAP.sol";
 
-import { Loans } from "../../src/Loans.sol";
 import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 import { ConfigHub } from "../../src/ConfigHub.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
+import { Loans } from "../../src/Loans.sol";
+import { SwapperUniV3Direct } from "../../src/SwapperUniV3Direct.sol";
 
 contract BaseAssetPairTestSetup is Test {
     TestERC20 cashAsset;
@@ -21,8 +22,9 @@ contract BaseAssetPairTestSetup is Test {
     CollarTakerNFT takerNFT;
     ProviderPositionNFT providerNFT;
     ProviderPositionNFT providerNFT2;
-    Loans loans;
     Rolls rolls;
+    SwapperUniV3Direct swapperUniDirect;
+    Loans loans;
 
     address owner = makeAddr("owner");
     address user1 = makeAddr("user1");
@@ -78,8 +80,11 @@ contract BaseAssetPairTestSetup is Test {
 
         // asset pair periphery
         rolls = new Rolls(owner, takerNFT);
-        loans = new Loans(owner, takerNFT);
         vm.label(address(rolls), "Rolls");
+
+        swapperUniDirect = new SwapperUniV3Direct(owner, configHub);
+        loans = new Loans(owner, takerNFT);
+        vm.label(address(swapperUniDirect), "SwapperUniV3Direct");
         vm.label(address(loans), "Loans");
     }
 
@@ -99,7 +104,10 @@ contract BaseAssetPairTestSetup is Test {
         // fees
         configHub.setProtocolFeeParams(protocolFeeAPR, protocolFeeRecipient);
 
+        // loans
         loans.setRollsContract(rolls);
+        loans.setSwapperAllowed(address(swapperUniDirect), true, true);
+        /// @dev swapper and loans don't actually work at this point bc config has no UniV3Router set yet
 
         vm.stopPrank();
     }

@@ -24,7 +24,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         mockSwapRouter = new MockSwapRouter();
         vm.label(address(mockSwapRouter), "UniRouter");
 
-        vm.prank(owner);
+        vm.startPrank(owner);
         configHub.setUniV3Router(address(mockSwapRouter));
     }
 
@@ -42,6 +42,10 @@ contract LoansTestBase is BaseAssetPairTestSetup {
     function prepareSwapToCashAtTWAPPrice() public returns (uint swapOut) {
         swapOut = collateralAmount * twapPrice / 1e18;
         prepareSwap(cashAsset, swapOut);
+    }
+
+    function defaultSwapParams(uint minOut) internal view returns (ILoans.SwapParams memory) {
+        return ILoans.SwapParams({ minAmountOut: minOut, swapper: address(swapperUniDirect), extraData: "" });
     }
 
     function createOfferAsProvider() internal returns (uint offerId) {
@@ -80,8 +84,9 @@ contract LoansTestBase is BaseAssetPairTestSetup {
             nextProviderId
         );
 
-        (takerId, providerId, loanAmount) =
-            loans.createLoan(collateralAmount, minLoanAmount, swapCashAmount, providerNFT, offerId);
+        (takerId, providerId, loanAmount) = loans.createLoan(
+            collateralAmount, minLoanAmount, defaultSwapParams(swapCashAmount), providerNFT, offerId
+        );
 
         // Check return values
         assertEq(takerId, nextTakerId);
@@ -149,7 +154,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         emit ILoans.LoanClosed(
             takerId, caller, user1, loanAmount, loanAmount + withdrawal, expectedCollateralOut
         );
-        uint collateralOut = loans.closeLoan(takerId, 0);
+        uint collateralOut = loans.closeLoan(takerId, defaultSwapParams(0));
 
         // Check balances and return value
         assertEq(collateralOut, expectedCollateralOut);
@@ -165,7 +170,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
         // Try to close the loan again (should fail)
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, takerId));
-        loans.closeLoan(takerId, 0);
+        loans.closeLoan(takerId, defaultSwapParams(0));
     }
 
     function checkOpenCloseWithPriceChange(uint newPrice, uint putRatio, uint callRatio)
@@ -201,7 +206,7 @@ contract LoansBasicHappyPathsTest is LoansTestBase {
         assertEq(loans.owner(), owner);
         assertEq(loans.closingKeeper(), address(0));
         assertEq(address(loans.rollsContract()), address(0));
-        assertEq(loans.swapFeeTier(), 500);
+        //        assertEq(loans.swapFeeTier(), 500);
     }
 
     function test_createLoan() public {
