@@ -20,7 +20,7 @@ as well requires more trust from users - due to having to approve a hard-to-insp
 pros:
     - more flexibility after audits / deployment, can use any router (uni, 1inch, etc..)
     - less code
-    - ungoverned (nothing to set or rescue) - any stuck tokens can be drained
+    - any stuck tokens can be drained
 
 cons:
     - much more attack surface area

@@ -13,6 +13,9 @@ import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 import { ISwapper } from "./interfaces/ISwapper.sol";
 
+/**
+ * @notice Unowned simple contract that swaps tokens in a direct route via UniswapV3.
+ */
 contract SwapperUniV3Direct is ISwapper {
     using SafeERC20 for IERC20;
 
@@ -21,6 +24,10 @@ contract SwapperUniV3Direct is ISwapper {
     IV3SwapRouter public immutable uniV3SwapRouter;
     uint24 public immutable swapFeeTier;
 
+    /**
+     * @param _uniV3SwapRouter The address of the Uniswap V3 router.
+     * @param _feeTier The fee tier to be used for swaps. Must be one of 100, 500, 3000, or 10000.
+     */
     constructor(address _uniV3SwapRouter, uint24 _feeTier) {
         // sanity check router
         require(IPeripheryImmutableState(_uniV3SwapRouter).factory() != address(0), "invalid router");
@@ -31,13 +38,25 @@ contract SwapperUniV3Direct is ISwapper {
             _feeTier == 100 || _feeTier == 500 || _feeTier == 3000 || _feeTier == 10_000, "invalid fee tier"
         );
         uniV3SwapRouter = IV3SwapRouter(payable(_uniV3SwapRouter));
-        // assumes that 500 is supported b Uniswap V3 which is a safe assumption (see setSwapFeeTier())
         swapFeeTier = _feeTier;
     }
 
-    // ----- Mutative ----- //
-
-    // TODO: docs
+    /**
+     * @notice Swaps a specified amount of one token for another via a direct Uniswap V3 route with
+     * the configured fee tier.
+     * @dev A called of this function assumes that as long as Uniswap V3 router and tokens involved
+     * are non-malicious that reentrancy won't be an issue the direct swapping route.
+     * Additional checks:
+     *  - The output of thw router is checked to correspond exactly to the balance change.
+     *  - A slippage check vs. minAmountOut.
+     * @param assetIn ERC20 token being swapped from.
+     * @param assetOut ERC20 token being swapped to.
+     * @param amountIn The amount of `assetIn` to swap.
+     * @param minAmountOut The minimum amount of `assetOut` to accept, limiting slippage.
+     * @param extraData Arbitrary bytes data that are unused in this contract.
+        This part of the interface can be utilized for more complex routing in other implementations.
+     * @return amountOut The actual amount of `assetOut` received from the swap.
+     */
     function swap(IERC20 assetIn, IERC20 assetOut, uint amountIn, uint minAmountOut, bytes calldata extraData)
         external
         returns (uint amountOut)

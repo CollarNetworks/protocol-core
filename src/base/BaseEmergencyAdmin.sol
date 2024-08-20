@@ -69,7 +69,7 @@ abstract contract BaseEmergencyAdmin is Ownable2Step, Pausable {
 
     function _setConfigHub(ConfigHub _newConfigHub) internal {
         // @dev this sanity-checks the contract and its expected interface
-        require(bytes(_newConfigHub.VERSION()).length > 0, "unexpected version length");
+        require(bytes(_newConfigHub.VERSION()).length > 0, "invalid ConfigHub");
 
         emit ConfigHubUpdated(configHub, _newConfigHub); // emit before for the prev value
         configHub = _newConfigHub;

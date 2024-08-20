@@ -304,11 +304,13 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         rollsContract = rolls;
     }
 
-    /// @notice Enables or disable swappers and set the default swapper
+    /// @notice Enables or disables swappers and sets the defaultSwapper view.
+    /// When no swapper is allowed, opening and closing loans will not be possible.
+    /// The default swapper is a convenience view, and it's best to keep it up to date
+    /// and to make sure the default one is allowed.
     /// @dev only owner
-    // TODO: docs
     function setSwapperAllowed(address swapper, bool allowed, bool setDefault) external onlyOwner {
-        if (allowed) require(bytes(ISwapper(swapper).VERSION()).length > 0, "unexpected version length");
+        if (allowed) require(bytes(ISwapper(swapper).VERSION()).length > 0, "invalid swapper");
         // it is possible to disallow and set as default at the same time. E.g., to unset the default
         // to zero. Worst case is loan cannot be closed and is settled via takerNFT
         if (setDefault) defaultSwapper = swapper;

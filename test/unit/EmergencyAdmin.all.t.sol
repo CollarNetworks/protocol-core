@@ -118,7 +118,7 @@ abstract contract BaseEmergencyAdminTestBase is Test {
         testedContract.setConfigHub(badHub);
 
         badHub = ConfigHub(address(new BadConfigHub2()));
-        vm.expectRevert("unexpected version length");
+        vm.expectRevert("invalid ConfigHub");
         testedContract.setConfigHub(badHub);
     }
 
@@ -206,7 +206,7 @@ contract BaseEmergencyAdminMockTest is BaseEmergencyAdminTestBase {
         new TestableBaseEmergencyAdmin(owner, badHub);
 
         badHub = ConfigHub(address(new BadConfigHub2()));
-        vm.expectRevert("unexpected version length");
+        vm.expectRevert("invalid ConfigHub");
         new TestableBaseEmergencyAdmin(owner, badHub);
     }
 }
