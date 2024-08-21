@@ -12,32 +12,20 @@ import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfac
 
 contract MockSwapRouter {
     address public factory = address(1); // not zero
-    uint amountToReturn;
-    uint amountToTransfer;
+    uint toReturn;
+    uint toTransfer;
 
     function exactInputSingle(IV3SwapRouter.ExactInputSingleParams memory params)
         external
         returns (uint amountOut)
     {
-        amountOut = params.amountOutMinimum;
-
         ERC20(params.tokenIn).transferFrom(msg.sender, address(this), params.amountIn);
-        amountOut = amountToReturn;
-        if (amountOut == 0) {
-            amountOut = params.amountOutMinimum;
-        }
-        uint transferAmount = amountToTransfer;
-        if (transferAmount == 0) {
-            transferAmount = amountOut;
-        }
-        ERC20(params.tokenOut).transfer(msg.sender, transferAmount);
+        amountOut = toReturn;
+        ERC20(params.tokenOut).transfer(msg.sender, toTransfer);
     }
 
-    function setAmountToReturn(uint amount) external {
-        amountToReturn = amount;
-    }
-
-    function setTransferAmount(uint amount) external {
-        amountToTransfer = amount;
+    function setupSwap(uint _toReturn, uint _toTransfer) external {
+        toReturn = _toReturn;
+        toTransfer = _toTransfer;
     }
 }

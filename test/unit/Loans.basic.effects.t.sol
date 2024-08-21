@@ -43,8 +43,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
     function prepareSwap(TestERC20 asset, uint amount) public {
         asset.mint(address(mockSwapRouter), amount);
-        mockSwapRouter.setAmountToReturn(amount);
-        mockSwapRouter.setTransferAmount(amount);
+        mockSwapRouter.setupSwap(amount, amount);
     }
 
     function prepareSwapToCollateralAtTWAPPrice() public returns (uint swapOut) {

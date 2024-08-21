@@ -33,11 +33,8 @@ contract SwapperUniV3DirectTest is Test {
     function setupSwap(uint _amountIn, uint _amountOut) internal {
         tokenIn.mint(address(this), _amountIn);
         tokenOut.mint(address(mockRouter), _amountOut);
-
         tokenIn.approve(address(swapper), _amountIn);
-
-        mockRouter.setAmountToReturn(_amountOut);
-        mockRouter.setTransferAmount(_amountOut);
+        mockRouter.setupSwap(_amountOut, _amountOut);
     }
 
     // effects
@@ -94,7 +91,7 @@ contract SwapperUniV3DirectTest is Test {
 
     function test_revert_swap_balanceUpdateMismatch() public {
         setupSwap(amountIn, amountOut);
-        mockRouter.setTransferAmount(amountOut - 1); // Simulate a balance mismatch
+        mockRouter.setupSwap(amountOut, amountOut - 1); // Simulate a balance mismatch
 
         vm.expectRevert("balance update mismatch");
         swapper.swap(tokenIn, tokenOut, amountIn, minAmountOut, "");
