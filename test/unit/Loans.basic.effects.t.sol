@@ -11,7 +11,7 @@ import { MockSwapRouter } from "../utils/MockSwapRouter.sol";
 import { Loans, ILoans } from "../../src/Loans.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
-import { SwapperUniV3Direct } from "../../src/SwapperUniV3Direct.sol";
+import { SwapperUniV3Direct, ISwapper } from "../../src/SwapperUniV3Direct.sol";
 
 contract LoansTestBase is BaseAssetPairTestSetup {
     MockSwapRouter mockSwapRouter;

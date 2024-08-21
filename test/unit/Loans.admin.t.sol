@@ -13,7 +13,7 @@ import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
-import { LoansTestBase, TestERC20 } from "./Loans.basic.effects.t.sol";
+import { LoansTestBase, TestERC20, SwapperUniV3Direct, ISwapper } from "./Loans.basic.effects.t.sol";
 
 contract LoansAdminTest is LoansTestBase {
     function test_onlyOwnerMethods() public {
@@ -32,8 +32,8 @@ contract LoansAdminTest is LoansTestBase {
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
         loans.setRollsContract(Rolls(address(0)));
 
-        //        vm.expectRevert(abi.encodeWithSelector(selector, user1));
-        //        loans.setSwapFeeTier(0);
+        vm.expectRevert(abi.encodeWithSelector(selector, user1));
+        loans.setSwapperAllowed(address(0), true, true);
     }
 
     function test_setKeeper() public {
@@ -68,21 +68,31 @@ contract LoansAdminTest is LoansTestBase {
         assertEq(address(loans.rollsContract()), address(unsetRolls));
     }
 
-    //    function test_setSwapFeeTier() public {
-    //        // check setup
-    //        assertEq(loans.swapFeeTier(), 500);
-    //        // can update
-    //        vm.startPrank(owner);
-    //        vm.expectEmit(address(loans));
-    //        uint24 newFeeTier = 3000;
-    //        emit ILoans.SwapFeeTiertUpdated(500, newFeeTier);
-    //        loans.setSwapFeeTier(newFeeTier);
-    //        // check effect
-    //        assertEq(loans.swapFeeTier(), newFeeTier);
-    //        // check other valid tiers
-    //        loans.setSwapFeeTier(10_000);
-    //        loans.setSwapFeeTier(500);
-    //    }
+    function test_setSwapperAllowed() public {
+        vm.startPrank(owner);
+
+        SwapperUniV3Direct newSwapper = new SwapperUniV3Direct(address(mockSwapRouter), swapFeeTier);
+        vm.expectEmit(address(loans));
+        emit ILoans.SwapperSet(address(newSwapper), true, true);
+        loans.setSwapperAllowed(address(newSwapper), true, true);
+        assertTrue(loans.allowedSwappers(address(newSwapper)));
+        assertEq(loans.defaultSwapper(), address(newSwapper));
+
+        // disallow new
+        vm.expectEmit(address(loans));
+        emit ILoans.SwapperSet(address(newSwapper), false, false);
+        loans.setSwapperAllowed(address(newSwapper), false, false);
+        assertFalse(loans.allowedSwappers(address(newSwapper)));
+        assertEq(loans.defaultSwapper(), address(newSwapper)); // default swapper should remain unchanged
+
+        // unset default
+        vm.expectEmit(address(loans));
+        emit ILoans.SwapperSet(address(0), false, true);
+        // does not revert
+        loans.setSwapperAllowed(address(0), false, true);
+        assertFalse(loans.allowedSwappers(address(0)));
+        assertEq(loans.defaultSwapper(), address(0)); // default is unset
+    }
 
     function test_pause() public {
         (uint takerId,,) = createAndCheckLoan();
@@ -135,9 +145,19 @@ contract LoansAdminTest is LoansTestBase {
         loans.setRollsContract(Rolls(address(0)));
     }
 
-    //    function test_revert_setSwapFeeTier() public {
-    //        vm.startPrank(owner);
-    //        vm.expectRevert("invalid fee tier");
-    //        loans.setSwapFeeTier(499);
-    //    }
+    function test_setSwapperAllowed_InvalidSwapper() public {
+        address invalidSwapper = address(0x456);
+
+        vm.startPrank(owner);
+        vm.expectRevert(new bytes(0));
+        loans.setSwapperAllowed(invalidSwapper, true, true);
+
+        vm.mockCall(
+            invalidSwapper,
+            abi.encodeCall(ISwapper.VERSION, ()),
+            abi.encode("")
+        );
+        vm.expectRevert("invalid swapper");
+        loans.setSwapperAllowed(invalidSwapper, true, true);
+    }
 }
