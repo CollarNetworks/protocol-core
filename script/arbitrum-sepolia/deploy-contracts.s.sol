@@ -67,7 +67,7 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             cashAsset: IERC20(cashAsset),
             collateralAsset: IERC20(collateralAsset),
             oracleFeeTier: oracleFeeTier,
-            swapFeeTier: oracleFeeTier,
+            swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
             swapRouter: address(SWAP_ROUTER)
         });

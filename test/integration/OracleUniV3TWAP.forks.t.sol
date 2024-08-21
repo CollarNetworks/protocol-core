@@ -4,13 +4,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 
-import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
-import { INonfungiblePositionManager } from
-    "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
-
-import { CollarOwnedERC20 } from "../utils/CollarOwnedERC20.sol";
-
+import { UniswapNewPoolHelper } from "../utils/UniswapNewPoolHelper.sol";
 import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 
 contract OracleUniV3TWAP_USDCWETH_ForkTest is Test {
@@ -120,67 +114,37 @@ contract OracleUniV3TWAP_WETHUSDC_ForkTest is OracleUniV3TWAP_USDCWETH_ForkTest 
     }
 }
 
-contract OracleUniV3TWAP_NewPool_ForkTest is OracleUniV3TWAP_USDCWETH_ForkTest {
+contract OracleUniV3TWAP_NewPool_ForkTest is OracleUniV3TWAP_USDCWETH_ForkTest, UniswapNewPoolHelper {
     uint initialAmount = 10 ether;
+    address positionManager = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88; // arbi-main
 
     function _setUp() internal virtual override {
         super._setUp();
 
-        baseToken = address(new CollarOwnedERC20(address(this), "Test Collateral", "Test Collateral"));
-        quoteToken = address(new CollarOwnedERC20(address(this), "Test Cash", "Test Cash"));
-        pool = 0xf882c5F7DF30928E8D70E95f3b305013C9D1d56C;
+        (baseToken, quoteToken) = deployTokens();
 
         expectedCardinality = uint16(twapWindow);
 
-        _setupNewPool(expectedCardinality, 2 * twapWindow); // twice the window for testing pastPrice
+        PoolParams memory poolParams = PoolParams({
+            token1: baseToken,
+            token2: quoteToken,
+            router: router,
+            positionManager: positionManager,
+            feeTier: 500,
+            cardinality: expectedCardinality,
+            initialAmount: initialAmount,
+            tickSpacing: 10
+        });
+
+        pool = setupNewPool(poolParams);
+
+        // add observations for twice the window duration for testing pastPrice
+        for (uint i; i < 2 * twapWindow / 60; ++i) {
+            skip(60); // skip 1 minute
+            provideAmount1to1(poolParams, 1); // provide 1 wei to record an observation
+        }
 
         expectedCurPrice = 1 ether;
         expectedPriceTwapWindowAgo = expectedCurPrice;
-    }
-
-    function _setupNewPool(uint16 cardinality, uint32 initialObservationsSpan) internal {
-        address newPool = IUniswapV3Factory(factory).createPool(baseToken, quoteToken, feeTier);
-
-        // price 1:1, because otherwise liquidity amounts calc is a bit much
-        //  if another initial price and liquidity are needed use this: https://uniswapv3book.com/milestone_1/calculating-liquidity.html
-        uint160 sqrtPriceX96Tick0 = 79_228_162_514_264_337_593_543_950_336;
-        IUniswapV3Pool(newPool).initialize(sqrtPriceX96Tick0);
-
-        _provideAmount1to1(initialAmount);
-
-        // set the cardinality to what is needed
-        IUniswapV3Pool(newPool).increaseObservationCardinalityNext(cardinality);
-
-        for (uint i; i < initialObservationsSpan / 60; ++i) {
-            skip(60); // skip 1 minute
-            _provideAmount1to1(1); // provide 1 wei to record an observation
-        }
-    }
-
-    function _provideAmount1to1(uint amount) internal {
-        INonfungiblePositionManager.MintParams memory params = INonfungiblePositionManager.MintParams({
-            // token order is inverted because depends on addresses
-            token0: quoteToken,
-            token1: baseToken,
-            fee: feeTier,
-            tickLower: -10,
-            tickUpper: 10,
-            amount0Desired: amount,
-            amount1Desired: amount,
-            amount0Min: 0,
-            amount1Min: 0,
-            recipient: address(this),
-            deadline: block.timestamp
-        });
-
-        address positionManager = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88;
-
-        CollarOwnedERC20(baseToken).mint(address(this), amount);
-        CollarOwnedERC20(quoteToken).mint(address(this), amount);
-
-        CollarOwnedERC20(baseToken).approve(address(positionManager), amount);
-        CollarOwnedERC20(quoteToken).approve(address(positionManager), amount);
-
-        INonfungiblePositionManager(positionManager).mint(params);
     }
 }
