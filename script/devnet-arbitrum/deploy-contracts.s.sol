@@ -10,7 +10,7 @@ import { Loans } from "../../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../../src/Rolls.sol";
 import { DeploymentUtils } from "../utils/deployment-exporter.s.sol";
-import { BaseDeployment } from "../base.s.sol";
+import { BaseDeployment } from "../BaseDeployment.s.sol";
 import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 
 contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
@@ -27,7 +27,8 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
     AssetPairContracts[] public assetPairContracts;
     uint[] allDurations = [5 minutes, 30 days, 12 * 30 days];
     uint[] allLTVs = [9000, 5000];
-    uint24 feeTier = 500;
+    uint24 oracleFeeTier = 500;
+    uint24 swapFeeTier = 500;
     uint32 twapWindow = 15 minutes;
 
     function run() external {
@@ -50,23 +51,25 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         uint minDuration = allDurations[0];
         uint maxDuration = allDurations[2];
 
-        _deployConfigHub(
-        );
+        _deployConfigHub();
 
         _setupConfigHub(
-            BaseDeployment.HubParams(swapRouterAddress,
-            cashAssets,
-            collateralAssets,
-            minLTV,
-            maxLTV,
-            minDuration,
-            maxDuration)
+            BaseDeployment.HubParams({
+                cashAssets: cashAssets,
+                collateralAssets: collateralAssets,
+                minLTV: minLTV,
+                maxLTV: maxLTV,
+                minDuration: minDuration,
+                maxDuration: maxDuration
+            })
         );
 
         _createContractPairs();
         vm.stopBroadcast();
 
-        exportDeployment("collar_protocol_deployment", address(configHub), router, assetPairContracts);
+        exportDeployment(
+            "collar_protocol_deployment", address(configHub), swapRouterAddress, assetPairContracts
+        );
 
         console.log("\nDeployment completed successfully");
     }
@@ -84,13 +87,13 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             ltvs: allLTVs,
             cashAsset: IERC20(USDC),
             collateralAsset: IERC20(WETH),
-            feeTier: feeTier,
-            twapWindow: twapWindow
+            oracleFeeTier: oracleFeeTier,
+            swapFeeTier: swapFeeTier,
+            twapWindow: twapWindow,
+            swapRouter: swapRouterAddress
         });
-        
-        assetPairContracts.push(
-            _createContractPair(USDCWETHPairConfig)
-        );
+
+        assetPairContracts.push(_createContractPair(USDCWETHPairConfig));
 
         BaseDeployment.PairConfig memory USDTWETHPairConfig = BaseDeployment.PairConfig({
             name: "USDT/WETH",
@@ -98,14 +101,13 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             ltvs: singleLTV,
             cashAsset: IERC20(USDT),
             collateralAsset: IERC20(WETH),
-            feeTier: feeTier,
-            twapWindow: twapWindow
+            oracleFeeTier: oracleFeeTier,
+            swapFeeTier: swapFeeTier,
+            twapWindow: twapWindow,
+            swapRouter: swapRouterAddress
         });
 
-
-        assetPairContracts.push(
-            _createContractPair(USDTWETHPairConfig)
-        );
+        assetPairContracts.push(_createContractPair(USDTWETHPairConfig));
 
         BaseDeployment.PairConfig memory USDCWBTCPairConfig = BaseDeployment.PairConfig({
             name: "USDC/WBTC",
@@ -113,13 +115,13 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             ltvs: singleLTV,
             cashAsset: IERC20(USDC),
             collateralAsset: IERC20(WBTC),
-            feeTier: feeTier,
-            twapWindow: twapWindow
+            oracleFeeTier: oracleFeeTier,
+            swapFeeTier: swapFeeTier,
+            twapWindow: twapWindow,
+            swapRouter: swapRouterAddress
         });
 
-        assetPairContracts.push(
-            _createContractPair(USDCWBTCPairConfig)
-        );
+        assetPairContracts.push(_createContractPair(USDCWBTCPairConfig));
 
         BaseDeployment.PairConfig memory USDCMATICPairConfig = BaseDeployment.PairConfig({
             name: "USDC/MATIC",
@@ -127,13 +129,13 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             ltvs: singleLTV,
             cashAsset: IERC20(USDC),
             collateralAsset: IERC20(MATIC),
-            feeTier: feeTier,
-            twapWindow: twapWindow
+            oracleFeeTier: oracleFeeTier,
+            swapFeeTier: swapFeeTier,
+            twapWindow: twapWindow,
+            swapRouter: swapRouterAddress
         });
 
-        assetPairContracts.push(
-            _createContractPair(USDCMATICPairConfig)
-        );
+        assetPairContracts.push(_createContractPair(USDCMATICPairConfig));
 
         BaseDeployment.PairConfig memory USDCstEthPairConfig = BaseDeployment.PairConfig({
             name: "USDC/stETH",
@@ -141,13 +143,13 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             ltvs: singleLTV,
             cashAsset: IERC20(USDC),
             collateralAsset: IERC20(stETH),
-            feeTier: feeTier,
-            twapWindow: twapWindow
+            oracleFeeTier: oracleFeeTier,
+            swapFeeTier: swapFeeTier,
+            twapWindow: twapWindow,
+            swapRouter: swapRouterAddress
         });
 
-        assetPairContracts.push(
-            _createContractPair(USDCstEthPairConfig)
-        );
+        assetPairContracts.push(_createContractPair(USDCstEthPairConfig));
 
         BaseDeployment.PairConfig memory WETHweEthPairConfig = BaseDeployment.PairConfig({
             name: "WETH/weETH",
@@ -155,18 +157,17 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             ltvs: singleLTV,
             cashAsset: IERC20(WETH),
             collateralAsset: IERC20(weETH),
-            feeTier: feeTier,
-            twapWindow: twapWindow
+            oracleFeeTier: oracleFeeTier,
+            swapFeeTier: swapFeeTier,
+            twapWindow: twapWindow,
+            swapRouter: swapRouterAddress
         });
 
-        assetPairContracts.push(
-            _createContractPair(WETHweEthPairConfig)
-        );
+        assetPairContracts.push(_createContractPair(WETHweEthPairConfig));
 
-        for(uint i =0; i< assetPairContracts.length; i++){
+        for (uint i = 0; i < assetPairContracts.length; i++) {
             _setupContractPair(configHub, assetPairContracts[i]);
             _verifyDeployment(configHub, assetPairContracts[i]);
         }
-       
     }
 }

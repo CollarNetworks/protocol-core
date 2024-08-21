@@ -7,11 +7,11 @@ import { ConfigHub } from "../../../src/ConfigHub.sol";
 import { ProviderPositionNFT } from "../../../src/ProviderPositionNFT.sol";
 import { OracleUniV3TWAP } from "../../../src/OracleUniV3TWAP.sol";
 import { CollarTakerNFT } from "../../../src/CollarTakerNFT.sol";
-import { Loans } from "../../../src/Loans.sol";
+import { Loans, ILoans } from "../../../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
-import { BaseDeployment } from "../../../script/base.s.sol";
+import { BaseDeployment } from "../../../script/BaseDeployment.s.sol";
 
 abstract contract CollarBaseIntegrationTestConfig is Test, BaseDeployment {
     using SafeERC20 for IERC20;
@@ -67,13 +67,16 @@ abstract contract CollarBaseIntegrationTestConfig is Test, BaseDeployment {
         collateralAssets[0] = _collateralAsset;
         address[] memory cashAssets = new address[](1);
         cashAssets[0] = _cashAsset;
-        _setupConfigHub(BaseDeployment.HubParams(swapRouterAddress,
-            cashAssets,
-            collateralAssets,
-            offerLTV,
-            offerLTV,
-            positionDuration,
-            positionDuration));
+        _setupConfigHub(
+            BaseDeployment.HubParams({
+                cashAssets: cashAssets,
+                collateralAssets: collateralAssets,
+                minLTV: offerLTV,
+                maxLTV: offerLTV,
+                minDuration: positionDuration,
+                maxDuration: positionDuration
+            })
+        );
         uint[] memory durations = new uint[](1);
         durations[0] = positionDuration;
         uint[] memory ltvs = new uint[](1);
@@ -84,8 +87,10 @@ abstract contract CollarBaseIntegrationTestConfig is Test, BaseDeployment {
             ltvs: ltvs,
             cashAsset: IERC20(_cashAsset),
             collateralAsset: IERC20(_collateralAsset),
-            feeTier: 3000,
-            twapWindow: 15 minutes
+            oracleFeeTier: 3000,
+            swapFeeTier: 3000,
+            twapWindow: 15 minutes,
+            swapRouter: swapRouterAddress
         });
         pair = _createContractPair(pairConfig);
         _setupContractPair(configHub, pair);

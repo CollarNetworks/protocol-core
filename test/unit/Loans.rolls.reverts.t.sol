@@ -183,7 +183,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         cashAsset.approve(address(loans), type(uint).max);
         updatePrice();
         prepareSwapToCollateralAtTWAPPrice();
-        loans.closeLoan(takerId, 0);
+        loans.closeLoan(takerId, defaultSwapParams(0));
 
         // Mock the NFT ownerOf call to return the sender instead of reverting
         vm.mockCall(

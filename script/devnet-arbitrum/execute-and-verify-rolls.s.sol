@@ -10,7 +10,7 @@ import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { Loans } from "../../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../../src/Rolls.sol";
-import { BaseDeployment } from "../base.s.sol";
+import { BaseDeployment } from "../BaseDeployment.s.sol";
 
 contract VerifyRolls is Script, DeploymentUtils, BaseDeployment {
     int rollFee = 100e6; // 100USDC

@@ -7,17 +7,12 @@
 
 pragma solidity 0.8.22;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
+import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 // internal imports
-import { ConfigHub } from "./ConfigHub.sol";
-import { CollarTakerNFT } from "./CollarTakerNFT.sol";
-import { BaseEmergencyAdmin } from "./base/BaseEmergencyAdmin.sol";
+import { BaseEmergencyAdmin, ConfigHub } from "./base/BaseEmergencyAdmin.sol";
+import { CollarTakerNFT, ProviderPositionNFT } from "./CollarTakerNFT.sol";
 import { Rolls } from "./Rolls.sol";
-import { ProviderPositionNFT } from "./ProviderPositionNFT.sol";
+import { ISwapper } from "./interfaces/ISwapper.sol";
 import { ILoans } from "./interfaces/ILoans.sol";
 
 /**
@@ -26,7 +21,7 @@ import { ILoans } from "./interfaces/ILoans.sol";
  *
  * Main Functionality:
  * 1. Allows users to create loans by providing collateral and borrowing against it.
- * 2. Handles the swapping of collateral to the cash asset using Uniswap V3.
+ * 2. Handles the swapping of collateral to the cash asset via allowed Swappers (that use dex routers).
  * 3. Interacts with CollarTakerNFT to mint the NFT collar position backing the loans to the user.
  * 4. Manages loan closure, including repayment and swapping back to collateral.
  * 5. Provides keeper functionality for automated loan closure to allow avoiding price
@@ -37,7 +32,7 @@ import { ILoans } from "./interfaces/ILoans.sol";
  * This contract acts as the main entry point for borrowers in the Collar Protocol.
  *
  * Key Assumptions and Prerequisites:
- * 1. The Uniswap V3 router is trusted and properly implemented.
+ * 1. Allowed Swappers and the underlying dex routers / aggregators are trusted and properly implemented.
  * 2. The CollarTakerNFT and ProviderPositionNFT contracts are correctly implemented and authorized.
  * 3. The ConfigHub contract correctly manages protocol parameters and reports prices.
  * 4. Assets (ERC-20) used are standard compliant (non-rebasing, no transfer fees, no callbacks).
@@ -55,11 +50,9 @@ contract Loans is ILoans, BaseEmergencyAdmin {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
-    uint24 internal constant INITIAL_FEE_TIER = 500;
     /// should be set to not be overly restrictive since is mostly sanity-check
     uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 500;
 
-    // allow checking version in scripts / on-chain
     string public constant VERSION = "0.2.0";
 
     // ----- IMMUTABLES ----- //
@@ -74,18 +67,17 @@ contract Loans is ILoans, BaseEmergencyAdmin {
     address public closingKeeper;
     // the currently configured & allowed rolls contract for this takerNFT and cash asset
     Rolls public rollsContract;
-    uint24 public swapFeeTier;
+    // a convenience view to allow querying for a swapper onchain / FE without subgraph
+    address public defaultSwapper;
+    // contracts used for swaps, including the defaultSwapper
+    mapping(address swapper => bool allowed) public allowedSwappers;
 
     constructor(address initialOwner, CollarTakerNFT _takerNFT) BaseEmergencyAdmin(initialOwner) {
         takerNFT = _takerNFT;
         cashAsset = _takerNFT.cashAsset();
         collateralAsset = _takerNFT.collateralAsset();
-        swapFeeTier = INITIAL_FEE_TIER;
-        _setConfigHub(_takerNFT.configHub());
-        /// @dev this contract might as well be a third party contract (since not authed by configHub),
-        /// this is because it's not trusted by any other contract (only its users).
-        /// @dev similarly this contract is not checking any configHub auth, since taker and provider contracts
-        /// are assumed to check the configs
+        ConfigHub _configHub = _takerNFT.configHub();
+        _setConfigHub(_configHub);
     }
 
     modifier onlyNFTOwner(uint takerId) {
@@ -126,7 +118,10 @@ contract Loans is ILoans, BaseEmergencyAdmin {
      *      5. Transfers the minted NFT to the user
      * @param collateralAmount The amount of collateral asset to be provided
      * @param minLoanAmount The minimum acceptable loan amount (slippage protection)
-     * @param minSwapCash The minimum acceptable amount of cash from the collateral swap (slippage protection)
+     * @param swapParams SwapParams struct with:
+     *     - The minimum acceptable amount of cash from the collateral swap (slippage protection)
+     *     - an allowed Swapper
+     *     - any extraData the swapper needs to use
      * @param providerNFT The address of the ProviderPositionNFT contract to use
      * @param offerId The ID of the liquidity offer to use from the provider
      * @return takerId The ID of the minted CollarTakerNFT representing the loan
@@ -136,19 +131,21 @@ contract Loans is ILoans, BaseEmergencyAdmin {
     function createLoan(
         uint collateralAmount,
         uint minLoanAmount,
-        uint minSwapCash,
+        SwapParams calldata swapParams,
         ProviderPositionNFT providerNFT, // @dev will be validated by takerNFT, which is immutable
         uint offerId // @dev implies specific provider, put & call deviations, duration
     ) external whenNotPaused returns (uint takerId, uint providerId, uint loanAmount) {
         // 0 collateral is later checked to mean non-existing loan, also prevents div-zero
         require(collateralAmount != 0, "invalid collateral amount");
+        // check swapper allowed
+        require(allowedSwappers[swapParams.swapper], "swapper not allowed");
 
         // pull collateral
         collateralAsset.safeTransferFrom(msg.sender, address(this), collateralAmount);
 
         // swap collateral
         // reentrancy assumptions: router is trusted + swap path is direct (not through multiple pools)
-        uint cashFromSwap = _swapCollateralWithTwapCheck(collateralAmount, minSwapCash);
+        uint cashFromSwap = _swapCollateralWithTwapCheck(collateralAmount, swapParams);
 
         (takerId, providerId, loanAmount) = _createLoan(collateralAmount, cashFromSwap, providerNFT, offerId);
         require(loanAmount >= minLoanAmount, "loan amount too low");
@@ -202,15 +199,21 @@ contract Loans is ILoans, BaseEmergencyAdmin {
      *      5. Transfers the collateral back to the user
      *      6. Burns the CollarTakerNFT
      * @param takerId The ID of the CollarTakerNFT representing the loan to close
-     * @param minCollateralAmount The minimum acceptable amount of collateral to receive (slippage protection)
+     * @param swapParams SwapParams struct with:
+     *     - The minimum acceptable amount of collateral to receive (slippage protection)
+     *     - an allowed Swapper
+     *     - any extraData the swapper needs to use
      * @return collateralOut The actual amount of collateral asset returned to the user
      */
-    function closeLoan(uint takerId, uint minCollateralAmount)
+    function closeLoan(uint takerId, SwapParams calldata swapParams)
         external
         whenNotPaused
         onlyNFTOwnerOrKeeper(takerId)
         returns (uint collateralOut)
     {
+        // swapper allowed
+        require(allowedSwappers[swapParams.swapper], "swapper not allowed");
+
         Loan storage loan = loans[takerId];
         require(loan.active, "not active");
         loan.active = false; // set here to add reentrancy protection
@@ -220,12 +223,12 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         // - call pulls user funds (for repayment)
         // - call pulls the NFT (for settlement) from user
         // - call sends the final funds to the user
-        // - keeper sets the slippage parameter
+        // - keeper sets the SwapParams and its slippage parameter
         address user = takerNFT.ownerOf(takerId);
 
         uint cashAmount = _closeLoan(takerId, user, loan.loanAmount);
 
-        collateralOut = _swap(cashAsset, collateralAsset, cashAmount, minCollateralAmount);
+        collateralOut = _swap(cashAsset, collateralAsset, cashAmount, swapParams);
 
         collateralAsset.safeTransfer(user, collateralOut);
 
@@ -301,12 +304,18 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         rollsContract = rolls;
     }
 
-    /// @notice Sets the fee tier to use for swaps
+    /// @notice Enables or disables swappers and sets the defaultSwapper view.
+    /// When no swapper is allowed, opening and closing loans will not be possible.
+    /// The default swapper is a convenience view, and it's best to keep it up to date
+    /// and to make sure the default one is allowed.
     /// @dev only owner
-    function setSwapFeeTier(uint24 newFeeTier) external onlyOwner {
-        require(newFeeTier == 500 || newFeeTier == 3000 || newFeeTier == 10_000, "invalid fee tier");
-        emit SwapFeeTiertUpdated(swapFeeTier, newFeeTier);
-        swapFeeTier = newFeeTier;
+    function setSwapperAllowed(address swapper, bool allowed, bool setDefault) external onlyOwner {
+        if (allowed) require(bytes(ISwapper(swapper).VERSION()).length > 0, "invalid swapper");
+        // it is possible to disallow and set as default at the same time. E.g., to unset the default
+        // to zero. Worst case is loan cannot be closed and is settled via takerNFT
+        if (setDefault) defaultSwapper = swapper;
+        allowedSwappers[swapper] = allowed;
+        emit SwapperSet(swapper, allowed, setDefault);
     }
 
     // ----- INTERNAL MUTATIVE ----- //
@@ -340,46 +349,43 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         });
     }
 
-    function _swapCollateralWithTwapCheck(uint collateralAmount, uint minCashAmount)
+    function _swapCollateralWithTwapCheck(uint collateralAmount, SwapParams calldata swapParams)
         internal
         returns (uint cashFromSwap)
     {
-        cashFromSwap = _swap(collateralAsset, cashAsset, collateralAmount, minCashAmount);
+        cashFromSwap = _swap(collateralAsset, cashAsset, collateralAmount, swapParams);
 
         // @dev note that TWAP price is used for payout decision in CollarTakerNFT, and swap price
         // only affects the putLockedCash passed into it - so does not affect the provider, only the user
         _checkSwapPrice(cashFromSwap, collateralAmount);
     }
 
-    function _swap(IERC20 assetIn, IERC20 assetOut, uint amountIn, uint minAmountOut)
+    /// @dev this function assumes that swapper being allowlisted was checked before calling this
+    /// @dev reentrancy assumption: _swap is called either before or after all internal state changes.
+    /// Such that if there's a reentrancy (e.g., via a malicious token in a multi-hop route), it
+    /// should be able to take advantage of inconsistent state
+    function _swap(IERC20 assetIn, IERC20 assetOut, uint amountIn, SwapParams calldata swapParams)
         internal
         returns (uint amountOut)
     {
-        // approve the dex router
-        assetIn.forceApprove(configHub.uniV3SwapRouter(), amountIn);
-
-        // build the swap transaction
-        IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
-            tokenIn: address(assetIn),
-            tokenOut: address(assetOut),
-            fee: swapFeeTier,
-            recipient: address(this),
-            amountIn: amountIn,
-            amountOutMinimum: minAmountOut,
-            sqrtPriceLimitX96: 0
-        });
-
         uint balanceBefore = assetOut.balanceOf(address(this));
-        // reentrancy assumptions: router is trusted + swap path is direct (not through multiple pools)
-        uint amountOutRouter =
-            IV3SwapRouter(payable(configHub.uniV3SwapRouter())).exactInputSingle(swapParams);
+        // approve the dex router
+        assetIn.forceApprove(swapParams.swapper, amountIn);
+
+        /* @dev you may be tempted to simplify this by using an arbitrary call here instead of a
+        specific interface such as ISwapper. However, using a specific interface, even if using
+        an allow-list for swappers / routers is safer because it prevents stealing approvals, even
+        if the owner makes a mistake / is malicious. */
+        uint amountOutSwapper = ISwapper(swapParams.swapper).swap(
+            assetIn, assetOut, amountIn, swapParams.minAmountOut, swapParams.extraData
+        );
         // Calculate the actual amount received
         amountOut = assetOut.balanceOf(address(this)) - balanceBefore;
-        // check balance is updated as expected and as reported by router (no other balance changes)
+        // check balance is updated as expected and as reported by swapper (no other balance changes)
         // asset cannot be fee-on-transfer or rebasing (e.g., internal shares accounting)
-        require(amountOut == amountOutRouter, "balance update mismatch");
+        require(amountOut == amountOutSwapper, "balance update mismatch");
         // check amount is as expected by user
-        require(amountOut >= minAmountOut, "slippage exceeded");
+        require(amountOut >= swapParams.minAmountOut, "slippage exceeded");
     }
 
     function _closeLoan(uint takerId, address user, uint repaymentAmount)
@@ -459,6 +465,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
 
     // ----- INTERNAL VIEWS ----- //
 
+    /// @dev should be used for opening only. If used for close will prevent closing if slippage is too high.
     /// The swap price is only used for "pot sizing", but not for payouts division on expiry.
     /// Due to this, price manipulation *should* NOT leak value from provider / protocol.
     /// The caller (user) is protected via a slippage parameter, and SHOULD use it to avoid MEV (if present).

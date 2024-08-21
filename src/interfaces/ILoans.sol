@@ -21,6 +21,12 @@ interface ILoans {
         bool active;
     }
 
+    struct SwapParams {
+        uint minAmountOut; // can be cash or collateral, in correct token units
+        address swapper;
+        bytes extraData;
+    }
+
     // events
     event LoanCreated(
         address indexed sender,
@@ -51,7 +57,7 @@ interface ILoans {
     event ClosingKeeperAllowed(address indexed sender, uint indexed takerId, bool indexed enabled);
     event ClosingKeeperUpdated(address indexed previousKeeper, address indexed newKeeper);
     event RollsContractUpdated(Rolls indexed previousRolls, Rolls indexed newRolls);
-    event SwapFeeTiertUpdated(uint24 indexed previousFeeTier, uint24 indexed newFeeTier);
+    event SwapperSet(address indexed swapper, bool indexed allowed, bool indexed setDefault);
 
     // constants
     function MAX_SWAP_TWAP_DEVIATION_BIPS() external view returns (uint);
@@ -71,12 +77,14 @@ interface ILoans {
     function createLoan(
         uint collateralAmount,
         uint minLoanAmount,
-        uint minSwapCash,
+        SwapParams calldata swapParams,
         ProviderPositionNFT providerNFT,
         uint offerId
     ) external returns (uint takerId, uint providerId, uint loanAmount);
     function setKeeperAllowedBy(uint takerId, bool enabled) external;
-    function closeLoan(uint takerId, uint minCollateralAmount) external returns (uint collateralReturned);
+    function closeLoan(uint takerId, SwapParams calldata swapParams)
+        external
+        returns (uint collateralReturned);
     function rollLoan(uint takerId, Rolls rolls, uint rollId, int minToUser)
         external
         returns (uint newTakerId, uint newLoanAmount, int transferAmount);

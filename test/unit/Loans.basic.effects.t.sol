@@ -11,9 +11,14 @@ import { MockSwapRouter } from "../utils/MockSwapRouter.sol";
 import { Loans, ILoans } from "../../src/Loans.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
+import { SwapperUniV3Direct } from "../../src/SwapperUniV3Direct.sol";
 
 contract LoansTestBase is BaseAssetPairTestSetup {
     MockSwapRouter mockSwapRouter;
+    SwapperUniV3Direct swapperUniDirect;
+    Loans loans;
+
+    uint24 swapFeeTier = 500;
 
     // swap amount * ltv
     uint minLoanAmount = swapCashAmount * (ltv / BIPS_100PCT);
@@ -21,11 +26,19 @@ contract LoansTestBase is BaseAssetPairTestSetup {
     function setUp() public override {
         super.setUp();
 
+        // deploy
         mockSwapRouter = new MockSwapRouter();
-        vm.label(address(mockSwapRouter), "UniRouter");
+        swapperUniDirect = new SwapperUniV3Direct(address(mockSwapRouter), swapFeeTier);
+        loans = new Loans(owner, takerNFT);
+        vm.label(address(mockSwapRouter), "MockSwapRouter");
+        vm.label(address(swapperUniDirect), "SwapperUniV3Direct");
+        vm.label(address(loans), "Loans");
 
-        vm.prank(owner);
-        configHub.setUniV3Router(address(mockSwapRouter));
+        // config
+        vm.startPrank(owner);
+        loans.setRollsContract(rolls);
+        loans.setSwapperAllowed(address(swapperUniDirect), true, true);
+        vm.stopPrank();
     }
 
     function prepareSwap(TestERC20 asset, uint amount) public {
@@ -42,6 +55,10 @@ contract LoansTestBase is BaseAssetPairTestSetup {
     function prepareSwapToCashAtTWAPPrice() public returns (uint swapOut) {
         swapOut = collateralAmount * twapPrice / 1e18;
         prepareSwap(cashAsset, swapOut);
+    }
+
+    function defaultSwapParams(uint minOut) internal view returns (ILoans.SwapParams memory) {
+        return ILoans.SwapParams({ minAmountOut: minOut, swapper: address(swapperUniDirect), extraData: "" });
     }
 
     function createOfferAsProvider() internal returns (uint offerId) {
@@ -80,8 +97,9 @@ contract LoansTestBase is BaseAssetPairTestSetup {
             nextProviderId
         );
 
-        (takerId, providerId, loanAmount) =
-            loans.createLoan(collateralAmount, minLoanAmount, swapCashAmount, providerNFT, offerId);
+        (takerId, providerId, loanAmount) = loans.createLoan(
+            collateralAmount, minLoanAmount, defaultSwapParams(swapCashAmount), providerNFT, offerId
+        );
 
         // Check return values
         assertEq(takerId, nextTakerId);
@@ -149,7 +167,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         emit ILoans.LoanClosed(
             takerId, caller, user1, loanAmount, loanAmount + withdrawal, expectedCollateralOut
         );
-        uint collateralOut = loans.closeLoan(takerId, 0);
+        uint collateralOut = loans.closeLoan(takerId, defaultSwapParams(0));
 
         // Check balances and return value
         assertEq(collateralOut, expectedCollateralOut);
@@ -165,7 +183,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
         // Try to close the loan again (should fail)
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, takerId));
-        loans.closeLoan(takerId, 0);
+        loans.closeLoan(takerId, defaultSwapParams(0));
     }
 
     function checkOpenCloseWithPriceChange(uint newPrice, uint putRatio, uint callRatio)
@@ -201,7 +219,7 @@ contract LoansBasicHappyPathsTest is LoansTestBase {
         assertEq(loans.owner(), owner);
         assertEq(loans.closingKeeper(), address(0));
         assertEq(address(loans.rollsContract()), address(0));
-        assertEq(loans.swapFeeTier(), 500);
+        //        assertEq(loans.swapFeeTier(), 500);
     }
 
     function test_createLoan() public {

@@ -6,7 +6,6 @@ import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockOracleUniV3TWAP } from "../utils/MockOracleUniV3TWAP.sol";
 
-import { Loans } from "../../src/Loans.sol";
 import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 import { ConfigHub } from "../../src/ConfigHub.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
@@ -21,7 +20,6 @@ contract BaseAssetPairTestSetup is Test {
     CollarTakerNFT takerNFT;
     ProviderPositionNFT providerNFT;
     ProviderPositionNFT providerNFT2;
-    Loans loans;
     Rolls rolls;
 
     address owner = makeAddr("owner");
@@ -78,9 +76,7 @@ contract BaseAssetPairTestSetup is Test {
 
         // asset pair periphery
         rolls = new Rolls(owner, takerNFT);
-        loans = new Loans(owner, takerNFT);
         vm.label(address(rolls), "Rolls");
-        vm.label(address(loans), "Loans");
     }
 
     function configureContracts() public {
@@ -98,8 +94,6 @@ contract BaseAssetPairTestSetup is Test {
         configHub.setProviderContractAuth(address(providerNFT2), true);
         // fees
         configHub.setProtocolFeeParams(protocolFeeAPR, protocolFeeRecipient);
-
-        loans.setRollsContract(rolls);
 
         vm.stopPrank();
     }

@@ -32,8 +32,8 @@ contract LoansAdminTest is LoansTestBase {
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
         loans.setRollsContract(Rolls(address(0)));
 
-        vm.expectRevert(abi.encodeWithSelector(selector, user1));
-        loans.setSwapFeeTier(0);
+        //        vm.expectRevert(abi.encodeWithSelector(selector, user1));
+        //        loans.setSwapFeeTier(0);
     }
 
     function test_setKeeper() public {
@@ -68,21 +68,21 @@ contract LoansAdminTest is LoansTestBase {
         assertEq(address(loans.rollsContract()), address(unsetRolls));
     }
 
-    function test_setSwapFeeTier() public {
-        // check setup
-        assertEq(loans.swapFeeTier(), 500);
-        // can update
-        vm.startPrank(owner);
-        vm.expectEmit(address(loans));
-        uint24 newFeeTier = 3000;
-        emit ILoans.SwapFeeTiertUpdated(500, newFeeTier);
-        loans.setSwapFeeTier(newFeeTier);
-        // check effect
-        assertEq(loans.swapFeeTier(), newFeeTier);
-        // check other valid tiers
-        loans.setSwapFeeTier(10_000);
-        loans.setSwapFeeTier(500);
-    }
+    //    function test_setSwapFeeTier() public {
+    //        // check setup
+    //        assertEq(loans.swapFeeTier(), 500);
+    //        // can update
+    //        vm.startPrank(owner);
+    //        vm.expectEmit(address(loans));
+    //        uint24 newFeeTier = 3000;
+    //        emit ILoans.SwapFeeTiertUpdated(500, newFeeTier);
+    //        loans.setSwapFeeTier(newFeeTier);
+    //        // check effect
+    //        assertEq(loans.swapFeeTier(), newFeeTier);
+    //        // check other valid tiers
+    //        loans.setSwapFeeTier(10_000);
+    //        loans.setSwapFeeTier(500);
+    //    }
 
     function test_pause() public {
         (uint takerId,,) = createAndCheckLoan();
@@ -98,13 +98,13 @@ contract LoansAdminTest is LoansTestBase {
         vm.startPrank(user1);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.createLoan(0, 0, 0, providerNFT, 0);
+        loans.createLoan(0, 0, defaultSwapParams(0), providerNFT, 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
         loans.setKeeperAllowedBy(takerId, true);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.closeLoan(takerId, 0);
+        loans.closeLoan(takerId, defaultSwapParams(0));
     }
 
     function test_unpause() public {
@@ -135,9 +135,9 @@ contract LoansAdminTest is LoansTestBase {
         loans.setRollsContract(Rolls(address(0)));
     }
 
-    function test_revert_setSwapFeeTier() public {
-        vm.startPrank(owner);
-        vm.expectRevert("invalid fee tier");
-        loans.setSwapFeeTier(499);
-    }
+    //    function test_revert_setSwapFeeTier() public {
+    //        vm.startPrank(owner);
+    //        vm.expectRevert("invalid fee tier");
+    //        loans.setSwapFeeTier(499);
+    //    }
 }

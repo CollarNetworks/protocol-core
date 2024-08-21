@@ -6,14 +6,14 @@ import "forge-std/console.sol";
 import { ConfigHub } from "../src/ConfigHub.sol";
 import { ProviderPositionNFT } from "../src/ProviderPositionNFT.sol";
 import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
-import { Loans } from "../src/Loans.sol";
+import { Loans, ILoans } from "../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../src/Rolls.sol";
 import { DeploymentUtils } from "./utils/deployment-exporter.s.sol";
 import { OracleUniV3TWAP } from "../src/OracleUniV3TWAP.sol";
+import { SwapperUniV3Direct } from "../src/SwapperUniV3Direct.sol";
 
 contract BaseDeployment is Script {
-    address router;
     ConfigHub configHub;
     address deployerAddress;
 
@@ -25,7 +25,9 @@ contract BaseDeployment is Script {
         IERC20 cashAsset;
         IERC20 collateralAsset;
         OracleUniV3TWAP oracle;
-        uint24 feeTier;
+        SwapperUniV3Direct swapperUniDirect;
+        uint24 oracleFeeTier;
+        uint24 swapFeeTier;
         uint[] durations;
         uint[] ltvs;
     }
@@ -36,12 +38,13 @@ contract BaseDeployment is Script {
         IERC20 collateralAsset;
         uint[] durations;
         uint[] ltvs;
-        uint24 feeTier;
+        uint24 oracleFeeTier;
+        uint24 swapFeeTier;
         uint32 twapWindow;
+        address swapRouter;
     }
 
     struct HubParams {
-        address swapRouter;
         address[] cashAssets;
         address[] collateralAssets;
         uint minLTV;
@@ -51,7 +54,7 @@ contract BaseDeployment is Script {
     }
 
     struct PositionValueCheck {
-         uint takerId;
+        uint takerId;
         uint providerId;
         address user;
         address liquidityProvider;
@@ -63,7 +66,6 @@ contract BaseDeployment is Script {
     }
 
     uint[] callStrikeTicks = [11_100, 11_200, 11_500, 12_000];
-
 
     function setup()
         internal
@@ -92,11 +94,17 @@ contract BaseDeployment is Script {
         return (deployerWallet.addr, user1Wallet.addr, user2Wallet.addr, liquidityProviderWallet.addr);
     }
 
-    function _createContractPair(
-        PairConfig memory pairConfig
-    ) internal returns (AssetPairContracts memory contracts) {
-        OracleUniV3TWAP oracle =
-            new OracleUniV3TWAP(address(pairConfig.collateralAsset), address(pairConfig.cashAsset), pairConfig.feeTier, pairConfig.twapWindow, router);
+    function _createContractPair(PairConfig memory pairConfig)
+        internal
+        returns (AssetPairContracts memory contracts)
+    {
+        OracleUniV3TWAP oracle = new OracleUniV3TWAP(
+            address(pairConfig.collateralAsset),
+            address(pairConfig.cashAsset),
+            pairConfig.oracleFeeTier,
+            pairConfig.twapWindow,
+            pairConfig.swapRouter
+        );
 
         CollarTakerNFT takerNFT = new CollarTakerNFT(
             deployerAddress,
@@ -118,19 +126,23 @@ contract BaseDeployment is Script {
         );
         Loans loansContract = new Loans(deployerAddress, takerNFT);
         Rolls rollsContract = new Rolls(deployerAddress, takerNFT);
+        SwapperUniV3Direct swapperUniDirect =
+            new SwapperUniV3Direct(pairConfig.swapRouter, pairConfig.swapFeeTier);
 
-        contracts = AssetPairContracts(
-            providerNFT,
-            takerNFT,
-            loansContract,
-            rollsContract,
-            pairConfig.cashAsset,
-            pairConfig.collateralAsset,
-            oracle,
-            pairConfig.feeTier,
-            pairConfig.durations,
-            pairConfig.ltvs
-        );
+        contracts = AssetPairContracts({
+            providerNFT: providerNFT,
+            takerNFT: takerNFT,
+            loansContract: loansContract,
+            rollsContract: rollsContract,
+            cashAsset: pairConfig.cashAsset,
+            collateralAsset: pairConfig.collateralAsset,
+            oracle: oracle,
+            swapperUniDirect: swapperUniDirect,
+            oracleFeeTier: pairConfig.oracleFeeTier,
+            swapFeeTier: pairConfig.swapFeeTier,
+            durations: pairConfig.durations,
+            ltvs: pairConfig.ltvs
+        });
         require(address(contracts.providerNFT) != address(0), "Provider NFT not created");
         require(address(contracts.takerNFT) != address(0), "Taker NFT not created");
         require(address(contracts.loansContract) != address(0), "Loans contract not created");
@@ -141,32 +153,24 @@ contract BaseDeployment is Script {
         vm.label(address(contracts.rollsContract), string(abi.encodePacked("ROLLS-", pairConfig.name)));
     }
 
-    function _setupContractPair(ConfigHub hub,AssetPairContracts memory pair) internal {
-       hub.setCollarTakerContractAuth(address(pair.takerNFT), true);
+    function _setupContractPair(ConfigHub hub, AssetPairContracts memory pair) internal {
+        hub.setCollarTakerContractAuth(address(pair.takerNFT), true);
         hub.setProviderContractAuth(address(pair.providerNFT), true);
         pair.loansContract.setRollsContract(pair.rollsContract);
-        pair.loansContract.setSwapFeeTier(pair.feeTier);
-        require(
-            hub.isProviderNFT(address(pair.providerNFT)),
-            "Provider NFT not authorized in configHub"
-        );
-        require(
-            hub.isCollarTakerNFT(address(pair.takerNFT)), "Taker NFT not authorized in configHub"
-        );
+        pair.loansContract.setSwapperAllowed(address(pair.swapperUniDirect), true, true);
+        require(hub.isProviderNFT(address(pair.providerNFT)), "Provider NFT not authorized in configHub");
+        require(hub.isCollarTakerNFT(address(pair.takerNFT)), "Taker NFT not authorized in configHub");
     }
 
     function _deployConfigHub() internal {
         configHub = new ConfigHub(deployerAddress);
         console.log("\n --- Dev Environment Deployed ---");
         console.log("\n # Contract Addresses\n");
-        console.log(" - Router:  - - - - - - ", router);
         console.log(" - ConfigHub - - - - - - - ", address(configHub));
         vm.label(address(configHub), "CONFIG-HUB");
     }
 
     function _setupConfigHub(HubParams memory hubParams) internal {
-        router = hubParams.swapRouter;
-        configHub.setUniV3Router(router);
         // add supported cash assets
         for (uint i = 0; i < hubParams.cashAssets.length; i++) {
             configHub.setCashAssetSupport(hubParams.cashAssets[i], true);
@@ -253,22 +257,24 @@ contract BaseDeployment is Script {
         (takerId, providerId, loanAmount) = pair.loansContract.createLoan(
             collateralAmountForLoan,
             0, // slippage
-            0,
+            ILoans.SwapParams(0, address(pair.loansContract.defaultSwapper()), ""),
             pair.providerNFT,
             offerId
         );
 
         _checkPosition(
             pair,
-            PositionValueCheck(takerId,
-            providerId,
-            user,
-            liquidityProvider,
-            initialCollateralBalance,
-            initialCashBalance,
-            loanAmount,
-            twapPrice,
-            collateralAmountForLoan)
+            PositionValueCheck(
+                takerId,
+                providerId,
+                user,
+                liquidityProvider,
+                initialCollateralBalance,
+                initialCashBalance,
+                loanAmount,
+                twapPrice,
+                collateralAmountForLoan
+            )
         );
 
         console.log("Position opened:");
@@ -277,11 +283,7 @@ contract BaseDeployment is Script {
         console.log(" - Loan amount: %d", loanAmount);
     }
 
-    function _checkPosition(
-        AssetPairContracts memory pair,
-        PositionValueCheck memory values
-       
-    ) internal view {
+    function _checkPosition(AssetPairContracts memory pair, PositionValueCheck memory values) internal view {
         CollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(values.takerId);
         require(position.settled == false);
         require(position.withdrawable == 0);
@@ -299,7 +301,8 @@ contract BaseDeployment is Script {
         assert(finalCashBalance - values.initialCashBalance == values.loanAmount);
 
         // Check loan amount using TWAP
-        uint expectedLoanAmount = values.collateralAmountForLoan * values.twapPrice * pair.ltvs[0] / (1e18 * 10_000);
+        uint expectedLoanAmount =
+            values.collateralAmountForLoan * values.twapPrice * pair.ltvs[0] / (1e18 * 10_000);
         uint loanAmountTolerance = expectedLoanAmount / 100; // 1% tolerance
         require(
             values.loanAmount >= expectedLoanAmount - loanAmountTolerance
@@ -396,7 +399,7 @@ contract BaseDeployment is Script {
         require(newPosition.callStrikePrice > currentPrice, "Call strike price should be above current price");
     }
 
-     function _verifyDeployment(ConfigHub hub, AssetPairContracts memory contracts) internal view {
+    function _verifyDeployment(ConfigHub hub, AssetPairContracts memory contracts) internal view {
         require(hub.isCollarTakerNFT(address(contracts.takerNFT)), "TakerNFT not authorized");
         require(hub.isProviderNFT(address(contracts.providerNFT)), "ProviderNFT not authorized");
         require(hub.isSupportedCashAsset(address(contracts.cashAsset)), "Cash asset not supported");
@@ -413,6 +416,3 @@ contract BaseDeployment is Script {
         console.log("pair Deployment verified successfully");
     }
 }
-
-
-

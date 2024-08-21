@@ -10,7 +10,7 @@ import { Loans } from "../../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../../src/Rolls.sol";
 import { DeploymentUtils } from "../utils/deployment-exporter.s.sol";
-import { BaseDeployment } from "../base.s.sol";
+import { BaseDeployment } from "../BaseDeployment.s.sol";
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
@@ -37,35 +37,39 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         (address deployer,,, address provider) = setup();
 
         vm.startBroadcast(deployer);
-        _deployConfigHub(
-        );
+        _deployConfigHub();
         address[] memory collateralAssets = new address[](1);
         collateralAssets[0] = address(collateralAsset);
         address[] memory cashAssets = new address[](1);
         cashAssets[0] = address(cashAsset);
-            
-        _setupConfigHub( BaseDeployment.HubParams(address(SWAP_ROUTER),
-            cashAssets,
-            collateralAssets,
-            ltv,
-            ltv,
-            duration,
-            duration));
+
+        _setupConfigHub(
+            BaseDeployment.HubParams({
+                cashAssets: cashAssets,
+                collateralAssets: collateralAssets,
+                minLTV: ltv,
+                maxLTV: ltv,
+                minDuration: duration,
+                maxDuration: duration
+            })
+        );
         _createOrValidateUniswapPool(provider);
         uint[] memory durations = new uint[](1);
         durations[0] = duration;
         uint[] memory ltvs = new uint[](1);
         ltvs[0] = ltv;
-        uint24 feeTier=3000; 
+        uint24 oracleFeeTier = 3000;
+        uint24 swapFeeTier = 3000;
         BaseDeployment.PairConfig memory pairConfig = BaseDeployment.PairConfig({
             name: "COLLATERAL/CASH",
             durations: durations,
             ltvs: ltvs,
             cashAsset: IERC20(cashAsset),
             collateralAsset: IERC20(collateralAsset),
-            feeTier:feeTier,
-            twapWindow: twapWindow
-
+            oracleFeeTier: oracleFeeTier,
+            swapFeeTier: oracleFeeTier,
+            twapWindow: twapWindow,
+            swapRouter: address(SWAP_ROUTER)
         });
         AssetPairContracts memory contracts = _createContractPair(pairConfig);
         _setupContractPair(configHub, contracts);
@@ -74,15 +78,16 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
 
         AssetPairContracts[] memory contractsArray = new AssetPairContracts[](1);
         contractsArray[0] = contracts;
-        exportDeployment("collar_protocol_deployment", address(configHub), router, contractsArray);
+        exportDeployment(
+            "collar_protocol_deployment", address(configHub), address(SWAP_ROUTER), contractsArray
+        );
 
         console.log("\nDeployment completed successfully");
     }
 
-   
-
     function _createOrValidateUniswapPool(address provider) internal {
-        IUniswapV3Factory factory = IUniswapV3Factory(IPeripheryImmutableState(router).factory());
+        IUniswapV3Factory factory =
+            IUniswapV3Factory(IPeripheryImmutableState(address(SWAP_ROUTER)).factory());
         uint24 FEE_TIER = 3000;
         address pool = factory.getPool(address(cashAsset), address(collateralAsset), FEE_TIER);
 
