@@ -54,13 +54,12 @@ contract SwapperUniV3DirectTest is Test {
 
     function test_swap() public {
         setupSwap(amountIn, amountOut);
+        uint balanceInBefore = tokenIn.balanceOf(address(this));
+        uint balanceOutBefore = tokenOut.balanceOf(address(this));
         uint returnedAmount = swapper.swap(tokenIn, tokenOut, amountIn, minAmountOut, "");
         assertEq(returnedAmount, amountOut);
-
-        // min amount
-        setupSwap(amountIn, amountOut);
-        returnedAmount = swapper.swap(tokenIn, tokenOut, amountIn, minAmountOut, "");
-        assertEq(returnedAmount, amountOut);
+        assertEq(tokenOut.balanceOf(address(this)) - balanceOutBefore, amountOut);
+        assertEq(balanceInBefore - tokenIn.balanceOf(address(this)), amountIn);
     }
 
     // reverts

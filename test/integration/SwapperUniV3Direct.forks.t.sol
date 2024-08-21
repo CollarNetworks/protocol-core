@@ -38,8 +38,12 @@ contract SwapperUniV3Direct_BaseForkTest is Test {
         swapper.swap(IERC20(tokenIn), IERC20(tokenOut), amountIn, expectedAmountOut + 1, "");
 
         // check swap
+        uint balanceInBefore = IERC20(tokenIn).balanceOf(address(this));
+        uint balanceOutBefore = IERC20(tokenOut).balanceOf(address(this));
         uint amountOut = swapper.swap(IERC20(tokenIn), IERC20(tokenOut), amountIn, expectedAmountOut, "");
         assertEq(amountOut, expectedAmountOut);
+        assertEq(IERC20(tokenOut).balanceOf(address(this)) - balanceOutBefore, expectedAmountOut);
+        assertEq(balanceInBefore - IERC20(tokenIn).balanceOf(address(this)), amountIn);
     }
 }
 
