@@ -372,6 +372,10 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         // approve the dex router
         assetIn.forceApprove(swapParams.swapper, amountIn);
 
+        /* @dev you may be tempted to simplify this by using an arbitrary call here instead of a
+        specific interface such as ISwapper. However, using a specific interface, even if using
+        an allow-list for swappers / routers is safer because it prevents stealing approvals, even
+        if the owner makes a mistake / is malicious. */
         uint amountOutSwapper = ISwapper(swapParams.swapper).swap(
             assetIn, assetOut, amountIn, swapParams.minAmountOut, swapParams.extraData
         );
