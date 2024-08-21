@@ -27,7 +27,8 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
     AssetPairContracts[] public assetPairContracts;
     uint[] allDurations = [5 minutes, 30 days, 12 * 30 days];
     uint[] allLTVs = [9000, 5000];
-    uint24 feeTier = 500;
+    uint24 oracleFeeTier = 500;
+    uint24 swapFeeTier = 500;
     uint32 twapWindow = 15 minutes;
 
     function run() external {
@@ -86,8 +87,8 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             ltvs: allLTVs,
             cashAsset: IERC20(USDC),
             collateralAsset: IERC20(WETH),
-            oracleFeeTier: feeTier,
-            swapFeeTier: feeTier,
+            oracleFeeTier: oracleFeeTier,
+            swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
             swapRouter: swapRouterAddress
         });
@@ -100,8 +101,8 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             ltvs: singleLTV,
             cashAsset: IERC20(USDT),
             collateralAsset: IERC20(WETH),
-            oracleFeeTier: feeTier,
-            swapFeeTier: feeTier,
+            oracleFeeTier: oracleFeeTier,
+            swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
             swapRouter: swapRouterAddress
         });
@@ -114,8 +115,8 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             ltvs: singleLTV,
             cashAsset: IERC20(USDC),
             collateralAsset: IERC20(WBTC),
-            oracleFeeTier: feeTier,
-            swapFeeTier: feeTier,
+            oracleFeeTier: oracleFeeTier,
+            swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
             swapRouter: swapRouterAddress
         });
@@ -128,8 +129,8 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             ltvs: singleLTV,
             cashAsset: IERC20(USDC),
             collateralAsset: IERC20(MATIC),
-            oracleFeeTier: feeTier,
-            swapFeeTier: feeTier,
+            oracleFeeTier: oracleFeeTier,
+            swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
             swapRouter: swapRouterAddress
         });
@@ -142,8 +143,8 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             ltvs: singleLTV,
             cashAsset: IERC20(USDC),
             collateralAsset: IERC20(stETH),
-            oracleFeeTier: feeTier,
-            swapFeeTier: feeTier,
+            oracleFeeTier: oracleFeeTier,
+            swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
             swapRouter: swapRouterAddress
         });
@@ -156,8 +157,8 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             ltvs: singleLTV,
             cashAsset: IERC20(WETH),
             collateralAsset: IERC20(weETH),
-            oracleFeeTier: feeTier,
-            swapFeeTier: feeTier,
+            oracleFeeTier: oracleFeeTier,
+            swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
             swapRouter: swapRouterAddress
         });

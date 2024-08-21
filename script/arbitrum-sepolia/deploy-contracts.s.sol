@@ -58,15 +58,16 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         durations[0] = duration;
         uint[] memory ltvs = new uint[](1);
         ltvs[0] = ltv;
-        uint24 feeTier = 3000;
+        uint24 oracleFeeTier = 3000;
+        uint24 swapFeeTier = 3000;
         BaseDeployment.PairConfig memory pairConfig = BaseDeployment.PairConfig({
             name: "COLLATERAL/CASH",
             durations: durations,
             ltvs: ltvs,
             cashAsset: IERC20(cashAsset),
             collateralAsset: IERC20(collateralAsset),
-            oracleFeeTier: feeTier,
-            swapFeeTier: feeTier,
+            oracleFeeTier: oracleFeeTier,
+            swapFeeTier: oracleFeeTier,
             twapWindow: twapWindow,
             swapRouter: address(SWAP_ROUTER)
         });
