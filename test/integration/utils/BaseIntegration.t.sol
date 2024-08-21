@@ -11,19 +11,16 @@ import { Loans } from "../../../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
+import { BaseDeployment } from "../../../script/base.s.sol";
 
-abstract contract CollarBaseIntegrationTestConfig is Test {
+abstract contract CollarBaseIntegrationTestConfig is Test, BaseDeployment {
     using SafeERC20 for IERC20;
 
-    uint24 constant FEE_TIER = 3000;
-    uint32 constant TWAP_WINDOW = 15 minutes;
-
-    address owner = makeAddr("owner");
-    address user1 = makeAddr("user1");
-    address provider = makeAddr("provider");
+    address owner;
+    address user;
+    address provider;
+    BaseDeployment.AssetPairContracts pair;
     address swapRouterAddress;
-    address collateralAssetAddress;
-    address cashAssetAddress;
     address uniV3Pool;
     address whale;
     uint BLOCK_NUMBER_TO_USE;
@@ -31,14 +28,7 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
     uint24 CALL_STRIKE_TICK = 120;
     uint positionDuration;
     uint offerLTV;
-    IERC20 collateralAsset;
-    IERC20 cashAsset;
-    IV3SwapRouter swapRouter;
-    OracleUniV3TWAP oracle;
-    ConfigHub configHub;
-    ProviderPositionNFT providerNFT;
-    CollarTakerNFT takerNFT;
-    Loans loanContract;
+    uint bigNumber = 1_000_000 ether;
 
     function _setupConfig(
         address _swapRouter,
@@ -50,73 +40,74 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
         uint priceOnBlock,
         uint24 callStrikeTickToUse,
         uint _positionDuration,
-        uint _offerLTV
+        uint _offerLTV,
+        string memory pairName
     ) internal {
         swapRouterAddress = _swapRouter;
-        cashAssetAddress = _cashAsset;
-        collateralAssetAddress = _collateralAsset;
-        collateralAsset = IERC20(collateralAssetAddress);
-        cashAsset = IERC20(cashAssetAddress);
         uniV3Pool = _uniV3Pool;
         whale = whaleWallet;
         BLOCK_NUMBER_TO_USE = blockNumber;
         COLLATERAL_PRICE_ON_BLOCK = priceOnBlock;
         CALL_STRIKE_TICK = callStrikeTickToUse;
-
-        configHub = new ConfigHub(owner);
-        startHoax(owner);
-        configHub.setUniV3Router(swapRouterAddress);
-        configHub.setCashAssetSupport(cashAssetAddress, true);
-        configHub.setCollateralAssetSupport(collateralAssetAddress, true);
-        configHub.setLTVRange(_offerLTV, _offerLTV + 1);
-        configHub.setCollarDurationRange(_positionDuration, _positionDuration + 1);
-
-        oracle = new OracleUniV3TWAP(
-            address(collateralAsset), address(cashAsset), FEE_TIER, TWAP_WINDOW, swapRouterAddress
-        );
-
-        takerNFT = new CollarTakerNFT(
-            address(this), configHub, cashAsset, collateralAsset, oracle, "Borrow NFT", "BNFT"
-        );
-
-        loanContract = new Loans(owner, takerNFT);
-        configHub.setCollarTakerContractAuth(address(takerNFT), true);
-        providerNFT = new ProviderPositionNFT(
-            address(this), configHub, cashAsset, collateralAsset, address(takerNFT), "Provider NFT", "PNFT"
-        );
-        configHub.setProviderContractAuth(address(providerNFT), true);
-
+        (address deployer, address user1,, address liquidityProvider) = setup();
+        owner = deployer;
+        provider = liquidityProvider;
+        user = user1;
         positionDuration = _positionDuration;
         offerLTV = _offerLTV;
+        _deployProtocolContracts(_cashAsset, _collateralAsset, pairName);
+    }
 
-        vm.label(user1, "USER");
-        vm.label(provider, "LIQUIDITY PROVIDER");
-        vm.label(address(configHub), "CONFIG-HUB");
-        vm.label(address(providerNFT), "PROVIDER NFT");
-        vm.label(address(takerNFT), "BORROW NFT");
-        vm.label(swapRouterAddress, "SWAP ROUTER 02");
-        vm.label(cashAssetAddress, "Cash asset address");
-        vm.label(collateralAssetAddress, "collateral asset address");
-
-        cashAsset.forceApprove(address(takerNFT), type(uint).max);
-        collateralAsset.forceApprove(address(takerNFT), type(uint).max);
+    function _deployProtocolContracts(address _cashAsset, address _collateralAsset, string memory pairName)
+        internal
+    {
+        startHoax(owner);
+        _deployConfigHub();
+        address[] memory collateralAssets = new address[](1);
+        collateralAssets[0] = _collateralAsset;
+        address[] memory cashAssets = new address[](1);
+        cashAssets[0] = _cashAsset;
+        _setupConfigHub(BaseDeployment.HubParams(swapRouterAddress,
+            cashAssets,
+            collateralAssets,
+            offerLTV,
+            offerLTV,
+            positionDuration,
+            positionDuration));
+        uint[] memory durations = new uint[](1);
+        durations[0] = positionDuration;
+        uint[] memory ltvs = new uint[](1);
+        ltvs[0] = offerLTV;
+        BaseDeployment.PairConfig memory pairConfig = BaseDeployment.PairConfig({
+            name: pairName,
+            durations: durations,
+            ltvs: ltvs,
+            cashAsset: IERC20(_cashAsset),
+            collateralAsset: IERC20(_collateralAsset),
+            feeTier: 3000,
+            twapWindow: 15 minutes
+        });
+        pair = _createContractPair(pairConfig);
+        _setupContractPair(configHub, pair);
+        pair.cashAsset.forceApprove(address(pair.takerNFT), type(uint).max);
+        pair.collateralAsset.forceApprove(address(pair.takerNFT), type(uint).max);
     }
 
     function _fundWallets() internal {
-        deal(cashAssetAddress, whale, 1_000_000 ether);
-        deal(cashAssetAddress, user1, 100_000 ether);
-        deal(cashAssetAddress, provider, 100_000 ether);
-        deal(collateralAssetAddress, user1, 100_000 ether);
-        deal(collateralAssetAddress, provider, 100_000 ether);
-        deal(collateralAssetAddress, whale, 1_000_000 ether);
+        deal(address(pair.cashAsset), whale, bigNumber);
+        deal(address(pair.cashAsset), user, bigNumber);
+        deal(address(pair.cashAsset), provider, bigNumber);
+        deal(address(pair.collateralAsset), user, bigNumber);
+        deal(address(pair.collateralAsset), provider, bigNumber);
+        deal(address(pair.collateralAsset), whale, bigNumber);
     }
 
     function _validateSetup(uint _duration, uint _offerLTV) internal view {
         assertEq(configHub.isValidCollarDuration(_duration), true);
         assertEq(configHub.isValidLTV(_offerLTV), true);
-        assertEq(configHub.isSupportedCashAsset(cashAssetAddress), true);
-        assertEq(configHub.isSupportedCollateralAsset(collateralAssetAddress), true);
-        assertEq(configHub.isCollarTakerNFT(address(takerNFT)), true);
-        assertEq(configHub.isProviderNFT(address(providerNFT)), true);
+        assertEq(configHub.isSupportedCashAsset(address(pair.cashAsset)), true);
+        assertEq(configHub.isSupportedCollateralAsset(address(pair.collateralAsset)), true);
+        assertEq(configHub.isCollarTakerNFT(address(pair.takerNFT)), true);
+        assertEq(configHub.isProviderNFT(address(pair.providerNFT)), true);
     }
 }
