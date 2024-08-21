@@ -152,11 +152,7 @@ contract LoansAdminTest is LoansTestBase {
         vm.expectRevert(new bytes(0));
         loans.setSwapperAllowed(invalidSwapper, true, true);
 
-        vm.mockCall(
-            invalidSwapper,
-            abi.encodeCall(ISwapper.VERSION, ()),
-            abi.encode("")
-        );
+        vm.mockCall(invalidSwapper, abi.encodeCall(ISwapper.VERSION, ()), abi.encode(""));
         vm.expectRevert("invalid swapper");
         loans.setSwapperAllowed(invalidSwapper, true, true);
     }
