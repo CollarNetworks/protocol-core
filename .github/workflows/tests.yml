@@ -35,6 +35,10 @@ jobs:
       - name: Install Dependencies
         run: forge install
 
+
+      - name:  Setup .env from env.example
+        run: cp .env.example .env
+
       - name: Build Contracts & Run Tests
         run: |
               NO_COLOR=1 forge test 2>&1 | tee -a $GITHUB_STEP_SUMMARY

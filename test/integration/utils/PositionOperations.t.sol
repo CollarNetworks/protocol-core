@@ -14,8 +14,8 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
 
     function createProviderOffer(uint callStrikeDeviation, uint amount) internal returns (uint offerId) {
         startHoax(provider);
-        cashAsset.forceApprove(address(providerNFT), amount);
-        offerId = providerNFT.createOffer(callStrikeDeviation, amount, offerLTV, positionDuration);
+        pair.cashAsset.forceApprove(address(pair.providerNFT), amount);
+        offerId = pair.providerNFT.createOffer(callStrikeDeviation, amount, offerLTV, positionDuration);
         vm.stopPrank();
     }
 
@@ -23,20 +23,15 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         internal
         returns (uint borrowId, CollarTakerNFT.TakerPosition memory position)
     {
-        startHoax(user1);
-        collateralAsset.forceApprove(address(loanContract), collateralAmount);
-        (borrowId,,) = loanContract.createLoan(
-            collateralAmount,
-            0,
-            ILoans.SwapParams(minCashAmount, address(loanContract.defaultSwapper()), ""),
-            providerNFT,
-            offerId
-        );
-        position = takerNFT.getPosition(borrowId);
+        startHoax(user);
+        pair.collateralAsset.forceApprove(address(pair.loansContract), collateralAmount);
+        (borrowId,,) =
+            pair.loansContract.createLoan(collateralAmount, 0, ILoans.SwapParams(minCashAmount, address(loanContract.defaultSwapper()), ""), pair.providerNFT, offerId);
+        position = pair.takerNFT.getPosition(borrowId);
         vm.stopPrank();
 
         // Perform checks
-        assertEq(address(position.providerNFT), address(providerNFT));
+        assertEq(address(position.providerNFT), address(pair.providerNFT));
         assertEq(position.duration, positionDuration);
         assertEq(position.expiration, block.timestamp + positionDuration);
         assertEq(position.putStrikePrice, position.initialPrice * offerLTV / 10_000);
@@ -51,23 +46,23 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         internal
         returns (uint userWithdrawnAmount, uint providerWithdrawnAmount)
     {
-        CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(borrowId);
+        CollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(borrowId);
 
-        startHoax(user1);
-        takerNFT.settlePairedPosition(borrowId);
+        startHoax(user);
+        pair.takerNFT.settlePairedPosition(borrowId);
 
         // User withdrawal
-        uint userBalanceBefore = cashAsset.balanceOf(user1);
-        takerNFT.withdrawFromSettled(borrowId, user1);
-        uint userBalanceAfter = cashAsset.balanceOf(user1);
+        uint userBalanceBefore = pair.cashAsset.balanceOf(user);
+        pair.takerNFT.withdrawFromSettled(borrowId, user);
+        uint userBalanceAfter = pair.cashAsset.balanceOf(user);
         userWithdrawnAmount = userBalanceAfter - userBalanceBefore;
         vm.stopPrank();
 
         // Provider withdrawal
         startHoax(provider);
-        uint providerBalanceBefore = cashAsset.balanceOf(provider);
-        providerNFT.withdrawFromSettled(position.providerPositionId, provider);
-        uint providerBalanceAfter = cashAsset.balanceOf(provider);
+        uint providerBalanceBefore = pair.cashAsset.balanceOf(provider);
+        pair.providerNFT.withdrawFromSettled(position.providerPositionId, provider);
+        uint providerBalanceAfter = pair.cashAsset.balanceOf(provider);
         providerWithdrawnAmount = providerBalanceAfter - providerBalanceBefore;
         vm.stopPrank();
     }
@@ -213,15 +208,15 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
     {
         (userWithdrawnAmount, providerWithdrawnAmount) = settleAndWithdraw(borrowId);
 
-        position = takerNFT.getPosition(borrowId);
+        position = pair.takerNFT.getPosition(borrowId);
 
         // Check position state after settlement
         assertEq(position.settled, true);
         assertEq(position.withdrawable, 0);
 
         // Check balances
-        userBalanceAfter = cashAsset.balanceOf(user1);
-        providerBalanceAfter = cashAsset.balanceOf(provider);
+        userBalanceAfter = pair.cashAsset.balanceOf(user);
+        providerBalanceAfter = pair.cashAsset.balanceOf(provider);
     }
 
     function _setupOffers(uint amountPerOffer) internal {
@@ -232,10 +227,10 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         callStrikeDeviations[3] = 13_000; // 130%
 
         startHoax(provider);
-        cashAsset.forceApprove(address(providerNFT), amountPerOffer * 4);
+        pair.cashAsset.forceApprove(address(pair.providerNFT), amountPerOffer * 4);
 
         for (uint i = 0; i < callStrikeDeviations.length; i++) {
-            providerNFT.createOffer(callStrikeDeviations[i], amountPerOffer, offerLTV, positionDuration);
+            pair.providerNFT.createOffer(callStrikeDeviations[i], amountPerOffer, offerLTV, positionDuration);
         }
 
         vm.stopPrank();
@@ -249,7 +244,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         callStrikeDeviations[3] = 13_000; // 130%
 
         for (uint i = 0; i < callStrikeDeviations.length; i++) {
-            ProviderPositionNFT.LiquidityOffer memory offer = providerNFT.getOffer(i);
+            ProviderPositionNFT.LiquidityOffer memory offer = pair.providerNFT.getOffer(i);
             assertEq(offer.provider, provider);
             assertEq(offer.available, amountPerOffer);
             assertEq(offer.putStrikeDeviation, offerLTV);

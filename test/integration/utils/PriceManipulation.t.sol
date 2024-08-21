@@ -26,12 +26,12 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
     using SafeERC20 for IERC20;
 
     function getCurrentAssetPrice() internal view returns (uint) {
-        address baseToken = address(collateralAsset);
-        address quoteToken = address(cashAsset);
+        address baseToken = address(pair.collateralAsset);
+        address quoteToken = address(pair.cashAsset);
 
         address uniV3Factory = IPeripheryImmutableState(swapRouterAddress).factory();
         IUniswapV3Pool pool =
-            IUniswapV3Pool(IUniswapV3Factory(uniV3Factory).getPool(baseToken, quoteToken, ORACLE_FEE_TIER));
+            IUniswapV3Pool(IUniswapV3Factory(uniV3Factory).getPool(baseToken, quoteToken, pair.feeTier));
 
         (, int24 tick,,,,,) = pool.slot0();
 
@@ -96,8 +96,8 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
         console.log("Current price of collateralAsset in cashAsset before swap: %d", currentPrice);
 
         IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
-            tokenIn: swapCash ? address(cashAsset) : address(collateralAsset),
-            tokenOut: swapCash ? address(collateralAsset) : address(cashAsset),
+            tokenIn: swapCash ? address(pair.cashAsset) : address(pair.collateralAsset),
+            tokenOut: swapCash ? address(pair.collateralAsset) : address(pair.cashAsset),
             fee: 3000,
             recipient: whale,
             amountIn: amount,
