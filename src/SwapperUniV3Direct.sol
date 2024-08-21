@@ -54,7 +54,7 @@ contract SwapperUniV3Direct is ISwapper {
      * @param amountIn The amount of `assetIn` to swap.
      * @param minAmountOut The minimum amount of `assetOut` to accept, limiting slippage.
      * @param extraData Arbitrary bytes data that are unused in this contract.
-        This part of the interface can be utilized for more complex routing in other implementations.
+     *     This part of the interface can be utilized for more complex routing in other implementations.
      * @return amountOut The actual amount of `assetOut` received from the swap.
      */
     function swap(IERC20 assetIn, IERC20 assetOut, uint amountIn, uint minAmountOut, bytes calldata extraData)

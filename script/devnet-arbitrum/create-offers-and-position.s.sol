@@ -10,7 +10,7 @@ import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { Loans } from "../../src/Loans.sol";
 import { Rolls } from "../../src/Rolls.sol";
-import { BaseDeployment } from "../base.s.sol";
+import { BaseDeployment } from "../BaseDeployment.s.sol";
 
 contract CreateOffersAndOpenPosition is Script, DeploymentUtils, BaseDeployment {
     uint cashAmountPerOffer = 100_000e6;

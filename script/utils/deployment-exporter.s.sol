@@ -7,8 +7,9 @@ import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { Loans } from "../../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../../src/Rolls.sol";
-import { BaseDeployment } from "../base.s.sol";
+import { BaseDeployment } from "../BaseDeployment.s.sol";
 import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
+import { SwapperUniV3Direct } from "../../src/SwapperUniV3Direct.sol";
 
 contract DeploymentUtils is Script {
     function exportDeployment(
@@ -66,6 +67,17 @@ contract DeploymentUtils is Script {
 
             json = string(
                 abi.encodePacked(
+                    json,
+                    '"',
+                    pairName,
+                    '_swapperUniDirect": "',
+                    vm.toString(address(pair.swapperUniDirect)),
+                    '",'
+                )
+            );
+
+            json = string(
+                abi.encodePacked(
                     json, '"', pairName, '_cashAsset": "', vm.toString(address(pair.cashAsset)), '",'
                 )
             );
@@ -94,7 +106,14 @@ contract DeploymentUtils is Script {
                 json = string(abi.encodePacked(json, vm.toString(pair.ltvs[j]), ","));
             }
             json = string(abi.encodePacked(substring(json, 0, bytes(json).length - 1), "],"));
-            json = string(abi.encodePacked(json, '"', pairName, '_feeTier":',vm.toString(pair.feeTier),','));
+            json = string(
+                abi.encodePacked(
+                    json, '"', pairName, '_oracleFeeTier":', vm.toString(pair.oracleFeeTier), ","
+                )
+            );
+            json = string(
+                abi.encodePacked(json, '"', pairName, '_swapFeeTier":', vm.toString(pair.swapFeeTier), ",")
+            );
         }
 
         // Remove the trailing comma and close the JSON object
@@ -177,14 +196,11 @@ contract DeploymentUtils is Script {
                 string memory baseKey = substring(allKeys[i], 0, bytes(allKeys[i]).length - 9);
 
                 result[resultIndex] = BaseDeployment.AssetPairContracts({
-                    oracle: OracleUniV3TWAP(
-                        _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_oracle")))
+                    providerNFT: ProviderPositionNFT(
+                        _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_providerNFT")))
                     ),
                     takerNFT: CollarTakerNFT(
                         _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_takerNFT")))
-                    ),
-                    providerNFT: ProviderPositionNFT(
-                        _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_providerNFT")))
                     ),
                     loansContract: Loans(
                         _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_loansContract")))
@@ -198,9 +214,20 @@ contract DeploymentUtils is Script {
                     collateralAsset: IERC20(
                         _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_collateralAsset")))
                     ),
+                    oracle: OracleUniV3TWAP(
+                        _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_oracle")))
+                    ),
+                    swapperUniDirect: SwapperUniV3Direct(
+                        _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_swapperUniDirect")))
+                    ),
                     durations: _parseUintArray(parsedJson, string(abi.encodePacked(".", baseKey, "_durations"))),
                     ltvs: _parseUintArray(parsedJson, string(abi.encodePacked(".", baseKey, "_ltvs"))),
-                    feeTier: uint24(vm.parseJsonUint(json, string(abi.encodePacked(".", baseKey, "_feeTier"))))
+                    oracleFeeTier: uint24(
+                        vm.parseJsonUint(json, string(abi.encodePacked(".", baseKey, "_oracleFeeTier")))
+                    ),
+                    swapFeeTier: uint24(
+                        vm.parseJsonUint(json, string(abi.encodePacked(".", baseKey, "_swapFeeTier")))
+                    )
                 });
                 resultIndex++;
             }
