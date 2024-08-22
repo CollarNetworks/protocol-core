@@ -11,11 +11,11 @@ import { MockSwapRouter } from "../utils/MockSwapRouter.sol";
 import { Loans, ILoans } from "../../src/Loans.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
-import { SwapperUniV3Direct, ISwapper } from "../../src/SwapperUniV3Direct.sol";
+import { SwapperUniV3, ISwapper } from "../../src/SwapperUniV3.sol";
 
 contract LoansTestBase is BaseAssetPairTestSetup {
     MockSwapRouter mockSwapRouter;
-    SwapperUniV3Direct swapperUniDirect;
+    SwapperUniV3 swapperUniV3;
     Loans loans;
 
     uint24 swapFeeTier = 500;
@@ -28,16 +28,16 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
         // deploy
         mockSwapRouter = new MockSwapRouter();
-        swapperUniDirect = new SwapperUniV3Direct(address(mockSwapRouter), swapFeeTier);
+        swapperUniV3 = new SwapperUniV3(address(mockSwapRouter), swapFeeTier);
         loans = new Loans(owner, takerNFT);
         vm.label(address(mockSwapRouter), "MockSwapRouter");
-        vm.label(address(swapperUniDirect), "SwapperUniV3Direct");
+        vm.label(address(swapperUniV3), "SwapperUniV3");
         vm.label(address(loans), "Loans");
 
         // config
         vm.startPrank(owner);
         loans.setRollsContract(rolls);
-        loans.setSwapperAllowed(address(swapperUniDirect), true, true);
+        loans.setSwapperAllowed(address(swapperUniV3), true, true);
         vm.stopPrank();
     }
 
@@ -57,7 +57,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
     }
 
     function defaultSwapParams(uint minOut) internal view returns (ILoans.SwapParams memory) {
-        return ILoans.SwapParams({ minAmountOut: minOut, swapper: address(swapperUniDirect), extraData: "" });
+        return ILoans.SwapParams({ minAmountOut: minOut, swapper: address(swapperUniV3), extraData: "" });
     }
 
     function createOfferAsProvider() internal returns (uint offerId) {
@@ -86,7 +86,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         uint expectedLoanAmount = swapOut * ltv / 10_000;
 
         vm.expectEmit(address(loans));
-        emit ILoans.LoanCreated(
+        emit ILoans.LoanOpened(
             user1,
             address(providerNFT),
             offerId,
@@ -96,7 +96,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
             nextProviderId
         );
 
-        (takerId, providerId, loanAmount) = loans.createLoan(
+        (takerId, providerId, loanAmount) = loans.openLoan(
             collateralAmount, minLoanAmount, defaultSwapParams(swapCashAmount), providerNFT, offerId
         );
 
@@ -221,7 +221,7 @@ contract LoansBasicHappyPathsTest is LoansTestBase {
         //        assertEq(loans.swapFeeTier(), 500);
     }
 
-    function test_createLoan() public {
+    function test_openLoan() public {
         createAndCheckLoan();
     }
 

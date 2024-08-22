@@ -5,12 +5,12 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import { SwapperUniV3Direct } from "../../src/SwapperUniV3Direct.sol";
+import { SwapperUniV3 } from "../../src/SwapperUniV3.sol";
 
 import { UniswapNewPoolHelper } from "../utils/UniswapNewPoolHelper.sol";
 
-contract SwapperUniV3Direct_BaseForkTest is Test {
-    SwapperUniV3Direct public swapper;
+contract SwapperUniV3_BaseForkTest is Test {
+    SwapperUniV3 public swapper;
 
     address router;
     uint24 feeTier;
@@ -24,7 +24,7 @@ contract SwapperUniV3Direct_BaseForkTest is Test {
         // get tokens
         deal(tokenIn, address(this), amountIn);
         // deploy
-        swapper = new SwapperUniV3Direct(router, feeTier);
+        swapper = new SwapperUniV3(router, feeTier);
 
         // check constructor
         assertEq(swapper.VERSION(), "0.2.0");
@@ -47,7 +47,7 @@ contract SwapperUniV3Direct_BaseForkTest is Test {
     }
 }
 
-contract SwapperUniV3Direct_ArbiMain_ForkTest is SwapperUniV3Direct_BaseForkTest {
+contract SwapperUniV3_ArbiMain_ForkTest is SwapperUniV3_BaseForkTest {
     function setUp() public virtual {
         vm.createSelectFork(vm.envString("ARBITRUM_MAINNET_RPC"), 242_273_401);
     }
@@ -97,7 +97,7 @@ contract SwapperUniV3Direct_ArbiMain_ForkTest is SwapperUniV3Direct_BaseForkTest
     }
 }
 
-contract SwapperUniV3Direct_ArbiSepolia_ForkTest is SwapperUniV3Direct_BaseForkTest, UniswapNewPoolHelper {
+contract SwapperUniV3_ArbiSepolia_ForkTest is SwapperUniV3_BaseForkTest, UniswapNewPoolHelper {
     address positionManager;
     int24 tickSpacing;
 

@@ -17,10 +17,10 @@ import { ILoans } from "./interfaces/ILoans.sol";
 
 /**
  * @title Loans
- * @dev This contract manages the creation and closure of collateralized loans via Collar positions.
+ * @dev This contract manages opening and closing of collateralized loans via Collar positions.
  *
  * Main Functionality:
- * 1. Allows users to create loans by providing collateral and borrowing against it.
+ * 1. Allows users to open loans by providing collateral and borrowing against it.
  * 2. Handles the swapping of collateral to the cash asset via allowed Swappers (that use dex routers).
  * 3. Interacts with CollarTakerNFT to mint the NFT collar position backing the loans to the user.
  * 4. Manages loan closure, including repayment and swapping back to collateral.
@@ -109,11 +109,11 @@ contract Loans is ILoans, BaseEmergencyAdmin {
     // ----- STATE CHANGING FUNCTIONS ----- //
 
     /**
-     * @notice Creates a new loan by providing collateral and borrowing against it
+     * @notice Opens a new loan by providing collateral and borrowing against it
      * @dev This function handles the entire loan creation process:
      *      1. Transfers collateral from the user to this contract
      *      2. Swaps collateral for cash assets using Uniswap V3
-     *      3. Creates a loan position using the CollarTakerNFT contract
+     *      3. Opens a loan position using the CollarTakerNFT contract
      *      4. Transfers the borrowed amount to the user
      *      5. Transfers the minted NFT to the user
      * @param collateralAmount The amount of collateral asset to be provided
@@ -126,9 +126,9 @@ contract Loans is ILoans, BaseEmergencyAdmin {
      * @param offerId The ID of the liquidity offer to use from the provider
      * @return takerId The ID of the minted CollarTakerNFT representing the loan
      * @return providerId The ID of the minted ProviderPositionNFT paired with this loan
-     * @return loanAmount The actual amount of the loan created in cash asset
+     * @return loanAmount The actual amount of the loan opened in cash asset
      */
-    function createLoan(
+    function openLoan(
         uint collateralAmount,
         uint minLoanAmount,
         SwapParams calldata swapParams,
@@ -148,7 +148,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         // The only state reads before are owner-set state: pause and swapper allowlist.
         uint cashFromSwap = _swapCollateralWithTwapCheck(collateralAmount, swapParams);
 
-        (takerId, providerId, loanAmount) = _createLoan(collateralAmount, cashFromSwap, providerNFT, offerId);
+        (takerId, providerId, loanAmount) = _openLoan(collateralAmount, cashFromSwap, providerNFT, offerId);
         require(loanAmount >= minLoanAmount, "loan amount too low");
 
         // transfer the full loan amount on open
@@ -156,7 +156,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         // transfer the taker NFT to the user
         takerNFT.transferFrom(address(this), msg.sender, takerId);
 
-        emit LoanCreated(
+        emit LoanOpened(
             msg.sender, address(providerNFT), offerId, collateralAmount, loanAmount, takerId, providerId
         );
     }
@@ -322,7 +322,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    function _createLoan(
+    function _openLoan(
         uint collateralAmount,
         uint cashFromSwap,
         ProviderPositionNFT providerNFT,

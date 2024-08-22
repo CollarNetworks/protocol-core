@@ -12,7 +12,7 @@ import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/Saf
 /*
 This is not a test-util, but rather a possible replacement swapper.
 
-Compared to a highly constrained swapper like SwapperUniV3Direct, this swapper is more flexible,
+Compared to a highly constrained swapper like SwapperUniV3, this swapper is more flexible,
 since can work with any router / any interface. But it has more surface area,
 and delegates more complexity to the front-end (because it needs to construct the swap payload),
 as well requires more trust from users - due to having to approve a hard-to-inspect payload

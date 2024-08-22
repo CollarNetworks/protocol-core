@@ -13,7 +13,7 @@ import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
-import { LoansTestBase, TestERC20, SwapperUniV3Direct, ISwapper } from "./Loans.basic.effects.t.sol";
+import { LoansTestBase, TestERC20, SwapperUniV3, ISwapper } from "./Loans.basic.effects.t.sol";
 
 contract LoansAdminTest is LoansTestBase {
     function test_onlyOwnerMethods() public {
@@ -71,7 +71,7 @@ contract LoansAdminTest is LoansTestBase {
     function test_setSwapperAllowed() public {
         vm.startPrank(owner);
 
-        SwapperUniV3Direct newSwapper = new SwapperUniV3Direct(address(mockSwapRouter), swapFeeTier);
+        SwapperUniV3 newSwapper = new SwapperUniV3(address(mockSwapRouter), swapFeeTier);
         vm.expectEmit(address(loans));
         emit ILoans.SwapperSet(address(newSwapper), true, true);
         loans.setSwapperAllowed(address(newSwapper), true, true);
@@ -108,7 +108,7 @@ contract LoansAdminTest is LoansTestBase {
         vm.startPrank(user1);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.createLoan(0, 0, defaultSwapParams(0), providerNFT, 0);
+        loans.openLoan(0, 0, defaultSwapParams(0), providerNFT, 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
         loans.setKeeperAllowedBy(takerId, true);

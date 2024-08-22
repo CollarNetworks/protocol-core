@@ -6,11 +6,11 @@ import "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 
-import { SwapperUniV3Direct, IPeripheryImmutableState } from "../../src/SwapperUniV3Direct.sol";
+import { SwapperUniV3, IPeripheryImmutableState } from "../../src/SwapperUniV3.sol";
 import { MockSwapRouter } from "../utils/MockSwapRouter.sol";
 
-contract SwapperUniV3DirectTest is Test {
-    SwapperUniV3Direct public swapper;
+contract SwapperUniV3Test is Test {
+    SwapperUniV3 public swapper;
     MockSwapRouter public mockRouter;
 
     uint24 feeTier = 3000;
@@ -24,7 +24,7 @@ contract SwapperUniV3DirectTest is Test {
 
     function setUp() public {
         mockRouter = new MockSwapRouter();
-        swapper = new SwapperUniV3Direct(address(mockRouter), feeTier);
+        swapper = new SwapperUniV3(address(mockRouter), feeTier);
 
         tokenIn = new TestERC20("Mock Token In", "MTI");
         tokenOut = new TestERC20("Mock Token Out", "MTO");
@@ -40,16 +40,16 @@ contract SwapperUniV3DirectTest is Test {
     // effects
 
     function test_constructor() public {
-        swapper = new SwapperUniV3Direct(address(mockRouter), feeTier);
+        swapper = new SwapperUniV3(address(mockRouter), feeTier);
         assertEq(swapper.VERSION(), "0.2.0");
         assertEq(address(swapper.uniV3SwapRouter()), address(mockRouter));
         assertEq(swapper.swapFeeTier(), feeTier);
 
         // all supported fee tiers
-        new SwapperUniV3Direct(address(mockRouter), 100);
-        new SwapperUniV3Direct(address(mockRouter), 500);
-        new SwapperUniV3Direct(address(mockRouter), 3000);
-        new SwapperUniV3Direct(address(mockRouter), 10_000);
+        new SwapperUniV3(address(mockRouter), 100);
+        new SwapperUniV3(address(mockRouter), 500);
+        new SwapperUniV3(address(mockRouter), 3000);
+        new SwapperUniV3(address(mockRouter), 10_000);
     }
 
     function test_swap() public {
@@ -66,7 +66,7 @@ contract SwapperUniV3DirectTest is Test {
 
     function test_revert_constructor() public {
         vm.expectRevert(new bytes(0));
-        new SwapperUniV3Direct(address(0), feeTier);
+        new SwapperUniV3(address(0), feeTier);
 
         // invalid 0 address return
         vm.mockCall(
@@ -75,11 +75,11 @@ contract SwapperUniV3DirectTest is Test {
             abi.encode(address(0)) // zero
         );
         vm.expectRevert("invalid router");
-        new SwapperUniV3Direct(address(mockRouter), feeTier);
+        new SwapperUniV3(address(mockRouter), feeTier);
         vm.clearMockedCalls();
 
         vm.expectRevert("invalid fee tier");
-        new SwapperUniV3Direct(address(mockRouter), 1234);
+        new SwapperUniV3(address(mockRouter), 1234);
     }
 
     function test_revert_swap_slippageExceeded() public {

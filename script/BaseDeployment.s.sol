@@ -11,7 +11,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../src/Rolls.sol";
 import { DeploymentUtils } from "./utils/deployment-exporter.s.sol";
 import { OracleUniV3TWAP } from "../src/OracleUniV3TWAP.sol";
-import { SwapperUniV3Direct } from "../src/SwapperUniV3Direct.sol";
+import { SwapperUniV3 } from "../src/SwapperUniV3.sol";
 
 contract BaseDeployment is Script {
     ConfigHub configHub;
@@ -25,7 +25,7 @@ contract BaseDeployment is Script {
         IERC20 cashAsset;
         IERC20 collateralAsset;
         OracleUniV3TWAP oracle;
-        SwapperUniV3Direct swapperUniDirect;
+        SwapperUniV3 swapperUniV3;
         uint24 oracleFeeTier;
         uint24 swapFeeTier;
         uint[] durations;
@@ -126,8 +126,7 @@ contract BaseDeployment is Script {
         );
         Loans loansContract = new Loans(deployerAddress, takerNFT);
         Rolls rollsContract = new Rolls(deployerAddress, takerNFT);
-        SwapperUniV3Direct swapperUniDirect =
-            new SwapperUniV3Direct(pairConfig.swapRouter, pairConfig.swapFeeTier);
+        SwapperUniV3 swapperUniV3 = new SwapperUniV3(pairConfig.swapRouter, pairConfig.swapFeeTier);
 
         contracts = AssetPairContracts({
             providerNFT: providerNFT,
@@ -137,7 +136,7 @@ contract BaseDeployment is Script {
             cashAsset: pairConfig.cashAsset,
             collateralAsset: pairConfig.collateralAsset,
             oracle: oracle,
-            swapperUniDirect: swapperUniDirect,
+            swapperUniV3: swapperUniV3,
             oracleFeeTier: pairConfig.oracleFeeTier,
             swapFeeTier: pairConfig.swapFeeTier,
             durations: pairConfig.durations,
@@ -157,7 +156,7 @@ contract BaseDeployment is Script {
         hub.setCollarTakerContractAuth(address(pair.takerNFT), true);
         hub.setProviderContractAuth(address(pair.providerNFT), true);
         pair.loansContract.setRollsContract(pair.rollsContract);
-        pair.loansContract.setSwapperAllowed(address(pair.swapperUniDirect), true, true);
+        pair.loansContract.setSwapperAllowed(address(pair.swapperUniV3), true, true);
         require(hub.isProviderNFT(address(pair.providerNFT)), "Provider NFT not authorized in configHub");
         require(hub.isCollarTakerNFT(address(pair.takerNFT)), "Taker NFT not authorized in configHub");
     }
@@ -254,7 +253,7 @@ contract BaseDeployment is Script {
         uint twapPrice = pair.takerNFT.currentOraclePrice();
 
         // Open a position
-        (takerId, providerId, loanAmount) = pair.loansContract.createLoan(
+        (takerId, providerId, loanAmount) = pair.loansContract.openLoan(
             collateralAmountForLoan,
             0, // slippage
             ILoans.SwapParams(0, address(pair.loansContract.defaultSwapper()), ""),
