@@ -144,7 +144,8 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         collateralAsset.safeTransferFrom(msg.sender, address(this), collateralAmount);
 
         // swap collateral
-        // reentrancy assumptions: router is trusted + swap path is direct (not through multiple pools)
+        // @dev Reentrancy assumption: no user state writes or reads BEFORE the swapper call in _swap.
+        // The only state reads before are owner-set state: pause and swapper allowlist.
         uint cashFromSwap = _swapCollateralWithTwapCheck(collateralAmount, swapParams);
 
         (takerId, providerId, loanAmount) = _createLoan(collateralAmount, cashFromSwap, providerNFT, offerId);
@@ -228,6 +229,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
 
         uint cashAmount = _closeLoan(takerId, user, loan.loanAmount);
 
+        // @dev Reentrancy assumption: no user state writes or reads AFTER the swapper call in _swap.
         collateralOut = _swap(cashAsset, collateralAsset, cashAmount, swapParams);
 
         collateralAsset.safeTransfer(user, collateralOut);
@@ -360,10 +362,10 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         _checkSwapPrice(cashFromSwap, collateralAmount);
     }
 
-    /// @dev this function assumes that swapper being allowlisted was checked before calling this
-    /// @dev reentrancy assumption: _swap is called either before or after all internal state changes.
-    /// Such that if there's a reentrancy (e.g., via a malicious token in a multi-hop route), it
-    /// should be able to take advantage of inconsistent state
+    /// @dev this function assumes that swapper allowlist was checked before calling this
+    /// @dev reentrancy assumption: _swap is called either before or after all internal user state
+    /// writes or reads. Such that if there's a reentrancy (e.g., via a malicious token in a
+    /// multi-hop route), it should NOT be able to take advantage of any inconsistent state.
     function _swap(IERC20 assetIn, IERC20 assetOut, uint amountIn, SwapParams calldata swapParams)
         internal
         returns (uint amountOut)
@@ -372,10 +374,11 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         // approve the dex router
         assetIn.forceApprove(swapParams.swapper, amountIn);
 
-        /* @dev you may be tempted to simplify this by using an arbitrary call here instead of a
-        specific interface such as ISwapper. However, using a specific interface, even if using
-        an allow-list for swappers / routers is safer because it prevents stealing approvals, even
-        if the owner makes a mistake / is malicious. */
+        /* @dev It may may be tempting to simplify this by using an arbitrary call instead of a
+        specific interface such as ISwapper. However, using a specific interface is safer because
+        it makes stealing approvals impossible. This is safer than depending only on the allowlist.
+        Additionally, an arbitrary call payload for a swap is more difficult to construct and inspect
+        so requires more user trust on the FE. */
         uint amountOutSwapper = ISwapper(swapParams.swapper).swap(
             assetIn, assetOut, amountIn, swapParams.minAmountOut, swapParams.extraData
         );
