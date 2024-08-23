@@ -6,7 +6,7 @@ import "forge-std/Test.sol";
 import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { BaseAssetPairTestSetup } from "./BaseAssetPairTestSetup.sol";
-import { MockSwapRouter } from "../utils/MockSwapRouter.sol";
+import { MockSwapperRouter } from "../utils/MockSwapRouter.sol";
 
 import { Loans, ILoans } from "../../src/Loans.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
@@ -14,9 +14,11 @@ import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 import { SwapperUniV3, ISwapper } from "../../src/SwapperUniV3.sol";
 
 contract LoansTestBase is BaseAssetPairTestSetup {
-    MockSwapRouter mockSwapRouter;
+    MockSwapperRouter mockSwapperRouter;
     SwapperUniV3 swapperUniV3;
     Loans loans;
+
+    address defaultSwapper;
 
     uint24 swapFeeTier = 500;
 
@@ -27,23 +29,24 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         super.setUp();
 
         // deploy
-        mockSwapRouter = new MockSwapRouter();
-        swapperUniV3 = new SwapperUniV3(address(mockSwapRouter), swapFeeTier);
+        mockSwapperRouter = new MockSwapperRouter();
+        swapperUniV3 = new SwapperUniV3(address(mockSwapperRouter), swapFeeTier);
         loans = new Loans(owner, takerNFT);
-        vm.label(address(mockSwapRouter), "MockSwapRouter");
+        vm.label(address(mockSwapperRouter), "MockSwapRouter");
         vm.label(address(swapperUniV3), "SwapperUniV3");
         vm.label(address(loans), "Loans");
 
         // config
         vm.startPrank(owner);
         loans.setRollsContract(rolls);
-        loans.setSwapperAllowed(address(swapperUniV3), true, true);
+        defaultSwapper = address(swapperUniV3);
+        loans.setSwapperAllowed(defaultSwapper, true, true);
         vm.stopPrank();
     }
 
     function prepareSwap(TestERC20 asset, uint amount) public {
-        asset.mint(address(mockSwapRouter), amount);
-        mockSwapRouter.setupSwap(amount, amount);
+        asset.mint(address(mockSwapperRouter), amount);
+        mockSwapperRouter.setupSwap(amount, amount);
     }
 
     function prepareSwapToCollateralAtTWAPPrice() public returns (uint swapOut) {
@@ -57,7 +60,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
     }
 
     function defaultSwapParams(uint minOut) internal view returns (ILoans.SwapParams memory) {
-        return ILoans.SwapParams({ minAmountOut: minOut, swapper: address(swapperUniV3), extraData: "" });
+        return ILoans.SwapParams({ minAmountOut: minOut, swapper: defaultSwapper, extraData: "" });
     }
 
     function createOfferAsProvider() internal returns (uint offerId) {

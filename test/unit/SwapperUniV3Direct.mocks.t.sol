@@ -7,11 +7,11 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 
 import { SwapperUniV3, IPeripheryImmutableState } from "../../src/SwapperUniV3.sol";
-import { MockSwapRouter } from "../utils/MockSwapRouter.sol";
+import { MockSwapperRouter } from "../utils/MockSwapRouter.sol";
 
 contract SwapperUniV3Test is Test {
     SwapperUniV3 public swapper;
-    MockSwapRouter public mockRouter;
+    MockSwapperRouter public mockRouter;
 
     uint24 feeTier = 3000;
 
@@ -23,7 +23,7 @@ contract SwapperUniV3Test is Test {
     uint minAmountOut = 800;
 
     function setUp() public {
-        mockRouter = new MockSwapRouter();
+        mockRouter = new MockSwapperRouter();
         swapper = new SwapperUniV3(address(mockRouter), feeTier);
 
         tokenIn = new TestERC20("Mock Token In", "MTI");

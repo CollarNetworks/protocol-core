@@ -50,7 +50,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         loans.openLoan(collateralAmount + 1, minLoanAmount, defaultSwapParams(0), providerNFT, offerId);
     }
 
-    function test_revert_openLoan_swaps() public {
+    function test_revert_openLoan_swaps_router() public {
         uint offerId = createOfferAsProvider();
         prepareSwap(cashAsset, swapCashAmount);
 
@@ -58,14 +58,14 @@ contract LoansBasicRevertsTest is LoansTestBase {
         collateralAsset.approve(address(loans), collateralAmount);
 
         // balance mismatch
-        mockSwapRouter.setupSwap(swapCashAmount - 1, swapCashAmount);
+        mockSwapperRouter.setupSwap(swapCashAmount - 1, swapCashAmount);
         vm.expectRevert("balance update mismatch");
         loans.openLoan(
             collateralAmount, minLoanAmount, defaultSwapParams(swapCashAmount), providerNFT, offerId
         );
 
         // slippage params
-        mockSwapRouter.setupSwap(swapCashAmount, swapCashAmount);
+        mockSwapperRouter.setupSwap(swapCashAmount, swapCashAmount);
         vm.expectRevert("slippage exceeded");
         loans.openLoan(
             collateralAmount, minLoanAmount, defaultSwapParams(swapCashAmount + 1), providerNFT, offerId
@@ -75,6 +75,28 @@ contract LoansBasicRevertsTest is LoansTestBase {
         prepareSwap(cashAsset, swapCashAmount / 2);
         vm.expectRevert("swap and twap price too different");
         loans.openLoan(collateralAmount, minLoanAmount, defaultSwapParams(0), providerNFT, offerId);
+    }
+
+    function test_revert_openLoan_swapper_not_allowed() public {
+        vm.startPrank(owner);
+        // disable the default swapper
+        loans.setSwapperAllowed(address(swapperUniV3), false, true);
+
+        // not allowed
+        vm.expectRevert("swapper not allowed");
+        loans.openLoan(collateralAmount, minLoanAmount, defaultSwapParams(0), providerNFT, 0);
+    }
+
+    function test_revert_openLoan_swaps_swapper() public {
+        vm.startPrank(owner);
+        // set the mock as the default swapper (instead of router) to reuse the router revert tests
+        defaultSwapper = address(mockSwapperRouter);
+        loans.setSwapperAllowed(defaultSwapper, true, true);
+        // disable the default swapper to be sure
+        loans.setSwapperAllowed(address(swapperUniV3), false, false);
+
+        // now run the slippage and balance tests, but the reverts are now in the loans contract
+        test_revert_openLoan_swaps_router();
     }
 
     function test_revert_openLoan_insufficientLoanAmount() public {
@@ -181,7 +203,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         loans.closeLoan(takerId, defaultSwapParams(0));
     }
 
-    function test_revert_closeLoan_slippageExceeded() public {
+    function test_revert_closeLoan_swaps_router() public {
         (uint takerId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
         vm.startPrank(user1);
@@ -191,6 +213,35 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
         vm.expectRevert("slippage exceeded");
         loans.closeLoan(takerId, defaultSwapParams(collateralAmount + 1));
+
+        mockSwapperRouter.setupSwap(collateralAmount - 1, collateralAmount);
+        vm.expectRevert("balance update mismatch");
+        loans.closeLoan(takerId, defaultSwapParams(collateralAmount));
+    }
+
+    function test_revert_closeLoan_swaps_swapper() public {
+        // set the mock as the default swapper (instead of Uni swapper) to reuse the router revert tests
+        vm.startPrank(owner);
+        defaultSwapper = address(mockSwapperRouter);
+        loans.setSwapperAllowed(defaultSwapper, true, true);
+        // disable the uni swapper to be sure
+        loans.setSwapperAllowed(address(swapperUniV3), false, false);
+
+        // now run the slippage and balance tests, but the reverts are now in the loans contract
+        test_revert_closeLoan_swaps_router();
+    }
+
+    function test_revert_closeLoan_swapper_not_allowed() public {
+        (uint takerId,,) = createAndCheckLoan();
+
+        vm.startPrank(owner);
+        // disable the default swapper
+        loans.setSwapperAllowed(address(swapperUniV3), false, true);
+
+        // not allowed
+        vm.startPrank(user1);
+        vm.expectRevert("swapper not allowed");
+        loans.closeLoan(takerId, defaultSwapParams(collateralAmount));
     }
 
     function test_revert_closeLoan_keeperNotAllowed() public {
