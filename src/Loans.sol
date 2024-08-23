@@ -373,11 +373,15 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         // approve the dex router
         assetIn.forceApprove(swapParams.swapper, amountIn);
 
-        /* @dev It may may be tempting to simplify this by using an arbitrary call instead of a
-        specific interface such as ISwapper. However, using a specific interface is safer because
-        it makes stealing approvals impossible. This is safer than depending only on the allowlist.
-        Additionally, an arbitrary call payload for a swap is more difficult to construct and inspect
-        so requires more user trust on the FE. */
+        /* @dev It may be tempting to simplify this by using an arbitrary call instead of a
+        specific interface such as ISwapper. However:
+        1. using a specific interface is safer because it makes stealing approvals impossible.
+        This is safer than depending only on the allowlist.
+        2. an arbitrary call payload for a swap is more difficult to construct and inspect
+        so requires more user trust on the FE.
+        3. swap's amountIn would need to be calculated off-chain, which in case of closing
+        the loan is problematic, since it depends on withdrawal from the position.
+        */
         uint amountOutSwapper = ISwapper(swapParams.swapper).swap(
             assetIn, assetOut, amountIn, swapParams.minAmountOut, swapParams.extraData
         );
