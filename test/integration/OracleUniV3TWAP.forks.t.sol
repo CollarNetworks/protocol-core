@@ -7,11 +7,10 @@ import "forge-std/Test.sol";
 import { UniswapNewPoolHelper } from "../utils/UniswapNewPoolHelper.sol";
 import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 
-contract OracleUniV3TWAP_USDCWETH_ForkTest is Test {
+contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
     OracleUniV3TWAP public oracle;
 
     address router = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
-    address factory = 0x1F98431c8aD98523631AE4a59f267346ea31F984;
     uint24 feeTier = 500;
 
     uint32 twapWindow = 300;
@@ -30,21 +29,28 @@ contract OracleUniV3TWAP_USDCWETH_ForkTest is Test {
     // https://arbiscan.io/address/0xC6962004f452bE9203591991D15f6b388e09E8D0#code#F9#L226
     bytes revertBytesOLD = bytes("OLD");
 
-    function setUp() public {
-        vm.createSelectFork(vm.envString("ARBITRUM_MAINNET_RPC"), 242_273_401);
+    function setUp() public virtual {
+        _startFork();
+        _config();
         _setUp();
         oracle = new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, router);
     }
 
-    function _setUp() internal virtual {
+    function _startFork() internal virtual {
+        vm.createSelectFork(vm.envString("ARBITRUM_MAINNET_RPC"), 242_273_401);
+    }
+
+    function _config() internal virtual {
         baseToken = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
         quoteToken = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // USDC
-        pool = 0xC6962004f452bE9203591991D15f6b388e09E8D0;
 
+        pool = 0xC6962004f452bE9203591991D15f6b388e09E8D0;
         expectedCardinality = 8000;
         expectedCurPrice = 2_713_263_289; // 2713 USDC per 1 ETH
         expectedPriceTwapWindowAgo = 2_720_326_598;
     }
+
+    function _setUp() internal virtual { }
 
     // effects tests
 
@@ -102,9 +108,9 @@ contract OracleUniV3TWAP_USDCWETH_ForkTest is Test {
     }
 }
 
-contract OracleUniV3TWAP_WETHUSDC_ForkTest is OracleUniV3TWAP_USDCWETH_ForkTest {
-    function _setUp() internal override {
-        super._setUp();
+contract OracleUniV3TWAP_ArbiMain_WETHUSDC_ForkTest is OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest {
+    function _config() internal override {
+        super._config();
         baseToken = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // USDC
         quoteToken = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
 
@@ -114,8 +120,31 @@ contract OracleUniV3TWAP_WETHUSDC_ForkTest is OracleUniV3TWAP_USDCWETH_ForkTest 
     }
 }
 
-contract OracleUniV3TWAP_NewPool_ForkTest is OracleUniV3TWAP_USDCWETH_ForkTest, UniswapNewPoolHelper {
+contract OracleUniV3TWAP_ArbiSepolia_USDCWBTC_ForkTest is OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest {
+    function _startFork() internal override {
+        vm.createSelectFork(vm.envString("ARBITRUM_SEPOLIA_RPC"), 72_779_252);
+    }
+
+    function _config() internal override {
+        super._config();
+        router = 0x101F443B4d1b059569D643917553c771E1b9663E; // arbi-sep
+        baseToken = 0x0d64F70fAd5897d752c6e9e9a80ac3C978BF6897; // WBTC arbi-sep
+        quoteToken = 0xbDCc1D2ADE76E4A02539674D6D03E4bf571Da712; // USDC arbi-sep
+        pool = 0xa9933Deb1cEB37163f7F601eb69Dc923cAD3fcBc;
+
+        expectedCardinality = 1000;
+        // price is for 1e10 WBTC in USDC (because WBTC is 8 decimals, but token amount is 1e18)
+        expectedCurPrice = 592_517_723_878_423_009_994; // 59000 * 1e10 (amount) * 1e6 (USDC decimals)
+        expectedPriceTwapWindowAgo = 592_458_478_030_619_947_999;
+    }
+}
+
+contract OracleUniV3TWAP_ArbiMain_NewPool_ForkTest is
+    OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest,
+    UniswapNewPoolHelper
+{
     uint initialAmount = 10 ether;
+    int24 tickSpacing = 10;
     address positionManager = 0xC36442b4a4522E871399CD717aBDD847Ab11FE88; // arbi-main
 
     function _setUp() internal virtual override {
@@ -130,10 +159,10 @@ contract OracleUniV3TWAP_NewPool_ForkTest is OracleUniV3TWAP_USDCWETH_ForkTest, 
             token2: quoteToken,
             router: router,
             positionManager: positionManager,
-            feeTier: 500,
+            feeTier: feeTier,
             cardinality: expectedCardinality,
             initialAmount: initialAmount,
-            tickSpacing: 10
+            tickSpacing: tickSpacing
         });
 
         pool = setupNewPool(poolParams);
@@ -146,5 +175,17 @@ contract OracleUniV3TWAP_NewPool_ForkTest is OracleUniV3TWAP_USDCWETH_ForkTest, 
 
         expectedCurPrice = 1 ether;
         expectedPriceTwapWindowAgo = expectedCurPrice;
+    }
+}
+
+contract OracleUniV3TWAP_ArbiSepolia_NewPool_ForkTest is OracleUniV3TWAP_ArbiMain_NewPool_ForkTest {
+    function _startFork() internal override {
+        vm.createSelectFork(vm.envString("ARBITRUM_SEPOLIA_RPC"), 72_779_252);
+    }
+
+    function _config() internal override {
+        super._config();
+        router = 0x101F443B4d1b059569D643917553c771E1b9663E; // arbi-sep
+        positionManager = 0x6b2937Bde17889EDCf8fbD8dE31C3C2a70Bc4d65; // arbi-sep
     }
 }
