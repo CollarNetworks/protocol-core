@@ -76,8 +76,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         takerNFT = _takerNFT;
         cashAsset = _takerNFT.cashAsset();
         collateralAsset = _takerNFT.collateralAsset();
-        ConfigHub _configHub = _takerNFT.configHub();
-        _setConfigHub(_configHub);
+        _setConfigHub(_takerNFT.configHub());
     }
 
     modifier onlyNFTOwner(uint takerId) {
