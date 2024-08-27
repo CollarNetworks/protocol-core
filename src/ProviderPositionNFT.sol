@@ -83,8 +83,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
         collarTakerContract = _collarTakerContract;
     }
 
-    modifier onlyTrustedTakerContract() {
-        require(configHub.isCollarTakerNFT(collarTakerContract), "unsupported taker contract");
+    modifier onlyTaker() {
         require(msg.sender == collarTakerContract, "unauthorized taker contract");
         _;
     }
@@ -199,9 +198,12 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
     function mintPositionFromOffer(uint offerId, uint amount)
         external
         whenNotPaused
-        onlyTrustedTakerContract
+        onlyTaker
         returns (uint positionId, ProviderPosition memory position)
     {
+        // @dev only checked on open, not checked later on settle / cancel to allow withdraw-only mode
+        require(configHub.isCollarTakerNFT(collarTakerContract), "unsupported taker contract");
+
         LiquidityOffer storage offer = liquidityOffers[offerId];
 
         // check params are still supported
@@ -267,11 +269,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
     /// of the NFT abruptly (only preventing settlement at future price).
     /// @param positionId The ID of the position to settle (NFT token ID)
     /// @param positionChange The change in position value (positive or negative)
-    function settlePosition(uint positionId, int positionChange)
-        external
-        whenNotPaused
-        onlyTrustedTakerContract
-    {
+    function settlePosition(uint positionId, int positionChange) external whenNotPaused onlyTaker {
         ProviderPosition storage position = positions[positionId];
 
         require(block.timestamp >= position.expiration, "not expired");
@@ -310,11 +308,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
     /// so is assumed to specify the withdrawal correctly for their funds.
     /// @param positionId The ID of the position to cancel (NFT token ID)
     /// @param recipient The address to receive the withdrawn funds
-    function cancelAndWithdraw(uint positionId, address recipient)
-        external
-        whenNotPaused
-        onlyTrustedTakerContract
-    {
+    function cancelAndWithdraw(uint positionId, address recipient) external whenNotPaused onlyTaker {
         require(msg.sender == ownerOf(positionId), "caller does not own token");
 
         ProviderPosition storage position = positions[positionId];
