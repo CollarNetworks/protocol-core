@@ -83,8 +83,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
         collarTakerContract = _collarTakerContract;
     }
 
-    modifier onlyTrustedTakerContract() {
-        require(configHub.isCollarTakerNFT(collarTakerContract), "unsupported taker contract");
+    modifier onlyTaker() {
         require(msg.sender == collarTakerContract, "unauthorized taker contract");
         _;
     }
@@ -194,14 +193,19 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
     /// The NFT representing ownership of the position, is minted to original provider of the offer.
     /// @param offerId The ID of the offer to mint from
     /// @param amount The amount of cash asset to use for the new position
+    /// @param takerId The ID of the taker position for which this position is minted
     /// @return positionId The ID of the newly created position (NFT token ID)
     /// @return position The details of the newly created position
-    function mintPositionFromOffer(uint offerId, uint amount)
+    function mintFromOffer(uint offerId, uint amount, uint takerId)
         external
         whenNotPaused
-        onlyTrustedTakerContract
+        onlyTaker
         returns (uint positionId, ProviderPosition memory position)
     {
+        // @dev only checked on open, not checked later on settle / cancel to allow withdraw-only mode
+        require(configHub.takerNFTCanOpen(msg.sender), "unsupported taker contract");
+        require(configHub.providerNFTCanOpen(address(this)), "unsupported provider contract");
+
         LiquidityOffer storage offer = liquidityOffers[offerId];
 
         // check params are still supported
@@ -217,6 +221,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
 
         // create position
         position = ProviderPosition({
+            takerId: takerId,
             expiration: block.timestamp + offer.duration,
             principal: amount,
             putStrikeDeviation: offer.putStrikeDeviation,
@@ -228,7 +233,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
         positionId = nextTokenId++;
         // store position data
         positions[positionId] = position;
-        // emit creation before transfer
+        // emit creation before transfer. No need to emit takerId, because it's emitted by the taker event
         emit PositionCreated(
             positionId,
             position.putStrikeDeviation,
@@ -267,11 +272,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
     /// of the NFT abruptly (only preventing settlement at future price).
     /// @param positionId The ID of the position to settle (NFT token ID)
     /// @param positionChange The change in position value (positive or negative)
-    function settlePosition(uint positionId, int positionChange)
-        external
-        whenNotPaused
-        onlyTrustedTakerContract
-    {
+    function settlePosition(uint positionId, int positionChange) external whenNotPaused onlyTaker {
         ProviderPosition storage position = positions[positionId];
 
         require(block.timestamp >= position.expiration, "not expired");
@@ -310,11 +311,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
     /// so is assumed to specify the withdrawal correctly for their funds.
     /// @param positionId The ID of the position to cancel (NFT token ID)
     /// @param recipient The address to receive the withdrawn funds
-    function cancelAndWithdraw(uint positionId, address recipient)
-        external
-        whenNotPaused
-        onlyTrustedTakerContract
-    {
+    function cancelAndWithdraw(uint positionId, address recipient) external whenNotPaused onlyTaker {
         require(msg.sender == ownerOf(positionId), "caller does not own token");
 
         ProviderPosition storage position = positions[positionId];

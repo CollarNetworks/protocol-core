@@ -99,9 +99,9 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
         require(configHub.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
         require(configHub.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
         // check self allowed
-        require(configHub.isCollarTakerNFT(address(this)), "unsupported taker contract");
+        require(configHub.takerNFTCanOpen(address(this)), "unsupported taker contract");
         // check provider allowed
-        require(configHub.isProviderNFT(address(providerNFT)), "unsupported provider contract");
+        require(configHub.providerNFTCanOpen(address(providerNFT)), "unsupported provider contract");
         // check assets match
         require(providerNFT.collateralAsset() == collateralAsset, "asset mismatch");
         require(providerNFT.cashAsset() == cashAsset, "asset mismatch");
@@ -219,7 +219,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
         // open the provider position with duration and callLockedCash locked liquidity (reverts if can't)
         // and sends the provider NFT to the provider
         ProviderPositionNFT.ProviderPosition memory providerPosition;
-        (providerId, providerPosition) = providerNFT.mintPositionFromOffer(offerId, callLockedCash);
+        (providerId, providerPosition) = providerNFT.mintFromOffer(offerId, callLockedCash, nextTokenId);
         uint putStrikePrice = twapPrice * providerPosition.putStrikeDeviation / BIPS_BASE;
         uint callStrikePrice = twapPrice * providerPosition.callStrikeDeviation / BIPS_BASE;
         // avoid boolean edge cases and division by zero when settling
@@ -240,6 +240,8 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
             withdrawable: 0
         });
 
+        // ensure taker ID is as expected (no reentrancy between nextTokenId use and incrementing)
+        require(providerPosition.takerId == nextTokenId, "unexpected takerId");
         // increment ID
         takerId = nextTokenId++;
         // store position data

@@ -57,10 +57,10 @@ contract ConfigHubTest is Test {
         startHoax(user1);
 
         vm.expectRevert(user1NotAuthorized);
-        configHub.setCollarTakerContractAuth(address(0), true);
+        configHub.setTakerNFTCanOpen(address(0), true);
 
         vm.expectRevert(user1NotAuthorized);
-        configHub.setProviderContractAuth(address(0), true);
+        configHub.setProviderNFTCanOpen(address(0), true);
 
         vm.expectRevert(user1NotAuthorized);
         configHub.setLTVRange(0, 0);
@@ -97,20 +97,20 @@ contract ConfigHubTest is Test {
             abi.encode(address(token2))
         );
 
-        assertFalse(configHub.isCollarTakerNFT(collarTakerContract));
+        assertFalse(configHub.takerNFTCanOpen(collarTakerContract));
 
         vm.expectEmit(address(configHub));
         emit IConfigHub.CollarTakerNFTAuthSet(collarTakerContract, true, address(token1), address(token2));
-        configHub.setCollarTakerContractAuth(collarTakerContract, true);
+        configHub.setTakerNFTCanOpen(collarTakerContract, true);
 
-        assertTrue(configHub.isCollarTakerNFT(collarTakerContract));
+        assertTrue(configHub.takerNFTCanOpen(collarTakerContract));
 
         // disabling
         vm.expectEmit(address(configHub));
         emit IConfigHub.CollarTakerNFTAuthSet(collarTakerContract, false, address(token1), address(token2));
-        configHub.setCollarTakerContractAuth(collarTakerContract, false);
+        configHub.setTakerNFTCanOpen(collarTakerContract, false);
 
-        assertFalse(configHub.isCollarTakerNFT(collarTakerContract));
+        assertFalse(configHub.takerNFTCanOpen(collarTakerContract));
     }
 
     function test_setProviderContractAuth() public {
@@ -134,24 +134,24 @@ contract ConfigHubTest is Test {
             abi.encode(address(0x789))
         );
 
-        assertFalse(configHub.isProviderNFT(providerContract));
+        assertFalse(configHub.providerNFTCanOpen(providerContract));
 
         vm.expectEmit(address(configHub));
         emit IConfigHub.ProviderNFTAuthSet(
             providerContract, true, address(token1), address(token2), address(0x789)
         );
-        configHub.setProviderContractAuth(providerContract, true);
+        configHub.setProviderNFTCanOpen(providerContract, true);
 
-        assertTrue(configHub.isProviderNFT(providerContract));
+        assertTrue(configHub.providerNFTCanOpen(providerContract));
 
         // disabling
         vm.expectEmit(address(configHub));
         emit IConfigHub.ProviderNFTAuthSet(
             providerContract, false, address(token1), address(token2), address(0x789)
         );
-        configHub.setProviderContractAuth(providerContract, false);
+        configHub.setProviderNFTCanOpen(providerContract, false);
 
-        assertFalse(configHub.isProviderNFT(providerContract));
+        assertFalse(configHub.providerNFTCanOpen(providerContract));
     }
 
     function test_revert_setCollarTakerContractAuth_invalidContract() public {
@@ -160,7 +160,7 @@ contract ConfigHubTest is Test {
 
         // fails to call non existing methods
         vm.expectRevert(new bytes(0));
-        configHub.setCollarTakerContractAuth(invalidContract, true);
+        configHub.setTakerNFTCanOpen(invalidContract, true);
     }
 
     function test_revert_setProviderContractAuth_invalidContract() public {
@@ -169,7 +169,7 @@ contract ConfigHubTest is Test {
 
         // fails to call non existing methods
         vm.expectRevert(new bytes(0));
-        configHub.setProviderContractAuth(invalidContract, true);
+        configHub.setProviderNFTCanOpen(invalidContract, true);
     }
 
     function test_addSupportedCashAsset() public {
@@ -223,8 +223,8 @@ contract ConfigHubTest is Test {
         address testContract = address(0x123);
         // testContract doesnt support calling .cashAsset();
         vm.expectRevert();
-        configHub.setCollarTakerContractAuth(testContract, true);
-        assertFalse(configHub.isCollarTakerNFT(testContract));
+        configHub.setTakerNFTCanOpen(testContract, true);
+        assertFalse(configHub.takerNFTCanOpen(testContract));
     }
 
     function test_setProviderContractAuth_non_taker_contract() public {
@@ -232,8 +232,8 @@ contract ConfigHubTest is Test {
         address testContract = address(0x456);
         // testContract doesnt support calling .cashAsset();
         vm.expectRevert();
-        configHub.setProviderContractAuth(testContract, true);
-        assertFalse(configHub.isProviderNFT(testContract));
+        configHub.setProviderNFTCanOpen(testContract, true);
+        assertFalse(configHub.providerNFTCanOpen(testContract));
     }
 
     function test_setLTVRange() public {

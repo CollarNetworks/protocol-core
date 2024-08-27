@@ -38,22 +38,22 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     // -- internal state variables ---
     mapping(address collateralAssetAddress => bool isSupported) public isSupportedCollateralAsset;
     mapping(address cashAssetAddress => bool isSupported) public isSupportedCashAsset;
-    mapping(address contractAddress => bool enabled) public isCollarTakerNFT;
-    mapping(address contractAddress => bool enabled) public isProviderNFT;
+    mapping(address contractAddress => bool enabled) public takerNFTCanOpen;
+    mapping(address contractAddress => bool enabled) public providerNFTCanOpen;
 
     constructor(address _initialOwner) Ownable(_initialOwner) { }
 
     // ----- state-changing functions (see IConfigHub for documentation) -----
 
-    function setCollarTakerContractAuth(address contractAddress, bool enabled) external onlyOwner {
-        isCollarTakerNFT[contractAddress] = enabled;
+    function setTakerNFTCanOpen(address contractAddress, bool enabled) external onlyOwner {
+        takerNFTCanOpen[contractAddress] = enabled;
         IERC20 cashAsset = ICollarTakerNFT(contractAddress).cashAsset();
         IERC20 collateralAsset = ICollarTakerNFT(contractAddress).collateralAsset();
         emit CollarTakerNFTAuthSet(contractAddress, enabled, address(cashAsset), address(collateralAsset));
     }
 
-    function setProviderContractAuth(address contractAddress, bool enabled) external onlyOwner {
-        isProviderNFT[contractAddress] = enabled;
+    function setProviderNFTCanOpen(address contractAddress, bool enabled) external onlyOwner {
+        providerNFTCanOpen[contractAddress] = enabled;
         IERC20 cashAsset = IProviderPositionNFT(contractAddress).cashAsset();
         IERC20 collateralAsset = IProviderPositionNFT(contractAddress).collateralAsset();
         address collarTakerNFT = IProviderPositionNFT(contractAddress).collarTakerContract();

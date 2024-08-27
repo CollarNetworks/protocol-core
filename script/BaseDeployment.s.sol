@@ -153,12 +153,12 @@ contract BaseDeployment is Script {
     }
 
     function _setupContractPair(ConfigHub hub, AssetPairContracts memory pair) internal {
-        hub.setCollarTakerContractAuth(address(pair.takerNFT), true);
-        hub.setProviderContractAuth(address(pair.providerNFT), true);
+        hub.setTakerNFTCanOpen(address(pair.takerNFT), true);
+        hub.setProviderNFTCanOpen(address(pair.providerNFT), true);
         pair.loansContract.setRollsContract(pair.rollsContract);
         pair.loansContract.setSwapperAllowed(address(pair.swapperUniV3), true, true);
-        require(hub.isProviderNFT(address(pair.providerNFT)), "Provider NFT not authorized in configHub");
-        require(hub.isCollarTakerNFT(address(pair.takerNFT)), "Taker NFT not authorized in configHub");
+        require(hub.providerNFTCanOpen(address(pair.providerNFT)), "Provider NFT not authorized in configHub");
+        require(hub.takerNFTCanOpen(address(pair.takerNFT)), "Taker NFT not authorized in configHub");
     }
 
     function _deployConfigHub() internal {
@@ -399,8 +399,8 @@ contract BaseDeployment is Script {
     }
 
     function _verifyDeployment(ConfigHub hub, AssetPairContracts memory contracts) internal view {
-        require(hub.isCollarTakerNFT(address(contracts.takerNFT)), "TakerNFT not authorized");
-        require(hub.isProviderNFT(address(contracts.providerNFT)), "ProviderNFT not authorized");
+        require(hub.takerNFTCanOpen(address(contracts.takerNFT)), "TakerNFT not authorized");
+        require(hub.providerNFTCanOpen(address(contracts.providerNFT)), "ProviderNFT not authorized");
         require(hub.isSupportedCashAsset(address(contracts.cashAsset)), "Cash asset not supported");
         require(
             hub.isSupportedCollateralAsset(address(contracts.collateralAsset)),
