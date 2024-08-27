@@ -412,7 +412,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         (uint positionId,) = createAndCheckPosition(provider, largeAmount, amountToMint);
         skip(duration);
         vm.startPrank(owner);
-        configHub.setCollarTakerContractAuth(takerContract, false);
+        configHub.setTakerNFTCanOpen(takerContract, false);
         // should work
         uint withdrawable = checkSettlePosition(positionId, amountToMint, 0);
         // should work
@@ -430,7 +430,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         (uint positionId,) = createAndCheckPosition(provider, largeAmount, amountToMint);
         skip(duration);
         vm.startPrank(owner);
-        configHub.setCollarTakerContractAuth(takerContract, false);
+        configHub.setTakerNFTCanOpen(takerContract, false);
         // should work
         checkCancelAndWithdraw(positionId, amountToMint);
     }
@@ -646,7 +646,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);
 
         vm.startPrank(owner);
-        configHub.setCollarTakerContractAuth(takerContract, false);
+        configHub.setTakerNFTCanOpen(takerContract, false);
         vm.startPrank(takerContract);
         vm.expectRevert("unsupported taker contract");
         providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);
@@ -706,7 +706,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
 
         // allow taker contract
         vm.startPrank(owner);
-        configHub.setCollarTakerContractAuth(takerContract, true);
+        configHub.setTakerNFTCanOpen(takerContract, true);
 
         vm.startPrank(address(takerContract));
         vm.expectRevert("not expired");
@@ -771,7 +771,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         providerNFT.cancelAndWithdraw(positionId, provider);
 
         vm.startPrank(owner);
-        configHub.setCollarTakerContractAuth(takerContract, true);
+        configHub.setTakerNFTCanOpen(takerContract, true);
         vm.startPrank(address(takerContract));
         vm.expectRevert("caller does not own token");
         providerNFT.cancelAndWithdraw(positionId, provider);

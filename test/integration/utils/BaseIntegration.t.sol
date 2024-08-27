@@ -112,7 +112,7 @@ abstract contract CollarBaseIntegrationTestConfig is Test, BaseDeployment {
         assertEq(configHub.isValidLTV(_offerLTV), true);
         assertEq(configHub.isSupportedCashAsset(address(pair.cashAsset)), true);
         assertEq(configHub.isSupportedCollateralAsset(address(pair.collateralAsset)), true);
-        assertEq(configHub.isCollarTakerNFT(address(pair.takerNFT)), true);
-        assertEq(configHub.isProviderNFT(address(pair.providerNFT)), true);
+        assertEq(configHub.takerNFTCanOpen(address(pair.takerNFT)), true);
+        assertEq(configHub.providerNFTCanOpen(address(pair.providerNFT)), true);
     }
 }

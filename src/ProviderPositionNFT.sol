@@ -202,7 +202,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
         returns (uint positionId, ProviderPosition memory position)
     {
         // @dev only checked on open, not checked later on settle / cancel to allow withdraw-only mode
-        require(configHub.isCollarTakerNFT(collarTakerContract), "unsupported taker contract");
+        require(configHub.takerNFTCanOpen(collarTakerContract), "unsupported taker contract");
 
         LiquidityOffer storage offer = liquidityOffers[offerId];
 

@@ -89,9 +89,9 @@ contract BaseAssetPairTestSetup is Test {
         configHub.setLTVRange(ltv, ltv);
         configHub.setCollarDurationRange(duration, duration);
         // contracts auth
-        configHub.setCollarTakerContractAuth(address(takerNFT), true);
-        configHub.setProviderContractAuth(address(providerNFT), true);
-        configHub.setProviderContractAuth(address(providerNFT2), true);
+        configHub.setTakerNFTCanOpen(address(takerNFT), true);
+        configHub.setProviderNFTCanOpen(address(providerNFT), true);
+        configHub.setProviderNFTCanOpen(address(providerNFT2), true);
         // fees
         configHub.setProtocolFeeParams(protocolFeeAPR, protocolFeeRecipient);
 

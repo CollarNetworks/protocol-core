@@ -10,7 +10,7 @@
   - should emit LoanCancelled event
 
 ### Provider
-- [ ] #med if taker is disallowed in config, provider positions cannot be settled / cancelled:
+- [x] #med if taker is disallowed in config, provider positions cannot be settled / cancelled:
   - this makes it impossible to allow close-only mode (for phasing out old contracts) without also allowing users / providers to open new positions.
   - mitigation: should only check self is allowed on open, rename flags to signify "open" allowed?
   - test: cancel/settle should be possible even if both taker and provider is disabled in configHub (but not paused)
