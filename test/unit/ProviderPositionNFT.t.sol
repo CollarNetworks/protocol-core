@@ -638,18 +638,25 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         providerNFT.updateOfferAmount(offerId, largeAmount * 2);
     }
 
-    function test_revert_mintPositionFromOffer_notTrustedTakerContract() public {
+    function test_revert_mintPositionFromOffer_configFlags() public {
         (uint offerId,) = createAndCheckOffer(provider, largeAmount);
 
         vm.startPrank(address(0xdead));
         vm.expectRevert("unauthorized taker contract");
-        providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);
+        providerNFT.mintPositionFromOffer(offerId, 0);
 
         vm.startPrank(owner);
         configHub.setTakerNFTCanOpen(takerContract, false);
         vm.startPrank(takerContract);
         vm.expectRevert("unsupported taker contract");
-        providerNFT.mintPositionFromOffer(offerId, largeAmount / 2);
+        providerNFT.mintPositionFromOffer(offerId, 0);
+
+        vm.startPrank(owner);
+        configHub.setTakerNFTCanOpen(takerContract, true);
+        configHub.setProviderNFTCanOpen(address(providerNFT), false);
+        vm.startPrank(takerContract);
+        vm.expectRevert("unsupported provider contract");
+        providerNFT.mintPositionFromOffer(offerId, 0);
     }
 
     function test_revert_mintPositionFromOffer_ConfigHubValidations() public {
