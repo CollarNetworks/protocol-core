@@ -78,7 +78,7 @@ interface IProviderPositionNFT {
         returns (uint offerId);
     function updateOfferAmount(uint offerId, uint newAmount) external;
     // mutative from borrow NFT
-    function mintPositionFromOffer(uint offerId, uint amount, uint takerId)
+    function mintFromOffer(uint offerId, uint amount, uint takerId)
         external
         returns (uint positionId, ProviderPosition memory position);
     function cancelAndWithdraw(uint positionId, address recipient) external;

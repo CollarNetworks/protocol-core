@@ -196,7 +196,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
     /// @param takerId The ID of the taker position for which this position is minted
     /// @return positionId The ID of the newly created position (NFT token ID)
     /// @return position The details of the newly created position
-    function mintPositionFromOffer(uint offerId, uint amount, uint takerId)
+    function mintFromOffer(uint offerId, uint amount, uint takerId)
         external
         whenNotPaused
         onlyTaker

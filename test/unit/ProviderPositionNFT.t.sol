@@ -94,7 +94,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         emit IProviderPositionNFT.OfferUpdated(
             offerId, address(takerContract), offerAmount, offerAmount - positionAmount - fee
         );
-        (positionId, position) = providerNFT.mintPositionFromOffer(offerId, positionAmount, takerId);
+        (positionId, position) = providerNFT.mintFromOffer(offerId, positionAmount, takerId);
 
         // Check position details
         assertEq(positionId, nextPosId);
@@ -498,7 +498,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         vm.startPrank(address(takerContract));
         for (uint i = 0; i < positionCount; i++) {
             uint amount = largeAmount;
-            (positionIds[i],) = providerNFT.mintPositionFromOffer(offerId, amount, i);
+            (positionIds[i],) = providerNFT.mintFromOffer(offerId, amount, i);
         }
 
         ProviderPositionNFT.LiquidityOffer memory updatedOffer = providerNFT.getOffer(offerId);
@@ -583,7 +583,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         providerNFT.updateOfferAmount(0, 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        providerNFT.mintPositionFromOffer(0, 0, 0);
+        providerNFT.mintFromOffer(0, 0, 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
         providerNFT.settlePosition(0, 0);
@@ -646,20 +646,20 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
 
         vm.startPrank(address(0xdead));
         vm.expectRevert("unauthorized taker contract");
-        providerNFT.mintPositionFromOffer(offerId, 0, 0);
+        providerNFT.mintFromOffer(offerId, 0, 0);
 
         vm.startPrank(owner);
         configHub.setTakerNFTCanOpen(takerContract, false);
         vm.startPrank(takerContract);
         vm.expectRevert("unsupported taker contract");
-        providerNFT.mintPositionFromOffer(offerId, 0, 0);
+        providerNFT.mintFromOffer(offerId, 0, 0);
 
         vm.startPrank(owner);
         configHub.setTakerNFTCanOpen(takerContract, true);
         configHub.setProviderNFTCanOpen(address(providerNFT), false);
         vm.startPrank(takerContract);
         vm.expectRevert("unsupported provider contract");
-        providerNFT.mintPositionFromOffer(offerId, 0, 0);
+        providerNFT.mintFromOffer(offerId, 0, 0);
     }
 
     function test_revert_mintPositionFromOffer_ConfigHubValidations() public {
@@ -670,7 +670,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         configHub.setLTVRange(putDeviation, putDeviation);
         vm.startPrank(address(takerContract));
         vm.expectRevert("unsupported LTV");
-        providerNFT.mintPositionFromOffer(offerId, largeAmount / 2, 0);
+        providerNFT.mintFromOffer(offerId, largeAmount / 2, 0);
         vm.startPrank(owner);
         putDeviation = 9000;
         configHub.setLTVRange(putDeviation, configHub.maxLTV());
@@ -682,21 +682,21 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         configHub.setCollarDurationRange(duration, duration);
         vm.startPrank(address(takerContract));
         vm.expectRevert("unsupported duration");
-        providerNFT.mintPositionFromOffer(offerId, largeAmount / 2, 0);
+        providerNFT.mintFromOffer(offerId, largeAmount / 2, 0);
         vm.startPrank(owner);
         duration = 300;
         configHub.setCollarDurationRange(duration, configHub.maxDuration());
         configHub.setCashAssetSupport(address(cashAsset), false);
         vm.expectRevert("unsupported asset");
         vm.startPrank(address(takerContract));
-        providerNFT.mintPositionFromOffer(offerId, largeAmount / 2, 0);
+        providerNFT.mintFromOffer(offerId, largeAmount / 2, 0);
 
         vm.startPrank(owner);
         configHub.setCashAssetSupport(address(cashAsset), true);
         configHub.setCollateralAssetSupport(address(collateralAsset), false);
         vm.startPrank(address(takerContract));
         vm.expectRevert("unsupported asset");
-        providerNFT.mintPositionFromOffer(offerId, largeAmount / 2, 0);
+        providerNFT.mintFromOffer(offerId, largeAmount / 2, 0);
     }
 
     function test_revert_mintPositionFromOffer_amountTooHigh() public {
@@ -704,7 +704,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
 
         vm.startPrank(address(takerContract));
         vm.expectRevert("amount too high");
-        providerNFT.mintPositionFromOffer(offerId, largeAmount + 1, 0);
+        providerNFT.mintFromOffer(offerId, largeAmount + 1, 0);
     }
 
     function test_revert_settlePosition() public {

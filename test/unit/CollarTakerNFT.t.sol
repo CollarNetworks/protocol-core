@@ -415,7 +415,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         uint expectedId = takerNFT.nextPositionId();
         vm.mockCall(
             address(providerNFT),
-            abi.encodeCall(providerNFT.mintPositionFromOffer, (offerId, callLocked, expectedId)),
+            abi.encodeCall(providerNFT.mintFromOffer, (offerId, callLocked, expectedId)),
             abi.encode(
                 0,
                 IProviderPositionNFT.ProviderPosition({
