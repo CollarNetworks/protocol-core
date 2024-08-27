@@ -14,8 +14,8 @@
   - this makes it impossible to allow close-only mode (for phasing out old contracts) without also allowing users / providers to open new positions.
   - mitigation: should only check self is allowed on open, rename flags to signify "open" allowed?
   - test: cancel/settle should be possible even if both taker and provider is disabled in configHub (but not paused)
-- [ ] #low store takerId in position struct. Otherwise can't look up to which taker position a provider position is paired with (must use subgraph) - so is both bad for composability and UI
-- [ ] #note provider should check itself is allowed on open for completeness (only taker checks it now)
+- [x] #low store takerId in position struct. Otherwise can't look up to which taker position a provider position is paired with (must use subgraph) - so is both bad for composability and UI
+- [x] #note provider should check itself is allowed on open for completeness (only taker checks it now)
 
 ### Taker
 - [ ] #note contract and natspec docs missing

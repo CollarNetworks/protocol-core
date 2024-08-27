@@ -405,7 +405,32 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         startHoax(user1);
         cashAsset.approve(address(takerNFT), putLocked);
         vm.expectRevert("strike prices aren't different");
-        takerNFT.openPairedPosition(twapPrice, providerNFT, offerId);
+        takerNFT.openPairedPosition(putLocked, providerNFT, offerId);
+    }
+
+    function test_openPairedPosition_unexpectedTakerId() public {
+        createOffer();
+        startHoax(user1);
+        cashAsset.approve(address(takerNFT), putLocked);
+        uint expectedId = takerNFT.nextPositionId();
+        vm.mockCall(
+            address(providerNFT),
+            abi.encodeCall(providerNFT.mintPositionFromOffer, (offerId, callLocked, expectedId)),
+            abi.encode(
+                0,
+                IProviderPositionNFT.ProviderPosition({
+                    takerId: expectedId + 1, // wrong ID
+                    expiration: 0,
+                    principal: 0,
+                    putStrikeDeviation: 0,
+                    callStrikeDeviation: 2 * BIPS_100PCT,
+                    settled: false,
+                    withdrawable: 0
+                })
+            )
+        );
+        vm.expectRevert("unexpected takerId");
+        takerNFT.openPairedPosition(putLocked, providerNFT, offerId);
     }
 
     function test_settleAndWIthdrawNoChange() public {

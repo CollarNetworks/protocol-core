@@ -21,6 +21,7 @@ interface IProviderPositionNFT {
     }
 
     struct ProviderPosition {
+        uint takerId; // the corresponding paired ID for onchain / view reference
         // collar position terms
         uint expiration;
         uint principal;
@@ -77,7 +78,7 @@ interface IProviderPositionNFT {
         returns (uint offerId);
     function updateOfferAmount(uint offerId, uint newAmount) external;
     // mutative from borrow NFT
-    function mintPositionFromOffer(uint offerId, uint amount)
+    function mintPositionFromOffer(uint offerId, uint amount, uint takerId)
         external
         returns (uint positionId, ProviderPosition memory position);
     function cancelAndWithdraw(uint positionId, address recipient) external;

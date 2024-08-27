@@ -193,16 +193,17 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
     /// The NFT representing ownership of the position, is minted to original provider of the offer.
     /// @param offerId The ID of the offer to mint from
     /// @param amount The amount of cash asset to use for the new position
+    /// @param takerId The ID of the taker position for which this position is minted
     /// @return positionId The ID of the newly created position (NFT token ID)
     /// @return position The details of the newly created position
-    function mintPositionFromOffer(uint offerId, uint amount)
+    function mintPositionFromOffer(uint offerId, uint amount, uint takerId)
         external
         whenNotPaused
         onlyTaker
         returns (uint positionId, ProviderPosition memory position)
     {
         // @dev only checked on open, not checked later on settle / cancel to allow withdraw-only mode
-        require(configHub.takerNFTCanOpen(collarTakerContract), "unsupported taker contract");
+        require(configHub.takerNFTCanOpen(msg.sender), "unsupported taker contract");
         require(configHub.providerNFTCanOpen(address(this)), "unsupported provider contract");
 
         LiquidityOffer storage offer = liquidityOffers[offerId];
@@ -220,6 +221,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
 
         // create position
         position = ProviderPosition({
+            takerId: takerId,
             expiration: block.timestamp + offer.duration,
             principal: amount,
             putStrikeDeviation: offer.putStrikeDeviation,
@@ -231,7 +233,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
         positionId = nextTokenId++;
         // store position data
         positions[positionId] = position;
-        // emit creation before transfer
+        // emit creation before transfer. No need to emit takerId, because it's emitted by the taker event
         emit PositionCreated(
             positionId,
             position.putStrikeDeviation,
