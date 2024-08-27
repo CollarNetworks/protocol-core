@@ -25,7 +25,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
     {
         startHoax(user);
         pair.collateralAsset.forceApprove(address(pair.loansContract), collateralAmount);
-        (borrowId,,) = pair.loansContract.createLoan(
+        (borrowId,,) = pair.loansContract.openLoan(
             collateralAmount,
             0,
             ILoans.SwapParams(minCashAmount, address(pair.loansContract.defaultSwapper()), ""),

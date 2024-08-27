@@ -16,7 +16,7 @@ import { ISwapper } from "./interfaces/ISwapper.sol";
 /**
  * @notice Unowned simple contract that swaps tokens in a direct route via UniswapV3.
  */
-contract SwapperUniV3Direct is ISwapper {
+contract SwapperUniV3 is ISwapper {
     using SafeERC20 for IERC20;
 
     string public constant VERSION = "0.2.0";

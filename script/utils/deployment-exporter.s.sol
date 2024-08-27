@@ -9,7 +9,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../../src/Rolls.sol";
 import { BaseDeployment } from "../BaseDeployment.s.sol";
 import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
-import { SwapperUniV3Direct } from "../../src/SwapperUniV3Direct.sol";
+import { SwapperUniV3 } from "../../src/SwapperUniV3.sol";
 
 contract DeploymentUtils is Script {
     function exportDeployment(
@@ -67,12 +67,7 @@ contract DeploymentUtils is Script {
 
             json = string(
                 abi.encodePacked(
-                    json,
-                    '"',
-                    pairName,
-                    '_swapperUniDirect": "',
-                    vm.toString(address(pair.swapperUniDirect)),
-                    '",'
+                    json, '"', pairName, '_swapperUniV3": "', vm.toString(address(pair.swapperUniV3)), '",'
                 )
             );
 
@@ -217,8 +212,8 @@ contract DeploymentUtils is Script {
                     oracle: OracleUniV3TWAP(
                         _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_oracle")))
                     ),
-                    swapperUniDirect: SwapperUniV3Direct(
-                        _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_swapperUniDirect")))
+                    swapperUniV3: SwapperUniV3(
+                        _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_swapperUniV3")))
                     ),
                     durations: _parseUintArray(parsedJson, string(abi.encodePacked(".", baseKey, "_durations"))),
                     ltvs: _parseUintArray(parsedJson, string(abi.encodePacked(".", baseKey, "_ltvs"))),

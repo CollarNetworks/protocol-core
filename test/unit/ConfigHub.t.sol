@@ -291,34 +291,6 @@ contract ConfigHubTest is Test {
         assertEq(configHub.pauseGuardian(), address(0));
     }
 
-    //    function test_setUniV3Router() public {
-    //        startHoax(owner);
-    //
-    //        // invalid no return
-    //        vm.expectRevert(new bytes(0));
-    //        configHub.setUniV3Router(address(0));
-    //
-    //        // invalid 0 address return
-    //        vm.mockCall(
-    //            address(router),
-    //            abi.encodeCall(IPeripheryImmutableState.factory, ()),
-    //            abi.encode(address(0)) // zero
-    //        );
-    //        vm.expectRevert("invalid router");
-    //        configHub.setUniV3Router(router);
-    //
-    //        // valid
-    //        vm.mockCall(
-    //            address(router),
-    //            abi.encodeCall(IPeripheryImmutableState.factory, ()),
-    //            abi.encode(address(1)) // not zero
-    //        );
-    //        vm.expectEmit(address(configHub));
-    //        emit IConfigHub.UniV3RouterSet(address(0), router);
-    //        configHub.setUniV3Router(router);
-    //        assertEq(configHub.uniV3SwapRouter(), router);
-    //    }
-
     function test_setProtocolFeeParams() public {
         startHoax(owner);
 

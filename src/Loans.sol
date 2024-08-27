@@ -17,10 +17,10 @@ import { ILoans } from "./interfaces/ILoans.sol";
 
 /**
  * @title Loans
- * @dev This contract manages the creation and closure of collateralized loans via Collar positions.
+ * @dev This contract manages opening and closing of collateralized loans via Collar positions.
  *
  * Main Functionality:
- * 1. Allows users to create loans by providing collateral and borrowing against it.
+ * 1. Allows users to open loans by providing collateral and borrowing against it.
  * 2. Handles the swapping of collateral to the cash asset via allowed Swappers (that use dex routers).
  * 3. Interacts with CollarTakerNFT to mint the NFT collar position backing the loans to the user.
  * 4. Manages loan closure, including repayment and swapping back to collateral.
@@ -76,8 +76,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         takerNFT = _takerNFT;
         cashAsset = _takerNFT.cashAsset();
         collateralAsset = _takerNFT.collateralAsset();
-        ConfigHub _configHub = _takerNFT.configHub();
-        _setConfigHub(_configHub);
+        _setConfigHub(_takerNFT.configHub());
     }
 
     modifier onlyNFTOwner(uint takerId) {
@@ -109,11 +108,11 @@ contract Loans is ILoans, BaseEmergencyAdmin {
     // ----- STATE CHANGING FUNCTIONS ----- //
 
     /**
-     * @notice Creates a new loan by providing collateral and borrowing against it
+     * @notice Opens a new loan by providing collateral and borrowing against it
      * @dev This function handles the entire loan creation process:
      *      1. Transfers collateral from the user to this contract
      *      2. Swaps collateral for cash assets using Uniswap V3
-     *      3. Creates a loan position using the CollarTakerNFT contract
+     *      3. Opens a loan position using the CollarTakerNFT contract
      *      4. Transfers the borrowed amount to the user
      *      5. Transfers the minted NFT to the user
      * @param collateralAmount The amount of collateral asset to be provided
@@ -126,9 +125,9 @@ contract Loans is ILoans, BaseEmergencyAdmin {
      * @param offerId The ID of the liquidity offer to use from the provider
      * @return takerId The ID of the minted CollarTakerNFT representing the loan
      * @return providerId The ID of the minted ProviderPositionNFT paired with this loan
-     * @return loanAmount The actual amount of the loan created in cash asset
+     * @return loanAmount The actual amount of the loan opened in cash asset
      */
-    function createLoan(
+    function openLoan(
         uint collateralAmount,
         uint minLoanAmount,
         SwapParams calldata swapParams,
@@ -144,10 +143,11 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         collateralAsset.safeTransferFrom(msg.sender, address(this), collateralAmount);
 
         // swap collateral
-        // reentrancy assumptions: router is trusted + swap path is direct (not through multiple pools)
+        // @dev Reentrancy assumption: no user state writes or reads BEFORE the swapper call in _swap.
+        // The only state reads before are owner-set state: pause and swapper allowlist.
         uint cashFromSwap = _swapCollateralWithTwapCheck(collateralAmount, swapParams);
 
-        (takerId, providerId, loanAmount) = _createLoan(collateralAmount, cashFromSwap, providerNFT, offerId);
+        (takerId, providerId, loanAmount) = _openLoan(collateralAmount, cashFromSwap, providerNFT, offerId);
         require(loanAmount >= minLoanAmount, "loan amount too low");
 
         // transfer the full loan amount on open
@@ -155,7 +155,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         // transfer the taker NFT to the user
         takerNFT.transferFrom(address(this), msg.sender, takerId);
 
-        emit LoanCreated(
+        emit LoanOpened(
             msg.sender, address(providerNFT), offerId, collateralAmount, loanAmount, takerId, providerId
         );
     }
@@ -228,6 +228,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
 
         uint cashAmount = _closeLoan(takerId, user, loan.loanAmount);
 
+        // @dev Reentrancy assumption: no user state writes or reads AFTER the swapper call in _swap.
         collateralOut = _swap(cashAsset, collateralAsset, cashAmount, swapParams);
 
         collateralAsset.safeTransfer(user, collateralOut);
@@ -320,7 +321,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    function _createLoan(
+    function _openLoan(
         uint collateralAmount,
         uint cashFromSwap,
         ProviderPositionNFT providerNFT,
@@ -360,10 +361,10 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         _checkSwapPrice(cashFromSwap, collateralAmount);
     }
 
-    /// @dev this function assumes that swapper being allowlisted was checked before calling this
-    /// @dev reentrancy assumption: _swap is called either before or after all internal state changes.
-    /// Such that if there's a reentrancy (e.g., via a malicious token in a multi-hop route), it
-    /// should be able to take advantage of inconsistent state
+    /// @dev this function assumes that swapper allowlist was checked before calling this
+    /// @dev reentrancy assumption: _swap is called either before or after all internal user state
+    /// writes or reads. Such that if there's a reentrancy (e.g., via a malicious token in a
+    /// multi-hop route), it should NOT be able to take advantage of any inconsistent state.
     function _swap(IERC20 assetIn, IERC20 assetOut, uint amountIn, SwapParams calldata swapParams)
         internal
         returns (uint amountOut)
@@ -372,10 +373,15 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         // approve the dex router
         assetIn.forceApprove(swapParams.swapper, amountIn);
 
-        /* @dev you may be tempted to simplify this by using an arbitrary call here instead of a
-        specific interface such as ISwapper. However, using a specific interface, even if using
-        an allow-list for swappers / routers is safer because it prevents stealing approvals, even
-        if the owner makes a mistake / is malicious. */
+        /* @dev It may be tempting to simplify this by using an arbitrary call instead of a
+        specific interface such as ISwapper. However:
+        1. using a specific interface is safer because it makes stealing approvals impossible.
+        This is safer than depending only on the allowlist.
+        2. an arbitrary call payload for a swap is more difficult to construct and inspect
+        so requires more user trust on the FE.
+        3. swap's amountIn would need to be calculated off-chain, which in case of closing
+        the loan is problematic, since it depends on withdrawal from the position.
+        */
         uint amountOutSwapper = ISwapper(swapParams.swapper).swap(
             assetIn, assetOut, amountIn, swapParams.minAmountOut, swapParams.extraData
         );

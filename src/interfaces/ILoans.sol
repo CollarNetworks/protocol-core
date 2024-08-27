@@ -28,7 +28,7 @@ interface ILoans {
     }
 
     // events
-    event LoanCreated(
+    event LoanOpened(
         address indexed sender,
         address indexed providerNFT,
         uint indexed offerId,
@@ -74,7 +74,7 @@ interface ILoans {
     function setKeeper(address keeper) external;
     function setRollsContract(Rolls rolls) external;
     // mutative user / keeper
-    function createLoan(
+    function openLoan(
         uint collateralAmount,
         uint minLoanAmount,
         SwapParams calldata swapParams,

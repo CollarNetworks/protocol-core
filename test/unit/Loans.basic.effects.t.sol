@@ -6,17 +6,21 @@ import "forge-std/Test.sol";
 import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { BaseAssetPairTestSetup } from "./BaseAssetPairTestSetup.sol";
-import { MockSwapRouter } from "../utils/MockSwapRouter.sol";
+import { MockSwapperRouter } from "../utils/MockSwapRouter.sol";
+import { SwapperArbitraryCall } from "../utils/SwapperArbitraryCall.sol";
 
 import { Loans, ILoans } from "../../src/Loans.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
-import { SwapperUniV3Direct } from "../../src/SwapperUniV3Direct.sol";
+import { SwapperUniV3, ISwapper } from "../../src/SwapperUniV3.sol";
 
 contract LoansTestBase is BaseAssetPairTestSetup {
-    MockSwapRouter mockSwapRouter;
-    SwapperUniV3Direct swapperUniDirect;
+    MockSwapperRouter mockSwapperRouter;
+    SwapperUniV3 swapperUniV3;
     Loans loans;
+
+    address defaultSwapper;
+    bytes extraData = "";
 
     uint24 swapFeeTier = 500;
 
@@ -27,24 +31,24 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         super.setUp();
 
         // deploy
-        mockSwapRouter = new MockSwapRouter();
-        swapperUniDirect = new SwapperUniV3Direct(address(mockSwapRouter), swapFeeTier);
+        mockSwapperRouter = new MockSwapperRouter();
+        swapperUniV3 = new SwapperUniV3(address(mockSwapperRouter), swapFeeTier);
         loans = new Loans(owner, takerNFT);
-        vm.label(address(mockSwapRouter), "MockSwapRouter");
-        vm.label(address(swapperUniDirect), "SwapperUniV3Direct");
+        vm.label(address(mockSwapperRouter), "MockSwapRouter");
+        vm.label(address(swapperUniV3), "SwapperUniV3");
         vm.label(address(loans), "Loans");
 
         // config
         vm.startPrank(owner);
         loans.setRollsContract(rolls);
-        loans.setSwapperAllowed(address(swapperUniDirect), true, true);
+        defaultSwapper = address(swapperUniV3);
+        loans.setSwapperAllowed(defaultSwapper, true, true);
         vm.stopPrank();
     }
 
     function prepareSwap(TestERC20 asset, uint amount) public {
-        asset.mint(address(mockSwapRouter), amount);
-        mockSwapRouter.setAmountToReturn(amount);
-        mockSwapRouter.setTransferAmount(amount);
+        asset.mint(address(mockSwapperRouter), amount);
+        mockSwapperRouter.setupSwap(amount, amount);
     }
 
     function prepareSwapToCollateralAtTWAPPrice() public returns (uint swapOut) {
@@ -58,7 +62,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
     }
 
     function defaultSwapParams(uint minOut) internal view returns (ILoans.SwapParams memory) {
-        return ILoans.SwapParams({ minAmountOut: minOut, swapper: address(swapperUniDirect), extraData: "" });
+        return ILoans.SwapParams({ minAmountOut: minOut, swapper: defaultSwapper, extraData: extraData });
     }
 
     function createOfferAsProvider() internal returns (uint offerId) {
@@ -87,7 +91,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         uint expectedLoanAmount = swapOut * ltv / 10_000;
 
         vm.expectEmit(address(loans));
-        emit ILoans.LoanCreated(
+        emit ILoans.LoanOpened(
             user1,
             address(providerNFT),
             offerId,
@@ -97,7 +101,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
             nextProviderId
         );
 
-        (takerId, providerId, loanAmount) = loans.createLoan(
+        (takerId, providerId, loanAmount) = loans.openLoan(
             collateralAmount, minLoanAmount, defaultSwapParams(swapCashAmount), providerNFT, offerId
         );
 
@@ -208,6 +212,24 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 }
 
 contract LoansBasicHappyPathsTest is LoansTestBase {
+    function switchToArbitrarySwapper()
+        internal
+        returns (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper)
+    {
+        vm.startPrank(owner);
+        // disable the old
+        loans.setSwapperAllowed(address(swapperUniV3), false, false);
+        // set the new
+        arbCallSwapper = new SwapperArbitraryCall();
+        defaultSwapper = address(arbCallSwapper);
+        loans.setSwapperAllowed(address(arbCallSwapper), true, true);
+
+        // swapper will call this other Uni swapper, because a swapper payload is easier to construct
+        newUniSwapper = new SwapperUniV3(address(mockSwapperRouter), swapFeeTier);
+    }
+
+    // tests
+
     function test_constructor() public {
         loans = new Loans(owner, takerNFT);
         assertEq(address(loans.configHub()), address(configHub));
@@ -219,10 +241,9 @@ contract LoansBasicHappyPathsTest is LoansTestBase {
         assertEq(loans.owner(), owner);
         assertEq(loans.closingKeeper(), address(0));
         assertEq(address(loans.rollsContract()), address(0));
-        //        assertEq(loans.swapFeeTier(), 500);
     }
 
-    function test_createLoan() public {
+    function test_openLoan() public {
         createAndCheckLoan();
     }
 
@@ -315,5 +336,66 @@ contract LoansBasicHappyPathsTest is LoansTestBase {
         uint newPrice = twapPrice * (putStrikeDeviation - BIPS_100PCT / 10) / BIPS_100PCT;
         // price goes below put strike, withdrawal is 0% (all gone to provider)
         checkOpenCloseWithPriceChange(newPrice, 0, 0);
+    }
+
+    function test_openLoan_swapper_extraData() public {
+        (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) = switchToArbitrarySwapper();
+        assertFalse(loans.allowedSwappers(address(swapperUniV3)));
+        assertTrue(loans.allowedSwappers(address(arbCallSwapper)));
+
+        // check that without extraData, open loan fails
+        uint offerId = createOfferAsProvider();
+        prepareSwap(cashAsset, swapCashAmount);
+        vm.startPrank(user1);
+        collateralAsset.approve(address(loans), collateralAmount);
+        vm.expectRevert(new bytes(0)); // failure to decode extraData
+        loans.openLoan(collateralAmount, 0, defaultSwapParams(0), providerNFT, offerId);
+
+        // call chain: loans -> arbitrary-swapper -> newUniSwapper -> mock-router.
+        // by checking that this works we're ensuring that an arbitrary call swapper works, meaning that
+        // extraData is passed correctly.
+        // This is the extraData format that arbitrary swapper expects to unpack
+        extraData = abi.encode(
+            SwapperArbitraryCall.ArbitraryCall(
+                address(newUniSwapper),
+                abi.encodeCall(newUniSwapper.swap, (collateralAsset, cashAsset, collateralAmount, 0, ""))
+            )
+        );
+        // open loan works now
+        createAndCheckLoan();
+    }
+
+    function test_closeLoan_swapper_extraData() public {
+        // create a closable loan
+        (uint takerId,, uint loanAmount) = createAndCheckLoan();
+        skip(duration);
+        uint swapOut = prepareSwapToCollateralAtTWAPPrice();
+
+        // switch swappers
+        (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) = switchToArbitrarySwapper();
+        assertFalse(loans.allowedSwappers(address(swapperUniV3)));
+        assertTrue(loans.allowedSwappers(address(arbCallSwapper)));
+
+        // try with incorrect data (extraData is empty)
+        vm.startPrank(user1);
+        cashAsset.approve(address(loans), loanAmount);
+        takerNFT.approve(address(loans), takerId);
+        vm.expectRevert(new bytes(0)); // failure to decode extraData
+        loans.closeLoan(takerId, defaultSwapParams(0));
+
+        // price doesn't change so all putLocked is withdrawn
+        uint withdrawal = takerNFT.getPosition(takerId).putLockedCash;
+        // must know how much to swap
+        uint expectedCashIn = loanAmount + withdrawal;
+        // data for closing the loan (the swap back)
+        // call chain: loans -> arbitrary-swapper -> newUniSwapper -> mock-router.
+        extraData = abi.encode(
+            SwapperArbitraryCall.ArbitraryCall(
+                address(newUniSwapper),
+                abi.encodeCall(newUniSwapper.swap, (cashAsset, collateralAsset, expectedCashIn, 0, ""))
+            )
+        );
+        // check close loan
+        closeAndCheckLoan(takerId, user1, loanAmount, withdrawal, swapOut);
     }
 }
