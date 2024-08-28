@@ -5,7 +5,7 @@
   - create / close should take additional arguments: `.., address swapper, bytes calldata swapperData)`
 - [x] #med uniswap fee can be 100 too
   - mitigation: check fee is supported by checking vs. `factory.feeAmountTickSpacing()` instead of specific values
-- [ ] #low no close path for loans in case are left hanging (in case of migration or if settled and withdrawn directly:
+- [x] #low no close path for loans in case are left hanging (in case of migration or if settled and withdrawn directly:
   - mitigation: add `cancelLoan` that can be triggered by anyone for a loan that was active, but who's NFT (takerId) was burned (so was cancelled or withdrawn outside of the loans contract)
   - should emit LoanCancelled event
 
