@@ -10,7 +10,7 @@ pragma solidity 0.8.22;
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 // internal imports
 import { BaseEmergencyAdmin, ConfigHub } from "./base/BaseEmergencyAdmin.sol";
-import { CollarTakerNFT, ProviderPositionNFT } from "./CollarTakerNFT.sol";
+import { CollarTakerNFT, ShortProviderNFT } from "./CollarTakerNFT.sol";
 import { Rolls } from "./Rolls.sol";
 import { ISwapper } from "./interfaces/ISwapper.sol";
 import { ILoans } from "./interfaces/ILoans.sol";
@@ -33,7 +33,7 @@ import { ILoans } from "./interfaces/ILoans.sol";
  *
  * Key Assumptions and Prerequisites:
  * 1. Allowed Swappers and the underlying dex routers / aggregators are trusted and properly implemented.
- * 2. The CollarTakerNFT and ProviderPositionNFT contracts are correctly implemented and authorized.
+ * 2. The CollarTakerNFT and ShortProviderNFT contracts are correctly implemented and authorized.
  * 3. The ConfigHub contract correctly manages protocol parameters and reports prices.
  * 4. Assets (ERC-20) used are standard compliant (non-rebasing, no transfer fees, no callbacks).
  * 5. The Rolls contract is trusted by user (and allowed by owner) and correctly rolls the taker position.
@@ -121,17 +121,17 @@ contract Loans is ILoans, BaseEmergencyAdmin {
      *     - The minimum acceptable amount of cash from the collateral swap (slippage protection)
      *     - an allowed Swapper
      *     - any extraData the swapper needs to use
-     * @param providerNFT The address of the ProviderPositionNFT contract to use
+     * @param providerNFT The address of the ShortProviderNFT contract to use
      * @param offerId The ID of the liquidity offer to use from the provider
      * @return takerId The ID of the minted CollarTakerNFT representing the loan
-     * @return providerId The ID of the minted ProviderPositionNFT paired with this loan
+     * @return providerId The ID of the minted ShortProviderNFT paired with this loan
      * @return loanAmount The actual amount of the loan opened in cash asset
      */
     function openLoan(
         uint collateralAmount,
         uint minLoanAmount,
         SwapParams calldata swapParams,
-        ProviderPositionNFT providerNFT, // @dev will be validated by takerNFT, which is immutable
+        ShortProviderNFT providerNFT, // @dev will be validated by takerNFT, which is immutable
         uint offerId // @dev implies specific provider, put & call deviations, duration
     ) external whenNotPaused returns (uint takerId, uint providerId, uint loanAmount) {
         // 0 collateral is later checked to mean non-existing loan, also prevents div-zero
@@ -340,12 +340,10 @@ contract Loans is ILoans, BaseEmergencyAdmin {
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    function _openLoan(
-        uint collateralAmount,
-        uint cashFromSwap,
-        ProviderPositionNFT providerNFT,
-        uint offerId
-    ) internal returns (uint takerId, uint providerId, uint loanAmount) {
+    function _openLoan(uint collateralAmount, uint cashFromSwap, ShortProviderNFT providerNFT, uint offerId)
+        internal
+        returns (uint takerId, uint providerId, uint loanAmount)
+    {
         uint putStrikeDeviation = providerNFT.getOffer(offerId).putStrikeDeviation;
 
         // this assumes LTV === put strike price

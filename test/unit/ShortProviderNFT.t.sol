@@ -10,9 +10,9 @@ import { TestERC20 } from "../utils/TestERC20.sol";
 
 import { BaseAssetPairTestSetup } from "./BaseAssetPairTestSetup.sol";
 
-import { ProviderPositionNFT, IProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
+import { ShortProviderNFT, IShortProviderNFT } from "../../src/ShortProviderNFT.sol";
 
-contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
+contract ShortProviderNFTTest is BaseAssetPairTestSetup {
     address takerContract;
 
     address recipient = makeAddr("recipient");
@@ -29,7 +29,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
 
     function createAndCheckOffer(address provider, uint amount)
         public
-        returns (uint offerId, ProviderPositionNFT.LiquidityOffer memory offer)
+        returns (uint offerId, ShortProviderNFT.LiquidityOffer memory offer)
     {
         startHoax(provider);
         cashAsset.approve(address(providerNFT), amount);
@@ -37,7 +37,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         uint nextOfferId = providerNFT.nextOfferId();
 
         vm.expectEmit(address(providerNFT));
-        emit IProviderPositionNFT.OfferCreated(
+        emit IShortProviderNFT.OfferCreated(
             provider, putDeviation, duration, callStrikeDeviation, amount, nextOfferId
         );
         offerId = providerNFT.createOffer(callStrikeDeviation, amount, putDeviation, duration);
@@ -75,7 +75,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
 
     function createAndCheckPosition(address provider, uint offerAmount, uint positionAmount)
         public
-        returns (uint positionId, ProviderPositionNFT.ProviderPosition memory position)
+        returns (uint positionId, ShortProviderNFT.ProviderPosition memory position)
     {
         (uint offerId,) = createAndCheckOffer(provider, offerAmount);
         uint balanceBefore = cashAsset.balanceOf(address(providerNFT));
@@ -87,11 +87,11 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
 
         startHoax(address(takerContract));
         vm.expectEmit(address(providerNFT));
-        emit IProviderPositionNFT.PositionCreated(
+        emit IShortProviderNFT.PositionCreated(
             0, putDeviation, duration, callStrikeDeviation, positionAmount, offerId, fee
         );
         vm.expectEmit(address(providerNFT));
-        emit IProviderPositionNFT.OfferUpdated(
+        emit IShortProviderNFT.OfferUpdated(
             offerId, address(takerContract), offerAmount, offerAmount - positionAmount - fee
         );
         (positionId, position) = providerNFT.mintFromOffer(offerId, positionAmount, takerId);
@@ -109,7 +109,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         assertEq(abi.encode(providerNFT.getPosition(positionId)), abi.encode(position));
 
         // Check updated offer
-        ProviderPositionNFT.LiquidityOffer memory updatedOffer = providerNFT.getOffer(offerId);
+        ShortProviderNFT.LiquidityOffer memory updatedOffer = providerNFT.getOffer(offerId);
         assertEq(updatedOffer.available, offerAmount - positionAmount - fee);
 
         // Check NFT ownership
@@ -121,13 +121,13 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
     }
 
     function test_constructor() public {
-        ProviderPositionNFT newProviderNFT = new ProviderPositionNFT(
+        ShortProviderNFT newProviderNFT = new ShortProviderNFT(
             owner,
             configHub,
             cashAsset,
             collateralAsset,
             address(takerContract),
-            "NewProviderPositionNFT",
+            "NewShortProviderNFT",
             "NPRVNFT"
         );
 
@@ -135,12 +135,12 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         assertEq(address(newProviderNFT.configHub()), address(configHub));
         assertEq(address(newProviderNFT.cashAsset()), address(cashAsset));
         assertEq(address(newProviderNFT.collateralAsset()), address(collateralAsset));
-        assertEq(address(newProviderNFT.collarTakerContract()), takerContract);
+        assertEq(address(newProviderNFT.taker()), takerContract);
         assertEq(newProviderNFT.MIN_CALL_STRIKE_BIPS(), 10_001);
         assertEq(newProviderNFT.MAX_CALL_STRIKE_BIPS(), 100_000);
         assertEq(newProviderNFT.MAX_PUT_STRIKE_BIPS(), 9999);
         assertEq(newProviderNFT.VERSION(), "0.2.0");
-        assertEq(newProviderNFT.name(), "NewProviderPositionNFT");
+        assertEq(newProviderNFT.name(), "NewShortProviderNFT");
         assertEq(newProviderNFT.symbol(), "NPRVNFT");
     }
 
@@ -157,10 +157,10 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
 
         withdrawal = change > 0 ? principal + uint(change) : principal - uint(-change);
         vm.expectEmit(address(providerNFT));
-        emit IProviderPositionNFT.PositionSettled(positionId, change, withdrawal);
+        emit IShortProviderNFT.PositionSettled(positionId, change, withdrawal);
         providerNFT.settlePosition(positionId, change);
 
-        ProviderPositionNFT.ProviderPosition memory settledPosition = providerNFT.getPosition(positionId);
+        ShortProviderNFT.ProviderPosition memory settledPosition = providerNFT.getPosition(positionId);
         assertEq(settledPosition.settled, true);
         assertEq(settledPosition.withdrawable, withdrawal);
 
@@ -175,7 +175,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
 
         vm.startPrank(provider);
         vm.expectEmit(address(providerNFT));
-        emit IProviderPositionNFT.WithdrawalFromSettled(positionId, recipient, withdrawable);
+        emit IShortProviderNFT.WithdrawalFromSettled(positionId, recipient, withdrawable);
         providerNFT.withdrawFromSettled(positionId, recipient);
 
         // Check balances
@@ -188,7 +188,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         providerNFT.ownerOf(positionId);
 
         // Check position is zeroed out
-        ProviderPositionNFT.ProviderPosition memory settledPosition = providerNFT.getPosition(positionId);
+        ShortProviderNFT.ProviderPosition memory settledPosition = providerNFT.getPosition(positionId);
         assertEq(settledPosition.withdrawable, 0);
     }
 
@@ -202,7 +202,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         providerNFT.transferFrom(provider, takerContract, positionId);
         vm.startPrank(takerContract);
         vm.expectEmit(address(providerNFT));
-        emit IProviderPositionNFT.PositionCanceled(
+        emit IShortProviderNFT.PositionCanceled(
             positionId, recipient, amountToMint, providerNFT.getPosition(positionId).expiration
         );
         providerNFT.cancelAndWithdraw(positionId, recipient);
@@ -217,7 +217,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         providerNFT.ownerOf(positionId);
 
         // Check position is zeroed out
-        ProviderPositionNFT.ProviderPosition memory canceledPosition = providerNFT.getPosition(positionId);
+        ShortProviderNFT.ProviderPosition memory canceledPosition = providerNFT.getPosition(positionId);
         assertEq(canceledPosition.withdrawable, 0);
         assertEq(canceledPosition.settled, true);
     }
@@ -237,13 +237,13 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         uint balance = cashAsset.balanceOf(provider);
 
         vm.expectEmit(address(providerNFT));
-        emit IProviderPositionNFT.OfferUpdated(offerId, provider, largeAmount, newAmount);
+        emit IShortProviderNFT.OfferUpdated(offerId, provider, largeAmount, newAmount);
         providerNFT.updateOfferAmount(offerId, newAmount);
 
         // next offer id not impacted
         assertEq(providerNFT.nextOfferId(), offerId + 1);
         // offer
-        ProviderPositionNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
+        ShortProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
         assertEq(offer.provider, provider);
         assertEq(offer.available, largeAmount * 2);
         assertEq(offer.putStrikeDeviation, putDeviation);
@@ -261,13 +261,13 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         uint balance = cashAsset.balanceOf(provider);
 
         vm.expectEmit(address(providerNFT));
-        emit IProviderPositionNFT.OfferUpdated(offerId, provider, largeAmount, newAmount);
+        emit IShortProviderNFT.OfferUpdated(offerId, provider, largeAmount, newAmount);
         providerNFT.updateOfferAmount(offerId, newAmount);
 
         // next offer id not impacted
         assertEq(providerNFT.nextOfferId(), offerId + 1);
         // offer
-        ProviderPositionNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
+        ShortProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
         assertEq(offer.provider, provider);
         assertEq(offer.available, largeAmount / 2);
         assertEq(offer.putStrikeDeviation, putDeviation);
@@ -278,12 +278,12 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
     }
 
     function test_updateOfferAmountNoChange() public {
-        (uint offerId, ProviderPositionNFT.LiquidityOffer memory previousOffer) =
+        (uint offerId, ShortProviderNFT.LiquidityOffer memory previousOffer) =
             createAndCheckOffer(provider, largeAmount);
         uint balance = cashAsset.balanceOf(provider);
 
         vm.expectEmit(address(providerNFT));
-        emit IProviderPositionNFT.OfferUpdated(offerId, provider, largeAmount, largeAmount);
+        emit IShortProviderNFT.OfferUpdated(offerId, provider, largeAmount, largeAmount);
         providerNFT.updateOfferAmount(offerId, largeAmount);
 
         assertEq(abi.encode(providerNFT.getOffer(offerId)), abi.encode(previousOffer));
@@ -300,14 +300,14 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
 
     function test_mintPositionFromOffer()
         public
-        returns (uint positionId, ProviderPositionNFT.ProviderPosition memory position)
+        returns (uint positionId, ShortProviderNFT.ProviderPosition memory position)
     {
         (positionId, position) = createAndCheckPosition(provider, largeAmount, largeAmount / 2);
     }
 
     function test_mintPositionFromOffer_fullAmount()
         public
-        returns (uint positionId, ProviderPositionNFT.ProviderPosition memory position)
+        returns (uint positionId, ShortProviderNFT.ProviderPosition memory position)
     {
         uint fee = checkProtocolFeeView(largeAmount);
         cashAsset.mint(provider, fee);
@@ -439,7 +439,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
 
     function test_cancelAndWithdraw_afterExpiration() public {
         uint amountToMint = largeAmount / 2;
-        (uint positionId, ProviderPositionNFT.ProviderPosition memory position) =
+        (uint positionId, ShortProviderNFT.ProviderPosition memory position) =
             createAndCheckPosition(provider, largeAmount, amountToMint);
 
         skip(duration + 1);
@@ -449,7 +449,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         providerNFT.transferFrom(provider, takerContract, positionId);
         vm.startPrank(takerContract);
         vm.expectEmit(address(providerNFT));
-        emit IProviderPositionNFT.PositionCanceled(positionId, recipient, amountToMint, position.expiration);
+        emit IShortProviderNFT.PositionCanceled(positionId, recipient, amountToMint, position.expiration);
         providerNFT.cancelAndWithdraw(positionId, recipient);
     }
 
@@ -476,7 +476,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         }
 
         for (uint i = 0; i < offerCount; i++) {
-            ProviderPositionNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerIds[i]);
+            ShortProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerIds[i]);
             assertEq(offer.provider, provider);
             assertEq(offer.available, largeAmount / (i + 1));
             assertEq(offer.putStrikeDeviation, putDeviation);
@@ -501,13 +501,13 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
             (positionIds[i],) = providerNFT.mintFromOffer(offerId, amount, i);
         }
 
-        ProviderPositionNFT.LiquidityOffer memory updatedOffer = providerNFT.getOffer(offerId);
+        ShortProviderNFT.LiquidityOffer memory updatedOffer = providerNFT.getOffer(offerId);
         assertEq(updatedOffer.available, 0);
 
         assertEq(cashAsset.balanceOf(protocolFeeRecipient), fee * positionCount);
 
         for (uint i = 0; i < positionCount; i++) {
-            ProviderPositionNFT.ProviderPosition memory position = providerNFT.getPosition(positionIds[i]);
+            ShortProviderNFT.ProviderPosition memory position = providerNFT.getPosition(positionIds[i]);
             assertEq(position.takerId, i);
             assertEq(position.principal, largeAmount);
             assertEq(position.putStrikeDeviation, putDeviation);
@@ -524,7 +524,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         address newOwner = makeAddr("newOwner");
 
         // Create and mint a position
-        (uint positionId, ProviderPositionNFT.ProviderPosition memory position) =
+        (uint positionId, ShortProviderNFT.ProviderPosition memory position) =
             createAndCheckPosition(provider, largeAmount, largeAmount / 2);
 
         // Transfer the position to the new owner
@@ -543,7 +543,7 @@ contract ProviderPositionNFTTest is BaseAssetPairTestSetup {
         providerNFT.settlePosition(positionId, positionChange);
 
         // Check that the position is settled
-        ProviderPositionNFT.ProviderPosition memory settledPosition = providerNFT.getPosition(positionId);
+        ShortProviderNFT.ProviderPosition memory settledPosition = providerNFT.getPosition(positionId);
         assertEq(settledPosition.settled, true);
         assertEq(settledPosition.withdrawable, position.principal + uint(positionChange));
 

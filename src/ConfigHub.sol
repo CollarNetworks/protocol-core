@@ -10,7 +10,7 @@ pragma solidity 0.8.22;
 import { Ownable2Step, Ownable } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 // internal imports
 import { IConfigHub } from "./interfaces/IConfigHub.sol";
-import { IProviderPositionNFT } from "./interfaces/IProviderPositionNFT.sol";
+import { IShortProviderNFT } from "./interfaces/IShortProviderNFT.sol";
 import { ICollarTakerNFT } from "./interfaces/ICollarTakerNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -54,9 +54,9 @@ contract ConfigHub is Ownable2Step, IConfigHub {
 
     function setProviderNFTCanOpen(address contractAddress, bool enabled) external onlyOwner {
         providerNFTCanOpen[contractAddress] = enabled;
-        IERC20 cashAsset = IProviderPositionNFT(contractAddress).cashAsset();
-        IERC20 collateralAsset = IProviderPositionNFT(contractAddress).collateralAsset();
-        address collarTakerNFT = IProviderPositionNFT(contractAddress).collarTakerContract();
+        IERC20 cashAsset = IShortProviderNFT(contractAddress).cashAsset();
+        IERC20 collateralAsset = IShortProviderNFT(contractAddress).collateralAsset();
+        address collarTakerNFT = IShortProviderNFT(contractAddress).taker();
         emit ProviderNFTAuthSet(
             contractAddress, enabled, address(cashAsset), address(collateralAsset), collarTakerNFT
         );

@@ -4,7 +4,7 @@ pragma solidity ^0.8.18;
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import { CollarBaseIntegrationTestConfig, ILoans } from "./BaseIntegration.t.sol";
-import { ProviderPositionNFT } from "../../../src/ProviderPositionNFT.sol";
+import { ShortProviderNFT } from "../../../src/ShortProviderNFT.sol";
 import { CollarTakerNFT } from "../../../src/CollarTakerNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -249,7 +249,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         callStrikeDeviations[3] = 13_000; // 130%
 
         for (uint i = 0; i < callStrikeDeviations.length; i++) {
-            ProviderPositionNFT.LiquidityOffer memory offer = pair.providerNFT.getOffer(i);
+            ShortProviderNFT.LiquidityOffer memory offer = pair.providerNFT.getOffer(i);
             assertEq(offer.provider, provider);
             assertEq(offer.available, amountPerOffer);
             assertEq(offer.putStrikeDeviation, offerLTV);

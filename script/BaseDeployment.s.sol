@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
 import { ConfigHub } from "../src/ConfigHub.sol";
-import { ProviderPositionNFT } from "../src/ProviderPositionNFT.sol";
+import { ShortProviderNFT } from "../src/ShortProviderNFT.sol";
 import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
 import { Loans, ILoans } from "../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -18,7 +18,7 @@ contract BaseDeployment is Script {
     address deployerAddress;
 
     struct AssetPairContracts {
-        ProviderPositionNFT providerNFT;
+        ShortProviderNFT providerNFT;
         CollarTakerNFT takerNFT;
         Loans loansContract;
         Rolls rollsContract;
@@ -115,7 +115,7 @@ contract BaseDeployment is Script {
             string(abi.encodePacked("Taker ", pairConfig.name)),
             string(abi.encodePacked("T", pairConfig.name))
         );
-        ProviderPositionNFT providerNFT = new ProviderPositionNFT(
+        ShortProviderNFT providerNFT = new ShortProviderNFT(
             deployerAddress,
             configHub,
             pairConfig.cashAsset,
@@ -196,7 +196,7 @@ contract BaseDeployment is Script {
                     uint offerId = pair.providerNFT.createOffer(
                         callStrikeTicks[l], cashAmountPerOffer, pair.ltvs[k], pair.durations[j]
                     );
-                    ProviderPositionNFT.LiquidityOffer memory offer = pair.providerNFT.getOffer(offerId);
+                    ShortProviderNFT.LiquidityOffer memory offer = pair.providerNFT.getOffer(offerId);
                     require(offer.provider == liquidityProvider, "Offer not created for liquidity provider");
                     require(offer.available == cashAmountPerOffer, "Incorrect offer amount");
                     require(offer.putStrikeDeviation == pair.ltvs[k], "Incorrect LTV");

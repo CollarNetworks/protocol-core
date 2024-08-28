@@ -9,7 +9,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
-import { ConfigHub, IConfigHub, IProviderPositionNFT, ICollarTakerNFT } from "../../src/ConfigHub.sol";
+import { ConfigHub, IConfigHub, IShortProviderNFT, ICollarTakerNFT } from "../../src/ConfigHub.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract ConfigHubTest is Test {
@@ -120,17 +120,17 @@ contract ConfigHubTest is Test {
         // Mock the cashAsset, collateralAsset, and collarTakerContract calls
         vm.mockCall(
             providerContract,
-            abi.encodeWithSelector(IProviderPositionNFT.cashAsset.selector),
+            abi.encodeWithSelector(IShortProviderNFT.cashAsset.selector),
             abi.encode(address(token1))
         );
         vm.mockCall(
             providerContract,
-            abi.encodeWithSelector(IProviderPositionNFT.collateralAsset.selector),
+            abi.encodeWithSelector(IShortProviderNFT.collateralAsset.selector),
             abi.encode(address(token2))
         );
         vm.mockCall(
             providerContract,
-            abi.encodeWithSelector(IProviderPositionNFT.collarTakerContract.selector),
+            abi.encodeWithSelector(IShortProviderNFT.taker.selector),
             abi.encode(address(0x789))
         );
 
