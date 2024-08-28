@@ -54,6 +54,7 @@ interface ILoans {
         uint newLoanAmount,
         int transferAmount
     );
+    event LoanCancelled(uint indexed takerId, address indexed sender);
     event ClosingKeeperAllowed(address indexed sender, uint indexed takerId, bool indexed enabled);
     event ClosingKeeperUpdated(address indexed previousKeeper, address indexed newKeeper);
     event RollsContractUpdated(Rolls indexed previousRolls, Rolls indexed newRolls);
