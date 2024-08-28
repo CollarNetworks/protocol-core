@@ -10,11 +10,13 @@ import { Loans } from "../../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../../src/Rolls.sol";
 import { DeploymentUtils } from "../utils/deployment-exporter.s.sol";
-import { BaseDeployment } from "../BaseDeployment.s.sol";
 import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
+import { SetupHelper } from "../setup-helper.sol";
+import { DeploymentHelper } from "../deployment-helper.sol";
+import { WalletLoader } from "../wallet-loader.s.sol";
 
-contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
-    uint chainId = 42_161; // id for ethereum mainnet fork on tenderly
+contract DeployContracts is Script, DeploymentUtils, DeploymentHelper, SetupHelper, WalletLoader {
+    uint chainId = 42_161; // id for arbitrum mainnet
     address USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
     address USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
     address WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
@@ -23,8 +25,9 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
     address WBTC = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
     address MATIC = 0x561877b6b3DD7651313794e5F2894B2F18bE0766;
     address swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
-    uint constant numOfPairs = 11;
+
     AssetPairContracts[] public assetPairContracts;
+
     uint[] allDurations = [5 minutes, 30 days, 12 * 30 days];
     uint[] allLTVs = [9000, 5000];
     uint24 oracleFeeTier = 500;
@@ -35,7 +38,7 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         require(chainId == block.chainid, "chainId does not match the chainId in config");
         (address deployer,,,) = setup();
         vm.startBroadcast(deployer);
-        _deployConfigHub();
+        ConfigHub configHub = deployConfigHub(deployer);
         address[] memory collateralAssets = new address[](5);
         collateralAssets[0] = WETH;
         collateralAssets[1] = WBTC;
@@ -51,10 +54,9 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         uint minDuration = allDurations[0];
         uint maxDuration = allDurations[2];
 
-        _deployConfigHub();
-
-        _setupConfigHub(
-            BaseDeployment.HubParams({
+        setupConfigHub(
+            configHub,
+            SetupHelper.HubParams({
                 cashAssets: cashAssets,
                 collateralAssets: collateralAssets,
                 minLTV: minLTV,
@@ -64,7 +66,10 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             })
         );
 
-        _createContractPairs();
+        _createContractPairs(configHub, deployer);
+        for (uint i = 0; i < assetPairContracts.length; i++) {
+            setupContractPair(configHub, assetPairContracts[i]);
+        }
         vm.stopBroadcast();
 
         exportDeployment(
@@ -74,14 +79,14 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
         console.log("\nDeployment completed successfully");
     }
 
-    function _createContractPairs() internal {
+    function _createContractPairs(ConfigHub configHub, address owner) internal {
         uint[] memory singleDuration = new uint[](1);
         singleDuration[0] = allDurations[0];
 
         uint[] memory singleLTV = new uint[](1);
         singleLTV[0] = allLTVs[0];
 
-        BaseDeployment.PairConfig memory USDCWETHPairConfig = BaseDeployment.PairConfig({
+        DeploymentHelper.PairConfig memory USDCWETHPairConfig = DeploymentHelper.PairConfig({
             name: "USDC/WETH",
             durations: allDurations,
             ltvs: allLTVs,
@@ -93,9 +98,9 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             swapRouter: swapRouterAddress
         });
 
-        assetPairContracts.push(_createContractPair(USDCWETHPairConfig));
+        assetPairContracts.push(deployContractPair(configHub, USDCWETHPairConfig, owner));
 
-        BaseDeployment.PairConfig memory USDTWETHPairConfig = BaseDeployment.PairConfig({
+        DeploymentHelper.PairConfig memory USDTWETHPairConfig = DeploymentHelper.PairConfig({
             name: "USDT/WETH",
             durations: singleDuration,
             ltvs: singleLTV,
@@ -107,9 +112,9 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             swapRouter: swapRouterAddress
         });
 
-        assetPairContracts.push(_createContractPair(USDTWETHPairConfig));
+        assetPairContracts.push(deployContractPair(configHub, USDTWETHPairConfig, owner));
 
-        BaseDeployment.PairConfig memory USDCWBTCPairConfig = BaseDeployment.PairConfig({
+        DeploymentHelper.PairConfig memory USDCWBTCPairConfig = DeploymentHelper.PairConfig({
             name: "USDC/WBTC",
             durations: singleDuration,
             ltvs: singleLTV,
@@ -121,9 +126,9 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             swapRouter: swapRouterAddress
         });
 
-        assetPairContracts.push(_createContractPair(USDCWBTCPairConfig));
+        assetPairContracts.push(deployContractPair(configHub, USDCWBTCPairConfig, owner));
 
-        BaseDeployment.PairConfig memory USDCMATICPairConfig = BaseDeployment.PairConfig({
+        DeploymentHelper.PairConfig memory USDCMATICPairConfig = DeploymentHelper.PairConfig({
             name: "USDC/MATIC",
             durations: singleDuration,
             ltvs: singleLTV,
@@ -135,9 +140,9 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             swapRouter: swapRouterAddress
         });
 
-        assetPairContracts.push(_createContractPair(USDCMATICPairConfig));
+        assetPairContracts.push(deployContractPair(configHub, USDCMATICPairConfig, owner));
 
-        BaseDeployment.PairConfig memory USDCstEthPairConfig = BaseDeployment.PairConfig({
+        DeploymentHelper.PairConfig memory USDCstEthPairConfig = DeploymentHelper.PairConfig({
             name: "USDC/stETH",
             durations: singleDuration,
             ltvs: singleLTV,
@@ -149,9 +154,9 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             swapRouter: swapRouterAddress
         });
 
-        assetPairContracts.push(_createContractPair(USDCstEthPairConfig));
+        assetPairContracts.push(deployContractPair(configHub, USDCstEthPairConfig, owner));
 
-        BaseDeployment.PairConfig memory WETHweEthPairConfig = BaseDeployment.PairConfig({
+        DeploymentHelper.PairConfig memory WETHweEthPairConfig = DeploymentHelper.PairConfig({
             name: "WETH/weETH",
             durations: singleDuration,
             ltvs: singleLTV,
@@ -163,11 +168,6 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
             swapRouter: swapRouterAddress
         });
 
-        assetPairContracts.push(_createContractPair(WETHweEthPairConfig));
-
-        for (uint i = 0; i < assetPairContracts.length; i++) {
-            _setupContractPair(configHub, assetPairContracts[i]);
-            _verifyDeployment(configHub, assetPairContracts[i]);
-        }
+        assetPairContracts.push(deployContractPair(configHub, WETHweEthPairConfig, owner));
     }
 }

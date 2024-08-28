@@ -10,21 +10,29 @@ import { Loans } from "../../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../../src/Rolls.sol";
 import { DeploymentUtils } from "../utils/deployment-exporter.s.sol";
-import { BaseDeployment } from "../BaseDeployment.s.sol";
-import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
-import { IUniswapV3Pool } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 import { CollarOwnedERC20 } from "../../test/utils/CollarOwnedERC20.sol";
-import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
+import { INonfungiblePositionManager } from
+    "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
+import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
+import { DeploymentHelper } from "../deployment-helper.sol";
+import { SetupHelper } from "../setup-helper.sol";
+import { WalletLoader } from "../wallet-loader.s.sol";
+import { UniswapNewPoolHelper } from "../../test/utils/UniswapNewPoolHelper.sol";
 
-contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
+contract DeployContracts is
+    Script,
+    DeploymentUtils,
+    UniswapNewPoolHelper,
+    SetupHelper,
+    DeploymentHelper,
+    WalletLoader
+{
     uint chainId = 421_614; // Arbitrum Sepolia chain ID
     IV3SwapRouter constant SWAP_ROUTER = IV3SwapRouter(0x101F443B4d1b059569D643917553c771E1b9663E);
-    CollarOwnedERC20 constant cashAsset = CollarOwnedERC20(0x5D01F1E59C188a2A9Afc376cF6627dd5F28DC28F);
-    CollarOwnedERC20 constant collateralAsset = CollarOwnedERC20(0x9A6E1a5f94De0aD8ca15b55eA0d39bEaEc579434);
     INonfungiblePositionManager constant POSITION_MANAGER =
         INonfungiblePositionManager(0x6b2937Bde17889EDCf8fbD8dE31C3C2a70Bc4d65);
     uint duration = 300;
@@ -32,19 +40,28 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
     uint32 twapWindow = 15 minutes;
     uint amountToProvideToPool = 10_000_000 ether;
 
+    // Set these to non-zero addresses if you want to use existing tokens
+    address public cashAssetAddress = address(0x5D01F1E59C188a2A9Afc376cF6627dd5F28DC28F);
+    address public collateralAssetAddress = address(0x9A6E1a5f94De0aD8ca15b55eA0d39bEaEc579434);
+
     function run() external {
         require(chainId == block.chainid, "chainId does not match the chainId in config");
-        (address deployer,,, address provider) = setup();
+        (address deployer,,,) = setup();
 
         vm.startBroadcast(deployer);
-        _deployConfigHub();
-        address[] memory collateralAssets = new address[](1);
-        collateralAssets[0] = address(collateralAsset);
-        address[] memory cashAssets = new address[](1);
-        cashAssets[0] = address(cashAsset);
 
-        _setupConfigHub(
-            BaseDeployment.HubParams({
+        ConfigHub configHub = deployConfigHub(deployer);
+
+        (cashAssetAddress, collateralAssetAddress) = _setupAssets();
+
+        address[] memory collateralAssets = new address[](1);
+        collateralAssets[0] = collateralAssetAddress;
+        address[] memory cashAssets = new address[](1);
+        cashAssets[0] = cashAssetAddress;
+
+        setupConfigHub(
+            configHub,
+            HubParams({
                 cashAssets: cashAssets,
                 collateralAssets: collateralAssets,
                 minLTV: ltv,
@@ -53,77 +70,84 @@ contract DeployContracts is Script, DeploymentUtils, BaseDeployment {
                 maxDuration: duration
             })
         );
-        _createOrValidateUniswapPool(provider);
+
+        _setupUniswapPool(cashAssetAddress, collateralAssetAddress);
+
         uint[] memory durations = new uint[](1);
         durations[0] = duration;
         uint[] memory ltvs = new uint[](1);
         ltvs[0] = ltv;
         uint24 oracleFeeTier = 3000;
         uint24 swapFeeTier = 3000;
-        BaseDeployment.PairConfig memory pairConfig = BaseDeployment.PairConfig({
+
+        PairConfig memory pairConfig = PairConfig({
             name: "COLLATERAL/CASH",
             durations: durations,
             ltvs: ltvs,
-            cashAsset: IERC20(cashAsset),
-            collateralAsset: IERC20(collateralAsset),
+            cashAsset: IERC20(cashAssetAddress),
+            collateralAsset: IERC20(collateralAssetAddress),
             oracleFeeTier: oracleFeeTier,
             swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
             swapRouter: address(SWAP_ROUTER)
         });
-        AssetPairContracts memory contracts = _createContractPair(pairConfig);
-        _setupContractPair(configHub, contracts);
-        _verifyDeployment(configHub, contracts);
+
+        AssetPairContracts memory contracts = deployContractPair(configHub, pairConfig, deployer);
+
+        setupContractPair(configHub, contracts);
+
         vm.stopBroadcast();
 
         AssetPairContracts[] memory contractsArray = new AssetPairContracts[](1);
         contractsArray[0] = contracts;
         exportDeployment(
-            "collar_protocol_deployment", address(configHub), address(SWAP_ROUTER), contractsArray
+            "arbitrum_sepolia_collar_protocol_deployment",
+            address(configHub),
+            address(SWAP_ROUTER),
+            contractsArray
         );
 
         console.log("\nDeployment completed successfully");
     }
 
-    function _createOrValidateUniswapPool(address provider) internal {
+    function _setupAssets() internal returns (address cash, address collateral) {
+        if (cashAssetAddress == address(0) || collateralAssetAddress == address(0)) {
+            console.log("Deploying new token contracts");
+            (cash, collateral) = deployTokens();
+            console.log("Deployed Cash Asset: ", cash);
+            console.log("Deployed Collateral Asset: ", collateral);
+        } else {
+            console.log("Using existing token contracts");
+            cash = cashAssetAddress;
+            collateral = collateralAssetAddress;
+            console.log("Cash Asset: ", cash);
+            console.log("Collateral Asset: ", collateral);
+        }
+    }
+
+    function _setupUniswapPool(address cashAsset, address collateralAsset)
+        internal
+        returns (address poolAddress)
+    {
         IUniswapV3Factory factory =
             IUniswapV3Factory(IPeripheryImmutableState(address(SWAP_ROUTER)).factory());
-        uint24 FEE_TIER = 3000;
-        address pool = factory.getPool(address(cashAsset), address(collateralAsset), FEE_TIER);
+        poolAddress = factory.getPool(cashAsset, collateralAsset, 3000);
 
-        if (pool == address(0)) {
+        if (poolAddress == address(0)) {
             console.log("Creating new Uniswap V3 pool");
-            pool = factory.createPool(address(cashAsset), address(collateralAsset), FEE_TIER);
-            IUniswapV3Pool(pool).initialize(79_228_162_514_264_337_593_543_950_336); // sqrt(1) * 2^96
-                // Approve tokens
-            collateralAsset.approve(address(POSITION_MANAGER), type(uint).max);
-            cashAsset.approve(address(POSITION_MANAGER), type(uint).max);
-            // Get current tick
-            (, int24 currentTick,,,,,) = IUniswapV3Pool(pool).slot0();
-
-            // Set price range
-            int24 tickLower = currentTick - 600;
-            int24 tickUpper = currentTick + 600;
-            INonfungiblePositionManager.MintParams memory params = INonfungiblePositionManager.MintParams({
-                token1: address(collateralAsset),
-                token0: address(cashAsset),
-                fee: FEE_TIER,
-                tickLower: tickLower,
-                tickUpper: tickUpper,
-                amount0Desired: amountToProvideToPool,
-                amount1Desired: amountToProvideToPool,
-                amount0Min: 0,
-                amount1Min: 0,
-                recipient: provider,
-                deadline: block.timestamp + 15 minutes
+            PoolParams memory params = PoolParams({
+                token1: cashAsset,
+                token2: collateralAsset,
+                router: address(SWAP_ROUTER),
+                positionManager: address(POSITION_MANAGER),
+                feeTier: 3000,
+                cardinality: 300,
+                initialAmount: amountToProvideToPool,
+                tickSpacing: 60
             });
-
-            // Add liquidity
-            POSITION_MANAGER.mint(params);
-        } else {
-            console.log("Uniswap V3 pool already exists");
+            poolAddress = setupNewPool(params);
         }
 
-        console.log("Uniswap V3 Pool: ", pool);
+        console.log("Uniswap V3 Pool: ", poolAddress);
     }
 }
