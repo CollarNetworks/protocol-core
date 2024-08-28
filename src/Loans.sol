@@ -285,6 +285,25 @@ contract Loans is ILoans, BaseEmergencyAdmin {
         });
     }
 
+    /**
+     * @notice Cancels an inactive loan for a burned taker NFT
+     * @dev This function is used to clean up loan state when a taker NFT has been burned
+     * without properly closing the loan (e.g., through direct interaction with the NFT or Rolls contracts)
+     * @param takerId The ID of the CollarTakerNFT representing the loan to cancel
+     */
+    function cancelLoan(uint takerId) external {
+        require(loans[takerId].active, "loan not active");
+
+        // if ID was burned (withdrawn / cancelled) ownerOf reverts.
+        // checking if position is settled is irrelevant, because settled but not withdrawn can be closed.
+        // low level try/catch (avoid solidity try/catch)
+        (bool hasOwner,) = address(takerNFT).staticcall(abi.encodeCall(takerNFT.ownerOf, (takerId)));
+        require(!hasOwner, "taker position not burned");
+
+        loans[takerId].active = false;
+        emit LoanCancelled(takerId, msg.sender);
+    }
+
     // admin methods
 
     /// @notice Sets the address of the closing keeper

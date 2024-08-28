@@ -324,6 +324,29 @@ contract LoansBasicRevertsTest is LoansTestBase {
         vm.expectRevert("not taker NFT owner");
         loans.setKeeperAllowedBy(takerId, true);
     }
+
+    function test_revert_cancelLoan() public {
+        (uint takerId,,) = createAndCheckLoan();
+
+        // Try to cancel the loan without burning the NFT
+        vm.expectRevert("taker position not burned");
+        loans.cancelLoan(takerId);
+
+        // Close the loan normally
+        skip(duration);
+        uint swapOut = prepareSwapToCollateralAtTWAPPrice();
+        closeAndCheckLoan(
+            takerId,
+            user1,
+            loans.getLoan(takerId).loanAmount,
+            takerNFT.getPosition(takerId).putLockedCash,
+            swapOut
+        );
+
+        // Try to cancel the already closed loan
+        vm.expectRevert("loan not active");
+        loans.cancelLoan(takerId);
+    }
 }
 
 contract ReentrantCloser {

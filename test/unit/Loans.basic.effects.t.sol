@@ -398,4 +398,30 @@ contract LoansBasicHappyPathsTest is LoansTestBase {
         // check close loan
         closeAndCheckLoan(takerId, user1, loanAmount, withdrawal, swapOut);
     }
+
+    function test_cancelLoan() public {
+        (uint takerId,,) = createAndCheckLoan();
+
+        skip(duration);
+        vm.startPrank(user1);
+        takerNFT.settlePairedPosition(takerId);
+        takerNFT.withdrawFromSettled(takerId, user1);
+        vm.stopPrank();
+
+        // check burned
+        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, takerId));
+        takerNFT.ownerOf(takerId);
+
+        // cancel
+        vm.expectEmit(address(loans));
+        emit ILoans.LoanCancelled(takerId, address(this));
+        loans.cancelLoan(takerId);
+
+        // check not active
+        assertFalse(loans.getLoan(takerId).active);
+
+        // cannot cancel again
+        vm.expectRevert("loan not active");
+        loans.cancelLoan(takerId);
+    }
 }
