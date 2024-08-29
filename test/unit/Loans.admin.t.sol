@@ -115,6 +115,9 @@ contract LoansAdminTest is LoansTestBase {
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
         loans.closeLoan(takerId, defaultSwapParams(0));
+
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        loans.cancelLoan(takerId);
     }
 
     function test_unpause() public {

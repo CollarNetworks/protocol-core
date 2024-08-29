@@ -291,7 +291,7 @@ contract Loans is ILoans, BaseEmergencyAdmin {
      * without properly closing the loan (e.g., through direct interaction with the NFT or Rolls contracts)
      * @param takerId The ID of the CollarTakerNFT representing the loan to cancel
      */
-    function cancelLoan(uint takerId) external {
+    function cancelLoan(uint takerId) external whenNotPaused {
         require(loans[takerId].active, "loan not active");
 
         // if ID was burned (withdrawn / cancelled) ownerOf reverts.
