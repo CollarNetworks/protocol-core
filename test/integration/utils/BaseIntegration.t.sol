@@ -11,15 +11,17 @@ import { Loans, ILoans } from "../../../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
-import { BaseDeployment } from "../../../script/BaseDeployment.s.sol";
+import { DeploymentHelper } from "../../../script/deployment-helper.sol";
+import { SetupHelper } from "../../../script/setup-helper.sol";
 
-abstract contract CollarBaseIntegrationTestConfig is Test, BaseDeployment {
+abstract contract CollarBaseIntegrationTestConfig is Test, DeploymentHelper, SetupHelper {
     using SafeERC20 for IERC20;
 
+    ConfigHub configHub;
     address owner;
     address user;
     address provider;
-    BaseDeployment.AssetPairContracts pair;
+    DeploymentHelper.AssetPairContracts pair;
     address swapRouterAddress;
     address uniV3Pool;
     address whale;
@@ -29,6 +31,34 @@ abstract contract CollarBaseIntegrationTestConfig is Test, BaseDeployment {
     uint positionDuration;
     uint offerLTV;
     uint bigNumber = 1_000_000 ether;
+
+    function setup()
+        internal
+        returns (address deployer, address user1, address user2, address liquidityProvider)
+    {
+        uint deployerPrivKey = vm.envUint("PRIVKEY_DEV_DEPLOYER");
+        uint user1PrivKey = vm.envUint("PRIVKEY_DEV_TEST1");
+        uint user2PrivKey = vm.envUint("PRIVKEY_DEV_TEST2");
+        uint liquidityProviderPrivKey = vm.envUint("LIQUIDITY_PROVIDER_KEY");
+
+        deployer = vm.addr(deployerPrivKey);
+        user1 = vm.addr(user1PrivKey);
+        user2 = vm.addr(user2PrivKey);
+        liquidityProvider = vm.addr(liquidityProviderPrivKey);
+
+        vm.label(deployer, "Deployer");
+        vm.label(user1, "User 1");
+        vm.label(user2, "User 2");
+        vm.label(liquidityProvider, "Liquidity Provider");
+
+        console.log("\n # Dev Deployer Address: %s", deployer);
+        console.log(" # Test Users");
+        console.log(" - User 1 Address: %s", user1);
+        console.log(" - User 2 Address: %s", user2);
+        console.log(" - Liquidity provider Address: %s", liquidityProvider);
+
+        return (deployer, user1, user2, liquidityProvider);
+    }
 
     function _setupConfig(
         address _swapRouter,
@@ -62,13 +92,14 @@ abstract contract CollarBaseIntegrationTestConfig is Test, BaseDeployment {
         internal
     {
         startHoax(owner);
-        _deployConfigHub();
+        configHub = deployConfigHub(owner);
         address[] memory collateralAssets = new address[](1);
         collateralAssets[0] = _collateralAsset;
         address[] memory cashAssets = new address[](1);
         cashAssets[0] = _cashAsset;
-        _setupConfigHub(
-            BaseDeployment.HubParams({
+        setupConfigHub(
+            configHub,
+            SetupHelper.HubParams({
                 cashAssets: cashAssets,
                 collateralAssets: collateralAssets,
                 minLTV: offerLTV,
@@ -81,7 +112,7 @@ abstract contract CollarBaseIntegrationTestConfig is Test, BaseDeployment {
         durations[0] = positionDuration;
         uint[] memory ltvs = new uint[](1);
         ltvs[0] = offerLTV;
-        BaseDeployment.PairConfig memory pairConfig = BaseDeployment.PairConfig({
+        DeploymentHelper.PairConfig memory pairConfig = DeploymentHelper.PairConfig({
             name: pairName,
             durations: durations,
             ltvs: ltvs,
@@ -92,8 +123,8 @@ abstract contract CollarBaseIntegrationTestConfig is Test, BaseDeployment {
             twapWindow: 15 minutes,
             swapRouter: swapRouterAddress
         });
-        pair = _createContractPair(pairConfig);
-        _setupContractPair(configHub, pair);
+        pair = deployContractPair(configHub, pairConfig, owner);
+        setupContractPair(configHub, pair);
         pair.cashAsset.forceApprove(address(pair.takerNFT), type(uint).max);
         pair.collateralAsset.forceApprove(address(pair.takerNFT), type(uint).max);
     }

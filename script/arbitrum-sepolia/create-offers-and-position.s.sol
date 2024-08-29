@@ -10,10 +10,11 @@ import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { Loans } from "../../src/Loans.sol";
 import { Rolls } from "../../src/Rolls.sol";
-import { BaseDeployment } from "../BaseDeployment.s.sol";
+import { DeploymentHelper } from "../deployment-helper.sol";
 import { CollarOwnedERC20 } from "../../test/utils/CollarOwnedERC20.sol";
+import { WalletLoader } from "../wallet-loader.s.sol";
 
-contract CreateOffersAndOpenPosition is Script, DeploymentUtils, BaseDeployment {
+contract CreateOffersAndOpenPosition is Script, DeploymentUtils, WalletLoader {
     uint cashAmountPerOffer = 1_000_000 ether;
     uint collateralAmountForLoan = 1 ether;
     uint expectedOfferCount = 4;
@@ -26,12 +27,13 @@ contract CreateOffersAndOpenPosition is Script, DeploymentUtils, BaseDeployment 
 
     function run() external {
         (address deployer, address user,, address liquidityProvider) = setup();
-
+        
         if (configHub == ConfigHub(address(0))) {
             configHub = ConfigHub(getConfigHub());
         }
 
-        AssetPairContracts memory pair = getByAssetPair(address(cashAsset), address(collateralAsset));
+        DeploymentHelper.AssetPairContracts memory pair =
+            getByAssetPair(address(cashAsset), address(collateralAsset));
         vm.startBroadcast(deployer);
 
         _fundLiquidityProvider(liquidityProvider);

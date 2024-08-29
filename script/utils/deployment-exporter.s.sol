@@ -159,10 +159,13 @@ contract DeploymentUtils is Script {
         return _parseAddress(bytes(json), ".router");
     }
 
-    function getAll() public view returns (DeploymentHelper.AssetPairContracts[] memory) {
+    function getAll() public view returns (address, DeploymentHelper.AssetPairContracts[] memory) {
         string memory json =
             vm.readFile(string(abi.encodePacked(_getExportPath(), "collar_protocol_deployment-latest.json")));
         bytes memory parsedJson = bytes(json);
+
+        address configHubAddress = _parseAddress(parsedJson, ".configHub");
+
         string[] memory allKeys = vm.parseJsonKeys(json, ".");
         // Count valid asset pairs
         uint pairCount = 0;
@@ -229,21 +232,21 @@ contract DeploymentUtils is Script {
             }
         }
 
-        return result;
+        return (configHubAddress, result);
     }
 
     function getByAssetPair(address cashAsset, address collateralAsset)
         public
         view
-        returns (DeploymentHelper.AssetPairContracts memory)
+        returns (address hub, DeploymentHelper.AssetPairContracts memory)
     {
-        DeploymentHelper.AssetPairContracts[] memory allPairs = getAll();
+        (address configHub, DeploymentHelper.AssetPairContracts[] memory allPairs) = getAll();
         for (uint i = 0; i < allPairs.length; i++) {
             if (
                 address(allPairs[i].cashAsset) == cashAsset
                     && address(allPairs[i].collateralAsset) == collateralAsset
             ) {
-                return allPairs[i];
+                return (configHub, allPairs[i]);
             }
         }
         revert("Asset pair not found");
