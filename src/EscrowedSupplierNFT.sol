@@ -28,7 +28,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
     address public immutable loans;
 
     // ----- STATE ----- //
-    uint public nextOfferId; // @dev this is NOT the NFT id, this is separate ID
+    uint public nextOfferId; // @dev this is NOT the NFT id, this is a  separate non transferrable ID
 
     struct Offer {
         address supplier;
@@ -38,8 +38,10 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         uint gracePeriod;
         uint lateFeeAPR;
     }
+    mapping(uint offerId => Offer) internal offers;
 
     struct Escrow {
+        // reference (for views)
         uint takerId;
         uint expiration;
         // terms
@@ -50,9 +52,6 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         bool released;
         uint withdrawable;
     }
-    // offerId is non transferrable
-
-    mapping(uint offerId => Offer) internal offers;
     mapping(uint escrowId => Escrow) internal escrows;
 
     constructor(
@@ -88,7 +87,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
 
     // ----- MUTATIVE ----- //
 
-    // ----- Liquidity actions ----- //
+    // ----- Offer actions ----- //
 
     function createOffer(uint amount, uint duration, uint gracePeriod, uint lateFeeAPR)
         external
@@ -129,7 +128,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
             offers[offerId].available -= toRemove;
             asset.safeTransfer(msg.sender, toRemove);
         } else { } // no change
-            // TODO: event
+        // TODO: event
     }
 
     // ----- Escrow actions ----- //
@@ -142,7 +141,6 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         onlyLoans
         returns (uint escrowId, Escrow memory escrow)
     {
-        // @dev only checked on open, not checked later on settle / cancel to allow withdraw-only mode
         require(configHub.canOpen(msg.sender), "unsupported loans contract");
         require(configHub.canOpen(address(this)), "unsupported supplier contract");
 
@@ -177,7 +175,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
 
         // @dev despite the fact that they cancel out, these transfers are the whole point of this contract
         // from product point of view. The end balance is the same, but the transfer events are needed.
-        // take the assurance collateral from loans
+        // take the escrow from loans
         uint balanceBefore = asset.balanceOf(address(this));
         asset.safeTransferFrom(loans, address(this), amount);
         // transfer the supplier's collateral to loans
