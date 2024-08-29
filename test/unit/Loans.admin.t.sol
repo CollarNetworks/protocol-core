@@ -10,7 +10,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 import { Loans, ILoans } from "../../src/Loans.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
-import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
+import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
 import { LoansTestBase, TestERC20, SwapperUniV3, ISwapper } from "./Loans.basic.effects.t.sol";
@@ -115,6 +115,9 @@ contract LoansAdminTest is LoansTestBase {
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
         loans.closeLoan(takerId, defaultSwapParams(0));
+
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        loans.cancelLoan(takerId);
     }
 
     function test_unpause() public {

@@ -11,7 +11,7 @@ import { SwapperArbitraryCall } from "../utils/SwapperArbitraryCall.sol";
 
 import { Loans, ILoans } from "../../src/Loans.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
-import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
+import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
 import { SwapperUniV3, ISwapper } from "../../src/SwapperUniV3.sol";
 
 contract LoansTestBase is BaseAssetPairTestSetup {
@@ -137,7 +137,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(takerPosition.withdrawable, 0);
 
         // Check provider position
-        ProviderPositionNFT.ProviderPosition memory providerPosition = providerNFT.getPosition(providerId);
+        ShortProviderNFT.ProviderPosition memory providerPosition = providerNFT.getPosition(providerId);
         assertEq(providerPosition.expiration, block.timestamp + duration);
         assertEq(providerPosition.principal, takerPosition.callLockedCash);
         assertEq(providerPosition.putStrikeDeviation, ltv);

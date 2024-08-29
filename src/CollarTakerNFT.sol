@@ -11,7 +11,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 // internal
-import { ProviderPositionNFT } from "./ProviderPositionNFT.sol";
+import { ShortProviderNFT } from "./ShortProviderNFT.sol";
 import { BaseEmergencyAdminNFT } from "./base/BaseEmergencyAdminNFT.sol";
 import { OracleUniV3TWAP } from "./OracleUniV3TWAP.sol";
 import { ConfigHub } from "./ConfigHub.sol";
@@ -45,6 +45,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
         _setOracle(_oracle);
+        emit CollarTakerNFTCreated(address(_cashAsset), address(_collateralAsset), address(_oracle));
     }
 
     // ----- VIEW FUNCTIONS ----- //
@@ -92,16 +93,16 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
 
     function openPairedPosition(
         uint putLockedCash, // user portion of collar position
-        ProviderPositionNFT providerNFT,
+        ShortProviderNFT providerNFT,
         uint offerId // @dev implies specific provider, put & call deviations, duration
     ) external whenNotPaused returns (uint takerId, uint providerId) {
         // check assets allowed
         require(configHub.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
         require(configHub.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
         // check self allowed
-        require(configHub.takerNFTCanOpen(address(this)), "unsupported taker contract");
+        require(configHub.canOpen(address(this)), "unsupported taker contract");
         // check provider allowed
-        require(configHub.providerNFTCanOpen(address(providerNFT)), "unsupported provider contract");
+        require(configHub.canOpen(address(providerNFT)), "unsupported provider contract");
         // check assets match
         require(providerNFT.collateralAsset() == collateralAsset, "asset mismatch");
         require(providerNFT.cashAsset() == cashAsset, "asset mismatch");
@@ -125,7 +126,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
     /// `increaseCardinality` (or the pool's `increaseObservationCardinalityNext`).
     function settlePairedPosition(uint takerId) external whenNotPaused {
         TakerPosition storage position = positions[takerId];
-        ProviderPositionNFT providerNFT = position.providerNFT;
+        ShortProviderNFT providerNFT = position.providerNFT;
         uint providerId = position.providerPositionId;
 
         require(position.expiration != 0, "position doesn't exist");
@@ -172,7 +173,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
 
     function cancelPairedPosition(uint takerId, address recipient) external whenNotPaused {
         TakerPosition storage position = positions[takerId];
-        ProviderPositionNFT providerNFT = position.providerNFT;
+        ShortProviderNFT providerNFT = position.providerNFT;
         uint providerId = position.providerPositionId;
 
         require(msg.sender == ownerOf(takerId), "not owner of taker ID");
@@ -210,15 +211,15 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
     function _openPairedPositionInternal(
         uint twapPrice,
         uint putLockedCash,
-        ProviderPositionNFT providerNFT,
+        ShortProviderNFT providerNFT,
         uint offerId
     ) internal returns (uint takerId, uint providerId) {
-        ProviderPositionNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
+        ShortProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
         uint callLockedCash = _calculateProviderLocked(putLockedCash, offer);
 
         // open the provider position with duration and callLockedCash locked liquidity (reverts if can't)
         // and sends the provider NFT to the provider
-        ProviderPositionNFT.ProviderPosition memory providerPosition;
+        ShortProviderNFT.ProviderPosition memory providerPosition;
         (providerId, providerPosition) = providerNFT.mintFromOffer(offerId, callLockedCash, nextTokenId);
         uint putStrikePrice = twapPrice * providerPosition.putStrikeDeviation / BIPS_BASE;
         uint callStrikePrice = twapPrice * providerPosition.callStrikeDeviation / BIPS_BASE;
@@ -280,7 +281,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
 
     // calculations
 
-    function _calculateProviderLocked(uint putLockedCash, ProviderPositionNFT.LiquidityOffer memory offer)
+    function _calculateProviderLocked(uint putLockedCash, ShortProviderNFT.LiquidityOffer memory offer)
         internal
         pure
         returns (uint)

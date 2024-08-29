@@ -12,10 +12,10 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 // internal
 import { ConfigHub } from "./ConfigHub.sol";
 import { BaseEmergencyAdminNFT } from "./base/BaseEmergencyAdminNFT.sol";
-import { IProviderPositionNFT } from "./interfaces/IProviderPositionNFT.sol";
+import { IShortProviderNFT } from "./interfaces/IShortProviderNFT.sol";
 
 /**
- * @title ProviderPositionNFT
+ * @title ShortProviderNFT
  *
  * Main Functionality:
  * 1. Allows liquidity providers to create and manage offers for a specific Taker contract.
@@ -46,7 +46,7 @@ import { IProviderPositionNFT } from "./interfaces/IProviderPositionNFT.sol";
  * 1. Critical functions are only callable by the trusted taker contract.
  * 2. Offer and position parameters are validated against the configHub's configurations.
  */
-contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
+contract ShortProviderNFT is IShortProviderNFT, BaseEmergencyAdminNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
@@ -60,7 +60,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
     IERC20 public immutable cashAsset;
     IERC20 public immutable collateralAsset;
     // the trusted CollarTakerNFT contract. no interface is assumed because calls are only inbound
-    address public immutable collarTakerContract;
+    address public immutable taker;
 
     // ----- STATE ----- //
     uint public nextOfferId; // @dev this is NOT the NFT id, this is separate ID
@@ -74,17 +74,18 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
         ConfigHub _configHub,
         IERC20 _cashAsset,
         IERC20 _collateralAsset,
-        address _collarTakerContract,
+        address _taker,
         string memory _name,
         string memory _symbol
     ) BaseEmergencyAdminNFT(initialOwner, _configHub, _name, _symbol) {
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
-        collarTakerContract = _collarTakerContract;
+        taker = _taker;
+        emit ShortProviderNFTCreated(address(_cashAsset), address(_collateralAsset), _taker);
     }
 
     modifier onlyTaker() {
-        require(msg.sender == collarTakerContract, "unauthorized taker contract");
+        require(msg.sender == taker, "unauthorized taker contract");
         _;
     }
 
@@ -175,9 +176,7 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
             uint toRemove = previousAmount - newAmount;
             liquidityOffers[offerId].available -= toRemove;
             cashAsset.safeTransfer(msg.sender, toRemove);
-        } else {
-            // no change
-        }
+        } else { } // no change
         emit OfferUpdated(offerId, msg.sender, previousAmount, newAmount);
     }
 
@@ -203,8 +202,8 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
         returns (uint positionId, ProviderPosition memory position)
     {
         // @dev only checked on open, not checked later on settle / cancel to allow withdraw-only mode
-        require(configHub.takerNFTCanOpen(msg.sender), "unsupported taker contract");
-        require(configHub.providerNFTCanOpen(address(this)), "unsupported provider contract");
+        require(configHub.canOpen(msg.sender), "unsupported taker contract");
+        require(configHub.canOpen(address(this)), "unsupported provider contract");
 
         LiquidityOffer storage offer = liquidityOffers[offerId];
 
@@ -214,12 +213,13 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
         // calc protocol fee to subtract from offer (on top of amount)
         (uint fee, address feeRecipient) = protocolFee(amount, offer.duration);
 
-        // update offer
+        // check amount
         uint prevOfferAmount = offer.available;
         require(amount + fee <= prevOfferAmount, "amount too high");
-        offer.available = prevOfferAmount - amount - fee;
 
-        // create position
+        // storage updates
+        offer.available = prevOfferAmount - amount - fee;
+        positionId = nextTokenId++;
         position = ProviderPosition({
             takerId: takerId,
             expiration: block.timestamp + offer.duration,
@@ -229,10 +229,8 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
             settled: false,
             withdrawable: 0
         });
-
-        positionId = nextTokenId++;
-        // store position data
         positions[positionId] = position;
+
         // emit creation before transfer. No need to emit takerId, because it's emitted by the taker event
         emit PositionCreated(
             positionId,
@@ -286,15 +284,13 @@ contract ProviderPositionNFT is IProviderPositionNFT, BaseEmergencyAdminNFT {
             require(toRemove <= withdrawable, "loss is too high");
             withdrawable -= toRemove;
             // we owe the taker some tokens
-            cashAsset.safeTransfer(collarTakerContract, toRemove);
+            cashAsset.safeTransfer(taker, toRemove);
         } else if (positionChange > 0) {
             uint toAdd = uint(positionChange);
             withdrawable += toAdd;
             // the taker owes us some tokens, requires approval
-            cashAsset.safeTransferFrom(collarTakerContract, address(this), toAdd);
-        } else {
-            // no change
-        }
+            cashAsset.safeTransferFrom(taker, address(this), toAdd);
+        } else { } // no change
 
         // store the updated state
         position.withdrawable = withdrawable;

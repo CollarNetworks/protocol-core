@@ -9,7 +9,7 @@ pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { CollarTakerNFT } from "../CollarTakerNFT.sol";
-import { ProviderPositionNFT } from "../ProviderPositionNFT.sol";
+import { ShortProviderNFT } from "../ShortProviderNFT.sol";
 
 interface IRolls {
     struct RollOffer {
@@ -24,7 +24,7 @@ interface IRolls {
         int minToProvider;
         uint deadline;
         // somewhat redundant (since it comes from the taker ID), but safer for cancellations
-        ProviderPositionNFT providerNFT;
+        ShortProviderNFT providerNFT;
         uint providerId;
         // state
         address provider;
@@ -35,7 +35,7 @@ interface IRolls {
     event OfferCreated(
         uint indexed takerId,
         address indexed provider,
-        ProviderPositionNFT indexed providerNFT,
+        ShortProviderNFT indexed providerNFT,
         uint providerId,
         int rollFeeAmount,
         uint rollId
@@ -44,7 +44,7 @@ interface IRolls {
     event OfferExecuted(
         uint indexed rollId,
         uint indexed takerId,
-        ProviderPositionNFT indexed providerNFT,
+        ShortProviderNFT indexed providerNFT,
         uint providerId,
         int toTaker,
         int toProvider,

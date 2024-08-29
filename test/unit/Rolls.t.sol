@@ -8,7 +8,7 @@ import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-import { BaseAssetPairTestSetup, CollarTakerNFT, ProviderPositionNFT } from "./BaseAssetPairTestSetup.sol";
+import { BaseAssetPairTestSetup, CollarTakerNFT, ShortProviderNFT } from "./BaseAssetPairTestSetup.sol";
 
 import { Rolls, IRolls } from "../../src/Rolls.sol";
 
@@ -232,7 +232,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         assertEq(newTakerPos.withdrawable, 0);
 
         // Check new provider position details
-        ProviderPositionNFT.ProviderPosition memory newProviderPos = providerNFT.getPosition(newProviderId);
+        ShortProviderNFT.ProviderPosition memory newProviderPos = providerNFT.getPosition(newProviderId);
         assertEq(newProviderPos.expiration, block.timestamp + duration);
         assertEq(newProviderPos.principal, expected.newCallLocked);
         assertEq(newProviderPos.putStrikeDeviation, ltv);

@@ -13,7 +13,7 @@ import { MockOracleUniV3TWAP } from "../utils/MockOracleUniV3TWAP.sol";
 import { BaseEmergencyAdmin } from "../../src/base/BaseEmergencyAdmin.sol";
 import { ConfigHub } from "../../src/ConfigHub.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
-import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
+import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
 import { Loans } from "../../src/Loans.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
@@ -214,7 +214,7 @@ contract BaseEmergencyAdminMockTest is BaseEmergencyAdminTestBase {
 contract ProviderNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
     function setupTestedContract() internal override {
         testedContract =
-            new ProviderPositionNFT(owner, configHub, erc20, erc20, address(0), "ProviderNFT", "ProviderNFT");
+            new ShortProviderNFT(owner, configHub, erc20, erc20, address(0), "ProviderNFT", "ProviderNFT");
     }
 }
 
