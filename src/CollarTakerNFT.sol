@@ -99,9 +99,9 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
         require(configHub.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
         require(configHub.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
         // check self allowed
-        require(configHub.takerNFTCanOpen(address(this)), "unsupported taker contract");
+        require(configHub.canOpen(address(this)), "unsupported taker contract");
         // check provider allowed
-        require(configHub.providerNFTCanOpen(address(providerNFT)), "unsupported provider contract");
+        require(configHub.canOpen(address(providerNFT)), "unsupported provider contract");
         // check assets match
         require(providerNFT.collateralAsset() == collateralAsset, "asset mismatch");
         require(providerNFT.cashAsset() == cashAsset, "asset mismatch");

@@ -168,7 +168,7 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
         assertEq(cashAsset.balanceOf(address(providerNFT)), initialBalance - principal + withdrawal);
     }
 
-    function checkWithdraw(uint positionId, uint amountToMint, uint withdrawable) internal {
+    function checkWithdraw(uint positionId, uint withdrawable) internal {
         uint providerBalance = cashAsset.balanceOf(provider);
         uint recipientBalance = cashAsset.balanceOf(recipient);
         uint contractBalance = cashAsset.balanceOf(address(providerNFT));
@@ -406,7 +406,7 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
 
         uint withdrawable = checkSettlePosition(positionId, amountToMint, positionChange);
 
-        checkWithdraw(positionId, amountToMint, withdrawable);
+        checkWithdraw(positionId, withdrawable);
     }
 
     function test_settleAndWithdraw_removedTaker() public {
@@ -414,11 +414,11 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
         (uint positionId,) = createAndCheckPosition(provider, largeAmount, amountToMint);
         skip(duration);
         vm.startPrank(owner);
-        configHub.setTakerNFTCanOpen(takerContract, false);
+        configHub.setTakerCanOpen(takerContract, false);
         // should work
         uint withdrawable = checkSettlePosition(positionId, amountToMint, 0);
         // should work
-        checkWithdraw(positionId, amountToMint, withdrawable);
+        checkWithdraw(positionId, withdrawable);
     }
 
     function test_cancelAndWithdraw() public {
@@ -432,7 +432,7 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
         (uint positionId,) = createAndCheckPosition(provider, largeAmount, amountToMint);
         skip(duration);
         vm.startPrank(owner);
-        configHub.setTakerNFTCanOpen(takerContract, false);
+        configHub.setTakerCanOpen(takerContract, false);
         // should work
         checkCancelAndWithdraw(positionId, amountToMint);
     }
@@ -649,14 +649,14 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
         providerNFT.mintFromOffer(offerId, 0, 0);
 
         vm.startPrank(owner);
-        configHub.setTakerNFTCanOpen(takerContract, false);
+        configHub.setTakerCanOpen(takerContract, false);
         vm.startPrank(takerContract);
         vm.expectRevert("unsupported taker contract");
         providerNFT.mintFromOffer(offerId, 0, 0);
 
         vm.startPrank(owner);
-        configHub.setTakerNFTCanOpen(takerContract, true);
-        configHub.setProviderNFTCanOpen(address(providerNFT), false);
+        configHub.setTakerCanOpen(takerContract, true);
+        configHub.setShortProviderCanOpen(address(providerNFT), false);
         vm.startPrank(takerContract);
         vm.expectRevert("unsupported provider contract");
         providerNFT.mintFromOffer(offerId, 0, 0);
@@ -716,7 +716,7 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
 
         // allow taker contract
         vm.startPrank(owner);
-        configHub.setTakerNFTCanOpen(takerContract, true);
+        configHub.setTakerCanOpen(takerContract, true);
 
         vm.startPrank(address(takerContract));
         vm.expectRevert("not expired");
@@ -781,7 +781,7 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
         providerNFT.cancelAndWithdraw(positionId, provider);
 
         vm.startPrank(owner);
-        configHub.setTakerNFTCanOpen(takerContract, true);
+        configHub.setTakerCanOpen(takerContract, true);
         vm.startPrank(address(takerContract));
         vm.expectRevert("caller does not own token");
         providerNFT.cancelAndWithdraw(positionId, provider);

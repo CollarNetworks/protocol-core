@@ -201,8 +201,8 @@ contract ShortProviderNFT is IShortProviderNFT, BaseEmergencyAdminNFT {
         returns (uint positionId, ProviderPosition memory position)
     {
         // @dev only checked on open, not checked later on settle / cancel to allow withdraw-only mode
-        require(configHub.takerNFTCanOpen(msg.sender), "unsupported taker contract");
-        require(configHub.providerNFTCanOpen(address(this)), "unsupported provider contract");
+        require(configHub.canOpen(msg.sender), "unsupported taker contract");
+        require(configHub.canOpen(address(this)), "unsupported provider contract");
 
         LiquidityOffer storage offer = liquidityOffers[offerId];
 
@@ -212,12 +212,13 @@ contract ShortProviderNFT is IShortProviderNFT, BaseEmergencyAdminNFT {
         // calc protocol fee to subtract from offer (on top of amount)
         (uint fee, address feeRecipient) = protocolFee(amount, offer.duration);
 
-        // update offer
+        // check amount
         uint prevOfferAmount = offer.available;
         require(amount + fee <= prevOfferAmount, "amount too high");
-        offer.available = prevOfferAmount - amount - fee;
 
-        // create position
+        // storage updates
+        offer.available = prevOfferAmount - amount - fee;
+        positionId = nextTokenId++;
         position = ProviderPosition({
             takerId: takerId,
             expiration: block.timestamp + offer.duration,
@@ -227,10 +228,8 @@ contract ShortProviderNFT is IShortProviderNFT, BaseEmergencyAdminNFT {
             settled: false,
             withdrawable: 0
         });
-
-        positionId = nextTokenId++;
-        // store position data
         positions[positionId] = position;
+
         // emit creation before transfer. No need to emit takerId, because it's emitted by the taker event
         emit PositionCreated(
             positionId,

@@ -57,10 +57,10 @@ contract ConfigHubTest is Test {
         startHoax(user1);
 
         vm.expectRevert(user1NotAuthorized);
-        configHub.setTakerNFTCanOpen(address(0), true);
+        configHub.setTakerCanOpen(address(0), true);
 
         vm.expectRevert(user1NotAuthorized);
-        configHub.setProviderNFTCanOpen(address(0), true);
+        configHub.setShortProviderCanOpen(address(0), true);
 
         vm.expectRevert(user1NotAuthorized);
         configHub.setLTVRange(0, 0);
@@ -97,20 +97,20 @@ contract ConfigHubTest is Test {
             abi.encode(address(token2))
         );
 
-        assertFalse(configHub.takerNFTCanOpen(collarTakerContract));
+        assertFalse(configHub.canOpen(collarTakerContract));
 
         vm.expectEmit(address(configHub));
         emit IConfigHub.CollarTakerNFTAuthSet(collarTakerContract, true, address(token1), address(token2));
-        configHub.setTakerNFTCanOpen(collarTakerContract, true);
+        configHub.setTakerCanOpen(collarTakerContract, true);
 
-        assertTrue(configHub.takerNFTCanOpen(collarTakerContract));
+        assertTrue(configHub.canOpen(collarTakerContract));
 
         // disabling
         vm.expectEmit(address(configHub));
         emit IConfigHub.CollarTakerNFTAuthSet(collarTakerContract, false, address(token1), address(token2));
-        configHub.setTakerNFTCanOpen(collarTakerContract, false);
+        configHub.setTakerCanOpen(collarTakerContract, false);
 
-        assertFalse(configHub.takerNFTCanOpen(collarTakerContract));
+        assertFalse(configHub.canOpen(collarTakerContract));
     }
 
     function test_setProviderContractAuth() public {
@@ -134,24 +134,24 @@ contract ConfigHubTest is Test {
             abi.encode(address(0x789))
         );
 
-        assertFalse(configHub.providerNFTCanOpen(providerContract));
+        assertFalse(configHub.canOpen(providerContract));
 
         vm.expectEmit(address(configHub));
         emit IConfigHub.ProviderNFTAuthSet(
             providerContract, true, address(token1), address(token2), address(0x789)
         );
-        configHub.setProviderNFTCanOpen(providerContract, true);
+        configHub.setShortProviderCanOpen(providerContract, true);
 
-        assertTrue(configHub.providerNFTCanOpen(providerContract));
+        assertTrue(configHub.canOpen(providerContract));
 
         // disabling
         vm.expectEmit(address(configHub));
         emit IConfigHub.ProviderNFTAuthSet(
             providerContract, false, address(token1), address(token2), address(0x789)
         );
-        configHub.setProviderNFTCanOpen(providerContract, false);
+        configHub.setShortProviderCanOpen(providerContract, false);
 
-        assertFalse(configHub.providerNFTCanOpen(providerContract));
+        assertFalse(configHub.canOpen(providerContract));
     }
 
     function test_revert_setCollarTakerContractAuth_invalidContract() public {
@@ -160,7 +160,7 @@ contract ConfigHubTest is Test {
 
         // fails to call non existing methods
         vm.expectRevert(new bytes(0));
-        configHub.setTakerNFTCanOpen(invalidContract, true);
+        configHub.setTakerCanOpen(invalidContract, true);
     }
 
     function test_revert_setProviderContractAuth_invalidContract() public {
@@ -169,7 +169,7 @@ contract ConfigHubTest is Test {
 
         // fails to call non existing methods
         vm.expectRevert(new bytes(0));
-        configHub.setProviderNFTCanOpen(invalidContract, true);
+        configHub.setShortProviderCanOpen(invalidContract, true);
     }
 
     function test_addSupportedCashAsset() public {
@@ -223,8 +223,8 @@ contract ConfigHubTest is Test {
         address testContract = address(0x123);
         // testContract doesnt support calling .cashAsset();
         vm.expectRevert();
-        configHub.setTakerNFTCanOpen(testContract, true);
-        assertFalse(configHub.takerNFTCanOpen(testContract));
+        configHub.setTakerCanOpen(testContract, true);
+        assertFalse(configHub.canOpen(testContract));
     }
 
     function test_setProviderContractAuth_non_taker_contract() public {
@@ -232,8 +232,8 @@ contract ConfigHubTest is Test {
         address testContract = address(0x456);
         // testContract doesnt support calling .cashAsset();
         vm.expectRevert();
-        configHub.setProviderNFTCanOpen(testContract, true);
-        assertFalse(configHub.providerNFTCanOpen(testContract));
+        configHub.setShortProviderCanOpen(testContract, true);
+        assertFalse(configHub.canOpen(testContract));
     }
 
     function test_setLTVRange() public {

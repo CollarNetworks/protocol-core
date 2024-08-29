@@ -38,22 +38,29 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     // -- internal state variables ---
     mapping(address collateralAssetAddress => bool isSupported) public isSupportedCollateralAsset;
     mapping(address cashAssetAddress => bool isSupported) public isSupportedCashAsset;
-    mapping(address contractAddress => bool enabled) public takerNFTCanOpen;
-    mapping(address contractAddress => bool enabled) public providerNFTCanOpen;
+    mapping(address contractAddress => bool enabled) public canOpen;
 
     constructor(address _initialOwner) Ownable(_initialOwner) { }
 
     // ----- state-changing functions (see IConfigHub for documentation) -----
 
-    function setTakerNFTCanOpen(address contractAddress, bool enabled) external onlyOwner {
-        takerNFTCanOpen[contractAddress] = enabled;
+    // TODO: doc & test, use for Loans as well (in addition to Taker, ShortProv, and AssuredProv)
+    function setCanOpen(address contractAddress, bool enabled) external onlyOwner {
+        canOpen[contractAddress] = enabled;
+        // TODO: event for setting auth
+    }
+
+    // TODO: remove and use setCanOpen, move assets event into contract constructor
+    function setTakerCanOpen(address contractAddress, bool enabled) external onlyOwner {
+        canOpen[contractAddress] = enabled;
         IERC20 cashAsset = ICollarTakerNFT(contractAddress).cashAsset();
         IERC20 collateralAsset = ICollarTakerNFT(contractAddress).collateralAsset();
         emit CollarTakerNFTAuthSet(contractAddress, enabled, address(cashAsset), address(collateralAsset));
     }
 
-    function setProviderNFTCanOpen(address contractAddress, bool enabled) external onlyOwner {
-        providerNFTCanOpen[contractAddress] = enabled;
+    // TODO: remove and use setCanOpen, move assets event into contract constructor
+    function setShortProviderCanOpen(address contractAddress, bool enabled) external onlyOwner {
+        canOpen[contractAddress] = enabled;
         IERC20 cashAsset = IShortProviderNFT(contractAddress).cashAsset();
         IERC20 collateralAsset = IShortProviderNFT(contractAddress).collateralAsset();
         address collarTakerNFT = IShortProviderNFT(contractAddress).taker();
