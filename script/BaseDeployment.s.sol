@@ -153,8 +153,8 @@ contract BaseDeployment is Script {
     }
 
     function _setupContractPair(ConfigHub hub, AssetPairContracts memory pair) internal {
-        hub.setTakerCanOpen(address(pair.takerNFT), true);
-        hub.setShortProviderCanOpen(address(pair.providerNFT), true);
+        hub.setCanOpen(address(pair.takerNFT), true);
+        hub.setCanOpen(address(pair.providerNFT), true);
         pair.loansContract.setRollsContract(pair.rollsContract);
         pair.loansContract.setSwapperAllowed(address(pair.swapperUniV3), true, true);
         require(hub.canOpen(address(pair.providerNFT)), "Provider NFT not authorized in configHub");

@@ -45,6 +45,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
         _setOracle(_oracle);
+        emit CollarTakerNFTCreated(address(_cashAsset), address(_collateralAsset), address(_oracle));
     }
 
     // ----- VIEW FUNCTIONS ----- //

@@ -57,10 +57,7 @@ contract ConfigHubTest is Test {
         startHoax(user1);
 
         vm.expectRevert(user1NotAuthorized);
-        configHub.setTakerCanOpen(address(0), true);
-
-        vm.expectRevert(user1NotAuthorized);
-        configHub.setShortProviderCanOpen(address(0), true);
+        configHub.setCanOpen(address(0), true);
 
         vm.expectRevert(user1NotAuthorized);
         configHub.setLTVRange(0, 0);
@@ -81,95 +78,23 @@ contract ConfigHubTest is Test {
         configHub.setProtocolFeeParams(0, address(0));
     }
 
-    function test_setCollarTakerContractAuth() public {
+    function test_setCanOpen() public {
         startHoax(owner);
         address collarTakerContract = address(0x123);
-
-        // Mock the cashAsset and collateralAsset calls
-        vm.mockCall(
-            collarTakerContract,
-            abi.encodeWithSelector(ICollarTakerNFT.cashAsset.selector),
-            abi.encode(address(token1))
-        );
-        vm.mockCall(
-            collarTakerContract,
-            abi.encodeWithSelector(ICollarTakerNFT.collateralAsset.selector),
-            abi.encode(address(token2))
-        );
-
         assertFalse(configHub.canOpen(collarTakerContract));
 
         vm.expectEmit(address(configHub));
-        emit IConfigHub.CollarTakerNFTAuthSet(collarTakerContract, true, address(token1), address(token2));
-        configHub.setTakerCanOpen(collarTakerContract, true);
+        emit IConfigHub.ContractCanOpenSet(collarTakerContract, true);
+        configHub.setCanOpen(collarTakerContract, true);
 
         assertTrue(configHub.canOpen(collarTakerContract));
 
         // disabling
         vm.expectEmit(address(configHub));
-        emit IConfigHub.CollarTakerNFTAuthSet(collarTakerContract, false, address(token1), address(token2));
-        configHub.setTakerCanOpen(collarTakerContract, false);
+        emit IConfigHub.ContractCanOpenSet(collarTakerContract, false);
+        configHub.setCanOpen(collarTakerContract, false);
 
         assertFalse(configHub.canOpen(collarTakerContract));
-    }
-
-    function test_setProviderContractAuth() public {
-        startHoax(owner);
-        address providerContract = address(0x456);
-
-        // Mock the cashAsset, collateralAsset, and collarTakerContract calls
-        vm.mockCall(
-            providerContract,
-            abi.encodeWithSelector(IShortProviderNFT.cashAsset.selector),
-            abi.encode(address(token1))
-        );
-        vm.mockCall(
-            providerContract,
-            abi.encodeWithSelector(IShortProviderNFT.collateralAsset.selector),
-            abi.encode(address(token2))
-        );
-        vm.mockCall(
-            providerContract,
-            abi.encodeWithSelector(IShortProviderNFT.taker.selector),
-            abi.encode(address(0x789))
-        );
-
-        assertFalse(configHub.canOpen(providerContract));
-
-        vm.expectEmit(address(configHub));
-        emit IConfigHub.ProviderNFTAuthSet(
-            providerContract, true, address(token1), address(token2), address(0x789)
-        );
-        configHub.setShortProviderCanOpen(providerContract, true);
-
-        assertTrue(configHub.canOpen(providerContract));
-
-        // disabling
-        vm.expectEmit(address(configHub));
-        emit IConfigHub.ProviderNFTAuthSet(
-            providerContract, false, address(token1), address(token2), address(0x789)
-        );
-        configHub.setShortProviderCanOpen(providerContract, false);
-
-        assertFalse(configHub.canOpen(providerContract));
-    }
-
-    function test_revert_setCollarTakerContractAuth_invalidContract() public {
-        startHoax(owner);
-        address invalidContract = address(0xABC);
-
-        // fails to call non existing methods
-        vm.expectRevert(new bytes(0));
-        configHub.setTakerCanOpen(invalidContract, true);
-    }
-
-    function test_revert_setProviderContractAuth_invalidContract() public {
-        startHoax(owner);
-        address invalidContract = address(0xDEF);
-
-        // fails to call non existing methods
-        vm.expectRevert(new bytes(0));
-        configHub.setShortProviderCanOpen(invalidContract, true);
     }
 
     function test_addSupportedCashAsset() public {
@@ -216,24 +141,6 @@ contract ConfigHubTest is Test {
         assertTrue(configHub.isValidLTV(minLTVToUse));
         assertTrue(configHub.isValidLTV(maxLTVToUse));
         assertFalse(configHub.isValidLTV(maxLTVToUse + 1));
-    }
-
-    function test_setCollarTakerContractAuth_non_taker_contract() public {
-        startHoax(owner);
-        address testContract = address(0x123);
-        // testContract doesnt support calling .cashAsset();
-        vm.expectRevert();
-        configHub.setTakerCanOpen(testContract, true);
-        assertFalse(configHub.canOpen(testContract));
-    }
-
-    function test_setProviderContractAuth_non_taker_contract() public {
-        startHoax(owner);
-        address testContract = address(0x456);
-        // testContract doesnt support calling .cashAsset();
-        vm.expectRevert();
-        configHub.setShortProviderCanOpen(testContract, true);
-        assertFalse(configHub.canOpen(testContract));
     }
 
     function test_setLTVRange() public {

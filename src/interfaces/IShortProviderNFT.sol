@@ -33,6 +33,9 @@ interface IShortProviderNFT {
     }
 
     // events
+    event ShortProviderNFTCreated(
+        address indexed cashAsset, address indexed collateralAsset, address indexed takerContract
+    );
     event OfferCreated(
         address indexed provider,
         uint indexed putStrikeDeviation,

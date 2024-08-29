@@ -81,6 +81,7 @@ contract ShortProviderNFT is IShortProviderNFT, BaseEmergencyAdminNFT {
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
         taker = _taker;
+        emit ShortProviderNFTCreated(address(_cashAsset), address(_collateralAsset), _taker);
     }
 
     modifier onlyTaker() {

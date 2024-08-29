@@ -15,18 +15,9 @@ interface IConfigHub {
     event CashAssetSupportSet(address indexed cashAsset, bool indexed enabled);
     event LTVRangeSet(uint indexed minLTV, uint indexed maxLTV);
     event CollarDurationRangeSet(uint indexed minDuration, uint indexed maxDuration);
-    event CollarTakerNFTAuthSet(
-        address indexed contractAddress, bool indexed enabled, address cashAsset, address collateralAsset
-    );
+    event ContractCanOpenSet(address indexed contractAddress, bool indexed enabled);
     event PauseGuardianSet(address prevGaurdian, address newGuardian);
     event UniV3RouterSet(address prevRouter, address newRouter);
-    event ProviderNFTAuthSet(
-        address indexed contractAddress,
-        bool indexed enabled,
-        address cashAsset,
-        address collateralAsset,
-        address collarTakerNFT
-    );
     event ProtocolFeeParamsUpdated(
         uint prevFeeAPR, uint newFeeAPR, address prevRecipient, address newRecipient
     );

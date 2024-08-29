@@ -44,29 +44,11 @@ contract ConfigHub is Ownable2Step, IConfigHub {
 
     // ----- state-changing functions (see IConfigHub for documentation) -----
 
-    // TODO: doc & test, use for Loans as well (in addition to Taker, ShortProv, and AssuredProv)
+    // TODO: doc, and use for Loans as well
     function setCanOpen(address contractAddress, bool enabled) external onlyOwner {
+        // TODO: check VERSION view to work for validation?
         canOpen[contractAddress] = enabled;
-        // TODO: event for setting auth
-    }
-
-    // TODO: remove and use setCanOpen, move assets event into contract constructor
-    function setTakerCanOpen(address contractAddress, bool enabled) external onlyOwner {
-        canOpen[contractAddress] = enabled;
-        IERC20 cashAsset = ICollarTakerNFT(contractAddress).cashAsset();
-        IERC20 collateralAsset = ICollarTakerNFT(contractAddress).collateralAsset();
-        emit CollarTakerNFTAuthSet(contractAddress, enabled, address(cashAsset), address(collateralAsset));
-    }
-
-    // TODO: remove and use setCanOpen, move assets event into contract constructor
-    function setShortProviderCanOpen(address contractAddress, bool enabled) external onlyOwner {
-        canOpen[contractAddress] = enabled;
-        IERC20 cashAsset = IShortProviderNFT(contractAddress).cashAsset();
-        IERC20 collateralAsset = IShortProviderNFT(contractAddress).collateralAsset();
-        address collarTakerNFT = IShortProviderNFT(contractAddress).taker();
-        emit ProviderNFTAuthSet(
-            contractAddress, enabled, address(cashAsset), address(collateralAsset), collarTakerNFT
-        );
+        emit ContractCanOpenSet(contractAddress, enabled);
     }
 
     // ltv
