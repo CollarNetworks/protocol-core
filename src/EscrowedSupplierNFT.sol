@@ -176,12 +176,9 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         // @dev despite the fact that they cancel out, these transfers are the whole point of this contract
         // from product point of view. The end balance is the same, but the transfer events are needed.
         // take the escrow from loans
-        uint balanceBefore = asset.balanceOf(address(this));
         asset.safeTransferFrom(loans, address(this), amount);
         // transfer the supplier's collateral to loans
         asset.safeTransfer(loans, amount);
-        // double-check balance, although tokens are expected to be simple and obey the amount argument
-        require(asset.balanceOf(address(this)) == balanceBefore, "unexpected balance change");
 
         // TODO: event for offer update
     }
