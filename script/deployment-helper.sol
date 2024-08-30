@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.22;
 
+import "forge-std/console.sol";
+
 import { ConfigHub } from "../src/ConfigHub.sol";
 import { ProviderPositionNFT } from "../src/ProviderPositionNFT.sol";
 import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
@@ -75,7 +77,7 @@ contract DeploymentHelper {
         Loans loansContract = new Loans(owner, takerNFT);
         Rolls rollsContract = new Rolls(owner, takerNFT);
         SwapperUniV3 swapperUniV3 = new SwapperUniV3(pairConfig.swapRouter, pairConfig.swapFeeTier);
-
+        console.log("done");
         contracts = AssetPairContracts({
             providerNFT: providerNFT,
             takerNFT: takerNFT,

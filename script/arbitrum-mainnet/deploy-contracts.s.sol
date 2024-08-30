@@ -53,6 +53,7 @@ contract DeployContracts is Script, DeploymentUtils, DeploymentHelper, SetupHelp
         uint maxLTV = allLTVs[0];
         uint minDuration = allDurations[0];
         uint maxDuration = allDurations[2];
+        console.log("deployed confighub at address: %s", address(configHub));
 
         setupConfigHub(
             configHub,
@@ -65,8 +66,10 @@ contract DeployContracts is Script, DeploymentUtils, DeploymentHelper, SetupHelp
                 maxDuration: maxDuration
             })
         );
+        console.log("finished setting up confighub");
 
         _createContractPairs(configHub, deployer);
+        console.log("finished creating contract pairs");
         for (uint i = 0; i < assetPairContracts.length; i++) {
             setupContractPair(configHub, assetPairContracts[i]);
         }
@@ -97,7 +100,6 @@ contract DeployContracts is Script, DeploymentUtils, DeploymentHelper, SetupHelp
             twapWindow: twapWindow,
             swapRouter: swapRouterAddress
         });
-
         assetPairContracts.push(deployContractPair(configHub, USDCWETHPairConfig, owner));
 
         DeploymentHelper.PairConfig memory USDTWETHPairConfig = DeploymentHelper.PairConfig({
@@ -128,46 +130,46 @@ contract DeployContracts is Script, DeploymentUtils, DeploymentHelper, SetupHelp
 
         assetPairContracts.push(deployContractPair(configHub, USDCWBTCPairConfig, owner));
 
-        DeploymentHelper.PairConfig memory USDCMATICPairConfig = DeploymentHelper.PairConfig({
-            name: "USDC/MATIC",
-            durations: singleDuration,
-            ltvs: singleLTV,
-            cashAsset: IERC20(USDC),
-            collateralAsset: IERC20(MATIC),
-            oracleFeeTier: oracleFeeTier,
-            swapFeeTier: swapFeeTier,
-            twapWindow: twapWindow,
-            swapRouter: swapRouterAddress
-        });
+        // DeploymentHelper.PairConfig memory USDCMATICPairConfig = DeploymentHelper.PairConfig({
+        //     name: "USDC/MATIC",
+        //     durations: singleDuration,
+        //     ltvs: singleLTV,
+        //     cashAsset: IERC20(USDC),
+        //     collateralAsset: IERC20(MATIC),
+        //     oracleFeeTier: oracleFeeTier,
+        //     swapFeeTier: swapFeeTier,
+        //     twapWindow: twapWindow,
+        //     swapRouter: swapRouterAddress
+        // });
 
-        assetPairContracts.push(deployContractPair(configHub, USDCMATICPairConfig, owner));
+        // assetPairContracts.push(deployContractPair(configHub, USDCMATICPairConfig, owner));
 
-        DeploymentHelper.PairConfig memory USDCstEthPairConfig = DeploymentHelper.PairConfig({
-            name: "USDC/stETH",
-            durations: singleDuration,
-            ltvs: singleLTV,
-            cashAsset: IERC20(USDC),
-            collateralAsset: IERC20(stETH),
-            oracleFeeTier: oracleFeeTier,
-            swapFeeTier: swapFeeTier,
-            twapWindow: twapWindow,
-            swapRouter: swapRouterAddress
-        });
+        // DeploymentHelper.PairConfig memory USDCstEthPairConfig = DeploymentHelper.PairConfig({
+        //     name: "USDC/stETH",
+        //     durations: singleDuration,
+        //     ltvs: singleLTV,
+        //     cashAsset: IERC20(USDC),
+        //     collateralAsset: IERC20(stETH),
+        //     oracleFeeTier: oracleFeeTier,
+        //     swapFeeTier: swapFeeTier,
+        //     twapWindow: twapWindow,
+        //     swapRouter: swapRouterAddress
+        // });
 
-        assetPairContracts.push(deployContractPair(configHub, USDCstEthPairConfig, owner));
+        // assetPairContracts.push(deployContractPair(configHub, USDCstEthPairConfig, owner));
 
-        DeploymentHelper.PairConfig memory WETHweEthPairConfig = DeploymentHelper.PairConfig({
-            name: "WETH/weETH",
-            durations: singleDuration,
-            ltvs: singleLTV,
-            cashAsset: IERC20(WETH),
-            collateralAsset: IERC20(weETH),
-            oracleFeeTier: oracleFeeTier,
-            swapFeeTier: swapFeeTier,
-            twapWindow: twapWindow,
-            swapRouter: swapRouterAddress
-        });
+        // DeploymentHelper.PairConfig memory WETHweEthPairConfig = DeploymentHelper.PairConfig({
+        //     name: "WETH/weETH",
+        //     durations: singleDuration,
+        //     ltvs: singleLTV,
+        //     cashAsset: IERC20(WETH),
+        //     collateralAsset: IERC20(weETH),
+        //     oracleFeeTier: oracleFeeTier,
+        //     swapFeeTier: swapFeeTier,
+        //     twapWindow: twapWindow,
+        //     swapRouter: swapRouterAddress
+        // });
 
-        assetPairContracts.push(deployContractPair(configHub, WETHweEthPairConfig, owner));
+        // assetPairContracts.push(deployContractPair(configHub, WETHweEthPairConfig, owner));
     }
 }

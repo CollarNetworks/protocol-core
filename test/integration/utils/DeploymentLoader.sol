@@ -15,7 +15,11 @@ abstract contract DeploymentLoader is DeploymentUtils {
     address provider;
 
     function setUp() public virtual {
-        (configHub, deployedPairs) = loadDeployment();
+        (ConfigHub hub, DeploymentHelper.AssetPairContracts[] memory pairs) = loadDeployment();
+        configHub = hub;
+        for (uint i = 0; i < pairs.length; i++) {
+            deployedPairs.push(pairs[i]);
+        }
         uint deployerPrivKey = vm.envUint("PRIVKEY_DEV_DEPLOYER");
         uint user1PrivKey = vm.envUint("PRIVKEY_DEV_TEST1");
         uint user2PrivKey = vm.envUint("PRIVKEY_DEV_TEST2");
