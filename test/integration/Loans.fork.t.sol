@@ -129,7 +129,6 @@ contract LoansForkTest is LoansTestBase {
         skip(pair.durations[0]);
         uint minCollateralOut = collateralAmount * 95 / 100; // 5% slippage
         uint collateralOut = closeLoan(pair, user, takerId, minCollateralOut);
-
         assertGe(collateralOut, minCollateralOut, "Collateral out should be at least minCollateralOut");
     }
 
@@ -166,7 +165,7 @@ contract LoansForkTest is LoansTestBase {
             openLoan(pair, user, collateralAmount, minLoanAmount, offerId);
 
         // Advance time to simulate passage of time
-        vm.warp(block.timestamp + 7 days);
+        vm.warp(block.timestamp + pair.durations[0] - 20);
 
         int rollFee = 100e6;
         int rollDeltaFactor = 10_000;
@@ -177,7 +176,7 @@ contract LoansForkTest is LoansTestBase {
             rollLoan(pair, user, takerId, rollOfferId, minToUser);
 
         // Advance time again
-        vm.warp(block.timestamp + 7 days);
+        vm.warp(block.timestamp + pair.durations[0]);
 
         uint minCollateralOut = collateralAmount * 95 / 100; // 5% slippage
         uint collateralOut = closeLoan(pair, user, newTakerId, minCollateralOut);
