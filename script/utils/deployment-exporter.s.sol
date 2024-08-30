@@ -127,7 +127,7 @@ contract DeploymentUtils is Script {
         string memory filename = string(abi.encodePacked(name, "-", timestamp, ".json"));
         string memory path = string(abi.encodePacked(chainOutputFolder, filename));
         vm.writeJson(json, path);
-        string memory latestFilename = string(abi.encodePacked(name, ".json"));
+        string memory latestFilename = string(abi.encodePacked(name, "-latest.json"));
         string memory latestPath = string(abi.encodePacked(chainOutputFolder, latestFilename));
         vm.writeJson(json, latestPath);
     }

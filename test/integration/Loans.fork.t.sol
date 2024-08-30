@@ -50,6 +50,11 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
         uint minCollateralOut
     ) internal returns (uint collateralOut) {
         vm.startPrank(user);
+        ILoans.Loan memory loan = pair.loansContract.getLoan(takerId);
+        // approve repayment amount in cash asset to loans contract
+        pair.cashAsset.approve(address(pair.loansContract), loan.loanAmount);
+        // approve taker NFT to loans contract
+        pair.takerNFT.approve(address(pair.loansContract), takerId);
         collateralOut = pair.loansContract.closeLoan(
             takerId, ILoans.SwapParams(minCollateralOut, address(pair.loansContract.defaultSwapper()), "")
         );
@@ -101,14 +106,14 @@ contract LoansForkTest is LoansTestBase {
     address collateralAsset = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
     DeploymentHelper.AssetPairContracts internal pair;
 
-    function setUp() public override {
+    function setUp() public virtual override {
+        // this test suite needs to run independently so we load a fork here
         uint _blockNumberToUse = 223_579_191;
         string memory forkRPC = vm.envString("ARBITRUM_MAINNET_RPC");
         vm.createSelectFork(forkRPC, _blockNumberToUse);
         assertEq(block.number, 20_127_607);
 
         super.setUp();
-
         pair = getPairByAssets(address(cashAsset), address(collateralAsset));
         _fundWallets();
     }
@@ -118,11 +123,10 @@ contract LoansForkTest is LoansTestBase {
 
         uint collateralAmount = 1 ether;
         uint minLoanAmount = 0.3e6;
-        (uint takerId, uint providerId, uint loanAmount) =
-            openLoan(pair, user, collateralAmount, minLoanAmount, offerId);
+        (uint takerId,, uint loanAmount) = openLoan(pair, user, collateralAmount, minLoanAmount, offerId);
 
         assertGt(loanAmount, 0, "Loan amount should be greater than 0");
-
+        skip(pair.durations[0]);
         uint minCollateralOut = collateralAmount * 95 / 100; // 5% slippage
         uint collateralOut = closeLoan(pair, user, takerId, minCollateralOut);
 
