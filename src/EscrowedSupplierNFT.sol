@@ -61,9 +61,10 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         address _loans,
         string memory _name,
         string memory _symbol
-    ) BaseEmergencyAdminNFT(initialOwner, _configHub, _name, _symbol) {
+    ) BaseEmergencyAdminNFT(initialOwner, _name, _symbol) {
         asset = _asset;
         loans = _loans;
+        _setConfigHub(_configHub);
     }
 
     modifier onlyLoans() {
