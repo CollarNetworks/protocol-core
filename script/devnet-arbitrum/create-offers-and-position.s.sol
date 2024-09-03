@@ -8,7 +8,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { DeploymentUtils } from "../utils/deployment-exporter.s.sol";
 import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
-import { Loans } from "../../src/Loans.sol";
+import { LoansNFT } from "../../src/LoansNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 import { BaseDeployment } from "../BaseDeployment.s.sol";
 

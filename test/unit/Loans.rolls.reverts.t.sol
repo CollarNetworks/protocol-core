@@ -7,7 +7,7 @@ import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 
-import { Loans } from "../../src/Loans.sol";
+import { LoansNFT } from "../../src/LoansNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
 import { LoansRollTestBase } from "./Loans.rolls.effects.t.sol";
@@ -235,11 +235,11 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
 }
 
 contract DonatingAttacker {
-    Loans loans;
+    LoansNFT loans;
     TestERC20 cashAsset;
     bool attacked;
 
-    constructor(Loans _loans, TestERC20 _cashAsset) {
+    constructor(LoansNFT _loans, TestERC20 _cashAsset) {
         loans = _loans;
         cashAsset = _cashAsset;
     }

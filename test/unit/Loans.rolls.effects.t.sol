@@ -5,7 +5,7 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
-import { Loans, ILoans } from "../../src/Loans.sol";
+import { LoansNFT, ILoansNFT } from "../../src/LoansNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
@@ -75,7 +75,7 @@ contract LoansRollTestBase is LoansTestBase {
 
         uint expectedPositionId = takerNFT.nextPositionId();
         vm.expectEmit(address(loans));
-        emit ILoans.LoanRolled(
+        emit ILoansNFT.LoanRolled(
             user1,
             takerId,
             rollId,

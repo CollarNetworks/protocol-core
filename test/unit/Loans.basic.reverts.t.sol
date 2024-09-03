@@ -7,7 +7,7 @@ import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-import { Loans, ILoans } from "../../src/Loans.sol";
+import { LoansNFT, ILoansNFT } from "../../src/LoansNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
@@ -352,10 +352,10 @@ contract LoansBasicRevertsTest is LoansTestBase {
 contract ReentrantCloser {
     address nftOwner;
     CollarTakerNFT nft;
-    Loans loans;
+    LoansNFT loans;
     uint id;
 
-    function setParams(Loans _loans, CollarTakerNFT _nft, uint _id, address _nftOwner) external {
+    function setParams(LoansNFT _loans, CollarTakerNFT _nft, uint _id, address _nftOwner) external {
         loans = _loans;
         nft = _nft;
         id = _id;
@@ -364,7 +364,7 @@ contract ReentrantCloser {
 
     fallback() external virtual {
         nft.transferFrom(nftOwner, address(this), id);
-        loans.closeLoan(id, ILoans.SwapParams(0, address(loans.defaultSwapper()), ""));
+        loans.closeLoan(id, ILoansNFT.SwapParams(0, address(loans.defaultSwapper()), ""));
     }
 }
 

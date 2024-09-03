@@ -14,7 +14,7 @@ import { BaseEmergencyAdmin } from "../../src/base/BaseEmergencyAdmin.sol";
 import { ConfigHub } from "../../src/ConfigHub.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
-import { Loans } from "../../src/Loans.sol";
+import { LoansNFT } from "../../src/LoansNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
 // base contract for other tests that will check this functionality

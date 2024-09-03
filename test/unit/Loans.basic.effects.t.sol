@@ -9,7 +9,7 @@ import { BaseAssetPairTestSetup } from "./BaseAssetPairTestSetup.sol";
 import { MockSwapperRouter } from "../utils/MockSwapRouter.sol";
 import { SwapperArbitraryCall } from "../utils/SwapperArbitraryCall.sol";
 
-import { Loans, ILoans } from "../../src/Loans.sol";
+import { LoansNFT, ILoansNFT } from "../../src/LoansNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
 import { SwapperUniV3, ISwapper } from "../../src/SwapperUniV3.sol";
@@ -17,7 +17,7 @@ import { SwapperUniV3, ISwapper } from "../../src/SwapperUniV3.sol";
 contract LoansTestBase is BaseAssetPairTestSetup {
     MockSwapperRouter mockSwapperRouter;
     SwapperUniV3 swapperUniV3;
-    Loans loans;
+    LoansNFT loans;
 
     address defaultSwapper;
     bytes extraData = "";
@@ -62,7 +62,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
     }
 
     function defaultSwapParams(uint minOut) internal view returns (ILoans.SwapParams memory) {
-        return ILoans.SwapParams({ minAmountOut: minOut, swapper: defaultSwapper, extraData: extraData });
+        return ILoansNFT.SwapParams({ minAmountOut: minOut, swapper: defaultSwapper, extraData: extraData });
     }
 
     function createOfferAsProvider() internal returns (uint offerId) {
@@ -91,7 +91,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         uint expectedLoanAmount = swapOut * ltv / 10_000;
 
         vm.expectEmit(address(loans));
-        emit ILoans.LoanOpened(
+        emit ILoansNFT.LoanOpened(
             user1,
             address(providerNFT),
             offerId,
@@ -168,7 +168,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         // caller closes the loan
         vm.startPrank(caller);
         vm.expectEmit(address(loans));
-        emit ILoans.LoanClosed(
+        emit ILoansNFT.LoanClosed(
             takerId, caller, user1, loanAmount, loanAmount + withdrawal, expectedCollateralOut
         );
         uint collateralOut = loans.closeLoan(takerId, defaultSwapParams(0));
@@ -251,14 +251,14 @@ contract LoansBasicHappyPathsTest is LoansTestBase {
         (uint takerId,,) = createAndCheckLoan();
 
         vm.expectEmit(address(loans));
-        emit ILoans.ClosingKeeperAllowed(user1, takerId, true);
+        emit ILoansNFT.ClosingKeeperAllowed(user1, takerId, true);
         loans.setKeeperAllowedBy(takerId, true);
 
         Loans.Loan memory loan = loans.getLoan(takerId);
         assertEq(loan.keeperAllowedBy, user1);
 
         vm.expectEmit(address(loans));
-        emit ILoans.ClosingKeeperAllowed(user1, takerId, false);
+        emit ILoansNFT.ClosingKeeperAllowed(user1, takerId, false);
         loans.setKeeperAllowedBy(takerId, false);
 
         loan = loans.getLoan(takerId);
@@ -414,7 +414,7 @@ contract LoansBasicHappyPathsTest is LoansTestBase {
 
         // cancel
         vm.expectEmit(address(loans));
-        emit ILoans.LoanCancelled(takerId, address(this));
+        emit ILoansNFT.LoanCancelled(takerId, address(this));
         loans.cancelLoan(takerId);
 
         // check not active
