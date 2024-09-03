@@ -408,7 +408,7 @@ abstract contract BaseLoans is BaseEmergencyAdminNFT {
     }
 }
 
-contract EscrowedLoans is BaseLoans {
+contract EscrowedLoansNFT is BaseLoans {
     using SafeERC20 for IERC20;
 
     EscrowedSupplierNFT public immutable escrowNFT;
