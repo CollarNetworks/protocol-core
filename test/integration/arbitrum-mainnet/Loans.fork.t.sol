@@ -112,6 +112,14 @@ contract LoansForkTest is LoansTestBase {
     DeploymentHelper.AssetPairContracts internal pair;
     uint public forkId;
     bool public forkSet;
+    uint callstrikeToUse = 12_000;
+    uint offerAmount = 100_000e6;
+    uint collateralAmount = 1 ether;
+    int rollFee = 100e6;
+    int rollDeltaFactor = 10_000;
+    uint bigCashAmount = 1_000_000e6;
+    uint bigCollateralAmount = 1000 ether;
+    uint slippage = 1; // 1%
 
     function setUp() public virtual override {
         if (!forkSet) {
@@ -136,28 +144,27 @@ contract LoansForkTest is LoansTestBase {
     }
 
     function testOpenAndCloseLoan() public {
-        uint offerId = createProviderOffer(pair, 12_000, 100_000e6);
-        uint collateralAmount = 1 ether;
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
+
         uint minLoanAmount = 0.3e6;
         (uint takerId,, uint loanAmount) = openLoan(pair, user, collateralAmount, minLoanAmount, offerId);
 
         assertGt(loanAmount, 0, "Loan amount should be greater than 0");
         skip(pair.durations[0]);
-        uint minCollateralOut = collateralAmount * 95 / 100; // 5% slippage
-        uint collateralOut = closeLoan(pair, user, takerId, minCollateralOut);
+        // no price change so collateral out should be collateral in minus slippage
+        uint minCollateralOut = collateralAmount;
+        uint minCollateralOutWithSlippage = minCollateralOut * (100 - slippage) / 100;
+        uint collateralOut = closeLoan(pair, user, takerId, minCollateralOutWithSlippage);
         assertGe(collateralOut, minCollateralOut, "Collateral out should be at least minCollateralOut");
     }
 
     function testRollLoan() public {
-        uint offerId = createProviderOffer(pair, 12_000, 100_000e6);
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
 
-        uint collateralAmount = 1 ether;
         uint minLoanAmount = 0.3e6;
         (uint takerId, uint providerId, uint initialLoanAmount) =
             openLoan(pair, user, collateralAmount, minLoanAmount, offerId);
 
-        int rollFee = 100e6;
-        int rollDeltaFactor = 10_000;
         uint rollOfferId = createRollOffer(pair, provider, takerId, providerId, rollFee, rollDeltaFactor);
 
         int minToUser = -1000e6; // Allow up to 1000 tokens to be paid by the user
@@ -173,9 +180,7 @@ contract LoansForkTest is LoansTestBase {
     }
 
     function testFullLoanLifecycle() public {
-        uint offerId = createProviderOffer(pair, 12_000, 100_000e6);
-
-        uint collateralAmount = 1 ether;
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
         uint minLoanAmount = 0.3e6;
         (uint takerId, uint providerId, uint initialLoanAmount) =
             openLoan(pair, user, collateralAmount, minLoanAmount, offerId);
@@ -183,8 +188,6 @@ contract LoansForkTest is LoansTestBase {
         // Advance time to simulate passage of time
         vm.warp(block.timestamp + pair.durations[0] - 20);
 
-        int rollFee = 100e6;
-        int rollDeltaFactor = 10_000;
         uint rollOfferId = createRollOffer(pair, provider, takerId, providerId, rollFee, rollDeltaFactor);
 
         int minToUser = -1000e6;
@@ -208,9 +211,9 @@ contract LoansForkTest is LoansTestBase {
     }
 
     function fundWallets() public {
-        deal(address(cashAsset), user, 1_000_000e6);
-        deal(address(cashAsset), provider, 1_000_000e6);
-        deal(address(collateralAsset), user, 1000e18);
-        deal(address(collateralAsset), provider, 1000e18);
+        deal(address(cashAsset), user, bigCashAmount);
+        deal(address(cashAsset), provider, bigCashAmount);
+        deal(address(collateralAsset), user, bigCollateralAmount);
+        deal(address(collateralAsset), provider, bigCollateralAmount);
     }
 }
