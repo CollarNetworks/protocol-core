@@ -2,11 +2,12 @@
 pragma solidity ^0.8.18;
 
 import "forge-std/Test.sol";
-import "./utils/DeploymentLoader.sol";
-import { ILoans } from "../../src/interfaces/ILoans.sol";
-import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
-import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
-import { Rolls } from "../../src/Rolls.sol";
+import "../utils/DeploymentLoader.sol";
+import { ILoans } from "../../../src/interfaces/ILoans.sol";
+import { ProviderPositionNFT } from "../../../src/ProviderPositionNFT.sol";
+import { CollarTakerNFT } from "../../../src/CollarTakerNFT.sol";
+import { Rolls } from "../../../src/Rolls.sol";
+import { DeployContracts } from "../../../script/arbitrum-mainnet/deploy-contracts.s.sol";
 
 abstract contract LoansTestBase is Test, DeploymentLoader {
     function setUp() public virtual override {
@@ -19,7 +20,11 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
         uint amount
     ) internal returns (uint offerId) {
         vm.startPrank(provider);
+        uint cashBalance = pair.cashAsset.balanceOf(provider);
+        console.log("Provider cash balance: %d", cashBalance);
         pair.cashAsset.approve(address(pair.providerNFT), amount);
+        address taker = pair.providerNFT.collarTakerContract();
+        console.log("Taker address: %s", taker);
         offerId = pair.providerNFT.createOffer(callStrikeDeviation, amount, pair.ltvs[0], pair.durations[0]);
         vm.stopPrank();
     }
@@ -105,22 +110,33 @@ contract LoansForkTest is LoansTestBase {
     address cashAsset = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8; // USDC
     address collateralAsset = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
     DeploymentHelper.AssetPairContracts internal pair;
+    uint public forkId;
+    bool public forkSet;
 
     function setUp() public virtual override {
-        // this test suite needs to run independently so we load a fork here
-        uint _blockNumberToUse = 223_579_191;
-        string memory forkRPC = vm.envString("ARBITRUM_MAINNET_RPC");
-        vm.createSelectFork(forkRPC, _blockNumberToUse);
-        assertEq(block.number, 20_127_607);
-
+        if (!forkSet) {
+            // this test suite needs to run independently so we load a fork here
+            forkId = vm.createFork(vm.envString("ARBITRUM_MAINNET_RPC"));
+            vm.selectFork(forkId);
+            // Deploy contracts
+            DeployContracts deployer = new DeployContracts();
+            deployer.run();
+            forkSet = true;
+        } else {
+            vm.selectFork(forkId);
+        }
         super.setUp();
         pair = getPairByAssets(address(cashAsset), address(collateralAsset));
-        _fundWallets();
+        fundWallets();
+    }
+
+    function setForkId(uint _forkId) public {
+        forkId = _forkId;
+        forkSet = true;
     }
 
     function testOpenAndCloseLoan() public {
         uint offerId = createProviderOffer(pair, 12_000, 100_000e6);
-
         uint collateralAmount = 1 ether;
         uint minLoanAmount = 0.3e6;
         (uint takerId,, uint loanAmount) = openLoan(pair, user, collateralAmount, minLoanAmount, offerId);
@@ -191,7 +207,7 @@ contract LoansForkTest is LoansTestBase {
         assertGe(collateralOut, minCollateralOut, "Collateral out should be at least minCollateralOut");
     }
 
-    function _fundWallets() internal {
+    function fundWallets() public {
         deal(address(cashAsset), user, 1_000_000e6);
         deal(address(cashAsset), provider, 1_000_000e6);
         deal(address(collateralAsset), user, 1000e18);
