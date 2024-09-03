@@ -13,12 +13,10 @@ import { CollarTakerNFT } from "../CollarTakerNFT.sol";
 import { ShortProviderNFT } from "../ShortProviderNFT.sol";
 import { Rolls } from "../Rolls.sol";
 
-interface ILoans {
+interface IBaseLoansNFT {
     struct Loan {
         uint collateralAmount;
         uint loanAmount;
-        address keeperAllowedBy;
-        bool active;
     }
 
     struct SwapParams {
@@ -34,11 +32,11 @@ interface ILoans {
         uint indexed offerId,
         uint collateralAmount,
         uint loanAmount,
-        uint takerId,
+        uint loanId,
         uint providerId
     );
     event LoanClosed(
-        uint indexed takerId,
+        uint indexed loanId,
         address indexed sender,
         address indexed user,
         uint repayment,
@@ -55,7 +53,7 @@ interface ILoans {
         int transferAmount
     );
     event LoanCancelled(uint indexed takerId, address indexed sender);
-    event ClosingKeeperAllowed(address indexed sender, uint indexed takerId, bool indexed enabled);
+    event ClosingKeeperAllowed(address indexed sender, bool indexed enabled);
     event ClosingKeeperUpdated(address indexed previousKeeper, address indexed newKeeper);
     event RollsContractUpdated(Rolls indexed previousRolls, Rolls indexed newRolls);
     event SwapperSet(address indexed swapper, bool indexed allowed, bool indexed setDefault);
@@ -74,19 +72,28 @@ interface ILoans {
     // mutative contract owner
     function setKeeper(address keeper) external;
     function setRollsContract(Rolls rolls) external;
-    // mutative user / keeper
+    // mutative user
+    function setKeeperAllowed(bool enabled) external;
+}
+
+interface ILoansNFT is IBaseLoansNFT {
+    // mutative user (and keeper for some)
     function openLoan(
         uint collateralAmount,
         uint minLoanAmount,
         SwapParams calldata swapParams,
         ShortProviderNFT providerNFT,
         uint offerId
-    ) external returns (uint takerId, uint providerId, uint loanAmount);
-    function setKeeperAllowedBy(uint takerId, bool enabled) external;
-    function closeLoan(uint takerId, SwapParams calldata swapParams)
+    ) external returns (uint loanId, uint providerId, uint loanAmount);
+    function closeLoan(uint loanId, SwapParams calldata swapParams)
         external
         returns (uint collateralReturned);
-    function rollLoan(uint takerId, Rolls rolls, uint rollId, int minToUser)
+    function rollLoan(uint loanId, Rolls rolls, uint rollId, int minToUser)
         external
-        returns (uint newTakerId, uint newLoanAmount, int transferAmount);
+        returns (uint newLoanId, uint newLoanAmount, int transferAmount);
+    function unwrapAndCancelLoan(uint loanId) external;
+}
+
+interface IEscrowedLoansNFT is IBaseLoansNFT {
+// TODO: fill this in?
 }
