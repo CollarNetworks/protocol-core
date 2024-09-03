@@ -107,7 +107,8 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         Escrow storage escrow = escrows[escrowId];
         // set to max
         gracePeriod = escrow.gracePeriod;
-        if (escrow.escrowed != 0 && escrow.lateFeeAPR != 0) { // avoid div-zero
+        if (escrow.escrowed != 0 && escrow.lateFeeAPR != 0) {
+            // avoid div-zero
             // Calculate the grace period at which the fee will be higher than what's available.
             // Otherwise, late fees will be underpaid.
             // fee = escrowed * time * APR / year / 100bips;
