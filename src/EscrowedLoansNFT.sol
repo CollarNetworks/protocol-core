@@ -15,7 +15,7 @@ import { EscrowedSupplierNFT } from "./EscrowedSupplierNFT.sol";
 import { Rolls } from "./Rolls.sol";
 import { ISwapper } from "./interfaces/ISwapper.sol";
 
-abstract contract BaseLoans is BaseEmergencyAdminNFT {
+abstract contract BaseLoansNFT is BaseEmergencyAdminNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
@@ -408,7 +408,7 @@ abstract contract BaseLoans is BaseEmergencyAdminNFT {
     }
 }
 
-contract EscrowedLoansNFT is BaseLoans {
+contract EscrowedLoansNFT is BaseLoansNFT {
     using SafeERC20 for IERC20;
 
     EscrowedSupplierNFT public immutable escrowNFT;
@@ -421,7 +421,7 @@ contract EscrowedLoansNFT is BaseLoans {
         EscrowedSupplierNFT _escrowNFT,
         string memory _name,
         string memory _symbol
-    ) BaseLoans(initialOwner, _takerNFT, _name, _symbol) {
+    ) BaseLoansNFT(initialOwner, _takerNFT, _name, _symbol) {
         escrowNFT = _escrowNFT;
         require(escrowNFT.asset() == collateralAsset, "asset mismatch");
     }
