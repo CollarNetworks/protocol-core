@@ -88,7 +88,7 @@ abstract contract BaseLoans is BaseEmergencyAdminNFT {
 
     function setKeeperAllowed(bool enabled) external whenNotPaused {
         allowsClosingKeeper[msg.sender] = enabled;
-        emit ClosingKeeperAllowed(msg.sender, enabled);
+        //        emit ClosingKeeperAllowed(msg.sender, enabled);
     }
 
     // admin methods
@@ -96,9 +96,8 @@ abstract contract BaseLoans is BaseEmergencyAdminNFT {
     /// @notice Sets the address of the closing keeper
     /// @dev only owner
     function setKeeper(address keeper) external onlyOwner {
-        address previous = closingKeeper;
+        //        emit ClosingKeeperUpdated(closingKeeper, keeper);
         closingKeeper = keeper;
-        emit ClosingKeeperUpdated(previous, keeper);
     }
 
     /// @notice Sets the Rolls contract to be used for rolling loans
@@ -107,7 +106,7 @@ abstract contract BaseLoans is BaseEmergencyAdminNFT {
         if (rolls != Rolls(address(0))) {
             require(rolls.takerNFT() == takerNFT, "rolls taker NFT mismatch");
         }
-        emit RollsContractUpdated(rollsContract, rolls); // emit before for the prev value
+        //        emit RollsContractUpdated(rollsContract, rolls); // emit before for the prev value
         rollsContract = rolls;
     }
 
@@ -122,7 +121,7 @@ abstract contract BaseLoans is BaseEmergencyAdminNFT {
         // to zero. Worst case is loan cannot be closed and is settled via takerNFT
         if (setDefault) defaultSwapper = swapper;
         allowedSwappers[swapper] = allowed;
-        emit SwapperSet(swapper, allowed, setDefault);
+        //        emit SwapperSet(swapper, allowed, setDefault);
     }
 
     // ----- INTERNAL MUTATIVE ----- //
@@ -275,7 +274,7 @@ abstract contract BaseLoans is BaseEmergencyAdminNFT {
 
         // pull and push NFT and cash, execute roll, emit event
         uint newTakerId;
-        uint rollFee;
+        int rollFee;
         (newTakerId, transferAmount, rollFee) = _executeRoll(loanId, rollId, minToUser);
         newLoanAmount = _calculateNewLoan(transferAmount, rollFee, loan.loanAmount);
         newLoanId = _newLoanId(newTakerId);
@@ -291,7 +290,7 @@ abstract contract BaseLoans is BaseEmergencyAdminNFT {
 
     function _executeRoll(uint loanId, uint rollId, int minToUser)
         internal
-        returns (uint newTakerId, int transferAmount, uint rollFee)
+        returns (uint newTakerId, int transferAmount, int rollFee)
     {
         uint initialBalance = cashAsset.balanceOf(address(this));
 
@@ -333,11 +332,11 @@ abstract contract BaseLoans is BaseEmergencyAdminNFT {
     }
 
     /// @dev access control is expected to be checked by caller
-    function _unwrapAndCancelLoan(uint loanId, address user) external {
+    function _unwrapAndCancelLoan(uint loanId, address user) internal {
         require(_expiration(loanId) > block.timestamp, "loan expired");
         // cancel the loan
-        require(loans[takerId].active, "loan not active");
-        loans[takerId].active = false;
+        require(loans[loanId].active, "loan not active");
+        loans[loanId].active = false;
 
         // unwrap: send the taker NFT to user
         takerNFT.transferFrom(address(this), user, _takerId(loanId));
@@ -410,13 +409,19 @@ abstract contract BaseLoans is BaseEmergencyAdminNFT {
 }
 
 contract EscrowedLoans is BaseLoans {
+    using SafeERC20 for IERC20;
+
     EscrowedSupplierNFT public immutable escrowNFT;
 
     mapping(uint loanId => uint escrowId) public loanIdToEscrowId;
 
-    constructor(address initialOwner, CollarTakerNFT _takerNFT, EscrowedSupplierNFT _escrowNFT)
-        BaseLoans(initialOwner, _takerNFT)
-    {
+    constructor(
+        address initialOwner,
+        CollarTakerNFT _takerNFT,
+        EscrowedSupplierNFT _escrowNFT,
+        string memory _name,
+        string memory _symbol
+    ) BaseLoans(initialOwner, _takerNFT, _name, _symbol) {
         escrowNFT = _escrowNFT;
         require(escrowNFT.asset() == collateralAsset, "asset mismatch");
     }
@@ -440,9 +445,10 @@ contract EscrowedLoans is BaseLoans {
         // if this is called before expiration (externally), estimate using current price
         uint settleTime = (block.timestamp < expiration) ? block.timestamp : expiration;
         // the price that will be used for settlement (past if available, or current if not)
-        uint oraclePrice = takerNFT.oracle().pastPriceWithFallback(uint32(settleTime));
+        (uint oraclePrice,) = takerNFT.oracle().pastPriceWithFallback(uint32(settleTime));
 
-        (uint cashAvailable,) = takerNFT.previewSettlement(takerPos, oraclePrice);
+        (uint cashAvailable,) =
+            takerNFT.previewSettlement(takerNFT.getPosition(_takerId(loanId)), oraclePrice);
 
         // oracle price is for 1e18 tokens (regardless of decimals):
         // oracle-price = collateral-price * 1e18, so price = oracle-price / 1e18,
@@ -470,7 +476,7 @@ contract EscrowedLoans is BaseLoans {
 
         uint expectedTakerId = takerNFT.nextPositionId();
         // get the supplier collateral for the swap
-        collateralAsset.forceApprove(address(supplierNFT), collateralAmount);
+        collateralAsset.forceApprove(address(escrowNFT), collateralAmount);
         (escrowId,) = escrowNFT.escrowAndMint(escrowOffer, collateralAmount, expectedTakerId);
         // @dev no balance checks are needed, because this contract holds no funds (collateral or cash).
         // all collateral is either swapped or in escrow, so an incorrect balance will cause reverts on
@@ -525,7 +531,8 @@ contract EscrowedLoans is BaseLoans {
         (newLoanId, newLoanAmount, transferAmount) = _rollLoan(loanId, rolls, rollId, minToUser);
 
         // rotate escrows
-        (newEscrowId,) = escrowNFT.releaseAndMint(loanIdToEscrowId[loanId], newEscrowOffer, newLoanId);
+        uint prevEscrowId = loanIdToEscrowId[loanId];
+        (uint newEscrowId,) = escrowNFT.releaseAndMint(prevEscrowId, newEscrowOffer, newLoanId);
         loanIdToEscrowId[newLoanId] = newEscrowId;
 
         // TODO: event
@@ -567,7 +574,7 @@ contract EscrowedLoans is BaseLoans {
         _burn(loanId);
 
         // @dev Reentrancy assumption: no user state writes or reads AFTER the swapper call in _swap.
-        collateralOut = _swap(cashAsset, collateralAsset, cashAvailable, swapParams);
+        uint collateralOut = _swap(cashAsset, collateralAsset, cashAvailable, swapParams);
 
         // Release escrow, and send any leftovers to user. Their express trigger of balance update
         // (withdrawal) is neglected here due to being anyway in an undesirable state of being foreclosed

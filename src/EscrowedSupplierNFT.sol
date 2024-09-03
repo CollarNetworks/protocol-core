@@ -95,9 +95,9 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
             // grace period cliff
             fee = 0;
         } else {
-            uint overdue = block.timestamp - expiration; // counts from expiration despite the cliff
+            uint overdue = block.timestamp - escrow.expiration; // counts from expiration despite the cliff
             // cap at specified grace period
-            uint overdue = overdue > escrow.gracePeriod ? escrow.gracePeriod : overdue;
+            overdue = overdue > escrow.gracePeriod ? escrow.gracePeriod : overdue;
             // @dev rounds up to prevent avoiding fee using many small positions
             fee = _divUp(escrowed * escrow.lateFeeAPR * overdue, BIPS_BASE * 365 days);
         }
