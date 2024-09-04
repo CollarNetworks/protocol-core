@@ -331,8 +331,6 @@ abstract contract BaseLoansNFT is BaseEmergencyAdminNFT, IBaseLoansNFT {
         // there should be no balance change for the contract (which might happen e.g., if rolls contract
         // overestimated amount to pull from user, or under-reported return value)
         require(cashAsset.balanceOf(address(this)) == initialBalance, "contract balance changed");
-
-        // TODO: event
     }
 
     /// @dev access control is expected to be checked by caller (loanId owner)
@@ -568,10 +566,4 @@ contract LoansNFT is ILoansNFT, BaseLoansNFT {
     function unwrapAndCancelLoan(uint loanId) external whenNotPaused onlyNFTOwner(loanId) {
         _unwrapAndCancelLoan(loanId);
     }
-
-    // admin methods
-
-    // ----- INTERNAL MUTATIVE ----- //
-
-    // ----- INTERNAL VIEWS ----- //
 }
