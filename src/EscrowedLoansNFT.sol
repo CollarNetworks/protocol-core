@@ -137,6 +137,9 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
     }
 
     function unwrapAndCancelLoan(uint loanId) external whenNotPaused onlyNFTOwner(loanId) {
+        // do not allow to unwrap past expiry to prevent frontrunning foreclosing
+        require(_expiration(loanId) > block.timestamp, "loan expired");
+
         _unwrapAndCancelLoan(loanId);
 
         // release the escrowed user funds to the supplier since the user will not repay the loan

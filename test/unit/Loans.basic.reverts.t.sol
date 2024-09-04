@@ -289,12 +289,6 @@ contract LoansBasicRevertsTest is LoansTestBase {
         // Try to cancel the already closed loan
         expectRevertERC721Nonexistent(loanId);
         loans.unwrapAndCancelLoan(loanId);
-
-        // expired
-        (loanId,,) = createAndCheckLoan();
-        skip(duration + 1);
-        vm.expectRevert("loan expired");
-        loans.unwrapAndCancelLoan(loanId);
     }
 }
 

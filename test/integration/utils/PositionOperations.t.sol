@@ -56,6 +56,9 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         startHoax(user);
         pair.takerNFT.settlePairedPosition(borrowId);
 
+        // unwrap the taker position (send to user)
+        pair.loansContract.unwrapAndCancelLoan(borrowId);
+
         // User withdrawal
         uint userBalanceBefore = pair.cashAsset.balanceOf(user);
         pair.takerNFT.withdrawFromSettled(borrowId, user);

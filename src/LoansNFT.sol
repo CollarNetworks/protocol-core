@@ -337,8 +337,6 @@ abstract contract BaseLoansNFT is BaseEmergencyAdminNFT, IBaseLoansNFT {
 
     /// @dev access control is expected to be checked by caller (loanId owner)
     function _unwrapAndCancelLoan(uint loanId) internal {
-        require(_expiration(loanId) > block.timestamp, "loan expired");
-
         // burn token. This prevents any further calls for this loan
         _burn(loanId);
 
