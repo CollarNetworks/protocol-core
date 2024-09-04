@@ -89,13 +89,9 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
         // all collateral is either swapped or in escrow, so an incorrect balance will cause reverts on
         // transfers
 
-        // swap collateral
-        // @dev Reentrancy assumption: no user state writes or reads BEFORE the swapper call in _swap.
-        // The only state reads before are owner-set pause state.
-        uint cashFromSwap = _swapCollateralWithTwapCheck(collateralAmount, swapParams);
-
+        // @dev Reentrancy assumption: no user state writes or reads BEFORE this call
         (loanId, providerId, loanAmount) =
-            _openAndMint(collateralAmount, cashFromSwap, providerNFT, shortOffer);
+            _openSwapAndMint(collateralAmount, providerNFT, shortOffer, swapParams);
 
         require(loanAmount >= minLoanAmount, "loan amount too low");
         // loanId is the takerId, but view was used before external calls so we need to ensure it matches still

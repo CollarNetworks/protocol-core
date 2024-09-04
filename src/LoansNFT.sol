@@ -124,14 +124,19 @@ abstract contract BaseLoansNFT is BaseEmergencyAdminNFT, IBaseLoansNFT {
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    function _openAndMint(
+    function _openSwapAndMint(
         uint collateralAmount,
-        uint cashFromSwap,
         ShortProviderNFT providerNFT,
-        uint offerId
+        uint offerId,
+        SwapParams calldata swapParams
     ) internal returns (uint loanId, uint providerId, uint loanAmount) {
         // 0 collateral is later checked to mean non-existing loan, also prevents div-zero
         require(collateralAmount != 0, "invalid collateral amount");
+
+        // swap collateral
+        // @dev Reentrancy assumption: no user state writes or reads BEFORE the swapper call in _swap.
+        // The only state reads before are owner-set state: pause and swapper allowlist.
+        uint cashFromSwap = _swapCollateralWithTwapCheck(collateralAmount, swapParams);
 
         uint putStrikeDeviation = providerNFT.getOffer(offerId).putStrikeDeviation;
 
@@ -202,11 +207,10 @@ abstract contract BaseLoansNFT is BaseEmergencyAdminNFT, IBaseLoansNFT {
 
     /// @dev access control (loanId owner ot their keeper) is expected to be checked by caller
     /// @dev this method DOES NOT transfer the swapped collateral to user
-    function _closeLoanNoTFOut(uint loanId, SwapParams calldata swapParams) internal returns (uint collateralOut) {
-        // total cash available
-        // @dev will check settle, or try to settle - will revert if cannot settle yet (not expired)
-        uint takerWithdrawal = _settleAndWithdrawTaker(loanId);
-
+    function _closeLoanNoTFOut(uint loanId, SwapParams calldata swapParams)
+        internal
+        returns (uint collateralOut)
+    {
         // @dev user is the NFT owner, since msg.sender can be a keeper
         // If called by keeper, the user must trust it because:
         // - call pulls user funds (for repayment)
@@ -216,11 +220,15 @@ abstract contract BaseLoansNFT is BaseEmergencyAdminNFT, IBaseLoansNFT {
         address user = ownerOf(loanId);
         uint loanAmount = loans[loanId].loanAmount;
 
+        // burn token. This prevents any other (or reentrant) calls for this loan
+        _burn(loanId);
+
+        // total cash available
+        // @dev will check settle, or try to settle - will revert if cannot settle yet (not expired)
+        uint takerWithdrawal = _settleAndWithdrawTaker(loanId);
+
         // @dev assumes approval
         cashAsset.safeTransferFrom(user, address(this), loanAmount);
-
-        // burn token. This prevents any other calls for this loan
-        _burn(loanId);
 
         // @dev Reentrancy assumption: no user state writes or reads AFTER the swapper call in _swap.
         uint cashAmount = loanAmount + takerWithdrawal;
@@ -357,7 +365,7 @@ abstract contract BaseLoansNFT is BaseEmergencyAdminNFT, IBaseLoansNFT {
         // @dev because we use the takerId for the loanId (instead of having separate IDs), we should
         // check that the ID is not yet taken. This should not be possible, since takerId should mint
         // new IDs correctly, but can be checked for completeness.
-        // @dev non-zero should be ensured in _openAndMint
+        // @dev non-zero should be ensured when opening loan
         require(loans[loanId].collateralAmount == 0, "loanId taken");
     }
 
@@ -476,12 +484,9 @@ contract LoansNFT is ILoansNFT, BaseLoansNFT {
         // pull collateral
         collateralAsset.safeTransferFrom(msg.sender, address(this), collateralAmount);
 
-        // swap collateral
-        // @dev Reentrancy assumption: no user state writes or reads BEFORE the swapper call in _swap.
-        // The only state reads before are owner-set state: pause and swapper allowlist.
-        uint cashFromSwap = _swapCollateralWithTwapCheck(collateralAmount, swapParams);
-
-        (loanId, providerId, loanAmount) = _openAndMint(collateralAmount, cashFromSwap, providerNFT, offerId);
+        // @dev Reentrancy assumption: no user state writes or reads BEFORE this call
+        (loanId, providerId, loanAmount) =
+            _openSwapAndMint(collateralAmount, providerNFT, offerId, swapParams);
         require(loanAmount >= minLoanAmount, "loan amount too low");
 
         // transfer the full loan amount on open

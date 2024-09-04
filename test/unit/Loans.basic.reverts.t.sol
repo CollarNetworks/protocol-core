@@ -80,9 +80,11 @@ contract LoansBasicRevertsTest is LoansTestBase {
     function test_revert_openLoan_swapper_not_allowed() public {
         vm.startPrank(owner);
         // disable the default swapper
-        loans.setSwapperAllowed(address(swapperUniV3), false, true);
+        loans.setSwapperAllowed(address(defaultSwapper), false, true);
 
         // not allowed
+        startHoax(user1);
+        collateralAsset.approve(address(loans), collateralAmount);
         vm.expectRevert("swapper not allowed");
         loans.openLoan(collateralAmount, minLoanAmount, defaultSwapParams(0), providerNFT, 0);
     }
@@ -140,12 +142,13 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
     function test_revert_closeLoan_reentrnancy_alreadyClosed() public {
         (uint loanId,, uint loanAmount) = createAndCheckLoan();
+        skip(duration);
         vm.startPrank(user1);
         cashAsset.approve(address(loans), loanAmount);
 
         // setup attack: reenter from closeLoan to closeLoan
         ReentrantCloser closer = new ReentrantCloser();
-        closer.setParams(loans, takerNFT, loanId, user1);
+        closer.setParams(loans, loanId, user1);
         cashAsset.setAttacker(address(closer));
         loans.approve(address(closer), loanId); // allow attacker to pull nft
         expectRevertERC721Nonexistent(loanId);
@@ -211,7 +214,8 @@ contract LoansBasicRevertsTest is LoansTestBase {
     }
 
     function test_revert_closeLoan_swapper_not_allowed() public {
-        (uint loanId,,) = createAndCheckLoan();
+        (uint loanId,, uint loanAmount) = createAndCheckLoan();
+        skip(duration);
 
         vm.startPrank(owner);
         // disable the default swapper
@@ -219,6 +223,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
         // not allowed
         vm.startPrank(user1);
+        cashAsset.approve(address(loans), loanAmount);
         vm.expectRevert("swapper not allowed");
         loans.closeLoan(loanId, defaultSwapParams(collateralAmount));
     }
@@ -240,7 +245,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
         vm.startPrank(user1);
         // transfer invalidates approval
-        takerNFT.transferFrom(user1, provider, loanId);
+        loans.transferFrom(user1, provider, loanId);
 
         vm.startPrank(keeper);
         vm.expectRevert("not NFT owner or allowed keeper");
@@ -248,12 +253,11 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
         // transfer back
         vm.startPrank(provider);
-        takerNFT.transferFrom(provider, user1, loanId);
+        loans.transferFrom(provider, user1, loanId);
 
         // should work now
         vm.startPrank(user1);
         cashAsset.approve(address(loans), loanAmount);
-        takerNFT.approve(address(loans), loanId);
         prepareSwap(collateralAsset, collateralAmount);
         // close from keeper
         vm.startPrank(keeper);
@@ -296,19 +300,17 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
 contract ReentrantCloser {
     address nftOwner;
-    CollarTakerNFT nft;
     LoansNFT loans;
     uint id;
 
-    function setParams(LoansNFT _loans, CollarTakerNFT _nft, uint _id, address _nftOwner) external {
+    function setParams(LoansNFT _loans, uint _id, address _nftOwner) external {
         loans = _loans;
-        nft = _nft;
         id = _id;
         nftOwner = _nftOwner;
     }
 
     fallback() external virtual {
-        nft.transferFrom(nftOwner, address(this), id);
+        loans.transferFrom(nftOwner, address(this), id);
         loans.closeLoan(id, IBaseLoansNFT.SwapParams(0, address(loans.defaultSwapper()), ""));
     }
 }
