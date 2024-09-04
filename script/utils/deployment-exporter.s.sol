@@ -194,7 +194,7 @@ contract DeploymentUtils is Script {
                 // for each unique takerNFT key (every asset pair), get the base key and create the asset pair using all other key suffixes
                 string memory baseKey = substring(allKeys[i], 0, bytes(allKeys[i]).length - 9);
 
-                result[resultIndex] = BaseDeployment.AssetPairContracts({
+                result[resultIndex] = DeploymentHelper.AssetPairContracts({
                     providerNFT: ShortProviderNFT(
                         _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_providerNFT")))
                     ),

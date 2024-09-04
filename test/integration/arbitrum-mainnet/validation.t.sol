@@ -45,8 +45,8 @@ contract DeploymentValidator is Test, DeploymentLoader {
             assertEq(address(pair.loansContract) != address(0), true);
             assertEq(address(pair.rollsContract) != address(0), true);
 
-            assertEq(configHub.takerNFTCanOpen(address(pair.takerNFT)), true);
-            assertEq(configHub.providerNFTCanOpen(address(pair.providerNFT)), true);
+            assertEq(configHub.canOpen(address(pair.takerNFT)), true);
+            assertEq(configHub.canOpen(address(pair.providerNFT)), true);
             assertEq(configHub.isSupportedCashAsset(address(pair.cashAsset)), true);
             assertEq(configHub.isSupportedCollateralAsset(address(pair.collateralAsset)), true);
 

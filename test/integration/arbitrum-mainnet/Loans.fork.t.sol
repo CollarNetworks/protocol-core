@@ -4,9 +4,6 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import "../utils/DeploymentLoader.sol";
 import { ILoans } from "../../../src/interfaces/ILoans.sol";
-import { ProviderPositionNFT } from "../../../src/ProviderPositionNFT.sol";
-import { CollarTakerNFT } from "../../../src/CollarTakerNFT.sol";
-import { Rolls } from "../../../src/Rolls.sol";
 import { DeployContractsArbitrumMainnet } from "../../../script/arbitrum-mainnet/deploy-contracts.s.sol";
 
 abstract contract LoansTestBase is Test, DeploymentLoader {
@@ -23,8 +20,6 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
         uint cashBalance = pair.cashAsset.balanceOf(provider);
         console.log("Provider cash balance: %d", cashBalance);
         pair.cashAsset.approve(address(pair.providerNFT), amount);
-        address taker = pair.providerNFT.collarTakerContract();
-        console.log("Taker address: %s", taker);
         offerId = pair.providerNFT.createOffer(callStrikeDeviation, amount, pair.ltvs[0], pair.durations[0]);
         vm.stopPrank();
     }

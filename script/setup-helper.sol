@@ -19,8 +19,8 @@ contract SetupHelper {
     }
 
     function setupContractPair(ConfigHub hub, DeploymentHelper.AssetPairContracts memory pair) public {
-        hub.setTakerNFTCanOpen(address(pair.takerNFT), true);
-        hub.setProviderNFTCanOpen(address(pair.providerNFT), true);
+        hub.setCanOpen(address(pair.takerNFT), true);
+        hub.setCanOpen(address(pair.providerNFT), true);
         pair.loansContract.setRollsContract(pair.rollsContract);
         pair.loansContract.setSwapperAllowed(address(pair.swapperUniV3), true, true);
     }
