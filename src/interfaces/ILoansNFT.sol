@@ -45,14 +45,14 @@ interface IBaseLoansNFT {
     );
     event LoanRolled(
         address indexed sender,
-        uint indexed takerId,
+        uint indexed loanId,
         uint indexed rollId,
-        uint newTakerId,
+        uint newLoanId,
         uint prevLoanAmount,
         uint newLoanAmount,
         int transferAmount
     );
-    event LoanCancelled(uint indexed takerId, address indexed sender);
+    event LoanCancelled(uint indexed loanId, address indexed sender);
     event ClosingKeeperAllowed(address indexed sender, bool indexed enabled);
     event ClosingKeeperUpdated(address indexed previousKeeper, address indexed newKeeper);
     event RollsContractUpdated(Rolls indexed previousRolls, Rolls indexed newRolls);
@@ -67,7 +67,7 @@ interface IBaseLoansNFT {
     function collateralAsset() external view returns (IERC20);
     function takerNFT() external view returns (CollarTakerNFT);
     // state
-    function getLoan(uint takerId) external view returns (Loan memory);
+    function getLoan(uint loanId) external view returns (Loan memory);
     function closingKeeper() external view returns (address);
     // mutative contract owner
     function setKeeper(address keeper) external;

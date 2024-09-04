@@ -114,51 +114,52 @@ contract LoansBasicRevertsTest is LoansTestBase {
     }
 
     function test_revert_closeLoan_notNFTOwnerOrKeeper() public {
-        (uint takerId,,) = createAndCheckLoan();
+        (uint loanId,,) = createAndCheckLoan();
         vm.startPrank(address(0xdead));
         vm.expectRevert("not taker NFT owner or allowed keeper");
-        loans.closeLoan(takerId, defaultSwapParams(0));
+        loans.closeLoan(loanId, defaultSwapParams(0));
     }
 
     function test_revert_closeLoan_nonExistentLoan() public {
-        uint nonExistentTakerId = 999;
+        uint nonExistentLoanId = 999;
         vm.expectRevert(
-            abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, nonExistentTakerId)
+            abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, nonExistentLoanId)
         );
-        loans.closeLoan(nonExistentTakerId, defaultSwapParams(0));
+        loans.closeLoan(nonExistentLoanId, defaultSwapParams(0));
     }
 
-    function test_revert_closeLoan_noLoanForTakerID() public {
+    function test_revert_closeLoan_noLoanForLoanID() public {
         uint offerId = createOfferAsProvider();
         vm.startPrank(user1);
         // create taker NFT not through loans
         (uint takerId,) = takerNFT.openPairedPosition(0, providerNFT, offerId);
-        vm.expectRevert("not active");
-        loans.closeLoan(takerId, defaultSwapParams(0));
+        uint loanId = takerId;
+        expectRevertERC721Nonexistent(loanId);
+        loans.closeLoan(loanId, defaultSwapParams(0));
     }
 
     function test_revert_closeLoan_reentrnancy_alreadyClosed() public {
-        (uint takerId,, uint loanAmount) = createAndCheckLoan();
+        (uint loanId,, uint loanAmount) = createAndCheckLoan();
         vm.startPrank(user1);
         cashAsset.approve(address(loans), loanAmount);
 
         // setup attack: reenter from closeLoan to closeLoan
         ReentrantCloser closer = new ReentrantCloser();
-        closer.setParams(loans, takerNFT, takerId, user1);
+        closer.setParams(loans, takerNFT, loanId, user1);
         cashAsset.setAttacker(address(closer));
-        takerNFT.approve(address(closer), takerId); // allow attacker to pull nft
-        vm.expectRevert("not active");
-        loans.closeLoan(takerId, defaultSwapParams(0));
+        loans.approve(address(closer), loanId); // allow attacker to pull nft
+        expectRevertERC721Nonexistent(loanId);
+        loans.closeLoan(loanId, defaultSwapParams(0));
     }
 
     function test_revert_closeLoan_alreadyClosed() public {
-        uint takerId = checkOpenCloseWithPriceChange(twapPrice, BIPS_100PCT, 0);
-        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, takerId));
-        loans.closeLoan(takerId, defaultSwapParams(0));
+        uint loanId = checkOpenCloseWithPriceChange(twapPrice, BIPS_100PCT, 0);
+        expectRevertERC721Nonexistent(loanId);
+        loans.closeLoan(loanId, defaultSwapParams(0));
     }
 
     function test_revert_closeLoan_insufficientRepaymentAllowance() public {
-        (uint takerId,, uint loanAmount) = createAndCheckLoan();
+        (uint loanId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
         vm.startPrank(user1);
 
@@ -168,47 +169,33 @@ contract LoansBasicRevertsTest is LoansTestBase {
                 IERC20Errors.ERC20InsufficientAllowance.selector, address(loans), loanAmount - 1, loanAmount
             )
         );
-        loans.closeLoan(takerId, defaultSwapParams(0));
-    }
-
-    function test_revert_closeLoan_notApprovedNFT() public {
-        (uint takerId,, uint loanAmount) = createAndCheckLoan();
-        skip(duration);
-        vm.startPrank(user1);
-        cashAsset.approve(address(loans), loanAmount);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(IERC721Errors.ERC721InsufficientApproval.selector, address(loans), takerId)
-        );
-        loans.closeLoan(takerId, defaultSwapParams(0));
+        loans.closeLoan(loanId, defaultSwapParams(0));
     }
 
     function test_revert_closeLoan_beforeExpiration() public {
-        (uint takerId,, uint loanAmount) = createAndCheckLoan();
+        (uint loanId,, uint loanAmount) = createAndCheckLoan();
         skip(duration - 1);
 
         vm.startPrank(user1);
         cashAsset.approve(address(loans), loanAmount);
-        takerNFT.approve(address(loans), takerId);
 
         vm.expectRevert("not expired");
-        loans.closeLoan(takerId, defaultSwapParams(0));
+        loans.closeLoan(loanId, defaultSwapParams(0));
     }
 
     function test_revert_closeLoan_swaps_router() public {
-        (uint takerId,, uint loanAmount) = createAndCheckLoan();
+        (uint loanId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
         vm.startPrank(user1);
         cashAsset.approve(address(loans), loanAmount);
-        takerNFT.approve(address(loans), takerId);
         prepareSwap(collateralAsset, collateralAmount);
 
         vm.expectRevert("slippage exceeded");
-        loans.closeLoan(takerId, defaultSwapParams(collateralAmount + 1));
+        loans.closeLoan(loanId, defaultSwapParams(collateralAmount + 1));
 
         mockSwapperRouter.setupSwap(collateralAmount - 1, collateralAmount);
         vm.expectRevert("balance update mismatch");
-        loans.closeLoan(takerId, defaultSwapParams(collateralAmount));
+        loans.closeLoan(loanId, defaultSwapParams(collateralAmount));
     }
 
     function test_revert_closeLoan_swaps_swapper() public {
@@ -224,7 +211,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
     }
 
     function test_revert_closeLoan_swapper_not_allowed() public {
-        (uint takerId,,) = createAndCheckLoan();
+        (uint loanId,,) = createAndCheckLoan();
 
         vm.startPrank(owner);
         // disable the default swapper
@@ -233,7 +220,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         // not allowed
         vm.startPrank(user1);
         vm.expectRevert("swapper not allowed");
-        loans.closeLoan(takerId, defaultSwapParams(collateralAmount));
+        loans.closeLoan(loanId, defaultSwapParams(collateralAmount));
     }
 
     function test_revert_closeLoan_keeperNotAllowed() public {

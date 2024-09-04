@@ -95,7 +95,7 @@ contract LoansAdminTest is LoansTestBase {
     }
 
     function test_pause() public {
-        (uint takerId,,) = createAndCheckLoan();
+        (uint loanId,,) = createAndCheckLoan();
 
         // pause
         vm.startPrank(owner);
@@ -114,10 +114,17 @@ contract LoansAdminTest is LoansTestBase {
         loans.setKeeperAllowed(true);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.closeLoan(takerId, defaultSwapParams(0));
+        loans.closeLoan(loanId, defaultSwapParams(0));
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.unwrapAndCancelLoan(takerId);
+        loans.rollLoan(loanId, rolls, 0, 0);
+
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        loans.unwrapAndCancelLoan(loanId);
+
+        // transfers are paused
+        vm.expectRevert(Pausable.EnforcedPause.selector);
+        loans.transferFrom(user1, provider, loanId);
     }
 
     function test_unpause() public {

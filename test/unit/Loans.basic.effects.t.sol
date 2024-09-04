@@ -72,7 +72,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         offerId = providerNFT.createOffer(callStrikeDeviation, largeAmount, ltv, duration);
     }
 
-    function createAndCheckLoan() internal returns (uint takerId, uint providerId, uint loanAmount) {
+    function createAndCheckLoan() internal returns (uint loanId, uint providerId, uint loanAmount) {
         uint offerId = createOfferAsProvider();
 
         // TWAP price must be set for every block
@@ -87,7 +87,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
         uint initialCollateralBalance = collateralAsset.balanceOf(user1);
         uint initialCashBalance = cashAsset.balanceOf(user1);
-        uint nextTakerId = takerNFT.nextPositionId();
+        uint expectedLoanId = takerNFT.nextPositionId();
         uint nextProviderId = providerNFT.nextPositionId();
         uint expectedLoanAmount = swapOut * ltv / 10_000;
 
@@ -98,16 +98,16 @@ contract LoansTestBase is BaseAssetPairTestSetup {
             offerId,
             collateralAmount,
             expectedLoanAmount,
-            nextTakerId,
+            expectedLoanId,
             nextProviderId
         );
 
-        (takerId, providerId, loanAmount) = loans.openLoan(
+        (loanId, providerId, loanAmount) = loans.openLoan(
             collateralAmount, minLoanAmount, defaultSwapParams(swapCashAmount), providerNFT, offerId
         );
 
         // Check return values
-        assertEq(takerId, nextTakerId);
+        assertEq(loanId, expectedLoanId);
         assertEq(providerId, nextProviderId);
         assertEq(loanAmount, expectedLoanAmount);
 
@@ -116,16 +116,18 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(cashAsset.balanceOf(user1), initialCashBalance + loanAmount);
 
         // Check NFT ownership
-        assertEq(takerNFT.ownerOf(takerId), user1);
+        assertEq(loans.ownerOf(loanId), user1);
+        uint takerId = loanId;
+        assertEq(takerNFT.ownerOf(takerId), address(loans));
         assertEq(providerNFT.ownerOf(providerId), provider);
 
         // Check loan state
-        LoansNFT.Loan memory loan = loans.getLoan(takerId);
+        LoansNFT.Loan memory loan = loans.getLoan(loanId);
         assertEq(loan.collateralAmount, collateralAmount);
         assertEq(loan.loanAmount, loanAmount);
 
         // Check taker position
-        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(takerId);
+        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(loanId);
         assertEq(address(takerPosition.providerNFT), address(providerNFT));
         assertEq(takerPosition.providerPositionId, providerId);
         assertEq(takerPosition.initialPrice, twapPrice);
@@ -182,8 +184,8 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         // Check that the NFTs have been burned
         expectRevertERC721Nonexistent(loanId);
         loans.ownerOf(loanId);
+        expectRevertERC721Nonexistent(loanId);
         uint takerId = loanId;
-        expectRevertERC721Nonexistent(takerId);
         takerNFT.ownerOf(takerId);
 
         // Try to close the loan again (should fail)
@@ -195,20 +197,20 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         public
         returns (uint)
     {
-        (uint takerId,, uint loanAmount) = createAndCheckLoan();
+        (uint loanId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
 
         // update price
         twapPrice = newPrice;
 
-        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(takerId);
+        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition({ takerId: loanId });
         // calculate withdrawal amounts according to expected ratios
         uint withdrawal = takerPosition.putLockedCash * putRatio / BIPS_100PCT
             + takerPosition.callLockedCash * callRatio / BIPS_100PCT;
         // setup router output
         uint swapOut = prepareSwapToCollateralAtTWAPPrice();
-        closeAndCheckLoan(takerId, user1, loanAmount, withdrawal, swapOut);
-        return takerId;
+        closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
+        return loanId;
     }
 }
 
@@ -242,6 +244,8 @@ contract LoansBasicHappyPathsTest is LoansTestBase {
         assertEq(loans.owner(), owner);
         assertEq(loans.closingKeeper(), address(0));
         assertEq(address(loans.rollsContract()), address(0));
+        assertEq(loans.name(), "");
+        assertEq(loans.symbol(), "");
     }
 
     function test_openLoan() public {
@@ -263,19 +267,19 @@ contract LoansBasicHappyPathsTest is LoansTestBase {
     }
 
     function test_closeLoan_simple() public {
-        (uint takerId,, uint loanAmount) = createAndCheckLoan();
+        (uint loanId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
 
-        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(takerId);
+        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition({ takerId: loanId });
         // withdrawal: no price change so only user locked (put locked)
         uint withdrawal = takerPosition.putLockedCash;
         // setup router output
         uint swapOut = prepareSwapToCollateralAtTWAPPrice();
-        closeAndCheckLoan(takerId, user1, loanAmount, withdrawal, swapOut);
+        closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
     }
 
     function test_closeLoan_byKeeper() public {
-        (uint takerId,, uint loanAmount) = createAndCheckLoan();
+        (uint loanId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
 
         // Set the keeper
@@ -286,12 +290,12 @@ contract LoansBasicHappyPathsTest is LoansTestBase {
         vm.startPrank(user1);
         loans.setKeeperAllowed(true);
 
-        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(takerId);
+        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition({ takerId: loanId });
         // withdrawal: no price change so only user locked (put locked)
         uint withdrawal = takerPosition.putLockedCash;
         // setup router output
         uint swapOut = prepareSwapToCollateralAtTWAPPrice();
-        closeAndCheckLoan(takerId, keeper, loanAmount, withdrawal, swapOut);
+        closeAndCheckLoan(loanId, keeper, loanAmount, withdrawal, swapOut);
     }
 
     function test_closeLoan_priceUpToCall() public {
@@ -364,7 +368,7 @@ contract LoansBasicHappyPathsTest is LoansTestBase {
 
     function test_closeLoan_swapper_extraData() public {
         // create a closable loan
-        (uint takerId,, uint loanAmount) = createAndCheckLoan();
+        (uint loanId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
         uint swapOut = prepareSwapToCollateralAtTWAPPrice();
 
@@ -376,12 +380,11 @@ contract LoansBasicHappyPathsTest is LoansTestBase {
         // try with incorrect data (extraData is empty)
         vm.startPrank(user1);
         cashAsset.approve(address(loans), loanAmount);
-        takerNFT.approve(address(loans), takerId);
         vm.expectRevert(new bytes(0)); // failure to decode extraData
-        loans.closeLoan(takerId, defaultSwapParams(0));
+        loans.closeLoan(loanId, defaultSwapParams(0));
 
         // price doesn't change so all putLocked is withdrawn
-        uint withdrawal = takerNFT.getPosition(takerId).putLockedCash;
+        uint withdrawal = takerNFT.getPosition({ takerId: loanId }).putLockedCash;
         // must know how much to swap
         uint expectedCashIn = loanAmount + withdrawal;
         // data for closing the loan (the swap back)
@@ -393,7 +396,7 @@ contract LoansBasicHappyPathsTest is LoansTestBase {
             )
         );
         // check close loan
-        closeAndCheckLoan(takerId, user1, loanAmount, withdrawal, swapOut);
+        closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
     }
 
     function test_unwrapAndCancelLoan() public {
