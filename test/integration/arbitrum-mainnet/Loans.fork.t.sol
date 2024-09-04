@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import "../utils/DeploymentLoader.sol";
@@ -7,7 +7,7 @@ import { ILoans } from "../../../src/interfaces/ILoans.sol";
 import { ProviderPositionNFT } from "../../../src/ProviderPositionNFT.sol";
 import { CollarTakerNFT } from "../../../src/CollarTakerNFT.sol";
 import { Rolls } from "../../../src/Rolls.sol";
-import { DeployContracts } from "../../../script/arbitrum-mainnet/deploy-contracts.s.sol";
+import { DeployContractsArbitrumMainnet } from "../../../script/arbitrum-mainnet/deploy-contracts.s.sol";
 
 abstract contract LoansTestBase is Test, DeploymentLoader {
     function setUp() public virtual override {
@@ -127,7 +127,7 @@ contract LoansForkTest is LoansTestBase {
             forkId = vm.createFork(vm.envString("ARBITRUM_MAINNET_RPC"));
             vm.selectFork(forkId);
             // Deploy contracts
-            DeployContracts deployer = new DeployContracts();
+            DeployContractsArbitrumMainnet deployer = new DeployContractsArbitrumMainnet();
             deployer.run();
             forkSet = true;
         } else {
@@ -149,13 +149,13 @@ contract LoansForkTest is LoansTestBase {
         uint minLoanAmount = 0.3e6;
         (uint takerId,, uint loanAmount) = openLoan(pair, user, collateralAmount, minLoanAmount, offerId);
 
-        assertGt(loanAmount, 0, "Loan amount should be greater than 0");
+        assertGt(loanAmount, 0);
         skip(pair.durations[0]);
         // no price change so collateral out should be collateral in minus slippage
         uint minCollateralOut = collateralAmount;
         uint minCollateralOutWithSlippage = minCollateralOut * (100 - slippage) / 100;
         uint collateralOut = closeLoan(pair, user, takerId, minCollateralOutWithSlippage);
-        assertGe(collateralOut, minCollateralOut, "Collateral out should be at least minCollateralOut");
+        assertGe(collateralOut, minCollateralOutWithSlippage);
     }
 
     function testRollLoan() public {
@@ -171,12 +171,8 @@ contract LoansForkTest is LoansTestBase {
         (uint newTakerId, uint newLoanAmount, int transferAmount) =
             rollLoan(pair, user, takerId, rollOfferId, minToUser);
 
-        assertGt(newTakerId, takerId, "New taker ID should be greater than old taker ID");
-        assertGe(
-            int(newLoanAmount),
-            int(initialLoanAmount) + transferAmount,
-            "New loan amount should reflect the transfer"
-        );
+        assertGt(newTakerId, takerId);
+        assertGe(int(newLoanAmount), int(initialLoanAmount) + transferAmount);
     }
 
     function testFullLoanLifecycle() public {
@@ -200,14 +196,10 @@ contract LoansForkTest is LoansTestBase {
         uint minCollateralOut = collateralAmount * 95 / 100; // 5% slippage
         uint collateralOut = closeLoan(pair, user, newTakerId, minCollateralOut);
 
-        assertGt(initialLoanAmount, 0, "Initial loan amount should be greater than 0");
-        assertGt(newTakerId, takerId, "New taker ID should be greater than old taker ID");
-        assertGe(
-            int(newLoanAmount),
-            int(initialLoanAmount) + transferAmount,
-            "New loan amount should reflect the transfer"
-        );
-        assertGe(collateralOut, minCollateralOut, "Collateral out should be at least minCollateralOut");
+        assertGt(initialLoanAmount, 0);
+        assertGt(newTakerId, takerId);
+        assertGe(int(newLoanAmount), int(initialLoanAmount) + transferAmount);
+        assertGe(collateralOut, minCollateralOut);
     }
 
     function fundWallets() public {

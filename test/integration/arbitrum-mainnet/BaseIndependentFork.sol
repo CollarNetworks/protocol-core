@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
-import { DeployContracts } from "../../../script/arbitrum-mainnet/deploy-contracts.s.sol";
+import { DeployContractsArbitrumMainnet } from "../../../script/arbitrum-mainnet/deploy-contracts.s.sol";
 
 /**
  * this is a base contract for fork test contracts to inherit in order to be able to be ran independently as well as through another contract that sets up the fork
@@ -17,7 +17,7 @@ contract ArbitrumMainnetBaseIndependentForkTestContract is Test {
             forkId = vm.createFork(vm.envString("ARBITRUM_MAINNET_RPC"));
             vm.selectFork(forkId);
             // Deploy contracts
-            DeployContracts deployer = new DeployContracts();
+            DeployContractsArbitrumMainnet deployer = new DeployContractsArbitrumMainnet();
             deployer.run();
             forkSet = true;
         } else {

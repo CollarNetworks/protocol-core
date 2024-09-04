@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 
 contract WalletLoader is Script {
     function setup()
-        internal
+        public
         returns (address deployer, address user1, address user2, address liquidityProvider)
     {
         VmSafe.Wallet memory deployerWallet = vm.createWallet(vm.envUint("PRIVKEY_DEV_DEPLOYER"));

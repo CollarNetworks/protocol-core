@@ -23,7 +23,7 @@ import { SetupHelper } from "../setup-helper.sol";
 import { WalletLoader } from "../wallet-loader.s.sol";
 import { UniswapNewPoolHelper } from "../../test/utils/UniswapNewPoolHelper.sol";
 
-contract DeployContracts is
+contract DeployContractsArbitrumSepolia is
     Script,
     DeploymentUtils,
     UniswapNewPoolHelper,

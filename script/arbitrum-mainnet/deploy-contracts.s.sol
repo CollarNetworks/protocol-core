@@ -15,7 +15,13 @@ import { SetupHelper } from "../setup-helper.sol";
 import { DeploymentHelper } from "../deployment-helper.sol";
 import { WalletLoader } from "../wallet-loader.s.sol";
 
-contract DeployContracts is Script, DeploymentUtils, DeploymentHelper, SetupHelper, WalletLoader {
+contract DeployContractsArbitrumMainnet is
+    Script,
+    DeploymentUtils,
+    DeploymentHelper,
+    SetupHelper,
+    WalletLoader
+{
     uint chainId = 42_161; // id for arbitrum mainnet
     address USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
     address USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;

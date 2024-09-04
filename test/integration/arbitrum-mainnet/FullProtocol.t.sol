@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import "../../../script/arbitrum-mainnet/deploy-contracts.s.sol";
 import "./validation.t.sol";
 import "./Loans.fork.t.sol";
 
-contract ArbitrumMainnetForkTest is Test {
+contract ArbitrumMainnetFullProtocolForkTest is Test {
     uint forkId;
-    DeployContracts deployer;
+    DeployContractsArbitrumMainnet deployer;
 
     function setUp() public {
         // Setup fork
@@ -18,7 +18,7 @@ contract ArbitrumMainnetForkTest is Test {
             forkId = vm.createFork(vm.envString("ARBITRUM_MAINNET_RPC"));
             vm.selectFork(forkId);
             // Deploy contracts
-            deployer = new DeployContracts();
+            deployer = new DeployContractsArbitrumMainnet();
             deployer.run();
         } else {
             vm.selectFork(forkId);

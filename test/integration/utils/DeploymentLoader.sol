@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity 0.8.22;
 
 import { DeploymentUtils } from "../../../script/utils/deployment-exporter.s.sol";
 import { ConfigHub } from "../../../src/ConfigHub.sol";
