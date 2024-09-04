@@ -29,8 +29,8 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
         string memory _name,
         string memory _symbol
     ) BaseLoansNFT(initialOwner, _takerNFT, _name, _symbol) {
+        require(_escrowNFT.asset() == _takerNFT.collateralAsset(), "asset mismatch");
         escrowNFT = _escrowNFT;
-        require(escrowNFT.asset() == collateralAsset, "asset mismatch");
     }
 
     // ----- VIEWS ----- //

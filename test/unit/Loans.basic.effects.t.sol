@@ -72,6 +72,12 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         offerId = providerNFT.createOffer(callStrikeDeviation, largeAmount, ltv, duration);
     }
 
+    struct Balances {
+        uint userCollateral;
+        uint userCash;
+        uint feeRecipient;
+    }
+
     function createAndCheckLoan() internal returns (uint loanId, uint providerId, uint loanAmount) {
         uint offerId = createOfferAsProvider();
 
@@ -85,11 +91,17 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         startHoax(user1);
         collateralAsset.approve(address(loans), collateralAmount);
 
-        uint initialCollateralBalance = collateralAsset.balanceOf(user1);
-        uint initialCashBalance = cashAsset.balanceOf(user1);
+        Balances memory balances = Balances({
+            userCollateral: collateralAsset.balanceOf(user1),
+            userCash: cashAsset.balanceOf(user1),
+            feeRecipient: cashAsset.balanceOf(protocolFeeRecipient)
+        });
         uint expectedLoanId = takerNFT.nextPositionId();
         uint nextProviderId = providerNFT.nextPositionId();
-        uint expectedLoanAmount = swapOut * ltv / 10_000;
+        uint expectedLoanAmount = swapOut * ltv / BIPS_100PCT;
+        uint expectedProviderLocked = swapOut * (callStrikeDeviation - BIPS_100PCT) / BIPS_100PCT;
+        (uint expectedFee,) = providerNFT.protocolFee(expectedProviderLocked, duration);
+        assertGt(expectedFee, 0); // ensure fee is expected
 
         vm.expectEmit(address(loans));
         emit IBaseLoansNFT.LoanOpened(
@@ -112,8 +124,9 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(loanAmount, expectedLoanAmount);
 
         // Check balances
-        assertEq(collateralAsset.balanceOf(user1), initialCollateralBalance - collateralAmount);
-        assertEq(cashAsset.balanceOf(user1), initialCashBalance + loanAmount);
+        assertEq(collateralAsset.balanceOf(user1), balances.userCollateral - collateralAmount);
+        assertEq(cashAsset.balanceOf(user1), balances.userCash + loanAmount);
+        assertEq(cashAsset.balanceOf(protocolFeeRecipient), balances.feeRecipient + expectedFee);
 
         // Check NFT ownership
         assertEq(loans.ownerOf(loanId), user1);
@@ -132,6 +145,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(takerPosition.providerPositionId, providerId);
         assertEq(takerPosition.initialPrice, twapPrice);
         assertEq(takerPosition.putLockedCash, swapOut - loanAmount);
+        assertEq(takerPosition.callLockedCash, expectedProviderLocked);
         assertEq(takerPosition.duration, duration);
         assertEq(takerPosition.expiration, block.timestamp + duration);
         assertFalse(takerPosition.settled);
@@ -140,7 +154,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         // Check provider position
         ShortProviderNFT.ProviderPosition memory providerPosition = providerNFT.getPosition(providerId);
         assertEq(providerPosition.expiration, block.timestamp + duration);
-        assertEq(providerPosition.principal, takerPosition.callLockedCash);
+        assertEq(providerPosition.principal, expectedProviderLocked);
         assertEq(providerPosition.putStrikeDeviation, ltv);
         assertEq(providerPosition.callStrikeDeviation, callStrikeDeviation);
         assertFalse(providerPosition.settled);
