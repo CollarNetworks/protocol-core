@@ -10,7 +10,7 @@ pragma solidity 0.8.22;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ConfigHub } from "../ConfigHub.sol";
 import { CollarTakerNFT } from "../CollarTakerNFT.sol";
-import { ProviderPositionNFT } from "../ProviderPositionNFT.sol";
+import { ShortProviderNFT } from "../ShortProviderNFT.sol";
 import { Rolls } from "../Rolls.sol";
 
 interface ILoans {
@@ -54,6 +54,7 @@ interface ILoans {
         uint newLoanAmount,
         int transferAmount
     );
+    event LoanCancelled(uint indexed takerId, address indexed sender);
     event ClosingKeeperAllowed(address indexed sender, uint indexed takerId, bool indexed enabled);
     event ClosingKeeperUpdated(address indexed previousKeeper, address indexed newKeeper);
     event RollsContractUpdated(Rolls indexed previousRolls, Rolls indexed newRolls);
@@ -78,7 +79,7 @@ interface ILoans {
         uint collateralAmount,
         uint minLoanAmount,
         SwapParams calldata swapParams,
-        ProviderPositionNFT providerNFT,
+        ShortProviderNFT providerNFT,
         uint offerId
     ) external returns (uint takerId, uint providerId, uint loanAmount);
     function setKeeperAllowedBy(uint takerId, bool enabled) external;

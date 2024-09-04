@@ -9,7 +9,7 @@ import { MockOracleUniV3TWAP } from "../utils/MockOracleUniV3TWAP.sol";
 import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 import { ConfigHub } from "../../src/ConfigHub.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
-import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
+import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
 contract BaseAssetPairTestSetup is Test {
@@ -18,8 +18,8 @@ contract BaseAssetPairTestSetup is Test {
     ConfigHub configHub;
     MockOracleUniV3TWAP mockOracle;
     CollarTakerNFT takerNFT;
-    ProviderPositionNFT providerNFT;
-    ProviderPositionNFT providerNFT2;
+    ShortProviderNFT providerNFT;
+    ShortProviderNFT providerNFT2;
     Rolls rolls;
 
     address owner = makeAddr("owner");
@@ -63,16 +63,16 @@ contract BaseAssetPairTestSetup is Test {
         takerNFT = new CollarTakerNFT(
             owner, configHub, cashAsset, collateralAsset, mockOracle, "CollarTakerNFT", "TKRNFT"
         );
-        providerNFT = new ProviderPositionNFT(
+        providerNFT = new ShortProviderNFT(
             owner, configHub, cashAsset, collateralAsset, address(takerNFT), "ProviderNFT", "PRVNFT"
         );
         // this is to avoid having the paired IDs being equal
-        providerNFT2 = new ProviderPositionNFT(
+        providerNFT2 = new ShortProviderNFT(
             owner, configHub, cashAsset, collateralAsset, address(takerNFT), "ProviderNFT-2", "PRVNFT-2"
         );
         vm.label(address(mockOracle), "MockOracleUniV3TWAP");
         vm.label(address(takerNFT), "CollarTakerNFT");
-        vm.label(address(providerNFT), "ProviderPositionNFT");
+        vm.label(address(providerNFT), "ShortProviderNFT");
 
         // asset pair periphery
         rolls = new Rolls(owner, takerNFT);
@@ -89,9 +89,9 @@ contract BaseAssetPairTestSetup is Test {
         configHub.setLTVRange(ltv, ltv);
         configHub.setCollarDurationRange(duration, duration);
         // contracts auth
-        configHub.setTakerNFTCanOpen(address(takerNFT), true);
-        configHub.setProviderNFTCanOpen(address(providerNFT), true);
-        configHub.setProviderNFTCanOpen(address(providerNFT2), true);
+        configHub.setCanOpen(address(takerNFT), true);
+        configHub.setCanOpen(address(providerNFT), true);
+        configHub.setCanOpen(address(providerNFT2), true);
         // fees
         configHub.setProtocolFeeParams(protocolFeeAPR, protocolFeeRecipient);
 

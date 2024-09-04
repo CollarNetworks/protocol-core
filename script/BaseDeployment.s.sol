@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
 import { ConfigHub } from "../src/ConfigHub.sol";
-import { ProviderPositionNFT } from "../src/ProviderPositionNFT.sol";
+import { ShortProviderNFT } from "../src/ShortProviderNFT.sol";
 import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
 import { Loans, ILoans } from "../src/Loans.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -18,7 +18,7 @@ contract BaseDeployment is Script {
     address deployerAddress;
 
     struct AssetPairContracts {
-        ProviderPositionNFT providerNFT;
+        ShortProviderNFT providerNFT;
         CollarTakerNFT takerNFT;
         Loans loansContract;
         Rolls rollsContract;
@@ -115,7 +115,7 @@ contract BaseDeployment is Script {
             string(abi.encodePacked("Taker ", pairConfig.name)),
             string(abi.encodePacked("T", pairConfig.name))
         );
-        ProviderPositionNFT providerNFT = new ProviderPositionNFT(
+        ShortProviderNFT providerNFT = new ShortProviderNFT(
             deployerAddress,
             configHub,
             pairConfig.cashAsset,
@@ -153,12 +153,12 @@ contract BaseDeployment is Script {
     }
 
     function _setupContractPair(ConfigHub hub, AssetPairContracts memory pair) internal {
-        hub.setTakerNFTCanOpen(address(pair.takerNFT), true);
-        hub.setProviderNFTCanOpen(address(pair.providerNFT), true);
+        hub.setCanOpen(address(pair.takerNFT), true);
+        hub.setCanOpen(address(pair.providerNFT), true);
         pair.loansContract.setRollsContract(pair.rollsContract);
         pair.loansContract.setSwapperAllowed(address(pair.swapperUniV3), true, true);
-        require(hub.providerNFTCanOpen(address(pair.providerNFT)), "Provider NFT not authorized in configHub");
-        require(hub.takerNFTCanOpen(address(pair.takerNFT)), "Taker NFT not authorized in configHub");
+        require(hub.canOpen(address(pair.providerNFT)), "Provider NFT not authorized in configHub");
+        require(hub.canOpen(address(pair.takerNFT)), "Taker NFT not authorized in configHub");
     }
 
     function _deployConfigHub() internal {
@@ -196,7 +196,7 @@ contract BaseDeployment is Script {
                     uint offerId = pair.providerNFT.createOffer(
                         callStrikeTicks[l], cashAmountPerOffer, pair.ltvs[k], pair.durations[j]
                     );
-                    ProviderPositionNFT.LiquidityOffer memory offer = pair.providerNFT.getOffer(offerId);
+                    ShortProviderNFT.LiquidityOffer memory offer = pair.providerNFT.getOffer(offerId);
                     require(offer.provider == liquidityProvider, "Offer not created for liquidity provider");
                     require(offer.available == cashAmountPerOffer, "Incorrect offer amount");
                     require(offer.putStrikeDeviation == pair.ltvs[k], "Incorrect LTV");
@@ -399,8 +399,8 @@ contract BaseDeployment is Script {
     }
 
     function _verifyDeployment(ConfigHub hub, AssetPairContracts memory contracts) internal view {
-        require(hub.takerNFTCanOpen(address(contracts.takerNFT)), "TakerNFT not authorized");
-        require(hub.providerNFTCanOpen(address(contracts.providerNFT)), "ProviderNFT not authorized");
+        require(hub.canOpen(address(contracts.takerNFT)), "TakerNFT not authorized");
+        require(hub.canOpen(address(contracts.providerNFT)), "ProviderNFT not authorized");
         require(hub.isSupportedCashAsset(address(contracts.cashAsset)), "Cash asset not supported");
         require(
             hub.isSupportedCollateralAsset(address(contracts.collateralAsset)),

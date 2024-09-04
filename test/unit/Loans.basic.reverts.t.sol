@@ -9,7 +9,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 import { Loans, ILoans } from "../../src/Loans.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
-import { ProviderPositionNFT } from "../../src/ProviderPositionNFT.sol";
+import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
 import { LoansTestBase } from "./Loans.basic.effects.t.sol";
@@ -22,10 +22,10 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
         // 0 collateral
         vm.expectRevert("invalid collateral amount");
-        loans.openLoan(0, 0, defaultSwapParams(0), ProviderPositionNFT(address(0)), 0);
+        loans.openLoan(0, 0, defaultSwapParams(0), ShortProviderNFT(address(0)), 0);
 
         // bad provider
-        ProviderPositionNFT invalidProviderNFT = new ProviderPositionNFT(
+        ShortProviderNFT invalidProviderNFT = new ShortProviderNFT(
             owner, configHub, cashAsset, collateralAsset, address(takerNFT), "InvalidProviderNFT", "INVPRV"
         );
         vm.expectRevert("unsupported provider contract");
@@ -323,6 +323,29 @@ contract LoansBasicRevertsTest is LoansTestBase {
         vm.startPrank(user1);
         vm.expectRevert("not taker NFT owner");
         loans.setKeeperAllowedBy(takerId, true);
+    }
+
+    function test_revert_cancelLoan() public {
+        (uint takerId,,) = createAndCheckLoan();
+
+        // Try to cancel the loan without burning the NFT
+        vm.expectRevert("taker position not burned");
+        loans.cancelLoan(takerId);
+
+        // Close the loan normally
+        skip(duration);
+        uint swapOut = prepareSwapToCollateralAtTWAPPrice();
+        closeAndCheckLoan(
+            takerId,
+            user1,
+            loans.getLoan(takerId).loanAmount,
+            takerNFT.getPosition(takerId).putLockedCash,
+            swapOut
+        );
+
+        // Try to cancel the already closed loan
+        vm.expectRevert("loan not active");
+        loans.cancelLoan(takerId);
     }
 }
 

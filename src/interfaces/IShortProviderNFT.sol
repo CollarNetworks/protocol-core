@@ -10,7 +10,7 @@ pragma solidity 0.8.22;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ConfigHub } from "../ConfigHub.sol";
 
-interface IProviderPositionNFT {
+interface IShortProviderNFT {
     struct LiquidityOffer {
         address provider;
         uint available;
@@ -33,6 +33,9 @@ interface IProviderPositionNFT {
     }
 
     // events
+    event ShortProviderNFTCreated(
+        address indexed cashAsset, address indexed collateralAsset, address indexed takerContract
+    );
     event OfferCreated(
         address indexed provider,
         uint indexed putStrikeDeviation,
@@ -63,7 +66,7 @@ interface IProviderPositionNFT {
     function MAX_PUT_STRIKE_BIPS() external view returns (uint);
     function VERSION() external view returns (string memory);
     // immutables
-    function collarTakerContract() external view returns (address);
+    function taker() external view returns (address);
     function cashAsset() external view returns (IERC20);
     function collateralAsset() external view returns (IERC20);
     // state

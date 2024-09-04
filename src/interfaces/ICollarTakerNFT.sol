@@ -9,7 +9,7 @@ pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ConfigHub } from "../ConfigHub.sol";
-import { ProviderPositionNFT } from "../ProviderPositionNFT.sol";
+import { ShortProviderNFT } from "../ShortProviderNFT.sol";
 import { OracleUniV3TWAP } from "../OracleUniV3TWAP.sol";
 
 interface ICollarTakerNFT {
@@ -17,7 +17,7 @@ interface ICollarTakerNFT {
     // and are stored for FE / usability since the assumption is that this is used on L2.
     struct TakerPosition {
         // paired NFT info
-        ProviderPositionNFT providerNFT;
+        ShortProviderNFT providerNFT;
         uint providerPositionId;
         // collar position info
         uint duration;
@@ -33,6 +33,9 @@ interface ICollarTakerNFT {
     }
 
     // events
+    event CollarTakerNFTCreated(
+        address indexed cashAsset, address indexed collateralAsset, address indexed oracle
+    );
     event PairedPositionOpened(
         uint indexed takerId,
         address indexed providerNFT,
@@ -70,7 +73,7 @@ interface ICollarTakerNFT {
     function getPosition(uint takerId) external view returns (TakerPosition memory);
     function nextPositionId() external view returns (uint);
     // mutative
-    function openPairedPosition(uint putLockedCash, ProviderPositionNFT providerNFT, uint offerId)
+    function openPairedPosition(uint putLockedCash, ShortProviderNFT providerNFT, uint offerId)
         external
         returns (uint takerId, uint providerId);
     function settlePairedPosition(uint takerId) external;

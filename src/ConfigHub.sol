@@ -10,7 +10,7 @@ pragma solidity 0.8.22;
 import { Ownable2Step, Ownable } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 // internal imports
 import { IConfigHub } from "./interfaces/IConfigHub.sol";
-import { IProviderPositionNFT } from "./interfaces/IProviderPositionNFT.sol";
+import { IShortProviderNFT } from "./interfaces/IShortProviderNFT.sol";
 import { ICollarTakerNFT } from "./interfaces/ICollarTakerNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -38,28 +38,17 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     // -- internal state variables ---
     mapping(address collateralAssetAddress => bool isSupported) public isSupportedCollateralAsset;
     mapping(address cashAssetAddress => bool isSupported) public isSupportedCashAsset;
-    mapping(address contractAddress => bool enabled) public takerNFTCanOpen;
-    mapping(address contractAddress => bool enabled) public providerNFTCanOpen;
+    mapping(address contractAddress => bool enabled) public canOpen;
 
     constructor(address _initialOwner) Ownable(_initialOwner) { }
 
     // ----- state-changing functions (see IConfigHub for documentation) -----
 
-    function setTakerNFTCanOpen(address contractAddress, bool enabled) external onlyOwner {
-        takerNFTCanOpen[contractAddress] = enabled;
-        IERC20 cashAsset = ICollarTakerNFT(contractAddress).cashAsset();
-        IERC20 collateralAsset = ICollarTakerNFT(contractAddress).collateralAsset();
-        emit CollarTakerNFTAuthSet(contractAddress, enabled, address(cashAsset), address(collateralAsset));
-    }
-
-    function setProviderNFTCanOpen(address contractAddress, bool enabled) external onlyOwner {
-        providerNFTCanOpen[contractAddress] = enabled;
-        IERC20 cashAsset = IProviderPositionNFT(contractAddress).cashAsset();
-        IERC20 collateralAsset = IProviderPositionNFT(contractAddress).collateralAsset();
-        address collarTakerNFT = IProviderPositionNFT(contractAddress).collarTakerContract();
-        emit ProviderNFTAuthSet(
-            contractAddress, enabled, address(cashAsset), address(collateralAsset), collarTakerNFT
-        );
+    // TODO: doc, and use for Loans as well
+    function setCanOpen(address contractAddress, bool enabled) external onlyOwner {
+        // TODO: check VERSION view to work for validation?
+        canOpen[contractAddress] = enabled;
+        emit ContractCanOpenSet(contractAddress, enabled);
     }
 
     // ltv
