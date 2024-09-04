@@ -7,7 +7,7 @@ import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { LoansNFT } from "../../src/LoansNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../../src/Rolls.sol";
-import { BaseDeployment } from "../BaseDeployment.s.sol";
+import { DeploymentHelper } from "../deployment-helper.sol";
 import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 import { SwapperUniV3 } from "../../src/SwapperUniV3.sol";
 
@@ -16,7 +16,7 @@ contract DeploymentUtils is Script {
         string memory name,
         address configHub,
         address router,
-        BaseDeployment.AssetPairContracts[] memory assetPairs
+        DeploymentHelper.AssetPairContracts[] memory assetPairs
     ) public {
         string memory json = constructJson(configHub, router, assetPairs);
         writeJsonToFile(name, json);
@@ -25,7 +25,7 @@ contract DeploymentUtils is Script {
     function constructJson(
         address configHub,
         address router,
-        BaseDeployment.AssetPairContracts[] memory assetPairs
+        DeploymentHelper.AssetPairContracts[] memory assetPairs
     ) public pure returns (string memory) {
         string memory json = "{";
 
@@ -33,7 +33,7 @@ contract DeploymentUtils is Script {
         json = string(abi.encodePacked(json, '"router": "', vm.toString(router), '",'));
 
         for (uint i = 0; i < assetPairs.length; i++) {
-            BaseDeployment.AssetPairContracts memory pair = assetPairs[i];
+            DeploymentHelper.AssetPairContracts memory pair = assetPairs[i];
             string memory pairName = string(
                 abi.encodePacked(
                     vm.toString(address(pair.collateralAsset)), "_", vm.toString(address(pair.cashAsset))
@@ -159,10 +159,13 @@ contract DeploymentUtils is Script {
         return _parseAddress(bytes(json), ".router");
     }
 
-    function getAll() public view returns (BaseDeployment.AssetPairContracts[] memory) {
+    function getAll() public view returns (address, DeploymentHelper.AssetPairContracts[] memory) {
         string memory json =
             vm.readFile(string(abi.encodePacked(_getExportPath(), "collar_protocol_deployment-latest.json")));
         bytes memory parsedJson = bytes(json);
+
+        address configHubAddress = _parseAddress(parsedJson, ".configHub");
+
         string[] memory allKeys = vm.parseJsonKeys(json, ".");
         // Count valid asset pairs
         uint pairCount = 0;
@@ -177,7 +180,8 @@ contract DeploymentUtils is Script {
             }
         }
 
-        BaseDeployment.AssetPairContracts[] memory result = new BaseDeployment.AssetPairContracts[](pairCount); // create array with correct size
+        DeploymentHelper.AssetPairContracts[] memory result =
+            new DeploymentHelper.AssetPairContracts[](pairCount); // create array with correct size
         uint resultIndex = 0;
 
         for (uint i = 0; i < allKeys.length; i++) {
@@ -190,7 +194,7 @@ contract DeploymentUtils is Script {
                 // for each unique takerNFT key (every asset pair), get the base key and create the asset pair using all other key suffixes
                 string memory baseKey = substring(allKeys[i], 0, bytes(allKeys[i]).length - 9);
 
-                result[resultIndex] = BaseDeployment.AssetPairContracts({
+                result[resultIndex] = DeploymentHelper.AssetPairContracts({
                     providerNFT: ShortProviderNFT(
                         _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_providerNFT")))
                     ),
@@ -228,21 +232,21 @@ contract DeploymentUtils is Script {
             }
         }
 
-        return result;
+        return (configHubAddress, result);
     }
 
     function getByAssetPair(address cashAsset, address collateralAsset)
         public
         view
-        returns (BaseDeployment.AssetPairContracts memory)
+        returns (address hub, DeploymentHelper.AssetPairContracts memory)
     {
-        BaseDeployment.AssetPairContracts[] memory allPairs = getAll();
+        (address configHub, DeploymentHelper.AssetPairContracts[] memory allPairs) = getAll();
         for (uint i = 0; i < allPairs.length; i++) {
             if (
                 address(allPairs[i].cashAsset) == cashAsset
                     && address(allPairs[i].collateralAsset) == collateralAsset
             ) {
-                return allPairs[i];
+                return (configHub, allPairs[i]);
             }
         }
         revert("Asset pair not found");

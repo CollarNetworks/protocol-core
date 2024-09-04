@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity 0.8.22;
 
 import "forge-std/console.sol";
 import { IConfigHub } from "../../src/interfaces/IConfigHub.sol";
