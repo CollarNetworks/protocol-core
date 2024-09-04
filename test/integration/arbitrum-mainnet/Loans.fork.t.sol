@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import "../utils/DeploymentLoader.sol";
-import { ILoans } from "../../../src/interfaces/ILoans.sol";
+import { IBaseLoansNFT } from "../../../src/interfaces/ILoansNFT.sol";
 import { DeployContractsArbitrumMainnet } from "../../../script/arbitrum-mainnet/deploy-contracts.s.sol";
 
 abstract contract LoansTestBase is Test, DeploymentLoader {
@@ -30,13 +30,13 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
         uint collateralAmount,
         uint minLoanAmount,
         uint offerId
-    ) internal returns (uint takerId, uint providerId, uint loanAmount) {
+    ) internal returns (uint loanId, uint providerId, uint loanAmount) {
         vm.startPrank(user);
         pair.collateralAsset.approve(address(pair.loansContract), collateralAmount);
-        (takerId, providerId, loanAmount) = pair.loansContract.openLoan(
+        (loanId, providerId, loanAmount) = pair.loansContract.openLoan(
             collateralAmount,
             minLoanAmount,
-            ILoans.SwapParams(0, address(pair.loansContract.defaultSwapper()), ""),
+            IBaseLoansNFT.SwapParams(0, address(pair.loansContract.defaultSwapper()), ""),
             pair.providerNFT,
             offerId
         );
@@ -46,17 +46,16 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
     function closeLoan(
         DeploymentHelper.AssetPairContracts memory pair,
         address user,
-        uint takerId,
+        uint loanId,
         uint minCollateralOut
     ) internal returns (uint collateralOut) {
         vm.startPrank(user);
-        ILoans.Loan memory loan = pair.loansContract.getLoan(takerId);
+        IBaseLoansNFT.Loan memory loan = pair.loansContract.getLoan(loanId);
         // approve repayment amount in cash asset to loans contract
         pair.cashAsset.approve(address(pair.loansContract), loan.loanAmount);
-        // approve taker NFT to loans contract
-        pair.takerNFT.approve(address(pair.loansContract), takerId);
         collateralOut = pair.loansContract.closeLoan(
-            takerId, ILoans.SwapParams(minCollateralOut, address(pair.loansContract.defaultSwapper()), "")
+            loanId,
+            IBaseLoansNFT.SwapParams(minCollateralOut, address(pair.loansContract.defaultSwapper()), "")
         );
         vm.stopPrank();
     }
@@ -64,7 +63,7 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
     function createRollOffer(
         DeploymentHelper.AssetPairContracts memory pair,
         address provider,
-        uint takerId,
+        uint loanId,
         uint providerId,
         int rollFee,
         int rollDeltaFactor
@@ -73,6 +72,7 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
         pair.cashAsset.approve(address(pair.rollsContract), type(uint).max);
         pair.providerNFT.approve(address(pair.rollsContract), providerId);
         uint currentPrice = pair.takerNFT.currentOraclePrice();
+        uint takerId = loanId;
         rollOfferId = pair.rollsContract.createRollOffer(
             takerId,
             rollFee,
@@ -88,15 +88,14 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
     function rollLoan(
         DeploymentHelper.AssetPairContracts memory pair,
         address user,
-        uint takerId,
+        uint loanId,
         uint rollOfferId,
         int minToUser
-    ) internal returns (uint newTakerId, uint newLoanAmount, int transferAmount) {
+    ) internal returns (uint newLoanId, uint newLoanAmount, int transferAmount) {
         vm.startPrank(user);
         pair.cashAsset.approve(address(pair.loansContract), type(uint).max);
-        pair.takerNFT.approve(address(pair.loansContract), takerId);
-        (newTakerId, newLoanAmount, transferAmount) =
-            pair.loansContract.rollLoan(takerId, pair.rollsContract, rollOfferId, minToUser);
+        (newLoanId, newLoanAmount, transferAmount) =
+            pair.loansContract.rollLoan(loanId, pair.rollsContract, rollOfferId, minToUser);
         vm.stopPrank();
     }
 }
@@ -142,14 +141,14 @@ contract LoansForkTest is LoansTestBase {
         uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
 
         uint minLoanAmount = 0.3e6;
-        (uint takerId,, uint loanAmount) = openLoan(pair, user, collateralAmount, minLoanAmount, offerId);
+        (uint loanId,, uint loanAmount) = openLoan(pair, user, collateralAmount, minLoanAmount, offerId);
 
         assertGt(loanAmount, 0);
         skip(pair.durations[0]);
         // no price change so collateral out should be collateral in minus slippage
         uint minCollateralOut = collateralAmount;
         uint minCollateralOutWithSlippage = minCollateralOut * (100 - slippage) / 100;
-        uint collateralOut = closeLoan(pair, user, takerId, minCollateralOutWithSlippage);
+        uint collateralOut = closeLoan(pair, user, loanId, minCollateralOutWithSlippage);
         assertGe(collateralOut, minCollateralOutWithSlippage);
     }
 
@@ -157,42 +156,42 @@ contract LoansForkTest is LoansTestBase {
         uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
 
         uint minLoanAmount = 0.3e6;
-        (uint takerId, uint providerId, uint initialLoanAmount) =
+        (uint loanId, uint providerId, uint initialLoanAmount) =
             openLoan(pair, user, collateralAmount, minLoanAmount, offerId);
 
-        uint rollOfferId = createRollOffer(pair, provider, takerId, providerId, rollFee, rollDeltaFactor);
+        uint rollOfferId = createRollOffer(pair, provider, loanId, providerId, rollFee, rollDeltaFactor);
 
         int minToUser = -1000e6; // Allow up to 1000 tokens to be paid by the user
-        (uint newTakerId, uint newLoanAmount, int transferAmount) =
-            rollLoan(pair, user, takerId, rollOfferId, minToUser);
+        (uint newLoanId, uint newLoanAmount, int transferAmount) =
+            rollLoan(pair, user, loanId, rollOfferId, minToUser);
 
-        assertGt(newTakerId, takerId);
+        assertGt(newLoanId, loanId);
         assertGe(int(newLoanAmount), int(initialLoanAmount) + transferAmount);
     }
 
     function testFullLoanLifecycle() public {
         uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
         uint minLoanAmount = 0.3e6;
-        (uint takerId, uint providerId, uint initialLoanAmount) =
+        (uint loanId, uint providerId, uint initialLoanAmount) =
             openLoan(pair, user, collateralAmount, minLoanAmount, offerId);
 
         // Advance time to simulate passage of time
         vm.warp(block.timestamp + pair.durations[0] - 20);
 
-        uint rollOfferId = createRollOffer(pair, provider, takerId, providerId, rollFee, rollDeltaFactor);
+        uint rollOfferId = createRollOffer(pair, provider, loanId, providerId, rollFee, rollDeltaFactor);
 
         int minToUser = -1000e6;
-        (uint newTakerId, uint newLoanAmount, int transferAmount) =
-            rollLoan(pair, user, takerId, rollOfferId, minToUser);
+        (uint newLoanId, uint newLoanAmount, int transferAmount) =
+            rollLoan(pair, user, loanId, rollOfferId, minToUser);
 
         // Advance time again
         vm.warp(block.timestamp + pair.durations[0]);
 
         uint minCollateralOut = collateralAmount * 95 / 100; // 5% slippage
-        uint collateralOut = closeLoan(pair, user, newTakerId, minCollateralOut);
+        uint collateralOut = closeLoan(pair, user, newLoanId, minCollateralOut);
 
         assertGt(initialLoanAmount, 0);
-        assertGt(newTakerId, takerId);
+        assertGt(newLoanId, loanId);
         assertGe(int(newLoanAmount), int(initialLoanAmount) + transferAmount);
         assertGe(collateralOut, minCollateralOut);
     }

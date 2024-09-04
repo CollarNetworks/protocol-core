@@ -6,7 +6,7 @@ import "forge-std/console.sol";
 import { ConfigHub } from "../src/ConfigHub.sol";
 import { ShortProviderNFT } from "../src/ShortProviderNFT.sol";
 import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
-import { Loans } from "../src/Loans.sol";
+import { LoansNFT } from "../src/LoansNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../src/Rolls.sol";
 import { OracleUniV3TWAP } from "../src/OracleUniV3TWAP.sol";
@@ -16,7 +16,7 @@ contract DeploymentHelper {
     struct AssetPairContracts {
         ShortProviderNFT providerNFT;
         CollarTakerNFT takerNFT;
-        Loans loansContract;
+        LoansNFT loansContract;
         Rolls rollsContract;
         IERC20 cashAsset;
         IERC20 collateralAsset;
@@ -74,7 +74,12 @@ contract DeploymentHelper {
             string(abi.encodePacked("Provider ", pairConfig.name)),
             string(abi.encodePacked("P", pairConfig.name))
         );
-        Loans loansContract = new Loans(owner, takerNFT);
+        LoansNFT loansContract = new LoansNFT(
+            owner,
+            takerNFT,
+            string(abi.encodePacked("Loans ", pairConfig.name)),
+            string(abi.encodePacked("L", pairConfig.name))
+        );
         Rolls rollsContract = new Rolls(owner, takerNFT);
         SwapperUniV3 swapperUniV3 = new SwapperUniV3(pairConfig.swapRouter, pairConfig.swapFeeTier);
         console.log("done");

@@ -2,7 +2,7 @@
 pragma solidity 0.8.22;
 
 import { ConfigHub } from "../src/ConfigHub.sol";
-import { Loans } from "../src/Loans.sol";
+import { LoansNFT } from "../src/LoansNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../src/Rolls.sol";
 import { SwapperUniV3 } from "../src/SwapperUniV3.sol";
