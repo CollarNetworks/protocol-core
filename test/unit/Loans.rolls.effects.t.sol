@@ -5,7 +5,7 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
-import { LoansNFT, ILoansNFT } from "../../src/LoansNFT.sol";
+import { LoansNFT, IBaseLoansNFT } from "../../src/LoansNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
@@ -75,7 +75,7 @@ contract LoansRollTestBase is LoansTestBase {
 
         uint expectedPositionId = takerNFT.nextPositionId();
         vm.expectEmit(address(loans));
-        emit ILoansNFT.LoanRolled(
+        emit IBaseLoansNFT.LoanRolled(
             user1,
             takerId,
             rollId,
@@ -106,27 +106,30 @@ contract LoansRollTestBase is LoansTestBase {
         checkLoansAndNFT(takerId, newTakerId, expected, newPrice);
     }
 
-    function checkLoansAndNFT(uint takerId, uint newTakerId, ExpectedRoll memory expected, uint newPrice)
+    function checkLoansAndNFT(uint loanId, uint newLoanId, ExpectedRoll memory expected, uint newPrice)
         internal
     {
-        // old NFT burned
-        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, takerId));
-        takerNFT.ownerOf(takerId);
-        // user has new NFT
-        assertEq(takerNFT.ownerOf(newTakerId), user1);
+        // old loans NFT burned
+        expectRevertERC721Nonexistent(loanId);
+        loans.ownerOf(loanId);
 
-        // old loan not active
-        assertFalse(loans.getLoan(takerId).active);
+        // old taker NFT burned
+        uint takerId = loanId;
+        expectRevertERC721Nonexistent(takerId);
+        takerNFT.ownerOf(takerId);
+        // user has new loan NFT
+        assertEq(loans.ownerOf(newLoanId), user1);
+        // Loans has the taker NFT
+        uint newTakerId = newLoanId;
+        assertEq(takerNFT.ownerOf(newTakerId), address(loans));
 
         // new loan state
-        ILoans.Loan memory newLoan = loans.getLoan(newTakerId);
+        IBaseLoansNFT.Loan memory newLoan = loans.getLoan(newLoanId);
         assertEq(newLoan.loanAmount, expected.newLoanAmount);
-        assertEq(newLoan.collateralAmount, loans.getLoan(takerId).collateralAmount);
-        assertEq(newLoan.keeperAllowedBy, loans.getLoan(takerId).keeperAllowedBy);
-        assertTrue(newLoan.active);
+        assertEq(newLoan.collateralAmount, loans.getLoan(loanId).collateralAmount);
 
         // new taker position
-        CollarTakerNFT.TakerPosition memory newTakerPos = takerNFT.getPosition(newTakerId);
+        CollarTakerNFT.TakerPosition memory newTakerPos = takerNFT.getPosition(newLoanId);
         assertEq(newTakerPos.putLockedCash, expected.newPutLocked);
         assertEq(newTakerPos.callLockedCash, expected.newCallLocked);
         assertEq(newTakerPos.initialPrice, newPrice);
@@ -184,9 +187,9 @@ contract LoansRollsHappyPathsTest is LoansRollTestBase {
         checkCloseRolledLoan(newTakerId, expected.newLoanAmount);
     }
 
-    function test_rollLoan_keeperAllowedBy_preserved() public {
+    function test_rollLoan_setKeeperAllowed_preserved() public {
         (uint takerId,,) = createAndCheckLoan();
-        loans.setKeeperAllowedBy(takerId, true);
+        loans.setKeeperAllowed(true);
         // checked to correspond to previous value in checkRollLoan
         checkRollLoan(takerId, twapPrice);
     }

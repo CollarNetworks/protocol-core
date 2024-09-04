@@ -263,7 +263,7 @@ abstract contract BaseLoansNFT is BaseEmergencyAdminNFT, IBaseLoansNFT {
         _burn(loanId);
 
         // pull and push NFT and cash, execute roll, emit event
-        (uint newTakerId, uint _transferAmount, int rollFee) = _executeRoll(loanId, rollId, minToUser);
+        (uint newTakerId, int _transferAmount, int rollFee) = _executeRoll(loanId, rollId, minToUser);
         transferAmount = _transferAmount;
 
         // previous values. We burned the token, but loans storage is never modified
@@ -437,6 +437,8 @@ abstract contract BaseLoansNFT is BaseEmergencyAdminNFT, IBaseLoansNFT {
  * (but not during closing).
  */
 contract LoansNFT is ILoansNFT, BaseLoansNFT {
+    using SafeERC20 for IERC20;
+
     constructor(address initialOwner, CollarTakerNFT _takerNFT, string memory _name, string memory _symbol)
         BaseLoansNFT(initialOwner, _takerNFT, _name, _symbol)
     { }
@@ -494,7 +496,7 @@ contract LoansNFT is ILoansNFT, BaseLoansNFT {
      * The amount of collateral returned may be smaller or larger than originally deposited,
      * depending on the position's settlement result, and the final swap.
      * This method can be called by either the loan's owner (the CollarTakerNFT owner) or by a keeper
-     * if the keeper was allowed by the current owner (by calling setKeeperAllowedBy). Using a keeper
+     * if the keeper was allowed by the current owner (by calling setKeeperAllowed). Using a keeper
      * may be needed because the call's timing should be as close to settlement as possible, to
      * avoid additional price exposure since the swaps price's is always spot (not past).
      * To settle in cash (and avoid the repayment and swap) the user can instead call unwrapAndCancelLoan
@@ -539,7 +541,7 @@ contract LoansNFT is ILoansNFT, BaseLoansNFT {
      * @return newLoanAmount The updated loan amount after rolling
      * @return transferAmount The actual transfer to user (or from user if negative) including roll-fee
      */
-    function rollLoan(uint loanId, Rolls rolls, uint rollId, int minToUser, uint newEscrowOffer)
+    function rollLoan(uint loanId, Rolls rolls, uint rollId, int minToUser)
         external
         whenNotPaused
         onlyNFTOwner(loanId)

@@ -107,7 +107,7 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
         cashAsset.safeTransfer(msg.sender, loanAmount);
 
         emit LoanOpened(
-            msg.sender, address(providerNFT), offerId, collateralAmount, loanAmount, loanId, providerId
+            msg.sender, address(providerNFT), shortOffer, collateralAmount, loanAmount, loanId, providerId
         );
     }
 

@@ -29,7 +29,7 @@ interface IBaseLoansNFT {
     event LoanOpened(
         address indexed sender,
         address indexed providerNFT,
-        uint indexed offerId,
+        uint indexed shortOfferId,
         uint collateralAmount,
         uint loanAmount,
         uint loanId,

@@ -3,7 +3,7 @@ pragma solidity ^0.8.18;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import { CollarBaseIntegrationTestConfig, ILoansNFT } from "./BaseIntegration.t.sol";
+import { CollarBaseIntegrationTestConfig, IBaseLoansNFT } from "./BaseIntegration.t.sol";
 import { ShortProviderNFT } from "../../../src/ShortProviderNFT.sol";
 import { CollarTakerNFT } from "../../../src/CollarTakerNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -28,7 +28,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         (borrowId,,) = pair.loansContract.openLoan(
             collateralAmount,
             0,
-            ILoansNFT.SwapParams(minCashAmount, address(pair.loansContract.defaultSwapper()), ""),
+            IBaseLoansNFT.SwapParams(minCashAmount, address(pair.loansContract.defaultSwapper()), ""),
             pair.providerNFT,
             offerId
         );

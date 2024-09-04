@@ -232,7 +232,7 @@ contract LoansEmergencyAdminTest is TakerNFTEmergencyAdminTest {
         super.setupTestedContract();
         // take the taker contract setup by the super
         CollarTakerNFT takerNFT = CollarTakerNFT(address(testedContract));
-        testedContract = new Loans(owner, takerNFT);
+        testedContract = new LoansNFT(owner, takerNFT, "", "");
     }
 }
 

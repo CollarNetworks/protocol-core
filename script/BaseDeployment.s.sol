@@ -6,7 +6,7 @@ import "forge-std/console.sol";
 import { ConfigHub } from "../src/ConfigHub.sol";
 import { ShortProviderNFT } from "../src/ShortProviderNFT.sol";
 import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
-import { LoansNFT, ILoansNFT } from "../src/LoansNFT.sol";
+import { LoansNFT, IBaseLoansNFT } from "../src/LoansNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../src/Rolls.sol";
 import { DeploymentUtils } from "./utils/deployment-exporter.s.sol";
@@ -124,7 +124,12 @@ contract BaseDeployment is Script {
             string(abi.encodePacked("Provider ", pairConfig.name)),
             string(abi.encodePacked("P", pairConfig.name))
         );
-        LoansNFT loansContract = new Loans(deployerAddress, takerNFT);
+        LoansNFT loansContract = new LoansNFT(
+            deployerAddress,
+            takerNFT,
+            string(abi.encodePacked("Loans ", pairConfig.name)),
+            string(abi.encodePacked("L", pairConfig.name))
+        );
         Rolls rollsContract = new Rolls(deployerAddress, takerNFT);
         SwapperUniV3 swapperUniV3 = new SwapperUniV3(pairConfig.swapRouter, pairConfig.swapFeeTier);
 
@@ -256,7 +261,7 @@ contract BaseDeployment is Script {
         (takerId, providerId, loanAmount) = pair.loansContract.openLoan(
             collateralAmountForLoan,
             0, // slippage
-            ILoansNFT.SwapParams(0, address(pair.loansContract.defaultSwapper()), ""),
+            IBaseLoansNFT.SwapParams(0, address(pair.loansContract.defaultSwapper()), ""),
             pair.providerNFT,
             offerId
         );
