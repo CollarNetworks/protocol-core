@@ -117,10 +117,10 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
         onlyNFTOwnerOrKeeper(loanId)
         returns (uint collateralOut)
     {
-        // @dev cache the user now, since _closeLoan will burn the NFT, so ownerOf will revert
+        // @dev cache the user now, since _closeLoanNoTFOut will burn the NFT, so ownerOf will revert
         address user = ownerOf(loanId);
 
-        collateralOut = _closeLoan(loanId, swapParams);
+        collateralOut = _closeLoanNoTFOut(loanId, swapParams);
 
         _releaseEscrow(loanId, collateralOut, user);
     }

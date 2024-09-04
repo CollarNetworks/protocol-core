@@ -116,7 +116,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
     function test_revert_closeLoan_notNFTOwnerOrKeeper() public {
         (uint loanId,,) = createAndCheckLoan();
         vm.startPrank(address(0xdead));
-        vm.expectRevert("not taker NFT owner or allowed keeper");
+        vm.expectRevert("not NFT owner or allowed keeper");
         loans.closeLoan(loanId, defaultSwapParams(0));
     }
 
@@ -232,7 +232,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
         vm.startPrank(keeper);
         // keeper was not allowed by user
-        vm.expectRevert("not taker NFT owner or allowed keeper");
+        vm.expectRevert("not NFT owner or allowed keeper");
         loans.closeLoan(loanId, defaultSwapParams(0));
 
         vm.startPrank(user1);
@@ -243,7 +243,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         takerNFT.transferFrom(user1, provider, loanId);
 
         vm.startPrank(keeper);
-        vm.expectRevert("not taker NFT owner or allowed keeper");
+        vm.expectRevert("not NFT owner or allowed keeper");
         loans.closeLoan(loanId, defaultSwapParams(0));
 
         // transfer back

@@ -201,7 +201,8 @@ abstract contract BaseLoansNFT is BaseEmergencyAdminNFT, IBaseLoansNFT {
     }
 
     /// @dev access control (loanId owner ot their keeper) is expected to be checked by caller
-    function _closeLoan(uint loanId, SwapParams calldata swapParams) internal returns (uint collateralOut) {
+    /// @dev this method DOES NOT transfer the swapped collateral to user
+    function _closeLoanNoTFOut(uint loanId, SwapParams calldata swapParams) internal returns (uint collateralOut) {
         // total cash available
         // @dev will check settle, or try to settle - will revert if cannot settle yet (not expired)
         uint takerWithdrawal = _settleAndWithdrawTaker(loanId);
@@ -523,7 +524,13 @@ contract LoansNFT is ILoansNFT, BaseLoansNFT {
         onlyNFTOwnerOrKeeper(loanId)
         returns (uint collateralOut)
     {
-        return _closeLoan(loanId, swapParams);
+        // @dev cache the user now, since _closeLoanNoTFOut will burn the NFT, so ownerOf will revert
+        address user = ownerOf(loanId);
+
+        collateralOut = _closeLoanNoTFOut(loanId, swapParams);
+
+        // send to user the released collateral
+        collateralAsset.safeTransfer(user, collateralOut);
     }
 
     /**

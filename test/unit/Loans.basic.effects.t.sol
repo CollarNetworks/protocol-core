@@ -253,6 +253,7 @@ contract LoansBasicHappyPathsTest is LoansTestBase {
     }
 
     function test_allowsClosingKeeper() public {
+        startHoax(user1);
         assertFalse(loans.allowsClosingKeeper(user1));
 
         vm.expectEmit(address(loans));
@@ -406,7 +407,7 @@ contract LoansBasicHappyPathsTest is LoansTestBase {
 
         // cancel
         vm.expectEmit(address(loans));
-        emit IBaseLoansNFT.LoanCancelled(loanId, address(this));
+        emit IBaseLoansNFT.LoanCancelled(loanId, address(user1));
         loans.unwrapAndCancelLoan(loanId);
 
         // NFT burned
