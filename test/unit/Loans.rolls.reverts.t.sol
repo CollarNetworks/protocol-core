@@ -53,26 +53,23 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
 
         // Caller is not the taker NFT owner
         vm.startPrank(address(0xdead));
-        vm.expectRevert("not taker NFT owner");
+        vm.expectRevert("not NFT owner");
         loans.rollLoan(loanId, rolls, rollId, type(int).min);
 
         // Taker position already settled
         vm.startPrank(user1);
         skip(duration);
-        takerNFT.settlePairedPosition(loanId);
-        cashAsset.approve(address(loans), type(uint).max);
-        vm.expectRevert("taker position settled");
+        vm.expectRevert("loan expired");
         loans.rollLoan(loanId, rolls, rollId, type(int).min);
 
         // Roll already executed
         (uint newLoanId,,) = createAndCheckLoan();
         uint newRollId = createRollOffer(newLoanId);
         vm.startPrank(user1);
-        takerNFT.approve(address(loans), newLoanId);
         cashAsset.approve(address(loans), type(uint).max);
         loans.rollLoan(newLoanId, rolls, newRollId, type(int).min);
         // token is burned
-        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, newLoanId));
+        expectRevertERC721Nonexistent(newLoanId);
         loans.rollLoan(newLoanId, rolls, newRollId, type(int).min);
     }
 
@@ -160,7 +157,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
 
         // Attempt to roll the loan as the keeper
         vm.startPrank(keeper);
-        vm.expectRevert("not taker NFT owner");
+        vm.expectRevert("not NFT owner");
         loans.rollLoan(loanId, rolls, rollId, type(int).min);
     }
 
@@ -188,12 +185,25 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         vm.startPrank(user1);
         cashAsset.approve(address(loans), type(uint).max);
 
-        // Mock the calculateTransferAmounts function to return a large negative value
+        // Mock the calculateTransferAmounts function to return a large negative value.
+        // It's negative because paying to rolls is pulling from the user - repaying the loan.
         int largeRepayment = -int(loanAmount + 1);
         vm.mockCall(
             address(rolls),
             abi.encodeWithSelector(rolls.calculateTransferAmounts.selector, rollId, twapPrice),
             abi.encode(largeRepayment, 0, 0)
+        );
+        vm.mockCall(
+            address(rolls),
+            abi.encodeWithSelector(rolls.executeRoll.selector, rollId, type(int).min),
+            abi.encode(loanId + 1, 0, largeRepayment, 0)
+        );
+        vm.mockCall(
+            address(cashAsset),
+            abi.encodeWithSelector(
+                cashAsset.transferFrom.selector, user1, address(loans), uint(-largeRepayment)
+            ),
+            abi.encode(true)
         );
 
         // Attempt to roll the loan, which should revert due to large repayment
