@@ -28,7 +28,7 @@ contract ArbitrumMainnetFullProtocolForkTest is Test {
 
     function testDeploymentValidation() public {
         vm.selectFork(forkId);
-        DeploymentValidator validator = new DeploymentValidator();
+        DeploymentValidatorForkTest validator = new DeploymentValidatorForkTest();
         validator.setForkId(forkId);
         validator.setUp();
         validator.test_validateConfigHubDeployment();
