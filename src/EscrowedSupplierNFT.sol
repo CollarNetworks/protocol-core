@@ -17,6 +17,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
+    uint public constant MAX_INTEREST_APR_BIPS = BIPS_BASE; // 100% APR
     uint public constant MIN_GRACE_PERIOD = 1 days;
     uint public constant MAX_GRACE_PERIOD = 30 days;
     uint public constant MAX_LATE_FEE_APR_BIPS = BIPS_BASE * 12; // 1200% APR (100% for a max period of 30 days)
@@ -35,6 +36,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         uint available;
         // terms
         uint duration;
+        uint interestAPR;
         uint gracePeriod;
         uint lateFeeAPR;
     }
@@ -44,11 +46,14 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
     struct Escrow {
         // reference (for views)
         uint loanId;
-        uint expiration;
         // terms
         uint escrowed;
         uint gracePeriod;
         uint lateFeeAPR;
+        // interest & refund
+        uint duration;
+        uint expiration;
+        uint interestHeld;
         // withdrawal
         bool released;
         uint withdrawable;
@@ -122,16 +127,21 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         }
     }
 
+    function interestFee(uint escrowed, uint duration, uint feeAPR) public pure returns (uint fee) {
+        return _divUp(escrowed * feeAPR * duration, BIPS_BASE * 365 days);
+    }
+
     // ----- MUTATIVE ----- //
 
     // ----- Offer actions ----- //
 
-    function createOffer(uint amount, uint duration, uint gracePeriod, uint lateFeeAPR)
+    function createOffer(uint amount, uint duration, uint interestAPR, uint gracePeriod, uint lateFeeAPR)
         external
         whenNotPaused
         returns (uint offerId)
     {
         // sanity checks
+        require(interestAPR <= MAX_INTEREST_APR_BIPS, "interest APR too high");
         require(gracePeriod >= MIN_GRACE_PERIOD, "grace period too short");
         require(gracePeriod <= MAX_GRACE_PERIOD, "grace period too long");
         require(lateFeeAPR <= MAX_LATE_FEE_APR_BIPS, "late fee APR too high");
@@ -143,6 +153,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
             supplier: msg.sender,
             available: amount,
             duration: duration,
+            interestAPR: interestAPR,
             gracePeriod: gracePeriod,
             lateFeeAPR: lateFeeAPR
         });
@@ -172,20 +183,21 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
 
     // ----- actions through taker contract ----- //
 
-    function escrowAndMint(uint offerId, uint amount, uint loanId)
+    function escrowAndMint(uint offerId, uint escrowed, uint fee, uint loanId)
         external
         whenNotPaused
         onlyLoans
         returns (uint escrowId, Escrow memory escrow)
     {
-        (escrowId, escrow) = _mintFromOffer(offerId, amount, loanId);
+        (escrowId, escrow) = _mintFromOffer(offerId, escrowed, fee, loanId);
 
-        // @dev despite the fact that they cancel out, these transfers are the whole point of this contract
-        // from product point of view. The end balance is the same, but the transfer events are needed.
-        // take the escrow from loans
-        asset.safeTransferFrom(loans, address(this), amount);
-        // transfer the supplier's collateral to loans
-        asset.safeTransfer(loans, amount);
+        // @dev despite the fact that they partially cancel out, so can be done as just fee transfer,
+        // these transfers are the whole point of this contract from product point of view.
+        // The transfer events for the full amounts are needed.
+        asset.safeTransferFrom(loans, address(this), escrowed + fee);
+        // transfer the supplier's funds, equal to the escrowed amount, to loans.
+        // @dev this is less than amount because of the interest fee held
+        asset.safeTransfer(loans, escrowed);
 
         // TODO: event for offer update
     }
@@ -198,19 +210,19 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
     {
         toLoans = _releaseEscrow(escrowId, repaid);
 
-        // transfer in the repaid assets in - "original supplier's assets, plus any late fee"
+        // transfer in the repaid assets in: original supplier's assets, plus any late fee
         asset.safeTransferFrom(loans, address(this), repaid);
-        // release the escrow (with possible loss to the borrower) - "user's assets, minus any shortfall"
+        // release the escrow (with possible loss to the borrower): user's assets + refund - shortfall
         asset.safeTransfer(loans, toLoans);
 
         // TODO: event
     }
 
-    function releaseAndMint(uint releaseEscrowId, uint offerId, uint newLoanId)
+    function releaseAndMint(uint releaseEscrowId, uint offerId, uint newLoanId, uint newFee)
         external
         whenNotPaused
         onlyLoans
-        returns (uint newEscrowId, Escrow memory newEscrow)
+        returns (uint newEscrowId, Escrow memory newEscrow, uint feeRefund)
     {
         uint escrowAmount = escrows[releaseEscrowId].escrowed;
 
@@ -218,18 +230,16 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         // The escrow funds are the loan-escrow funds that have been escrowed in the ID being released.
         // The offer is reduced (which is used to repay the previous supplier)
         // A new escrow ID is minted.
-        (newEscrowId, newEscrow) = _mintFromOffer(offerId, escrowAmount, newLoanId);
+        (newEscrowId, newEscrow) = _mintFromOffer(offerId, escrowAmount, newFee, newLoanId);
 
         // Release the escrow to the supplier of previous ID without an actual repayment to this contract.
         // The withdrawable for previous supplier comes from the new supplier's offer.
         // The escrowed loans-funds move into the new escrow of the new supplier.
-        // @dev return value is ignored, because no transfers need to be done from/to loans contract
-        // and there can be no shortfall or fees
-        _releaseEscrow(releaseEscrowId, escrowAmount);
+        feeRefund = _releaseEscrow(releaseEscrowId, 0);
 
-        // @dev no transfers need to happen, because the escrows are swapped internally.
-        // The amounts match exactly, and the withdrawal for the previous supplier comes from the
-        // new supplier's offer.
+        // fee transfers
+        asset.safeTransferFrom(loans, address(this), newFee);
+        asset.safeTransfer(loans, feeRefund);
 
         // TODO: event for offer update
     }
@@ -255,7 +265,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    function _mintFromOffer(uint offerId, uint amount, uint loanId)
+    function _mintFromOffer(uint offerId, uint escrowed, uint fee, uint loanId)
         internal
         returns (uint escrowId, Escrow memory escrow)
     {
@@ -269,17 +279,25 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
 
         // check amount
         uint prevOfferAmount = offer.available;
-        require(amount <= prevOfferAmount, "amount too high");
+        require(escrowed <= prevOfferAmount, "amount too high");
+
+        uint minFee = interestFee(escrowed, offer.duration, offer.interestAPR);
+        // we don't check equality to avoid revert due to minor precision inaccuracy to the upside,
+        // even though exact value can be calculated from the view.
+        // TODO: is this needed, or exact equality is better?
+        require(fee >= minFee, "insufficient fee");
 
         // storage updates
-        offer.available = prevOfferAmount - amount;
+        offer.available = prevOfferAmount - escrowed;
         escrowId = nextTokenId++;
         escrow = Escrow({
             loanId: loanId,
-            expiration: block.timestamp + offer.duration,
-            escrowed: amount,
+            escrowed: escrowed,
             gracePeriod: offer.gracePeriod,
             lateFeeAPR: offer.lateFeeAPR,
+            duration: offer.duration,
+            expiration: block.timestamp + offer.duration,
+            interestHeld: fee,
             released: false,
             withdrawable: 0
         });
@@ -299,14 +317,39 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         // update storage
         escrow.released = true;
 
-        uint escrowed = escrow.escrowed;
-        escrow.withdrawable = repaid > escrowed ? repaid : escrowed; // any gains are for the supplier (late fees)
-        toLoans = repaid < escrowed ? repaid : escrowed; // any losses are for the borrower (slippage)
+        // interest refund due to early release
+        uint interestFeeRefund = _refundInterestFee(escrow);
+
+        // total withdrawal with refund deducted
+        uint minWithdrawal = escrow.escrowed + escrow.interestHeld - interestFeeRefund;
+
+        // any gains are for the supplier (late fees), so supplier is guaranteed its earnings
+        // note that either late fees are charged, or interest fee is refunded, but not both
+        escrow.withdrawable = repaid > minWithdrawal ? repaid : minWithdrawal;
+
+        // any losses are for the borrower (slippage), taken out of their escrowed amount
+        toLoans = repaid < minWithdrawal ? repaid : minWithdrawal;
+
+        // any refund goes to loans as well
+        toLoans += interestFeeRefund;
 
         // TODO: event
     }
 
     // ----- INTERNAL VIEWS ----- //
+
+    function _refundInterestFee(Escrow storage escrow) internal view returns (uint refund) {
+        uint duration = escrow.duration;
+        // startTime = expiration - duration, elapsed = now - startTime
+        uint elapsed = block.timestamp - escrow.expiration + duration;
+        // cap to duration
+        elapsed = elapsed > duration ? duration : elapsed;
+        // refund is for time remaining, and is rounded down
+        refund = escrow.interestHeld * (duration - elapsed) / duration;
+        // @dev there is no APR calculation here, both for simplicity (used only
+        // on open, and because actual fee passed may be higher (it's checked to be above
+        // the minimal fee)
+    }
 
     function _configHubValidations(uint duration) internal view {
         // assets
