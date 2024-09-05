@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Script.sol";
 import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
-import { Loans } from "../../src/Loans.sol";
+import { LoansNFT } from "../../src/LoansNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../../src/Rolls.sol";
 import { DeploymentHelper } from "../deployment-helper.sol";
@@ -201,7 +201,7 @@ contract DeploymentUtils is Script {
                     takerNFT: CollarTakerNFT(
                         _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_takerNFT")))
                     ),
-                    loansContract: Loans(
+                    loansContract: LoansNFT(
                         _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_loansContract")))
                     ),
                     rollsContract: Rolls(

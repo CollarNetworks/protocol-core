@@ -77,10 +77,11 @@ contract ShortProviderNFT is IShortProviderNFT, BaseEmergencyAdminNFT {
         address _taker,
         string memory _name,
         string memory _symbol
-    ) BaseEmergencyAdminNFT(initialOwner, _configHub, _name, _symbol) {
+    ) BaseEmergencyAdminNFT(initialOwner, _name, _symbol) {
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
         taker = _taker;
+        _setConfigHub(_configHub);
         emit ShortProviderNFTCreated(address(_cashAsset), address(_collateralAsset), _taker);
     }
 

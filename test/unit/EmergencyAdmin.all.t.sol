@@ -14,7 +14,7 @@ import { BaseEmergencyAdmin } from "../../src/base/BaseEmergencyAdmin.sol";
 import { ConfigHub } from "../../src/ConfigHub.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
-import { Loans } from "../../src/Loans.sol";
+import { LoansNFT } from "../../src/LoansNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
 // base contract for other tests that will check this functionality
@@ -232,7 +232,7 @@ contract LoansEmergencyAdminTest is TakerNFTEmergencyAdminTest {
         super.setupTestedContract();
         // take the taker contract setup by the super
         CollarTakerNFT takerNFT = CollarTakerNFT(address(testedContract));
-        testedContract = new Loans(owner, takerNFT);
+        testedContract = new LoansNFT(owner, takerNFT, "", "");
     }
 }
 
