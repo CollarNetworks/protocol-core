@@ -73,6 +73,23 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         loans.rollLoan(newLoanId, rolls, newRollId, type(int).min);
     }
 
+    function test_revert_rollLoan_IdTaken() public {
+        (uint loanId,,) = createAndCheckLoan();
+
+        // set roll fee to zero to avoid having to mock transfers
+        rollFee = 0;
+        uint rollId = createRollOffer(loanId);
+
+        vm.startPrank(user1);
+        vm.mockCall(
+            address(rolls),
+            abi.encodeWithSelector(rolls.executeRoll.selector, rollId, 0),
+            abi.encode(loanId, 0, 0, 0) // returns old taker ID
+        );
+        vm.expectRevert("loanId taken");
+        loans.rollLoan(loanId, rolls, rollId, 0);
+    }
+
     function test_revert_rollLoan_slippage() public {
         (uint loanId,,) = createAndCheckLoan();
         uint rollId = createRollOffer(loanId);
