@@ -13,6 +13,10 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { ConfigHub } from "./ConfigHub.sol";
 import { BaseEmergencyAdminNFT } from "./base/BaseEmergencyAdminNFT.sol";
 
+interface ILoansLike {
+    function collateralAsset() external returns (IERC20);
+}
+
 contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
     using SafeERC20 for IERC20;
 
@@ -26,10 +30,12 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
 
     // ----- IMMUTABLES ----- //
     IERC20 public immutable asset;
-    address public immutable loans;
 
     // ----- STATE ----- //
     uint public nextOfferId; // @dev this is NOT the NFT id, this is a  separate non transferrable ID
+
+    // allowed loans contracts
+    mapping(address loans => bool allowed) public allowedLoans;
 
     struct Offer {
         address supplier;
@@ -65,17 +71,15 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         address initialOwner,
         ConfigHub _configHub,
         IERC20 _asset,
-        address _loans,
         string memory _name,
         string memory _symbol
     ) BaseEmergencyAdminNFT(initialOwner, _name, _symbol) {
         asset = _asset;
-        loans = _loans;
         _setConfigHub(_configHub);
     }
 
     modifier onlyLoans() {
-        require(msg.sender == loans, "unauthorized loans contract");
+        require(allowedLoans[msg.sender], "unauthorized loans contract");
         _;
     }
 
@@ -194,10 +198,10 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         // @dev despite the fact that they partially cancel out, so can be done as just fee transfer,
         // these transfers are the whole point of this contract from product point of view.
         // The transfer events for the full amounts are needed.
-        asset.safeTransferFrom(loans, address(this), escrowed + fee);
+        asset.safeTransferFrom(msg.sender, address(this), escrowed + fee);
         // transfer the supplier's funds, equal to the escrowed amount, to loans.
         // @dev this is less than amount because of the interest fee held
-        asset.safeTransfer(loans, escrowed);
+        asset.safeTransfer(msg.sender, escrowed);
 
         // TODO: event for offer update
     }
@@ -206,9 +210,9 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         toLoans = _releaseEscrow(escrowId, repaid);
 
         // transfer in the repaid assets in: original supplier's assets, plus any late fee
-        asset.safeTransferFrom(loans, address(this), repaid);
+        asset.safeTransferFrom(msg.sender, address(this), repaid);
         // release the escrow (with possible loss to the borrower): user's assets + refund - shortfall
-        asset.safeTransfer(loans, toLoans);
+        asset.safeTransfer(msg.sender, toLoans);
 
         // TODO: event
     }
@@ -242,8 +246,8 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         feeRefund = _releaseEscrow(releaseEscrowId, escrowAmount);
 
         // fee transfers
-        asset.safeTransferFrom(loans, address(this), newFee);
-        asset.safeTransfer(loans, feeRefund);
+        asset.safeTransferFrom(msg.sender, address(this), newFee);
+        asset.safeTransfer(msg.sender, feeRefund);
 
         // TODO: event for offer update
     }
@@ -264,6 +268,14 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         // transfer tokens
         asset.safeTransfer(msg.sender, withdrawable);
 
+        // TODO: event
+    }
+
+    // ----- admin ----- //
+
+    function setLoansAllowed(address loans, bool allowed) external onlyOwner {
+        if (allowed) require(ILoansLike(loans).collateralAsset() == asset, "invalid loans contract");
+        allowedLoans[loans] = allowed;
         // TODO: event
     }
 
