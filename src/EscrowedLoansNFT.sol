@@ -234,7 +234,7 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
         // release from escrow, this can be smaller than available
         collateralAsset.forceApprove(address(escrowNFT), toSupplier);
         // releasedForUser is what escrow returns after deducting any shortfall
-        // there should be interest fee refund here because this method is called after expiry
+        // there should not be interest fee refund here because this method is called after expiry
         uint releasedToUser = escrowNFT.endEscrow(escrowId, toSupplier);
         // @dev no balance checks are needed, because this contract holds no funds (collateral or cash).
         // all collateral is either swapped or in escrow, so an incorrect balance will cause reverts on
