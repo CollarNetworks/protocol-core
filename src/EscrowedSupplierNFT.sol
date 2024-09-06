@@ -272,16 +272,16 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
     }
 
     /**
-    @notice DO NOT use this is normal circumstances, use seizeEscrow on Loans. This method is only
-    for extreme scenarios to ensure suppliers can always withdraw even if Loans is broken / no Loans
-    contracts are allowed by admin.
-    This method can only be used after the full grace period is elapsed, and does not pay any late fees.
-    Ideally the owner of the NFT will call seizeEscrow() on Loans - which is either callable earlier
-    or pays late fees (or both). If they do, that method will call endEscrow and will set "released"
-    to true, making this method not callable.
-    In the opposite situation, if the NFT owner chooses to call this method by mistake instead,
-    the Loans method will not be callable, because released will be set to true (+NFT will be burned).
-    */
+     * @notice DO NOT use this is normal circumstances, use seizeEscrow on Loans. This method is only
+     * for extreme scenarios to ensure suppliers can always withdraw even if Loans is broken / no Loans
+     * contracts are allowed by admin.
+     * This method can only be used after the full grace period is elapsed, and does not pay any late fees.
+     * Ideally the owner of the NFT will call seizeEscrow() on Loans - which is either callable earlier
+     * or pays late fees (or both). If they do, that method will call endEscrow and will set "released"
+     * to true, making this method not callable.
+     * In the opposite situation, if the NFT owner chooses to call this method by mistake instead,
+     * the Loans method will not be callable, because released will be set to true (+NFT will be burned).
+     */
     function lastResortSeizeEscrow(uint escrowId) external whenNotPaused {
         require(msg.sender == ownerOf(escrowId), "not escrow owner");
 
