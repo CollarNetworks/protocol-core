@@ -226,12 +226,12 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         uint escrowAmount = escrows[releaseEscrowId].escrowed;
 
         /*
-        1. initially user's escrow E secures O (old offer). O's own funds are away.
-        2. E is then "transferred" to secure N (new offer). N's own funds are taken, to release O.
+        1. initially user's escrow E secures O (old ID). O's own funds are away.
+        2. E is then "transferred" to secure N (new ID). N's own funds are taken, to release O.
         3. O is released (with N's funds, which are now secured by E (user's escrow).
 
-        Interest is accounted separately by transferring the full N interest fee (held until release), and
-        refunding O's interest held if O is released early (it likely is).
+        Interest is accounted separately by transferring the full N's interest fee
+        (held until release), and refunding O's interest held if O is released early (it likely is).
         */
 
         // N (new escrow): Mint a new escrow from the offer.
@@ -271,7 +271,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         // TODO: event
     }
 
-    /*
+    /**
     @notice DO NOT use this is normal circumstances, use seizeEscrow on Loans. This method is only
     for extreme scenarios to ensure suppliers can always withdraw even if Loans is broken / no Loans
     contracts are allowed by admin.
@@ -279,8 +279,8 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
     Ideally the owner of the NFT will call seizeEscrow() on Loans - which is either callable earlier
     or pays late fees (or both). If they do, that method will call endEscrow and will set "released"
     to true, making this method not callable.
-    In the opposite siutation, if the NFT owner chooses to call this method by mistake instead,
-    the Loans method will revert, because released will be set to true (and escrow NFT will be burned).
+    In the opposite situation, if the NFT owner chooses to call this method by mistake instead,
+    the Loans method will not be callable, because released will be set to true (+NFT will be burned).
     */
     function lastResortSeizeEscrow(uint escrowId) external whenNotPaused {
         require(msg.sender == ownerOf(escrowId), "not escrow owner");
@@ -289,11 +289,12 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         require(!escrow.released, "already released");
         require(block.timestamp > escrow.expiration + escrow.gracePeriod, "grace period not elapsed");
         escrow.released = true;
+        // @dev withdrawable is not set here (_releaseEscrow not called) because a withdrawal is done
 
         // burn token
         // @dev we burn the NFT because this is a withdrawal and a direct last action by NFT owner
         _burn(escrowId);
-        // transfer escrowed and interest held to NFT owner
+        // transfer escrowed and full interest to NFT owner
         asset.safeTransfer(msg.sender, escrow.escrowed + escrow.interestHeld);
     }
 
