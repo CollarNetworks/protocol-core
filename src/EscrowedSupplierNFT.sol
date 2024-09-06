@@ -183,7 +183,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
 
     // ----- actions through taker contract ----- //
 
-    function escrowAndMint(uint offerId, uint escrowed, uint fee, uint loanId)
+    function startEscrow(uint offerId, uint escrowed, uint fee, uint loanId)
         external
         whenNotPaused
         onlyLoans
@@ -202,12 +202,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         // TODO: event for offer update
     }
 
-    function releaseEscrow(uint escrowId, uint repaid)
-        external
-        whenNotPaused
-        onlyLoans
-        returns (uint toLoans)
-    {
+    function endEscrow(uint escrowId, uint repaid) external whenNotPaused onlyLoans returns (uint toLoans) {
         toLoans = _releaseEscrow(escrowId, repaid);
 
         // transfer in the repaid assets in: original supplier's assets, plus any late fee
@@ -218,7 +213,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         // TODO: event
     }
 
-    function releaseAndMint(uint releaseEscrowId, uint offerId, uint newLoanId, uint newFee)
+    function cycleEscrow(uint releaseEscrowId, uint offerId, uint newLoanId, uint newFee)
         external
         whenNotPaused
         onlyLoans

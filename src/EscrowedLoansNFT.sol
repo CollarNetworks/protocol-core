@@ -76,17 +76,16 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
         SwapParams calldata swapParams,
         ShortProviderNFT providerNFT,
         uint shortOffer,
-        uint escrowOffer
+        uint escrowOffer,
+        uint escrowFee
     ) external whenNotPaused returns (uint loanId, uint providerId, uint escrowId, uint loanAmount) {
-        // pull escrow collateral
-        collateralAsset.safeTransferFrom(msg.sender, address(this), collateralAmount);
+        // pull escrow collateral + fee
+        collateralAsset.safeTransferFrom(msg.sender, address(this), collateralAmount + escrowFee);
 
         uint expectedTakerId = takerNFT.nextPositionId();
         // get the supplier collateral for the swap
-        collateralAsset.forceApprove(address(escrowNFT), collateralAmount);
-        // TODO: calculate and pull this
-        uint escrowFee;
-        (escrowId,) = escrowNFT.escrowAndMint(escrowOffer, collateralAmount, escrowFee, expectedTakerId);
+        collateralAsset.forceApprove(address(escrowNFT), collateralAmount + escrowFee);
+        (escrowId,) = escrowNFT.startEscrow(escrowOffer, collateralAmount, escrowFee, expectedTakerId);
         // @dev no balance checks are needed, because this contract holds no funds (collateral or cash).
         // all collateral is either swapped or in escrow, so an incorrect balance will cause reverts on
         // transfers
@@ -123,21 +122,30 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
         _releaseEscrow(loanId, collateralOut, user);
     }
 
-    function rollLoan(uint loanId, Rolls rolls, uint rollId, int minToUser, uint newEscrowOffer)
+    function rollLoan(
+        uint loanId,
+        Rolls rolls,
+        uint rollId,
+        int minToUser, // cash
+        uint newEscrowOffer,
+        uint newEscrowFee // collateral
+    )
         external
         whenNotPaused
         onlyNFTOwner(loanId)
         returns (uint newLoanId, uint newLoanAmount, int transferAmount)
     {
+        // pull escrow fee
+        collateralAsset.safeTransferFrom(msg.sender, address(this), newEscrowFee);
+
         // @dev _rollLoan is assumed to check that loan is not expired, so cannot be foreclosed
         (newLoanId, newLoanAmount, transferAmount) = _rollLoan(loanId, rolls, rollId, minToUser);
 
         // rotate escrows
         uint prevEscrowId = loanIdToEscrowId[loanId];
-        // TODO: calculate and pull this
-        uint newEscrowFee;
+        collateralAsset.forceApprove(address(escrowNFT), newEscrowFee);
         (uint newEscrowId,, uint feeRefund) =
-            escrowNFT.releaseAndMint(prevEscrowId, newEscrowOffer, newEscrowFee, newLoanId);
+            escrowNFT.cycleEscrow(prevEscrowId, newEscrowOffer, newEscrowFee, newLoanId);
         loanIdToEscrowId[newLoanId] = newEscrowId;
 
         // send potential interest fee refund
@@ -151,7 +159,7 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
         _unwrapAndCancelLoan(loanId);
 
         // release the escrowed user funds to the supplier since the user will not repay the loan
-        uint toUser = escrowNFT.releaseEscrow(loanIdToEscrowId[loanId], 0);
+        uint toUser = escrowNFT.endEscrow(loanIdToEscrowId[loanId], 0);
 
         // send potential interest fee refund
         collateralAsset.safeTransfer(msg.sender, toUser);
@@ -216,7 +224,7 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
         collateralAsset.forceApprove(address(escrowNFT), toSupplier);
         // releasedForUser is what escrow returns after deducting any shortfall
         // there should be interest fee refund here because this method is called after expiry
-        uint releasedToUser = escrowNFT.releaseEscrow(escrowId, toSupplier);
+        uint releasedToUser = escrowNFT.endEscrow(escrowId, toSupplier);
         // @dev no balance checks are needed, because this contract holds no funds (collateral or cash).
         // all collateral is either swapped or in escrow, so an incorrect balance will cause reverts on
         // transfer
