@@ -170,7 +170,7 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
     // already, so the simplest thing that can be done to avoid locking user's funds is to cancel
     // the loan and send them their takerId to withdraw cash.
     function unwrapAndCancelUnseizable(uint loanId) external whenNotPaused onlyNFTOwner(loanId) {
-        bool escrowReleased = escrowNFT.getEscrow(loanIdToEscrowId(loanId)).released;
+        bool escrowReleased = escrowNFT.getEscrow(loanIdToEscrowId[loanId]).released;
         require(escrowReleased, "escrow not released");
 
         _unwrapAndCancelLoan(loanId);
