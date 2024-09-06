@@ -145,7 +145,7 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
         uint prevEscrowId = loanIdToEscrowId[loanId];
         collateralAsset.forceApprove(address(escrowNFT), newEscrowFee);
         (uint newEscrowId,, uint feeRefund) =
-            escrowNFT.cycleEscrow(prevEscrowId, newEscrowOffer, newEscrowFee, newLoanId);
+            escrowNFT.switchEscrow(prevEscrowId, newEscrowOffer, newEscrowFee, newLoanId);
         loanIdToEscrowId[newLoanId] = newEscrowId;
 
         // send potential interest fee refund

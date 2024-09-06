@@ -217,7 +217,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         // TODO: event
     }
 
-    function cycleEscrow(uint releaseEscrowId, uint offerId, uint newLoanId, uint newFee)
+    function switchEscrow(uint releaseEscrowId, uint offerId, uint newLoanId, uint newFee)
         external
         whenNotPaused
         onlyLoans
