@@ -51,6 +51,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
 
     struct Escrow {
         // reference (for views)
+        address loans;
         uint loanId;
         // terms
         uint escrowed;
@@ -335,6 +336,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         offer.available = prevOfferAmount - escrowed;
         escrowId = nextTokenId++;
         escrow = Escrow({
+            loans: msg.sender,
             loanId: loanId,
             escrowed: escrowed,
             gracePeriod: offer.gracePeriod,
@@ -357,6 +359,8 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
     function _releaseEscrow(uint escrowId, uint repaid) internal returns (uint toLoans) {
         Escrow storage escrow = escrows[escrowId];
         require(!escrow.released, "already released");
+        // only allow the same loans contract to release
+        require(msg.sender == escrow.loans, "loans address mismatch");
         // update storage
         escrow.released = true;
 
