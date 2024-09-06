@@ -102,7 +102,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         } else {
             uint overdue = block.timestamp - escrow.expiration; // counts from expiration despite the cliff
             // cap at specified grace period
-            overdue = overdue > escrow.gracePeriod ? escrow.gracePeriod : overdue;
+            overdue = _min(overdue, escrow.gracePeriod);
             // @dev rounds up to prevent avoiding fee using many small positions
             fee = _divUp(escrowed * escrow.lateFeeAPR * overdue, BIPS_BASE * 365 days);
         }
@@ -120,10 +120,10 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
             // time = fee * year * 100bips / escrowed / APR;
             uint valueToTime = feeAmount * 365 days * BIPS_BASE / escrow.escrowed / escrow.lateFeeAPR;
             // reduce from max to valueToTime (what can be paid for using that feeAmount)
-            gracePeriod = valueToTime < gracePeriod ? valueToTime : gracePeriod;
+            gracePeriod = _min(valueToTime, gracePeriod);
             // increase to min if below it (for consistency with late fee being 0 during that period)
             // @dev this means that even if no funds are available, min grace period is available
-            gracePeriod = gracePeriod < MIN_GRACE_PERIOD ? MIN_GRACE_PERIOD : gracePeriod;
+            gracePeriod = _max(gracePeriod, MIN_GRACE_PERIOD);
         }
     }
 
@@ -273,6 +273,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         _configHubValidations(offer.duration);
 
         // check amount
+        // @dev fee is not taken from offer, because it is transferred in from escrow taker
         uint prevOfferAmount = offer.available;
         require(escrowed <= prevOfferAmount, "amount too high");
 
@@ -308,25 +309,20 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
     function _releaseEscrow(uint escrowId, uint repaid) internal returns (uint toLoans) {
         Escrow storage escrow = escrows[escrowId];
         require(!escrow.released, "already released");
-
         // update storage
         escrow.released = true;
 
         // interest refund due to early release
-        uint interestFeeRefund = _refundInterestFee(escrow);
+        uint interestRefund = _refundInterestFee(escrow);
 
-        // total withdrawal with refund deducted
-        uint minWithdrawal = escrow.escrowed + escrow.interestHeld - interestFeeRefund;
-
-        // any gains are for the supplier (late fees), so supplier is guaranteed its earnings
+        // total released to supplier with refund deducted from the held interest.
+        // max(): any gains are for the supplier (late fees), so supplier is guaranteed
         // note that either late fees are charged, or interest fee is refunded, but not both
-        escrow.withdrawable = repaid > minWithdrawal ? repaid : minWithdrawal;
+        escrow.withdrawable = _max(repaid, escrow.escrowed) + escrow.interestHeld - interestRefund;
 
-        // any losses are for the borrower (slippage), taken out of their escrowed amount
-        toLoans = repaid < minWithdrawal ? repaid : minWithdrawal;
-
-        // any refund goes to loans as well
-        toLoans += interestFeeRefund;
+        // min(): any losses are for the borrower (e.g., slippage), taken out of their escrowed amount.
+        // any refund goes to loans regardless of shortfall because was paid unfront for interest.
+        toLoans = _min(repaid, escrow.escrowed) + interestRefund;
 
         // TODO: event
     }
@@ -338,12 +334,14 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         // startTime = expiration - duration, elapsed = now - startTime
         uint elapsed = block.timestamp - escrow.expiration + duration;
         // cap to duration
-        elapsed = elapsed > duration ? duration : elapsed;
+        elapsed = _min(elapsed, duration);
         // refund is for time remaining, and is rounded down
         refund = escrow.interestHeld * (duration - elapsed) / duration;
-        // @dev there is no APR calculation here, both for simplicity (used only
-        // on open, and because actual fee passed may be higher (it's checked to be above
-        // the minimal fee)
+        /* @dev there is no APR calculation here (APR calc used only on open), only time calculation because:
+         1. simpler
+         2. avoidance of mismatch due to rounding issues
+         3. actual fee passed may be higher (it's checked to be above the minimal fee)
+        */
     }
 
     function _configHubValidations(uint duration) internal view {
@@ -355,5 +353,13 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
 
     function _divUp(uint x, uint y) internal pure returns (uint) {
         return (x == 0) ? 0 : ((x - 1) / y) + 1; // divUp(x,y) = (x-1 / y) + 1
+    }
+
+    function _max(uint a, uint b) internal pure returns (uint) {
+        return a > b ? a : b;
+    }
+
+    function _min(uint a, uint b) internal pure returns (uint) {
+        return a < b ? a : b;
     }
 }
