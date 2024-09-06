@@ -221,16 +221,25 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
     {
         uint escrowAmount = escrows[releaseEscrowId].escrowed;
 
-        // Mint a new escrow from the offer.
+        /*
+        1. initially user's escrow E secures O (old offer). O's own funds are away.
+        2. E is then "transferred" to secure N (new offer). N's own funds are taken, to release O.
+        3. O is released (with N's funds, which are now secured by E (user's escrow).
+
+        Interest is accounted separately by transferring the full N interest fee (held until release), and
+        refunding O's interest held if O is released early (it likely is).
+        */
+
+        // N (new escrow): Mint a new escrow from the offer.
         // The escrow funds are the loan-escrow funds that have been escrowed in the ID being released.
         // The offer is reduced (which is used to repay the previous supplier)
         // A new escrow ID is minted.
         (newEscrowId, newEscrow) = _mintFromOffer(offerId, escrowAmount, newFee, newLoanId);
 
-        // Release the escrow to the supplier of previous ID without an actual repayment to this contract.
-        // The withdrawable for previous supplier comes from the new supplier's offer.
-        // The escrowed loans-funds move into the new escrow of the new supplier.
-        feeRefund = _releaseEscrow(releaseEscrowId, 0);
+        // O (old escrow): Release funds to the supplier of previous ID.
+        // The withdrawable for previous supplier comes from the N's offer.
+        // The escrowed loans-funds (E) move into the new escrow of the new supplier.
+        feeRefund = _releaseEscrow(releaseEscrowId, escrowAmount);
 
         // fee transfers
         asset.safeTransferFrom(loans, address(this), newFee);
@@ -321,8 +330,21 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         escrow.withdrawable = _max(repaid, escrow.escrowed) + escrow.interestHeld - interestRefund;
 
         // min(): any losses are for the borrower (e.g., slippage), taken out of their escrowed amount.
-        // any refund goes to loans regardless of shortfall because was paid unfront for interest.
+        // any refund still goes to loans regardless of repayment because was paid unfront for interest.
         toLoans = _min(repaid, escrow.escrowed) + interestRefund;
+
+        /*
+        @dev late fees are not enforced here, and instead Loans is trusted to use the views on this contract
+        to correctly calculate the late fees and grace period to ensure they are not underpaid.
+        This contract needs to trust Loans to do so for these reasons:
+        1. Loans needs to swap from cash, and has the information needed to calculate the funds available
+        for late fees (withdrawal amount, oracle rate, etc).
+        2. Loans needs swap parameters, and has a keeper authorisation system for access control.
+
+        So while a seizeEscrow() method in this contract *could* call to Loans, the keeper access control +
+        the swap parameters + the reduced-grace-period time (by withdrawal), all make it more sensible to
+        be done via Loans directly.
+        */
 
         // TODO: event
     }
