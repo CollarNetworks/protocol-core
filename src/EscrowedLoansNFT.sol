@@ -154,14 +154,7 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
     function unwrapAndCancelLoan(uint loanId) external whenNotPaused onlyNFTOwner(loanId) {
         bool escrowReleased = escrowNFT.getEscrow(loanIdToEscrowId[loanId]).released;
 
-        if (escrowReleased) {
-            // @dev unwrapping if escrow is released handles the case that escrow owner called
-            // escrowNFT.lastResortSeizeEscrow() instead of loans.seizeEscrow() for any reason.
-            // In this case, none of the other methods are callable because escrow is released
-            // already, so the simplest thing that can be done to avoid locking user's funds is to cancel
-            // the loan and send them their takerId to withdraw cash.
-        }
-        else {
+        if (!escrowReleased) {
             // do not allow to unwrap past expiry with unreleased escrow to prevent frontrunning
             // foreclosing. Past expiry either the user should call closeLoan(), or escrow owner should
             // call seizeEscrow()
@@ -173,6 +166,12 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
 
             // send potential interest fee refund
             collateralAsset.safeTransfer(msg.sender, toUser);
+        } else {
+            // @dev unwrapping if escrow is released handles the case that escrow owner called
+            // escrowNFT.lastResortSeizeEscrow() instead of loans.seizeEscrow() for any reason.
+            // In this case, none of the other methods are callable because escrow is released
+            // already, so the simplest thing that can be done to avoid locking user's funds is to cancel
+            // the loan and send them their takerId to withdraw cash.
         }
 
         // burning the token ensures this can only be called once
