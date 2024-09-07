@@ -160,7 +160,8 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
             // In this case, none of the other methods are callable because escrow is released
             // already, so the simplest thing that can be done to avoid locking user's funds is to cancel
             // the loan and send them their takerId to withdraw cash.
-        } else {
+        }
+        else {
             // do not allow to unwrap past expiry with unreleased escrow to prevent frontrunning
             // foreclosing. Past expiry either the user should call closeLoan(), or escrow owner should
             // call seizeEscrow()
