@@ -13,10 +13,6 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { ConfigHub } from "./ConfigHub.sol";
 import { BaseEmergencyAdminNFT } from "./base/BaseEmergencyAdminNFT.sol";
 
-interface ILoansLike {
-    function collateralAsset() external returns (IERC20);
-}
-
 contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
     using SafeERC20 for IERC20;
 
@@ -186,7 +182,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
 
     // ----- Escrow actions ----- //
 
-    // ----- actions through taker contract ----- //
+    // ----- actions through loans contract ----- //
 
     function startEscrow(uint offerId, uint escrowed, uint fee, uint loanId)
         external
@@ -302,7 +298,8 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
     // ----- admin ----- //
 
     function setLoansAllowed(address loans, bool allowed) external onlyOwner {
-        if (allowed) require(ILoansLike(loans).collateralAsset() == asset, "invalid loans contract");
+        // @dev no sanity check for Loans interface since it is not relied on and calls are made
+        // from Loans to this contract
         allowedLoans[loans] = allowed;
         // TODO: event
     }

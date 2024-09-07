@@ -86,9 +86,7 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
         // get the supplier collateral for the swap
         collateralAsset.forceApprove(address(escrowNFT), collateralAmount + escrowFee);
         (escrowId,) = escrowNFT.startEscrow(escrowOffer, collateralAmount, escrowFee, expectedTakerId);
-        // @dev no balance checks are needed, because this contract holds no funds (collateral or cash).
-        // all collateral is either swapped or in escrow, so an incorrect balance will cause reverts on
-        // transfers
+        // @dev no balance checks because contract holds no funds, mismatch will cause reverts
 
         // @dev Reentrancy assumption: no user state writes or reads BEFORE this call
         (loanId, providerId, loanAmount) =
@@ -146,6 +144,7 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
         collateralAsset.forceApprove(address(escrowNFT), newEscrowFee);
         (uint newEscrowId,, uint feeRefund) =
             escrowNFT.switchEscrow(prevEscrowId, newEscrowOffer, newEscrowFee, newLoanId);
+        // @dev no balance checks because contract holds no funds, mismatch will cause reverts
         loanIdToEscrowId[newLoanId] = newEscrowId;
 
         // send potential interest fee refund
@@ -160,6 +159,7 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
 
         // release the escrowed user funds to the supplier since the user will not repay the loan
         uint toUser = escrowNFT.endEscrow(loanIdToEscrowId[loanId], 0);
+        // @dev no balance checks because contract holds no funds, mismatch will cause reverts
 
         // send potential interest fee refund
         collateralAsset.safeTransfer(msg.sender, toUser);
@@ -236,9 +236,7 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
         // releasedForUser is what escrow returns after deducting any shortfall
         // there should not be interest fee refund here because this method is called after expiry
         uint releasedToUser = escrowNFT.endEscrow(escrowId, toSupplier);
-        // @dev no balance checks are needed, because this contract holds no funds (collateral or cash).
-        // all collateral is either swapped or in escrow, so an incorrect balance will cause reverts on
-        // transfer
+        // @dev no balance checks because contract holds no funds, mismatch will cause reverts
 
         // send to user the released and the leftovers. Zero-value-transfer is allowed
         collateralAsset.safeTransfer(user, releasedToUser + leftOver);
