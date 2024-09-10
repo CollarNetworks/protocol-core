@@ -94,6 +94,6 @@ interface ILoansNFT is IBaseLoansNFT {
     function unwrapAndCancelLoan(uint loanId) external;
 }
 
-interface IEscrowedLoansNFT is IBaseLoansNFT {
+interface IEscrowLoansNFT is IBaseLoansNFT {
 // TODO: fill this in?
 }

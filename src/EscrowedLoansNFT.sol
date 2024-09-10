@@ -10,22 +10,22 @@ pragma solidity 0.8.22;
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 // internal imports
 import { CollarTakerNFT, ShortProviderNFT } from "./CollarTakerNFT.sol";
-import { EscrowedSupplierNFT } from "./EscrowedSupplierNFT.sol";
+import { EscrowSupplierNFT } from "./EscrowSupplierNFT.sol";
 import { BaseLoansNFT } from "./LoansNFT.sol";
-import { IEscrowedLoansNFT } from "./interfaces/ILoansNFT.sol";
+import { IEscrowLoansNFT } from "./interfaces/ILoansNFT.sol";
 import { Rolls } from "./Rolls.sol";
 
-contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
+contract EscrowLoansNFT is IEscrowLoansNFT, BaseLoansNFT {
     using SafeERC20 for IERC20;
 
-    EscrowedSupplierNFT public immutable escrowNFT;
+    EscrowSupplierNFT public immutable escrowNFT;
 
     mapping(uint loanId => uint escrowId) public loanIdToEscrowId;
 
     constructor(
         address initialOwner,
         CollarTakerNFT _takerNFT,
-        EscrowedSupplierNFT _escrowNFT,
+        EscrowSupplierNFT _escrowNFT,
         string memory _name,
         string memory _symbol
     ) BaseLoansNFT(initialOwner, _takerNFT, _name, _symbol) {

@@ -12,8 +12,9 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 // internal
 import { ConfigHub } from "./ConfigHub.sol";
 import { BaseEmergencyAdminNFT } from "./base/BaseEmergencyAdminNFT.sol";
+import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
 
-contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
+contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
@@ -33,34 +34,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
     // allowed loans contracts
     mapping(address loans => bool allowed) public allowedLoans;
 
-    struct Offer {
-        address supplier;
-        uint available;
-        // terms
-        uint duration;
-        uint interestAPR;
-        uint gracePeriod;
-        uint lateFeeAPR;
-    }
-
     mapping(uint offerId => Offer) internal offers;
-
-    struct Escrow {
-        // reference (for views)
-        address loans;
-        uint loanId;
-        // terms
-        uint escrowed;
-        uint gracePeriod;
-        uint lateFeeAPR;
-        // interest & refund
-        uint duration;
-        uint expiration;
-        uint interestHeld;
-        // withdrawal
-        bool released;
-        uint withdrawable;
-    }
 
     mapping(uint escrowId => Escrow) internal escrows;
 
@@ -159,7 +133,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
             lateFeeAPR: lateFeeAPR
         });
         asset.safeTransferFrom(msg.sender, address(this), amount);
-        // TODO: event
+        emit OfferCreated(msg.sender, interestAPR, duration, gracePeriod, lateFeeAPR, amount, offerId);
     }
 
     function updateOfferAmount(uint offerId, uint newAmount) external whenNotPaused {
@@ -177,7 +151,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
             offers[offerId].available -= toRemove;
             asset.safeTransfer(msg.sender, toRemove);
         } else { } // no change
-            // TODO: event
+        emit OfferUpdated(offerId, msg.sender, previousAmount, newAmount);
     }
 
     // ----- Escrow actions ----- //
@@ -199,8 +173,6 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         // transfer the supplier's funds, equal to the escrowed amount, to loans.
         // @dev this is less than amount because of the interest fee held
         asset.safeTransfer(msg.sender, escrowed);
-
-        // TODO: event for offer update
     }
 
     function endEscrow(uint escrowId, uint repaid) external whenNotPaused onlyLoans returns (uint toLoans) {
@@ -210,8 +182,6 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         asset.safeTransferFrom(msg.sender, address(this), repaid);
         // release the escrow (with possible loss to the borrower): user's assets + refund - shortfall
         asset.safeTransfer(msg.sender, toLoans);
-
-        // TODO: event
     }
 
     function switchEscrow(uint releaseEscrowId, uint offerId, uint newLoanId, uint newFee)
@@ -246,7 +216,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         asset.safeTransferFrom(msg.sender, address(this), newFee);
         asset.safeTransfer(msg.sender, feeRefund);
 
-        // TODO: event for offer update
+        emit EscrowsSwitched(releaseEscrowId, newEscrowId);
     }
 
     // ----- actions by escrow owner ----- //
@@ -265,7 +235,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         // transfer tokens
         asset.safeTransfer(msg.sender, withdrawable);
 
-        // TODO: event
+        emit WithdrawalFromReleased(escrowId, msg.sender, withdrawable);
     }
 
     /**
@@ -286,13 +256,14 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         require(!escrow.released, "already released");
         require(block.timestamp > escrow.expiration + escrow.gracePeriod, "grace period not elapsed");
         escrow.released = true;
-        // @dev withdrawable is not set here (_releaseEscrow not called) because a withdrawal is done
+        // @dev escrow.withdrawable is not set here (_releaseEscrow not called): withdrawal is immediate
+        uint withdawal = escrow.escrowed + escrow.interestHeld; // escrowed and full interest
 
         // burn token
         // @dev we burn the NFT because this is a withdrawal and a direct last action by NFT owner
         _burn(escrowId);
-        // transfer escrowed and full interest to NFT owner
-        asset.safeTransfer(msg.sender, escrow.escrowed + escrow.interestHeld);
+        asset.safeTransfer(msg.sender, withdawal);
+        emit EscrowSeizedLastResort(escrowId, msg.sender, withdawal);
     }
 
     // ----- admin ----- //
@@ -301,7 +272,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         // @dev no sanity check for Loans interface since it is not relied on and calls are made
         // from Loans to this contract
         allowedLoans[loans] = allowed;
-        // TODO: event
+        emit LoansAllowedSet(loans, allowed);
     }
 
     // ----- INTERNAL MUTATIVE ----- //
@@ -346,11 +317,13 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         });
         escrows[escrowId] = escrow;
 
-        // TODO: event for escrow creation
-
+        // emit before token transfer event in mint for easier indexing
+        emit EscrowCreated(escrowId, escrowed, offer.duration, fee, offer.gracePeriod, offerId);
         // mint the NFT to the supplier
         // @dev does not use _safeMint to avoid reentrancy
         _mint(offer.supplier, escrowId);
+
+        emit OfferUpdated(offerId, offer.supplier, prevOfferAmount, offer.available);
     }
 
     function _releaseEscrow(uint escrowId, uint repaid) internal returns (uint toLoans) {
@@ -386,7 +359,7 @@ contract EscrowedSupplierNFT is BaseEmergencyAdminNFT {
         be done via Loans directly.
         */
 
-        // TODO: event
+        emit EscrowReleased(escrowId, repaid, escrow.withdrawable, toLoans);
     }
 
     // ----- INTERNAL VIEWS ----- //
