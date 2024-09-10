@@ -155,7 +155,7 @@ abstract contract BaseLoansNFT is BaseEmergencyAdminNFT, IBaseLoansNFT {
         loanId = _newLoanIdCheck(takerId);
         // store the loan opening data
         loans[loanId] = Loan({ collateralAmount: collateralAmount, loanAmount: loanAmount });
-        // mint the laon NFT to the borrower, keep the taker NFT (with the same ID) in this contract
+        // mint the loan NFT to the borrower, keep the taker NFT (with the same ID) in this contract
         _mint(msg.sender, loanId); // @dev does not use _safeMint to avoid reentrancy
     }
 
@@ -286,7 +286,7 @@ abstract contract BaseLoansNFT is BaseEmergencyAdminNFT, IBaseLoansNFT {
         // store the new loan data
         loans[newLoanId] = Loan({ collateralAmount: collateralAmount, loanAmount: newLoanAmount });
 
-        // mint the new laon NFT to the user, keep the taker NFT (with the same ID) in this contract
+        // mint the new loan NFT to the user, keep the taker NFT (with the same ID) in this contract
         _mint(msg.sender, newLoanId); // @dev does not use _safeMint to avoid reentrancy
 
         emit LoanRolled(msg.sender, loanId, rollId, newLoanId, prevLoanAmount, newLoanAmount, transferAmount);

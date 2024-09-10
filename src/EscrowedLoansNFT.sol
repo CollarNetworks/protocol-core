@@ -29,8 +29,8 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
         string memory _name,
         string memory _symbol
     ) BaseLoansNFT(initialOwner, _takerNFT, _name, _symbol) {
+        require(_escrowNFT.asset() == _takerNFT.collateralAsset(), "asset mismatch");
         escrowNFT = _escrowNFT;
-        require(escrowNFT.asset() == collateralAsset, "asset mismatch");
     }
 
     // ----- VIEWS ----- //
@@ -76,18 +76,17 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
         SwapParams calldata swapParams,
         ShortProviderNFT providerNFT,
         uint shortOffer,
-        uint escrowOffer
+        uint escrowOffer,
+        uint escrowFee
     ) external whenNotPaused returns (uint loanId, uint providerId, uint escrowId, uint loanAmount) {
-        // pull escrow collateral
-        collateralAsset.safeTransferFrom(msg.sender, address(this), collateralAmount);
+        // pull escrow collateral + fee
+        collateralAsset.safeTransferFrom(msg.sender, address(this), collateralAmount + escrowFee);
 
         uint expectedTakerId = takerNFT.nextPositionId();
         // get the supplier collateral for the swap
-        collateralAsset.forceApprove(address(escrowNFT), collateralAmount);
-        (escrowId,) = escrowNFT.escrowAndMint(escrowOffer, collateralAmount, expectedTakerId);
-        // @dev no balance checks are needed, because this contract holds no funds (collateral or cash).
-        // all collateral is either swapped or in escrow, so an incorrect balance will cause reverts on
-        // transfers
+        collateralAsset.forceApprove(address(escrowNFT), collateralAmount + escrowFee);
+        (escrowId,) = escrowNFT.startEscrow(escrowOffer, collateralAmount, escrowFee, expectedTakerId);
+        // @dev no balance checks because contract holds no funds, mismatch will cause reverts
 
         // @dev Reentrancy assumption: no user state writes or reads BEFORE this call
         (loanId, providerId, loanAmount) =
@@ -121,30 +120,62 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
         _releaseEscrow(loanId, collateralOut, user);
     }
 
-    function rollLoan(uint loanId, Rolls rolls, uint rollId, int minToUser, uint newEscrowOffer)
+    function rollLoan(
+        uint loanId,
+        Rolls rolls,
+        uint rollId,
+        int minToUser, // cash
+        uint newEscrowOffer,
+        uint newEscrowFee // collateral
+    )
         external
         whenNotPaused
         onlyNFTOwner(loanId)
         returns (uint newLoanId, uint newLoanAmount, int transferAmount)
     {
+        // pull escrow fee
+        collateralAsset.safeTransferFrom(msg.sender, address(this), newEscrowFee);
+
         // @dev _rollLoan is assumed to check that loan is not expired, so cannot be foreclosed
         (newLoanId, newLoanAmount, transferAmount) = _rollLoan(loanId, rolls, rollId, minToUser);
 
         // rotate escrows
         uint prevEscrowId = loanIdToEscrowId[loanId];
-        (uint newEscrowId,) = escrowNFT.releaseAndMint(prevEscrowId, newEscrowOffer, newLoanId);
+        collateralAsset.forceApprove(address(escrowNFT), newEscrowFee);
+        (uint newEscrowId,, uint feeRefund) =
+            escrowNFT.switchEscrow(prevEscrowId, newEscrowOffer, newEscrowFee, newLoanId);
+        // @dev no balance checks because contract holds no funds, mismatch will cause reverts
         loanIdToEscrowId[newLoanId] = newEscrowId;
+
+        // send potential interest fee refund
+        collateralAsset.safeTransfer(msg.sender, feeRefund);
     }
 
     function unwrapAndCancelLoan(uint loanId) external whenNotPaused onlyNFTOwner(loanId) {
-        // do not allow to unwrap past expiry to prevent frontrunning foreclosing
-        require(_expiration(loanId) > block.timestamp, "loan expired");
+        bool escrowReleased = escrowNFT.getEscrow(loanIdToEscrowId[loanId]).released;
 
+        if (!escrowReleased) {
+            // do not allow to unwrap past expiry with unreleased escrow to prevent frontrunning
+            // foreclosing. Past expiry either the user should call closeLoan(), or escrow owner should
+            // call seizeEscrow()
+            require(block.timestamp < _expiration(loanId), "loan expired");
+
+            // release the escrowed user funds to the supplier since the user will not repay the loan
+            uint toUser = escrowNFT.endEscrow(loanIdToEscrowId[loanId], 0);
+            // @dev no balance checks because contract holds no funds, mismatch will cause reverts
+
+            // send potential interest fee refund
+            collateralAsset.safeTransfer(msg.sender, toUser);
+        } else {
+            // @dev unwrapping if escrow is released handles the case that escrow owner called
+            // escrowNFT.lastResortSeizeEscrow() instead of loans.seizeEscrow() for any reason.
+            // In this case, none of the other methods are callable because escrow is released
+            // already, so the simplest thing that can be done to avoid locking user's funds is to cancel
+            // the loan and send them their takerId to withdraw cash.
+        }
+
+        // burning the token ensures this can only be called once
         _unwrapAndCancelLoan(loanId);
-
-        // release the escrowed user funds to the supplier since the user will not repay the loan
-        uint toUser = escrowNFT.releaseEscrow(loanIdToEscrowId[loanId], 0);
-        require(toUser == 0, "unexpected releaseEscrow result");
     }
 
     function seizeEscrow(uint loanId, SwapParams calldata swapParams) external whenNotPaused {
@@ -205,10 +236,9 @@ contract EscrowedLoansNFT is IEscrowedLoansNFT, BaseLoansNFT {
         // release from escrow, this can be smaller than available
         collateralAsset.forceApprove(address(escrowNFT), toSupplier);
         // releasedForUser is what escrow returns after deducting any shortfall
-        uint releasedToUser = escrowNFT.releaseEscrow(escrowId, toSupplier);
-        // @dev no balance checks are needed, because this contract holds no funds (collateral or cash).
-        // all collateral is either swapped or in escrow, so an incorrect balance will cause reverts on
-        // transfer
+        // there should not be interest fee refund here because this method is called after expiry
+        uint releasedToUser = escrowNFT.endEscrow(escrowId, toSupplier);
+        // @dev no balance checks because contract holds no funds, mismatch will cause reverts
 
         // send to user the released and the leftovers. Zero-value-transfer is allowed
         collateralAsset.safeTransfer(user, releasedToUser + leftOver);

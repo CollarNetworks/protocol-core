@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "../utils/DeploymentLoader.sol";
 import { DeployContractsArbitrumMainnet } from "../../../script/arbitrum-mainnet/deploy-contracts.s.sol";
 
-contract DeploymentValidator is Test, DeploymentLoader {
+contract DeploymentValidatorForkTest is Test, DeploymentLoader {
     uint forkId;
     bool forkSet;
 

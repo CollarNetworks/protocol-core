@@ -96,7 +96,7 @@ contract LoansRollTestBase is LoansTestBase {
         assertEq(expected.toTaker, toUser);
         assertEq(expected.toTaker + expected.rollFee, loanChange);
 
-        // check laons and NFT views
+        // check loans and NFT views
         checkLoansAndNFT(loanId, newTakerId, expected, newPrice);
     }
 
