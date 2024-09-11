@@ -85,7 +85,12 @@ contract EscrowLoansNFT is IEscrowLoansNFT, BaseLoansNFT {
         uint expectedTakerId = takerNFT.nextPositionId();
         // get the supplier collateral for the swap
         collateralAsset.forceApprove(address(escrowNFT), collateralAmount + escrowFee);
-        (escrowId,) = escrowNFT.startEscrow(escrowOffer, collateralAmount, escrowFee, expectedTakerId);
+        (escrowId,) = escrowNFT.startEscrow({
+            offerId: escrowOffer,
+            escrowed: collateralAmount,
+            fee: escrowFee,
+            loanId: expectedTakerId // @dev this checked later to correspond to the actual ID
+         });
         // @dev no balance checks because contract holds no funds, mismatch will cause reverts
 
         // @dev Reentrancy assumption: no user state writes or reads BEFORE this call
@@ -142,8 +147,12 @@ contract EscrowLoansNFT is IEscrowLoansNFT, BaseLoansNFT {
         // rotate escrows
         uint prevEscrowId = loanIdToEscrowId[loanId];
         collateralAsset.forceApprove(address(escrowNFT), newEscrowFee);
-        (uint newEscrowId,, uint feeRefund) =
-            escrowNFT.switchEscrow(prevEscrowId, newEscrowOffer, newEscrowFee, newLoanId);
+        (uint newEscrowId,, uint feeRefund) = escrowNFT.switchEscrow({
+            releaseEscrowId: prevEscrowId,
+            offerId: newEscrowOffer,
+            newLoanId: newLoanId,
+            newFee: newEscrowFee
+        });
         // @dev no balance checks because contract holds no funds, mismatch will cause reverts
         loanIdToEscrowId[newLoanId] = newEscrowId;
 

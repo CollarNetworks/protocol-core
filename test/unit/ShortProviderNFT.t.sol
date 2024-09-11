@@ -5,7 +5,6 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 
 import { BaseAssetPairTestSetup } from "./BaseAssetPairTestSetup.sol";
@@ -188,7 +187,7 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
         assertEq(cashAsset.balanceOf(address(providerNFT)), contractBalance - withdrawable);
 
         // Check position is burned
-        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, positionId));
+        expectRevertERC721Nonexistent(positionId);
         providerNFT.ownerOf(positionId);
 
         // Check position is zeroed out
@@ -217,7 +216,7 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
         assertEq(cashAsset.balanceOf(address(providerNFT)), contractBalance - amountToMint);
 
         // Check position is burned
-        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, positionId));
+        expectRevertERC721Nonexistent(positionId);
         providerNFT.ownerOf(positionId);
 
         // Check position is zeroed out
@@ -560,7 +559,7 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
         assertEq(cashAsset.balanceOf(newOwner) - newOwnerBalance, position.principal + uint(positionChange));
 
         // Check that the position is burned after withdrawal
-        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, positionId));
+        expectRevertERC721Nonexistent(positionId);
         providerNFT.ownerOf(positionId);
     }
 
@@ -763,7 +762,7 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
         (uint positionId,) = createAndCheckPosition(provider, largeAmount, largeAmount / 2);
 
         // not yet minted
-        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, positionId + 1));
+        expectRevertERC721Nonexistent(positionId + 1);
         providerNFT.withdrawFromSettled(positionId + 1, provider);
 
         // not owner

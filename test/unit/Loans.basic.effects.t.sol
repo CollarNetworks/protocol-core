@@ -3,7 +3,6 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { BaseAssetPairTestSetup } from "./BaseAssetPairTestSetup.sol";
 import { MockSwapperRouter } from "../utils/MockSwapRouter.sol";
@@ -159,10 +158,6 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(providerPosition.callStrikeDeviation, callStrikeDeviation);
         assertFalse(providerPosition.settled);
         assertEq(providerPosition.withdrawable, 0);
-    }
-
-    function expectRevertERC721Nonexistent(uint id) internal {
-        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, id));
     }
 
     function closeAndCheckLoan(

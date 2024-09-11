@@ -198,11 +198,9 @@ contract RollsTest is BaseAssetPairTestSetup {
         assertFalse(rolls.getRollOffer(rollId).active);
 
         // Check old positions are burned
-        vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, offer.takerId));
+        expectRevertERC721Nonexistent(offer.takerId);
         takerNFT.ownerOf(offer.takerId);
-        vm.expectRevert(
-            abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, offer.providerId)
-        );
+        expectRevertERC721Nonexistent(offer.providerId);
         providerNFT.ownerOf(offer.providerId);
 
         // Check new nft owners
