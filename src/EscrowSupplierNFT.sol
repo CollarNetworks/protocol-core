@@ -194,6 +194,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
         asset.safeTransfer(msg.sender, toLoans);
     }
 
+    // @dev duration can be different (since doesn't is not problematic within this contract,
+    // but Loans (the only caller), should check that new duration / expiration is as expected
     function switchEscrow(uint releaseEscrowId, uint offerId, uint newLoanId, uint newFee)
         external
         whenNotPaused

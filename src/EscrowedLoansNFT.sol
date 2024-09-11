@@ -10,7 +10,7 @@ pragma solidity 0.8.22;
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 // internal imports
 import { CollarTakerNFT, ShortProviderNFT } from "./CollarTakerNFT.sol";
-import { EscrowSupplierNFT } from "./EscrowSupplierNFT.sol";
+import { EscrowSupplierNFT, IEscrowSupplierNFT } from "./EscrowSupplierNFT.sol";
 import { BaseLoansNFT } from "./LoansNFT.sol";
 import { IEscrowLoansNFT } from "./interfaces/ILoansNFT.sol";
 import { Rolls } from "./Rolls.sol";
@@ -70,36 +70,37 @@ contract EscrowLoansNFT is IEscrowLoansNFT, BaseLoansNFT {
 
     // ----- MUTATIVE ----- //
 
-    function openLoan(
-        uint collateralAmount,
-        uint minLoanAmount,
-        SwapParams calldata swapParams,
-        ShortProviderNFT providerNFT,
-        uint shortOffer,
-        uint escrowOffer,
-        uint escrowFee
-    ) external whenNotPaused returns (uint loanId, uint providerId, uint escrowId, uint loanAmount) {
+    function openLoan(OpenLoanParams calldata params)
+        external
+        whenNotPaused
+        returns (uint loanId, uint providerId, uint escrowId, uint loanAmount)
+    {
         // pull escrow collateral + fee
-        collateralAsset.safeTransferFrom(msg.sender, address(this), collateralAmount + escrowFee);
+        uint toEscrow = params.collateralAmount + params.escrowFee;
+        collateralAsset.safeTransferFrom(msg.sender, address(this), toEscrow);
 
         uint expectedTakerId = takerNFT.nextPositionId();
         // get the supplier collateral for the swap
-        collateralAsset.forceApprove(address(escrowNFT), collateralAmount + escrowFee);
-        (escrowId,) = escrowNFT.startEscrow({
-            offerId: escrowOffer,
-            escrowed: collateralAmount,
-            fee: escrowFee,
+        collateralAsset.forceApprove(address(escrowNFT), toEscrow);
+        IEscrowSupplierNFT.Escrow memory escrow;
+        (escrowId, escrow) = escrowNFT.startEscrow({
+            offerId: params.escrowOffer,
+            escrowed: params.collateralAmount,
+            fee: params.escrowFee,
             loanId: expectedTakerId // @dev this checked later to correspond to the actual ID
          });
         // @dev no balance checks because contract holds no funds, mismatch will cause reverts
 
         // @dev Reentrancy assumption: no user state writes or reads BEFORE this call
-        (loanId, providerId, loanAmount) =
-            _openSwapAndMint(collateralAmount, providerNFT, shortOffer, swapParams);
+        (loanId, providerId, loanAmount) = _openSwapAndMint(
+            params.collateralAmount, params.providerNFT, params.shortOffer, params.swapParams
+        );
 
-        require(loanAmount >= minLoanAmount, "loan amount too low");
+        require(loanAmount >= params.minLoanAmount, "loan amount too low");
         // loanId is the takerId, but view was used before external calls so we need to ensure it matches still
         require(loanId == expectedTakerId, "unexpected loanId");
+        // check expirations are equal to ensure no duration mismatch between escrow and collar
+        require(escrow.expiration == _expiration(loanId), "duration mismatch");
         // write the escrowId
         loanIdToEscrowId[loanId] = escrowId;
 
@@ -107,7 +108,13 @@ contract EscrowLoansNFT is IEscrowLoansNFT, BaseLoansNFT {
         cashAsset.safeTransfer(msg.sender, loanAmount);
 
         emit LoanOpened(
-            msg.sender, address(providerNFT), shortOffer, collateralAmount, loanAmount, loanId, providerId
+            msg.sender,
+            address(params.providerNFT),
+            params.shortOffer,
+            params.collateralAmount,
+            loanAmount,
+            loanId,
+            providerId
         );
     }
 
@@ -125,34 +132,30 @@ contract EscrowLoansNFT is IEscrowLoansNFT, BaseLoansNFT {
         _releaseEscrow(loanId, collateralOut, user);
     }
 
-    function rollLoan(
-        uint loanId,
-        Rolls rolls,
-        uint rollId,
-        int minToUser, // cash
-        uint newEscrowOffer,
-        uint newEscrowFee // collateral
-    )
+    function rollLoan(RollLoanParams calldata params)
         external
         whenNotPaused
-        onlyNFTOwner(loanId)
+        onlyNFTOwner(params.loanId)
         returns (uint newLoanId, uint newLoanAmount, int transferAmount)
     {
         // pull escrow fee
-        collateralAsset.safeTransferFrom(msg.sender, address(this), newEscrowFee);
+        collateralAsset.safeTransferFrom(msg.sender, address(this), params.newEscrowFee);
 
         // @dev _rollLoan is assumed to check that loan is not expired, so cannot be foreclosed
-        (newLoanId, newLoanAmount, transferAmount) = _rollLoan(loanId, rolls, rollId, minToUser);
+        (newLoanId, newLoanAmount, transferAmount) =
+            _rollLoan(params.loanId, params.rolls, params.rollId, params.minToUser);
 
         // rotate escrows
-        uint prevEscrowId = loanIdToEscrowId[loanId];
-        collateralAsset.forceApprove(address(escrowNFT), newEscrowFee);
-        (uint newEscrowId,, uint feeRefund) = escrowNFT.switchEscrow({
-            releaseEscrowId: prevEscrowId,
-            offerId: newEscrowOffer,
+        collateralAsset.forceApprove(address(escrowNFT), params.newEscrowFee);
+        (uint newEscrowId, IEscrowSupplierNFT.Escrow memory newEscrow, uint feeRefund) = escrowNFT
+            .switchEscrow({
+            releaseEscrowId: loanIdToEscrowId[params.loanId],
+            offerId: params.newEscrowOffer,
             newLoanId: newLoanId,
-            newFee: newEscrowFee
+            newFee: params.newEscrowFee
         });
+        // check expirations are equal to ensure no duration mismatch between escrow and collar
+        require(newEscrow.expiration == _expiration(newLoanId), "duration mismatch");
         // @dev no balance checks because contract holds no funds, mismatch will cause reverts
         loanIdToEscrowId[newLoanId] = newEscrowId;
 

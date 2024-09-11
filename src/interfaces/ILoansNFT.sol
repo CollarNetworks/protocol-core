@@ -95,5 +95,22 @@ interface ILoansNFT is IBaseLoansNFT {
 }
 
 interface IEscrowLoansNFT is IBaseLoansNFT {
-// TODO: fill this in?
+    struct OpenLoanParams {
+        uint collateralAmount;
+        uint minLoanAmount;
+        SwapParams swapParams;
+        ShortProviderNFT providerNFT;
+        uint shortOffer;
+        uint escrowOffer;
+        uint escrowFee;
+    }
+
+    struct RollLoanParams {
+        uint loanId;
+        Rolls rolls;
+        uint rollId;
+        int minToUser; // cash
+        uint newEscrowOffer;
+        uint newEscrowFee; // collateral
+    }
 }
