@@ -401,6 +401,9 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         // check balances
         assertEq(asset.balanceOf(loans), amounts.balanceLoans + feeRefund - amounts.newFee);
         assertEq(asset.balanceOf(address(escrowNFT)), amounts.balanceEscrow + amounts.newFee - feeRefund);
+
+        // check withdrawal
+        checkWithdrawReleased(oldEscrowId, withdrawablePreview);
     }
 
     function test_lastResortSeizeEscrow() public {

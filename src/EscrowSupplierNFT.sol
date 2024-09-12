@@ -93,6 +93,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
             // Otherwise, late fees will be underpaid.
             // fee = escrowed * time * APR / year / 100bips;
             // time = fee * year * 100bips / escrowed / APR;
+            // rounding down, against the user
             uint valueToTime = feeAmount * 365 days * BIPS_BASE / escrow.escrowed / escrow.lateFeeAPR;
             // reduce from max to valueToTime (what can be paid for using that feeAmount)
             gracePeriod = _min(valueToTime, gracePeriod);
