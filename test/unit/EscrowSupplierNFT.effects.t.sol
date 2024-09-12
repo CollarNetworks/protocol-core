@@ -70,11 +70,46 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         assertEq(asset.balanceOf(supplier), balance - amount);
     }
 
+    function checkUpdateOfferAmount(int delta) internal {
+        (uint offerId,) = createAndCheckOffer(supplier1, largeAmount);
+
+        asset.approve(address(escrowNFT), largeAmount);
+        uint newAmount = delta > 0 ? largeAmount + uint(delta) : largeAmount - uint(-delta);
+        uint balance = asset.balanceOf(address(escrowNFT));
+
+        vm.expectEmit(address(escrowNFT));
+        emit IEscrowSupplierNFT.OfferUpdated(offerId, supplier1, largeAmount, newAmount);
+        escrowNFT.updateOfferAmount(offerId, newAmount);
+
+        // next offer id not impacted
+        assertEq(escrowNFT.nextOfferId(), offerId + 1);
+        // offer
+        EscrowSupplierNFT.Offer memory offer = escrowNFT.getOffer(offerId);
+        assertEq(offer.supplier, supplier1);
+        assertEq(offer.available, newAmount);
+        assertEq(offer.duration, duration);
+        assertEq(offer.interestAPR, interestAPR);
+        assertEq(offer.gracePeriod, gracePeriod);
+        assertEq(offer.lateFeeAPR, lateFeeAPR);
+        // balance
+        assertEq(asset.balanceOf(address(escrowNFT)), balance + newAmount - largeAmount);
+    }
+
     function createAndCheckEscrow(address supplier, uint offerAmount, uint escrowAmount, uint fee)
         public
         returns (uint escrowId, EscrowSupplierNFT.Escrow memory escrow)
     {
         (uint offerId,) = createAndCheckOffer(supplier, offerAmount);
+        return createAndCheckEscrowFromOffer(offerId, escrowAmount, fee);
+    }
+
+    function createAndCheckEscrowFromOffer(uint offerId, uint escrowAmount, uint fee)
+        public
+        returns (uint escrowId, EscrowSupplierNFT.Escrow memory escrow)
+    {
+        address supplier = escrowNFT.getOffer(offerId).supplier;
+        uint offerAmount = escrowNFT.getOffer(offerId).available;
+
         uint balance = asset.balanceOf(address(escrowNFT));
         uint expectedId = escrowNFT.nextEscrowId();
 
@@ -115,10 +150,7 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         assertEq(asset.balanceOf(address(escrowNFT)), balance + fee);
     }
 
-    function checkEndEscrow(uint escrowId, uint repaid)
-        internal
-        returns (uint withdrawable, uint toLoans, uint refund)
-    {
+    function checkEndEscrow(uint escrowId, uint repaid, ExpectedRelease memory expected) internal {
         startHoax(loans);
         asset.approve(address(escrowNFT), repaid);
 
@@ -127,18 +159,16 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         uint balanceEscrow = asset.balanceOf(address(escrowNFT));
         uint balanceLoans = asset.balanceOf(loans);
 
-        (withdrawable, toLoans, refund) = escrowNFT.previewRelease(escrowId, repaid);
-
         vm.expectEmit(address(escrowNFT));
-        emit IEscrowSupplierNFT.EscrowReleased(escrowId, repaid, withdrawable, toLoans);
+        emit IEscrowSupplierNFT.EscrowReleased(escrowId, repaid, expected.withdrawable, expected.toLoans);
         uint toLoansReturned = escrowNFT.endEscrow(escrowId, repaid);
 
-        assertEq(toLoansReturned, toLoans);
+        assertEq(toLoansReturned, expected.toLoans);
 
         // Check escrow state
         escrow = escrowNFT.getEscrow(escrowId);
         assertTrue(escrow.released);
-        assertEq(escrow.withdrawable, withdrawable);
+        assertEq(escrow.withdrawable, expected.withdrawable);
 
         // balance changes
         assertEq(asset.balanceOf(address(escrowNFT)), balanceEscrow + repaid - toLoansReturned);
@@ -164,14 +194,31 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         escrowNFT.ownerOf(escrowId);
     }
 
-    function checkEndEscrowWithdrawReleased(uint escrowAmount, uint repaid, uint fee, uint toSkip)
-        public
-        returns (uint withdrawable, uint toLoans, uint refund)
-    {
+    struct ExpectedRelease {
+        uint withdrawable;
+        uint toLoans;
+        uint refund;
+    }
+
+    function check_preview_end_withdraw(
+        uint escrowAmount,
+        uint repaid,
+        uint fee,
+        uint toSkip,
+        ExpectedRelease memory expected
+    ) public {
         (uint escrowId,) = createAndCheckEscrow(supplier1, largeAmount, escrowAmount, fee);
         skip(toSkip);
-        (withdrawable, toLoans, refund) = checkEndEscrow(escrowId, repaid);
-        checkWithdrawReleased(escrowId, withdrawable);
+        // check preview
+        (uint withdrawable, uint toLoans, uint refund) = escrowNFT.previewRelease(escrowId, repaid);
+        assertEq(withdrawable, expected.withdrawable);
+        assertEq(toLoans, expected.toLoans);
+        assertEq(refund, expected.refund);
+
+        // check end escrow
+        checkEndEscrow(escrowId, repaid, expected);
+        // check withdraw
+        checkWithdrawReleased(escrowId, expected.withdrawable);
     }
 
     function expectedLateFees(EscrowSupplierNFT.Escrow memory escrow) internal view returns (uint fee) {
@@ -203,31 +250,15 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
 
     function test_createOffer() public {
         createAndCheckOffer(supplier1, largeAmount);
-    }
 
-    function checkUpdateOfferAmount(int delta) internal {
-        (uint offerId,) = createAndCheckOffer(supplier1, largeAmount);
+        // another one (multiple offers)
+        createAndCheckOffer(supplier1, largeAmount);
 
-        asset.approve(address(escrowNFT), largeAmount);
-        uint newAmount = delta > 0 ? largeAmount + uint(delta) : largeAmount - uint(-delta);
-        uint balance = asset.balanceOf(address(escrowNFT));
-
-        vm.expectEmit(address(escrowNFT));
-        emit IEscrowSupplierNFT.OfferUpdated(offerId, supplier1, largeAmount, newAmount);
-        escrowNFT.updateOfferAmount(offerId, newAmount);
-
-        // next offer id not impacted
-        assertEq(escrowNFT.nextOfferId(), offerId + 1);
-        // offer
-        EscrowSupplierNFT.Offer memory offer = escrowNFT.getOffer(offerId);
-        assertEq(offer.supplier, supplier1);
-        assertEq(offer.available, newAmount);
-        assertEq(offer.duration, duration);
-        assertEq(offer.interestAPR, interestAPR);
-        assertEq(offer.gracePeriod, gracePeriod);
-        assertEq(offer.lateFeeAPR, lateFeeAPR);
-        // balance
-        assertEq(asset.balanceOf(address(escrowNFT)), balance + newAmount - largeAmount);
+        // max values ok
+        interestAPR = escrowNFT.MAX_INTEREST_APR_BIPS();
+        gracePeriod = escrowNFT.MAX_GRACE_PERIOD();
+        lateFeeAPR = escrowNFT.MAX_LATE_FEE_APR_BIPS();
+        createAndCheckOffer(supplier1, largeAmount);
     }
 
     function test_updateOfferAmountIncrease() public {
@@ -243,62 +274,72 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         createAndCheckEscrow(supplier1, largeAmount, largeAmount / 2, fee);
     }
 
+    function test_multipleEscrowsFromSameOffer() public {
+        uint offerAmount = largeAmount;
+        uint escrowAmount = largeAmount / 4;
+        uint fee = 1 ether;
+
+        (uint offerId,) = createAndCheckOffer(supplier1, offerAmount);
+
+        for (uint i = 0; i < 3; i++) {
+            createAndCheckEscrowFromOffer(offerId, escrowAmount, fee);
+        }
+        assertEq(escrowNFT.getOffer(offerId).available, offerAmount - 3 * escrowAmount);
+    }
+
     function test_endEscrow_withdrawReleased_simple() public {
         uint escrowed = largeAmount / 2;
         uint fee = 1 ether;
-        (uint withdrawable, uint toLoans, uint refund) =
-            checkEndEscrowWithdrawReleased(escrowed, escrowed, fee, duration);
-        assertEq(withdrawable, escrowed + fee);
-        assertEq(toLoans, escrowed);
-        assertEq(refund, 0);
+
+        // after full duration
+        check_preview_end_withdraw(
+            escrowed, escrowed, fee, duration, ExpectedRelease(escrowed + fee, escrowed, 0)
+        );
 
         // double time is the same
-        (withdrawable, toLoans, refund) =
-            checkEndEscrowWithdrawReleased(escrowed, escrowed, fee, 2 * duration);
-        assertEq(withdrawable, escrowed + fee);
-        assertEq(toLoans, escrowed);
-        assertEq(refund, 0);
+        check_preview_end_withdraw(
+            escrowed, escrowed, fee, 2 * duration, ExpectedRelease(escrowed + fee, escrowed, 0)
+        );
     }
 
     function test_endEscrow_withdrawReleased_underRepay() public {
         uint escrowed = largeAmount / 2;
         uint fee = 1 ether;
         // 0 repayment full duration
-        (uint withdrawable, uint toLoans, uint refund) =
-            checkEndEscrowWithdrawReleased(escrowed, 0, fee, duration);
-        assertEq(withdrawable, escrowed + fee);
-        assertEq(toLoans, 0);
-        assertEq(refund, 0);
+        check_preview_end_withdraw(escrowed, 0, fee, duration, ExpectedRelease(escrowed + fee, 0, 0));
 
         // 0 repayment with refund
-        (withdrawable, toLoans, refund) = checkEndEscrowWithdrawReleased(escrowed, 0, fee, duration / 2);
-        assertEq(withdrawable, escrowed + fee / 2);
-        assertEq(toLoans, fee / 2);
-        assertEq(refund, fee / 2);
+        uint halfFee = fee / 2;
+        check_preview_end_withdraw(
+            escrowed, 0, fee, duration / 2, ExpectedRelease(escrowed + halfFee, halfFee, halfFee)
+        );
 
         // partial repayment with refund
-        (withdrawable, toLoans, refund) =
-            checkEndEscrowWithdrawReleased(escrowed, escrowed / 2, fee, duration / 2);
-        assertEq(withdrawable, escrowed + fee / 2);
-        assertEq(toLoans, escrowed / 2 + fee / 2);
-        assertEq(refund, fee / 2);
+        check_preview_end_withdraw(
+            escrowed,
+            escrowed / 2,
+            fee,
+            duration / 2,
+            ExpectedRelease(escrowed + halfFee, escrowed / 2 + halfFee, halfFee)
+        );
     }
 
     function test_endEscrow_withdrawReleased_overPay() public {
         uint escrowed = largeAmount / 2;
         uint fee = 1 ether;
-        (uint withdrawable, uint toLoans, uint refund) =
-            checkEndEscrowWithdrawReleased(escrowed, escrowed * 2, fee, duration / 2);
-        assertEq(withdrawable, escrowed * 2 + fee / 2);
-        assertEq(toLoans, escrowed + fee / 2);
-        assertEq(refund, fee / 2);
+        uint halfFee = fee / 2;
+        check_preview_end_withdraw(
+            escrowed,
+            escrowed * 2,
+            fee,
+            duration / 2,
+            ExpectedRelease(escrowed * 2 + halfFee, escrowed + halfFee, halfFee)
+        );
 
         // overpayment no refund
-        (withdrawable, toLoans, refund) =
-            checkEndEscrowWithdrawReleased(escrowed, escrowed * 2, fee, duration);
-        assertEq(withdrawable, escrowed * 2 + fee);
-        assertEq(toLoans, escrowed);
-        assertEq(refund, 0);
+        check_preview_end_withdraw(
+            escrowed, escrowed * 2, fee, duration, ExpectedRelease(escrowed * 2 + fee, escrowed, 0)
+        );
     }
 
     struct Amounts {
@@ -444,6 +485,13 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         skip(365 days);
         (uint feeAfterGracePeriod,) = escrowNFT.lateFees(escrowId);
         assertEq(feeAfterGracePeriod, cappedLateFee);
+
+        // APR 0
+        lateFeeAPR = 0;
+        (escrowId, escrow) = createAndCheckEscrow(supplier1, largeAmount, escrowAmount, fee);
+        skip(duration + 365 days);
+        (feeAfterGracePeriod,) = escrowNFT.lateFees(escrowId);
+        assertEq(feeAfterGracePeriod, 0);
     }
 
     function test_gracePeriodFromFees() public {
