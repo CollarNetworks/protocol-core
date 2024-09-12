@@ -284,7 +284,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         assertEq(refund, fee / 2);
     }
 
-    function test_endEscrow_withdrawReleased_overPay_HalfTime() public {
+    function test_endEscrow_withdrawReleased_overPay() public {
         uint escrowed = largeAmount / 2;
         uint fee = 1 ether;
         (uint withdrawable, uint toLoans, uint refund) =
