@@ -11,12 +11,13 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 // internal
 import { ConfigHub } from "./ConfigHub.sol";
-import { BaseNFT } from "./base/BaseNFT.sol";
+import { BaseEmergencyAdminNFT } from "./base/BaseEmergencyAdminNFT.sol";
+import { MathUtils } from "./base/MathUtils.sol";
 import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
 
 /**
  * @title EscrowSupplierNFT
- * @notice Manages escrows and escrow offers for LoansNFT.
+ * @notice Manages escrows and escrow offers for EscrowLoansNFT.
  *
  * Main Functionality:
  * 1. Allows suppliers to create and manage escrow offers for multiple loans contracts.
@@ -25,8 +26,8 @@ import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
  * 4. Manages withdrawals of released escrows and last-resort emergency seizures.
  *
  * Role in the Protocol:
- * This contract acts as the interface for escrow suppliers to LoansNFT in the Collar Protocol.
- * It works in tandem with corresponding LoansNFT contracts, which are trusted by this contract
+ * This contract acts as the interface for escrow suppliers to EscrowLoansNFT in the Collar Protocol.
+ * It works in tandem with corresponding EscrowLoansNFT contracts, which are trusted by this contract
  * to manage the borrower side of escrow positions and enforce late fees.
  *
  * Key Assumptions and Prerequisites:
@@ -40,7 +41,7 @@ import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
  * 2. Implements pausability and asset recovery for emergency situations via BaseEmergencyAdminNFT.
  * 3. Provides a last resort seizure mechanism for extreme scenarios.
  */
-contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
+contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT, MathUtils {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
@@ -55,8 +56,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     IERC20 public immutable asset;
 
     // ----- STATE ----- //
-    // @dev this is NOT the NFT id, this is a  separate non transferrable ID
-    uint public nextOfferId = 1; // starts from 1 so that 0 ID is not used
+    uint public nextOfferId; // @dev this is NOT the NFT id, this is a  separate non transferrable ID
 
     // allowed loans contracts
     mapping(address loans => bool allowed) public allowedLoans;
@@ -71,7 +71,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         IERC20 _asset,
         string memory _name,
         string memory _symbol
-    ) BaseNFT(initialOwner, _name, _symbol) {
+    ) BaseEmergencyAdminNFT(initialOwner, _name, _symbol) {
         asset = _asset;
         _setConfigHub(_configHub);
     }
@@ -104,13 +104,25 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @notice Calculates the late fees for an escrow with a min-grace-period "cliff": Overdue
      * time is counted from expiry, but during the min-grace-period late fees are
      * returned as 0 (even though are "accumulating").
+     * @dev Does not cap the late fees from above using max grace period to favor the supplier.
+     * So Loans should not expect late fees to stop growing with time.
      * @param escrowId The ID of the escrow to calculate late fees for
      * @return fee The calculated late fee
      * @return escrowed The original escrowed amount
      */
     function lateFees(uint escrowId) external view returns (uint fee, uint escrowed) {
         Escrow storage escrow = escrows[escrowId];
-        return (_lateFee(escrow), escrow.escrowed);
+        escrowed = escrow.escrowed;
+        if (block.timestamp < escrow.expiration + MIN_GRACE_PERIOD) {
+            // grace period cliff
+            fee = 0;
+        } else {
+            uint overdue = block.timestamp - escrow.expiration; // counts from expiration despite the cliff
+            // cap at specified grace period
+            overdue = _min(overdue, escrow.gracePeriod);
+            // @dev rounds up to prevent avoiding fee using many small positions
+            fee = _divUp(escrowed * escrow.lateFeeAPR * overdue, BIPS_BASE * 365 days);
+        }
     }
 
     /**
@@ -144,13 +156,13 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
     /**
      * @notice Calculates the interest fee for given parameters. Rounds up.
-     * @param offerId The offer Id to use for calculations
      * @param escrowed The escrowed amount
+     * @param duration The duration in seconds
+     * @param feeAPR The annual interest rate in basis points
      * @return fee The calculated interest fee
      */
-    function interestFee(uint offerId, uint escrowed) public view returns (uint fee) {
-        Offer storage offer = offers[offerId];
-        return _divUp(escrowed * offer.interestAPR * offer.duration, BIPS_BASE * 365 days);
+    function interestFee(uint escrowed, uint duration, uint feeAPR) public pure returns (uint fee) {
+        return _divUp(escrowed * feeAPR * duration, BIPS_BASE * 365 days);
     }
 
     /**
@@ -361,14 +373,14 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
     /**
      * @notice Emergency function to seize escrow funds after max grace period. Burns the NFT.
-     * WARNING: DO NOT use this is normal circumstances, instead use LoansNFT.forecloseLoan().
+     * WARNING: DO NOT use this is normal circumstances, instead use EscrowLoansNFT.seizeEscrow().
      * This method is only for extreme scenarios to ensure suppliers can always withdraw even if
-     * original LoansNFT is broken / disabled / disallowed by admin.
+     * original EscrowLoansNFT is broken / disabled / disallowed by admin.
      * This method can only be used after the full grace period is elapsed, and does not pay any late fees.
-     * @dev Ideally the owner of the NFT will call LoansNFT.forecloseLoan() which is callable earlier
+     * @dev Ideally the owner of the NFT will call EscrowLoansNFT.seizeEscrow() which is callable earlier
      * or pays late fees (or both). If they do that, "released" will be set to true, disabling this method.
      * In the opposite situation, if the NFT owner chooses to call this method by mistake,
-     * the LoansNFT method will not be callable, because "released" will true (+NFT will be burned).
+     * the EscrowLoansNFT method will not be callable, because "released" will true (+NFT will be burned).
      * @dev Only for use when Loans contracts are unavailable to handle release / seizure
      * @param escrowId The ID of the escrow to seize
      */
@@ -419,7 +431,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         uint prevOfferAmount = offer.available;
         require(escrowed <= prevOfferAmount, "amount too high");
 
-        uint minFee = interestFee(offerId, escrowed);
+        uint minFee = interestFee(escrowed, offer.duration, offer.interestAPR);
         // we don't check equality to avoid revert due to minor precision inaccuracy to the upside,
         // even though exact value can be calculated from the view.
         require(fee >= minFee, "insufficient fee");
@@ -471,32 +483,22 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         view
         returns (uint withdrawal, uint toLoans)
     {
-        // handle under-payment (slippage, default) or over-payment (excessive late fees):
-        // any shortfall are for the borrower (e.g., slippage) - taken out of the funds held
+        // handle under-payment (slippage, default) or over-payment (late fees):
+        // - any gains are for the supplier (late fees), so supplier gets max(escrow, fromLoans)
+        // - any losses are for the borrower (e.g., slippage), so toLoans gets min(escrow, fromLoans)
+        uint escrowed = escrow.escrowed;
+        (withdrawal, toLoans) = escrowed > fromLoans ? (escrowed, fromLoans) : (fromLoans, escrowed);
 
-        // lateFee is non-zero after min-grace-period is over (late close loan / seized escrow)
-        uint lateFee = _lateFee(escrow);
-        // refund due to early release. If late fee is not 0, this is likely 0 (because is after expiry).
+        // handle interest and its refund due to early release
         uint interestRefund = _refundInterestFee(escrow);
 
-        // everything owed: original escrow + (interest held - interest refund) + late fee
-        uint targetWithdrawal = escrow.escrowed + escrow.interestHeld + lateFee - interestRefund;
-        // what we have is what we held (escrow + full interest) and whatever loans just sent us
-        // @dev note that withdrawal of at least escrow is guaranteed (due to being held in this contract)
-        uint available = escrow.escrowed + escrow.interestHeld + fromLoans;
+        // any refund still goes to loans regardless of repayment because was paid unfront for interest.
+        withdrawal += escrow.interestHeld - interestRefund;
+        toLoans += interestRefund;
 
-        // use as much as possible from available up to target
-        withdrawal = _min(available, targetWithdrawal);
-        // refund the rest if anything is left
-        toLoans = available - withdrawal;
-
-        // @dev note 1: that interest refund "theoretically" covers some of the late fee shortfall, but
-        // "in practice" this will never happen because either late fees are 0 or interest refund is 0.
-        // @dev note 2: if fromLoans is 0, and lateFee is 0 (roll case), toLoans is just the interest refund
-
-        /* @dev late fees are calculated, but cannot be "enforced" here, and instead Loans is trusted to use
-        the views on this contract to correctly calculate the late fees and grace period to ensure they are
-        not underpaid. This contract needs to trust Loans to do so for these reasons:
+        /* @dev late fees are not enforced here, and instead Loans is trusted to use the views on this contract
+        to correctly calculate the late fees and grace period to ensure they are not underpaid.
+        This contract needs to trust Loans to do so for these reasons:
         1. Loans needs to swap from cash, and has the information needed to calculate the funds available
         for late fees (withdrawal amount, oracle rate, etc).
         2. Loans needs swap parameters, and has a keeper authorisation system for access control.
@@ -505,18 +507,6 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         the swap parameters + the reduced-grace-period time (by withdrawal), all make it more sensible to
         be done via Loans directly.
         */
-    }
-
-    function _lateFee(Escrow storage escrow) internal view returns (uint) {
-        if (block.timestamp < escrow.expiration + MIN_GRACE_PERIOD) {
-            // grace period cliff
-            return 0;
-        }
-        uint overdue = block.timestamp - escrow.expiration; // counts from expiration despite the cliff
-        // cap at specified grace period
-        overdue = _min(overdue, escrow.gracePeriod);
-        // @dev rounds up to prevent avoiding fee using many small positions
-        return _divUp(escrow.escrowed * escrow.lateFeeAPR * overdue, BIPS_BASE * 365 days);
     }
 
     function _refundInterestFee(Escrow storage escrow) internal view returns (uint refund) {

@@ -11,8 +11,9 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 // internal
 import { ConfigHub } from "./ConfigHub.sol";
-import { BaseNFT } from "./base/BaseNFT.sol";
+import { BaseEmergencyAdminNFT } from "./base/BaseEmergencyAdminNFT.sol";
 import { IShortProviderNFT } from "./interfaces/IShortProviderNFT.sol";
+import { MathUtils } from "./base/MathUtils.sol";
 
 /**
  * @title ShortProviderNFT
@@ -46,7 +47,7 @@ import { IShortProviderNFT } from "./interfaces/IShortProviderNFT.sol";
  * 1. Critical functions are only callable by the trusted taker contract.
  * 2. Offer and position parameters are validated against the configHub's configurations.
  */
-contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
+contract ShortProviderNFT is IShortProviderNFT, BaseEmergencyAdminNFT, MathUtils {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
@@ -63,8 +64,7 @@ contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
     address public immutable taker;
 
     // ----- STATE ----- //
-    // @dev this is NOT the NFT id, this is separate ID
-    uint public nextOfferId = 1; // starts from 1 so that 0 ID is not used
+    uint public nextOfferId; // @dev this is NOT the NFT id, this is separate ID
     // offerId is non transferrable
     mapping(uint offerId => LiquidityOffer) internal liquidityOffers;
     // positionId is the NFT token ID (tracked in BaseEmergencyAdminNFT)
@@ -78,7 +78,7 @@ contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
         address _taker,
         string memory _name,
         string memory _symbol
-    ) BaseNFT(initialOwner, _name, _symbol) {
+    ) BaseEmergencyAdminNFT(initialOwner, _name, _symbol) {
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
         taker = _taker;
