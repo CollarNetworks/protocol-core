@@ -10,12 +10,13 @@ pragma solidity 0.8.22;
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 // internal imports
 import { BaseEmergencyAdminNFT, ConfigHub } from "./base/BaseEmergencyAdminNFT.sol";
+import { MathUtils } from "./base/MathUtils.sol";
 import { CollarTakerNFT, ShortProviderNFT } from "./CollarTakerNFT.sol";
 import { Rolls } from "./Rolls.sol";
 import { ISwapper } from "./interfaces/ISwapper.sol";
 import { ILoansNFT, IBaseLoansNFT } from "./interfaces/ILoansNFT.sol";
 
-abstract contract BaseLoansNFT is BaseEmergencyAdminNFT, IBaseLoansNFT {
+abstract contract BaseLoansNFT is BaseEmergencyAdminNFT, IBaseLoansNFT, MathUtils {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;

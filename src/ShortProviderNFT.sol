@@ -13,6 +13,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { ConfigHub } from "./ConfigHub.sol";
 import { BaseEmergencyAdminNFT } from "./base/BaseEmergencyAdminNFT.sol";
 import { IShortProviderNFT } from "./interfaces/IShortProviderNFT.sol";
+import { MathUtils } from "./base/MathUtils.sol";
 
 /**
  * @title ShortProviderNFT
@@ -46,7 +47,7 @@ import { IShortProviderNFT } from "./interfaces/IShortProviderNFT.sol";
  * 1. Critical functions are only callable by the trusted taker contract.
  * 2. Offer and position parameters are validated against the configHub's configurations.
  */
-contract ShortProviderNFT is IShortProviderNFT, BaseEmergencyAdminNFT {
+contract ShortProviderNFT is IShortProviderNFT, BaseEmergencyAdminNFT, MathUtils {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
@@ -361,9 +362,5 @@ contract ShortProviderNFT is IShortProviderNFT, BaseEmergencyAdminNFT {
         uint ltv = putStrikeDeviation; // assumed to be always equal
         require(configHub.isValidLTV(ltv), "unsupported LTV");
         require(configHub.isValidCollarDuration(duration), "unsupported duration");
-    }
-
-    function _divUp(uint x, uint y) internal pure returns (uint) {
-        return (x == 0) ? 0 : ((x - 1) / y) + 1; // divUp(x,y) = (x-1 / y) + 1
     }
 }

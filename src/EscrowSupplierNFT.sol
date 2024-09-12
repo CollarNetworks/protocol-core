@@ -12,6 +12,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 // internal
 import { ConfigHub } from "./ConfigHub.sol";
 import { BaseEmergencyAdminNFT } from "./base/BaseEmergencyAdminNFT.sol";
+import { MathUtils } from "./base/MathUtils.sol";
 import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
 
 /**
@@ -40,7 +41,7 @@ import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
  * 2. Implements pausability and asset recovery for emergency situations via BaseEmergencyAdminNFT.
  * 3. Provides a last resort seizure mechanism for extreme scenarios.
  */
-contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
+contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT, MathUtils {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
@@ -527,19 +528,5 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
     function _configHubValidations(uint duration) internal view {
         require(configHub.isSupportedCollateralAsset(address(asset)), "unsupported asset");
         require(configHub.isValidCollarDuration(duration), "unsupported duration");
-    }
-
-    // utils
-
-    function _divUp(uint x, uint y) internal pure returns (uint) {
-        return (x == 0) ? 0 : ((x - 1) / y) + 1; // divUp(x,y) = (x-1 / y) + 1
-    }
-
-    function _max(uint a, uint b) internal pure returns (uint) {
-        return a > b ? a : b;
-    }
-
-    function _min(uint a, uint b) internal pure returns (uint) {
-        return a < b ? a : b;
     }
 }

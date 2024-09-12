@@ -418,7 +418,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
     // ----- INTERNAL VIEWS ----- //
 
     function _abs(int a) internal pure returns (uint) {
-        return a > 0 ? uint(a) : uint(-a);
+        return a > 0 ? uint(a) : uint(-a); // @dev reverts for type(int).min
     }
 
     function _calculateTransferAmounts(
