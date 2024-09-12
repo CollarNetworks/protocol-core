@@ -125,15 +125,15 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
     }
 
     /**
-     * @notice Calculates the grace period based on available fee amount. This is the time that a given
-     * feeAmount "can afford" before causing an shortfall of late fees. This view should be used to
-     * enforce a reduced gracePeriod in case available are insufficient for the full grace period.
+     * @notice Calculates the grace period based on available late fee amount. This is the grace period
+     * a feeAmount "can afford" before causing an shortfall of late fees. This view should be used to
+     * enforce a reduced gracePeriod in case funds are insufficient for the full grace period.
      * Grace period returned is between min-grace-period and the offer's terms.
      * @param escrowId The ID of the escrow to calculate for
      * @param feeAmount The available fee amount
      * @return gracePeriod The calculated grace period in seconds
      */
-    function gracePeriodFromFees(uint escrowId, uint feeAmount) external view returns (uint gracePeriod) {
+    function cappedGracePeriod(uint escrowId, uint lateFee) external view returns (uint gracePeriod) {
         Escrow storage escrow = escrows[escrowId];
         // set to max
         gracePeriod = escrow.gracePeriod;
@@ -144,7 +144,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
             // fee = escrowed * time * APR / year / 100bips;
             // time = fee * year * 100bips / escrowed / APR;
             // rounding down, against the user
-            uint valueToTime = feeAmount * 365 days * BIPS_BASE / escrow.escrowed / escrow.lateFeeAPR;
+            uint valueToTime = lateFee * 365 days * BIPS_BASE / escrow.escrowed / escrow.lateFeeAPR;
             // reduce from max to valueToTime (what can be paid for using that feeAmount)
             gracePeriod = _min(valueToTime, gracePeriod);
         }
@@ -296,11 +296,12 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
         asset.safeTransfer(msg.sender, toLoans);
     }
 
-
     /**
-     * @notice Switches an escrow to a new escrow. Equivalent to endEscrow and startEscrow,
-     * except startEscrow is not possible to call without transferring the escrowAmount in,
-     * which is not possible or needed here (due to the release of the previous escrow).
+     * @notice Switches an escrow to a new escrow.
+     * @dev While it is basically startEscrow + endEscrow, calling these methods externally
+     * is not possible because startEscrow pulls the escrow amount in and transfers it out,
+     * which is not possible when switching escrows (the loans contract has no collateral for
+     * such a transfer at that point). So instead this method is needed to "move" funds internally.
      * @dev Can only be called by the Loans contract that started the original escrow
      * @dev durations can be different (is not problematic within this contract),
      * but Loans - the only caller of this - should check the new offer duration / new escrow
@@ -350,10 +351,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
 
     // ----- actions by escrow owner ----- //
 
-    /**
-     * @notice Withdraws funds from a released escrow. Burns the NFT.
-     * @param escrowId The ID of the escrow to withdraw from
-     */
+    /// @notice Withdraws funds from a released escrow. Burns the NFT.
+    /// @param escrowId The ID of the escrow to withdraw from
     function withdrawReleased(uint escrowId) external whenNotPaused {
         require(msg.sender == ownerOf(escrowId), "not escrow owner"); // will revert for burned
 
@@ -372,14 +371,13 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
     }
 
     /**
-     * @notice Emergency function to seize escrow funds after grace period
-     * DO NOT use this is normal circumstances, use seizeEscrow on EscrowLoansNFT. This method is only
-     * for extreme scenarios to ensure suppliers can always withdraw even if Loans is broken / no Loans
-     * contracts are allowed by admin.
+     * @notice Emergency function to seize escrow funds after max grace period. Burns the NFT.
+     * WARNING: DO NOT use this is normal circumstances, instead use EscrowLoansNFT.seizeEscrow().
+     * This method is only for extreme scenarios to ensure suppliers can always withdraw even if
+     * original EscrowLoansNFT is broken / disabled / disallowed by admin.
      * This method can only be used after the full grace period is elapsed, and does not pay any late fees.
-     * Ideally the owner of the NFT will call seizeEscrow() on EscrowLoansNFT - which is callable earlier
-     * or pays late fees (or both). If they do, that method will call endEscrow and will set "released"
-     * to true, making this method not callable.
+     * @dev Ideally the owner of the NFT will call EscrowLoansNFT.seizeEscrow() which is callable earlier
+     * or pays late fees (or both). If they do that, "released" will be set to true, disabling this method.
      * In the opposite situation, if the NFT owner chooses to call this method by mistake,
      * the EscrowLoansNFT method will not be callable, because "released" will true (+NFT will be burned).
      * @dev Only for use when Loans contracts are unavailable to handle release / seizure
@@ -404,14 +402,9 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
 
     // ----- admin ----- //
 
-    /**
-     * @notice Sets whether a Loans contract is allowed to interact with this contract
-     * @dev Can only be called by the contract owner
-     * @param loans The address of the Loans contract
-     * @param allowed Whether the contract is allowed
-     */
+    /// @notice Sets whether a Loans contract is allowed to interact with this contract
     function setLoansAllowed(address loans, bool allowed) external onlyOwner {
-        // @dev no sanity check for Loans interface since it is not relied on and calls are made
+        // @dev no sanity check for Loans interface since it is not relied on: calls are made
         // from Loans to this contract
         allowedLoans[loans] = allowed;
         emit LoansAllowedSet(loans, allowed);
@@ -502,8 +495,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
         withdrawal += escrow.interestHeld - interestRefund;
         toLoans += interestRefund;
 
-        /*
-        @dev late fees are not enforced here, and instead Loans is trusted to use the views on this contract
+        /* @dev late fees are not enforced here, and instead Loans is trusted to use the views on this contract
         to correctly calculate the late fees and grace period to ensure they are not underpaid.
         This contract needs to trust Loans to do so for these reasons:
         1. Loans needs to swap from cash, and has the information needed to calculate the funds available
@@ -524,6 +516,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
         elapsed = _min(elapsed, duration);
         // refund is for time remaining, and is rounded down
         refund = escrow.interestHeld * (duration - elapsed) / duration;
+
         /* @dev there is no APR calculation here (APR calc used only on open), only time calculation because:
          1. simpler
          2. avoidance of mismatch due to rounding issues
@@ -532,11 +525,11 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
     }
 
     function _configHubValidations(uint duration) internal view {
-        // assets
         require(configHub.isSupportedCollateralAsset(address(asset)), "unsupported asset");
-        // terms
         require(configHub.isValidCollarDuration(duration), "unsupported duration");
     }
+
+    // utils
 
     function _divUp(uint x, uint y) internal pure returns (uint) {
         return (x == 0) ? 0 : ((x - 1) / y) + 1; // divUp(x,y) = (x-1 / y) + 1

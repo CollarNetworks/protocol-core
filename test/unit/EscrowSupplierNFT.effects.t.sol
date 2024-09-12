@@ -494,29 +494,29 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
             createAndCheckEscrow(supplier1, largeAmount, escrowAmount, fee);
 
         // Full grace period when fee amount covers it
-        uint fullGracePeriod = escrowNFT.gracePeriodFromFees(escrowId, escrowAmount);
+        uint fullGracePeriod = escrowNFT.cappedGracePeriod(escrowId, escrowAmount);
         assertEq(fullGracePeriod, escrow.gracePeriod);
 
         // Partial grace period, 5 days at 100% is 1.3% (5/365 or 1/73)
         uint partialFeeAmount = escrowAmount / 73;
 
         uint expectedPeriod = partialFeeAmount * 365 days * BIPS_100PCT / escrowAmount / lateFeeAPR;
-        uint partialGracePeriod = escrowNFT.gracePeriodFromFees(escrowId, partialFeeAmount);
+        uint partialGracePeriod = escrowNFT.cappedGracePeriod(escrowId, partialFeeAmount);
         assertTrue(partialGracePeriod < gracePeriod);
         assertEq(partialGracePeriod, expectedPeriod);
 
         // Minimum grace period when fee amount is very small
-        assertEq(escrowNFT.gracePeriodFromFees(escrowId, 0), escrowNFT.MIN_GRACE_PERIOD());
-        assertEq(escrowNFT.gracePeriodFromFees(escrowId, 1), escrowNFT.MIN_GRACE_PERIOD());
+        assertEq(escrowNFT.cappedGracePeriod(escrowId, 0), escrowNFT.MIN_GRACE_PERIOD());
+        assertEq(escrowNFT.cappedGracePeriod(escrowId, 1), escrowNFT.MIN_GRACE_PERIOD());
 
         // lateFeeAPR 0
         lateFeeAPR = 0;
         (uint newEscrowId,) = createAndCheckEscrow(supplier1, largeAmount, escrowAmount, fee);
         // full grace period even with no fee
-        assertEq(escrowNFT.gracePeriodFromFees(newEscrowId, 0), gracePeriod);
+        assertEq(escrowNFT.cappedGracePeriod(newEscrowId, 0), gracePeriod);
 
         // non existent ID is not validated, but still min grace period is returned
-        assertEq(escrowNFT.gracePeriodFromFees(1000, 1), escrowNFT.MIN_GRACE_PERIOD());
+        assertEq(escrowNFT.cappedGracePeriod(1000, 1), escrowNFT.MIN_GRACE_PERIOD());
     }
 
     function test_interestFee() public view {

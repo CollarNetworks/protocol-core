@@ -65,7 +65,7 @@ contract EscrowLoansNFT is IEscrowLoansNFT, BaseLoansNFT {
         uint collateralValue = cashAvailable * takerNFT.oracle().BASE_TOKEN_AMOUNT() / oraclePrice;
 
         // assume all available collateral can be used for fees (escrowNFT will cap between max and min)
-        return escrowNFT.gracePeriodFromFees(loanIdToEscrowId[loanId], collateralValue);
+        return escrowNFT.cappedGracePeriod(loanIdToEscrowId[loanId], collateralValue);
     }
 
     // ----- MUTATIVE ----- //
