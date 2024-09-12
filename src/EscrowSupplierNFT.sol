@@ -360,17 +360,18 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
         view
         returns (uint withdrawal, uint toLoans)
     {
-        // interest refund due to early release
+        // handle under-payment (slippage, default) or over-payment (late fees):
+        // - any gains are for the supplier (late fees), so supplier gets max(escrow, fromLoans)
+        // - any losses are for the borrower (e.g., slippage), so toLoans gets min(escrow, fromLoans)
+        uint escrowed = escrow.escrowed;
+        (withdrawal, toLoans) = escrowed > fromLoans ? (escrowed, fromLoans) : (fromLoans, escrowed);
+
+        // handle interest and its refund due to early release
         uint interestRefund = _refundInterestFee(escrow);
 
-        // total released to supplier with refund deducted from the held interest.
-        // max(): any gains are for the supplier (late fees), so supplier is guaranteed
-        // note that either late fees are charged, or interest fee is refunded, but not both
-        withdrawal = _max(fromLoans, escrow.escrowed) + escrow.interestHeld - interestRefund;
-
-        // min(): any losses are for the borrower (e.g., slippage), taken out of their escrowed amount.
         // any refund still goes to loans regardless of repayment because was paid unfront for interest.
-        toLoans = _min(fromLoans, escrow.escrowed) + interestRefund;
+        withdrawal += escrow.interestHeld - interestRefund;
+        toLoans += interestRefund;
 
         /*
         @dev late fees are not enforced here, and instead Loans is trusted to use the views on this contract
