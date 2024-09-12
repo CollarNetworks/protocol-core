@@ -440,7 +440,6 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
         uint minFee = interestFee(escrowed, offer.duration, offer.interestAPR);
         // we don't check equality to avoid revert due to minor precision inaccuracy to the upside,
         // even though exact value can be calculated from the view.
-        // TODO: is this needed, or exact equality is better?
         require(fee >= minFee, "insufficient fee");
 
         // storage updates

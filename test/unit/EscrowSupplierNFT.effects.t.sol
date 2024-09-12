@@ -5,6 +5,7 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 
 import { TestERC20 } from "../utils/TestERC20.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { BaseAssetPairTestSetup } from "./BaseAssetPairTestSetup.sol";
 
 import { EscrowSupplierNFT, IEscrowSupplierNFT } from "../../src/EscrowSupplierNFT.sol";
@@ -119,6 +120,11 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         emit IEscrowSupplierNFT.EscrowCreated(expectedId, escrowAmount, duration, fee, gracePeriod, offerId);
         vm.expectEmit(address(escrowNFT));
         emit IEscrowSupplierNFT.OfferUpdated(offerId, supplier, offerAmount, offerAmount - escrowAmount);
+        vm.expectEmit(address(asset));
+        // check the needed transfer events order and amounts
+        emit IERC20.Transfer(loans, address(escrowNFT), escrowAmount + fee);
+        vm.expectEmit(address(asset));
+        emit IERC20.Transfer(address(escrowNFT), loans, escrowAmount);
         (escrowId, escrow) = escrowNFT.startEscrow(offerId, escrowAmount, fee, loanId);
 
         // Check escrow details
@@ -158,6 +164,10 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
 
         vm.expectEmit(address(escrowNFT));
         emit IEscrowSupplierNFT.EscrowReleased(escrowId, repaid, expected.withdrawable, expected.toLoans);
+        // check the needed transfer events order and amounts
+        emit IERC20.Transfer(loans, address(escrowNFT), repaid);
+        vm.expectEmit(address(asset));
+        emit IERC20.Transfer(address(escrowNFT), loans, expected.toLoans);
         uint toLoansReturned = escrowNFT.endEscrow(escrowId, repaid);
 
         assertEq(toLoansReturned, expected.toLoans);
