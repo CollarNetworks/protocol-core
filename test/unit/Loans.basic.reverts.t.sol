@@ -142,9 +142,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
     function test_revert_closeLoan_nonExistentLoan() public {
         uint nonExistentLoanId = 999;
-        vm.expectRevert(
-            abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, nonExistentLoanId)
-        );
+        expectRevertERC721Nonexistent(nonExistentLoanId);
         loans.closeLoan(nonExistentLoanId, defaultSwapParams(0));
     }
 

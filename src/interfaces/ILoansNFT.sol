@@ -94,6 +94,23 @@ interface ILoansNFT is IBaseLoansNFT {
     function unwrapAndCancelLoan(uint loanId) external;
 }
 
-interface IEscrowedLoansNFT is IBaseLoansNFT {
-// TODO: fill this in?
+interface IEscrowLoansNFT is IBaseLoansNFT {
+    struct OpenLoanParams {
+        uint collateralAmount;
+        uint minLoanAmount;
+        SwapParams swapParams;
+        ShortProviderNFT providerNFT;
+        uint shortOffer;
+        uint escrowOffer;
+        uint escrowFee;
+    }
+
+    struct RollLoanParams {
+        uint loanId;
+        Rolls rolls;
+        uint rollId;
+        int minToUser; // cash
+        uint newEscrowOffer;
+        uint newEscrowFee; // collateral
+    }
 }
