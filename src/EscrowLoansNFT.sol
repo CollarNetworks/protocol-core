@@ -35,21 +35,11 @@ contract EscrowLoansNFT is IEscrowLoansNFT, BaseLoansNFT {
 
     // ----- VIEWS ----- //
 
-    function canForeclose(uint loanId) public view returns (bool) {
+    function gracePeriodEnd(uint loanId) public view returns (uint) {
         uint expiration = _expiration(loanId);
 
-        // short-circuit to avoid calculating grace period with current price if not expired yet
-        if (block.timestamp < expiration) {
-            return false;
-        }
-
-        // calculate the grace period for settlement price (
-        return block.timestamp > expiration + cappedGracePeriod(loanId);
-    }
-
-    function cappedGracePeriod(uint loanId) public view returns (uint) {
-        // if this is called before expiration (externally), estimate using current price
-        uint settleTime = _min(block.timestamp, _expiration(loanId));
+        // if this is called before expiration (externally), estimate value using current price
+        uint settleTime = _min(block.timestamp, expiration);
         // the price that will be used for settlement (past if available, or current if not)
         (uint oraclePrice,) = takerNFT.oracle().pastPriceWithFallback(uint32(settleTime));
 
@@ -61,10 +51,12 @@ contract EscrowLoansNFT is IEscrowLoansNFT, BaseLoansNFT {
         // since collateral = cash / price, we get collateral = cash * 1e18 / oracle-price.
         // round down is ok since it's against the user (being foreclosed).
         // division by zero is not prevented because because a panic is ok with an invalid price
-        uint collateralValue = cashAvailable * takerNFT.oracle().BASE_TOKEN_AMOUNT() / oraclePrice;
+        uint collateral = cashAvailable * takerNFT.oracle().BASE_TOKEN_AMOUNT() / oraclePrice;
 
         // assume all available collateral can be used for fees (escrowNFT will cap between max and min)
-        return escrowNFT.cappedGracePeriod(loanIdToEscrowId[loanId], collateralValue);
+        uint cappedGracePeriod = escrowNFT.cappedGracePeriod(loanIdToEscrowId[loanId], collateral);
+        // always after expiration, also cappedGracePeriod() is at least min-grace-period
+        return expiration + cappedGracePeriod;
     }
 
     // ----- MUTATIVE ----- //
@@ -140,8 +132,12 @@ contract EscrowLoansNFT is IEscrowLoansNFT, BaseLoansNFT {
         address escrowOwner = escrowNFT.ownerOf(escrowId);
         require(_isSenderOrKeeperFor(escrowOwner), "not escrow NFT owner or allowed keeper");
 
-        // @dev canForeclose's cappedGracePeriod uses twap-price, while actual foreclosing
-        // later uses swap price. This has several implications:
+        // get the user address here, both to ensure loan is active (will revert otherwise)
+        // and because address won't be available after burning
+        address user = ownerOf(loanId);
+
+        // @dev gracePeriodEnd uses twap-price, while actual foreclosing swap is using spot price.
+        // This has several implications:
         // 1. This protects foreclosing from price manipulation edge-cases.
         // 2. The final swap can be manipulated against the supplier, so either they or a trusted keeper
         //    should do it.
@@ -153,16 +149,15 @@ contract EscrowLoansNFT is IEscrowLoansNFT, BaseLoansNFT {
         //    to their benefit, but it still can't pay more than the lateFees calculated by time, and can only
         //    result in "leftovers" that will go to the borrower, so makes no sense for them to do (since
         //    manipulation costs money).
-        require(canForeclose(loanId), "cannot foreclose yet");
+        require(block.timestamp > gracePeriodEnd(loanId), "cannot foreclose yet");
 
-        // @dev will revert if too early, although the canForeclose() check above will revert first
-        uint cashAvailable = _settleAndWithdrawTaker(loanId);
-
-        address user = ownerOf(loanId);
         // burn NFT from the user. Prevents any further actions for this loan.
         // Although they are not the caller, altering their assets is fine here because
         // foreClosing is a state with other negative consequence they should try to avoid anyway
         _burn(loanId);
+
+        // @dev will revert if too early, although the canForeclose() check above will revert first
+        uint cashAvailable = _settleAndWithdrawTaker(loanId);
 
         // @dev Reentrancy assumption: no user state writes or reads AFTER the swapper call in _swap.
         uint collateralOut = _swap(cashAsset, collateralAsset, cashAvailable, swapParams);
@@ -207,7 +202,8 @@ contract EscrowLoansNFT is IEscrowLoansNFT, BaseLoansNFT {
     }
 
     function unwrapAndCancelLoan(uint loanId) external whenNotPaused onlyNFTOwner(loanId) {
-        bool escrowReleased = escrowNFT.getEscrow(loanIdToEscrowId[loanId]).released;
+        uint escrowId = loanIdToEscrowId[loanId];
+        bool escrowReleased = escrowNFT.getEscrow(escrowId).released;
 
         if (!escrowReleased) {
             // do not allow to unwrap past expiry with unreleased escrow to prevent frontrunning
@@ -216,17 +212,18 @@ contract EscrowLoansNFT is IEscrowLoansNFT, BaseLoansNFT {
             require(block.timestamp < _expiration(loanId), "loan expired");
 
             // release the escrowed user funds to the supplier since the user will not repay the loan
-            uint toUser = escrowNFT.endEscrow(loanIdToEscrowId[loanId], 0);
+            // no late fees here, since loan is not expired
+            uint toUser = escrowNFT.endEscrow(escrowId, 0);
             // @dev no balance checks because contract holds no funds, mismatch will cause reverts
 
             // send potential interest fee refund
             collateralAsset.safeTransfer(msg.sender, toUser);
         } else {
-            // @dev unwrapping if escrow is released handles the case that escrow owner called
+            // @dev unwrapping if escrow was released handles the case that escrow owner called
             // escrowNFT.lastResortSeizeEscrow() instead of loans.seizeEscrow() for any reason.
             // In this case, none of the other methods are callable because escrow is released
-            // already, so the simplest thing that can be done to avoid locking user's funds is to cancel
-            // the loan and send them their takerId to withdraw cash.
+            // already, so the simplest thing that can be done to avoid locking user's funds is
+            // to cancel the loan and send them their takerId to withdraw cash.
         }
 
         // burning the token ensures this can only be called once
