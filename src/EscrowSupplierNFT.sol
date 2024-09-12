@@ -14,6 +14,32 @@ import { ConfigHub } from "./ConfigHub.sol";
 import { BaseEmergencyAdminNFT } from "./base/BaseEmergencyAdminNFT.sol";
 import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
 
+/**
+ * @title EscrowSupplierNFT
+ * @notice Manages escrows and escrow offers for EscrowLoansNFT.
+ *
+ * Main Functionality:
+ * 1. Allows suppliers to create and manage escrow offers for multiple loans contracts.
+ * 2. Mints NFTs representing escrow positions when offers are taken.
+ * 3. Handles starting, ending, and switching of escrow positions.
+ * 4. Manages withdrawals of released escrows and last-resort emergency seizures.
+ *
+ * Role in the Protocol:
+ * This contract acts as the interface for escrow suppliers to EscrowLoansNFT in the Collar Protocol.
+ * It works in tandem with corresponding EscrowLoansNFT contracts, which are trusted by this contract
+ * to manage the borrower side of escrow positions and enforce late fees.
+ *
+ * Key Assumptions and Prerequisites:
+ * 1. Escrow suppliers must be able to receive ERC-721 tokens to withdraw offers or earnings.
+ * 2. The associated Loans contracts are trusted and properly implemented.
+ * 3. The ConfigHub contract correctly manages protocol parameters and authorization.
+ * 4. Asset (ERC-20) contracts are simple (non rebasing) and do not allow reentrancy.
+ *
+ * Design Considerations:
+ * 1. Uses NFTs to represent escrow positions, allowing for secondary market usage.
+ * 2. Implements pausability and asset recovery for emergency situations via BaseEmergencyAdminNFT.
+ * 3. Provides a last resort seizure mechanism for extreme scenarios.
+ */
 contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
     using SafeERC20 for IERC20;
 
@@ -56,18 +82,33 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
 
     // ----- VIEWS ----- //
 
+    /// @notice Returns the NFT ID of the next escrow to be minted
     function nextEscrowId() external view returns (uint) {
         return nextTokenId;
     }
 
+    /// @notice Retrieves the details of a specific escrow (corresponds to the NFT token ID)
+    /// @dev This is used instead of the default getter because the default getter returns a tuple
     function getEscrow(uint escrowId) external view returns (Escrow memory) {
         return escrows[escrowId];
     }
 
+    /// @notice Retrieves the details of a specific non-transferrable offer.
+    /// @dev This is used instead of the default getter because the default getter returns a tuple
     function getOffer(uint offerId) external view returns (Offer memory) {
         return offers[offerId];
     }
 
+    /**
+     * @notice Calculates the late fees for an escrow with a min-grace-period "cliff": Overdue
+     * time is counted from expiry, but during the min-grace-period late fees are
+     * returned as 0 (even though are "accumulating").
+     * @dev Does not cap the late fees from above using max grace period to favor the supplier.
+     * So Loans should not expect late fees to stop growing with time.
+     * @param escrowId The ID of the escrow to calculate late fees for
+     * @return fee The calculated late fee
+     * @return escrowed The original escrowed amount
+     */
     function lateFees(uint escrowId) external view returns (uint fee, uint escrowed) {
         Escrow storage escrow = escrows[escrowId];
         escrowed = escrow.escrowed;
@@ -83,6 +124,15 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
         }
     }
 
+    /**
+     * @notice Calculates the grace period based on available fee amount. This is the time that a given
+     * feeAmount "can afford" before causing an shortfall of late fees. This view should be used to
+     * enforce a reduced gracePeriod in case available are insufficient for the full grace period.
+     * Grace period returned is between min-grace-period and the offer's terms.
+     * @param escrowId The ID of the escrow to calculate for
+     * @param feeAmount The available fee amount
+     * @return gracePeriod The calculated grace period in seconds
+     */
     function gracePeriodFromFees(uint escrowId, uint feeAmount) external view returns (uint gracePeriod) {
         Escrow storage escrow = escrows[escrowId];
         // set to max
@@ -103,11 +153,26 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
         gracePeriod = _max(gracePeriod, MIN_GRACE_PERIOD);
     }
 
+    /**
+     * @notice Calculates the interest fee for given parameters. Rounds up.
+     * @param escrowed The escrowed amount
+     * @param duration The duration in seconds
+     * @param feeAPR The annual interest rate in basis points
+     * @return fee The calculated interest fee
+     */
     function interestFee(uint escrowed, uint duration, uint feeAPR) public pure returns (uint fee) {
         return _divUp(escrowed * feeAPR * duration, BIPS_BASE * 365 days);
     }
 
-    // @dev assumes release is done now
+    /**
+     * @notice Previews the result of releasing an escrow if it is done in this block (time affects
+     * interest refund calculations).
+     * @param escrowId The ID of the escrow to preview
+     * @param fromLoans The amount repaid from loans
+     * @return withdrawal The amount to be withdrawn by the supplier
+     * @return toLoans The amount to be returned to loans (includes refund)
+     * @return refund The refunded interest amount
+     */
     function previewRelease(uint escrowId, uint fromLoans)
         external
         view
@@ -121,6 +186,15 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
 
     // ----- Offer actions ----- //
 
+    /**
+     * @notice Creates a new escrow offer
+     * @param amount The offered amount
+     * @param duration The offer duration in seconds
+     * @param interestAPR The annual interest rate in basis points
+     * @param gracePeriod The grace period duration in seconds
+     * @param lateFeeAPR The annual late fee rate in basis points
+     * @return offerId The ID of the created offer
+     */
     function createOffer(uint amount, uint duration, uint interestAPR, uint gracePeriod, uint lateFeeAPR)
         external
         whenNotPaused
@@ -147,6 +221,12 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
         emit OfferCreated(msg.sender, interestAPR, duration, gracePeriod, lateFeeAPR, amount, offerId);
     }
 
+    /**
+     * @notice Updates the total available amount of an existing offer. Update to 0 to fully withdraw.
+     * @dev Can increase or decrease the offer amount. Must be from original offer supplier
+     * @param offerId The ID of the offer to update
+     * @param newAmount The new offer amount
+     */
     function updateOfferAmount(uint offerId, uint newAmount) external whenNotPaused {
         require(msg.sender == offers[offerId].supplier, "not offer supplier");
 
@@ -169,6 +249,18 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
 
     // ----- actions through loans contract ----- //
 
+    /**
+     * @notice Starts a new escrow from an existing offer. Transfer the full amount in, escrow + fee,
+     * and then transfers out the escrow amount back.
+     * @dev Can only be called by allowed Loans contracts
+     * @param offerId The ID of the offer to use
+     * @param escrowed The amount to escrow
+     * @param fee The upfront interest fee amount. May be refunded pro-rata if
+     * released before expiration.
+     * @param loanId The associated loan ID
+     * @return escrowId The ID of the created escrow
+     * @return escrow The Escrow struct of the created escrow
+     */
     function startEscrow(uint offerId, uint escrowed, uint fee, uint loanId)
         external
         whenNotPaused
@@ -186,6 +278,15 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
         asset.safeTransfer(msg.sender, escrowed);
     }
 
+    /**
+     * @notice Ends an escrow
+     * @dev Can only be called by the Loans contract that started the escrow
+     * @param escrowId The ID of the escrow to end
+     * @param repaid The amount repaid, can be more or less than original escrow amount, depending on
+     * late fees (enforced by the loans contract), or position / slippage / default shortfall. The
+     * supplier is guaranteed to withdraw at least the escrow amount regardless.
+     * @return toLoans Amount to be returned to loans including potential refund and deducing shortfalls
+     */
     function endEscrow(uint escrowId, uint repaid) external whenNotPaused onlyLoans returns (uint toLoans) {
         toLoans = _releaseEscrow(escrowId, repaid);
 
@@ -195,8 +296,23 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
         asset.safeTransfer(msg.sender, toLoans);
     }
 
-    // @dev durations can be different (is not problematic within this contract),
-    // but Loans - the only caller of this - should check that expirations match as expected
+
+    /**
+     * @notice Switches an escrow to a new escrow. Equivalent to endEscrow and startEscrow,
+     * except startEscrow is not possible to call without transferring the escrowAmount in,
+     * which is not possible or needed here (due to the release of the previous escrow).
+     * @dev Can only be called by the Loans contract that started the original escrow
+     * @dev durations can be different (is not problematic within this contract),
+     * but Loans - the only caller of this - should check the new offer duration / new escrow
+     * expiration is as is needed for its use.
+     * @param releaseEscrowId The ID of the escrow to release
+     * @param offerId The ID of the new offer
+     * @param newLoanId The new loan ID
+     * @param newFee The new interest fee amount
+     * @return newEscrowId The ID of the new escrow
+     * @return newEscrow The Escrow data struct of the new escrow
+     * @return feeRefund The refunded fee amount from the old escrow's upfront interest
+     */
     function switchEscrow(uint releaseEscrowId, uint offerId, uint newLoanId, uint newFee)
         external
         whenNotPaused
@@ -234,6 +350,10 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
 
     // ----- actions by escrow owner ----- //
 
+    /**
+     * @notice Withdraws funds from a released escrow. Burns the NFT.
+     * @param escrowId The ID of the escrow to withdraw from
+     */
     function withdrawReleased(uint escrowId) external whenNotPaused {
         require(msg.sender == ownerOf(escrowId), "not escrow owner"); // will revert for burned
 
@@ -252,15 +372,18 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
     }
 
     /**
-     * @notice DO NOT use this is normal circumstances, use seizeEscrow on Loans. This method is only
+     * @notice Emergency function to seize escrow funds after grace period
+     * DO NOT use this is normal circumstances, use seizeEscrow on EscrowLoansNFT. This method is only
      * for extreme scenarios to ensure suppliers can always withdraw even if Loans is broken / no Loans
      * contracts are allowed by admin.
      * This method can only be used after the full grace period is elapsed, and does not pay any late fees.
-     * Ideally the owner of the NFT will call seizeEscrow() on Loans - which is either callable earlier
+     * Ideally the owner of the NFT will call seizeEscrow() on EscrowLoansNFT - which is callable earlier
      * or pays late fees (or both). If they do, that method will call endEscrow and will set "released"
      * to true, making this method not callable.
-     * In the opposite situation, if the NFT owner chooses to call this method by mistake instead,
-     * the Loans method will not be callable, because released will be set to true (+NFT will be burned).
+     * In the opposite situation, if the NFT owner chooses to call this method by mistake,
+     * the EscrowLoansNFT method will not be callable, because "released" will true (+NFT will be burned).
+     * @dev Only for use when Loans contracts are unavailable to handle release / seizure
+     * @param escrowId The ID of the escrow to seize
      */
     function lastResortSeizeEscrow(uint escrowId) external whenNotPaused {
         require(msg.sender == ownerOf(escrowId), "not escrow owner"); // will revert for burned
@@ -281,6 +404,12 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
 
     // ----- admin ----- //
 
+    /**
+     * @notice Sets whether a Loans contract is allowed to interact with this contract
+     * @dev Can only be called by the contract owner
+     * @param loans The address of the Loans contract
+     * @param allowed Whether the contract is allowed
+     */
     function setLoansAllowed(address loans, bool allowed) external onlyOwner {
         // @dev no sanity check for Loans interface since it is not relied on and calls are made
         // from Loans to this contract

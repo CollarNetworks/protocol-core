@@ -244,7 +244,7 @@ contract EscrowLoansNFT is IEscrowLoansNFT, BaseLoansNFT {
         // if owing less than swapped, left over gains are for the user
         uint leftOver = availableCollateral > owed ? availableCollateral - owed : 0;
         // if owing more than swapped, use all, otherwise just what's owed
-        uint toSupplier = availableCollateral <= owed ? availableCollateral : owed;
+        uint toSupplier = availableCollateral < owed ? availableCollateral : owed;
         // release from escrow, this can be smaller than available
         collateralAsset.forceApprove(address(escrowNFT), toSupplier);
         // releasedForUser is what escrow returns after deducting any shortfall
