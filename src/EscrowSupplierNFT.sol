@@ -126,11 +126,11 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
 
     /**
      * @notice Calculates the grace period based on available late fee amount. This is the grace period
-     * a feeAmount "can afford" before causing an shortfall of late fees. This view should be used to
+     * a lateFee "can afford" before causing an shortfall of late fees. This view should be used to
      * enforce a reduced gracePeriod in case funds are insufficient for the full grace period.
      * Grace period returned is between min-grace-period and the offer's terms.
      * @param escrowId The ID of the escrow to calculate for
-     * @param feeAmount The available fee amount
+     * @param lateFee The available fee amount
      * @return gracePeriod The calculated grace period in seconds
      */
     function cappedGracePeriod(uint escrowId, uint lateFee) external view returns (uint gracePeriod) {
