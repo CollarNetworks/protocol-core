@@ -202,8 +202,6 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
         onlyLoans
         returns (uint newEscrowId, Escrow memory newEscrow, uint feeRefund)
     {
-        uint escrowAmount = escrows[releaseEscrowId].escrowed;
-
         /*
         1. initially user's escrow E secures O (old ID). O's own funds are away.
         2. E is then "transferred" to secure N (new ID). N's own funds are taken, to release O.
@@ -213,17 +211,18 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
         (held until release), and refunding O's interest held if O is released early (it likely is).
         */
 
-        // N (new escrow): Mint a new escrow from the offer.
-        // The escrow funds are the loan-escrow funds that have been escrowed in the ID being released.
-        // The offer is reduced (which is used to repay the previous supplier)
-        // A new escrow ID is minted.
-        (newEscrowId, newEscrow) = _mintFromOffer(offerId, escrowAmount, newFee, newLoanId);
-
         // O (old escrow): Release funds to the supplier of previous ID.
         // The withdrawable for previous supplier comes from the N's offer, not from Loans repayment.
         // The escrowed loans-funds (E) move into the new escrow of the new supplier.
         // fromLoans must be 0, otherwise escrow will be sent to Loans instead of only the fee refund
+        uint newEscrowAmount = escrows[releaseEscrowId].escrowed;
         feeRefund = _releaseEscrow(releaseEscrowId, 0);
+
+        // N (new escrow): Mint a new escrow from the offer.
+        // The escrow funds are the loan-escrow funds that have been escrowed in the ID being released.
+        // The offer is reduced (which is used to repay the previous supplier)
+        // A new escrow ID is minted.
+        (newEscrowId, newEscrow) = _mintFromOffer(offerId, newEscrowAmount, newFee, newLoanId);
 
         // fee transfers
         asset.safeTransferFrom(msg.sender, address(this), newFee);
@@ -235,7 +234,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
     // ----- actions by escrow owner ----- //
 
     function withdrawReleased(uint escrowId) external whenNotPaused {
-        require(msg.sender == ownerOf(escrowId), "not escrow owner");
+        require(msg.sender == ownerOf(escrowId), "not escrow owner"); // will revert for burned
 
         Escrow storage escrow = escrows[escrowId];
         require(escrow.released, "not released");
@@ -263,7 +262,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
      * the Loans method will not be callable, because released will be set to true (+NFT will be burned).
      */
     function lastResortSeizeEscrow(uint escrowId) external whenNotPaused {
-        require(msg.sender == ownerOf(escrowId), "not escrow owner");
+        require(msg.sender == ownerOf(escrowId), "not escrow owner"); // will revert for burned
 
         Escrow storage escrow = escrows[escrowId];
         require(!escrow.released, "already released");
@@ -298,6 +297,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT {
         require(configHub.canOpen(address(this)), "unsupported supplier contract");
 
         Offer storage offer = offers[offerId];
+        require(offer.supplier != address(0), "invalid offer"); // revert here for clarity
 
         // check params are still supported
         _configHubValidations(offer.duration);

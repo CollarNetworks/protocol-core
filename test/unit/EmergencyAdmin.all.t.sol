@@ -14,6 +14,7 @@ import { BaseEmergencyAdmin } from "../../src/base/BaseEmergencyAdmin.sol";
 import { ConfigHub } from "../../src/ConfigHub.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
+import { EscrowSupplierNFT } from "../../src/EscrowSupplierNFT.sol";
 import { LoansNFT } from "../../src/LoansNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
@@ -215,6 +216,12 @@ contract ProviderNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
     function setupTestedContract() internal override {
         testedContract =
             new ShortProviderNFT(owner, configHub, erc20, erc20, address(0), "ProviderNFT", "ProviderNFT");
+    }
+}
+
+contract EscrowSupplierNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
+    function setupTestedContract() internal override {
+        testedContract = new EscrowSupplierNFT(owner, configHub, erc20, "ProviderNFT", "ProviderNFT");
     }
 }
 

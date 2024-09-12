@@ -3,11 +3,8 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { TestERC20 } from "../utils/TestERC20.sol";
 
+import { TestERC20 } from "../utils/TestERC20.sol";
 import { BaseAssetPairTestSetup } from "./BaseAssetPairTestSetup.sol";
 
 import { EscrowSupplierNFT, IEscrowSupplierNFT } from "../../src/EscrowSupplierNFT.sol";
@@ -432,23 +429,6 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         // Check NFT burned
         expectRevertERC721Nonexistent(escrowId);
         escrowNFT.ownerOf(escrowId);
-    }
-
-    function test_setLoansAllowed() public {
-        address newLoansContract = makeAddr("newLoans");
-
-        startHoax(owner);
-        vm.expectEmit(address(escrowNFT));
-        emit IEscrowSupplierNFT.LoansAllowedSet(newLoansContract, true);
-        escrowNFT.setLoansAllowed(newLoansContract, true);
-
-        assertTrue(escrowNFT.allowedLoans(newLoansContract));
-
-        vm.expectEmit(address(escrowNFT));
-        emit IEscrowSupplierNFT.LoansAllowedSet(newLoansContract, false);
-        escrowNFT.setLoansAllowed(newLoansContract, false);
-
-        assertFalse(escrowNFT.allowedLoans(newLoansContract));
     }
 
     // view effects
