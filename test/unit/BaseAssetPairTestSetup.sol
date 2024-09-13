@@ -26,6 +26,7 @@ contract BaseAssetPairTestSetup is Test {
     address owner = makeAddr("owner");
     address user1 = makeAddr("user1");
     address provider = makeAddr("provider");
+    address supplier = makeAddr("supplier");
     address keeper = makeAddr("keeper");
     address protocolFeeRecipient = makeAddr("feeRecipient");
 
@@ -111,6 +112,7 @@ contract BaseAssetPairTestSetup is Test {
         collateralAsset.mint(user1, collateralAmount * 10);
         cashAsset.mint(user1, swapCashAmount * 10);
         cashAsset.mint(provider, largeAmount * 10);
+        collateralAsset.mint(supplier, largeAmount * 10);
     }
 
     function expectRevertERC721Nonexistent(uint id) internal {

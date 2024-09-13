@@ -113,4 +113,6 @@ interface IEscrowLoansNFT is IBaseLoansNFT {
         uint newEscrowOffer;
         uint newEscrowFee; // collateral
     }
+
+    event EscrowSettled(uint indexed escrowId, uint toEscrow, uint fromEscrow, uint leftOver);
 }
