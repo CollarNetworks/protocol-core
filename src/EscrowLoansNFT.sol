@@ -143,7 +143,7 @@ contract EscrowLoansNFT is IEscrowLoansNFT, BaseLoansNFT {
         // 1. This protects foreclosing from price manipulation edge-cases.
         // 2. The final swap can be manipulated against the supplier, so either they or a trusted keeper
         //    should do it.
-        // 3. This also means that swap amount may be different from the estimation in canForeclose
+        // 3. This also means that swap amount may be different from the estimation in gracePeriodEnd
         //    if the period was capped by cash-time-value near the end a grace-period.
         //    In this case, if swap price is less than twap, the late fees may be slightly underpaid
         //    because of the swap-twap difference and slippage.
@@ -158,7 +158,7 @@ contract EscrowLoansNFT is IEscrowLoansNFT, BaseLoansNFT {
         // foreClosing is a state with other negative consequence they should try to avoid anyway
         _burn(loanId);
 
-        // @dev will revert if too early, although the canForeclose() check above will revert first
+        // @dev will revert if too early, although the gracePeriodEnd check above will revert first
         uint cashAvailable = _settleAndWithdrawTaker(loanId);
 
         // @dev Reentrancy assumption: no user state writes or reads AFTER the swapper call in _swap.

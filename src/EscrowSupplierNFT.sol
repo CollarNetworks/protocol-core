@@ -11,8 +11,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 // internal
 import { ConfigHub } from "./ConfigHub.sol";
-import { BaseEmergencyAdminNFT } from "./base/BaseEmergencyAdminNFT.sol";
-import { MathUtils } from "./base/MathUtils.sol";
+import { BaseNFT } from "./base/BaseNFT.sol";
 import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
 
 /**
@@ -41,7 +40,7 @@ import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
  * 2. Implements pausability and asset recovery for emergency situations via BaseEmergencyAdminNFT.
  * 3. Provides a last resort seizure mechanism for extreme scenarios.
  */
-contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT, MathUtils {
+contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
@@ -71,7 +70,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseEmergencyAdminNFT, MathUti
         IERC20 _asset,
         string memory _name,
         string memory _symbol
-    ) BaseEmergencyAdminNFT(initialOwner, _name, _symbol) {
+    ) BaseNFT(initialOwner, _name, _symbol) {
         asset = _asset;
         _setConfigHub(_configHub);
     }

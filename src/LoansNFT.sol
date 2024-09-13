@@ -9,14 +9,12 @@ pragma solidity 0.8.22;
 
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 // internal imports
-import { BaseEmergencyAdminNFT, ConfigHub } from "./base/BaseEmergencyAdminNFT.sol";
-import { MathUtils } from "./base/MathUtils.sol";
-import { CollarTakerNFT, ShortProviderNFT } from "./CollarTakerNFT.sol";
+import { CollarTakerNFT, ShortProviderNFT, BaseNFT, ConfigHub } from "./CollarTakerNFT.sol";
 import { Rolls } from "./Rolls.sol";
 import { ISwapper } from "./interfaces/ISwapper.sol";
 import { ILoansNFT, IBaseLoansNFT } from "./interfaces/ILoansNFT.sol";
 
-abstract contract BaseLoansNFT is BaseEmergencyAdminNFT, IBaseLoansNFT, MathUtils {
+abstract contract BaseLoansNFT is BaseNFT, IBaseLoansNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
@@ -46,7 +44,7 @@ abstract contract BaseLoansNFT is BaseEmergencyAdminNFT, IBaseLoansNFT, MathUtil
     mapping(address swapper => bool allowed) public allowedSwappers;
 
     constructor(address initialOwner, CollarTakerNFT _takerNFT, string memory _name, string memory _symbol)
-        BaseEmergencyAdminNFT(initialOwner, _name, _symbol)
+        BaseNFT(initialOwner, _name, _symbol)
     {
         takerNFT = _takerNFT;
         cashAsset = _takerNFT.cashAsset();
