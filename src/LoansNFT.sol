@@ -379,7 +379,7 @@ abstract contract BaseLoansNFT is BaseEmergencyAdminNFT, IBaseLoansNFT, MathUtil
     /// The swap price is only used for "pot sizing", but not for payouts division on expiry.
     /// Due to this, price manipulation *should* NOT leak value from provider / protocol.
     /// The caller (user) is protected via a slippage parameter, and SHOULD use it to avoid MEV (if present).
-    /// So, this check is just extra precaution and avoidance of manipulation edge-cases.
+    /// So, this check is just extra precaution and avoidance of extreme edge-cases.
     function _checkSwapPrice(uint cashFromSwap, uint collateralAmount) internal view {
         uint twapPrice = takerNFT.currentOraclePrice();
         // collateral is checked on open to not be 0

@@ -118,9 +118,11 @@ contract EscrowLoansNFT is IEscrowLoansNFT, BaseLoansNFT {
         // @dev cache the user now, since _closeLoanNoTFOut will burn the NFT, so ownerOf will revert
         address user = ownerOf(loanId);
 
-        collateralOut = _closeLoanNoTFOut(loanId, swapParams);
+        uint fromSwap = _closeLoanNoTFOut(loanId, swapParams);
 
-        _releaseLateEscrow(loanIdToEscrowId[loanId], collateralOut, user);
+        collateralOut = _releaseLateEscrow(loanIdToEscrowId[loanId], fromSwap);
+
+        collateralAsset.safeTransfer(user, collateralOut);
     }
 
     function seizeEscrow(uint loanId, SwapParams calldata swapParams) external whenNotPaused {
@@ -160,12 +162,13 @@ contract EscrowLoansNFT is IEscrowLoansNFT, BaseLoansNFT {
         uint cashAvailable = _settleAndWithdrawTaker(loanId);
 
         // @dev Reentrancy assumption: no user state writes or reads AFTER the swapper call in _swap.
-        uint collateralOut = _swap(cashAsset, collateralAsset, cashAvailable, swapParams);
+        uint fromSwap = _swap(cashAsset, collateralAsset, cashAvailable, swapParams);
 
         // Release escrow, and send any leftovers to user. Their express trigger of balance update
         // (withdrawal) is neglected here due to being anyway in an undesirable state of being foreclosed
         // due to not repaying on time.
-        _releaseLateEscrow(escrowId, collateralOut, user);
+        uint collateralOut = _releaseLateEscrow(escrowId, fromSwap);
+        collateralAsset.safeTransfer(user, collateralOut);
 
         // TODO: event
     }
@@ -232,27 +235,27 @@ contract EscrowLoansNFT is IEscrowLoansNFT, BaseLoansNFT {
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    function _releaseLateEscrow(uint escrowId, uint collateral, address user) internal {
+    function _releaseLateEscrow(uint escrowId, uint fromSwap) internal returns (uint collateralOut) {
         // get late fee owing
         (uint lateFee, uint escrowed) = escrowNFT.lateFees(escrowId);
 
         // if owing more than swapped, use all, otherwise just what's owed
-        uint toSupplier = _min(collateral, escrowed + lateFee);
+        uint toEscrow = _min(fromSwap, escrowed + lateFee);
         // if owing less than swapped, left over gains are for the user
-        uint leftOver = collateral - toSupplier;
+        uint leftOver = fromSwap - toEscrow;
 
         // release from escrow, this can be smaller than available
-        collateralAsset.forceApprove(address(escrowNFT), toSupplier);
-        // releasedToUser is what escrow returns after deducting any shortfall.
+        collateralAsset.forceApprove(address(escrowNFT), toEscrow);
+        // fromEscrow is what escrow returns after deducting any shortfall.
         // (although not problematic, there should not be any interest fee refund here,
         // because this method is called after expiry)
-        uint releasedToUser = escrowNFT.endEscrow(escrowId, toSupplier);
+        uint fromEscrow = escrowNFT.endEscrow(escrowId, toEscrow);
         // @dev no balance checks because contract holds no funds, mismatch will cause reverts
 
         // send to user the released and the leftovers. Zero-value-transfer is allowed
-        collateralAsset.safeTransfer(user, releasedToUser + leftOver);
+        collateralOut = fromEscrow + leftOver;
 
-        // TODO: event?
+        emit EscrowSettled(escrowId, toEscrow, fromEscrow, leftOver);
     }
 
     // ----- INTERNAL VIEWS ----- //
