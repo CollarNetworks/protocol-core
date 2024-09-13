@@ -8,7 +8,7 @@ import { BaseAssetPairTestSetup } from "./BaseAssetPairTestSetup.sol";
 import { MockSwapperRouter } from "../utils/MockSwapRouter.sol";
 import { SwapperArbitraryCall } from "../utils/SwapperArbitraryCall.sol";
 
-import { LoansNFT, IBaseLoansNFT } from "../../src/LoansNFT.sol";
+import { LoansNFT, IBaseLoansNFT, BaseLoansNFT } from "../../src/LoansNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
 import { SwapperUniV3, ISwapper } from "../../src/SwapperUniV3.sol";
@@ -59,6 +59,22 @@ contract AllLoansTestSetup is BaseAssetPairTestSetup {
         cashAsset.approve(address(providerNFT), largeAmount);
         offerId = providerNFT.createOffer(callStrikeDeviation, largeAmount, ltv, duration);
     }
+
+    function switchToArbitrarySwapper(BaseLoansNFT baseLoans)
+        internal
+        returns (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper)
+    {
+        vm.startPrank(owner);
+        // disable the old
+        baseLoans.setSwapperAllowed(address(swapperUniV3), false, false);
+        // set the new
+        arbCallSwapper = new SwapperArbitraryCall();
+        defaultSwapper = address(arbCallSwapper);
+        baseLoans.setSwapperAllowed(address(arbCallSwapper), true, true);
+
+        // swapper will call this other Uni swapper, because a swapper payload is easier to construct
+        newUniSwapper = new SwapperUniV3(address(mockSwapperRouter), swapFeeTier);
+    }
 }
 
 contract LoansTestBase is AllLoansTestSetup {
@@ -76,6 +92,10 @@ contract LoansTestBase is AllLoansTestSetup {
         defaultSwapper = address(swapperUniV3);
         loans.setSwapperAllowed(defaultSwapper, true, true);
         vm.stopPrank();
+    }
+
+    function _baseLoans() internal returns (BaseLoansNFT baseLoans) {
+        return BaseLoansNFT(address(loans));
     }
 
     struct Balances {
@@ -225,22 +245,6 @@ contract LoansTestBase is AllLoansTestSetup {
 }
 
 contract LoansBasicEffectsTest is LoansTestBase {
-    function switchToArbitrarySwapper()
-        internal
-        returns (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper)
-    {
-        vm.startPrank(owner);
-        // disable the old
-        loans.setSwapperAllowed(address(swapperUniV3), false, false);
-        // set the new
-        arbCallSwapper = new SwapperArbitraryCall();
-        defaultSwapper = address(arbCallSwapper);
-        loans.setSwapperAllowed(address(arbCallSwapper), true, true);
-
-        // swapper will call this other Uni swapper, because a swapper payload is easier to construct
-        newUniSwapper = new SwapperUniV3(address(mockSwapperRouter), swapFeeTier);
-    }
-
     // tests
 
     function test_constructor() public {
@@ -351,7 +355,8 @@ contract LoansBasicEffectsTest is LoansTestBase {
     }
 
     function test_openLoan_swapper_extraData() public {
-        (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) = switchToArbitrarySwapper();
+        (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) =
+            switchToArbitrarySwapper(_baseLoans());
         assertFalse(loans.allowedSwappers(address(swapperUniV3)));
         assertTrue(loans.allowedSwappers(address(arbCallSwapper)));
 
@@ -384,7 +389,8 @@ contract LoansBasicEffectsTest is LoansTestBase {
         uint swapOut = prepareSwapToCollateralAtTWAPPrice();
 
         // switch swappers
-        (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) = switchToArbitrarySwapper();
+        (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) =
+            switchToArbitrarySwapper(_baseLoans());
         assertFalse(loans.allowedSwappers(address(swapperUniV3)));
         assertTrue(loans.allowedSwappers(address(arbCallSwapper)));
 
