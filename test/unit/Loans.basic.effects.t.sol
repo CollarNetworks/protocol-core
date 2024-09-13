@@ -94,7 +94,7 @@ contract LoansTestBase is AllLoansTestSetup {
         vm.stopPrank();
     }
 
-    function _baseLoans() internal returns (BaseLoansNFT baseLoans) {
+    function _baseLoans() internal view returns (BaseLoansNFT baseLoans) {
         return BaseLoansNFT(address(loans));
     }
 

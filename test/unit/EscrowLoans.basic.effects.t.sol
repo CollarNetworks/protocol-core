@@ -42,7 +42,7 @@ contract EscrowLoansTestBase is AllLoansTestSetup {
         vm.stopPrank();
     }
 
-    function _baseLoans() internal returns (BaseLoansNFT baseLoans) {
+    function _baseLoans() internal view returns (BaseLoansNFT baseLoans) {
         return BaseLoansNFT(address(eLoans));
     }
 
@@ -474,25 +474,88 @@ contract EscrowLoansBasicEffectsTest is EscrowLoansTestBase {
         closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
     }
 
-    //    function test_unwrapAndCancelLoan() public {
-    //        (uint loanId,,) = createAndCheckLoan();
-    //        uint takerId = loanId;
-    //        assertEq(takerNFT.ownerOf(takerId), address(eLoans));
-    //
-    //        // cancel
-    //        vm.expectEmit(address(eLoans));
-    //        emit IBaseLoansNFT.LoanCancelled(loanId, address(user1));
-    //        eLoans.unwrapAndCancelLoan(loanId);
-    //
-    //        // NFT burned
-    //        expectRevertERC721Nonexistent(loanId);
-    //        eLoans.ownerOf(loanId);
-    //
-    //        // taker NFT unwrapped
-    //        assertEq(takerNFT.ownerOf(takerId), user1);
-    //
-    //        // cannot cancel again
-    //        expectRevertERC721Nonexistent(loanId);
-    //        eLoans.unwrapAndCancelLoan(loanId);
-    //    }
+    function test_unwrapAndCancelLoan_beforeExpiry() public {
+        (uint loanId,,) = createAndCheckLoan();
+        uint takerId = loanId;
+        assertEq(takerNFT.ownerOf(takerId), address(eLoans));
+
+        // check that escrow unreleased
+        uint escrowId = eLoans.loanIdToEscrowId(loanId);
+        assertEq(escrowNFT.ownerOf(escrowId), supplier);
+        assertEq(escrowNFT.getEscrow(escrowId).released, false);
+        // user balance
+        uint balanceBefore = collateralAsset.balanceOf(user1);
+
+        // release after half duration to get refund
+        skip(duration / 2);
+
+        // cancel
+        vm.expectEmit(address(eLoans));
+        emit IBaseLoansNFT.LoanCancelled(loanId, address(user1));
+        eLoans.unwrapAndCancelLoan(loanId);
+
+        // NFT burned
+        expectRevertERC721Nonexistent(loanId);
+        eLoans.ownerOf(loanId);
+
+        // taker NFT unwrapped
+        assertEq(takerNFT.ownerOf(takerId), user1);
+
+        // cannot cancel again
+        expectRevertERC721Nonexistent(loanId);
+        eLoans.unwrapAndCancelLoan(loanId);
+
+        // escrow released
+        assertEq(escrowNFT.getEscrow(escrowId).released, true);
+
+        // received refund for half a duration
+        assertEq(collateralAsset.balanceOf(user1), balanceBefore + escrowFee / 2);
+    }
+
+    function test_unwrapAndCancelLoan_releasedEscrow() public {
+        (uint loanId,,) = createAndCheckLoan();
+        uint takerId = loanId;
+        assertEq(takerNFT.ownerOf(takerId), address(eLoans));
+
+        // check that escrow unreleased
+        uint escrowId = eLoans.loanIdToEscrowId(loanId);
+        assertEq(escrowNFT.ownerOf(escrowId), supplier);
+        assertEq(escrowNFT.getEscrow(escrowId).released, false);
+
+        // user balance
+        uint balanceBefore = collateralAsset.balanceOf(user1);
+
+        // after expiry
+        skip(duration);
+
+        // cannot release
+        vm.expectRevert("loan expired");
+        eLoans.unwrapAndCancelLoan(loanId);
+
+        // release escrow via some other way without closing the loan
+        // can be lastResortSeizeEscrow if after full grace period
+        vm.startPrank(address(eLoans));
+        escrowNFT.endEscrow(escrowId, 0);
+        assertEq(escrowNFT.getEscrow(escrowId).released, true);
+
+        // now try to unwrap
+        vm.startPrank(user1);
+        vm.expectEmit(address(eLoans));
+        emit IBaseLoansNFT.LoanCancelled(loanId, address(user1));
+        eLoans.unwrapAndCancelLoan(loanId);
+
+        // NFT burned
+        expectRevertERC721Nonexistent(loanId);
+        eLoans.ownerOf(loanId);
+
+        // taker NFT unwrapped
+        assertEq(takerNFT.ownerOf(takerId), user1);
+
+        // cannot cancel again
+        expectRevertERC721Nonexistent(loanId);
+        eLoans.unwrapAndCancelLoan(loanId);
+
+        // nothing received
+        assertEq(collateralAsset.balanceOf(user1), balanceBefore);
+    }
 }
