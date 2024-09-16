@@ -340,12 +340,13 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
             escrowed * 2,
             fee,
             duration / 2,
-            ExpectedRelease(escrowed * 2 + halfFee, escrowed + halfFee, halfFee)
+            // does not take more than needed (escrow + fees - refund)
+            ExpectedRelease(escrowed + halfFee, escrowed * 2 + halfFee, halfFee)
         );
 
         // overpayment no refund
         check_preview_end_withdraw(
-            escrowed, escrowed * 2, fee, duration, ExpectedRelease(escrowed * 2 + fee, escrowed, 0)
+            escrowed, escrowed * 2, fee, duration, ExpectedRelease(escrowed + fee, escrowed * 2, 0)
         );
     }
 

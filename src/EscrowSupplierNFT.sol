@@ -103,25 +103,13 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @notice Calculates the late fees for an escrow with a min-grace-period "cliff": Overdue
      * time is counted from expiry, but during the min-grace-period late fees are
      * returned as 0 (even though are "accumulating").
-     * @dev Does not cap the late fees from above using max grace period to favor the supplier.
-     * So Loans should not expect late fees to stop growing with time.
      * @param escrowId The ID of the escrow to calculate late fees for
      * @return fee The calculated late fee
      * @return escrowed The original escrowed amount
      */
     function lateFees(uint escrowId) external view returns (uint fee, uint escrowed) {
         Escrow storage escrow = escrows[escrowId];
-        escrowed = escrow.escrowed;
-        if (block.timestamp < escrow.expiration + MIN_GRACE_PERIOD) {
-            // grace period cliff
-            fee = 0;
-        } else {
-            uint overdue = block.timestamp - escrow.expiration; // counts from expiration despite the cliff
-            // cap at specified grace period
-            overdue = _min(overdue, escrow.gracePeriod);
-            // @dev rounds up to prevent avoiding fee using many small positions
-            fee = _divUp(escrowed * escrow.lateFeeAPR * overdue, BIPS_BASE * 365 days);
-        }
+        return (_lateFee(escrow), escrow.escrowed);
     }
 
     /**
@@ -482,22 +470,32 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         view
         returns (uint withdrawal, uint toLoans)
     {
-        // handle under-payment (slippage, default) or over-payment (late fees):
-        // - any gains are for the supplier (late fees), so supplier gets max(escrow, fromLoans)
-        // - any losses are for the borrower (e.g., slippage), so toLoans gets min(escrow, fromLoans)
-        uint escrowed = escrow.escrowed;
-        (withdrawal, toLoans) = escrowed > fromLoans ? (escrowed, fromLoans) : (fromLoans, escrowed);
+        // handle under-payment (slippage, default) or over-payment (excessive late fees):
+        // any shortfall are for the borrower (e.g., slippage) - taken out of the funds held
 
-        // handle interest and its refund due to early release
+        // lateFee is non-zero after min-grace-period is over (late close loan / seized escrow)
+        uint lateFee = _lateFee(escrow);
+        // refund due to early release. If late fee is not 0, this is likely 0 (because is after expiry).
         uint interestRefund = _refundInterestFee(escrow);
 
-        // any refund still goes to loans regardless of repayment because was paid unfront for interest.
-        withdrawal += escrow.interestHeld - interestRefund;
-        toLoans += interestRefund;
+        // everything owed: original escrow + (interest held - interest refund) + late fee
+        uint targetWithdrawal = escrow.escrowed + escrow.interestHeld + lateFee - interestRefund;
+        // what we have is what we held (escrow + full interest) and whatever loans just sent us
+        // @dev note that withdrawal of at least escrow is guaranteed (due to being held in this contract)
+        uint available = escrow.escrowed + escrow.interestHeld + fromLoans;
 
-        /* @dev late fees are not enforced here, and instead Loans is trusted to use the views on this contract
-        to correctly calculate the late fees and grace period to ensure they are not underpaid.
-        This contract needs to trust Loans to do so for these reasons:
+        // use as much as possible from available up to target
+        withdrawal = _min(available, targetWithdrawal);
+        // refund the rest if anything is left
+        toLoans = available - withdrawal;
+
+        // @dev note 1: that interest refund "theoretically" covers some of the late fee shortfall, but
+        // "in practice" this will never happen because either late fees are 0 or interest refund is 0.
+        // @dev note 2: if fromLoans is 0, and lateFee is 0 (roll case), toLoans is just the interest refund
+
+        /* @dev late fees are calculated, but cannot be "enforced" here, and instead Loans is trusted to use
+        the views on this contract to correctly calculate the late fees and grace period to ensure they are
+        not underpaid. This contract needs to trust Loans to do so for these reasons:
         1. Loans needs to swap from cash, and has the information needed to calculate the funds available
         for late fees (withdrawal amount, oracle rate, etc).
         2. Loans needs swap parameters, and has a keeper authorisation system for access control.
@@ -506,6 +504,18 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         the swap parameters + the reduced-grace-period time (by withdrawal), all make it more sensible to
         be done via Loans directly.
         */
+    }
+
+    function _lateFee(Escrow storage escrow) internal view returns (uint) {
+        if (block.timestamp < escrow.expiration + MIN_GRACE_PERIOD) {
+            // grace period cliff
+            return 0;
+        }
+        uint overdue = block.timestamp - escrow.expiration; // counts from expiration despite the cliff
+        // cap at specified grace period
+        overdue = _min(overdue, escrow.gracePeriod);
+        // @dev rounds up to prevent avoiding fee using many small positions
+        return _divUp(escrow.escrowed * escrow.lateFeeAPR * overdue, BIPS_BASE * 365 days);
     }
 
     function _refundInterestFee(Escrow storage escrow) internal view returns (uint refund) {
