@@ -11,7 +11,7 @@ import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/Saf
 // internal imports
 import { CollarTakerNFT, ShortProviderNFT, BaseNFT, ConfigHub } from "./CollarTakerNFT.sol";
 import { Rolls } from "./Rolls.sol";
-import { EscrowSupplierNFT } from "./EscrowSupplierNFT.sol";
+import { EscrowSupplierNFT, IEscrowSupplierNFT } from "./EscrowSupplierNFT.sol";
 import { ISwapper } from "./interfaces/ISwapper.sol";
 import { ILoansNFT } from "./interfaces/ILoansNFT.sol";
 
@@ -51,6 +51,8 @@ contract LoansNFT is BaseNFT, ILoansNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
+    EscrowSupplierNFT internal constant NO_ESCROW = EscrowSupplierNFT(address(0));
+
     /// should be set to not be overly restrictive since is mostly sanity-check
     uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 500;
 
@@ -105,10 +107,83 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         return loans[loanId];
     }
 
+    // TODO: docs
+    function escrowGracePeriodEnd(uint loanId) public view returns (uint) {
+        uint expiration = _expiration(loanId);
+
+        // if this is called before expiration (externally), estimate value using current price
+        uint settleTime = _min(block.timestamp, expiration);
+        // the price that will be used for settlement (past if available, or current if not)
+        (uint oraclePrice,) = takerNFT.oracle().pastPriceWithFallback(uint32(settleTime));
+
+        (uint cashAvailable,) =
+            takerNFT.previewSettlement(takerNFT.getPosition(_takerId(loanId)), oraclePrice);
+
+        // oracle price is for 1e18 tokens (regardless of decimals):
+        // oracle-price = collateral-price * 1e18, so price = oracle-price / 1e18,
+        // since collateral = cash / price, we get collateral = cash * 1e18 / oracle-price.
+        // round down is ok since it's against the user (being foreclosed).
+        // division by zero is not prevented because because a panic is ok with an invalid price
+        uint collateral = cashAvailable * takerNFT.oracle().BASE_TOKEN_AMOUNT() / oraclePrice;
+
+        Loan storage loan = loans[loanId];
+        // assume all available collateral can be used for fees (escrowNFT will cap between max and min)
+        uint cappedGracePeriod = loan.escrowNFT.cappedGracePeriod(loan.escrowId, collateral);
+        // always after expiration, also cappedGracePeriod() is at least min-grace-period
+        return expiration + cappedGracePeriod;
+    }
+
     // ----- STATE CHANGING FUNCTIONS ----- //
 
     // ----- User / Keeper methods ----- //
 
+    function openLoan(
+        OpenLoanParams memory params // TODO: calldata instead of memory
+    ) public whenNotPaused returns (uint loanId, uint providerId, uint escrowId, uint loanAmount) {
+        require(configHub.canOpen(address(this)), "unsupported loans");
+
+        uint pulled = params.collateralAmount + params.escrowFee;
+        collateralAsset.safeTransferFrom(msg.sender, address(this), pulled);
+
+        // handle optional escrow, must be done first, to use "supplier's" collateral in swap
+        escrowId = _optionalOpenEscrow(params);
+
+        // @dev Reentrancy assumption: no user state writes or reads BEFORE this call
+        uint takerId;
+        (takerId, providerId, loanAmount) = _swapAndMintPaired(
+            params.collateralAmount, params.providerNFT, params.shortOffer, params.swapParams
+        );
+        require(loanAmount >= params.minLoanAmount, "loan amount too low");
+
+        loanId = _newLoanIdCheck(takerId);
+        // store the loan opening data
+        loans[loanId] = Loan({
+            collateralAmount: params.collateralAmount,
+            loanAmount: loanAmount,
+            escrowNFT: params.escrowNFT,
+            escrowId: escrowId
+        });
+        // mint the loan NFT to the borrower, keep the taker NFT (with the same ID) in this contract
+        _mint(msg.sender, loanId); // @dev does not use _safeMint to avoid reentrancy
+
+        // some validations that can only be done here, after everything is available
+        _optionalEscrowValidation(params.escrowNFT, loanId, escrowId);
+
+        // transfer the full loan amount on open
+        cashAsset.safeTransfer(msg.sender, loanAmount);
+
+        emit LoanOpened(
+            msg.sender,
+            address(params.providerNFT),
+            params.shortOffer,
+            params.collateralAmount,
+            loanAmount,
+            loanId,
+            providerId
+        );
+    }
+
+    // TODO: remove this temp method
     /**
      * @notice Opens a new loan by providing collateral and borrowing against it
      * @dev This function handles the entire loan creation process:
@@ -136,31 +211,8 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         ShortProviderNFT providerNFT, // @dev will be validated by takerNFT, which is immutable
         uint offerId // @dev implies specific provider, put & call deviations, duration
     ) external whenNotPaused returns (uint loanId, uint providerId, uint loanAmount) {
-        // pull collateral
-        collateralAsset.safeTransferFrom(msg.sender, address(this), collateralAmount);
-
-        // @dev Reentrancy assumption: no user state writes or reads BEFORE this call
-        uint takerId;
-        (takerId, providerId, loanAmount) =
-            _swapAndMintPaired(collateralAmount, providerNFT, offerId, swapParams);
-        require(loanAmount >= minLoanAmount, "loan amount too low");
-
-        loanId = _newLoanIdCheck(takerId);
-        // store the loan opening data
-        loans[loanId] = Loan({
-            collateralAmount: collateralAmount,
-            loanAmount: loanAmount,
-            escrowNFT: EscrowSupplierNFT(address(0)),
-            escrowId: 0
-        });
-        // mint the loan NFT to the borrower, keep the taker NFT (with the same ID) in this contract
-        _mint(msg.sender, loanId); // @dev does not use _safeMint to avoid reentrancy
-
-        // transfer the full loan amount on open
-        cashAsset.safeTransfer(msg.sender, loanAmount);
-
-        emit LoanOpened(
-            msg.sender, address(providerNFT), offerId, collateralAmount, loanAmount, loanId, providerId
+        (loanId, providerId,, loanAmount) = openLoan(
+            OpenLoanParams(collateralAmount, minLoanAmount, swapParams, providerNFT, offerId, NO_ESCROW, 0, 0)
         );
     }
 
@@ -229,7 +281,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         Loan storage prevLoan = loans[loanId];
 
         // escrowed loans should the other method
-        require(prevLoan.escrowNFT == EscrowSupplierNFT(address(0)), "escrow exists");
+        require(prevLoan.escrowNFT == NO_ESCROW, "escrow exists");
         // @dev rolls contract is assumed to not allow rolling an expired or settled position,
         // but checking explicitly is safer and easier to review
         require(_expiration(loanId) > block.timestamp, "loan expired");
@@ -257,7 +309,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         loans[newLoanId] = Loan({
             collateralAmount: prevLoan.collateralAmount,
             loanAmount: newLoanAmount,
-            escrowNFT: EscrowSupplierNFT(address(0)),
+            escrowNFT: NO_ESCROW,
             escrowId: 0
         });
 
@@ -337,7 +389,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         uint collateralAmount,
         ShortProviderNFT providerNFT,
         uint offerId,
-        SwapParams calldata swapParams
+        SwapParams memory swapParams // TODO: calldata instead of memory
     ) internal returns (uint takerId, uint providerId, uint loanAmount) {
         // 0 collateral is later checked to mean non-existing loan, also prevents div-zero
         require(collateralAmount != 0, "invalid collateral amount");
@@ -361,7 +413,8 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         (takerId, providerId) = takerNFT.openPairedPosition(putLockedCash, providerNFT, offerId);
     }
 
-    function _swapCollateralWithTwapCheck(uint collateralAmount, SwapParams calldata swapParams)
+    // TODO: calldata instead of memory
+    function _swapCollateralWithTwapCheck(uint collateralAmount, SwapParams memory swapParams)
         internal
         returns (uint cashFromSwap)
     {
@@ -375,7 +428,8 @@ contract LoansNFT is BaseNFT, ILoansNFT {
     /// @dev reentrancy assumption: _swap is called either before or after all internal user state
     /// writes or reads. Such that if there's a reentrancy (e.g., via a malicious token in a
     /// multi-hop route), it should NOT be able to take advantage of any inconsistent state.
-    function _swap(IERC20 assetIn, IERC20 assetOut, uint amountIn, SwapParams calldata swapParams)
+    // TODO: calldata instead of memory
+    function _swap(IERC20 assetIn, IERC20 assetOut, uint amountIn, SwapParams memory swapParams)
         internal
         returns (uint amountOut)
     {
@@ -409,7 +463,8 @@ contract LoansNFT is BaseNFT, ILoansNFT {
 
     /// @dev access control (loanId owner ot their keeper) is expected to be checked by caller
     /// @dev this method DOES NOT transfer the swapped collateral to user
-    function _closeLoanNoTFOut(uint loanId, SwapParams calldata swapParams)
+    // TODO: calldata instead of memory
+    function _closeLoanNoTFOut(uint loanId, SwapParams memory swapParams)
         internal
         returns (uint collateralOut)
     {
@@ -495,6 +550,31 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         require(cashAsset.balanceOf(address(this)) == initialBalance, "contract balance changed");
     }
 
+    // ----- Optional escrow mutative methods ----- //
+
+    // TODO: calldata instead of memory
+    function _optionalOpenEscrow(OpenLoanParams memory params) internal returns (uint escrowId) {
+        EscrowSupplierNFT escrowNFT = params.escrowNFT;
+        if (escrowNFT == NO_ESCROW) {
+            require(params.escrowFee == 0, "invalid escrowFee"); // user / FE mistake
+                // no-up, returns default value
+        } else {
+            // whitelisted only
+            require(configHub.canOpen(address(escrowNFT)), "unsupported escrow");
+            // fail gracefully for assets mismatch (instead of allowance / balance failures)
+            require(escrowNFT.asset() == takerNFT.collateralAsset(), "asset mismatch");
+            // get the supplier collateral for the swap
+            collateralAsset.forceApprove(address(escrowNFT), params.collateralAmount + params.escrowFee);
+            (escrowId,) = escrowNFT.startEscrow({
+                offerId: params.escrowOffer,
+                escrowed: params.collateralAmount,
+                fee: params.escrowFee,
+                loanId: takerNFT.nextPositionId() // @dev will be checked later to correspond
+             });
+            // @dev no balance checks because contract holds no funds, mismatch will cause reverts
+        }
+    }
+
     // ----- INTERNAL VIEWS ----- //
 
     function _isSenderOrKeeperFor(address authorizedSender) internal view returns (bool) {
@@ -556,6 +636,24 @@ contract LoansNFT is BaseNFT, ILoansNFT {
             newLoanAmount = initialLoanAmount - repayment;
         } else {
             newLoanAmount = initialLoanAmount + uint(loanChange);
+        }
+    }
+
+    // ----- Internal escrow views ----- //
+
+    function _optionalEscrowValidation(EscrowSupplierNFT escrowNFT, uint loanId, uint escrowId)
+        internal
+        view
+    {
+        // @dev these checks are done in the end because escrow position is created first, so
+        // on creation cannot be validated with these two checks
+        if (escrowNFT != NO_ESCROW) {
+            IEscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(escrowId);
+            // taker.nextPositionId() view was used to create escrow, but it was used before external
+            // calls, so we need to ensure it matches still (was not skipped by reentrancy)
+            require(escrow.loanId == loanId, "unexpected loanId");
+            // check expirations are equal to ensure no duration mismatch between escrow and collar
+            require(escrow.expiration == _expiration(loanId), "duration mismatch");
         }
     }
 }

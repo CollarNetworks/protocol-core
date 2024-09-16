@@ -87,6 +87,7 @@ contract LoansTestBase is AllLoansTestSetup {
 
         // config
         vm.startPrank(owner);
+        configHub.setCanOpen(address(loans), true);
         loans.setRollsContract(rolls);
         defaultSwapper = address(swapperUniV3);
         loans.setSwapperAllowed(defaultSwapper, true, true);
