@@ -251,9 +251,10 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         // @dev cache the user now, since _closeLoanNoTFOut will burn the NFT, so ownerOf will revert
         address user = ownerOf(loanId);
 
-        collateralOut = _closeLoanNoTFOut(loanId, swapParams);
+        uint fromSwap = _closeLoanNoTFOut(loanId, swapParams);
 
-        // send to user the released collateral
+        collateralOut = _optionalReleaseEscrow(loanId, fromSwap);
+
         collateralAsset.safeTransfer(user, collateralOut);
     }
 
@@ -572,6 +573,35 @@ contract LoansNFT is BaseNFT, ILoansNFT {
                 loanId: takerNFT.nextPositionId() // @dev will be checked later to correspond
              });
             // @dev no balance checks because contract holds no funds, mismatch will cause reverts
+        }
+    }
+
+    function _optionalReleaseEscrow(uint loanId, uint fromSwap) internal returns (uint collateralOut) {
+        EscrowSupplierNFT escrowNFT = loans[loanId].escrowNFT;
+        if (escrowNFT == NO_ESCROW) {
+            collateralOut = fromSwap; // no-op
+        } else {
+            uint escrowId = loans[loanId].escrowId;
+            // get late fee owing
+            (uint lateFee, uint escrowed) = escrowNFT.lateFees(escrowId);
+
+            // if owing more than swapped, use all, otherwise just what's owed
+            uint toEscrow = _min(fromSwap, escrowed + lateFee);
+            // if owing less than swapped, left over gains are for the user
+            uint leftOver = fromSwap - toEscrow;
+
+            // release from escrow, this can be smaller than available
+            collateralAsset.forceApprove(address(escrowNFT), toEscrow);
+            // fromEscrow is what escrow returns after deducting any shortfall.
+            // (although not problematic, there should not be any interest fee refund here,
+            // because this method is called after expiry)
+            uint fromEscrow = escrowNFT.endEscrow(escrowId, toEscrow);
+            // @dev no balance checks because contract holds no funds, mismatch will cause reverts
+
+            // send to user the released and the leftovers. Zero-value-transfer is allowed
+            collateralOut = fromEscrow + leftOver;
+
+            emit EscrowSettled(escrowId, toEscrow, fromEscrow, leftOver);
         }
     }
 
