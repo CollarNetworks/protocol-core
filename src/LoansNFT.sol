@@ -116,8 +116,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         // the price that will be used for settlement (past if available, or current if not)
         (uint oraclePrice,) = takerNFT.oracle().pastPriceWithFallback(uint32(settleTime));
 
-        (uint cashAvailable,) =
-            takerNFT.previewSettlement(takerNFT.getPosition(_takerId(loanId)), oraclePrice);
+        (uint cashAvailable,) = takerNFT.previewSettlement(_takerId(loanId), oraclePrice);
 
         // oracle price is for 1e18 tokens (regardless of decimals):
         // oracle-price = collateral-price * 1e18, so price = oracle-price / 1e18,
@@ -368,12 +367,12 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         // and because address won't be available after burning
         address user = ownerOf(loanId);
 
-        // @dev gracePeriodEnd uses twap-price, while actual foreclosing swap is using spot price.
+        // @dev escrowGracePeriodEnd uses twap-price, while actual foreclosing swap is using spot price.
         // This has several implications:
         // 1. This protects foreclosing from price manipulation edge-cases.
         // 2. The final swap can be manipulated against the supplier, so either they or a trusted keeper
         //    should do it.
-        // 3. This also means that swap amount may be different from the estimation in gracePeriodEnd
+        // 3. This also means that swap amount may be different from the estimation in escrowGracePeriodEnd
         //    if the period was capped by cash-time-value near the end a grace-period.
         //    In this case, if swap price is less than twap, the late fees may be slightly underpaid
         //    because of the swap-twap difference and slippage.
@@ -388,7 +387,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         // foreClosing is a state with other negative consequence they should try to avoid anyway
         _burn(loanId);
 
-        // @dev will revert if too early, although the gracePeriodEnd check above will revert first
+        // @dev will revert if too early, although the escrowGracePeriodEnd check above will revert first
         uint cashAvailable = _settleAndWithdrawTaker(loanId);
 
         // @dev Reentrancy assumption: no user state writes or reads AFTER the swapper call in _swap.
@@ -715,12 +714,12 @@ contract LoansNFT is BaseNFT, ILoansNFT {
     }
 
     function _optionalSwitchEscrow(
-        uint loanId,
+        uint prevLoanId,
         uint newEscrowOffer,
         uint newEscrowFee,
         uint expectedNewLoanId
     ) internal returns (uint newEscrowId) {
-        EscrowSupplierNFT escrowNFT = loans[loanId].escrowNFT;
+        EscrowSupplierNFT escrowNFT = loans[prevLoanId].escrowNFT;
         if (escrowNFT == NO_ESCROW) {
             return 0; // no-op, returns 0 since escrow is not used
         }
@@ -730,7 +729,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         // rotate escrows
         uint feeRefund;
         (newEscrowId,, feeRefund) = escrowNFT.switchEscrow({
-            releaseEscrowId: loans[loanId].escrowId,
+            releaseEscrowId: loans[prevLoanId].escrowId,
             offerId: newEscrowOffer,
             newLoanId: expectedNewLoanId, // @dev should be validated after this
             newFee: newEscrowFee
