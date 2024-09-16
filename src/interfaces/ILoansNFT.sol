@@ -39,16 +39,6 @@ interface ILoansNFT {
         uint escrowFee;
     }
 
-    struct RollLoanParams {
-        uint loanId;
-        Rolls rolls;
-        uint rollId;
-        int minToUser; // cash
-        EscrowSupplierNFT newEscrowNFT; // optional
-        uint newEscrowOffer;
-        uint newEscrowFee; // collateral
-    }
-
     // events
     event LoanOpened(
         address indexed sender,

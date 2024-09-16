@@ -132,7 +132,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         // check the view
         {
             (uint takerBalanceView, int providerChangeView) =
-                takerNFT.previewSettlement(takerPos, expectedSettlePrice);
+                takerNFT.previewSettlement(takerId, expectedSettlePrice);
             assertEq(takerBalanceView, expectedTakerOut);
             assertEq(providerChangeView, expectedProviderChange);
         }

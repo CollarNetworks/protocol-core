@@ -132,10 +132,9 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offer.takerId);
         rollFee = calculateRollFee(offer, price);
         (toTaker, toProvider) = _calculateTransferAmounts({
-            startPrice: takerPos.initialPrice,
             newPrice: price,
             rollFeeAmount: rollFee,
-            takerPos: takerPos,
+            takerId: offer.takerId,
             providerPos: takerPos.providerNFT.getPosition(takerPos.providerPositionId)
         });
     }
@@ -311,10 +310,9 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         // calculate the transfer amounts
         int rollFee = calculateRollFee(offer, newPrice);
         (toTaker, toProvider) = _calculateTransferAmounts({
-            startPrice: takerPos.initialPrice,
             newPrice: newPrice,
             rollFeeAmount: rollFee,
-            takerPos: takerPos,
+            takerId: offer.takerId,
             providerPos: providerPos
         });
 
@@ -422,19 +420,19 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
     }
 
     function _calculateTransferAmounts(
-        uint startPrice,
         uint newPrice,
         int rollFeeAmount,
-        CollarTakerNFT.TakerPosition memory takerPos,
+        uint takerId,
         ShortProviderNFT.ProviderPosition memory providerPos
     ) internal view returns (int toTaker, int toProvider) {
         // what would the taker and provider get from a settlement of the old position at current settlement price
-        (uint takerSettled, int providerChange) = takerNFT.previewSettlement(takerPos, newPrice);
+        (uint takerSettled, int providerChange) = takerNFT.previewSettlement(takerId, newPrice);
+        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
         int providerSettled = takerPos.callLockedCash.toInt256() + providerChange;
 
         // what are the new locked amounts as they will be calculated when opening the new positions
         (uint newPutLocked, uint newCallLocked) = _newLockedAmounts({
-            startPrice: startPrice,
+            startPrice: takerPos.initialPrice,
             newPrice: newPrice,
             putLocked: takerPos.putLockedCash,
             putDeviation: providerPos.putStrikeDeviation,
