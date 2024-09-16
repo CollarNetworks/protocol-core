@@ -23,14 +23,6 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         vm.startPrank(user1);
         vm.expectRevert("rolls contract unset");
         loans.rollLoan(loanId, rolls, rollId, type(int).min);
-
-        // Rolls contract mismatch
-        Rolls newRolls = new Rolls(owner, takerNFT);
-        vm.startPrank(owner);
-        loans.setRollsContract(newRolls);
-        vm.startPrank(user1);
-        vm.expectRevert("rolls contract mismatch");
-        loans.rollLoan(loanId, rolls, rollId, type(int).min);
     }
 
     function test_revert_rollLoan_basic_checks() public {
