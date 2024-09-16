@@ -152,7 +152,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
 
         // @dev Reentrancy assumption: no user state writes or reads BEFORE this call
         uint takerId;
-        (takerId, providerId, loanAmount) = _swapAndMintPaired(
+        (takerId, providerId, loanAmount) = _swapAndMintCollar(
             params.collateralAmount, params.providerNFT, params.shortOffer, params.swapParams
         );
         require(loanAmount >= params.minLoanAmount, "loan amount too low");
@@ -452,7 +452,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    function _swapAndMintPaired(
+    function _swapAndMintCollar(
         uint collateralAmount,
         ShortProviderNFT providerNFT,
         uint offerId,
