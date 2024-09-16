@@ -138,7 +138,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
 
     function openLoan(
         OpenLoanParams memory params // TODO: calldata instead of memory
-    ) public whenNotPaused returns (uint loanId, uint providerId, uint escrowId, uint loanAmount) {
+    ) public whenNotPaused returns (uint loanId, uint providerId, uint loanAmount) {
         require(configHub.canOpen(address(this)), "unsupported loans");
         // provider NFT is checked by taker
         // escrow NFT is checked in _optionalOpenEscrow, taker is checked in _swapAndMintPaired
@@ -147,7 +147,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         collateralAsset.safeTransferFrom(msg.sender, address(this), pulled);
 
         // handle optional escrow, must be done first, to use "supplier's" collateral in swap
-        escrowId = _optionalOpenEscrow(params);
+        uint escrowId = _optionalOpenEscrow(params);
 
         // @dev Reentrancy assumption: no user state writes or reads BEFORE this call
         uint takerId;
@@ -212,7 +212,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         ShortProviderNFT providerNFT, // @dev will be validated by takerNFT, which is immutable
         uint offerId // @dev implies specific provider, put & call deviations, duration
     ) external returns (uint loanId, uint providerId, uint loanAmount) {
-        (loanId, providerId,, loanAmount) = openLoan(
+        return openLoan(
             OpenLoanParams(collateralAmount, minLoanAmount, swapParams, providerNFT, offerId, NO_ESCROW, 0, 0)
         );
     }
@@ -259,6 +259,25 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         collateralAsset.safeTransfer(user, collateralOut);
     }
 
+    /**
+     * @notice Rolls an existing loan to a new taker position with updated terms via a Rolls contract.
+     * The loan amount is updated according to the funds transferred (excluding the roll-fee), and the
+     * collateral is unchanged.
+     * @dev The user must have approved this contract prior to calling:
+     *      - Cash asset for potential repayment (if needed according for Roll execution)
+     *      - The loan NFT for burning
+     * @param loanId The ID of the NFT representing the loan to be rolled
+     * @param rollId The ID of the roll offer to be executed
+     * @param minToUser The minimum acceptable transfer to user (negative if expecting to pay)
+     * @param newEscrowOffer An escrowNFT offer for the new escrow to be opened if the loans is using
+     * and escrow. The same escrowNFT contract will be used, but an offer must be specified.
+     * @param newEscrowFee The fee to pay for the new escrow. Any interest refund from previous escrow
+     * will be sent to msg.sender.
+     * @return newLoanId The ID of the newly minted NFT representing the rolled loan
+     * @return newLoanAmount The updated loan amount after rolling
+     * @return transferAmount The actual transfer to user (or from user if negative) including roll-fee
+     */
+    // TODO update docs
     function rollLoan(
         uint loanId,
         uint rollId,
@@ -307,29 +326,6 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         emit LoanRolled(
             msg.sender, loanId, rollId, newLoanId, prevLoan.loanAmount, newLoanAmount, transferAmount
         );
-    }
-
-    // TODO: remove this method after tests are updated
-    /**
-     * @notice Rolls an existing loan to a new taker position with updated terms via a Rolls contract.
-     * The loan amount is updated according to the funds transferred (excluding the roll-fee), and the
-     * collateral is unchanged.
-     * @dev The user must have approved this contract prior to calling:
-     *      - Cash asset for potential repayment (if needed according for Roll execution)
-     *      - The loan NFT for burning
-     * @param loanId The ID of the NFT representing the loan to be rolled
-     * @param rolls The Rolls contract to be used for this operation (must match the configured one)
-     * @param rollId The ID of the roll offer to be executed
-     * @param minToUser The minimum acceptable transfer to user (negative if expecting to pay)
-     * @return newLoanId The ID of the newly minted NFT representing the rolled loan
-     * @return newLoanAmount The updated loan amount after rolling
-     * @return transferAmount The actual transfer to user (or from user if negative) including roll-fee
-     */
-    function rollLoan(uint loanId, Rolls rolls, uint rollId, int minToUser)
-        external
-        returns (uint newLoanId, uint newLoanAmount, int transferAmount)
-    {
-        return rollLoan(loanId, rollId, minToUser, 0, 0);
     }
 
     /**
