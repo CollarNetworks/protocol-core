@@ -28,6 +28,27 @@ interface ILoansNFT {
         bytes extraData;
     }
 
+    struct OpenLoanParams {
+        uint collateralAmount;
+        uint minLoanAmount;
+        SwapParams swapParams;
+        ShortProviderNFT providerNFT;
+        uint shortOffer;
+        EscrowSupplierNFT escrowNFT; // optional
+        uint escrowOffer;
+        uint escrowFee;
+    }
+
+    struct RollLoanParams {
+        uint loanId;
+        Rolls rolls;
+        uint rollId;
+        int minToUser; // cash
+        EscrowSupplierNFT newEscrowNFT; // optional
+        uint newEscrowOffer;
+        uint newEscrowFee; // collateral
+    }
+
     // events
     event LoanOpened(
         address indexed sender,
@@ -60,6 +81,7 @@ interface ILoansNFT {
     event ClosingKeeperUpdated(address indexed previousKeeper, address indexed newKeeper);
     event RollsContractUpdated(Rolls indexed previousRolls, Rolls indexed newRolls);
     event SwapperSet(address indexed swapper, bool indexed allowed, bool indexed setDefault);
+    event EscrowSettled(uint indexed escrowId, uint toEscrow, uint fromEscrow, uint leftOver);
 
     // constants
     function MAX_SWAP_TWAP_DEVIATION_BIPS() external view returns (uint);
@@ -91,27 +113,4 @@ interface ILoansNFT {
         external
         returns (uint newLoanId, uint newLoanAmount, int transferAmount);
     function unwrapAndCancelLoan(uint loanId) external;
-}
-
-interface IEscrowLoansNFT is ILoansNFT {
-    struct OpenLoanParams {
-        uint collateralAmount;
-        uint minLoanAmount;
-        SwapParams swapParams;
-        ShortProviderNFT providerNFT;
-        uint shortOffer;
-        uint escrowOffer;
-        uint escrowFee;
-    }
-
-    struct RollLoanParams {
-        uint loanId;
-        Rolls rolls;
-        uint rollId;
-        int minToUser; // cash
-        uint newEscrowOffer;
-        uint newEscrowFee; // collateral
-    }
-
-    event EscrowSettled(uint indexed escrowId, uint toEscrow, uint fromEscrow, uint leftOver);
 }
