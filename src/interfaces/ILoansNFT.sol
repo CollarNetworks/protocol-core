@@ -12,11 +12,14 @@ import { ConfigHub } from "../ConfigHub.sol";
 import { CollarTakerNFT } from "../CollarTakerNFT.sol";
 import { ShortProviderNFT } from "../ShortProviderNFT.sol";
 import { Rolls } from "../Rolls.sol";
+import { EscrowSupplierNFT } from "../EscrowSupplierNFT.sol";
 
-interface IBaseLoansNFT {
+interface ILoansNFT {
     struct Loan {
         uint collateralAmount;
         uint loanAmount;
+        EscrowSupplierNFT escrowNFT; // optional, 0 address for non-escrow loans
+        uint escrowId;
     }
 
     struct SwapParams {
@@ -72,12 +75,8 @@ interface IBaseLoansNFT {
     // mutative contract owner
     function setKeeper(address keeper) external;
     function setRollsContract(Rolls rolls) external;
-    // mutative user
+    // mutative user (+ some keeper)
     function setKeeperAllowed(bool enabled) external;
-}
-
-interface ILoansNFT is IBaseLoansNFT {
-    // mutative user (and keeper for some)
     function openLoan(
         uint collateralAmount,
         uint minLoanAmount,
@@ -94,7 +93,7 @@ interface ILoansNFT is IBaseLoansNFT {
     function unwrapAndCancelLoan(uint loanId) external;
 }
 
-interface IEscrowLoansNFT is IBaseLoansNFT {
+interface IEscrowLoansNFT is ILoansNFT {
     struct OpenLoanParams {
         uint collateralAmount;
         uint minLoanAmount;

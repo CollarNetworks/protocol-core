@@ -13,9 +13,7 @@ import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
-import {
-    LoansTestBase, TestERC20, SwapperUniV3, ISwapper, EscrowSupplierNFT
-} from "./Loans.basic.effects.t.sol";
+import { LoansTestBase, TestERC20, SwapperUniV3, ISwapper } from "./Loans.basic.effects.t.sol";
 
 contract LoansAdminTest is LoansTestBase {
     function test_onlyOwnerMethods() public {
@@ -32,7 +30,7 @@ contract LoansAdminTest is LoansTestBase {
         loans.setKeeper(keeper);
 
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
-        loans.setContracts(Rolls(address(0)), ShortProviderNFT(address(0)), EscrowSupplierNFT(address(0)));
+        loans.setRollsContract(Rolls(address(0)));
 
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
         loans.setSwapperAllowed(address(0), true, true);
@@ -49,36 +47,25 @@ contract LoansAdminTest is LoansTestBase {
         assertEq(loans.closingKeeper(), keeper);
     }
 
-    function test_setContracts() public {
+    function test_setRollsContract() public {
         // check setup
-        assertEq(address(loans.currentRolls()), address(rolls));
-        assertEq(address(loans.currentProviderNFT()), address(providerNFT));
-        assertEq(address(loans.currentEscrowNFT()), address(escrowNFT));
+        assertEq(address(loans.rollsContract()), address(rolls));
         // check can update
         Rolls newRolls = new Rolls(owner, takerNFT);
-        ShortProviderNFT newProvider =
-            new ShortProviderNFT(owner, configHub, cashAsset, collateralAsset, address(takerNFT), "", "");
-        EscrowSupplierNFT newEscrow = new EscrowSupplierNFT(owner, configHub, collateralAsset, "", "");
         vm.startPrank(owner);
         vm.expectEmit(address(loans));
-        emit ILoansNFT.ContractsUpdated(newRolls, newProvider, newEscrow);
-        loans.setContracts(newRolls, newProvider, newEscrow);
+        emit ILoansNFT.RollsContractUpdated(rolls, newRolls);
+        loans.setRollsContract(newRolls);
         // check effect
-        assertEq(address(loans.currentRolls()), address(newRolls));
-        assertEq(address(loans.currentProviderNFT()), address(newProvider));
-        assertEq(address(loans.currentEscrowNFT()), address(newEscrow));
+        assertEq(address(loans.rollsContract()), address(newRolls));
 
         // check can unset (set to zero address)
         Rolls unsetRolls = Rolls(address(0));
-        ShortProviderNFT unsetProvider = ShortProviderNFT(address(0));
-        EscrowSupplierNFT unsetEscrow = EscrowSupplierNFT(address(0));
         vm.expectEmit(address(loans));
-        emit ILoansNFT.ContractsUpdated(unsetRolls, unsetProvider, unsetEscrow);
-        loans.setContracts(unsetRolls, unsetProvider, unsetEscrow);
+        emit ILoansNFT.RollsContractUpdated(newRolls, unsetRolls);
+        loans.setRollsContract(unsetRolls);
         // check effect
-        assertEq(address(loans.currentRolls()), address(unsetRolls));
-        assertEq(address(loans.currentProviderNFT()), address(unsetProvider));
-        assertEq(address(loans.currentEscrowNFT()), address(unsetEscrow));
+        assertEq(address(loans.rollsContract()), address(unsetRolls));
     }
 
     function test_setSwapperAllowed() public {
@@ -121,10 +108,7 @@ contract LoansAdminTest is LoansTestBase {
         vm.startPrank(user1);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.openLoan(0, 0, defaultSwapParams(0), 0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.openEscrowLoan(0, 0, defaultSwapParams(0), 0, 0);
+        loans.openLoan(0, 0, defaultSwapParams(0), providerNFT, 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
         loans.setKeeperAllowed(true);
@@ -133,7 +117,7 @@ contract LoansAdminTest is LoansTestBase {
         loans.closeLoan(loanId, defaultSwapParams(0));
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.rollLoan(loanId, 0, 0, 0);
+        loans.rollLoan(loanId, rolls, 0, 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
         loans.unwrapAndCancelLoan(loanId);
@@ -154,32 +138,21 @@ contract LoansAdminTest is LoansTestBase {
         createAndCheckLoan();
     }
 
-    function test_revert_setContracts() public {
-        // Test revert when called by non-owner (tested elsewhere as well)
-        vm.startPrank(user1);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user1));
-        loans.setContracts(Rolls(address(0)), ShortProviderNFT(address(0)), EscrowSupplierNFT(address(0)));
-
+    function test_revert_setRollsContract() public {
         vm.startPrank(owner);
-        // rolls taker match
+
+        // Test revert when taker NFT doesn't match
         CollarTakerNFT invalidTakerNFT = new CollarTakerNFT(
             owner, configHub, cashAsset, collateralAsset, mockOracle, "InvalidTakerNFT", "INVTKR"
         );
         Rolls invalidTakerRolls = new Rolls(owner, invalidTakerNFT);
-        vm.expectRevert("rolls taker mismatch");
-        loans.setContracts(invalidTakerRolls, providerNFT, escrowNFT);
+        vm.expectRevert("rolls taker NFT mismatch");
+        loans.setRollsContract(invalidTakerRolls);
 
-        // test provider mismatch
-        ShortProviderNFT invalidProvider = new ShortProviderNFT(
-            owner, configHub, cashAsset, collateralAsset, address(invalidTakerNFT), "", ""
-        );
-        vm.expectRevert("provider taker mismatch");
-        loans.setContracts(rolls, invalidProvider, escrowNFT);
-
-        // test escrow asset mismathc
-        EscrowSupplierNFT invalidEscrow = new EscrowSupplierNFT(owner, configHub, cashAsset, "", "");
-        vm.expectRevert("escrow asset mismatch");
-        loans.setContracts(rolls, providerNFT, invalidEscrow);
+        // Test revert when called by non-owner (tested elsewhere as well)
+        vm.startPrank(user1);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user1));
+        loans.setRollsContract(Rolls(address(0)));
     }
 
     function test_setSwapperAllowed_InvalidSwapper() public {

@@ -8,7 +8,7 @@ import { BaseAssetPairTestSetup } from "./BaseAssetPairTestSetup.sol";
 import { MockSwapperRouter } from "../utils/MockSwapRouter.sol";
 import { SwapperArbitraryCall } from "../utils/SwapperArbitraryCall.sol";
 
-import { LoansNFT, IBaseLoansNFT, BaseLoansNFT } from "../../src/LoansNFT.sol";
+import { LoansNFT, ILoansNFT } from "../../src/LoansNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
 import { SwapperUniV3, ISwapper } from "../../src/SwapperUniV3.sol";
@@ -49,9 +49,8 @@ contract AllLoansTestSetup is BaseAssetPairTestSetup {
         prepareSwap(cashAsset, swapOut);
     }
 
-    function defaultSwapParams(uint minOut) internal view returns (IBaseLoansNFT.SwapParams memory) {
-        return
-            IBaseLoansNFT.SwapParams({ minAmountOut: minOut, swapper: defaultSwapper, extraData: extraData });
+    function defaultSwapParams(uint minOut) internal view returns (ILoansNFT.SwapParams memory) {
+        return ILoansNFT.SwapParams({ minAmountOut: minOut, swapper: defaultSwapper, extraData: extraData });
     }
 
     function createOfferAsProvider() internal returns (uint offerId) {
@@ -60,7 +59,7 @@ contract AllLoansTestSetup is BaseAssetPairTestSetup {
         offerId = providerNFT.createOffer(callStrikeDeviation, largeAmount, ltv, duration);
     }
 
-    function switchToArbitrarySwapper(BaseLoansNFT baseLoans)
+    function switchToArbitrarySwapper(LoansNFT baseLoans)
         internal
         returns (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper)
     {
@@ -92,10 +91,6 @@ contract LoansTestBase is AllLoansTestSetup {
         defaultSwapper = address(swapperUniV3);
         loans.setSwapperAllowed(defaultSwapper, true, true);
         vm.stopPrank();
-    }
-
-    function _baseLoans() internal view returns (BaseLoansNFT baseLoans) {
-        return BaseLoansNFT(address(loans));
     }
 
     struct Balances {
@@ -130,7 +125,7 @@ contract LoansTestBase is AllLoansTestSetup {
         assertGt(expectedFee, 0); // ensure fee is expected
 
         vm.expectEmit(address(loans));
-        emit IBaseLoansNFT.LoanOpened(
+        emit ILoansNFT.LoanOpened(
             user1,
             address(providerNFT),
             offerId,
@@ -203,7 +198,7 @@ contract LoansTestBase is AllLoansTestSetup {
         // caller closes the loan
         vm.startPrank(caller);
         vm.expectEmit(address(loans));
-        emit IBaseLoansNFT.LoanClosed(loanId, caller, user1, loanAmount, loanAmount + withdrawal, fromSwap);
+        emit ILoansNFT.LoanClosed(loanId, caller, user1, loanAmount, loanAmount + withdrawal, fromSwap);
         uint collateralOut = loans.closeLoan(loanId, defaultSwapParams(0));
 
         // Check balances and return value
@@ -271,12 +266,12 @@ contract LoansBasicEffectsTest is LoansTestBase {
         assertFalse(loans.allowsClosingKeeper(user1));
 
         vm.expectEmit(address(loans));
-        emit IBaseLoansNFT.ClosingKeeperAllowed(user1, true);
+        emit ILoansNFT.ClosingKeeperAllowed(user1, true);
         loans.setKeeperAllowed(true);
         assertTrue(loans.allowsClosingKeeper(user1));
 
         vm.expectEmit(address(loans));
-        emit IBaseLoansNFT.ClosingKeeperAllowed(user1, false);
+        emit ILoansNFT.ClosingKeeperAllowed(user1, false);
         loans.setKeeperAllowed(false);
         assertFalse(loans.allowsClosingKeeper(user1));
     }
@@ -355,8 +350,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
     }
 
     function test_openLoan_swapper_extraData() public {
-        (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) =
-            switchToArbitrarySwapper(_baseLoans());
+        (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) = switchToArbitrarySwapper(loans);
         assertFalse(loans.allowedSwappers(address(swapperUniV3)));
         assertTrue(loans.allowedSwappers(address(arbCallSwapper)));
 
@@ -389,8 +383,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         uint swapOut = prepareSwapToCollateralAtTWAPPrice();
 
         // switch swappers
-        (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) =
-            switchToArbitrarySwapper(_baseLoans());
+        (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) = switchToArbitrarySwapper(loans);
         assertFalse(loans.allowedSwappers(address(swapperUniV3)));
         assertTrue(loans.allowedSwappers(address(arbCallSwapper)));
 
@@ -423,7 +416,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
 
         // cancel
         vm.expectEmit(address(loans));
-        emit IBaseLoansNFT.LoanCancelled(loanId, address(user1));
+        emit ILoansNFT.LoanCancelled(loanId, address(user1));
         loans.unwrapAndCancelLoan(loanId);
 
         // NFT burned
