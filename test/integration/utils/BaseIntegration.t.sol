@@ -7,7 +7,7 @@ import { ConfigHub } from "../../../src/ConfigHub.sol";
 import { ShortProviderNFT } from "../../../src/ShortProviderNFT.sol";
 import { OracleUniV3TWAP } from "../../../src/OracleUniV3TWAP.sol";
 import { CollarTakerNFT } from "../../../src/CollarTakerNFT.sol";
-import { LoansNFT, IBaseLoansNFT } from "../../../src/LoansNFT.sol";
+import { LoansNFT, ILoansNFT } from "../../../src/LoansNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";

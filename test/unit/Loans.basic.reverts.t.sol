@@ -7,7 +7,7 @@ import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-import { LoansNFT, IBaseLoansNFT } from "../../src/LoansNFT.sol";
+import { LoansNFT, ILoansNFT } from "../../src/LoansNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
@@ -321,6 +321,6 @@ contract ReentrantCloser {
 
     fallback() external virtual {
         loans.transferFrom(nftOwner, address(this), id);
-        loans.closeLoan(id, IBaseLoansNFT.SwapParams(0, address(loans.defaultSwapper()), ""));
+        loans.closeLoan(id, ILoansNFT.SwapParams(0, address(loans.defaultSwapper()), ""));
     }
 }

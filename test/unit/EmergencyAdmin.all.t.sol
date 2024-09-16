@@ -15,7 +15,6 @@ import { ConfigHub } from "../../src/ConfigHub.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
 import { EscrowSupplierNFT } from "../../src/EscrowSupplierNFT.sol";
-import { EscrowLoansNFT } from "../../src/EscrowLoansNFT.sol";
 import { LoansNFT } from "../../src/LoansNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
@@ -241,17 +240,6 @@ contract LoansEmergencyAdminTest is TakerNFTEmergencyAdminTest {
         // take the taker contract setup by the super
         CollarTakerNFT takerNFT = CollarTakerNFT(address(testedContract));
         testedContract = new LoansNFT(owner, takerNFT, "", "");
-    }
-}
-
-contract EscrowLoansEmergencyAdminTest is TakerNFTEmergencyAdminTest {
-    function setupTestedContract() internal override {
-        super.setupTestedContract();
-        // take the taker contract setup by the super
-        CollarTakerNFT takerNFT = CollarTakerNFT(address(testedContract));
-        EscrowSupplierNFT escrowNFT =
-            new EscrowSupplierNFT(owner, configHub, takerNFT.collateralAsset(), "", "");
-        testedContract = new EscrowLoansNFT(owner, takerNFT, escrowNFT, "", "");
     }
 }
 

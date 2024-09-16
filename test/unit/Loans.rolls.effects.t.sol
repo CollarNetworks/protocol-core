@@ -5,7 +5,7 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
-import { LoansNFT, IBaseLoansNFT } from "../../src/LoansNFT.sol";
+import { LoansNFT, ILoansNFT } from "../../src/LoansNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
@@ -75,7 +75,7 @@ contract LoansRollTestBase is LoansTestBase {
 
         uint expectedLoanId = takerNFT.nextPositionId();
         vm.expectEmit(address(loans));
-        emit IBaseLoansNFT.LoanRolled(
+        emit ILoansNFT.LoanRolled(
             user1, loanId, rollId, expectedLoanId, initialLoanAmount, expected.newLoanAmount, expected.toTaker
         );
         // min change param
@@ -118,7 +118,7 @@ contract LoansRollTestBase is LoansTestBase {
         assertEq(takerNFT.ownerOf(newTakerId), address(loans));
 
         // new loan state
-        IBaseLoansNFT.Loan memory newLoan = loans.getLoan(newLoanId);
+        ILoansNFT.Loan memory newLoan = loans.getLoan(newLoanId);
         assertEq(newLoan.loanAmount, expected.newLoanAmount);
         assertEq(newLoan.collateralAmount, loans.getLoan(loanId).collateralAmount);
 

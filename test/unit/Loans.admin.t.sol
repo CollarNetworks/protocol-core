@@ -8,7 +8,7 @@ import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-import { LoansNFT, IBaseLoansNFT } from "../../src/LoansNFT.sol";
+import { LoansNFT, ILoansNFT } from "../../src/LoansNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
@@ -41,7 +41,7 @@ contract LoansAdminTest is LoansTestBase {
 
         vm.startPrank(owner);
         vm.expectEmit(address(loans));
-        emit IBaseLoansNFT.ClosingKeeperUpdated(address(0), keeper);
+        emit ILoansNFT.ClosingKeeperUpdated(address(0), keeper);
         loans.setKeeper(keeper);
 
         assertEq(loans.closingKeeper(), keeper);
@@ -54,7 +54,7 @@ contract LoansAdminTest is LoansTestBase {
         Rolls newRolls = new Rolls(owner, takerNFT);
         vm.startPrank(owner);
         vm.expectEmit(address(loans));
-        emit IBaseLoansNFT.RollsContractUpdated(rolls, newRolls);
+        emit ILoansNFT.RollsContractUpdated(rolls, newRolls);
         loans.setRollsContract(newRolls);
         // check effect
         assertEq(address(loans.rollsContract()), address(newRolls));
@@ -62,7 +62,7 @@ contract LoansAdminTest is LoansTestBase {
         // check can unset (set to zero address)
         Rolls unsetRolls = Rolls(address(0));
         vm.expectEmit(address(loans));
-        emit IBaseLoansNFT.RollsContractUpdated(newRolls, unsetRolls);
+        emit ILoansNFT.RollsContractUpdated(newRolls, unsetRolls);
         loans.setRollsContract(unsetRolls);
         // check effect
         assertEq(address(loans.rollsContract()), address(unsetRolls));
@@ -73,21 +73,21 @@ contract LoansAdminTest is LoansTestBase {
 
         SwapperUniV3 newSwapper = new SwapperUniV3(address(mockSwapperRouter), swapFeeTier);
         vm.expectEmit(address(loans));
-        emit IBaseLoansNFT.SwapperSet(address(newSwapper), true, true);
+        emit ILoansNFT.SwapperSet(address(newSwapper), true, true);
         loans.setSwapperAllowed(address(newSwapper), true, true);
         assertTrue(loans.allowedSwappers(address(newSwapper)));
         assertEq(loans.defaultSwapper(), address(newSwapper));
 
         // disallow new
         vm.expectEmit(address(loans));
-        emit IBaseLoansNFT.SwapperSet(address(newSwapper), false, false);
+        emit ILoansNFT.SwapperSet(address(newSwapper), false, false);
         loans.setSwapperAllowed(address(newSwapper), false, false);
         assertFalse(loans.allowedSwappers(address(newSwapper)));
         assertEq(loans.defaultSwapper(), address(newSwapper)); // default swapper should remain unchanged
 
         // unset default
         vm.expectEmit(address(loans));
-        emit IBaseLoansNFT.SwapperSet(address(0), false, true);
+        emit ILoansNFT.SwapperSet(address(0), false, true);
         // does not revert
         loans.setSwapperAllowed(address(0), false, true);
         assertFalse(loans.allowedSwappers(address(0)));
