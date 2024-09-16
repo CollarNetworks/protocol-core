@@ -99,7 +99,7 @@ interface ILoansNFT {
     function closeLoan(uint loanId, SwapParams calldata swapParams)
         external
         returns (uint collateralReturned);
-    function rollLoan(uint loanId, Rolls rolls, uint rollId, int minToUser)
+    function rollLoan(uint loanId, uint rollId, int minToUser, uint newEscrowOffer, uint newEscrowFee)
         external
         returns (uint newLoanId, uint newLoanAmount, int transferAmount);
     function unwrapAndCancelLoan(uint loanId) external;
