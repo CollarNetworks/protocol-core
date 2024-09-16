@@ -327,7 +327,11 @@ contract LoansNFT is BaseNFT, ILoansNFT {
      * @dev This function is used to unwrap a taker NFT, to allow disconnecting it from the loan
      * @param loanId The ID representing the loan to unwrap and cancel
      */
+     // TODO update docs
     function unwrapAndCancelLoan(uint loanId) external whenNotPaused onlyNFTOwner(loanId) {
+        // release escrow if needed with refunds (interest fee) to sender
+        _optionalCheckAndCancelEscrow(loanId, msg.sender);
+
         // burn token. This prevents any further calls for this loan
         _burn(loanId);
 
@@ -602,6 +606,36 @@ contract LoansNFT is BaseNFT, ILoansNFT {
             collateralOut = fromEscrow + leftOver;
 
             emit EscrowSettled(escrowId, toEscrow, fromEscrow, leftOver);
+        }
+    }
+
+    function _optionalCheckAndCancelEscrow(uint loanId, address refundRecipient) internal {
+        EscrowSupplierNFT escrowNFT = loans[loanId].escrowNFT;
+        if (escrowNFT == NO_ESCROW) {
+            return; // no-op and no checks
+        }
+
+        uint escrowId = loans[loanId].escrowId;
+        bool escrowReleased = escrowNFT.getEscrow(escrowId).released;
+        if (!escrowReleased) {
+            // do not allow to unwrap past expiry with unreleased escrow to prevent frontrunning
+            // foreclosing. Past expiry either the user should call closeLoan(), or escrow owner should
+            // call seizeEscrow()
+            require(block.timestamp < _expiration(loanId), "loan expired");
+
+            // release the escrowed user funds to the supplier since the user will not repay the loan
+            // no late fees here, since loan is not expired
+            uint toUser = escrowNFT.endEscrow(escrowId, 0);
+            // @dev no balance checks because contract holds no funds, mismatch will cause reverts
+
+            // send potential interest fee refund
+            collateralAsset.safeTransfer(refundRecipient, toUser);
+        } else {
+            // @dev unwrapping if escrow was released handles the case that escrow owner called
+            // escrowNFT.lastResortSeizeEscrow() instead of loans.seizeEscrow() for any reason.
+            // In this case, none of the other methods are callable because escrow is released
+            // already, so the simplest thing that can be done to avoid locking user's funds is
+            // to cancel the loan and send them their takerId to withdraw cash.
         }
     }
 
