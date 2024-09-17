@@ -275,6 +275,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         onlyNFTOwner(loanId)
         returns (uint newLoanId, uint newLoanAmount, int transferAmount)
     {
+        require(configHub.canOpen(address(this)), "unsupported loans");
         // @dev rolls contract is assumed to not allow rolling an expired or settled position,
         // but checking explicitly is safer and easier to review
         require(_expiration(loanId) > block.timestamp, "loan expired");
@@ -570,7 +571,8 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         internal
         returns (uint newTakerId, int transferAmount, int rollFee)
     {
-        // rolls contract is valid
+        // rolls contract is valid, @dev canOpen is not checked because Rolls is not a long
+        // e
         require(currentRolls != Rolls(address(0)), "rolls contract unset");
         // avoid using invalid data
         require(currentRolls.getRollOffer(rollId).active, "invalid rollId");
@@ -711,10 +713,10 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         uint fromEscrow = escrowNFT.endEscrow(escrowId, toEscrow);
         // @dev no balance checks because contract holds no funds, mismatch will cause reverts
 
-        // send to user the released and the leftovers. Zero-value-transfer is allowed
+        // the released and the leftovers to be sent to user. Zero-value-transfer is allowed
         collateralOut = fromEscrow + leftOver;
 
-        emit EscrowSettled(escrowId, toEscrow, fromEscrow, leftOver);
+        emit EscrowSettled(escrowId, toEscrow, lateFee, fromEscrow, leftOver);
     }
 
     function _optionalCheckAndCancelEscrow(uint loanId, address refundRecipient) internal {
@@ -732,7 +734,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
             require(block.timestamp < _expiration(loanId), "loan expired");
 
             // release the escrowed user funds to the supplier since the user will not repay the loan
-            // no late fees here, since loan is not expired
+            // no late fees or collateral here, since loan is not expired, and there's no swap
             uint toUser = escrowNFT.endEscrow(escrowId, 0);
             // @dev no balance checks because contract holds no funds, mismatch will cause reverts
 

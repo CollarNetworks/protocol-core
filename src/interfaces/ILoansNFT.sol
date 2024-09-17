@@ -60,7 +60,7 @@ interface ILoansNFT {
         Rolls indexed rolls, ShortProviderNFT indexed providerNFT, EscrowSupplierNFT indexed escrowNFT
     );
     event SwapperSet(address indexed swapper, bool indexed allowed, bool indexed setDefault);
-    event EscrowSettled(uint indexed escrowId, uint toEscrow, uint fromEscrow, uint leftOver);
+    event EscrowSettled(uint indexed escrowId, uint lateFee, uint toEscrow, uint fromEscrow, uint leftOver);
 
     // constants
     function MAX_SWAP_TWAP_DEVIATION_BIPS() external view returns (uint);
