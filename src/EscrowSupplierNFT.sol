@@ -56,7 +56,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
     // ----- STATE ----- //
     // @dev this is NOT the NFT id, this is a  separate non transferrable ID
-    uint public nextOfferId = 1;  // starts from 1 so that 0 ID is not used
+    uint public nextOfferId = 1; // starts from 1 so that 0 ID is not used
 
     // allowed loans contracts
     mapping(address loans => bool allowed) public allowedLoans;
@@ -145,12 +145,12 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     /**
      * @notice Calculates the interest fee for given parameters. Rounds up.
      * @param escrowed The escrowed amount
-     * @param duration The duration in seconds
-     * @param feeAPR The annual interest rate in basis points
+     * @param offerId The offer Id to use for calculations
      * @return fee The calculated interest fee
      */
-    function interestFee(uint escrowed, uint duration, uint feeAPR) public pure returns (uint fee) {
-        return _divUp(escrowed * feeAPR * duration, BIPS_BASE * 365 days);
+    function interestFee(uint escrowed, uint offerId) public view returns (uint fee) {
+        Offer storage offer = offers[offerId];
+        return _divUp(escrowed * offer.interestAPR * offer.duration, BIPS_BASE * 365 days);
     }
 
     /**
@@ -419,7 +419,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         uint prevOfferAmount = offer.available;
         require(escrowed <= prevOfferAmount, "amount too high");
 
-        uint minFee = interestFee(escrowed, offer.duration, offer.interestAPR);
+        uint minFee = interestFee(escrowed, offerId);
         // we don't check equality to avoid revert due to minor precision inaccuracy to the upside,
         // even though exact value can be calculated from the view.
         require(fee >= minFee, "insufficient fee");

@@ -8,9 +8,8 @@ import { BaseAssetPairTestSetup } from "./BaseAssetPairTestSetup.sol";
 import { MockSwapperRouter } from "../utils/MockSwapRouter.sol";
 import { SwapperArbitraryCall } from "../utils/SwapperArbitraryCall.sol";
 
-import { LoansNFT, ILoansNFT } from "../../src/LoansNFT.sol";
+import { LoansNFT, ILoansNFT, ShortProviderNFT, EscrowSupplierNFT, CollarTakerNFT } from "../../src/LoansNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
-import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
 import { SwapperUniV3, ISwapper } from "../../src/SwapperUniV3.sol";
 
 contract AllLoansTestSetup is BaseAssetPairTestSetup {
@@ -78,17 +77,22 @@ contract AllLoansTestSetup is BaseAssetPairTestSetup {
 
 contract LoansTestBase is AllLoansTestSetup {
     LoansNFT loans;
+    EscrowSupplierNFT escrowNFT;
 
     function setUp() public override {
         super.setUp();
 
         loans = new LoansNFT(owner, takerNFT, "Loans", "Loans");
+        escrowNFT = new EscrowSupplierNFT(owner, configHub, collateralAsset, "Escrow", "Escrow");
         vm.label(address(loans), "Loans");
+        vm.label(address(escrowNFT), "Escrow");
 
         // config
         vm.startPrank(owner);
         configHub.setCanOpen(address(loans), true);
-        loans.setRollsContract(rolls);
+        configHub.setCanOpen(address(escrowNFT), true);
+        escrowNFT.setLoansAllowed(address(loans), true);
+        loans.setContracts(rolls, providerNFT, escrowNFT);
         defaultSwapper = address(swapperUniV3);
         loans.setSwapperAllowed(defaultSwapper, true, true);
         vm.stopPrank();
@@ -127,13 +131,11 @@ contract LoansTestBase is AllLoansTestSetup {
 
         vm.expectEmit(address(loans));
         emit ILoansNFT.LoanOpened(
+            expectedLoanId,
             user1,
-            address(providerNFT),
             offerId,
             collateralAmount,
-            expectedLoanAmount,
-            expectedLoanId,
-            nextProviderId
+            expectedLoanAmount
         );
 
         (loanId, providerId, loanAmount) = loans.openLoan(

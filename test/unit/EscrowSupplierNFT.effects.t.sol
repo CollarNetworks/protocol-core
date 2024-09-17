@@ -66,6 +66,10 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         assertEq(offer.lateFeeAPR, lateFeeAPR);
         // balance
         assertEq(asset.balanceOf(supplier), balance - amount);
+        // fee view
+        uint expectedMinFee = divUp(amount * interestAPR * duration, BIPS_100PCT * 365 days);
+        uint actualMinFee = escrowNFT.interestFee(amount, offerId);
+        assertEq(actualMinFee, expectedMinFee);
     }
 
     function checkUpdateOfferAmount(int delta) internal {
@@ -520,19 +524,15 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         assertEq(escrowNFT.cappedGracePeriod(1000, 1), escrowNFT.MIN_GRACE_PERIOD());
     }
 
-    function test_interestFee() public view {
-        uint escrowAmount = 100 ether;
-        uint testDuration = 365 days;
-        uint testFeeAPR = 1000; // 10%
+    function test_interestFee_noFee() public {
+        (uint offerId,) = createAndCheckOffer(supplier, largeAmount);
 
-        uint expectedFee = divUp(escrowAmount * testFeeAPR * testDuration, BIPS_100PCT * 365 days);
-        uint actualFee = escrowNFT.interestFee(escrowAmount, testDuration, testFeeAPR);
+        // zero escrow amount
+        assertEq(escrowNFT.interestFee(0, offerId), 0);
 
-        assertEq(actualFee, expectedFee);
-
-        // Test with zero values
-        assertEq(escrowNFT.interestFee(0, testDuration, testFeeAPR), 0);
-        assertEq(escrowNFT.interestFee(escrowAmount, 0, testFeeAPR), 0);
-        assertEq(escrowNFT.interestFee(escrowAmount, testDuration, 0), 0);
+        // zero APR
+        interestAPR = 0;
+        (offerId,) = createAndCheckOffer(supplier, largeAmount);
+        assertEq(escrowNFT.interestFee(largeAmount, offerId), 0);
     }
 }
