@@ -37,8 +37,8 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
             collateralAmount,
             minLoanAmount,
             ILoansNFT.SwapParams(0, address(pair.loansContract.defaultSwapper()), ""),
-            pair.providerNFT,
-            offerId
+            offerId,
+            0
         );
         vm.stopPrank();
     }

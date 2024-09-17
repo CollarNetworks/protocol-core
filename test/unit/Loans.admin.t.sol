@@ -13,7 +13,9 @@ import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
-import { LoansTestBase, TestERC20, SwapperUniV3, ISwapper, EscrowSupplierNFT } from "./Loans.basic.effects.t.sol";
+import {
+    LoansTestBase, TestERC20, SwapperUniV3, ISwapper, EscrowSupplierNFT
+} from "./Loans.basic.effects.t.sol";
 
 contract LoansAdminTest is LoansTestBase {
     function test_onlyOwnerMethods() public {
@@ -49,7 +51,7 @@ contract LoansAdminTest is LoansTestBase {
 
     function test_setContracts() public {
         // check setup
-        assertEq(address(loans.rollsContract()), address(rolls));
+        assertEq(address(loans.currentRolls()), address(rolls));
         assertEq(address(loans.currentProviderNFT()), address(providerNFT));
         assertEq(address(loans.currentEscrowNFT()), address(escrowNFT));
         // check can update
@@ -62,7 +64,7 @@ contract LoansAdminTest is LoansTestBase {
         emit ILoansNFT.ContractsUpdated(newRolls, newProvider, newEscrow);
         loans.setContracts(newRolls, newProvider, newEscrow);
         // check effect
-        assertEq(address(loans.rollsContract()), address(newRolls));
+        assertEq(address(loans.currentRolls()), address(newRolls));
         assertEq(address(loans.currentProviderNFT()), address(newProvider));
         assertEq(address(loans.currentEscrowNFT()), address(newEscrow));
 
@@ -74,7 +76,7 @@ contract LoansAdminTest is LoansTestBase {
         emit ILoansNFT.ContractsUpdated(unsetRolls, unsetProvider, unsetEscrow);
         loans.setContracts(unsetRolls, unsetProvider, unsetEscrow);
         // check effect
-        assertEq(address(loans.rollsContract()), address(unsetRolls));
+        assertEq(address(loans.currentRolls()), address(unsetRolls));
         assertEq(address(loans.currentProviderNFT()), address(unsetProvider));
         assertEq(address(loans.currentEscrowNFT()), address(unsetEscrow));
     }
@@ -119,7 +121,7 @@ contract LoansAdminTest is LoansTestBase {
         vm.startPrank(user1);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.openLoan(0, 0, defaultSwapParams(0), providerNFT, 0);
+        loans.openLoan(0, 0, defaultSwapParams(0), 0, 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
         loans.setKeeperAllowed(true);
@@ -165,8 +167,9 @@ contract LoansAdminTest is LoansTestBase {
         loans.setContracts(invalidTakerRolls, providerNFT, escrowNFT);
 
         // test provider mismatch
-        ShortProviderNFT invalidProvider =
-            new ShortProviderNFT(owner, configHub, cashAsset, collateralAsset, address(invalidTakerNFT), "", "");
+        ShortProviderNFT invalidProvider = new ShortProviderNFT(
+            owner, configHub, cashAsset, collateralAsset, address(invalidTakerNFT), "", ""
+        );
         vm.expectRevert("provider taker mismatch");
         loans.setContracts(rolls, invalidProvider, escrowNFT);
 
