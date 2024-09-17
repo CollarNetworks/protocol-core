@@ -168,7 +168,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         uint shortOffer,
         uint optionalEscrowOffer // @dev assumes interest fee approval, can be 0 for no escrow usage
     ) public whenNotPaused returns (uint loanId, uint providerId, uint loanAmount) {
-        require(configHub.canOpen(address(this)), "unsupported loans");
+        require(configHub.canOpen(address(this)), "unsupported loans contract");
         // provider NFT is checked by taker
         // escrow NFT is checked in _optionalOpenEscrow, taker is checked in _swapAndMintPaired
 
@@ -275,7 +275,8 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         onlyNFTOwner(loanId)
         returns (uint newLoanId, uint newLoanAmount, int transferAmount)
     {
-        require(configHub.canOpen(address(this)), "unsupported loans");
+        // check opening loans is still allowed (not in exit-only mode)
+        require(configHub.canOpen(address(this)), "unsupported loans contract");
         // @dev rolls contract is assumed to not allow rolling an expired or settled position,
         // but checking explicitly is safer and easier to review
         require(_expiration(loanId) > block.timestamp, "loan expired");
@@ -449,7 +450,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         internal
         returns (uint takerId, uint providerId, uint loanAmount)
     {
-        require(configHub.canOpen(address(takerNFT)), "unsupported taker");
+        require(configHub.canOpen(address(takerNFT)), "unsupported taker contract");
         // provider contract is valid
         require(currentProviderNFT != ShortProviderNFT(address(0)), "provider contract unset");
         // 0 collateral is later checked to mean non-existing loan, also prevents div-zero
@@ -571,8 +572,8 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         internal
         returns (uint newTakerId, int transferAmount, int rollFee)
     {
-        // rolls contract is valid, @dev canOpen is not checked because Rolls is not a long
-        // e
+        // rolls contract is valid, @dev canOpen is not checked because Rolls is no long living
+        // user positions that should allow exit-only (for which canOpen is needed)
         require(currentRolls != Rolls(address(0)), "rolls contract unset");
         // avoid using invalid data
         require(currentRolls.getRollOffer(rollId).active, "invalid rollId");
@@ -629,7 +630,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
             // escrow contract is valid
             require(escrowNFT != NO_ESCROW, "escrow contract unset");
             // whitelisted only
-            require(configHub.canOpen(address(escrowNFT)), "unsupported escrow");
+            require(configHub.canOpen(address(escrowNFT)), "unsupported escrow contract");
 
             uint fee = _checkAndPullEscrowFee(escrowNFT, escrowed, escrowOffer);
             // get the supplier collateral for the swap
@@ -653,7 +654,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         if (escrowNFT == NO_ESCROW) {
             return 0; // no-op, returns 0 since escrow is not used
         }
-        require(configHub.canOpen(address(escrowNFT)), "unsupported escrow");
+        require(configHub.canOpen(address(escrowNFT)), "unsupported escrow contract");
 
         uint newFee = _checkAndPullEscrowFee(escrowNFT, prevLoan.collateralAmount, newEscrowOffer);
         collateralAsset.forceApprove(address(escrowNFT), newFee);

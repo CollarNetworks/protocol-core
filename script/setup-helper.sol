@@ -22,7 +22,6 @@ contract SetupHelper {
         hub.setCanOpen(address(pair.takerNFT), true);
         hub.setCanOpen(address(pair.providerNFT), true);
         hub.setCanOpen(address(pair.loansContract), true);
-        hub.setCanOpen(address(pair.rollsContract), true);
         pair.loansContract.setContracts(pair.rollsContract, pair.providerNFT, EscrowSupplierNFT(address(0)));
         pair.loansContract.setSwapperAllowed(address(pair.swapperUniV3), true, true);
     }

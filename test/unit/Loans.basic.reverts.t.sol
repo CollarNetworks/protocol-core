@@ -24,12 +24,36 @@ contract LoansBasicRevertsTest is LoansTestBase {
         vm.expectRevert("invalid collateral amount");
         loans.openLoan(0, 0, defaultSwapParams(0), 0, 0);
 
-        // unsopprted provider
+        // unsupported loans
         vm.startPrank(owner);
+        configHub.setCanOpen(address(loans), false);
+        vm.startPrank(user1);
+        vm.expectRevert("unsupported loans contract");
+        loans.openLoan(0, 0, defaultSwapParams(0), 0, 0);
+
+        // unsupported taker
+        vm.startPrank(owner);
+        configHub.setCanOpen(address(loans), true);
+        configHub.setCanOpen(address(takerNFT), false);
+        vm.startPrank(user1);
+        vm.expectRevert("unsupported taker contract");
+        loans.openLoan(0, 0, defaultSwapParams(0), 0, 0);
+
+        // unset provider
+        vm.startPrank(owner);
+        configHub.setCanOpen(address(takerNFT), true);
+        loans.setContracts(rolls, ShortProviderNFT(address(0)), escrowNFT);
+        vm.startPrank(user1);
+        vm.expectRevert("provider contract unset");
+        loans.openLoan(0, 0, defaultSwapParams(0), 0, 0);
+
+        // unsupported provider
+        vm.startPrank(owner);
+        loans.setContracts(rolls, providerNFT, escrowNFT);
         configHub.setCanOpen(address(providerNFT), false);
         vm.startPrank(user1);
         vm.expectRevert("unsupported provider contract");
-        loans.openLoan(collateralAmount, minLoanAmount, defaultSwapParams(0), 0, 0);
+        loans.openLoan(collateralAmount, 0, defaultSwapParams(0), 0, 0);
 
         // bad offer
         vm.startPrank(owner);
@@ -40,7 +64,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         loans.openLoan(collateralAmount, minLoanAmount, defaultSwapParams(0), invalidOfferId, 0);
 
         uint offerId = createOfferAsProvider();
-        // not enough approval for collatearal
+        // not enough approval for collateral
         vm.startPrank(user1);
         vm.expectRevert(
             abi.encodeWithSelector(
