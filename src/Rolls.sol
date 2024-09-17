@@ -66,7 +66,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
 
     // ----- STATE VARIABLES ----- //
 
-    uint public nextRollId;
+    uint public nextRollId = 1; // starts from 1 so that 0 ID is not used
 
     mapping(uint rollId => RollOffer) internal rollOffers;
 

@@ -14,7 +14,7 @@ import { MathUtils } from "./MathUtils.sol";
 
 abstract contract BaseNFT is BaseEmergencyAdmin, ERC721, MathUtils {
     // ----- State ----- //
-    uint internal nextTokenId; // NFT token ID
+    uint internal nextTokenId = 1; // NFT token ID, starts from 1 so that 0 ID is not used
 
     constructor(address _initialOwner, string memory _name, string memory _symbol)
         BaseEmergencyAdmin(_initialOwner)
