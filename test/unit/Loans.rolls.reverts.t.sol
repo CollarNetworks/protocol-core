@@ -13,12 +13,20 @@ import { Rolls } from "../../src/Rolls.sol";
 import { LoansRollTestBase } from "./Loans.rolls.effects.t.sol";
 
 contract LoansRollsRevertsTest is LoansRollTestBase {
-    function test_revert_rollLoan_rolls_contract_checks() public {
+    function test_revert_rollLoan_contract_auth_checks() public {
         (uint loanId,,) = createAndCheckLoan();
         uint rollId = createRollOffer(loanId);
 
+        // unsopprted loans
+        vm.startPrank(owner);
+        configHub.setCanOpen(address(loans), false);
+        vm.startPrank(user1);
+        vm.expectRevert("unsupported loans contract");
+        loans.rollLoan(loanId, rollId, type(int).min, 0);
+
         // Rolls contract unset
         vm.startPrank(owner);
+        configHub.setCanOpen(address(loans), true);
         loans.setContracts(Rolls(address(0)), providerNFT, escrowNFT);
         vm.startPrank(user1);
         vm.expectRevert("rolls contract unset");
