@@ -63,7 +63,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         vm.expectRevert("invalid offer");
         loans.openLoan(collateralAmount, minLoanAmount, defaultSwapParams(0), invalidOfferId, 0);
 
-        uint offerId = createOfferAsProvider();
+        uint offerId = createProviderOffer();
         // not enough approval for collateral
         vm.startPrank(user1);
         vm.expectRevert(
@@ -78,7 +78,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
     }
 
     function test_revert_openLoan_swaps_router() public {
-        uint offerId = createOfferAsProvider();
+        uint offerId = createProviderOffer();
         prepareSwap(cashAsset, swapCashAmount);
 
         vm.startPrank(user1);
@@ -125,7 +125,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
     }
 
     function test_revert_openLoan_insufficientLoanAmount() public {
-        uint offerId = createOfferAsProvider();
+        uint offerId = createProviderOffer();
         uint swapOut = prepareSwapToCashAtTWAPPrice();
 
         vm.startPrank(user1);
@@ -168,7 +168,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
     }
 
     function test_revert_closeLoan_noLoanForLoanID() public {
-        uint offerId = createOfferAsProvider();
+        uint offerId = createProviderOffer();
         vm.startPrank(user1);
         // create taker NFT not through loans
         (uint takerId,) = takerNFT.openPairedPosition(0, providerNFT, offerId);

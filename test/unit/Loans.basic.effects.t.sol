@@ -14,25 +14,56 @@ import {
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { SwapperUniV3, ISwapper } from "../../src/SwapperUniV3.sol";
 
-contract AllLoansTestSetup is BaseAssetPairTestSetup {
+contract LoansTestBase is BaseAssetPairTestSetup {
     MockSwapperRouter mockSwapperRouter;
     SwapperUniV3 swapperUniV3;
+    LoansNFT loans;
+    EscrowSupplierNFT escrowNFT;
 
+    EscrowSupplierNFT constant NO_ESCROW = EscrowSupplierNFT(address(0));
+
+    // swapping
     address defaultSwapper;
     bytes extraData = "";
-
     uint24 swapFeeTier = 500;
 
     // swap amount * ltv
     uint minLoanAmount = swapCashAmount * (ltv / BIPS_100PCT);
 
+    // escrow
+    uint interestAPR = 500; // 5%
+    uint gracePeriod = 7 days;
+    uint lateFeeAPR = 10_000; // 100%
+
+    // basic tests are without escrow
+    bool expectEscrow = false;
+
     function setUp() public virtual override {
         super.setUp();
 
+        // swapping deps
         mockSwapperRouter = new MockSwapperRouter();
         swapperUniV3 = new SwapperUniV3(address(mockSwapperRouter), swapFeeTier);
         vm.label(address(mockSwapperRouter), "MockSwapRouter");
         vm.label(address(swapperUniV3), "SwapperUniV3");
+        // escrow
+        escrowNFT = new EscrowSupplierNFT(owner, configHub, collateralAsset, "Escrow", "Escrow");
+        vm.label(address(escrowNFT), "Escrow");
+        // loans
+        loans = new LoansNFT(owner, takerNFT, "Loans", "Loans");
+        vm.label(address(loans), "Loans");
+
+        // config
+        vm.startPrank(owner);
+        // escrow
+        configHub.setCanOpen(address(escrowNFT), true);
+        escrowNFT.setLoansAllowed(address(loans), true);
+        // loans
+        configHub.setCanOpen(address(loans), true);
+        loans.setContracts(rolls, providerNFT, escrowNFT);
+        defaultSwapper = address(swapperUniV3);
+        loans.setSwapperAllowed(defaultSwapper, true, true);
+        vm.stopPrank();
     }
 
     function prepareSwap(TestERC20 asset, uint amount) public {
@@ -54,60 +85,43 @@ contract AllLoansTestSetup is BaseAssetPairTestSetup {
         return ILoansNFT.SwapParams({ minAmountOut: minOut, swapper: defaultSwapper, extraData: extraData });
     }
 
-    function createOfferAsProvider() internal returns (uint offerId) {
+    function createProviderOffer() internal returns (uint offerId) {
         startHoax(provider);
         cashAsset.approve(address(providerNFT), largeAmount);
         offerId = providerNFT.createOffer(callStrikeDeviation, largeAmount, ltv, duration);
     }
 
-    function switchToArbitrarySwapper(LoansNFT baseLoans)
-        internal
-        returns (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper)
-    {
-        vm.startPrank(owner);
-        // disable the old
-        baseLoans.setSwapperAllowed(address(swapperUniV3), false, false);
-        // set the new
-        arbCallSwapper = new SwapperArbitraryCall();
-        defaultSwapper = address(arbCallSwapper);
-        baseLoans.setSwapperAllowed(address(arbCallSwapper), true, true);
-
-        // swapper will call this other Uni swapper, because a swapper payload is easier to construct
-        newUniSwapper = new SwapperUniV3(address(mockSwapperRouter), swapFeeTier);
-    }
-}
-
-contract LoansTestBase is AllLoansTestSetup {
-    LoansNFT loans;
-    EscrowSupplierNFT escrowNFT;
-
-    function setUp() public override {
-        super.setUp();
-
-        loans = new LoansNFT(owner, takerNFT, "Loans", "Loans");
-        escrowNFT = new EscrowSupplierNFT(owner, configHub, collateralAsset, "Escrow", "Escrow");
-        vm.label(address(loans), "Loans");
-        vm.label(address(escrowNFT), "Escrow");
-
-        // config
-        vm.startPrank(owner);
-        configHub.setCanOpen(address(loans), true);
-        configHub.setCanOpen(address(escrowNFT), true);
-        escrowNFT.setLoansAllowed(address(loans), true);
-        loans.setContracts(rolls, providerNFT, escrowNFT);
-        defaultSwapper = address(swapperUniV3);
-        loans.setSwapperAllowed(defaultSwapper, true, true);
-        vm.stopPrank();
+    function maybeCreateEscrowOffer() internal returns (uint offerId, uint interestFee) {
+        // calculates values for with or without escrow mode
+        if (expectEscrow) {
+            startHoax(supplier);
+            collateralAsset.approve(address(escrowNFT), largeAmount);
+            offerId = escrowNFT.createOffer(largeAmount, duration, interestAPR, gracePeriod, lateFeeAPR);
+            interestFee = escrowNFT.interestFee(collateralAmount, offerId);
+        }
     }
 
-    struct Balances {
+    struct BalancesOpen {
         uint userCollateral;
         uint userCash;
         uint feeRecipient;
+        uint escrow;
+    }
+
+    struct Ids {
+        uint loanId;
+        uint providerId;
+        uint escrowId;
     }
 
     function createAndCheckLoan() internal returns (uint loanId, uint providerId, uint loanAmount) {
-        uint offerId = createOfferAsProvider();
+        uint shortOfferId = createProviderOffer();
+        (uint escrowOfferId, uint expectedEscrowFee) = maybeCreateEscrowOffer();
+
+        if (expectEscrow) {
+            assertGt(escrowOfferId, 0);
+            assertGt(expectedEscrowFee, 0);
+        }
 
         // TWAP price must be set for every block
         updatePrice();
@@ -117,51 +131,80 @@ contract LoansTestBase is AllLoansTestSetup {
         prepareSwap(cashAsset, swapOut);
 
         startHoax(user1);
-        collateralAsset.approve(address(loans), collateralAmount);
+        collateralAsset.approve(address(loans), collateralAmount + expectedEscrowFee);
 
-        Balances memory balances = Balances({
+        BalancesOpen memory balances = BalancesOpen({
             userCollateral: collateralAsset.balanceOf(user1),
             userCash: cashAsset.balanceOf(user1),
-            feeRecipient: cashAsset.balanceOf(protocolFeeRecipient)
+            feeRecipient: cashAsset.balanceOf(protocolFeeRecipient),
+            escrow: collateralAsset.balanceOf(address(escrowNFT))
         });
-        uint expectedLoanId = takerNFT.nextPositionId();
-        uint nextProviderId = providerNFT.nextPositionId();
+
+        Ids memory ids = Ids({
+            loanId: takerNFT.nextPositionId(),
+            providerId: providerNFT.nextPositionId(),
+            escrowId: escrowOfferId == 0 ? 0 : escrowNFT.nextEscrowId() // if escrow used
+         });
+
         uint expectedLoanAmount = swapOut * ltv / BIPS_100PCT;
         uint expectedProviderLocked = swapOut * (callStrikeDeviation - BIPS_100PCT) / BIPS_100PCT;
-        (uint expectedFee,) = providerNFT.protocolFee(expectedProviderLocked, duration);
-        assertGt(expectedFee, 0); // ensure fee is expected
+        (uint expectedProtocolFee,) = providerNFT.protocolFee(expectedProviderLocked, duration);
+        assertGt(expectedProtocolFee, 0); // ensure fee is expected
 
         vm.expectEmit(address(loans));
-        emit ILoansNFT.LoanOpened(expectedLoanId, user1, offerId, collateralAmount, expectedLoanAmount);
+        emit ILoansNFT.LoanOpened(ids.loanId, user1, shortOfferId, collateralAmount, expectedLoanAmount);
 
-        (loanId, providerId, loanAmount) =
-            loans.openLoan(collateralAmount, minLoanAmount, defaultSwapParams(swapCashAmount), offerId, 0);
+        (loanId, providerId, loanAmount) = loans.openLoan({
+            collateralAmount: collateralAmount,
+            minLoanAmount: minLoanAmount,
+            swapParams: defaultSwapParams(swapCashAmount),
+            shortOffer: shortOfferId,
+            optionalEscrowOffer: escrowOfferId
+        });
 
         // Check return values
-        assertEq(loanId, expectedLoanId);
-        assertEq(providerId, nextProviderId);
+        assertEq(loanId, ids.loanId);
+        assertEq(providerId, ids.providerId);
         assertEq(loanAmount, expectedLoanAmount);
 
+        // all struct views
+        _checkStructViews(ids, collateralAmount, swapOut, loanAmount, expectedEscrowFee);
+
         // Check balances
-        assertEq(collateralAsset.balanceOf(user1), balances.userCollateral - collateralAmount);
+        assertEq(
+            collateralAsset.balanceOf(user1), balances.userCollateral - collateralAmount - expectedEscrowFee
+        );
         assertEq(cashAsset.balanceOf(user1), balances.userCash + loanAmount);
-        assertEq(cashAsset.balanceOf(protocolFeeRecipient), balances.feeRecipient + expectedFee);
+        assertEq(cashAsset.balanceOf(protocolFeeRecipient), balances.feeRecipient + expectedProtocolFee);
+        assertEq(collateralAsset.balanceOf(address(escrowNFT)), balances.escrow + expectedEscrowFee);
 
         // Check NFT ownership
         assertEq(loans.ownerOf(loanId), user1);
         uint takerId = loanId;
         assertEq(takerNFT.ownerOf(takerId), address(loans));
         assertEq(providerNFT.ownerOf(providerId), provider);
+        if (expectEscrow) assertEq(escrowNFT.ownerOf(ids.escrowId), supplier);
+    }
 
+    function _checkStructViews(
+        Ids memory ids,
+        uint collateralAmount,
+        uint swapOut,
+        uint loanAmount,
+        uint expectedEscrowFee
+    ) internal view {
         // Check loan state
-        LoansNFT.Loan memory loan = loans.getLoan(loanId);
+        ILoansNFT.Loan memory loan = loans.getLoan(ids.loanId);
         assertEq(loan.collateralAmount, collateralAmount);
         assertEq(loan.loanAmount, loanAmount);
+        assertEq(address(loan.escrowNFT), address(expectEscrow ? escrowNFT : NO_ESCROW));
+        assertEq(loan.escrowId, ids.escrowId);
 
         // Check taker position
-        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(loanId);
+        uint expectedProviderLocked = swapOut * (callStrikeDeviation - BIPS_100PCT) / BIPS_100PCT;
+        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(ids.loanId);
         assertEq(address(takerPosition.providerNFT), address(providerNFT));
-        assertEq(takerPosition.providerPositionId, providerId);
+        assertEq(takerPosition.providerPositionId, ids.providerId);
         assertEq(takerPosition.initialPrice, twapPrice);
         assertEq(takerPosition.putLockedCash, swapOut - loanAmount);
         assertEq(takerPosition.callLockedCash, expectedProviderLocked);
@@ -171,16 +214,56 @@ contract LoansTestBase is AllLoansTestSetup {
         assertEq(takerPosition.withdrawable, 0);
 
         // Check provider position
-        ShortProviderNFT.ProviderPosition memory providerPosition = providerNFT.getPosition(providerId);
+        ShortProviderNFT.ProviderPosition memory providerPosition = providerNFT.getPosition(ids.providerId);
         assertEq(providerPosition.expiration, block.timestamp + duration);
         assertEq(providerPosition.principal, expectedProviderLocked);
         assertEq(providerPosition.putStrikeDeviation, ltv);
         assertEq(providerPosition.callStrikeDeviation, callStrikeDeviation);
         assertFalse(providerPosition.settled);
         assertEq(providerPosition.withdrawable, 0);
+
+        // Check escrow position
+        if (expectEscrow) {
+            EscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(ids.escrowId);
+            assertEq(escrow.loans, address(loans));
+            assertEq(escrow.loanId, ids.loanId);
+            assertEq(escrow.escrowed, collateralAmount);
+            assertEq(escrow.gracePeriod, gracePeriod);
+            assertEq(escrow.lateFeeAPR, lateFeeAPR);
+            assertEq(escrow.duration, duration);
+            assertEq(escrow.expiration, block.timestamp + duration);
+            assertEq(escrow.interestHeld, expectedEscrowFee);
+            assertEq(escrow.released, false);
+            assertEq(escrow.withdrawable, 0);
+        }
     }
 
-    function closeAndCheckLoan(uint loanId, address caller, uint loanAmount, uint withdrawal, uint fromSwap)
+    struct EscrowReleaseAmounts {
+        uint toEscrow;
+        uint fromEscrow;
+        uint leftOver;
+        uint lateFee;
+    }
+
+    function getEscrowReleaseValues(uint escrowId, uint collateral)
+        internal
+        view
+        returns (EscrowReleaseAmounts memory released)
+    {
+        (released.lateFee,) = escrowNFT.lateFees(escrowId);
+        uint owed = released.lateFee + collateral;
+        released.toEscrow = collateral < owed ? collateral : owed;
+        released.leftOver = collateral - released.toEscrow;
+        (, released.fromEscrow,) = escrowNFT.previewRelease(escrowId, released.toEscrow);
+    }
+
+    struct BalancesClose {
+        uint userCollateral;
+        uint userCash;
+        uint escrow;
+    }
+
+    function closeAndCheckLoan(uint loanId, address caller, uint loanAmount, uint withdrawal, uint swapOut)
         internal
     {
         // TWAP price must be set for every block
@@ -190,19 +273,40 @@ contract LoansTestBase is AllLoansTestSetup {
         // Approve loan contract to spend user's cash for repayment
         cashAsset.approve(address(loans), loanAmount);
 
-        uint initialCollateralBalance = collateralAsset.balanceOf(user1);
-        uint initialCashBalance = cashAsset.balanceOf(user1);
+        BalancesClose memory balances = BalancesClose({
+            userCollateral: collateralAsset.balanceOf(user1),
+            userCash: cashAsset.balanceOf(user1),
+            escrow: collateralAsset.balanceOf(address(escrowNFT))
+        });
+        uint escrowId = loans.getLoan(loanId).escrowId;
+        EscrowReleaseAmounts memory released;
+        if (expectEscrow) {
+            released = getEscrowReleaseValues(escrowId, swapOut);
+            assertGt(released.toEscrow, 0);
+            assertGt(released.fromEscrow, 0);
+        }
 
         // caller closes the loan
         vm.startPrank(caller);
         vm.expectEmit(address(loans));
-        emit ILoansNFT.LoanClosed(loanId, caller, user1, loanAmount, loanAmount + withdrawal, fromSwap);
+        emit ILoansNFT.LoanClosed(loanId, caller, user1, loanAmount, loanAmount + withdrawal, swapOut);
+        if (expectEscrow) {
+            // expect this only if escrow is used
+            vm.expectEmit(address(loans));
+            emit ILoansNFT.EscrowSettled(
+                escrowId, released.toEscrow, released.lateFee, released.fromEscrow, released.leftOver
+            );
+        }
         uint collateralOut = loans.closeLoan(loanId, defaultSwapParams(0));
 
         // Check balances and return value
-        assertEq(collateralOut, fromSwap);
-        assertEq(collateralAsset.balanceOf(user1), initialCollateralBalance + collateralOut);
-        assertEq(cashAsset.balanceOf(user1), initialCashBalance - loanAmount);
+        assertEq(collateralOut, swapOut + released.fromEscrow + released.leftOver - released.toEscrow);
+        assertEq(collateralAsset.balanceOf(user1), balances.userCollateral + collateralOut);
+        assertEq(cashAsset.balanceOf(user1), balances.userCash - loanAmount);
+        assertEq(
+            collateralAsset.balanceOf(address(escrowNFT)),
+            balances.escrow + released.toEscrow - released.fromEscrow
+        );
 
         // Check that the NFTs have been burned
         expectRevertERC721Nonexistent(loanId);
@@ -214,6 +318,11 @@ contract LoansTestBase is AllLoansTestSetup {
         // Try to close the loan again (should fail)
         expectRevertERC721Nonexistent(loanId);
         loans.closeLoan(loanId, defaultSwapParams(0));
+
+        // check escrow released
+        if (expectEscrow) {
+            assertTrue(escrowNFT.getEscrow(loans.getLoan(loanId).escrowId).released);
+        }
     }
 
     function checkOpenCloseWithPriceChange(uint newPrice, uint putRatio, uint callRatio)
@@ -235,6 +344,22 @@ contract LoansTestBase is AllLoansTestSetup {
         closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
         return loanId;
     }
+
+    function switchToArbitrarySwapper()
+        internal
+        returns (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper)
+    {
+        vm.startPrank(owner);
+        // disable the old
+        loans.setSwapperAllowed(address(swapperUniV3), false, false);
+        // set the new
+        arbCallSwapper = new SwapperArbitraryCall();
+        defaultSwapper = address(arbCallSwapper);
+        loans.setSwapperAllowed(address(arbCallSwapper), true, true);
+
+        // swapper will call this other Uni swapper, because a swapper payload is easier to construct
+        newUniSwapper = new SwapperUniV3(address(mockSwapperRouter), swapFeeTier);
+    }
 }
 
 contract LoansBasicEffectsTest is LoansTestBase {
@@ -251,6 +376,9 @@ contract LoansBasicEffectsTest is LoansTestBase {
         assertEq(loans.owner(), owner);
         assertEq(loans.closingKeeper(), address(0));
         assertEq(address(loans.currentRolls()), address(0));
+        assertEq(address(loans.currentProviderNFT()), address(0));
+        assertEq(address(loans.currentEscrowNFT()), address(0));
+        assertEq(address(loans.defaultSwapper()), address(0));
         assertEq(loans.name(), "");
         assertEq(loans.symbol(), "");
     }
@@ -348,17 +476,24 @@ contract LoansBasicEffectsTest is LoansTestBase {
     }
 
     function test_openLoan_swapper_extraData() public {
-        (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) = switchToArbitrarySwapper(loans);
+        (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) = switchToArbitrarySwapper();
         assertFalse(loans.allowedSwappers(address(swapperUniV3)));
         assertTrue(loans.allowedSwappers(address(arbCallSwapper)));
 
         // check that without extraData, open loan fails
-        uint offerId = createOfferAsProvider();
+        uint shortOfferId = createProviderOffer();
+        (uint escrowOfferId, uint escrowFee) = maybeCreateEscrowOffer();
         prepareSwap(cashAsset, swapCashAmount);
         vm.startPrank(user1);
-        collateralAsset.approve(address(loans), collateralAmount);
+        collateralAsset.approve(address(loans), collateralAmount + escrowFee);
         vm.expectRevert(new bytes(0)); // failure to decode extraData
-        loans.openLoan(collateralAmount, 0, defaultSwapParams(0), offerId, 0);
+        loans.openLoan({
+            collateralAmount: collateralAmount,
+            minLoanAmount: 0,
+            swapParams: defaultSwapParams(0),
+            shortOffer: shortOfferId,
+            optionalEscrowOffer: escrowOfferId
+        });
 
         // call chain: loans -> arbitrary-swapper -> newUniSwapper -> mock-router.
         // by checking that this works we're ensuring that an arbitrary call swapper works, meaning that
@@ -381,7 +516,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         uint swapOut = prepareSwapToCollateralAtTWAPPrice();
 
         // switch swappers
-        (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) = switchToArbitrarySwapper(loans);
+        (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) = switchToArbitrarySwapper();
         assertFalse(loans.allowedSwappers(address(swapperUniV3)));
         assertTrue(loans.allowedSwappers(address(arbCallSwapper)));
 
@@ -410,7 +545,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
     function test_unwrapAndCancelLoan() public {
         (uint loanId,,) = createAndCheckLoan();
         uint takerId = loanId;
-        assertEq(takerNFT.ownerOf(takerId), address(loans));
+        assertEq(take rNFT.ownerOf(takerId), address(loans));
 
         // cancel
         vm.expectEmit(address(loans));
