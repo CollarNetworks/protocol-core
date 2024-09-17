@@ -28,26 +28,13 @@ interface ILoansNFT {
         bytes extraData;
     }
 
-    struct OpenLoanParams {
-        uint collateralAmount;
-        uint minLoanAmount;
-        SwapParams swapParams;
-        ShortProviderNFT providerNFT;
-        uint shortOffer;
-        EscrowSupplierNFT escrowNFT; // optional
-        uint escrowOffer;
-        uint escrowFee;
-    }
-
     // events
     event LoanOpened(
+        uint indexed loanId,
         address indexed sender,
-        address indexed providerNFT,
         uint indexed shortOfferId,
         uint collateralAmount,
-        uint loanAmount,
-        uint loanId,
-        uint providerId
+        uint loanAmount
     );
     event LoanClosed(
         uint indexed loanId,
@@ -69,7 +56,9 @@ interface ILoansNFT {
     event LoanCancelled(uint indexed loanId, address indexed sender);
     event ClosingKeeperAllowed(address indexed sender, bool indexed enabled);
     event ClosingKeeperUpdated(address indexed previousKeeper, address indexed newKeeper);
-    event RollsContractUpdated(Rolls indexed previousRolls, Rolls indexed newRolls);
+    event ContractsUpdated(
+        Rolls indexed rolls, ShortProviderNFT indexed providerNFT, EscrowSupplierNFT indexed escrowNFT
+    );
     event SwapperSet(address indexed swapper, bool indexed allowed, bool indexed setDefault);
     event EscrowSettled(uint indexed escrowId, uint toEscrow, uint fromEscrow, uint leftOver);
 
@@ -86,20 +75,20 @@ interface ILoansNFT {
     function closingKeeper() external view returns (address);
     // mutative contract owner
     function setKeeper(address keeper) external;
-    function setRollsContract(Rolls rolls) external;
+    function setContracts(Rolls rolls, ShortProviderNFT providerNFT, EscrowSupplierNFT escrowNFT) external;
     // mutative user (+ some keeper)
     function setKeeperAllowed(bool enabled) external;
     function openLoan(
         uint collateralAmount,
         uint minLoanAmount,
         SwapParams calldata swapParams,
-        ShortProviderNFT providerNFT,
-        uint offerId
+        uint shortOffer,
+        uint optionalEscrowOffer
     ) external returns (uint loanId, uint providerId, uint loanAmount);
     function closeLoan(uint loanId, SwapParams calldata swapParams)
         external
         returns (uint collateralReturned);
-    function rollLoan(uint loanId, uint rollId, int minToUser, uint newEscrowOffer, uint newEscrowFee)
+    function rollLoan(uint loanId, uint rollId, int minToUser, uint newEscrowOffer)
         external
         returns (uint newLoanId, uint newLoanAmount, int transferAmount);
     function unwrapAndCancelLoan(uint loanId) external;

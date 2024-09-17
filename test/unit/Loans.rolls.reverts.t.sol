@@ -19,10 +19,10 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
 
         // Rolls contract unset
         vm.startPrank(owner);
-        loans.setRollsContract(Rolls(address(0)));
+        loans.setContracts(Rolls(address(0)), providerNFT, escrowNFT);
         vm.startPrank(user1);
         vm.expectRevert("rolls contract unset");
-        loans.rollLoan(loanId, rollId, type(int).min, 0, 0);
+        loans.rollLoan(loanId, rollId, type(int).min, 0);
     }
 
     function test_revert_rollLoan_basic_checks() public {
@@ -32,37 +32,37 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         // Non-existent roll offer
         vm.startPrank(user1);
         vm.expectRevert("invalid rollId");
-        loans.rollLoan(loanId, rollId + 1, type(int).min, 0, 0);
+        loans.rollLoan(loanId, rollId + 1, type(int).min, 0);
 
         // cancelled roll offer
         vm.startPrank(provider);
         rolls.cancelOffer(rollId);
         vm.startPrank(user1);
         vm.expectRevert("invalid rollId");
-        loans.rollLoan(loanId, rollId, type(int).min, 0, 0);
+        loans.rollLoan(loanId, rollId, type(int).min, 0);
 
         rollId = createRollOffer(loanId);
 
         // Caller is not the taker NFT owner
         vm.startPrank(address(0xdead));
         vm.expectRevert("not NFT owner");
-        loans.rollLoan(loanId, rollId, type(int).min, 0, 0);
+        loans.rollLoan(loanId, rollId, type(int).min, 0);
 
         // Taker position already settled
         vm.startPrank(user1);
         skip(duration);
         vm.expectRevert("loan expired");
-        loans.rollLoan(loanId, rollId, type(int).min, 0, 0);
+        loans.rollLoan(loanId, rollId, type(int).min, 0);
 
         // Roll already executed
         (uint newLoanId,,) = createAndCheckLoan();
         uint newRollId = createRollOffer(newLoanId);
         vm.startPrank(user1);
         cashAsset.approve(address(loans), type(uint).max);
-        loans.rollLoan(newLoanId, newRollId, type(int).min, 0, 0);
+        loans.rollLoan(newLoanId, newRollId, type(int).min, 0);
         // token is burned
         expectRevertERC721Nonexistent(newLoanId);
-        loans.rollLoan(newLoanId, newRollId, type(int).min, 0, 0);
+        loans.rollLoan(newLoanId, newRollId, type(int).min, 0);
     }
 
     function test_revert_rollLoan_IdTaken() public {
@@ -79,7 +79,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
             abi.encode(loanId, 0, 0, 0) // returns old taker ID
         );
         vm.expectRevert("loanId taken");
-        loans.rollLoan(loanId, rollId, 0, 0, 0);
+        loans.rollLoan(loanId, rollId, 0, 0);
     }
 
     function test_revert_rollLoan_slippage() public {
@@ -94,7 +94,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
 
         // this reverts in Rolls
         vm.expectRevert("taker transfer slippage");
-        loans.rollLoan(loanId, rollId, loanChangePreview + 1, 0, 0); // expect more
+        loans.rollLoan(loanId, rollId, loanChangePreview + 1, 0); // expect more
 
         // this should revert in loan
         vm.mockCall(
@@ -103,7 +103,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
             abi.encode(0, 0, loanChangePreview, 0) // return less than previewed
         );
         vm.expectRevert("roll transfer < minToUser");
-        loans.rollLoan(loanId, rollId, loanChangePreview + 1, 0, 0); // expect more
+        loans.rollLoan(loanId, rollId, loanChangePreview + 1, 0); // expect more
 
         // Mock the executeRoll function to return unexpected value (-1)
         vm.mockCall(
@@ -112,7 +112,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
             abi.encode(0, 0, loanChangePreview - 1, 0)
         );
         vm.expectRevert("unexpected transfer amount");
-        loans.rollLoan(loanId, rollId, loanChangePreview, 0, 0);
+        loans.rollLoan(loanId, rollId, loanChangePreview, 0);
 
         // Mock the executeRoll function to return unexpected value (+1)
         vm.mockCall(
@@ -121,7 +121,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
             abi.encode(0, 0, loanChangePreview + 1, 0)
         );
         vm.expectRevert("unexpected transfer amount");
-        loans.rollLoan(loanId, rollId, loanChangePreview, 0, 0);
+        loans.rollLoan(loanId, rollId, loanChangePreview, 0);
     }
 
     function test_revert_rollLoan_taker_approvals() public {
@@ -150,7 +150,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
                 uint(-loanChangePreview)
             )
         );
-        loans.rollLoan(loanId, rollId, type(int).min, 0, 0);
+        loans.rollLoan(loanId, rollId, type(int).min, 0);
     }
 
     function test_revert_rollLoan_keeper_cannot_roll() public {
@@ -167,7 +167,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         // Attempt to roll the loan as the keeper
         vm.startPrank(keeper);
         vm.expectRevert("not NFT owner");
-        loans.rollLoan(loanId, rollId, type(int).min, 0, 0);
+        loans.rollLoan(loanId, rollId, type(int).min, 0);
     }
 
     function test_revert_rollLoan_contract_balance_changed() public {
@@ -184,7 +184,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
 
         // Attempt to roll the loan, which should trigger the reentrancy attack
         vm.expectRevert("contract balance changed");
-        loans.rollLoan(loanId, rollId, type(int).min, 0, 0);
+        loans.rollLoan(loanId, rollId, type(int).min, 0);
     }
 
     function test_revert_rollLoan_repayment_larger_than_loan() public {
@@ -217,7 +217,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
 
         // Attempt to roll the loan, which should revert due to large repayment
         vm.expectRevert("repayment larger than loan");
-        loans.rollLoan(loanId, rollId, type(int).min, 0, 0);
+        loans.rollLoan(loanId, rollId, type(int).min, 0);
     }
 }
 
