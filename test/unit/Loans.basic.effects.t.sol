@@ -8,7 +8,9 @@ import { BaseAssetPairTestSetup } from "./BaseAssetPairTestSetup.sol";
 import { MockSwapperRouter } from "../utils/MockSwapRouter.sol";
 import { SwapperArbitraryCall } from "../utils/SwapperArbitraryCall.sol";
 
-import { LoansNFT, ILoansNFT, ShortProviderNFT, EscrowSupplierNFT, CollarTakerNFT } from "../../src/LoansNFT.sol";
+import {
+    LoansNFT, ILoansNFT, ShortProviderNFT, EscrowSupplierNFT, CollarTakerNFT
+} from "../../src/LoansNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { SwapperUniV3, ISwapper } from "../../src/SwapperUniV3.sol";
 
@@ -130,17 +132,10 @@ contract LoansTestBase is AllLoansTestSetup {
         assertGt(expectedFee, 0); // ensure fee is expected
 
         vm.expectEmit(address(loans));
-        emit ILoansNFT.LoanOpened(
-            expectedLoanId,
-            user1,
-            offerId,
-            collateralAmount,
-            expectedLoanAmount
-        );
+        emit ILoansNFT.LoanOpened(expectedLoanId, user1, offerId, collateralAmount, expectedLoanAmount);
 
-        (loanId, providerId, loanAmount) = loans.openLoan(
-            collateralAmount, minLoanAmount, defaultSwapParams(swapCashAmount), providerNFT, offerId
-        );
+        (loanId, providerId, loanAmount) =
+            loans.openLoan(collateralAmount, minLoanAmount, defaultSwapParams(swapCashAmount), offerId, 0);
 
         // Check return values
         assertEq(loanId, expectedLoanId);
@@ -255,7 +250,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         assertEq(loans.VERSION(), "0.2.0");
         assertEq(loans.owner(), owner);
         assertEq(loans.closingKeeper(), address(0));
-        assertEq(address(loans.rollsContract()), address(0));
+        assertEq(address(loans.currentRolls()), address(0));
         assertEq(loans.name(), "");
         assertEq(loans.symbol(), "");
     }
@@ -363,7 +358,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         vm.startPrank(user1);
         collateralAsset.approve(address(loans), collateralAmount);
         vm.expectRevert(new bytes(0)); // failure to decode extraData
-        loans.openLoan(collateralAmount, 0, defaultSwapParams(0), providerNFT, offerId);
+        loans.openLoan(collateralAmount, 0, defaultSwapParams(0), offerId, 0);
 
         // call chain: loans -> arbitrary-swapper -> newUniSwapper -> mock-router.
         // by checking that this works we're ensuring that an arbitrary call swapper works, meaning that
