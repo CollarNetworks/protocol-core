@@ -17,7 +17,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         (uint loanId,,) = createAndCheckLoan();
         uint rollId = createRollOffer(loanId);
 
-        // unsopprted loans
+        // unsupported loans
         vm.startPrank(owner);
         configHub.setCanOpen(address(loans), false);
         vm.startPrank(user1);

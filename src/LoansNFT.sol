@@ -624,7 +624,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         internal
         returns (EscrowSupplierNFT escrowNFT, uint escrowId)
     {
-        // default return values for linter and clarify
+        // default return values for linter and clarity
         (escrowNFT, escrowId) = (NO_ESCROW, 0);
         // 0 ID for offer means no escrow usage (should not correspond to a possible offer)
         if (escrowOffer != 0) {
