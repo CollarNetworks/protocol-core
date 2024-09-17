@@ -545,7 +545,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
     function test_unwrapAndCancelLoan() public {
         (uint loanId,,) = createAndCheckLoan();
         uint takerId = loanId;
-        assertEq(take rNFT.ownerOf(takerId), address(loans));
+        assertEq(takerNFT.ownerOf(takerId), address(loans));
 
         // cancel
         vm.expectEmit(address(loans));

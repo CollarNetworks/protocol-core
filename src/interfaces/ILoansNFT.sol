@@ -61,6 +61,7 @@ interface ILoansNFT {
     );
     event SwapperSet(address indexed swapper, bool indexed allowed, bool indexed setDefault);
     event EscrowSettled(uint indexed escrowId, uint lateFee, uint toEscrow, uint fromEscrow, uint leftOver);
+    event LoanForeclosed(uint indexed loanId, uint indexed escrowId, uint fromSwap, uint toUser);
 
     // constants
     function MAX_SWAP_TWAP_DEVIATION_BIPS() external view returns (uint);

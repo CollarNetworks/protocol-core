@@ -15,6 +15,7 @@ import { EscrowSupplierNFT, IEscrowSupplierNFT } from "./EscrowSupplierNFT.sol";
 import { ISwapper } from "./interfaces/ISwapper.sol";
 import { ILoansNFT } from "./interfaces/ILoansNFT.sol";
 
+// TODO: update all docs
 /**
  * @title LoansNFT
  * @dev This contract manages opening and closing of collateralized loans via Collar positions.
@@ -140,6 +141,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
 
     // ----- User / Keeper methods ----- //
 
+    // TODO update docs
     /**
      * @notice Opens a new loan by providing collateral and borrowing against it
      * @dev This function handles the entire loan creation process:
@@ -160,7 +162,6 @@ contract LoansNFT is BaseNFT, ILoansNFT {
      * @return providerId The ID of the minted ShortProviderNFT paired with this loan
      * @return loanAmount The actual amount of the loan opened in cash asset
      */
-    // TODO update docs
     function openLoan(
         uint collateralAmount,
         uint minLoanAmount,
@@ -247,6 +248,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         collateralAsset.safeTransfer(user, collateralOut);
     }
 
+    // TODO update docs
     /**
      * @notice Rolls an existing loan to a new taker position with updated terms via a Rolls contract.
      * The loan amount is updated according to the funds transferred (excluding the roll-fee), and the
@@ -263,7 +265,6 @@ contract LoansNFT is BaseNFT, ILoansNFT {
      * @return newLoanAmount The updated loan amount after rolling
      * @return transferAmount The actual transfer to user (or from user if negative) including roll-fee
      */
-    // TODO update docs
     function rollLoan(
         uint loanId,
         uint rollId,
@@ -315,12 +316,12 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         );
     }
 
+    // TODO update docs
     /**
      * @notice Cancels an active loan, burns the loan NFT, and unwraps the taker NFT
      * @dev This function is used to unwrap a taker NFT, to allow disconnecting it from the loan
      * @param loanId The ID representing the loan to unwrap and cancel
      */
-    // TODO update docs
     function unwrapAndCancelLoan(uint loanId) external whenNotPaused onlyNFTOwner(loanId) {
         // release escrow if needed with refunds (interest fee) to sender
         _optionalCheckAndCancelEscrow(loanId, msg.sender);
@@ -334,7 +335,8 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         emit LoanCancelled(loanId, msg.sender);
     }
 
-    function seizeEscrow(uint loanId, SwapParams calldata swapParams) external whenNotPaused {
+    // TODO docs
+    function forecloseLoan(uint loanId, SwapParams calldata swapParams) external whenNotPaused {
         EscrowSupplierNFT escrowNFT = loans[loanId].escrowNFT;
         require(escrowNFT != NO_ESCROW, "not an escrowed loan");
 
@@ -363,7 +365,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         //    to their benefit, but it still can't pay more than the lateFees calculated by time, and can only
         //    result in "leftovers" that will go to the borrower, so makes no sense for them to do (since
         //    manipulation costs money).
-        require(block.timestamp > escrowGracePeriodEnd(loanId), "cannot seize escrow yet");
+        require(block.timestamp > escrowGracePeriodEnd(loanId), "cannot foreclose yet");
 
         // burn NFT from the user. Prevents any further actions for this loan.
         // Although they are not the caller, altering their assets is fine here because
@@ -379,10 +381,10 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         // Release escrow, and send any leftovers to user. Their express trigger of balance update
         // (withdrawal) is neglected here due to being anyway in an undesirable state of being foreclosed
         // due to not repaying on time.
-        uint collateralOut = _releaseEscrow(escrowNFT, escrowId, fromSwap);
-        collateralAsset.safeTransfer(user, collateralOut);
+        uint toUser = _releaseEscrow(escrowNFT, escrowId, fromSwap);
+        collateralAsset.safeTransfer(user, toUser);
 
-        // TODO: event
+        emit LoanForeclosed(loanId, escrowId, fromSwap, toUser);
     }
 
     /**
@@ -731,7 +733,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         if (!escrowReleased) {
             // do not allow to unwrap past expiry with unreleased escrow to prevent frontrunning
             // foreclosing. Past expiry either the user should call closeLoan(), or escrow owner should
-            // call seizeEscrow()
+            // call forecloseLoan()
             require(block.timestamp < _expiration(loanId), "loan expired");
 
             // release the escrowed user funds to the supplier since the user will not repay the loan
@@ -743,7 +745,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
             collateralAsset.safeTransfer(refundRecipient, toUser);
         } else {
             // @dev unwrapping if escrow was released handles the case that escrow owner called
-            // escrowNFT.lastResortSeizeEscrow() instead of loans.seizeEscrow() for any reason.
+            // escrowNFT.lastResortSeizeEscrow() instead of loans.forecloseLoan() for any reason.
             // In this case, none of the other methods are callable because escrow is released
             // already, so the simplest thing that can be done to avoid locking user's funds is
             // to cancel the loan and send them their takerId to withdraw cash.
