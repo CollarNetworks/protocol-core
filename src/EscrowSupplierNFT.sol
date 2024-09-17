@@ -55,7 +55,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     IERC20 public immutable asset;
 
     // ----- STATE ----- //
-    uint public nextOfferId; // @dev this is NOT the NFT id, this is a  separate non transferrable ID
+    // @dev this is NOT the NFT id, this is a  separate non transferrable ID
+    uint public nextOfferId = 1;  // starts from 1 so that 0 ID is not used
 
     // allowed loans contracts
     mapping(address loans => bool allowed) public allowedLoans;

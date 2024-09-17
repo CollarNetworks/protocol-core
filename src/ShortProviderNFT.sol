@@ -63,7 +63,8 @@ contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
     address public immutable taker;
 
     // ----- STATE ----- //
-    uint public nextOfferId; // @dev this is NOT the NFT id, this is separate ID
+    // @dev this is NOT the NFT id, this is separate ID
+    uint public nextOfferId = 1;  // starts from 1 so that 0 ID is not used
     // offerId is non transferrable
     mapping(uint offerId => LiquidityOffer) internal liquidityOffers;
     // positionId is the NFT token ID (tracked in BaseEmergencyAdminNFT)
