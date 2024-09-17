@@ -16,7 +16,7 @@ import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
 
 /**
  * @title EscrowSupplierNFT
- * @notice Manages escrows and escrow offers for EscrowLoansNFT.
+ * @notice Manages escrows and escrow offers for LoansNFT.
  *
  * Main Functionality:
  * 1. Allows suppliers to create and manage escrow offers for multiple loans contracts.
@@ -25,8 +25,8 @@ import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
  * 4. Manages withdrawals of released escrows and last-resort emergency seizures.
  *
  * Role in the Protocol:
- * This contract acts as the interface for escrow suppliers to EscrowLoansNFT in the Collar Protocol.
- * It works in tandem with corresponding EscrowLoansNFT contracts, which are trusted by this contract
+ * This contract acts as the interface for escrow suppliers to LoansNFT in the Collar Protocol.
+ * It works in tandem with corresponding LoansNFT contracts, which are trusted by this contract
  * to manage the borrower side of escrow positions and enforce late fees.
  *
  * Key Assumptions and Prerequisites:
@@ -361,14 +361,14 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
     /**
      * @notice Emergency function to seize escrow funds after max grace period. Burns the NFT.
-     * WARNING: DO NOT use this is normal circumstances, instead use EscrowLoansNFT.seizeEscrow().
+     * WARNING: DO NOT use this is normal circumstances, instead use LoansNFT.forecloseLoan().
      * This method is only for extreme scenarios to ensure suppliers can always withdraw even if
-     * original EscrowLoansNFT is broken / disabled / disallowed by admin.
+     * original LoansNFT is broken / disabled / disallowed by admin.
      * This method can only be used after the full grace period is elapsed, and does not pay any late fees.
-     * @dev Ideally the owner of the NFT will call EscrowLoansNFT.seizeEscrow() which is callable earlier
+     * @dev Ideally the owner of the NFT will call LoansNFT.forecloseLoan() which is callable earlier
      * or pays late fees (or both). If they do that, "released" will be set to true, disabling this method.
      * In the opposite situation, if the NFT owner chooses to call this method by mistake,
-     * the EscrowLoansNFT method will not be callable, because "released" will true (+NFT will be burned).
+     * the LoansNFT method will not be callable, because "released" will true (+NFT will be burned).
      * @dev Only for use when Loans contracts are unavailable to handle release / seizure
      * @param escrowId The ID of the escrow to seize
      */
