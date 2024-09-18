@@ -68,7 +68,7 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         assertEq(asset.balanceOf(supplier), balance - amount);
         // fee view
         uint expectedMinFee = divUp(amount * interestAPR * duration, BIPS_100PCT * 365 days);
-        uint actualMinFee = escrowNFT.interestFee(amount, offerId);
+        uint actualMinFee = escrowNFT.interestFee(offerId, amount);
         assertEq(actualMinFee, expectedMinFee);
     }
 
@@ -528,11 +528,11 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         (uint offerId,) = createAndCheckOffer(supplier, largeAmount);
 
         // zero escrow amount
-        assertEq(escrowNFT.interestFee(0, offerId), 0);
+        assertEq(escrowNFT.interestFee(offerId, 0), 0);
 
         // zero APR
         interestAPR = 0;
         (offerId,) = createAndCheckOffer(supplier, largeAmount);
-        assertEq(escrowNFT.interestFee(largeAmount, offerId), 0);
+        assertEq(escrowNFT.interestFee(offerId, largeAmount), 0);
     }
 }
