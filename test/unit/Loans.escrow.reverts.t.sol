@@ -50,4 +50,31 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         vm.expectRevert("invalid offer");
         openLoan(collateralAmount, minLoanAmount, 0, 0);
     }
+
+    function test_revert_openEscrowLoan_escrowValidations() public {
+        maybeCreateEscrowOffer();
+
+        vm.startPrank(owner);
+        configHub.setCollarDurationRange(duration, duration + 1);
+        // different durations between escrow and collar
+        duration += 1;
+
+        // provider offer has different duration
+        uint shortOffer = createProviderOffer();
+
+        vm.startPrank(user1);
+        prepareSwapToCashAtTWAPPrice();
+        collateralAsset.approve(address(loans), collateralAmount + escrowFee);
+        vm.expectRevert("duration mismatch");
+        openLoan(collateralAmount, minLoanAmount, 0, shortOffer);
+
+        // loanId mismatch escrow
+        vm.mockCall(
+            address(takerNFT),
+            abi.encodeCall(takerNFT.nextPositionId, ()),
+            abi.encode(takerNFT.nextPositionId() - 1)
+        );
+        vm.expectRevert("unexpected loanId");
+        openLoan(collateralAmount, minLoanAmount, 0, shortOffer);
+    }
 }

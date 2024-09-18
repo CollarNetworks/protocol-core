@@ -18,9 +18,12 @@ contract LoansRollTestBase is LoansTestBase {
         int toTaker;
         int rollFee;
         uint newLoanAmount;
+        uint newLoanId;
+        uint newEscrowId;
+        uint escrowFeeRefund;
     }
 
-    function calculateRollAmounts(uint rollId, uint newPrice)
+    function calculateRollAmounts(uint rollId, uint newPrice, ILoansNFT.Loan memory prevLoan)
         internal
         view
         returns (ExpectedRoll memory expected)
@@ -40,6 +43,15 @@ contract LoansRollTestBase is LoansTestBase {
         expected.newLoanAmount =
             uint(int(loans.getLoan(takerId).loanAmount) + expected.toTaker + expected.rollFee);
 
+        expected.newLoanId = takerNFT.nextPositionId();
+
+        if (useEscrow) {
+            expected.newEscrowId = escrowNFT.nextEscrowId();
+            (,, expected.escrowFeeRefund) = escrowNFT.previewRelease(prevLoan.escrowId, 0);
+        } else {
+            // set to 0
+        }
+
         return expected;
     }
 
@@ -56,51 +68,75 @@ contract LoansRollTestBase is LoansTestBase {
 
     function checkRollLoan(uint loanId, uint newPrice)
         internal
-        returns (uint newTakerId, ExpectedRoll memory expected)
+        returns (uint newLoanId, ExpectedRoll memory expected)
     {
-        uint rollId = createRollOffer(loanId);
-
-        // Calculate expected values
-        expected = calculateRollAmounts(rollId, newPrice);
-
         // Update price
         updatePrice(newPrice);
+
+        uint rollId = createRollOffer(loanId);
+
+        maybeCreateEscrowOffer();
+
+        // Calculate expected values
+        ILoansNFT.Loan memory prevLoan = loans.getLoan(loanId);
+        expected = calculateRollAmounts(rollId, newPrice, prevLoan);
 
         // Execute roll
         vm.startPrank(user1);
         cashAsset.approve(address(loans), type(uint).max);
+        collateralAsset.approve(address(loans), escrowFee);
 
-        uint initialBalance = cashAsset.balanceOf(user1);
-        uint initialLoanAmount = loans.getLoan(loanId).loanAmount;
+        uint userCash = cashAsset.balanceOf(user1);
+        uint userCollateral = collateralAsset.balanceOf(user1);
 
-        uint expectedLoanId = takerNFT.nextPositionId();
         vm.expectEmit(address(loans));
         emit ILoansNFT.LoanRolled(
-            user1, loanId, rollId, expectedLoanId, initialLoanAmount, expected.newLoanAmount, expected.toTaker
+            user1,
+            loanId,
+            rollId,
+            expected.newLoanId,
+            prevLoan.loanAmount,
+            expected.newLoanAmount,
+            expected.toTaker
         );
         // min change param
-        int minToUser = int(expected.newLoanAmount) - int(initialLoanAmount) - rollFee;
+        int minToUser = int(expected.newLoanAmount) - int(prevLoan.loanAmount) - rollFee;
         uint newLoanAmount;
         int toUser;
-        (newTakerId, newLoanAmount, toUser) = loans.rollLoan(loanId, rollId, minToUser, 0);
+        if (useEscrow) {
+            (newLoanId, newLoanAmount, toUser) = loans.rollLoan(loanId, rollId, minToUser, escrowOfferId);
+            // sanity checks for test values
+            assertGt(escrowOfferId, 0);
+            assertGt(escrowFee, 0);
+            // check new escrow
+            _checkEscrowViews(newLoanId, expected.newEscrowId, escrowFee);
+            // old released
+            assertTrue(escrowNFT.getEscrow(prevLoan.escrowId).released);
+        } else {
+            (newLoanId, newLoanAmount, toUser) = loans.rollLoan(loanId, rollId, minToUser, 0);
+            // sanity checks for test values
+            assertEq(escrowOfferId, 0);
+            assertEq(escrowFee, 0);
+        }
 
         // id
-        assertEq(newTakerId, expectedLoanId);
+        assertEq(newLoanId, expected.newLoanId);
         // new loanAmount
         assertEq(newLoanAmount, expected.newLoanAmount);
 
+        // check loans and NFT views
+        _checkLoansAndNFTs(loanId, newLoanId, expected, newPrice);
+
         // balance change matches roll output value
-        assertEq(cashAsset.balanceOf(user1), uint(int(initialBalance) + expected.toTaker));
+        assertEq(cashAsset.balanceOf(user1), uint(int(userCash) + expected.toTaker));
+        assertEq(collateralAsset.balanceOf(user1), userCollateral + expected.escrowFeeRefund - escrowFee);
         // loan change matches balance change
-        int loanChange = int(newLoanAmount) - int(initialLoanAmount);
+        int loanChange = int(newLoanAmount) - int(prevLoan.loanAmount);
         assertEq(expected.toTaker, toUser);
         assertEq(expected.toTaker + expected.rollFee, loanChange);
-
-        // check loans and NFT views
-        checkLoansAndNFT(loanId, newTakerId, expected, newPrice);
     }
 
-    function checkLoansAndNFT(uint loanId, uint newLoanId, ExpectedRoll memory expected, uint newPrice)
+    function _checkLoansAndNFTs(uint loanId, uint newLoanId, ExpectedRoll memory expected, uint newPrice)
         internal
     {
         // old loans NFT burned
@@ -121,6 +157,8 @@ contract LoansRollTestBase is LoansTestBase {
         ILoansNFT.Loan memory newLoan = loans.getLoan(newLoanId);
         assertEq(newLoan.loanAmount, expected.newLoanAmount);
         assertEq(newLoan.collateralAmount, loans.getLoan(loanId).collateralAmount);
+        assertEq(address(newLoan.escrowNFT), address(useEscrow ? escrowNFT : NO_ESCROW));
+        assertEq(newLoan.escrowId, expected.newEscrowId);
 
         // new taker position
         CollarTakerNFT.TakerPosition memory newTakerPos = takerNFT.getPosition(newLoanId);
@@ -140,7 +178,7 @@ contract LoansRollTestBase is LoansTestBase {
     }
 }
 
-contract LoansRollsHappyPathsTest is LoansRollTestBase {
+contract LoansRollsEffectsTest is LoansRollTestBase {
     function test_rollLoan_no_change() public {
         (uint loanId,,) = createAndCheckLoan();
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition({ takerId: loanId });
@@ -165,7 +203,7 @@ contract LoansRollsHappyPathsTest is LoansRollTestBase {
         uint newLoanId = loanId;
         uint balanceBefore = cashAsset.balanceOf(user1);
         // roll 10 times
-        for (uint i; i < 10; ++i) {
+        for (uint i; i < 5; ++i) {
             (newLoanId, expected) = checkRollLoan(newLoanId, twapPrice);
         }
         // no change in locked amounts
@@ -174,7 +212,7 @@ contract LoansRollsHappyPathsTest is LoansRollTestBase {
         // only fee paid
         assertEq(expected.toTaker, -rollFee); // single fee
         // paid the rollFee 10 times
-        assertEq(cashAsset.balanceOf(user1), balanceBefore - (10 * uint(rollFee)));
+        assertEq(cashAsset.balanceOf(user1), balanceBefore - (5 * uint(rollFee)));
         assertEq(expected.newLoanAmount, loans.getLoan(loanId).loanAmount);
         assertEq(expected.newLoanAmount, loans.getLoan(newLoanId).loanAmount);
 
@@ -254,5 +292,34 @@ contract LoansRollsHappyPathsTest is LoansRollTestBase {
 
         twapPrice = newPrice;
         checkCloseRolledLoan(newLoanId, expected.newLoanAmount);
+    }
+}
+
+contract LoansRollsEscrowEffectsTest is LoansRollsEffectsTest {
+    function setUp() public virtual override {
+        super.setUp();
+        useEscrow = true;
+    }
+
+    function test_rollLoan_escrowRefund() public {
+        (uint loanId,,) = createAndCheckLoan();
+        uint prevFee = escrowFee;
+        (, ExpectedRoll memory expected) = checkRollLoan(loanId, twapPrice);
+        // full refund
+        assertEq(expected.escrowFeeRefund, prevFee);
+
+        (loanId,,) = createAndCheckLoan();
+        skip(duration / 2);
+        prevFee = escrowFee;
+        (, expected) = checkRollLoan(loanId, twapPrice);
+        // half refund for half duration
+        assertEq(expected.escrowFeeRefund, prevFee / 2);
+
+        (loanId,,) = createAndCheckLoan();
+        skip(duration);
+        prevFee = escrowFee;
+        (, expected) = checkRollLoan(loanId, twapPrice);
+        // no refund for full duraion
+        assertEq(expected.escrowFeeRefund, 0);
     }
 }

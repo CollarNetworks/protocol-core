@@ -164,8 +164,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
             assertGt(escrowOfferId, 0);
             assertGt(escrowFee, 0);
             // escrow effects
-            assertEq(escrowNFT.ownerOf(ids.nextEscrowId), supplier);
-            _checkEscrowView(ids, escrowFee);
+            _checkEscrowViews(ids.loanId, ids.nextEscrowId, escrowFee);
         } else {
             (loanId, providerId, loanAmount) =
                 loans.openLoan(collateralAmount, minLoanAmount, swapParams, shortOfferId);
@@ -183,7 +182,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(loanAmount, expectedLoanAmount);
 
         // all struct views
-        _checkStructViews(ids, collateralAmount, swapOut, loanAmount, escrowFee);
+        _checkStructViews(ids, collateralAmount, swapOut, loanAmount);
 
         // Check balances
         assertEq(collateralAsset.balanceOf(user1), balances.userCollateral - collateralAmount - escrowFee);
@@ -198,13 +197,10 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(providerNFT.ownerOf(providerId), provider);
     }
 
-    function _checkStructViews(
-        Ids memory ids,
-        uint collateralAmount,
-        uint swapOut,
-        uint loanAmount,
-        uint expectedEscrowFee
-    ) internal view {
+    function _checkStructViews(Ids memory ids, uint collateralAmount, uint swapOut, uint loanAmount)
+        internal
+        view
+    {
         // Check loan state
         ILoansNFT.Loan memory loan = loans.getLoan(ids.loanId);
         assertEq(loan.collateralAmount, collateralAmount);
@@ -235,10 +231,12 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(providerPosition.withdrawable, 0);
     }
 
-    function _checkEscrowView(Ids memory ids, uint expectedEscrowFee) internal {
-        EscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(ids.nextEscrowId);
+    function _checkEscrowViews(uint loanId, uint escrowId, uint expectedEscrowFee) internal view {
+        assertEq(escrowNFT.ownerOf(escrowId), supplier);
+
+        EscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(escrowId);
         assertEq(escrow.loans, address(loans));
-        assertEq(escrow.loanId, ids.loanId);
+        assertEq(escrow.loanId, loanId);
         assertEq(escrow.escrowed, collateralAmount);
         assertEq(escrow.gracePeriod, gracePeriod);
         assertEq(escrow.lateFeeAPR, lateFeeAPR);

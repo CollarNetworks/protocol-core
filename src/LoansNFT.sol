@@ -255,7 +255,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         require(configHub.canOpen(address(this)), "unsupported loans contract");
         // @dev rolls contract is assumed to not allow rolling an expired or settled position,
         // but checking explicitly is safer and easier to review
-        require(_expiration(loanId) > block.timestamp, "loan expired");
+        require(block.timestamp <= _expiration(loanId), "loan expired");
         // burn token. This prevents any further calls for this loan
         _burn(loanId);
 
@@ -676,6 +676,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         if (escrowNFT == NO_ESCROW) {
             return 0; // no-op, returns 0 since escrow is not used
         }
+
         require(configHub.canOpen(address(escrowNFT)), "unsupported escrow contract");
 
         uint newFee = _checkAndPullEscrowFee(escrowNFT, newEscrowOffer, prevLoan.collateralAmount);
