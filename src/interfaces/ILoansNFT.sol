@@ -83,8 +83,14 @@ interface ILoansNFT {
         uint collateralAmount,
         uint minLoanAmount,
         SwapParams calldata swapParams,
+        uint shortOffer
+    ) external returns (uint loanId, uint providerId, uint loanAmount);
+    function openEscrowLoan(
+        uint collateralAmount,
+        uint minLoanAmount,
+        SwapParams calldata swapParams,
         uint shortOffer,
-        uint optionalEscrowOffer
+        uint escrowOffer
     ) external returns (uint loanId, uint providerId, uint loanAmount);
     function closeLoan(uint loanId, SwapParams calldata swapParams)
         external

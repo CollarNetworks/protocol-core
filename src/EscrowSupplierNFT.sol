@@ -144,11 +144,11 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
     /**
      * @notice Calculates the interest fee for given parameters. Rounds up.
-     * @param escrowed The escrowed amount
      * @param offerId The offer Id to use for calculations
+     * @param escrowed The escrowed amount
      * @return fee The calculated interest fee
      */
-    function interestFee(uint escrowed, uint offerId) public view returns (uint fee) {
+    function interestFee(uint offerId, uint escrowed) public view returns (uint fee) {
         Offer storage offer = offers[offerId];
         return _divUp(escrowed * offer.interestAPR * offer.duration, BIPS_BASE * 365 days);
     }
@@ -419,7 +419,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         uint prevOfferAmount = offer.available;
         require(escrowed <= prevOfferAmount, "amount too high");
 
-        uint minFee = interestFee(escrowed, offerId);
+        uint minFee = interestFee(offerId, escrowed);
         // we don't check equality to avoid revert due to minor precision inaccuracy to the upside,
         // even though exact value can be calculated from the view.
         require(fee >= minFee, "insufficient fee");

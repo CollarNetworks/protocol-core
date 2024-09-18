@@ -29,8 +29,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
             collateralAmount,
             0,
             ILoansNFT.SwapParams(minCashAmount, address(pair.loansContract.defaultSwapper()), ""),
-            offerId,
-            0
+            offerId
         );
         position = pair.takerNFT.getPosition(borrowId);
         vm.stopPrank();
