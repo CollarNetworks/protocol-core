@@ -37,6 +37,8 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
     // basic tests are without escrow
     bool useEscrow = false;
+    uint escrowOfferId;
+    uint escrowFee;
 
     function setUp() public virtual override {
         super.setUp();
@@ -91,13 +93,17 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         offerId = providerNFT.createOffer(callStrikeDeviation, largeAmount, ltv, duration);
     }
 
-    function maybeCreateEscrowOffer() internal returns (uint offerId, uint interestFee) {
+    function maybeCreateEscrowOffer() internal {
         // calculates values for with or without escrow mode
         if (useEscrow) {
             startHoax(supplier);
             collateralAsset.approve(address(escrowNFT), largeAmount);
-            offerId = escrowNFT.createOffer(largeAmount, duration, interestAPR, gracePeriod, lateFeeAPR);
-            interestFee = escrowNFT.interestFee(offerId, collateralAmount);
+            escrowOfferId = escrowNFT.createOffer(largeAmount, duration, interestAPR, gracePeriod, lateFeeAPR);
+            escrowFee = escrowNFT.interestFee(escrowOfferId, collateralAmount);
+        } else {
+            // reset to 0
+            escrowOfferId = 0;
+            escrowFee = 0;
         }
     }
 
@@ -116,7 +122,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
     function createAndCheckLoan() internal returns (uint loanId, uint providerId, uint loanAmount) {
         uint shortOfferId = createProviderOffer();
-        (uint escrowOfferId, uint expectedEscrowFee) = maybeCreateEscrowOffer();
+        maybeCreateEscrowOffer();
 
         // TWAP price must be set for every block
         updatePrice();
@@ -126,7 +132,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         prepareSwap(cashAsset, swapOut);
 
         startHoax(user1);
-        collateralAsset.approve(address(loans), collateralAmount + expectedEscrowFee);
+        collateralAsset.approve(address(loans), collateralAmount + escrowFee);
 
         BalancesOpen memory balances = BalancesOpen({
             userCollateral: collateralAsset.balanceOf(user1),
@@ -156,17 +162,17 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
             // sanity checks for test values
             assertGt(escrowOfferId, 0);
-            assertGt(expectedEscrowFee, 0);
+            assertGt(escrowFee, 0);
             // escrow effects
             assertEq(escrowNFT.ownerOf(ids.nextEscrowId), supplier);
-            _checkEscrowView(ids, expectedEscrowFee);
+            _checkEscrowView(ids, escrowFee);
         } else {
             (loanId, providerId, loanAmount) =
                 loans.openLoan(collateralAmount, minLoanAmount, swapParams, shortOfferId);
 
             // sanity checks for test values
             assertEq(escrowOfferId, 0);
-            assertEq(expectedEscrowFee, 0);
+            assertEq(escrowFee, 0);
             // no escrow minted
             assertEq(escrowNFT.nextEscrowId(), ids.nextEscrowId);
         }
@@ -177,15 +183,13 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(loanAmount, expectedLoanAmount);
 
         // all struct views
-        _checkStructViews(ids, collateralAmount, swapOut, loanAmount, expectedEscrowFee);
+        _checkStructViews(ids, collateralAmount, swapOut, loanAmount, escrowFee);
 
         // Check balances
-        assertEq(
-            collateralAsset.balanceOf(user1), balances.userCollateral - collateralAmount - expectedEscrowFee
-        );
+        assertEq(collateralAsset.balanceOf(user1), balances.userCollateral - collateralAmount - escrowFee);
         assertEq(cashAsset.balanceOf(user1), balances.userCash + loanAmount);
         assertEq(cashAsset.balanceOf(protocolFeeRecipient), balances.feeRecipient + expectedProtocolFee);
-        assertEq(collateralAsset.balanceOf(address(escrowNFT)), balances.escrow + expectedEscrowFee);
+        assertEq(collateralAsset.balanceOf(address(escrowNFT)), balances.escrow + escrowFee);
 
         // Check NFT ownership
         assertEq(loans.ownerOf(loanId), user1);
@@ -489,7 +493,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
 
         // check that without extraData, open loan fails
         uint shortOfferId = createProviderOffer();
-        (uint escrowOfferId, uint escrowFee) = maybeCreateEscrowOffer();
+        maybeCreateEscrowOffer();
         prepareSwap(cashAsset, swapCashAmount);
         vm.startPrank(user1);
         collateralAsset.approve(address(loans), collateralAmount + escrowFee);

@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 
 import { LoansBasicEffectsTest, ILoansNFT } from "./Loans.basic.effects.t.sol";
 
-contract LoansEscrowBasicEffectsTest is LoansBasicEffectsTest {
+contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
     function setUp() public virtual override {
         super.setUp();
         useEscrow = true;
