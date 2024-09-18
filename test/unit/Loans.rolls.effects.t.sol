@@ -301,6 +301,8 @@ contract LoansRollsEscrowEffectsTest is LoansRollsEffectsTest {
         useEscrow = true;
     }
 
+    // all rolls effect tests from LoansRollsEffectsTest are repeated for rolls with escrow
+
     function test_rollLoan_escrowRefund() public {
         (uint loanId,,) = createAndCheckLoan();
         uint prevFee = escrowFee;
