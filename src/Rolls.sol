@@ -174,7 +174,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
         require(takerPos.expiration != 0, "taker position doesn't exist");
         require(!takerPos.settled, "taker position settled");
-        require(takerPos.expiration >= block.timestamp, "taker position expired");
+        require(block.timestamp <= takerPos.expiration, "taker position expired");
 
         ShortProviderNFT providerNFT = takerPos.providerNFT;
         uint providerId = takerPos.providerPositionId;
@@ -184,7 +184,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         // sanity check bounds
         require(minPrice < maxPrice, "max price not higher than min price");
         require(_abs(rollFeeDeltaFactorBIPS) <= BIPS_BASE, "invalid fee delta change");
-        require(deadline >= block.timestamp, "deadline passed");
+        require(block.timestamp <= deadline, "deadline passed");
 
         // pull the NFT
         providerNFT.transferFrom(msg.sender, address(this), providerId);

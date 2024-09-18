@@ -58,7 +58,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
 
         // Taker position already settled
         vm.startPrank(user1);
-        skip(duration);
+        skip(duration + 1);
         vm.expectRevert("loan expired");
         loans.rollLoan(loanId, rollId, type(int).min, 0);
 

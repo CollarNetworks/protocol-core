@@ -65,7 +65,7 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         uint balanceBefore = collateralAsset.balanceOf(user1);
 
         // after expiry
-        skip(duration);
+        skip(duration + 1);
 
         // cannot release
         vm.expectRevert("loan expired");

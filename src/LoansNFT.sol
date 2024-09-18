@@ -235,7 +235,8 @@ contract LoansNFT is BaseNFT, ILoansNFT {
      * @param rollId The ID of the roll offer to be executed
      * @param minToUser The minimum acceptable transfer to user (negative if expecting to pay)
      * @param newEscrowOffer An escrowNFT offer for the new escrow to be opened if the loans is using
-     * and escrow. The same escrowNFT contract will be used, but an offer must be specified.
+     * an escrow. Argument ignored if escrow was not used. The same escrowNFT contract will be used,
+     * but an offer must be chosen.
      * @return newLoanId The ID of the newly minted NFT representing the rolled loan
      * @return newLoanAmount The updated loan amount after rolling
      * @return transferAmount The actual transfer to user (or from user if negative) including roll-fee
@@ -755,7 +756,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
             // do not allow to unwrap past expiry with unreleased escrow to prevent frontrunning
             // foreclosing. Past expiry either the user should call closeLoan(), or escrow owner should
             // call forecloseLoan()
-            require(block.timestamp < _expiration(loanId), "loan expired");
+            require(block.timestamp <= _expiration(loanId), "loan expired");
 
             // release the escrowed user funds to the supplier since the user will not repay the loan
             // no late fees or collateral here, since loan is not expired, and there's no swap
