@@ -2,7 +2,7 @@
 pragma solidity 0.8.22;
 
 import { ConfigHub } from "../src/ConfigHub.sol";
-import { LoansNFT } from "../src/LoansNFT.sol";
+import { LoansNFT, EscrowSupplierNFT } from "../src/LoansNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../src/Rolls.sol";
 import { SwapperUniV3 } from "../src/SwapperUniV3.sol";
@@ -21,7 +21,8 @@ contract SetupHelper {
     function setupContractPair(ConfigHub hub, DeploymentHelper.AssetPairContracts memory pair) public {
         hub.setCanOpen(address(pair.takerNFT), true);
         hub.setCanOpen(address(pair.providerNFT), true);
-        pair.loansContract.setRollsContract(pair.rollsContract);
+        hub.setCanOpen(address(pair.loansContract), true);
+        pair.loansContract.setContracts(pair.rollsContract, pair.providerNFT, EscrowSupplierNFT(address(0)));
         pair.loansContract.setSwapperAllowed(address(pair.swapperUniV3), true, true);
     }
 

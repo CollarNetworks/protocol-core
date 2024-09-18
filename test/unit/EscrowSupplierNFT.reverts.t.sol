@@ -55,7 +55,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         vm.expectRevert("amount too high");
         escrowNFT.startEscrow(offerId, largeAmount + 1, 1 ether, 1000);
 
-        uint minFee = escrowNFT.interestFee(largeAmount, duration, interestAPR);
+        uint minFee = escrowNFT.interestFee(offerId, largeAmount);
         vm.expectRevert("insufficient fee");
         escrowNFT.startEscrow(offerId, largeAmount, minFee - 1, 1000);
 
@@ -89,7 +89,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         escrowNFT.switchEscrow(escrowId, newOfferId, 1000, 0);
         (newOfferId,) = createAndCheckOffer(supplier2, largeAmount);
 
-        uint minFee = escrowNFT.interestFee(largeAmount, duration, interestAPR);
+        uint minFee = escrowNFT.interestFee(newOfferId, largeAmount);
         startHoax(loans);
         vm.expectRevert("insufficient fee");
         escrowNFT.switchEscrow(escrowId, newOfferId, 1000, minFee - 1);

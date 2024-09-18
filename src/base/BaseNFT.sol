@@ -7,15 +7,14 @@
 
 pragma solidity 0.8.22;
 
-import {
-    ERC721, ERC721Enumerable
-} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 // internal
 import { BaseEmergencyAdmin, ConfigHub } from "./BaseEmergencyAdmin.sol";
+import { MathUtils } from "./MathUtils.sol";
 
-abstract contract BaseEmergencyAdminNFT is BaseEmergencyAdmin, ERC721Enumerable {
+abstract contract BaseNFT is BaseEmergencyAdmin, ERC721, MathUtils {
     // ----- State ----- //
-    uint internal nextTokenId; // NFT token ID
+    uint internal nextTokenId = 1; // NFT token ID, starts from 1 so that 0 ID is not used
 
     constructor(address _initialOwner, string memory _name, string memory _symbol)
         BaseEmergencyAdmin(_initialOwner)

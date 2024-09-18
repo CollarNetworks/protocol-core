@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
-import { CollarBaseIntegrationTestConfig, IBaseLoansNFT } from "./BaseIntegration.t.sol";
+import { CollarBaseIntegrationTestConfig, ILoansNFT } from "./BaseIntegration.t.sol";
 import { ShortProviderNFT } from "../../../src/ShortProviderNFT.sol";
 import { CollarTakerNFT } from "../../../src/CollarTakerNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -28,8 +28,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         (borrowId,,) = pair.loansContract.openLoan(
             collateralAmount,
             0,
-            IBaseLoansNFT.SwapParams(minCashAmount, address(pair.loansContract.defaultSwapper()), ""),
-            pair.providerNFT,
+            ILoansNFT.SwapParams(minCashAmount, address(pair.loansContract.defaultSwapper()), ""),
             offerId
         );
         position = pair.takerNFT.getPosition(borrowId);
@@ -197,10 +196,10 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
     }
 
     function getOfferIndex(uint24 callStrikeTick) internal pure returns (uint) {
-        if (callStrikeTick == 110) return 0;
-        if (callStrikeTick == 115) return 1;
-        if (callStrikeTick == 120) return 2;
-        if (callStrikeTick == 130) return 3;
+        if (callStrikeTick == 110) return 1;
+        if (callStrikeTick == 115) return 2;
+        if (callStrikeTick == 120) return 3;
+        if (callStrikeTick == 130) return 4;
         revert("Invalid call strike tick");
     }
 
@@ -252,7 +251,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         callStrikeDeviations[3] = 13_000; // 130%
 
         for (uint i = 0; i < callStrikeDeviations.length; i++) {
-            ShortProviderNFT.LiquidityOffer memory offer = pair.providerNFT.getOffer(i);
+            ShortProviderNFT.LiquidityOffer memory offer = pair.providerNFT.getOffer(1 + i); // starts from 1
             assertEq(offer.provider, provider);
             assertEq(offer.available, amountPerOffer);
             assertEq(offer.putStrikeDeviation, offerLTV);

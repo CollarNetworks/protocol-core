@@ -11,7 +11,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 // internal
 import { ConfigHub } from "./ConfigHub.sol";
-import { BaseEmergencyAdminNFT } from "./base/BaseEmergencyAdminNFT.sol";
+import { BaseNFT } from "./base/BaseNFT.sol";
 import { IShortProviderNFT } from "./interfaces/IShortProviderNFT.sol";
 
 /**
@@ -46,7 +46,7 @@ import { IShortProviderNFT } from "./interfaces/IShortProviderNFT.sol";
  * 1. Critical functions are only callable by the trusted taker contract.
  * 2. Offer and position parameters are validated against the configHub's configurations.
  */
-contract ShortProviderNFT is IShortProviderNFT, BaseEmergencyAdminNFT {
+contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
@@ -63,7 +63,8 @@ contract ShortProviderNFT is IShortProviderNFT, BaseEmergencyAdminNFT {
     address public immutable taker;
 
     // ----- STATE ----- //
-    uint public nextOfferId; // @dev this is NOT the NFT id, this is separate ID
+    // @dev this is NOT the NFT id, this is separate ID
+    uint public nextOfferId = 1; // starts from 1 so that 0 ID is not used
     // offerId is non transferrable
     mapping(uint offerId => LiquidityOffer) internal liquidityOffers;
     // positionId is the NFT token ID (tracked in BaseEmergencyAdminNFT)
@@ -77,7 +78,7 @@ contract ShortProviderNFT is IShortProviderNFT, BaseEmergencyAdminNFT {
         address _taker,
         string memory _name,
         string memory _symbol
-    ) BaseEmergencyAdminNFT(initialOwner, _name, _symbol) {
+    ) BaseNFT(initialOwner, _name, _symbol) {
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
         taker = _taker;
@@ -361,9 +362,5 @@ contract ShortProviderNFT is IShortProviderNFT, BaseEmergencyAdminNFT {
         uint ltv = putStrikeDeviation; // assumed to be always equal
         require(configHub.isValidLTV(ltv), "unsupported LTV");
         require(configHub.isValidCollarDuration(duration), "unsupported duration");
-    }
-
-    function _divUp(uint x, uint y) internal pure returns (uint) {
-        return (x == 0) ? 0 : ((x - 1) / y) + 1; // divUp(x,y) = (x-1 / y) + 1
     }
 }

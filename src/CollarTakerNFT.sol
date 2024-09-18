@@ -11,13 +11,11 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 // internal
-import { ShortProviderNFT } from "./ShortProviderNFT.sol";
-import { BaseEmergencyAdminNFT } from "./base/BaseEmergencyAdminNFT.sol";
+import { ConfigHub, BaseNFT, ShortProviderNFT } from "./ShortProviderNFT.sol";
 import { OracleUniV3TWAP } from "./OracleUniV3TWAP.sol";
-import { ConfigHub } from "./ConfigHub.sol";
 import { ICollarTakerNFT } from "./interfaces/ICollarTakerNFT.sol";
 
-contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
+contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     using SafeERC20 for IERC20;
     using SafeCast for uint;
 
@@ -41,7 +39,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
         OracleUniV3TWAP _oracle,
         string memory _name,
         string memory _symbol
-    ) BaseEmergencyAdminNFT(initialOwner, _name, _symbol) {
+    ) BaseNFT(initialOwner, _name, _symbol) {
         cashAsset = _cashAsset;
         collateralAsset = _collateralAsset;
         _setConfigHub(_configHub);
@@ -82,12 +80,12 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseEmergencyAdminNFT {
 
     /// @dev preview the settlement calculation updates at a particular price
     /// @dev no validation, so may revert with division by zero for bad values
-    function previewSettlement(TakerPosition memory takerPos, uint endPrice)
+    function previewSettlement(uint takerId, uint endPrice)
         external
-        pure
+        view
         returns (uint takerBalance, int providerChange)
     {
-        return _settlementCalculations(takerPos, endPrice);
+        return _settlementCalculations(positions[takerId], endPrice);
     }
 
     // ----- STATE CHANGING FUNCTIONS ----- //

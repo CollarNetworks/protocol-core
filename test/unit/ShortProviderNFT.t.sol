@@ -87,7 +87,7 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
         startHoax(address(takerContract));
         vm.expectEmit(address(providerNFT));
         emit IShortProviderNFT.PositionCreated(
-            0, putDeviation, duration, callStrikeDeviation, positionAmount, offerId, fee
+            nextPosId, putDeviation, duration, callStrikeDeviation, positionAmount, offerId, fee
         );
         vm.expectEmit(address(providerNFT));
         emit IShortProviderNFT.OfferUpdated(
@@ -487,7 +487,7 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
             assertEq(offer.duration, duration);
         }
 
-        assertEq(providerNFT.nextOfferId(), offerCount);
+        assertEq(providerNFT.nextOfferId(), offerIds[offerCount - 1] + 1);
     }
 
     function test_mintMultiplePositionsFromSameOffer() public {
@@ -520,7 +520,7 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
             assertEq(providerNFT.ownerOf(positionIds[i]), provider);
         }
 
-        assertEq(providerNFT.nextPositionId(), positionCount);
+        assertEq(providerNFT.nextPositionId(), positionIds[positionCount - 1] + 1);
     }
 
     function test_transferSettleAndWithdrawPosition() public {

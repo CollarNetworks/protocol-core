@@ -132,7 +132,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         // check the view
         {
             (uint takerBalanceView, int providerChangeView) =
-                takerNFT.previewSettlement(takerPos, expectedSettlePrice);
+                takerNFT.previewSettlement(takerId, expectedSettlePrice);
             assertEq(takerBalanceView, expectedTakerOut);
             assertEq(providerChangeView, expectedProviderChange);
         }
@@ -207,7 +207,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         assertEq(takerNFT.VERSION(), "0.2.0");
         assertEq(takerNFT.name(), "NewCollarTakerNFT");
         assertEq(takerNFT.symbol(), "NBPNFT");
-        assertEq(takerNFT.nextPositionId(), 0);
+        assertEq(takerNFT.nextPositionId(), 1);
     }
 
     function test_revert_constructor() public {
@@ -311,8 +311,8 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     function test_openPairedPosition() public {
         uint userBalanceBefore = cashAsset.balanceOf(user1);
         (uint takerId, uint providerNFTId) = checkOpenPairedPosition();
-        assertEq(takerId, 0);
-        assertEq(providerNFTId, 0);
+        assertEq(takerId, 1);
+        assertEq(providerNFTId, 1);
         assertEq(cashAsset.balanceOf(user1), userBalanceBefore - putLocked);
     }
 

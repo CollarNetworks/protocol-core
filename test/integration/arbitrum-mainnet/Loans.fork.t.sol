@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import "../utils/DeploymentLoader.sol";
-import { IBaseLoansNFT } from "../../../src/interfaces/ILoansNFT.sol";
+import { ILoansNFT } from "../../../src/interfaces/ILoansNFT.sol";
 import { DeployContractsArbitrumMainnet } from "../../../script/arbitrum-mainnet/deploy-contracts.s.sol";
 
 abstract contract LoansTestBase is Test, DeploymentLoader {
@@ -36,8 +36,7 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
         (loanId, providerId, loanAmount) = pair.loansContract.openLoan(
             collateralAmount,
             minLoanAmount,
-            IBaseLoansNFT.SwapParams(0, address(pair.loansContract.defaultSwapper()), ""),
-            pair.providerNFT,
+            ILoansNFT.SwapParams(0, address(pair.loansContract.defaultSwapper()), ""),
             offerId
         );
         vm.stopPrank();
@@ -50,12 +49,11 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
         uint minCollateralOut
     ) internal returns (uint collateralOut) {
         vm.startPrank(user);
-        IBaseLoansNFT.Loan memory loan = pair.loansContract.getLoan(loanId);
+        ILoansNFT.Loan memory loan = pair.loansContract.getLoan(loanId);
         // approve repayment amount in cash asset to loans contract
         pair.cashAsset.approve(address(pair.loansContract), loan.loanAmount);
         collateralOut = pair.loansContract.closeLoan(
-            loanId,
-            IBaseLoansNFT.SwapParams(minCollateralOut, address(pair.loansContract.defaultSwapper()), "")
+            loanId, ILoansNFT.SwapParams(minCollateralOut, address(pair.loansContract.defaultSwapper()), "")
         );
         vm.stopPrank();
     }
@@ -95,7 +93,7 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
         vm.startPrank(user);
         pair.cashAsset.approve(address(pair.loansContract), type(uint).max);
         (newLoanId, newLoanAmount, transferAmount) =
-            pair.loansContract.rollLoan(loanId, pair.rollsContract, rollOfferId, minToUser);
+            pair.loansContract.rollLoan(loanId, rollOfferId, minToUser, 0);
         vm.stopPrank();
     }
 }

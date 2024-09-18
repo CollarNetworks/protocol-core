@@ -12,11 +12,14 @@ import { ConfigHub } from "../ConfigHub.sol";
 import { CollarTakerNFT } from "../CollarTakerNFT.sol";
 import { ShortProviderNFT } from "../ShortProviderNFT.sol";
 import { Rolls } from "../Rolls.sol";
+import { EscrowSupplierNFT } from "../EscrowSupplierNFT.sol";
 
-interface IBaseLoansNFT {
+interface ILoansNFT {
     struct Loan {
         uint collateralAmount;
         uint loanAmount;
+        EscrowSupplierNFT escrowNFT; // optional, 0 address for non-escrow loans
+        uint escrowId;
     }
 
     struct SwapParams {
@@ -27,13 +30,11 @@ interface IBaseLoansNFT {
 
     // events
     event LoanOpened(
+        uint indexed loanId,
         address indexed sender,
-        address indexed providerNFT,
         uint indexed shortOfferId,
         uint collateralAmount,
-        uint loanAmount,
-        uint loanId,
-        uint providerId
+        uint loanAmount
     );
     event LoanClosed(
         uint indexed loanId,
@@ -55,8 +56,12 @@ interface IBaseLoansNFT {
     event LoanCancelled(uint indexed loanId, address indexed sender);
     event ClosingKeeperAllowed(address indexed sender, bool indexed enabled);
     event ClosingKeeperUpdated(address indexed previousKeeper, address indexed newKeeper);
-    event RollsContractUpdated(Rolls indexed previousRolls, Rolls indexed newRolls);
+    event ContractsUpdated(
+        Rolls indexed rolls, ShortProviderNFT indexed providerNFT, EscrowSupplierNFT indexed escrowNFT
+    );
     event SwapperSet(address indexed swapper, bool indexed allowed, bool indexed setDefault);
+    event EscrowSettled(uint indexed escrowId, uint lateFee, uint toEscrow, uint fromEscrow, uint leftOver);
+    event LoanForeclosed(uint indexed loanId, uint indexed escrowId, uint fromSwap, uint toUser);
 
     // constants
     function MAX_SWAP_TWAP_DEVIATION_BIPS() external view returns (uint);
@@ -71,46 +76,27 @@ interface IBaseLoansNFT {
     function closingKeeper() external view returns (address);
     // mutative contract owner
     function setKeeper(address keeper) external;
-    function setRollsContract(Rolls rolls) external;
-    // mutative user
+    function setContracts(Rolls rolls, ShortProviderNFT providerNFT, EscrowSupplierNFT escrowNFT) external;
+    // mutative user (+ some keeper)
     function setKeeperAllowed(bool enabled) external;
-}
-
-interface ILoansNFT is IBaseLoansNFT {
-    // mutative user (and keeper for some)
     function openLoan(
         uint collateralAmount,
         uint minLoanAmount,
         SwapParams calldata swapParams,
-        ShortProviderNFT providerNFT,
-        uint offerId
+        uint shortOffer
+    ) external returns (uint loanId, uint providerId, uint loanAmount);
+    function openEscrowLoan(
+        uint collateralAmount,
+        uint minLoanAmount,
+        SwapParams calldata swapParams,
+        uint shortOffer,
+        uint escrowOffer
     ) external returns (uint loanId, uint providerId, uint loanAmount);
     function closeLoan(uint loanId, SwapParams calldata swapParams)
         external
         returns (uint collateralReturned);
-    function rollLoan(uint loanId, Rolls rolls, uint rollId, int minToUser)
+    function rollLoan(uint loanId, uint rollId, int minToUser, uint newEscrowOffer)
         external
         returns (uint newLoanId, uint newLoanAmount, int transferAmount);
     function unwrapAndCancelLoan(uint loanId) external;
-}
-
-interface IEscrowLoansNFT is IBaseLoansNFT {
-    struct OpenLoanParams {
-        uint collateralAmount;
-        uint minLoanAmount;
-        SwapParams swapParams;
-        ShortProviderNFT providerNFT;
-        uint shortOffer;
-        uint escrowOffer;
-        uint escrowFee;
-    }
-
-    struct RollLoanParams {
-        uint loanId;
-        Rolls rolls;
-        uint rollId;
-        int minToUser; // cash
-        uint newEscrowOffer;
-        uint newEscrowFee; // collateral
-    }
 }
