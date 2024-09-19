@@ -3,6 +3,7 @@
 pragma solidity 0.8.22;
 
 import { LoansBasicEffectsTest, ILoansNFT } from "./Loans.basic.effects.t.sol";
+import { IEscrowSupplierNFT } from "../../src/LoansNFT.sol";
 
 contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
     function setUp() public virtual override {
@@ -10,12 +11,62 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         openEscrowLoan = true;
     }
 
-    function expectedGracePeriodEnd(uint loanId, uint atPrice) internal returns (uint) {
+    function expectedGracePeriodEnd(uint loanId, uint atPrice) internal view returns (uint) {
         uint expiration = takerNFT.getPosition({ takerId: loanId }).expiration;
         (uint cashAvailable,) = takerNFT.previewSettlement({ takerId: loanId, endPrice: atPrice });
         uint collateral = cashAvailable * 1e18 / atPrice; // 1e18 is BASE_TOKEN_AMOUNT
         uint gracePeriod = escrowNFT.cappedGracePeriod(loans.getLoan(loanId).escrowId, collateral);
         return expiration + gracePeriod;
+    }
+
+    function checkForecloseLoan(uint newPrice, uint skipAfterGrace, address caller) internal {
+        (uint loanId,,) = createAndCheckLoan();
+
+        // set settlement price and prepare swap
+        mockOracle.setHistoricalAssetPrice(block.timestamp + duration, newPrice);
+
+        // estimate the end of grace period
+        uint endGracetime = loans.escrowGracePeriodEnd(loanId);
+        // skip past grace period
+        skip(endGracetime + skipAfterGrace - block.timestamp);
+
+        twapPrice = newPrice;
+        uint swapOut = prepareSwapToCollateralAtTWAPPrice();
+
+        // calculate expected escrow release values
+        uint escrowId = loans.getLoan(loanId).escrowId;
+        EscrowReleaseAmounts memory released = getEscrowReleaseValues(escrowId, swapOut);
+        uint expectedToUser = released.fromEscrow + released.leftOver;
+        uint userBalance = collateralAsset.balanceOf(user1);
+        uint escrowBalance = collateralAsset.balanceOf(address(escrowNFT));
+
+        // foreclose
+        vm.startPrank(caller);
+        vm.expectEmit(address(loans));
+        emit ILoansNFT.EscrowSettled(
+            escrowId, released.toEscrow, released.lateFee, released.fromEscrow, released.leftOver
+        );
+        vm.expectEmit(address(loans));
+        emit ILoansNFT.LoanForeclosed(loanId, escrowId, swapOut, expectedToUser);
+        loans.forecloseLoan(loanId, defaultSwapParams(0));
+
+        // balances
+        assertEq(collateralAsset.balanceOf(user1), userBalance + expectedToUser);
+        assertEq(
+            collateralAsset.balanceOf(address(escrowNFT)),
+            escrowBalance + released.toEscrow - released.fromEscrow
+        );
+
+        // struct
+        IEscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(escrowId);
+        assertTrue(escrow.released);
+        assertEq(escrow.withdrawable, escrow.escrowed + escrow.interestHeld + swapOut - expectedToUser);
+
+        // loan and taker NFTs burned
+        expectRevertERC721Nonexistent(loanId);
+        loans.ownerOf(loanId);
+        expectRevertERC721Nonexistent(loanId);
+        takerNFT.ownerOf({ tokenId: loanId });
     }
 
     // tests
@@ -71,13 +122,12 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         uint expected = expectedGracePeriodEnd(loanId, twapPrice);
         assertEq(loans.escrowGracePeriodEnd(loanId), expected);
 
-        // at expiry
-        skip(duration);
-        updatePrice();
+        mockOracle.setHistoricalAssetPrice(block.timestamp + duration, twapPrice);
         expected = expectedGracePeriodEnd(loanId, twapPrice);
 
-        // this doesn't effect anything, since price needs to be updated manually, but
-        twapPrice *= 2;
+        // at expiry
+        skip(duration);
+        assertEq(loans.escrowGracePeriodEnd(loanId), expected);
 
         // after expiry, keeps using previous price
         skip(1);
@@ -100,21 +150,21 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
 
         // Price increase
         uint highPrice = twapPrice * 2;
-        updatePrice(highPrice);
+        mockOracle.setHistoricalAssetPrice(expiration, highPrice);
         assertEq(loans.escrowGracePeriodEnd(loanId), expectedGracePeriodEnd(loanId, highPrice));
 
         // Price decrease
         uint lowPrice = twapPrice / 2;
-        updatePrice(lowPrice);
+        mockOracle.setHistoricalAssetPrice(expiration, lowPrice);
         assertEq(loans.escrowGracePeriodEnd(loanId), expectedGracePeriodEnd(loanId, lowPrice));
 
         // min grace period (for very high price), very high price means cash is worth 0 collateral
-        updatePrice(type(uint).max);
+        mockOracle.setHistoricalAssetPrice(expiration, type(uint).max);
         assertEq(loans.escrowGracePeriodEnd(loanId), expiration + escrowNFT.MIN_GRACE_PERIOD());
 
         // min grace period (for very low price), because user has no cash (position is worth 0)
         uint minPrice = 1;
-        updatePrice(minPrice);
+        mockOracle.setHistoricalAssetPrice(expiration, minPrice);
         assertEq(loans.escrowGracePeriodEnd(loanId), expiration + escrowNFT.MIN_GRACE_PERIOD());
 
         // make preview settlement return a lot of cash, which at low price (1) will buy a lot
@@ -125,5 +175,32 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
             abi.encode(100 * largeAmount, 0)
         );
         assertEq(loans.escrowGracePeriodEnd(loanId), expiration + gracePeriod);
+    }
+
+    function test_forecloseLoan() public {
+        // just after grace period end
+        checkForecloseLoan(twapPrice, 1, supplier);
+
+        // long after max gracePeriod
+        checkForecloseLoan(twapPrice, gracePeriod, supplier);
+
+        // price increase
+        checkForecloseLoan(largeAmount, gracePeriod, supplier);
+
+        // price decrease
+        checkForecloseLoan(1 ether, gracePeriod, supplier);
+    }
+
+    function test_forecloseLoan_byKeeper() public {
+        // Set the keeper
+        vm.startPrank(owner);
+        loans.setKeeper(keeper);
+
+        // Supplier allows the keeper to foreclose
+        vm.startPrank(supplier);
+        loans.setKeeperAllowed(true);
+
+        // by keeper
+        checkForecloseLoan(twapPrice, 1, keeper);
     }
 }
