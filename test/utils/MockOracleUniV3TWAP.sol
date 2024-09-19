@@ -11,7 +11,7 @@ import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 
 contract MockOracleUniV3TWAP is OracleUniV3TWAP {
     // 0 prices can happen, but also sometimes unset price needs to revert to tigger fallback logic
-    bool public requirePriceSet = false;
+    bool public checkPrice = false;
 
     mapping(uint timestamp => uint value) historicalPrices;
 
@@ -26,8 +26,8 @@ contract MockOracleUniV3TWAP is OracleUniV3TWAP {
         historicalPrices[timestamp] = value;
     }
 
-    function setRequirePriceSet(bool enabled) public {
-        requirePriceSet = enabled;
+    function setCheckPrice(bool enabled) public {
+        checkPrice = enabled;
     }
 
     // ----- Internal Views ----- //
@@ -39,6 +39,6 @@ contract MockOracleUniV3TWAP is OracleUniV3TWAP {
 
     function _getQuote(uint32[] memory secondsAgos) internal view override returns (uint price) {
         price = historicalPrices[block.timestamp - secondsAgos[1]];
-        if (requirePriceSet) require(price != 0, "MockOracleUniV3TWAP: price unset for time");
+        if (checkPrice) require(price != 0, "MockOracleUniV3TWAP: price unset for time");
     }
 }

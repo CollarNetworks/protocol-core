@@ -203,4 +203,27 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         // by keeper
         checkForecloseLoan(twapPrice, 1, keeper);
     }
+
+    function test_forecloseLoan_settled() public {
+        (uint loanId,,) = createAndCheckLoan();
+
+        // skip past grace period
+        skip(duration + gracePeriod + 1);
+        mockOracle.setCheckPrice(true);
+        updatePrice();
+        prepareSwapToCollateralAtTWAPPrice();
+
+        // settle taker position
+        takerNFT.settlePairedPosition({takerId: loanId});
+
+        // foreclose
+        vm.startPrank(supplier);
+        loans.forecloseLoan(loanId, defaultSwapParams(0));
+
+        // loan and taker NFTs burned
+        expectRevertERC721Nonexistent(loanId);
+        loans.ownerOf(loanId);
+        expectRevertERC721Nonexistent(loanId);
+        takerNFT.ownerOf({ tokenId: loanId });
+    }
 }

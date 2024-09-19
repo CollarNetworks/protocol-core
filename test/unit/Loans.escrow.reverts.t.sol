@@ -101,7 +101,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         skip(gracePeriodEnd - block.timestamp);
         updatePrice();
         prepareSwapToCollateralAtTWAPPrice();
-        mockOracle.setRequirePriceSet(true);
+        mockOracle.setCheckPrice(true);
         vm.expectRevert("cannot foreclose yet");
         loans.forecloseLoan(loanId, defaultSwapParams(0));
 
@@ -172,7 +172,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         // after grace period
         skip(duration + gracePeriod + 1);
         updatePrice();
-        mockOracle.setRequirePriceSet(true);
+        mockOracle.setCheckPrice(true);
         uint swapOut = prepareSwapToCollateralAtTWAPPrice();
 
         // foreclose with an invalid swapper
