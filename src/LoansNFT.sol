@@ -745,18 +745,25 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         if (!escrowReleased) {
             // do not allow to unwrap past expiry with unreleased escrow to prevent frontrunning
             // foreclosing. Past expiry either the user should call closeLoan(), or escrow owner should
-            // call forecloseLoan()
+            // call forecloseLoan().
             require(block.timestamp <= _expiration(loanId), "loan expired");
+            // @dev this doesn't allow unwrapping during min-grace-period, despite late-fee being zero then.
+            // This is because the grace period's purpose is to allow the user to control the swap,
+            // in exchange for paying late fees, which are accumulating from expiry (with a cliff),
+            // and allowing the user to unwrap then will grief the supplier.
+            // This would be relevant in case the user position has some dust cash in it - not enough
+            // to justify repaying (due to slippage on full amount). In such a case user should unwrap
+            // before expiry.
 
-            // release the escrowed user funds to the supplier since the user will not repay the loan
-            // no late fees or collateral here, since loan is not expired, and there's no swap
+            // release the escrowed user funds to the supplier since the user will not repay the loan.
+            // no late fees - loan is not expired, no repayment - there was no swap.
             uint toUser = escrowNFT.endEscrow(escrowId, 0);
             // @dev no balance checks because contract holds no funds, mismatch will cause reverts
 
             // send potential interest fee refund
             collateralAsset.safeTransfer(refundRecipient, toUser);
         } else {
-            // @dev unwrapping if escrow was released handles the case that escrow owner called
+            // @dev unwrapping for released escrow is needed to handle the case of escrow owner calling
             // escrowNFT.lastResortSeizeEscrow() instead of loans.forecloseLoan() for any reason.
             // In this case, none of the other methods are callable because escrow is released
             // already, so the simplest thing that can be done to avoid locking user's funds is
