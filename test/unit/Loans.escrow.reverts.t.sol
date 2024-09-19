@@ -7,7 +7,7 @@ import { LoansBasicRevertsTest } from "./Loans.basic.reverts.t.sol";
 contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
     function setUp() public virtual override {
         super.setUp();
-        useEscrow = true;
+        openEscrowLoan = true;
     }
 
     // repeat all reverts tests (open, close) from super, but with escrow

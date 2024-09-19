@@ -19,6 +19,7 @@ contract LoansRollTestBase is LoansTestBase {
         int rollFee;
         uint newLoanAmount;
         uint newLoanId;
+        bool isEscrowLoan;
         uint newEscrowId;
         uint escrowFeeRefund;
     }
@@ -45,11 +46,12 @@ contract LoansRollTestBase is LoansTestBase {
 
         expected.newLoanId = takerNFT.nextPositionId();
 
-        if (useEscrow) {
+        expected.isEscrowLoan = prevLoan.escrowNFT != NO_ESCROW;
+        if (expected.isEscrowLoan) {
             expected.newEscrowId = escrowNFT.nextEscrowId();
             (,, expected.escrowFeeRefund) = escrowNFT.previewRelease(prevLoan.escrowId, 0);
         } else {
-            // set to 0
+            // default to 0
         }
 
         return expected;
@@ -104,7 +106,7 @@ contract LoansRollTestBase is LoansTestBase {
         uint newLoanAmount;
         int toUser;
         (newLoanId, newLoanAmount, toUser) = loans.rollLoan(loanId, rollId, minToUser, escrowOfferId);
-        if (useEscrow) {
+        if (expected.isEscrowLoan) {
             // sanity checks for test values
             assertGt(escrowOfferId, 0);
             assertGt(escrowFee, 0);
@@ -156,7 +158,7 @@ contract LoansRollTestBase is LoansTestBase {
         ILoansNFT.Loan memory newLoan = loans.getLoan(newLoanId);
         assertEq(newLoan.loanAmount, expected.newLoanAmount);
         assertEq(newLoan.collateralAmount, loans.getLoan(loanId).collateralAmount);
-        assertEq(address(newLoan.escrowNFT), address(useEscrow ? escrowNFT : NO_ESCROW));
+        assertEq(address(newLoan.escrowNFT), address(expected.isEscrowLoan ? escrowNFT : NO_ESCROW));
         assertEq(newLoan.escrowId, expected.newEscrowId);
 
         // new taker position
@@ -297,7 +299,7 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
 contract LoansRollsEscrowEffectsTest is LoansRollsEffectsTest {
     function setUp() public virtual override {
         super.setUp();
-        useEscrow = true;
+        openEscrowLoan = true;
     }
 
     // all rolls effect tests from LoansRollsEffectsTest are repeated for rolls with escrow

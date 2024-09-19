@@ -236,7 +236,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
 contract LoansRollsEscrowRevertsTest is LoansRollsRevertsTest {
     function setUp() public virtual override {
         super.setUp();
-        useEscrow = true;
+        openEscrowLoan = true;
     }
 
     // all rolls reverts tests from LoansRollsRevertsTest are repeated for rolls with escrow

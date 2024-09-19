@@ -16,7 +16,7 @@ import { LoansTestBase } from "./Loans.basic.effects.t.sol";
 
 contract LoansBasicRevertsTest is LoansTestBase {
     function openLoan(uint _col, uint _minLoan, uint _minSwap, uint _shortOffer) internal {
-        if (useEscrow) {
+        if (openEscrowLoan) {
             // uses last set escrowOfferId
             loans.openEscrowLoan(_col, _minLoan, defaultSwapParams(_minSwap), _shortOffer, escrowOfferId);
         } else {

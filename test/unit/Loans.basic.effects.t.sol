@@ -36,7 +36,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
     uint lateFeeAPR = 10_000; // 100%
 
     // basic tests are without escrow
-    bool useEscrow = false;
+    bool openEscrowLoan = false;
     uint escrowOfferId;
     uint escrowFee;
 
@@ -95,7 +95,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
     function maybeCreateEscrowOffer() internal {
         // calculates values for with or without escrow mode
-        if (useEscrow) {
+        if (openEscrowLoan) {
             startHoax(supplier);
             collateralAsset.approve(address(escrowNFT), largeAmount);
             escrowOfferId = escrowNFT.createOffer(largeAmount, duration, interestAPR, gracePeriod, lateFeeAPR);
@@ -156,7 +156,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         vm.expectEmit(address(loans));
         emit ILoansNFT.LoanOpened(ids.loanId, user1, shortOfferId, collateralAmount, expectedLoanAmount);
 
-        if (useEscrow) {
+        if (openEscrowLoan) {
             (loanId, providerId, loanAmount) =
                 loans.openEscrowLoan(collateralAmount, minLoanAmount, swapParams, shortOfferId, escrowOfferId);
 
@@ -205,8 +205,8 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         ILoansNFT.Loan memory loan = loans.getLoan(ids.loanId);
         assertEq(loan.collateralAmount, collateralAmount);
         assertEq(loan.loanAmount, loanAmount);
-        assertEq(address(loan.escrowNFT), address(useEscrow ? escrowNFT : NO_ESCROW));
-        assertEq(loan.escrowId, (useEscrow ? ids.nextEscrowId : 0));
+        assertEq(address(loan.escrowNFT), address(openEscrowLoan ? escrowNFT : NO_ESCROW));
+        assertEq(loan.escrowId, (openEscrowLoan ? ids.nextEscrowId : 0));
 
         // Check taker position
         uint expectedProviderLocked = swapOut * (callStrikeDeviation - BIPS_100PCT) / BIPS_100PCT;
@@ -287,10 +287,11 @@ contract LoansTestBase is BaseAssetPairTestSetup {
             userCash: cashAsset.balanceOf(user1),
             escrow: collateralAsset.balanceOf(address(escrowNFT))
         });
-        uint escrowId = loans.getLoan(loanId).escrowId;
+        ILoansNFT.Loan memory loan = loans.getLoan(loanId);
+        bool isEscrowLoan = loan.escrowNFT != NO_ESCROW;
         EscrowReleaseAmounts memory released;
-        if (useEscrow) {
-            released = getEscrowReleaseValues(escrowId, swapOut);
+        if (isEscrowLoan) {
+            released = getEscrowReleaseValues(loan.escrowId, swapOut);
             assertGt(released.toEscrow, 0);
             assertGt(released.fromEscrow, 0);
         }
@@ -299,11 +300,11 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         vm.startPrank(caller);
         vm.expectEmit(address(loans));
         emit ILoansNFT.LoanClosed(loanId, caller, user1, loanAmount, loanAmount + withdrawal, swapOut);
-        if (useEscrow) {
+        if (isEscrowLoan) {
             // expect this only if escrow is used
             vm.expectEmit(address(loans));
             emit ILoansNFT.EscrowSettled(
-                escrowId, released.toEscrow, released.lateFee, released.fromEscrow, released.leftOver
+                loan.escrowId, released.toEscrow, released.lateFee, released.fromEscrow, released.leftOver
             );
         }
         uint collateralOut = loans.closeLoan(loanId, defaultSwapParams(0));
@@ -329,7 +330,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         loans.closeLoan(loanId, defaultSwapParams(0));
 
         // check escrow released
-        if (useEscrow) {
+        if (isEscrowLoan) {
             assertTrue(escrowNFT.getEscrow(loans.getLoan(loanId).escrowId).released);
         }
     }
@@ -496,7 +497,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         vm.startPrank(user1);
         collateralAsset.approve(address(loans), collateralAmount + escrowFee);
         vm.expectRevert(new bytes(0)); // failure to decode extraData
-        if (useEscrow) {
+        if (openEscrowLoan) {
             // escrow loan
             loans.openEscrowLoan(collateralAmount, 0, defaultSwapParams(0), shortOfferId, escrowOfferId);
         } else {

@@ -7,7 +7,7 @@ import { LoansBasicEffectsTest, ILoansNFT } from "./Loans.basic.effects.t.sol";
 contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
     function setUp() public virtual override {
         super.setUp();
-        useEscrow = true;
+        openEscrowLoan = true;
     }
 
     // repeat all effects tests (open, close) from super, but with escrow
