@@ -610,7 +610,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
             emit ILoansNFT.LoanCancelled(loanId, address(user1));
             loans.unwrapAndCancelLoan(loanId);
             // upwrapped
-            assertEq(takerNFT.ownerOf({tokenId: loanId}), user1);
+            assertEq(takerNFT.ownerOf({ tokenId: loanId }), user1);
             // cancelled
             expectRevertERC721Nonexistent(loanId);
             loans.ownerOf(loanId);
