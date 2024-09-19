@@ -103,8 +103,8 @@ contract LoansRollTestBase is LoansTestBase {
         int minToUser = int(expected.newLoanAmount) - int(prevLoan.loanAmount) - rollFee;
         uint newLoanAmount;
         int toUser;
+        (newLoanId, newLoanAmount, toUser) = loans.rollLoan(loanId, rollId, minToUser, escrowOfferId);
         if (useEscrow) {
-            (newLoanId, newLoanAmount, toUser) = loans.rollLoan(loanId, rollId, minToUser, escrowOfferId);
             // sanity checks for test values
             assertGt(escrowOfferId, 0);
             assertGt(escrowFee, 0);
@@ -113,7 +113,6 @@ contract LoansRollTestBase is LoansTestBase {
             // old released
             assertTrue(escrowNFT.getEscrow(prevLoan.escrowId).released);
         } else {
-            (newLoanId, newLoanAmount, toUser) = loans.rollLoan(loanId, rollId, minToUser, 0);
             // sanity checks for test values
             assertEq(escrowOfferId, 0);
             assertEq(escrowFee, 0);
