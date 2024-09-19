@@ -244,7 +244,7 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         prepareSwapToCollateralAtTWAPPrice();
 
         // settle taker position
-        takerNFT.settlePairedPosition({takerId: loanId});
+        takerNFT.settlePairedPosition({ takerId: loanId });
 
         // foreclose
         vm.startPrank(supplier);

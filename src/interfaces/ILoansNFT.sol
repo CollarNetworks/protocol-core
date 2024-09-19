@@ -15,9 +15,15 @@ import { Rolls } from "../Rolls.sol";
 import { EscrowSupplierNFT } from "../EscrowSupplierNFT.sol";
 
 interface ILoansNFT {
+    enum LoanType {
+        Regular,
+        EscrowLoan
+    }
+
     struct Loan {
         uint collateralAmount;
         uint loanAmount;
+        LoanType loanType;
         EscrowSupplierNFT escrowNFT; // optional, 0 address for non-escrow loans
         uint escrowId;
     }

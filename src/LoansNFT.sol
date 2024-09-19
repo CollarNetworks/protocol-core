@@ -148,7 +148,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         SwapParams calldata swapParams,
         uint shortOffer
     ) public whenNotPaused returns (uint loanId, uint providerId, uint loanAmount) {
-        return _openLoan(collateralAmount, minLoanAmount, swapParams, shortOffer, false, 0);
+        return _openLoan(collateralAmount, minLoanAmount, swapParams, shortOffer, LoanType.Regular, 0);
     }
 
     /**
@@ -178,7 +178,9 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         uint shortOffer,
         uint escrowOffer
     ) public whenNotPaused returns (uint loanId, uint providerId, uint loanAmount) {
-        return _openLoan(collateralAmount, minLoanAmount, swapParams, shortOffer, true, escrowOffer);
+        return _openLoan(
+            collateralAmount, minLoanAmount, swapParams, shortOffer, LoanType.EscrowLoan, escrowOffer
+        );
     }
 
     /**
@@ -268,15 +270,16 @@ contract LoansNFT is BaseNFT, ILoansNFT {
 
         // set the new ID from new taker ID
         newLoanId = _newLoanIdCheck(newTakerId);
-        // check escrow and loan have matching fields
-        _escrowValidations(newLoanId, prevLoan.escrowNFT, newEscrowId);
         // store the new loan data
         loans[newLoanId] = Loan({
             collateralAmount: prevLoan.collateralAmount,
             loanAmount: newLoanAmount,
+            loanType: prevLoan.loanType,
             escrowNFT: prevLoan.escrowNFT,
             escrowId: newEscrowId
         });
+        // check escrow and loan have matching fields
+        _conditionalEscrowValidations(newLoanId);
 
         // mint the new loan NFT to the user, keep the taker NFT (with the same ID) in this contract
         _mint(msg.sender, newLoanId); // @dev does not use _safeMint to avoid reentrancy
@@ -307,14 +310,14 @@ contract LoansNFT is BaseNFT, ILoansNFT {
 
     // TODO docs
     function forecloseLoan(uint loanId, SwapParams calldata swapParams) external whenNotPaused {
-        EscrowSupplierNFT escrowNFT = loans[loanId].escrowNFT;
-        require(escrowNFT != NO_ESCROW, "not an escrowed loan");
+        Loan storage loan = loans[loanId];
+        require(_isEscrowLoan(loan), "not an escrowed loan");
 
+        (EscrowSupplierNFT escrowNFT, uint escrowId) = (loan.escrowNFT, loan.escrowId);
         // Funds beneficiary (escrow owner) should set the swapParams ideally.
         // A keeper can be needed because foreclosing can be time-sensitive (due to swap timing)
         // and because can be subject to griefing by opening many small loans.
         // @dev will also revert on non-existent (unminted / burned) escrow ID
-        uint escrowId = loans[loanId].escrowId;
         address escrowOwner = escrowNFT.ownerOf(escrowId);
         require(_isSenderOrKeeperFor(escrowOwner), "not escrow owner or allowed keeper");
 
@@ -423,7 +426,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         uint minLoanAmount,
         SwapParams calldata swapParams,
         uint shortOffer,
-        bool useEscrow,
+        LoanType loanType,
         uint escrowOffer
     ) internal returns (uint loanId, uint providerId, uint loanAmount) {
         require(configHub.canOpen(address(this)), "unsupported loans contract");
@@ -436,7 +439,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
 
         // handle optional escrow, must be done first, to use "supplier's" collateral in swap
         (EscrowSupplierNFT escrowNFT, uint escrowId) =
-            _conditionalOpenEscrow(useEscrow, collateralAmount, escrowOffer);
+            _conditionalOpenEscrow(loanType, collateralAmount, escrowOffer);
 
         // @dev Reentrancy assumption: no user state writes or reads BEFORE this call
         uint takerId;
@@ -444,15 +447,16 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         require(loanAmount >= minLoanAmount, "loan amount too low");
 
         loanId = _newLoanIdCheck(takerId);
-        // some validations that can only be done here, after everything is available
-        _escrowValidations(loanId, escrowNFT, escrowId);
         // store the loan opening data
         loans[loanId] = Loan({
             collateralAmount: collateralAmount,
             loanAmount: loanAmount,
+            loanType: loanType,
             escrowNFT: escrowNFT, // save the escrow used
             escrowId: escrowId
         });
+        // some validations that can only be done here, after everything is available
+        _conditionalEscrowValidations(loanId);
         // mint the loan NFT to the borrower, keep the taker NFT (with the same ID) in this contract
         _mint(msg.sender, loanId); // @dev does not use _safeMint to avoid reentrancy
 
@@ -634,18 +638,22 @@ contract LoansNFT is BaseNFT, ILoansNFT {
 
     // ----- Conditional escrow mutative methods ----- //
 
-    function _conditionalOpenEscrow(bool useEscrow, uint escrowed, uint escrowOffer)
+    function _isEscrowLoan(Loan storage loan) internal view returns (bool) {
+        return loan.loanType == LoanType.EscrowLoan;
+    }
+
+    function _conditionalOpenEscrow(LoanType loanType, uint escrowed, uint escrowOffer)
         internal
         returns (EscrowSupplierNFT escrowNFT, uint escrowId)
     {
-        if (useEscrow) {
+        if (loanType == LoanType.EscrowLoan) {
             escrowNFT = currentEscrowNFT;
             // escrow contract is valid
             require(escrowNFT != NO_ESCROW, "escrow contract unset");
             // whitelisted only
             require(configHub.canOpen(address(escrowNFT)), "unsupported escrow contract");
 
-            uint fee = _checkAndPullEscrowFee(escrowNFT, escrowOffer, escrowed);
+            uint fee = _pullEscrowFee(escrowNFT, escrowOffer, escrowed);
             // @dev collateralAmount was pulled already before calling this method
             collateralAsset.forceApprove(address(escrowNFT), escrowed + fee);
             (escrowId,) = escrowNFT.startEscrow({
@@ -665,29 +673,29 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         internal
         returns (uint newEscrowId)
     {
-        EscrowSupplierNFT escrowNFT = prevLoan.escrowNFT;
-        if (escrowNFT == NO_ESCROW) {
-            return 0; // no-op, returns 0 since escrow is not used
+        if (_isEscrowLoan(prevLoan)) {
+            // check this escrow is still allowed
+            require(configHub.canOpen(address(prevLoan.escrowNFT)), "unsupported escrow contract");
+
+            uint newFee = _pullEscrowFee(prevLoan.escrowNFT, escrowOffer, prevLoan.collateralAmount);
+            collateralAsset.forceApprove(address(prevLoan.escrowNFT), newFee);
+            // rotate escrows
+            uint feeRefund;
+            (newEscrowId,, feeRefund) = prevLoan.escrowNFT.switchEscrow({
+                releaseEscrowId: prevLoan.escrowId,
+                offerId: escrowOffer,
+                newLoanId: expectedNewLoanId, // @dev should be validated after this
+                newFee: newFee
+            });
+
+            // send potential interest fee refund
+            collateralAsset.safeTransfer(msg.sender, feeRefund);
+        } else {
+            newEscrowId = 0; // no escrow os used
         }
-
-        require(configHub.canOpen(address(escrowNFT)), "unsupported escrow contract");
-
-        uint newFee = _checkAndPullEscrowFee(escrowNFT, escrowOffer, prevLoan.collateralAmount);
-        collateralAsset.forceApprove(address(escrowNFT), newFee);
-        // rotate escrows
-        uint feeRefund;
-        (newEscrowId,, feeRefund) = escrowNFT.switchEscrow({
-            releaseEscrowId: prevLoan.escrowId,
-            offerId: escrowOffer,
-            newLoanId: expectedNewLoanId, // @dev should be validated after this
-            newFee: newFee
-        });
-
-        // send potential interest fee refund
-        collateralAsset.safeTransfer(msg.sender, feeRefund);
     }
 
-    function _checkAndPullEscrowFee(EscrowSupplierNFT escrowNFT, uint escrowOffer, uint escrowed)
+    function _pullEscrowFee(EscrowSupplierNFT escrowNFT, uint escrowOffer, uint escrowed)
         internal
         returns (uint interestFee)
     {
@@ -700,12 +708,9 @@ contract LoansNFT is BaseNFT, ILoansNFT {
     }
 
     function _conditionalReleaseEscrow(uint loanId, uint fromSwap) internal returns (uint collateralOut) {
-        EscrowSupplierNFT escrowNFT = loans[loanId].escrowNFT;
-        if (escrowNFT == NO_ESCROW) {
-            collateralOut = fromSwap; // no-op
-        } else {
-            collateralOut = _releaseEscrow(escrowNFT, loans[loanId].escrowId, fromSwap);
-        }
+        Loan storage loan = loans[loanId];
+        // collateral is what's released by escrow, or return the full swap amount if escrow not used
+        return _isEscrowLoan(loan) ? _releaseEscrow(loan.escrowNFT, loan.escrowId, fromSwap) : fromSwap;
     }
 
     function _releaseEscrow(EscrowSupplierNFT escrowNFT, uint escrowId, uint fromSwap)
@@ -735,18 +740,20 @@ contract LoansNFT is BaseNFT, ILoansNFT {
     }
 
     function _conditionalCheckAndCancelEscrow(uint loanId, address refundRecipient) internal {
-        EscrowSupplierNFT escrowNFT = loans[loanId].escrowNFT;
-        if (escrowNFT == NO_ESCROW) {
-            return; // no-op and no checks
-        }
-
-        uint escrowId = loans[loanId].escrowId;
-        bool escrowReleased = escrowNFT.getEscrow(escrowId).released;
-        if (!escrowReleased) {
-            // do not allow to unwrap past expiry with unreleased escrow to prevent frontrunning
+        Loan storage loan = loans[loanId];
+        // only check and release if escrow was used
+        if (_isEscrowLoan(loan)) {
+            (EscrowSupplierNFT escrowNFT, uint escrowId) = (loan.escrowNFT, loan.escrowId);
+            bool escrowReleased = escrowNFT.getEscrow(escrowId).released;
+            // 1. Do NOT allow to unwrap past expiry with unreleased escrow: to prevent frontrunning
             // foreclosing. Past expiry either the user should call closeLoan(), or escrow owner should
             // call forecloseLoan().
-            require(block.timestamp <= _expiration(loanId), "loan expired");
+            // 2. Do allow if escrow is released: to handle the case of escrow owner
+            // calling escrowNFT.lastResortSeizeEscrow() instead of loans.forecloseLoan() for any reason.
+            // In this case, none of the other methods are callable because escrow is released
+            // already, so the simplest thing that can be done to avoid locking user's funds is
+            // to cancel the loan and send them their takerId to withdraw cash.
+            require(escrowReleased || block.timestamp <= _expiration(loanId), "loan expired");
             // @dev this doesn't allow unwrapping during min-grace-period, despite late-fee being zero then.
             // This is because the grace period's purpose is to allow the user to control the swap,
             // in exchange for paying late fees, which are accumulating from expiry (with a cliff),
@@ -755,19 +762,15 @@ contract LoansNFT is BaseNFT, ILoansNFT {
             // to justify repaying (due to slippage on full amount). In such a case user should unwrap
             // before expiry.
 
-            // release the escrowed user funds to the supplier since the user will not repay the loan.
-            // no late fees - loan is not expired, no repayment - there was no swap.
-            uint toUser = escrowNFT.endEscrow(escrowId, 0);
-            // @dev no balance checks because contract holds no funds, mismatch will cause reverts
+            if (!escrowReleased) {
+                // release the escrowed user funds to the supplier since the user will not repay the loan.
+                // no late fees - loan is not expired, no repayment - there was no swap.
+                uint toUser = escrowNFT.endEscrow(escrowId, 0);
+                // @dev no balance checks because contract holds no funds, mismatch will cause reverts
 
-            // send potential interest fee refund
-            collateralAsset.safeTransfer(refundRecipient, toUser);
-        } else {
-            // @dev unwrapping for released escrow is needed to handle the case of escrow owner calling
-            // escrowNFT.lastResortSeizeEscrow() instead of loans.forecloseLoan() for any reason.
-            // In this case, none of the other methods are callable because escrow is released
-            // already, so the simplest thing that can be done to avoid locking user's funds is
-            // to cancel the loan and send them their takerId to withdraw cash.
+                // send potential interest fee refund
+                collateralAsset.safeTransfer(refundRecipient, toUser);
+            }
         }
     }
 
@@ -837,12 +840,13 @@ contract LoansNFT is BaseNFT, ILoansNFT {
 
     // ----- Internal escrow views ----- //
 
-    function _escrowValidations(uint loanId, EscrowSupplierNFT escrowNFT, uint escrowId) internal view {
+    function _conditionalEscrowValidations(uint loanId) internal view {
+        Loan storage loan = loans[loanId];
         // @dev these checks are done in the end of openLoan because escrow position is created
         // first, so on creation cannot be validated with these two checks. On rolls these checks
         // are just reused
-        if (escrowNFT != NO_ESCROW) {
-            IEscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(escrowId);
+        if (_isEscrowLoan(loan)) {
+            IEscrowSupplierNFT.Escrow memory escrow = loan.escrowNFT.getEscrow(loan.escrowId);
             // taker.nextPositionId() view was used to create escrow (in open), but it was used before
             // external calls, so we need to ensure it matches still (was not skipped by reentrancy).
             // For rolls this check is not really needed since no untrusted calls are made between
