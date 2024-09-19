@@ -603,7 +603,9 @@ contract LoansBasicEffectsTest is LoansTestBase {
         // cancel after expiry works for regular loans
         (uint loanId,,) = createAndCheckLoan();
         skip(duration + 1);
-        if (!openEscrowLoan) {
+
+        bool notEscrowLoan = loans.getLoan(loanId).escrowNFT == NO_ESCROW;
+        if (notEscrowLoan) {
             vm.expectEmit(address(loans));
             emit ILoansNFT.LoanCancelled(loanId, address(user1));
             loans.unwrapAndCancelLoan(loanId);
