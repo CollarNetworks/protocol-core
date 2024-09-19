@@ -205,10 +205,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         ILoansNFT.Loan memory loan = loans.getLoan(ids.loanId);
         assertEq(loan.collateralAmount, collateralAmount);
         assertEq(loan.loanAmount, loanAmount);
-        assertEq(
-            uint(loan.loanType),
-            uint(openEscrowLoan ? ILoansNFT.LoanType.EscrowLoan : ILoansNFT.LoanType.Regular)
-        );
+        assertEq(loan.usesEscrow, openEscrowLoan);
         assertEq(address(loan.escrowNFT), address(openEscrowLoan ? escrowNFT : NO_ESCROW));
         assertEq(loan.escrowId, (openEscrowLoan ? ids.nextEscrowId : 0));
 
@@ -292,9 +289,8 @@ contract LoansTestBase is BaseAssetPairTestSetup {
             escrow: collateralAsset.balanceOf(address(escrowNFT))
         });
         ILoansNFT.Loan memory loan = loans.getLoan(loanId);
-        bool isEscrowLoan = loan.loanType == ILoansNFT.LoanType.EscrowLoan;
         EscrowReleaseAmounts memory released;
-        if (isEscrowLoan) {
+        if (loan.usesEscrow) {
             released = getEscrowReleaseValues(loan.escrowId, swapOut);
             assertGt(released.toEscrow, 0);
             assertGt(released.fromEscrow, 0);
@@ -304,7 +300,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         vm.startPrank(caller);
         vm.expectEmit(address(loans));
         emit ILoansNFT.LoanClosed(loanId, caller, user1, loanAmount, loanAmount + withdrawal, swapOut);
-        if (isEscrowLoan) {
+        if (loan.usesEscrow) {
             // expect this only if escrow is used
             vm.expectEmit(address(loans));
             emit ILoansNFT.EscrowSettled(
@@ -334,7 +330,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         loans.closeLoan(loanId, defaultSwapParams(0));
 
         // check escrow released
-        if (isEscrowLoan) {
+        if (loan.usesEscrow) {
             assertTrue(escrowNFT.getEscrow(loans.getLoan(loanId).escrowId).released);
         }
     }
@@ -566,8 +562,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         // user balance
         uint balanceBefore = collateralAsset.balanceOf(user1);
         ILoansNFT.Loan memory loan = loans.getLoan(loanId);
-        bool isEscrowLoan = loan.loanType == ILoansNFT.LoanType.EscrowLoan;
-        if (isEscrowLoan) {
+        if (loan.usesEscrow) {
             // escrow unreleased
             assertEq(escrowNFT.ownerOf(loan.escrowId), supplier);
             assertEq(escrowNFT.getEscrow(loan.escrowId).released, false);
@@ -594,7 +589,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
 
         // escrow effects
         uint refund;
-        if (isEscrowLoan) {
+        if (loan.usesEscrow) {
             // escrow released
             assertEq(escrowNFT.getEscrow(loan.escrowId).released, true);
             // received refund for half a duration
@@ -608,8 +603,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         (uint loanId,,) = createAndCheckLoan();
         skip(duration + 1);
 
-        bool notEscrowLoan = loans.getLoan(loanId).escrowNFT == NO_ESCROW;
-        if (notEscrowLoan) {
+        if (!loans.getLoan(loanId).usesEscrow) {
             vm.expectEmit(address(loans));
             emit ILoansNFT.LoanCancelled(loanId, address(user1));
             loans.unwrapAndCancelLoan(loanId);

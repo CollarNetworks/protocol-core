@@ -148,7 +148,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         SwapParams calldata swapParams,
         uint shortOffer
     ) public whenNotPaused returns (uint loanId, uint providerId, uint loanAmount) {
-        return _openLoan(collateralAmount, minLoanAmount, swapParams, shortOffer, LoanType.Regular, 0);
+        return _openLoan(collateralAmount, minLoanAmount, swapParams, shortOffer, false, 0);
     }
 
     /**
@@ -178,9 +178,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         uint shortOffer,
         uint escrowOffer
     ) public whenNotPaused returns (uint loanId, uint providerId, uint loanAmount) {
-        return _openLoan(
-            collateralAmount, minLoanAmount, swapParams, shortOffer, LoanType.EscrowLoan, escrowOffer
-        );
+        return _openLoan(collateralAmount, minLoanAmount, swapParams, shortOffer, true, escrowOffer);
     }
 
     /**
@@ -274,7 +272,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         loans[newLoanId] = Loan({
             collateralAmount: prevLoan.collateralAmount,
             loanAmount: newLoanAmount,
-            loanType: prevLoan.loanType,
+            usesEscrow: prevLoan.usesEscrow,
             escrowNFT: prevLoan.escrowNFT,
             escrowId: newEscrowId
         });
@@ -311,7 +309,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
     // TODO docs
     function forecloseLoan(uint loanId, SwapParams calldata swapParams) external whenNotPaused {
         Loan storage loan = loans[loanId];
-        require(_isEscrowLoan(loan), "not an escrowed loan");
+        require(loan.usesEscrow, "not an escrowed loan");
 
         (EscrowSupplierNFT escrowNFT, uint escrowId) = (loan.escrowNFT, loan.escrowId);
         // Funds beneficiary (escrow owner) should set the swapParams ideally.
@@ -426,7 +424,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         uint minLoanAmount,
         SwapParams calldata swapParams,
         uint shortOffer,
-        LoanType loanType,
+        bool usesEscrow,
         uint escrowOffer
     ) internal returns (uint loanId, uint providerId, uint loanAmount) {
         require(configHub.canOpen(address(this)), "unsupported loans contract");
@@ -439,7 +437,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
 
         // handle optional escrow, must be done first, to use "supplier's" collateral in swap
         (EscrowSupplierNFT escrowNFT, uint escrowId) =
-            _conditionalOpenEscrow(loanType, collateralAmount, escrowOffer);
+            _conditionalOpenEscrow(usesEscrow, collateralAmount, escrowOffer);
 
         // @dev Reentrancy assumption: no user state writes or reads BEFORE this call
         uint takerId;
@@ -451,7 +449,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         loans[loanId] = Loan({
             collateralAmount: collateralAmount,
             loanAmount: loanAmount,
-            loanType: loanType,
+            usesEscrow: usesEscrow,
             escrowNFT: escrowNFT, // save the escrow used
             escrowId: escrowId
         });
@@ -638,15 +636,11 @@ contract LoansNFT is BaseNFT, ILoansNFT {
 
     // ----- Conditional escrow mutative methods ----- //
 
-    function _isEscrowLoan(Loan storage loan) internal view returns (bool) {
-        return loan.loanType == LoanType.EscrowLoan;
-    }
-
-    function _conditionalOpenEscrow(LoanType loanType, uint escrowed, uint escrowOffer)
+    function _conditionalOpenEscrow(bool usesEscrow, uint escrowed, uint escrowOffer)
         internal
         returns (EscrowSupplierNFT escrowNFT, uint escrowId)
     {
-        if (loanType == LoanType.EscrowLoan) {
+        if (usesEscrow) {
             escrowNFT = currentEscrowNFT;
             // escrow contract is valid
             require(escrowNFT != NO_ESCROW, "escrow contract unset");
@@ -673,7 +667,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         internal
         returns (uint newEscrowId)
     {
-        if (_isEscrowLoan(prevLoan)) {
+        if (prevLoan.usesEscrow) {
             // check this escrow is still allowed
             require(configHub.canOpen(address(prevLoan.escrowNFT)), "unsupported escrow contract");
 
@@ -691,7 +685,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
             // send potential interest fee refund
             collateralAsset.safeTransfer(msg.sender, feeRefund);
         } else {
-            newEscrowId = 0; // no escrow os used
+            newEscrowId = 0; // no escrow used
         }
     }
 
@@ -710,7 +704,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
     function _conditionalReleaseEscrow(uint loanId, uint fromSwap) internal returns (uint collateralOut) {
         Loan storage loan = loans[loanId];
         // collateral is what's released by escrow, or return the full swap amount if escrow not used
-        return _isEscrowLoan(loan) ? _releaseEscrow(loan.escrowNFT, loan.escrowId, fromSwap) : fromSwap;
+        return loan.usesEscrow ? _releaseEscrow(loan.escrowNFT, loan.escrowId, fromSwap) : fromSwap;
     }
 
     function _releaseEscrow(EscrowSupplierNFT escrowNFT, uint escrowId, uint fromSwap)
@@ -742,7 +736,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
     function _conditionalCheckAndCancelEscrow(uint loanId, address refundRecipient) internal {
         Loan storage loan = loans[loanId];
         // only check and release if escrow was used
-        if (_isEscrowLoan(loan)) {
+        if (loan.usesEscrow) {
             (EscrowSupplierNFT escrowNFT, uint escrowId) = (loan.escrowNFT, loan.escrowId);
             bool escrowReleased = escrowNFT.getEscrow(escrowId).released;
             // 1. Do NOT allow to unwrap past expiry with unreleased escrow: to prevent frontrunning
@@ -845,7 +839,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         // @dev these checks are done in the end of openLoan because escrow position is created
         // first, so on creation cannot be validated with these two checks. On rolls these checks
         // are just reused
-        if (_isEscrowLoan(loan)) {
+        if (loan.usesEscrow) {
             IEscrowSupplierNFT.Escrow memory escrow = loan.escrowNFT.getEscrow(loan.escrowId);
             // taker.nextPositionId() view was used to create escrow (in open), but it was used before
             // external calls, so we need to ensure it matches still (was not skipped by reentrancy).

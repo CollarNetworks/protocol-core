@@ -46,7 +46,7 @@ contract LoansRollTestBase is LoansTestBase {
 
         expected.newLoanId = takerNFT.nextPositionId();
 
-        expected.isEscrowLoan = prevLoan.loanType == ILoansNFT.LoanType.EscrowLoan;
+        expected.isEscrowLoan = prevLoan.usesEscrow;
         if (expected.isEscrowLoan) {
             expected.newEscrowId = escrowNFT.nextEscrowId();
             (,, expected.escrowFeeRefund) = escrowNFT.previewRelease(prevLoan.escrowId, 0);
@@ -158,10 +158,7 @@ contract LoansRollTestBase is LoansTestBase {
         ILoansNFT.Loan memory newLoan = loans.getLoan(newLoanId);
         assertEq(newLoan.loanAmount, expected.newLoanAmount);
         assertEq(newLoan.collateralAmount, loans.getLoan(loanId).collateralAmount);
-        assertEq(
-            uint(newLoan.loanType),
-            uint(expected.isEscrowLoan ? ILoansNFT.LoanType.EscrowLoan : ILoansNFT.LoanType.Regular)
-        );
+        assertEq(newLoan.usesEscrow, expected.isEscrowLoan);
         assertEq(address(newLoan.escrowNFT), address(expected.isEscrowLoan ? escrowNFT : NO_ESCROW));
         assertEq(newLoan.escrowId, expected.newEscrowId);
 
