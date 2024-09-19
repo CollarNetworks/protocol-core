@@ -142,6 +142,36 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         assertEq(loans.escrowGracePeriodEnd(loanId), expected);
     }
 
+    function test_escrowGracePeriodEnd_beforeAndAfterExpiry_fallback() public {
+        (uint loanId,,) = createAndCheckLoan();
+
+        // not setting historical price, and setting to revert instead (to trigger fallback)
+        mockOracle.setCheckPrice(true);
+
+        // before expiry, uses current price
+        assertEq(loans.escrowGracePeriodEnd(loanId), expectedGracePeriodEnd(loanId, twapPrice));
+
+        // at expiry uses available
+        skip(duration);
+        updatePrice(twapPrice * 2);
+        assertEq(loans.escrowGracePeriodEnd(loanId), expectedGracePeriodEnd(loanId, twapPrice * 2));
+
+        // after expiry, fallback to new
+        skip(1);
+        updatePrice(twapPrice * 3);
+        assertEq(loans.escrowGracePeriodEnd(loanId), expectedGracePeriodEnd(loanId, twapPrice * 3));
+
+        // After min grace period, fallback to new
+        skip(escrowNFT.MIN_GRACE_PERIOD() - 1);
+        updatePrice(twapPrice * 4);
+        assertEq(loans.escrowGracePeriodEnd(loanId), expectedGracePeriodEnd(loanId, twapPrice * 4));
+
+        // After max grace period, fallback to new
+        skip(escrowNFT.MAX_GRACE_PERIOD());
+        updatePrice(twapPrice * 5);
+        assertEq(loans.escrowGracePeriodEnd(loanId), expectedGracePeriodEnd(loanId, twapPrice * 5));
+    }
+
     function test_escrowGracePeriodEnd_priceChanges() public {
         (uint loanId,,) = createAndCheckLoan();
         uint expiration = block.timestamp + duration;

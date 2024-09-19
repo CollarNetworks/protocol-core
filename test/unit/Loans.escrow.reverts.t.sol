@@ -110,7 +110,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         vm.expectRevert("not escrow owner or allowed keeper");
         loans.forecloseLoan(loanId, defaultSwapParams(0));
 
-        // Set the keeper
+        // set the keeper
         vm.startPrank(owner);
         loans.setKeeper(keeper);
 
@@ -126,7 +126,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         vm.expectRevert("not escrow owner or allowed keeper");
         loans.forecloseLoan(loanId, defaultSwapParams(0));
 
-        // Allow keeper
+        // allow keeper
         vm.startPrank(supplier);
         loans.setKeeperAllowed(true);
 
@@ -146,7 +146,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         vm.expectRevert("not an escrowed loan");
         loans.forecloseLoan(nonExistentLoanId, defaultSwapParams(0));
 
-        // Create and cancel a loan
+        // create and cancel a loan
         (uint loanId,,) = createAndCheckLoan();
         vm.startPrank(user1);
         loans.unwrapAndCancelLoan(loanId);
@@ -154,13 +154,9 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         expectRevertERC721Nonexistent(loanId);
         loans.forecloseLoan(loanId, defaultSwapParams(0));
 
-        // Create a non-escrow loan
+        // create a non-escrow loan
         openEscrowLoan = false;
         (uint nonEscrowLoanId,,) = createAndCheckLoan();
-        openEscrowLoan = true;
-
-        // Skip to after what would be the grace period
-        skip(duration + gracePeriod + 1);
         vm.startPrank(supplier);
         vm.expectRevert("not an escrowed loan");
         loans.forecloseLoan(nonEscrowLoanId, defaultSwapParams(0));
