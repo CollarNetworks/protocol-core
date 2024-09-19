@@ -552,10 +552,25 @@ contract LoansBasicEffectsTest is LoansTestBase {
         closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
     }
 
-    function test_unwrapAndCancelLoan() public {
+    function test_unwrapAndCancelLoan_beforeExpiry() public {
         (uint loanId,,) = createAndCheckLoan();
+
+        // taker owned by loans
         uint takerId = loanId;
         assertEq(takerNFT.ownerOf(takerId), address(loans));
+
+        // user balance
+        uint balanceBefore = collateralAsset.balanceOf(user1);
+        ILoansNFT.Loan memory loan = loans.getLoan(loanId);
+        bool isEscrowLoan = loan.escrowNFT != NO_ESCROW;
+        if (isEscrowLoan) {
+            // escrow unreleased
+            assertEq(escrowNFT.ownerOf(loan.escrowId), supplier);
+            assertEq(escrowNFT.getEscrow(loan.escrowId).released, false);
+        }
+
+        // release after half duration
+        skip(duration / 2);
 
         // cancel
         vm.expectEmit(address(loans));
@@ -572,5 +587,35 @@ contract LoansBasicEffectsTest is LoansTestBase {
         // cannot cancel again
         expectRevertERC721Nonexistent(loanId);
         loans.unwrapAndCancelLoan(loanId);
+
+        // escrow effects
+        uint refund;
+        if (isEscrowLoan) {
+            // escrow released
+            assertEq(escrowNFT.getEscrow(loan.escrowId).released, true);
+            // received refund for half a duration
+            refund = escrowNFT.getEscrow(loan.escrowId).interestHeld / 2;
+        }
+        assertEq(collateralAsset.balanceOf(user1), balanceBefore + refund);
+    }
+
+    function test_unwrapAndCancelLoan_afterExpiry() public {
+        // cancel after expiry works for regular loans
+        (uint loanId,,) = createAndCheckLoan();
+        skip(duration + 1);
+        if (!openEscrowLoan) {
+            vm.expectEmit(address(loans));
+            emit ILoansNFT.LoanCancelled(loanId, address(user1));
+            loans.unwrapAndCancelLoan(loanId);
+            // upwrapped
+            assertEq(takerNFT.ownerOf({tokenId: loanId}), user1);
+            // cancelled
+            expectRevertERC721Nonexistent(loanId);
+            loans.ownerOf(loanId);
+        } else {
+            // also tested in reverts
+            vm.expectRevert("loan expired");
+            loans.unwrapAndCancelLoan(loanId);
+        }
     }
 }

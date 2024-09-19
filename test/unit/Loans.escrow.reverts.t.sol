@@ -77,4 +77,13 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         vm.expectRevert("unexpected loanId");
         openLoan(collateralAmount, minLoanAmount, 0, shortOffer);
     }
+
+    function test_revert_unwrapAndCancelLoan_timing() public {
+        (uint loanId,,) = createAndCheckLoan();
+        // after expiry
+        skip(duration + 1);
+        // cannot unwrap
+        vm.expectRevert("loan expired");
+        loans.unwrapAndCancelLoan(loanId);
+    }
 }
