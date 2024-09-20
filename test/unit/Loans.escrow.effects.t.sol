@@ -19,26 +19,34 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         return expiration + gracePeriod;
     }
 
-    function checkForecloseLoan(uint newPrice, uint skipAfterGrace, address caller) internal {
+    function checkForecloseLoan(uint newPrice, uint skipAfterGrace, address caller)
+        internal
+        returns (EscrowReleaseAmounts memory released, uint actualGracePeriod)
+    {
         (uint loanId,,) = createAndCheckLoan();
 
         // set settlement price and prepare swap
         mockOracle.setHistoricalAssetPrice(block.timestamp + duration, newPrice);
 
         // estimate the end of grace period
-        uint endGracetime = loans.escrowGracePeriodEnd(loanId);
+        actualGracePeriod = loans.escrowGracePeriodEnd(loanId) - (block.timestamp + duration);
         // skip past grace period
-        skip(endGracetime + skipAfterGrace - block.timestamp);
+        skip(duration + actualGracePeriod + skipAfterGrace);
 
         twapPrice = newPrice;
         uint swapOut = prepareSwapToCollateralAtTWAPPrice();
 
         // calculate expected escrow release values
         uint escrowId = loans.getLoan(loanId).escrowId;
-        EscrowReleaseAmounts memory released = getEscrowReleaseValues(escrowId, swapOut);
+        released = getEscrowReleaseValues(escrowId, swapOut);
         uint expectedToUser = released.fromEscrow + released.leftOver;
         uint userBalance = collateralAsset.balanceOf(user1);
         uint escrowBalance = collateralAsset.balanceOf(address(escrowNFT));
+
+        // check late fee and grace period values
+        assertGt(actualGracePeriod, escrowNFT.MIN_GRACE_PERIOD());
+        assertLe(actualGracePeriod, gracePeriod);
+        assertEq(released.lateFee, expectedLateFees(actualGracePeriod));
 
         // foreclose
         vm.startPrank(caller);

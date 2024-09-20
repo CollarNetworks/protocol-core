@@ -371,6 +371,14 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         // swapper will call this other Uni swapper, because a swapper payload is easier to construct
         newUniSwapper = new SwapperUniV3(address(mockSwapperRouter), swapFeeTier);
     }
+
+    function expectedLateFees(uint overdue) internal view returns (uint fee) {
+        fee = divUp(collateralAmount * lateFeeAPR * overdue, BIPS_100PCT * 365 days);
+    }
+
+    function divUp(uint x, uint y) internal pure returns (uint) {
+        return (x == 0) ? 0 : ((x - 1) / y) + 1; // divUp(x,y) = (x-1 / y) + 1
+    }
 }
 
 contract LoansBasicEffectsTest is LoansTestBase {
