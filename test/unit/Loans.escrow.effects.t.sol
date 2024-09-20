@@ -44,7 +44,7 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         vm.startPrank(caller);
         vm.expectEmit(address(loans));
         emit ILoansNFT.EscrowSettled(
-            escrowId, released.toEscrow, released.lateFee, released.fromEscrow, released.leftOver
+            escrowId, released.lateFee, released.toEscrow, released.fromEscrow, released.leftOver
         );
         vm.expectEmit(address(loans));
         emit ILoansNFT.LoanForeclosed(loanId, escrowId, swapOut, expectedToUser);
@@ -218,7 +218,7 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         checkForecloseLoan(largeAmount, gracePeriod, supplier);
 
         // price decrease
-        checkForecloseLoan(1 ether, gracePeriod, supplier);
+        checkForecloseLoan(1, gracePeriod, supplier);
     }
 
     function test_forecloseLoan_byKeeper() public {

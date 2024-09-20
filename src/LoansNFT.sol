@@ -758,7 +758,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         // the released and the leftovers to be sent to user. Zero-value-transfer is allowed
         collateralOut = fromEscrow + leftOver;
 
-        emit EscrowSettled(escrowId, toEscrow, lateFee, fromEscrow, leftOver);
+        emit EscrowSettled(escrowId, lateFee, toEscrow, fromEscrow, leftOver);
     }
 
     function _conditionalCheckAndCancelEscrow(uint loanId, address refundRecipient) internal {

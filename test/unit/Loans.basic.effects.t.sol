@@ -255,15 +255,16 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         uint lateFee;
     }
 
-    function getEscrowReleaseValues(uint escrowId, uint collateral)
+    function getEscrowReleaseValues(uint escrowId, uint swapOut)
         internal
         view
         returns (EscrowReleaseAmounts memory released)
     {
-        (released.lateFee,) = escrowNFT.lateFees(escrowId);
-        uint owed = released.lateFee + collateral;
-        released.toEscrow = collateral < owed ? collateral : owed;
-        released.leftOver = collateral - released.toEscrow;
+        uint escrowed;
+        (released.lateFee, escrowed) = escrowNFT.lateFees(escrowId);
+        uint owed = released.lateFee + escrowed;
+        released.toEscrow = swapOut < owed ? swapOut : owed;
+        released.leftOver = swapOut - released.toEscrow;
         (, released.fromEscrow,) = escrowNFT.previewRelease(escrowId, released.toEscrow);
     }
 
@@ -304,7 +305,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
             // expect this only if escrow is used
             vm.expectEmit(address(loans));
             emit ILoansNFT.EscrowSettled(
-                loan.escrowId, released.toEscrow, released.lateFee, released.fromEscrow, released.leftOver
+                loan.escrowId, released.lateFee, released.toEscrow, released.fromEscrow, released.leftOver
             );
         }
         uint collateralOut = loans.closeLoan(loanId, defaultSwapParams(0));
