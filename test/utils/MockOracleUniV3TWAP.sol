@@ -10,6 +10,9 @@ pragma solidity 0.8.22;
 import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 
 contract MockOracleUniV3TWAP is OracleUniV3TWAP {
+    // 0 prices can happen, but also sometimes unset price needs to revert to tigger fallback logic
+    bool public checkPrice = false;
+
     mapping(uint timestamp => uint value) historicalPrices;
 
     constructor(address _baseToken, address _quoteToken)
@@ -23,6 +26,10 @@ contract MockOracleUniV3TWAP is OracleUniV3TWAP {
         historicalPrices[timestamp] = value;
     }
 
+    function setCheckPrice(bool enabled) public {
+        checkPrice = enabled;
+    }
+
     // ----- Internal Views ----- //
 
     function _getPoolAddress(address _uniV3SwapRouter) internal pure override returns (address) {
@@ -30,7 +37,8 @@ contract MockOracleUniV3TWAP is OracleUniV3TWAP {
         return address(0);
     }
 
-    function _getQuote(uint32[] memory secondsAgos) internal view override returns (uint) {
-        return historicalPrices[block.timestamp - secondsAgos[1]];
+    function _getQuote(uint32[] memory secondsAgos) internal view override returns (uint price) {
+        price = historicalPrices[block.timestamp - secondsAgos[1]];
+        if (checkPrice) require(price != 0, "MockOracleUniV3TWAP: price unset for time");
     }
 }

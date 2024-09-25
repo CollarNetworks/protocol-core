@@ -15,31 +15,32 @@ import { Rolls } from "../../src/Rolls.sol";
 import { LoansTestBase } from "./Loans.basic.effects.t.sol";
 
 contract LoansBasicRevertsTest is LoansTestBase {
-    function openLoan(uint _col, uint _minLoan, uint _minSwap, uint _shortOffer, uint _escrowOffer)
-        internal
-    {
-        if (useEscrow) {
-            loans.openEscrowLoan(_col, _minLoan, defaultSwapParams(_minSwap), _shortOffer, _escrowOffer);
+    function openLoan(uint _col, uint _minLoan, uint _minSwap, uint _shortOffer) internal {
+        if (openEscrowLoan) {
+            // uses last set escrowOfferId
+            loans.openEscrowLoan(_col, _minLoan, defaultSwapParams(_minSwap), _shortOffer, escrowOfferId);
         } else {
             loans.openLoan(_col, _minLoan, defaultSwapParams(_minSwap), _shortOffer);
         }
     }
 
     function test_revert_openLoan_params() public {
+        maybeCreateEscrowOffer();
+
         vm.startPrank(user1);
-        collateralAsset.approve(address(loans), collateralAmount);
+        collateralAsset.approve(address(loans), collateralAmount + escrowFee);
         prepareSwapToCashAtTWAPPrice();
 
         // 0 collateral
         vm.expectRevert("invalid collateral amount");
-        openLoan(0, 0, 0, 0, 0);
+        openLoan(0, 0, 0, 0);
 
         // unsupported loans
         vm.startPrank(owner);
         configHub.setCanOpen(address(loans), false);
         vm.startPrank(user1);
         vm.expectRevert("unsupported loans contract");
-        openLoan(0, 0, 0, 0, 0);
+        openLoan(0, 0, 0, 0);
 
         // unsupported taker
         vm.startPrank(owner);
@@ -47,7 +48,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         configHub.setCanOpen(address(takerNFT), false);
         vm.startPrank(user1);
         vm.expectRevert("unsupported taker contract");
-        openLoan(0, 0, 0, 0, 0);
+        openLoan(0, 0, 0, 0);
 
         // unset provider
         vm.startPrank(owner);
@@ -55,7 +56,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         loans.setContracts(rolls, ShortProviderNFT(address(0)), escrowNFT);
         vm.startPrank(user1);
         vm.expectRevert("provider contract unset");
-        openLoan(0, 0, 0, 0, 0);
+        openLoan(0, 0, 0, 0);
 
         // unsupported provider
         vm.startPrank(owner);
@@ -63,7 +64,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         configHub.setCanOpen(address(providerNFT), false);
         vm.startPrank(user1);
         vm.expectRevert("unsupported provider contract");
-        openLoan(collateralAmount, 0, 0, 0, 0);
+        openLoan(collateralAmount, 0, 0, 0);
 
         // bad offer
         vm.startPrank(owner);
@@ -71,11 +72,12 @@ contract LoansBasicRevertsTest is LoansTestBase {
         vm.startPrank(user1);
         uint invalidOfferId = 999;
         vm.expectRevert("invalid offer");
-        openLoan(collateralAmount, minLoanAmount, 0, invalidOfferId, 0);
+        openLoan(collateralAmount, minLoanAmount, 0, invalidOfferId);
 
         uint offerId = createProviderOffer();
         // not enough approval for collateral
         vm.startPrank(user1);
+        collateralAsset.approve(address(loans), collateralAmount);
         vm.expectRevert(
             abi.encodeWithSelector(
                 IERC20Errors.ERC20InsufficientAllowance.selector,
@@ -84,42 +86,45 @@ contract LoansBasicRevertsTest is LoansTestBase {
                 collateralAmount + 1
             )
         );
-        openLoan(collateralAmount + 1, minLoanAmount, 0, offerId, 0);
+        openLoan(collateralAmount + 1, minLoanAmount, 0, offerId);
     }
 
     function test_revert_openLoan_swaps_router() public {
         uint offerId = createProviderOffer();
+        maybeCreateEscrowOffer();
         prepareSwap(cashAsset, swapCashAmount);
 
         vm.startPrank(user1);
-        collateralAsset.approve(address(loans), collateralAmount);
+        collateralAsset.approve(address(loans), collateralAmount + escrowFee);
 
         // balance mismatch
         mockSwapperRouter.setupSwap(swapCashAmount - 1, swapCashAmount);
         vm.expectRevert("balance update mismatch");
-        openLoan(collateralAmount, minLoanAmount, swapCashAmount, offerId, 0);
+        openLoan(collateralAmount, minLoanAmount, swapCashAmount, offerId);
 
         // slippage params
         mockSwapperRouter.setupSwap(swapCashAmount, swapCashAmount);
         vm.expectRevert("slippage exceeded");
-        openLoan(collateralAmount, minLoanAmount, swapCashAmount + 1, offerId, 0);
+        openLoan(collateralAmount, minLoanAmount, swapCashAmount + 1, offerId);
 
         // deviation vs.TWAP
         prepareSwap(cashAsset, swapCashAmount / 2);
         vm.expectRevert("swap and twap price too different");
-        openLoan(collateralAmount, minLoanAmount, 0, offerId, 0);
+        openLoan(collateralAmount, minLoanAmount, 0, offerId);
     }
 
     function test_revert_openLoan_swapper_not_allowed() public {
+        maybeCreateEscrowOffer();
+
         vm.startPrank(owner);
         // disable the default swapper
         loans.setSwapperAllowed(address(defaultSwapper), false, true);
 
         // not allowed
         startHoax(user1);
-        collateralAsset.approve(address(loans), collateralAmount);
+        collateralAsset.approve(address(loans), collateralAmount + escrowFee);
         vm.expectRevert("swapper not allowed");
-        openLoan(collateralAmount, minLoanAmount, 0, 0, 0);
+        openLoan(collateralAmount, minLoanAmount, 0, 0);
     }
 
     function test_revert_openLoan_swaps_swapper() public {
@@ -136,14 +141,15 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
     function test_revert_openLoan_insufficientLoanAmount() public {
         uint offerId = createProviderOffer();
+        maybeCreateEscrowOffer();
         uint swapOut = prepareSwapToCashAtTWAPPrice();
 
         vm.startPrank(user1);
-        collateralAsset.approve(address(loans), collateralAmount);
+        collateralAsset.approve(address(loans), collateralAmount + escrowFee);
 
         uint highMinLoanAmount = (swapOut * ltv / BIPS_100PCT) + 1; // 1 wei more than ltv
         vm.expectRevert("loan amount too low");
-        openLoan(collateralAmount, highMinLoanAmount, swapCashAmount, offerId, 0);
+        openLoan(collateralAmount, highMinLoanAmount, swapCashAmount, offerId);
     }
 
     function test_revert_openLoan_IdTaken() public {
@@ -153,7 +159,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
         // prep again
         prepareSwapToCashAtTWAPPrice();
-        collateralAsset.approve(address(loans), collateralAmount);
+        collateralAsset.approve(address(loans), collateralAmount + escrowFee);
 
         vm.mockCall(
             address(takerNFT),
@@ -161,7 +167,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
             abi.encode(loanId, 0, 0, 0) // returns old taker ID
         );
         vm.expectRevert("loanId taken");
-        openLoan(collateralAmount, 0, swapCashAmount, offerId, 0);
+        openLoan(collateralAmount, 0, swapCashAmount, offerId);
     }
 
     function test_revert_closeLoan_notNFTOwnerOrKeeper() public {

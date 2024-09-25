@@ -18,6 +18,7 @@ interface ILoansNFT {
     struct Loan {
         uint collateralAmount;
         uint loanAmount;
+        bool usesEscrow;
         EscrowSupplierNFT escrowNFT; // optional, 0 address for non-escrow loans
         uint escrowId;
     }
