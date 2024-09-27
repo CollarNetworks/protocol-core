@@ -7,11 +7,9 @@
 
 pragma solidity 0.8.22;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 // internal
-import { ConfigHub, BaseNFT, ShortProviderNFT } from "./ShortProviderNFT.sol";
+import { ConfigHub, BaseNFT, ShortProviderNFT, Math, IERC20, SafeERC20 } from "./ShortProviderNFT.sol";
 import { OracleUniV3TWAP } from "./OracleUniV3TWAP.sol";
 import { ICollarTakerNFT } from "./interfaces/ICollarTakerNFT.sol";
 
@@ -299,8 +297,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         uint callPrice = position.callStrikePrice;
 
         // restrict endPrice to put-call range
-        endPrice = endPrice < putPrice ? putPrice : endPrice;
-        endPrice = endPrice > callPrice ? callPrice : endPrice;
+        endPrice = Math.max(Math.min(endPrice, callPrice), putPrice);
 
         withdrawable = position.putLockedCash;
         if (endPrice < startPrice) {

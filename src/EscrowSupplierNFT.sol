@@ -9,9 +9,9 @@ pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 // internal
-import { ConfigHub } from "./ConfigHub.sol";
-import { BaseNFT } from "./base/BaseNFT.sol";
+import { BaseNFT, ConfigHub } from "./base/BaseNFT.sol";
 import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
 
 /**
@@ -135,11 +135,11 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
             // rounding down, against the user
             uint valueToTime = lateFee * 365 days * BIPS_BASE / escrow.escrowed / escrow.lateFeeAPR;
             // reduce from max to valueToTime (what can be paid for using that feeAmount)
-            gracePeriod = _min(valueToTime, gracePeriod);
+            gracePeriod = Math.min(valueToTime, gracePeriod);
         }
         // increase to min if below it (for consistency with late fee being 0 during that period)
         // @dev this means that even if no funds are available, min grace period is available
-        gracePeriod = _max(gracePeriod, MIN_GRACE_PERIOD);
+        gracePeriod = Math.max(gracePeriod, MIN_GRACE_PERIOD);
     }
 
     /**
@@ -150,7 +150,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      */
     function interestFee(uint offerId, uint escrowed) public view returns (uint fee) {
         Offer storage offer = offers[offerId];
-        return _divUp(escrowed * offer.interestAPR * offer.duration, BIPS_BASE * 365 days);
+        return Math.ceilDiv(escrowed * offer.interestAPR * offer.duration, BIPS_BASE * 365 days);
     }
 
     /**
@@ -486,7 +486,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         uint available = escrow.escrowed + escrow.interestHeld + fromLoans;
 
         // use as much as possible from available up to target
-        withdrawal = _min(available, targetWithdrawal);
+        withdrawal = Math.min(available, targetWithdrawal);
         // refund the rest if anything is left
         toLoans = available - withdrawal;
 
@@ -514,9 +514,9 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         }
         uint overdue = block.timestamp - escrow.expiration; // counts from expiration despite the cliff
         // cap at specified grace period
-        overdue = _min(overdue, escrow.gracePeriod);
+        overdue = Math.min(overdue, escrow.gracePeriod);
         // @dev rounds up to prevent avoiding fee using many small positions
-        return _divUp(escrow.escrowed * escrow.lateFeeAPR * overdue, BIPS_BASE * 365 days);
+        return Math.ceilDiv(escrow.escrowed * escrow.lateFeeAPR * overdue, BIPS_BASE * 365 days);
     }
 
     function _refundInterestFee(Escrow storage escrow) internal view returns (uint refund) {
@@ -524,7 +524,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         // startTime = expiration - duration, elapsed = now - startTime
         uint elapsed = block.timestamp + duration - escrow.expiration;
         // cap to duration
-        elapsed = _min(elapsed, duration);
+        elapsed = Math.min(elapsed, duration);
         // refund is for time remaining, and is rounded down
         refund = escrow.interestHeld * (duration - elapsed) / duration;
 

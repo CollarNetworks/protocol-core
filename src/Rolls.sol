@@ -7,16 +7,12 @@
 
 pragma solidity 0.8.22;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 // internal imports
-import { IRolls } from "./interfaces/IRolls.sol";
-import { CollarTakerNFT } from "./CollarTakerNFT.sol";
-import { ShortProviderNFT } from "./ShortProviderNFT.sol";
+import { CollarTakerNFT, ShortProviderNFT } from "./CollarTakerNFT.sol";
 import { BaseEmergencyAdmin } from "./base/BaseEmergencyAdmin.sol";
+import { IRolls } from "./interfaces/IRolls.sol";
 
 /**
  * @title Rolls

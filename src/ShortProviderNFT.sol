@@ -7,11 +7,10 @@
 
 pragma solidity 0.8.22;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 // internal
-import { ConfigHub } from "./ConfigHub.sol";
-import { BaseNFT } from "./base/BaseNFT.sol";
+import { BaseNFT, ConfigHub } from "./base/BaseNFT.sol";
 import { IShortProviderNFT } from "./interfaces/IShortProviderNFT.sol";
 
 /**
@@ -117,7 +116,7 @@ contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
         fee = to == address(0)
             ? 0
             // @dev rounds up to prevent avoiding fee using many small positions.
-            : _divUp(providerLocked * configHub.protocolFeeAPR() * duration, BIPS_BASE * 365 days);
+            : Math.ceilDiv(providerLocked * configHub.protocolFeeAPR() * duration, BIPS_BASE * 365 days);
     }
 
     // ----- MUTATIVE ----- //

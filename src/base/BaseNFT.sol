@@ -10,9 +10,8 @@ pragma solidity 0.8.22;
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 // internal
 import { BaseEmergencyAdmin, ConfigHub } from "./BaseEmergencyAdmin.sol";
-import { MathUtils } from "./MathUtils.sol";
 
-abstract contract BaseNFT is BaseEmergencyAdmin, ERC721, MathUtils {
+abstract contract BaseNFT is BaseEmergencyAdmin, ERC721 {
     // ----- State ----- //
     uint internal nextTokenId = 1; // NFT token ID, starts from 1 so that 0 ID is not used
 

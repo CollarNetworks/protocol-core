@@ -8,6 +8,7 @@
 pragma solidity 0.8.22;
 
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 // internal imports
 import { CollarTakerNFT, ShortProviderNFT, BaseNFT, ConfigHub } from "./CollarTakerNFT.sol";
 import { Rolls } from "./Rolls.sol";
@@ -113,7 +114,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         uint expiration = _expiration(loanId);
 
         // if this is called before expiration (externally), estimate value using current price
-        uint settleTime = _min(block.timestamp, expiration);
+        uint settleTime = Math.min(block.timestamp, expiration);
         // the price that will be used for settlement (past if available, or current if not)
         (uint oraclePrice,) = takerNFT.oracle().pastPriceWithFallback(uint32(settleTime));
 
@@ -743,7 +744,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         (uint lateFee, uint escrowed) = escrowNFT.lateFees(escrowId);
 
         // if owing more than swapped, use all, otherwise just what's owed
-        uint toEscrow = _min(fromSwap, escrowed + lateFee);
+        uint toEscrow = Math.min(fromSwap, escrowed + lateFee);
         // if owing less than swapped, left over gains are for the user
         uint leftOver = fromSwap - toEscrow;
 
