@@ -104,14 +104,14 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         require(providerNFT.collateralAsset() == collateralAsset, "asset mismatch");
         require(providerNFT.cashAsset() == cashAsset, "asset mismatch");
 
-        // pull the user side of the locked cash
-        cashAsset.safeTransferFrom(msg.sender, address(this), putLockedCash);
-
         // get TWAP price
         uint twapPrice = currentOraclePrice();
 
         // stores, mints, calls providerNFT and mints there, emits the event
         (takerId, providerId) = _openPairedPositionInternal(twapPrice, putLockedCash, providerNFT, offerId);
+
+        // pull the user side of the locked cash
+        cashAsset.safeTransferFrom(msg.sender, address(this), putLockedCash);
     }
 
     /// @dev this should be called as soon after expiry as possible, because if the expiry TWAP price becomes
