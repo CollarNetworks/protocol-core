@@ -147,7 +147,8 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
      *     negative. Positive means asset price increase benefits provider, and negative benefits user.
      * @param minPrice The minimum acceptable price for roll execution
      * @param maxPrice The maximum acceptable price for roll execution
-     * @param minToProvider The minimum amount the provider is willing to receive, or maximum willing to pay if negative. The execution transfer (in or out) will be checked to be >= this value.
+     * @param minToProvider The minimum amount the provider is willing to receive, or maximum willing to pay
+     *     if negative. The execution transfer (in or out) will be checked to be >= this value.
      * @param deadline The timestamp after which this offer can no longer be executed
      * @return rollId The ID of the newly created roll offer
      *
@@ -246,7 +247,8 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
      * @dev The caller must be the owner of the CollarTakerNFT for the position being rolled,
      * and must have approved sufficient cash if cash needs to be paid (depends on offer and current price)
      * @param rollId The ID of the roll offer to execute
-     * @param minToUser The minimum amount the user (taker) is willing to receive, or maximum willing to pay if negative. The execution transfer (in or out) will be checked to be >= this value.
+     * @param minToUser The minimum amount the user (taker) is willing to receive, or maximum willing to
+     *     pay if negative. The execution transfer (in or out) will be checked to be >= this value.
      * @return newTakerId The ID of the newly created CollarTakerNFT position
      * @return newProviderId The ID of the newly created ShortProviderNFT position
      * @return toTaker The amount transferred to (or from, if negative) the taker

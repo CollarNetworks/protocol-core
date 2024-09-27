@@ -44,6 +44,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
+    uint internal constant YEAR = 365 days;
     uint public constant MAX_INTEREST_APR_BIPS = BIPS_BASE; // 100% APR
     uint public constant MIN_GRACE_PERIOD = 1 days;
     uint public constant MAX_GRACE_PERIOD = 30 days;
@@ -133,7 +134,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
             // fee = escrowed * time * APR / year / 100bips;
             // time = fee * year * 100bips / escrowed / APR;
             // rounding down, against the user
-            uint valueToTime = lateFee * 365 days * BIPS_BASE / escrow.escrowed / escrow.lateFeeAPR;
+            uint valueToTime = lateFee * YEAR * BIPS_BASE / escrow.escrowed / escrow.lateFeeAPR;
             // reduce from max to valueToTime (what can be paid for using that feeAmount)
             gracePeriod = Math.min(valueToTime, gracePeriod);
         }
@@ -148,9 +149,9 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @param escrowed The escrowed amount
      * @return fee The calculated interest fee
      */
-    function interestFee(uint offerId, uint escrowed) public view returns (uint fee) {
+    function interestFee(uint offerId, uint escrowed) public view returns (uint) {
         Offer storage offer = offers[offerId];
-        return Math.ceilDiv(escrowed * offer.interestAPR * offer.duration, BIPS_BASE * 365 days);
+        return Math.ceilDiv(escrowed * offer.interestAPR * offer.duration, BIPS_BASE * YEAR);
     }
 
     /**
@@ -516,7 +517,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         // cap at specified grace period
         overdue = Math.min(overdue, escrow.gracePeriod);
         // @dev rounds up to prevent avoiding fee using many small positions
-        return Math.ceilDiv(escrow.escrowed * escrow.lateFeeAPR * overdue, BIPS_BASE * 365 days);
+        return Math.ceilDiv(escrow.escrowed * escrow.lateFeeAPR * overdue, BIPS_BASE * YEAR);
     }
 
     function _refundInterestFee(Escrow storage escrow) internal view returns (uint refund) {

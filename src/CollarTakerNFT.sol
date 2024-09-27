@@ -72,7 +72,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     }
 
     /// @dev TWAP price that's used in this contract for opening positions
-    function currentOraclePrice() public view returns (uint price) {
+    function currentOraclePrice() public view returns (uint) {
         return oracle.currentPrice();
     }
 

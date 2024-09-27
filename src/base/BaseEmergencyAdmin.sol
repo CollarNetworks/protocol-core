@@ -20,7 +20,7 @@ abstract contract BaseEmergencyAdmin is Ownable2Step, Pausable {
     // ----- Events ----- //
     event ConfigHubUpdated(ConfigHub previousConfigHub, ConfigHub newConfigHub);
     event PausedByGuardian(address guardian);
-    event TokensRescued(address tokenContract, uint amountOrId);
+    event TokensRescued(address tokenContract, uint amount);
 
     // @dev use _setConfigHub() in child contract to initialize the configHub on construction
     constructor(address _initialOwner) Ownable(_initialOwner) { }
@@ -60,7 +60,7 @@ abstract contract BaseEmergencyAdmin is Ownable2Step, Pausable {
     /// in case of emergency
     function rescueTokens(address token, uint amount) external onlyOwner {
         /// The transfer is to the owner so that only full owner compromise can steal tokens
-        /// and not a single rescue transaction with bad params (which can be phished more easily).
+        /// and not a single rescue transaction with bad params
         SafeERC20.safeTransfer(IERC20(token), owner(), amount);
         emit TokensRescued(token, amount);
     }

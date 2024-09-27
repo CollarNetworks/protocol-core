@@ -43,9 +43,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
 
     // ----- state-changing functions (see IConfigHub for documentation) -----
 
-    // TODO: doc, and use for Loans as well
     function setCanOpen(address contractAddress, bool enabled) external onlyOwner {
-        // TODO: check VERSION view to work for validation?
         canOpen[contractAddress] = enabled;
         emit ContractCanOpenSet(contractAddress, enabled);
     }

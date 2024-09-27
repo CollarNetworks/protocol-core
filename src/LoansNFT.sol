@@ -42,11 +42,11 @@ import { ILoansNFT } from "./interfaces/ILoansNFT.sol";
  * 2. Includes a keeper system for automated loan closure and foreclosure to allow users and escrow suppliers
  *    to delegate time-sensitive actions.
  */
-contract LoansNFT is BaseNFT, ILoansNFT {
+contract LoansNFT is ILoansNFT, BaseNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
-    EscrowSupplierNFT internal constant NO_ESCROW = EscrowSupplierNFT(address(0));
+    address internal constant UNSET = address(0); // "magic" for disabled address
 
     /// should be set to not be overly restrictive since is mostly sanity-check
     uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 500;
@@ -129,9 +129,9 @@ contract LoansNFT is BaseNFT, ILoansNFT {
 
         Loan storage loan = loans[loanId];
         // assume all available collateral can be used for fees (escrowNFT will cap between max and min)
-        uint cappedGracePeriod = loan.escrowNFT.cappedGracePeriod(loan.escrowId, collateral);
+        uint gracePeriod = loan.escrowNFT.cappedGracePeriod(loan.escrowId, collateral);
         // always after expiration, also cappedGracePeriod() is at least min-grace-period
-        return expiration + cappedGracePeriod;
+        return expiration + gracePeriod;
     }
 
     // ----- STATE CHANGING FUNCTIONS ----- //
@@ -412,15 +412,12 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         external
         onlyOwner
     {
-        if (rolls != Rolls(address(0))) {
-            require(rolls.takerNFT() == takerNFT, "rolls taker mismatch");
-        }
-        if (providerNFT != ShortProviderNFT(address(0))) {
-            require(providerNFT.taker() == address(takerNFT), "provider taker mismatch");
-        }
-        if (escrowNFT != NO_ESCROW) {
-            require(escrowNFT.asset() == collateralAsset, "escrow asset mismatch");
-        }
+        require(address(rolls) == UNSET || rolls.takerNFT() == takerNFT, "rolls taker mismatch");
+        require(
+            address(providerNFT) == UNSET || providerNFT.taker() == address(takerNFT),
+            "provider taker mismatch"
+        );
+        require(address(escrowNFT) == UNSET || escrowNFT.asset() == collateralAsset, "escrow asset mismatch");
         currentRolls = rolls;
         currentProviderNFT = providerNFT;
         currentEscrowNFT = escrowNFT;
@@ -496,7 +493,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
     {
         require(configHub.canOpen(address(takerNFT)), "unsupported taker contract");
         // provider contract is valid
-        require(currentProviderNFT != ShortProviderNFT(address(0)), "provider contract unset");
+        require(address(currentProviderNFT) != UNSET, "provider contract unset");
         // 0 collateral is later checked to mean non-existing loan, also prevents div-zero
         require(collateralAmount != 0, "invalid collateral amount");
 
@@ -620,7 +617,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
     {
         // rolls contract is valid, @dev canOpen is not checked because Rolls is no long living
         // user positions that should allow exit-only (for which canOpen is needed)
-        require(currentRolls != Rolls(address(0)), "rolls contract unset");
+        require(address(currentRolls) != UNSET, "rolls contract unset");
         // avoid using invalid data
         require(currentRolls.getRollOffer(rollId).active, "invalid rollId");
         // @dev Rolls will check if taker position is still valid (unsettled)
@@ -671,7 +668,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
         if (usesEscrow) {
             escrowNFT = currentEscrowNFT;
             // escrow contract is valid
-            require(escrowNFT != NO_ESCROW, "escrow contract unset");
+            require(address(escrowNFT) != UNSET, "escrow contract unset");
             // whitelisted only
             require(configHub.canOpen(address(escrowNFT)), "unsupported escrow contract");
 
@@ -687,7 +684,7 @@ contract LoansNFT is BaseNFT, ILoansNFT {
             // @dev no balance checks because contract holds no funds, mismatch will cause reverts
         } else {
             // default return values for linter and clarity
-            (escrowNFT, escrowId) = (NO_ESCROW, 0);
+            (escrowNFT, escrowId) = (EscrowSupplierNFT(address(0)), 0);
         }
     }
 
