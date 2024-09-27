@@ -526,7 +526,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         // cap to duration
         elapsed = Math.min(elapsed, duration);
         // refund is for time remaining, and is rounded down
-        refund = escrow.interestHeld * (duration - elapsed) / duration;
+        refund = escrow.interestHeld * (duration - elapsed) / duration; // no div-zero due to min-duration
 
         /* @dev there is no APR calculation here (APR calc used only on open), only time calculation because:
          1. simpler

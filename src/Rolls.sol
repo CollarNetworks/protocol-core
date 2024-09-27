@@ -295,10 +295,6 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
     {
         // @dev this is memory, not storage
         RollOffer memory offer = rollOffers[rollId];
-        // pull the taker NFT from the user (we already have the provider NFT)
-        takerNFT.transferFrom(msg.sender, address(this), offer.takerId);
-        // now that we have both NFTs, cancel the positions and withdraw
-        _cancelPairedPositionAndWithdraw(offer.takerId, takerPos);
 
         ShortProviderNFT providerNFT = takerPos.providerNFT;
         ShortProviderNFT.ProviderPosition memory providerPos =
@@ -311,6 +307,11 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
             takerId: offer.takerId,
             providerPos: providerPos
         });
+
+        // pull the taker NFT from the user (we already have the provider NFT)
+        takerNFT.transferFrom(msg.sender, address(this), offer.takerId);
+        // now that we have both NFTs, cancel the positions and withdraw
+        _cancelPairedPositionAndWithdraw(offer.takerId, takerPos);
 
         // pull cash as needed
         _pullCash(toTaker, msg.sender, toProvider, offer.provider);
@@ -475,7 +476,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         // The reason this needs to be scaled with price, instead of just using the previous amount
         // is that this can serve the loans use-case, where the "collateral" value (price exposure) is
         // maintained constant (instead of the dollar amount).
-        newPutLocked = putLocked * newPrice / startPrice;
+        newPutLocked = putLocked * newPrice / startPrice; // zero start price is invalid and will cause panic
         // use the method that CollarTakerNFT will use to calculate the provider part
         newCallLocked = takerNFT.calculateProviderLocked(newPutLocked, putDeviation, callDeviation);
     }
