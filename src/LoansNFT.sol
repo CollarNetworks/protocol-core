@@ -92,12 +92,6 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         _;
     }
 
-    modifier onlyNFTOwnerOrKeeper(uint loanId) {
-        /// @dev will also revert on non-existent (unminted / burned) taker ID
-        require(_isSenderOrKeeperFor(ownerOf(loanId)), "not NFT owner or allowed keeper");
-        _;
-    }
-
     // ----- VIEW FUNCTIONS ----- //
 
     /// @notice Retrieves loan information for a given taker NFT ID
@@ -191,7 +185,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         SwapParams calldata swapParams,
         uint shortOffer,
         uint escrowOffer
-    ) public whenNotPaused returns (uint loanId, uint providerId, uint loanAmount) {
+    ) external whenNotPaused returns (uint loanId, uint providerId, uint loanAmount) {
         return _openLoan(collateralAmount, minLoanAmount, swapParams, shortOffer, true, escrowOffer);
     }
 
@@ -226,9 +220,11 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     function closeLoan(uint loanId, SwapParams calldata swapParams)
         external
         whenNotPaused
-        onlyNFTOwnerOrKeeper(loanId)
         returns (uint collateralOut)
     {
+        /// @dev will also revert on non-existent (unminted / burned) loan ID
+        require(_isSenderOrKeeperFor(ownerOf(loanId)), "not NFT owner or allowed keeper");
+
         // @dev cache the user now, since _closeLoanNoTFOut will burn the NFT, so ownerOf will revert
         address user = ownerOf(loanId);
 
@@ -259,7 +255,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
      * @return transferAmount The actual transfer to user (or from user if negative) including roll-fee
      */
     function rollLoan(uint loanId, uint rollId, int minToUser, uint newEscrowOffer)
-        public
+        external
         whenNotPaused
         onlyNFTOwner(loanId)
         returns (uint newLoanId, uint newLoanAmount, int transferAmount)
