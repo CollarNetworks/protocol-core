@@ -279,24 +279,22 @@ contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
 
         position.settled = true; // done here as this also acts as partial-reentrancy protection
 
-        uint withdrawable = position.principal;
-        if (positionChange < 0) {
-            uint toRemove = uint(-positionChange); // will revert for type(int).min
-            require(toRemove <= withdrawable, "loss is too high");
-            withdrawable -= toRemove;
-            // we owe the taker some tokens
-            cashAsset.safeTransfer(taker, toRemove);
-        } else if (positionChange > 0) {
+        uint initial = position.principal;
+        if (positionChange > 0) {
             uint toAdd = uint(positionChange);
-            withdrawable += toAdd;
+            position.withdrawable = initial + toAdd;
             // the taker owes us some tokens, requires approval
             cashAsset.safeTransferFrom(taker, address(this), toAdd);
-        } else { } // no change
+        } else {
+            // handles no-change as well (zero-value-transfer ok)
+            uint toRemove = uint(-positionChange); // will revert for type(int).min
+            require(toRemove <= initial, "loss is too high");
+            position.withdrawable = initial - toRemove;
+            // we owe the taker some tokens
+            cashAsset.safeTransfer(taker, toRemove);
+        }
 
-        // store the updated state
-        position.withdrawable = withdrawable;
-
-        emit PositionSettled(positionId, positionChange, withdrawable);
+        emit PositionSettled(positionId, positionChange, position.withdrawable);
     }
 
     /// @notice Cancels a position and withdraws the principal to a recipient. Burns the NFT.
