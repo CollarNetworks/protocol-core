@@ -189,7 +189,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         // @dev if provider expects to pay, check that they have granted sufficient balance and approvals already
         // according to their max payment expectation
         if (minToProvider < 0) {
-            uint maxFromProvider = uint(-minToProvider);
+            uint maxFromProvider = uint(-minToProvider); // @dev reverts for type(int).min
             // @dev provider may still have insufficient allowance or balance when user will try to accept
             // but this check makes it a tiny bit harder to spoof offers, and reduces chance of errors.
             // Depositing the funds for each roll offer is avoided because it's capital inefficient, since
@@ -343,13 +343,13 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
 
     function _pullCash(int toTaker, address taker, int toProvider, address provider) internal {
         if (toTaker < 0) {
-            // assumes approval from the taker
+            // assumes approval from the taker, @dev reverts for type(int).min
             cashAsset.safeTransferFrom(taker, address(this), uint(-toTaker));
         }
         if (toProvider < 0) {
             // @dev this requires the original owner of the providerId (stored in the offer) when
             // the roll offer was created to still allow this contract to pull their funds, and
-            // still have sufficient balance for that.
+            // still have sufficient balance for that. Reverts for type(int).min
             cashAsset.safeTransferFrom(provider, address(this), uint(-toProvider));
         }
     }
