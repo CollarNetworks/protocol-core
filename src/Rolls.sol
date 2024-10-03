@@ -66,6 +66,9 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
 
     mapping(uint rollId => RollOffer) internal rollOffers;
 
+    /// @dev Rolls needs BaseEmergencyAdmin for pausing since is approved by users, and holds NFTs.
+    /// Does not need `canOpen` auth because its auth usage is set directly on Loans,
+    /// and it has no long-lived functionality so doesn't need a close-only migration mode.
     constructor(address initialOwner, CollarTakerNFT _takerNFT) BaseEmergencyAdmin(initialOwner) {
         takerNFT = _takerNFT;
         cashAsset = _takerNFT.cashAsset();
