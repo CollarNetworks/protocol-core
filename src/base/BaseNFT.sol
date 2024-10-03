@@ -8,7 +8,7 @@
 pragma solidity 0.8.22;
 
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-// internal
+
 import { BaseEmergencyAdmin, ConfigHub } from "./BaseEmergencyAdmin.sol";
 
 abstract contract BaseNFT is BaseEmergencyAdmin, ERC721 {

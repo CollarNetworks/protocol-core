@@ -8,23 +8,21 @@
 pragma solidity 0.8.22;
 
 import { Ownable2Step, Ownable } from "@openzeppelin/contracts/access/Ownable2Step.sol";
-// internal imports
+
 import { IConfigHub } from "./interfaces/IConfigHub.sol";
-import { IShortProviderNFT, IERC20 } from "./interfaces/IShortProviderNFT.sol";
-import { ICollarTakerNFT } from "./interfaces/ICollarTakerNFT.sol";
 
 contract ConfigHub is Ownable2Step, IConfigHub {
     uint internal constant BIPS_BASE = 10_000;
 
-    // -- public state variables ---
     string public constant VERSION = "0.2.0";
 
     // configuration validation (validate on set)
-    uint public constant MIN_CONFIGURABLE_LTV = 1000;
-    uint public constant MAX_CONFIGURABLE_LTV = 9999;
-    uint public constant MIN_CONFIGURABLE_DURATION = 300;
-    uint public constant MAX_CONFIGURABLE_DURATION = 5 * 365 days;
-    // configured values (set by owner)
+    uint public constant MIN_CONFIGURABLE_LTV = BIPS_BASE / 10; // 10%
+    uint public constant MAX_CONFIGURABLE_LTV = BIPS_BASE - 1; // avoid 0 range edge cases
+    uint public constant MIN_CONFIGURABLE_DURATION = 300; // 5 minutes
+    uint public constant MAX_CONFIGURABLE_DURATION = 5 * 365 days; // 5 years
+
+    // -- state variables ---
     uint public minLTV;
     uint public maxLTV;
     uint public minDuration;
@@ -34,9 +32,10 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     address public pauseGuardian;
     address public feeRecipient;
 
-    // -- internal state variables ---
     mapping(address collateralAssetAddress => bool isSupported) public isSupportedCollateralAsset;
     mapping(address cashAssetAddress => bool isSupported) public isSupportedCashAsset;
+    /// @notice internal contracts auth, "canOpen" means different things within different contracts.
+    /// "closing" already opened is allowed (unless paused).
     mapping(address contractAddress => bool enabled) public canOpen;
 
     constructor(address _initialOwner) Ownable(_initialOwner) { }

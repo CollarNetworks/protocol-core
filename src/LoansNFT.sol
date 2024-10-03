@@ -9,7 +9,7 @@ pragma solidity 0.8.22;
 
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-// internal imports
+
 import { CollarTakerNFT, ShortProviderNFT, BaseNFT, ConfigHub } from "./CollarTakerNFT.sol";
 import { Rolls } from "./Rolls.sol";
 import { EscrowSupplierNFT, IEscrowSupplierNFT } from "./EscrowSupplierNFT.sol";

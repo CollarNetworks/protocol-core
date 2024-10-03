@@ -9,7 +9,7 @@ pragma solidity 0.8.22;
 
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-// internal imports
+
 import { CollarTakerNFT, ShortProviderNFT } from "./CollarTakerNFT.sol";
 import { BaseEmergencyAdmin } from "./base/BaseEmergencyAdmin.sol";
 import { IRolls } from "./interfaces/IRolls.sol";
@@ -32,7 +32,7 @@ import { IRolls } from "./interfaces/IRolls.sol";
  * 1. The CollarTakerNFT and ShortProviderNFT contracts are correctly implemented and authorized.
  * 2. The cash asset (ERC-20) used is standard compliant (non-rebasing, no transfer fees, no callbacks).
  * 3. Providers must approve this contract to transfer their ShortProviderNFTs and cash when creating
- * and offer. The NFT is transferred on offer creation, and cash will be transferred on execution, if
+ * an offer. The NFT is transferred on offer creation, and cash will be transferred on execution, if
  * and when the user accepts the offer.
  * 4. Takers must approve this contract to transfer their CollarTakerNFTs and any cash that's needed
  * to be pulled.

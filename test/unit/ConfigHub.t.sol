@@ -9,7 +9,9 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
-import { ConfigHub, IConfigHub, IShortProviderNFT, ICollarTakerNFT } from "../../src/ConfigHub.sol";
+import { ConfigHub, IConfigHub } from "../../src/ConfigHub.sol";
+import { ICollarTakerNFT } from "../../src/interfaces/ICollarTakerNFT.sol";
+import { IShortProviderNFT } from "../../src/interfaces/IShortProviderNFT.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract ConfigHubTest is Test {

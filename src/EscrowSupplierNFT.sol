@@ -10,7 +10,7 @@ pragma solidity 0.8.22;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
-// internal
+
 import { BaseNFT, ConfigHub } from "./base/BaseNFT.sol";
 import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
 

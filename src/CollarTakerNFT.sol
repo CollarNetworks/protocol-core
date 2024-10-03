@@ -8,7 +8,7 @@
 pragma solidity 0.8.22;
 
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-// internal
+
 import { ConfigHub, BaseNFT, ShortProviderNFT, Math, IERC20, SafeERC20 } from "./ShortProviderNFT.sol";
 import { OracleUniV3TWAP } from "./OracleUniV3TWAP.sol";
 import { ICollarTakerNFT } from "./interfaces/ICollarTakerNFT.sol";
@@ -174,7 +174,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         uint providerId = position.providerPositionId;
 
         require(msg.sender == ownerOf(takerId), "not owner of taker ID");
-        // this is redundant due to NFT transfer from msg.sender later, but is clearer.
+        // this is redundant due to NFT transfer from msg.sender later, but is a clearer error.
         require(msg.sender == providerNFT.ownerOf(providerId), "not owner of provider ID");
 
         require(!position.settled, "already settled");
@@ -212,7 +212,9 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         uint offerId
     ) internal returns (uint takerId, uint providerId) {
         ShortProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
-        uint callLockedCash = _calculateProviderLocked(putLockedCash, offer);
+        require(offer.duration != 0, "invalid offer");
+        uint callLockedCash =
+            calculateProviderLocked(putLockedCash, offer.putStrikeDeviation, offer.callStrikeDeviation);
 
         // open the provider position with duration and callLockedCash locked liquidity (reverts if can't)
         // and sends the provider NFT to the provider
@@ -238,8 +240,6 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
             withdrawable: 0
         });
 
-        // ensure taker ID is as expected (no reentrancy between nextTokenId use and incrementing)
-        require(providerPosition.takerId == nextTokenId, "unexpected takerId");
         // increment ID
         takerId = nextTokenId++;
         // store position data
@@ -277,15 +277,6 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     // ----- INTERNAL VIEWS ----- //
 
     // calculations
-
-    function _calculateProviderLocked(uint putLockedCash, ShortProviderNFT.LiquidityOffer memory offer)
-        internal
-        pure
-        returns (uint)
-    {
-        require(offer.provider != address(0), "invalid offer");
-        return calculateProviderLocked(putLockedCash, offer.putStrikeDeviation, offer.callStrikeDeviation);
-    }
 
     function _settlementCalculations(TakerPosition memory position, uint endPrice)
         internal
