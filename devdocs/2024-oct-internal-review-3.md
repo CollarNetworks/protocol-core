@@ -24,28 +24,6 @@
 - [x] #note several notes and nits from lightchaser https://gist.github.com/ChaseTheLight01/a66ec6b0599e1760f8512c42ec5f96ea
 - [x] #note memory structs should be preferred to storage when access is read-only (even though gas is slightly higher) for clarity
 
-### Base admin
-- [ ] #low rescuing nfts is not handled: can save erc20 / nft via using approval + pull instead of transfer
-- [ ] #low ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different). override to `nominateOwner`
-- [ ] #note docs for BaseEmergencyAdmin and BaseNFT + why they need config hub
-- [ ] #note naming: EmergencyAdmin is role and not attribute. BaseHubControlled?
-
-### Rolls
-- [x] #note create offer balance and allowance checks seem redundant since for spoofing can easily be passed by providing positive amount, and for mistake prevention only helps with temporary issues. Consider removing to reduce complexity.
-- [ ] #note naming: `rollFee*` stutter
-- [ ] #note execute checks order can be more intuitive: access control move to top, rearrange other checks
-- [x] #note doc that `uint(-..)` reverts for int.min
-- [x] #note docs why canOpen is not used
-- [x] #note offer min max price check too strict, can be equal
-- [x] #note `_abs` can be replaced with OZ lib usage
-
-### Taker
-- [ ] #note Docs are incomplete
-- [x] #note previewSettlement arg position struct is awkward, should expect id
-- [ ] #note naming: deviation -> percent
-- [ ] #note no good reason for recipient in withdrawal method
-- [x] #note cei can be better in settle
-
 ###  Provider
 - [ ] #med min take amount to prevent dusting / composability issues / griefing via fee issues / griefing via 0 user locked pos, may be non-negligible in case of low decimals + low gas fees
 - [ ] #low max allowed protocol fee APR in provider offer
@@ -63,20 +41,43 @@
 - [ ] #note naming: setKeeperAllowed should be setAllowsClosingKeeper
 - [x] #note naming: open instead of create
 
+### Base admin
+- [ ] #low rescuing nfts is not handled: can save erc20 / nft via using approval + pull instead of transfer
+- [ ] #low ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different). override to `nominateOwner`
+- [ ] #note docs for BaseEmergencyAdmin and BaseNFT + why they need config hub
+- [ ] #note naming: EmergencyAdmin is role and not attribute. BaseHubControlled?
+
 ###  ConfigHub:
+- [ ] #low isSupportedCash/Collateral redundant because canOpen is sufficient and the methods are always used together + assets are immutable in all using contracts. increases potential for config issues, gas, and admin dos.
+- [ ] #low ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different), override to `nominateOwner`
 - [ ] #note docs are incomplete
 - [ ] #note naming: BIPS / percent in LTV
-- [ ] #low ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different), override to `nominateOwner`
 - [ ] #note MAX_CONFIGURABLE_DURATION 5 years seems excessive?
-- [ ] #low isSupportedCash/Collateral redundant because canOpen is sufficient and the methods are always used together + assets are immutable in all using contracts. increases potential for config issues, gas, and admin dos.
 
-### Remaining from previous review:
+### Rolls
+- [x] #note create offer balance and allowance checks seem redundant since for spoofing can easily be passed by providing positive amount, and for mistake prevention only helps with temporary issues. Consider removing to reduce complexity.
+- [ ] #note naming: `rollFee*` stutter
+- [ ] #note execute checks order can be more intuitive: access control move to top, rearrange other checks
+- [x] #note doc that `uint(-..)` reverts for int.min
+- [x] #note docs why canOpen is not used
+- [x] #note offer min max price check too strict, can be equal
+- [x] #note `_abs` can be replaced with OZ lib usage
+
+### Taker
+- [ ] #note Docs are incomplete
+- [x] #note previewSettlement arg position struct is awkward, should expect id
+- [ ] #note naming: deviation -> percent
+- [ ] #note no good reason for recipient in withdrawal method
+- [x] #note cei can be better in settle
+
+
+## Remaining from previous review:
 - [ ] #low (design) providers cannot control their "slippage" (must actively manage liquidity with price changes, and are exposed to oracle risk) accepting trades at any oracle price from the taker contract. maybe worth to store acceptable price ranges per provider for opening positions?
 - [ ] #low Oracle decimals and amounts: 1e18 is used as base token amount, which is confusing if collateral token has lower decimals. e.g., 1e18 USDC is 1 trillion, so price for USDC base token is for 1 trillion units
 - [ ] #note missing interface docs + redirects in implementations
 
 
-### Known design issues (for audits)
+## Known design issues (for audits)
 - no refund of protocol fee for cancellations, e.g., in case of rolls. fee APR and roll frequency are assumed to be low, and rolls are assumed to be beneficial enough to users to be worth it. accepted as low risk economic issue.
 - loanNFT owner is pushed any collateral leftovers during foreclosure instead of pulling (so can be a contract that will not forward it to actual user, e.g., an NFT trading contract). accepted severity low: low likelihood, medium impact.
 - loans currentProviderNFT, currentEscrowNFT, and currentRolls are assumed to change infrequently, so a stale transaction in which an offer for a different contract was intended by user is expected to be unlikely: arbitrum is unlikely to keep pending stale transactions, admin is trusted not to abuse, offer is assumed to not coincide with another existing offer in case of mistake, and various slippage parameters are assumed to be sufficient to prevent malicious scenarios. accepted risk up to low severity.
