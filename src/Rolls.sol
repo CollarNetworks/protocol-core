@@ -189,21 +189,6 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         // pull the NFT
         providerNFT.transferFrom(msg.sender, address(this), providerId);
 
-        // @dev if provider expects to pay, check that they have granted sufficient balance and approvals already
-        // according to their max payment expectation
-        if (minToProvider < 0) {
-            uint maxFromProvider = uint(-minToProvider); // @dev reverts for type(int).min
-            // @dev provider may still have insufficient allowance or balance when user will try to accept
-            // but this check makes it a tiny bit harder to spoof offers, and reduces chance of errors.
-            // Depositing the funds for each roll offer is avoided because it's capital inefficient, since
-            // each offer is for a specific position.
-            require(cashAsset.balanceOf(msg.sender) >= maxFromProvider, "insufficient cash balance");
-            require(
-                cashAsset.allowance(msg.sender, address(this)) >= maxFromProvider,
-                "insufficient cash allowance"
-            );
-        }
-
         // store the offer
         rollId = nextRollId++;
         rollOffers[rollId] = RollOffer({
@@ -250,7 +235,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
      * @dev The caller must be the owner of the CollarTakerNFT for the position being rolled,
      * and must have approved sufficient cash if cash needs to be paid (depends on offer and current price)
      * @param rollId The ID of the roll offer to execute
-     * @param minToUser The minimum amount the user (taker) is willing to receive, or maximum willing to
+     * @param minToTaker The minimum amount the user (taker) is willing to receive, or maximum willing to
      *     pay if negative. The execution transfer (in or out) will be checked to be >= this value.
      * @return newTakerId The ID of the newly created CollarTakerNFT position
      * @return newProviderId The ID of the newly created ShortProviderNFT position
@@ -259,7 +244,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
      */
     function executeRoll(
         uint rollId,
-        int minToUser // signed "slippage", user protection
+        int minToTaker // signed "slippage", user protection
     ) external whenNotPaused returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider) {
         RollOffer storage offer = rollOffers[rollId];
         // offer was cancelled (if taken tokens would be burned)
@@ -288,7 +273,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         (newTakerId, newProviderId, toTaker, toProvider) = _executeRoll(rollId, newPrice, takerPos);
 
         // check transfers are sufficient / or pulls are not excessive
-        require(toTaker >= minToUser, "taker transfer slippage");
+        require(toTaker >= minToTaker, "taker transfer slippage");
         require(toProvider >= offer.minToProvider, "provider transfer slippage");
     }
 

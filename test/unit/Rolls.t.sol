@@ -590,27 +590,6 @@ contract RollsTest is BaseAssetPairTestSetup {
             block.timestamp - 1
         );
 
-        // Insufficient cash balance for potential payment
-        int largeNegativeMinToProvider = -int(cashAsset.balanceOf(provider)) - 1;
-        vm.expectRevert("insufficient cash balance");
-        rolls.createRollOffer(
-            takerId,
-            rollFeeAmount,
-            rollFeeDeltaFactorBIPS,
-            minPrice,
-            maxPrice,
-            largeNegativeMinToProvider,
-            deadline
-        );
-
-        // Insufficient cash allowance for potential payment
-        cashAsset.approve(address(rolls), uint(-minToProvider) - 1);
-        vm.expectRevert("insufficient cash allowance");
-        rolls.createRollOffer(
-            takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
-        );
-        cashAsset.approve(address(rolls), uint(-minToProvider));
-
         // NFT not approved
         providerNFT.approve(address(0), providerId);
         vm.expectRevert(
