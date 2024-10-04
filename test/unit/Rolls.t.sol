@@ -566,7 +566,7 @@ contract RollsTest is BaseAssetPairTestSetup {
 
         // Invalid price bounds
         startHoax(provider);
-        vm.expectRevert("max price not higher than min price");
+        vm.expectRevert("max price lower than min price");
         rolls.createRollOffer(
             takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, maxPrice, minPrice, minToProvider, deadline
         );

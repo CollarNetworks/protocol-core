@@ -182,7 +182,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         require(msg.sender == providerNFT.ownerOf(providerId), "not provider ID owner");
 
         // sanity check bounds
-        require(minPrice < maxPrice, "max price not higher than min price");
+        require(minPrice <= maxPrice, "max price lower than min price");
         require(_abs(rollFeeDeltaFactorBIPS) <= BIPS_BASE, "invalid fee delta change");
         require(block.timestamp <= deadline, "deadline passed");
 
