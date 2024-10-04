@@ -9,6 +9,7 @@ pragma solidity 0.8.22;
 
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { SignedMath } from "@openzeppelin/contracts/utils/math/SignedMath.sol";
 
 import { CollarTakerNFT, ShortProviderNFT } from "./CollarTakerNFT.sol";
 import { BaseEmergencyAdmin } from "./base/BaseEmergencyAdmin.sol";
@@ -101,7 +102,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         // For deltaFactor of 100%, this results in linear scaling of the fee with price.
         // If factor is BIPS_BASE the amount moves with the price. E.g., 5% price increase, 5% fee increase.
         // If factor is, e.g., 50% the fee increases only 2.5% for a 5% price increase.
-        int feeSize = _abs(offer.rollFeeAmount).toInt256();
+        int feeSize = SignedMath.abs(offer.rollFeeAmount).toInt256();
         int change = feeSize * offer.rollFeeDeltaFactorBIPS * priceChange / prevPrice / int(BIPS_BASE);
         // Apply the change depending on the sign of the delta * price-change.
         // Positive factor means provider gets more money with higher price.
@@ -183,7 +184,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
 
         // sanity check bounds
         require(minPrice <= maxPrice, "max price lower than min price");
-        require(_abs(rollFeeDeltaFactorBIPS) <= BIPS_BASE, "invalid fee delta change");
+        require(SignedMath.abs(rollFeeDeltaFactorBIPS) <= BIPS_BASE, "invalid fee delta change");
         require(block.timestamp <= deadline, "deadline passed");
 
         // pull the NFT
@@ -400,10 +401,6 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
     }
 
     // ----- INTERNAL VIEWS ----- //
-
-    function _abs(int a) internal pure returns (uint) {
-        return a > 0 ? uint(a) : uint(-a); // @dev reverts for type(int).min
-    }
 
     function _calculateTransferAmounts(
         uint newPrice,

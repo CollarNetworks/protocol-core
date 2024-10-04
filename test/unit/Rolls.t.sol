@@ -469,11 +469,11 @@ contract RollsTest is BaseAssetPairTestSetup {
 
         // Edge cases for fee amounts
         offer.rollFeeAmount = type(int).min;
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(); // SafeCastOverflowedUintToInt
         rolls.calculateRollFee(offer, twapPrice * 110 / 100);
 
         offer.rollFeeAmount = type(int).max;
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert(); // SafeCastOverflowedUintToInt
         rolls.calculateRollFee(offer, twapPrice * 110 / 100);
 
         // Edge cases for delta factors
