@@ -205,6 +205,34 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         escrowNFT.ownerOf(escrowId);
     }
 
+    function checkLastResortSeizeEscrow(uint delay) public {
+        uint escrowAmount = largeAmount / 2;
+        uint fee = 1 ether;
+        (uint escrowId,) = createAndCheckEscrow(supplier1, largeAmount, escrowAmount, fee);
+
+        // Skip past expiration and grace period
+        skip(duration + gracePeriod + 1 + delay);
+
+        startHoax(supplier1);
+        uint balanceBefore = asset.balanceOf(supplier1);
+
+        vm.expectEmit(address(escrowNFT));
+        emit IEscrowSupplierNFT.EscrowSeizedLastResort(escrowId, supplier1, escrowAmount + fee);
+        escrowNFT.lastResortSeizeEscrow(escrowId);
+
+        // Check balance
+        assertEq(asset.balanceOf(supplier1), balanceBefore + escrowAmount + fee);
+
+        // Check escrow state
+        EscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(escrowId);
+        assertTrue(escrow.released);
+        assertEq(escrow.withdrawable, 0);
+
+        // Check NFT burned
+        expectRevertERC721Nonexistent(escrowId);
+        escrowNFT.ownerOf(escrowId);
+    }
+
     struct ExpectedRelease {
         uint withdrawable;
         uint toLoans;
@@ -272,10 +300,14 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         createAndCheckOffer(supplier1, largeAmount);
     }
 
-    function test_updateOfferAmountIncrease() public {
+    function test_updateOfferAmount() public {
         checkUpdateOfferAmount(int(largeAmount));
 
+        checkUpdateOfferAmount(int(largeAmount) / 2);
+
         checkUpdateOfferAmount(-int(largeAmount));
+
+        checkUpdateOfferAmount(-int(largeAmount) / 2);
 
         checkUpdateOfferAmount(0);
     }
@@ -422,31 +454,9 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
     }
 
     function test_lastResortSeizeEscrow() public {
-        uint escrowAmount = largeAmount / 2;
-        uint fee = 1 ether;
-        (uint escrowId,) = createAndCheckEscrow(supplier1, largeAmount, escrowAmount, fee);
-
-        // Skip past expiration and grace period
-        skip(duration + gracePeriod + 1);
-
-        startHoax(supplier1);
-        uint balanceBefore = asset.balanceOf(supplier1);
-
-        vm.expectEmit(address(escrowNFT));
-        emit IEscrowSupplierNFT.EscrowSeizedLastResort(escrowId, supplier1, escrowAmount + fee);
-        escrowNFT.lastResortSeizeEscrow(escrowId);
-
-        // Check balance
-        assertEq(asset.balanceOf(supplier1), balanceBefore + escrowAmount + fee);
-
-        // Check escrow state
-        EscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(escrowId);
-        assertTrue(escrow.released);
-        assertEq(escrow.withdrawable, 0);
-
-        // Check NFT burned
-        expectRevertERC721Nonexistent(escrowId);
-        escrowNFT.ownerOf(escrowId);
+        checkLastResortSeizeEscrow(0);
+        checkLastResortSeizeEscrow(1);
+        checkLastResortSeizeEscrow(365 days);
     }
 
     // view effects

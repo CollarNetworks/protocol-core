@@ -127,8 +127,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         Escrow memory escrow = escrows[escrowId];
         // set to max
         gracePeriod = escrow.gracePeriod;
+        // avoid div-zero
         if (escrow.escrowed != 0 && escrow.lateFeeAPR != 0) {
-            // avoid div-zero
             // Calculate the grace period at which the fee will be higher than what's available.
             // Otherwise, late fees will be underpaid.
             // fee = escrowed * time * APR / year / 100bips;
@@ -504,7 +504,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
         So while a seizeEscrow() method in this contract *could* call to Loans, the keeper access control +
         the swap parameters + the reduced-grace-period time (by withdrawal), all make it more sensible to
-        be done via Loans directly.
+        be done via Loans directly. The result is that "principal" is always guaranteed by this contract due
+        to always remaining in it, but correct late fees payment depends on Loans implementation.
         */
     }
 

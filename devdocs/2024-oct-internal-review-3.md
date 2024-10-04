@@ -22,6 +22,7 @@
 - [x] #low refactor all simple math (min / max / etc) with OZ library
 - [x] #note unused imports in a few places
 - [x] #note several notes and nits from lightchaser https://gist.github.com/ChaseTheLight01/a66ec6b0599e1760f8512c42ec5f96ea
+- [x] #note memory structs should be preferred to storage when access is read-only (even though gas is slightly higher) for clarity
 
 ### Base admin
 - [ ] #low rescuing nfts is not handled: can save erc20 / nft via using approval + pull instead of transfer
@@ -30,16 +31,20 @@
 - [ ] #note naming: EmergencyAdmin is role and not attribute. BaseHubControlled?
 
 ### Rolls
+- [x] #note create offer balance and allowance checks seem redundant since for spoofing can easily be passed by providing positive amount, and for mistake prevention only helps with temporary issues. Consider removing to reduce complexity.
 - [ ] #note naming: `rollFee*` stutter
 - [ ] #note execute checks order can be more intuitive: access control move to top, rearrange other checks
 - [x] #note doc that `uint(-..)` reverts for int.min
 - [x] #note docs why canOpen is not used
+- [x] #note offer min max price check too strict, can be equal
+- [x] #note `_abs` can be replaced with OZ lib usage
 
 ### Taker
 - [ ] #note Docs are incomplete
 - [x] #note previewSettlement arg position struct is awkward, should expect id
 - [ ] #note naming: deviation -> percent
 - [ ] #note no good reason for recipient in withdrawal method
+- [x] #note cei can be better in settle
 
 ###  Provider
 - [ ] #med min take amount to prevent dusting / composability issues / griefing via fee issues / griefing via 0 user locked pos, may be non-negligible in case of low decimals + low gas fees
