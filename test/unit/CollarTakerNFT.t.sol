@@ -60,7 +60,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
         ICollarTakerNFT.TakerPosition memory expectedTakerPos = ICollarTakerNFT.TakerPosition({
             providerNFT: providerNFT,
-            providerPositionId: expectedProviderId,
+            providerId: expectedProviderId,
             duration: duration,
             expiration: block.timestamp + duration,
             initialPrice: twapPrice,
@@ -125,7 +125,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         bool historicalUsed
     ) internal {
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
-        uint providerNFTId = takerPos.providerPositionId;
+        uint providerNFTId = takerPos.providerId;
         uint expectedTakerOut = uint(int(putLocked) - expectedProviderChange);
         uint expectedProviderOut = uint(int(callLocked) + expectedProviderChange);
 

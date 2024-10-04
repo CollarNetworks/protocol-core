@@ -84,7 +84,14 @@ contract LoansAdminTest is LoansTestBase {
     function test_setSwapperAllowed() public {
         vm.startPrank(owner);
 
+        // not default
         SwapperUniV3 newSwapper = new SwapperUniV3(address(mockSwapperRouter), swapFeeTier);
+        vm.expectEmit(address(loans));
+        emit ILoansNFT.SwapperSet(address(newSwapper), true, false);
+        loans.setSwapperAllowed(address(newSwapper), true, false);
+        assertTrue(loans.allowedSwappers(address(newSwapper)));
+        assertEq(loans.defaultSwapper(), address(defaultSwapper));
+
         vm.expectEmit(address(loans));
         emit ILoansNFT.SwapperSet(address(newSwapper), true, true);
         loans.setSwapperAllowed(address(newSwapper), true, true);

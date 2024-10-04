@@ -134,7 +134,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
             newPrice: price,
             rollFeeAmount: rollFee,
             takerId: offer.takerId,
-            providerPos: takerPos.providerNFT.getPosition(takerPos.providerPositionId)
+            providerPos: takerPos.providerNFT.getPosition(takerPos.providerId)
         });
     }
 
@@ -177,7 +177,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         require(block.timestamp <= takerPos.expiration, "taker position expired");
 
         ShortProviderNFT providerNFT = takerPos.providerNFT;
-        uint providerId = takerPos.providerPositionId;
+        uint providerId = takerPos.providerId;
         // caller is owner
         require(msg.sender == providerNFT.ownerOf(providerId), "not provider ID owner");
 
@@ -302,8 +302,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         RollOffer memory offer = rollOffers[rollId];
 
         ShortProviderNFT providerNFT = takerPos.providerNFT;
-        ShortProviderNFT.ProviderPosition memory providerPos =
-            providerNFT.getPosition(takerPos.providerPositionId);
+        ShortProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(takerPos.providerId);
         // calculate the transfer amounts
         int rollFee = calculateRollFee(offer, newPrice);
         (toTaker, toProvider) = _calculateTransferAmounts({
@@ -370,7 +369,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         internal
     {
         // approve the takerNFT to pull the provider NFT, as both NFTs are needed for cancellation
-        takerPos.providerNFT.approve(address(takerNFT), takerPos.providerPositionId);
+        takerPos.providerNFT.approve(address(takerNFT), takerPos.providerId);
         // cancel and withdraw the cash from the existing paired position
         // @dev this relies on being the owner of both NFTs. it burns both NFTs, and withdraws
         // both put and locked cash to this contract

@@ -60,7 +60,7 @@ contract LoansRollTestBase is LoansTestBase {
     function createRollOffer(uint loanId) internal returns (uint rollId) {
         uint takerId = loanId;
         vm.startPrank(provider);
-        uint providerId = takerNFT.getPosition(takerId).providerPositionId;
+        uint providerId = takerNFT.getPosition(takerId).providerId;
         providerNFT.approve(address(rolls), providerId);
         cashAsset.approve(address(rolls), type(uint).max);
         rollId = rolls.createRollOffer(

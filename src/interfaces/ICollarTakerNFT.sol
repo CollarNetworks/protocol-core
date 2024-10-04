@@ -18,7 +18,7 @@ interface ICollarTakerNFT {
     struct TakerPosition {
         // paired NFT info
         ShortProviderNFT providerNFT;
-        uint providerPositionId;
+        uint providerId;
         // collar position info
         uint duration;
         uint expiration;

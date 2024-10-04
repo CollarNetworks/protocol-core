@@ -213,7 +213,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         uint expectedProviderLocked = swapOut * (callStrikeDeviation - BIPS_100PCT) / BIPS_100PCT;
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(ids.loanId);
         assertEq(address(takerPosition.providerNFT), address(providerNFT));
-        assertEq(takerPosition.providerPositionId, ids.providerId);
+        assertEq(takerPosition.providerId, ids.providerId);
         assertEq(takerPosition.initialPrice, twapPrice);
         assertEq(takerPosition.putLockedCash, swapOut - loanAmount);
         assertEq(takerPosition.callLockedCash, expectedProviderLocked);

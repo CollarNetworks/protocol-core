@@ -123,24 +123,24 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     /// `increaseCardinality` (or the pool's `increaseObservationCardinalityNext`).
     function settlePairedPosition(uint takerId) external whenNotPaused {
         TakerPosition storage position = positions[takerId];
-        ShortProviderNFT providerNFT = position.providerNFT;
-        uint providerId = position.providerPositionId;
 
         require(position.expiration != 0, "position doesn't exist");
         require(block.timestamp >= position.expiration, "not expired");
         require(!position.settled, "already settled");
-
-        position.settled = true; // set here to prevent reentrancy
 
         // get settlement price. casting is safe since expiration was checked
         (uint endPrice, bool historical) = oracle.pastPriceWithFallback(uint32(position.expiration));
 
         (uint withdrawable, int providerChange) = _settlementCalculations(position, endPrice);
 
-        _settleProviderPosition(position, providerChange);
-
-        // set withdrawable for user
+        // store changes
+        position.settled = true;
         position.withdrawable = withdrawable;
+
+        // settle paired and make the transfers
+        (ShortProviderNFT providerNFT, uint providerId) = (position.providerNFT, position.providerId);
+        if (providerChange > 0) cashAsset.forceApprove(address(providerNFT), uint(providerChange));
+        providerNFT.settlePosition(providerId, providerChange);
 
         emit PairedPositionSettled(
             takerId, address(providerNFT), providerId, endPrice, historical, withdrawable, providerChange
@@ -171,7 +171,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     function cancelPairedPosition(uint takerId, address recipient) external whenNotPaused {
         TakerPosition storage position = positions[takerId];
         ShortProviderNFT providerNFT = position.providerNFT;
-        uint providerId = position.providerPositionId;
+        uint providerId = position.providerId;
 
         require(msg.sender == ownerOf(takerId), "not owner of taker ID");
         // this is redundant due to NFT transfer from msg.sender later, but is a clearer error.
@@ -227,7 +227,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
 
         TakerPosition memory takerPosition = TakerPosition({
             providerNFT: providerNFT,
-            providerPositionId: providerId,
+            providerId: providerId,
             duration: offer.duration,
             expiration: providerPosition.expiration,
             initialPrice: twapPrice,
@@ -249,14 +249,6 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         _mint(msg.sender, takerId);
 
         emit PairedPositionOpened(takerId, address(providerNFT), providerId, offerId, takerPosition);
-    }
-
-    function _settleProviderPosition(TakerPosition storage position, int providerChange) internal {
-        if (providerChange > 0) {
-            cashAsset.forceApprove(address(position.providerNFT), uint(providerChange));
-        }
-
-        position.providerNFT.settlePosition(position.providerPositionId, providerChange);
     }
 
     // internal owner
@@ -291,6 +283,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         endPrice = Math.max(Math.min(endPrice, callPrice), putPrice);
 
         withdrawable = position.putLockedCash;
+        // endPrice == startPrice is no-op in both branches
         if (endPrice < startPrice) {
             // put range: divide between user and LP, call range: goes to LP
             uint lpPart = startPrice - endPrice;

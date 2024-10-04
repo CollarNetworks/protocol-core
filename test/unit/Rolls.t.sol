@@ -220,7 +220,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         // Check new taker position details
         CollarTakerNFT.TakerPosition memory newTakerPos = takerNFT.getPosition(newTakerId);
         assertEq(address(newTakerPos.providerNFT), address(providerNFT));
-        assertEq(newTakerPos.providerPositionId, newProviderId);
+        assertEq(newTakerPos.providerId, newProviderId);
         assertEq(newTakerPos.initialPrice, newPrice);
         assertEq(newTakerPos.putLockedCash, expected.newPutLocked);
         assertEq(newTakerPos.callLockedCash, expected.newCallLocked);

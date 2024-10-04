@@ -110,7 +110,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @return escrowed The original escrowed amount
      */
     function lateFees(uint escrowId) external view returns (uint fee, uint escrowed) {
-        Escrow storage escrow = escrows[escrowId];
+        Escrow memory escrow = escrows[escrowId];
         return (_lateFee(escrow), escrow.escrowed);
     }
 
@@ -124,7 +124,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @return gracePeriod The calculated grace period in seconds
      */
     function cappedGracePeriod(uint escrowId, uint lateFee) external view returns (uint gracePeriod) {
-        Escrow storage escrow = escrows[escrowId];
+        Escrow memory escrow = escrows[escrowId];
         // set to max
         gracePeriod = escrow.gracePeriod;
         if (escrow.escrowed != 0 && escrow.lateFeeAPR != 0) {
@@ -150,7 +150,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @return fee The calculated interest fee
      */
     function interestFee(uint offerId, uint escrowed) public view returns (uint) {
-        Offer storage offer = offers[offerId];
+        Offer memory offer = offers[offerId];
         return Math.ceilDiv(escrowed * offer.interestAPR * offer.duration, BIPS_BASE * YEAR);
     }
 
@@ -168,7 +168,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         view
         returns (uint withdrawal, uint toLoans, uint refund)
     {
-        refund = _refundInterestFee(escrows[escrowId]);
+        refund = _interestFeeRefund(escrows[escrowId]);
         (withdrawal, toLoans) = _releaseCalculations(escrows[escrowId], fromLoans);
     }
 
@@ -467,7 +467,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
     // ----- INTERNAL VIEWS ----- //
 
-    function _releaseCalculations(Escrow storage escrow, uint fromLoans)
+    function _releaseCalculations(Escrow memory escrow, uint fromLoans)
         internal
         view
         returns (uint withdrawal, uint toLoans)
@@ -478,7 +478,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         // lateFee is non-zero after min-grace-period is over (late close loan / seized escrow)
         uint lateFee = _lateFee(escrow);
         // refund due to early release. If late fee is not 0, this is likely 0 (because is after expiry).
-        uint interestRefund = _refundInterestFee(escrow);
+        uint interestRefund = _interestFeeRefund(escrow);
 
         // everything owed: original escrow + (interest held - interest refund) + late fee
         uint targetWithdrawal = escrow.escrowed + escrow.interestHeld + lateFee - interestRefund;
@@ -508,7 +508,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         */
     }
 
-    function _lateFee(Escrow storage escrow) internal view returns (uint) {
+    function _lateFee(Escrow memory escrow) internal view returns (uint) {
         if (block.timestamp < escrow.expiration + MIN_GRACE_PERIOD) {
             // grace period cliff
             return 0;
@@ -520,7 +520,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         return Math.ceilDiv(escrow.escrowed * escrow.lateFeeAPR * overdue, BIPS_BASE * YEAR);
     }
 
-    function _refundInterestFee(Escrow storage escrow) internal view returns (uint refund) {
+    function _interestFeeRefund(Escrow memory escrow) internal view returns (uint refund) {
         uint duration = escrow.duration;
         // startTime = expiration - duration, elapsed = now - startTime
         uint elapsed = block.timestamp + duration - escrow.expiration;
