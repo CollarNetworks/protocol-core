@@ -75,7 +75,7 @@
 
 ### Rolls
 - [x] #note create offer balance and allowance checks seem redundant since for spoofing can easily be passed by providing positive amount, and for mistake prevention only helps with temporary issues. Consider removing to reduce complexity.
-- [ ] #note naming: `rollFee*` stutter
+- [x] #note naming: `rollFee*` stutter
 - [ ] #note execute checks order can be more intuitive: access control move to top, rearrange other checks
 - [x] #note doc that `uint(-..)` reverts for int.min
 - [x] #note docs why canOpen is not used

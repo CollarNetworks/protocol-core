@@ -15,9 +15,9 @@ interface IRolls {
     struct RollOffer {
         // terms
         uint takerId;
-        int rollFeeAmount;
-        int rollFeeDeltaFactorBIPS; // bips change of fee amount for delta (ratio) of price change
-        uint rollFeeReferencePrice;
+        int feeAmount;
+        int feeDeltaFactorBIPS; // bips change of fee amount for delta (ratio) of price change
+        uint feeReferencePrice;
         // provider protection
         uint minPrice;
         uint maxPrice;

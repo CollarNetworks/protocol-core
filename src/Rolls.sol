@@ -96,20 +96,20 @@ contract Rolls is IRolls, BaseManaged {
      * @return rollFee The calculated roll fee (in cash amount)
      */
     function calculateRollFee(RollOffer memory offer, uint currentPrice) public pure returns (int rollFee) {
-        int prevPrice = offer.rollFeeReferencePrice.toInt256();
+        int prevPrice = offer.feeReferencePrice.toInt256();
         int priceChange = currentPrice.toInt256() - prevPrice;
         // Scaling the fee magnitude by the delta (price change) multiplied by the factor.
         // For deltaFactor of 100%, this results in linear scaling of the fee with price.
         // If factor is BIPS_BASE the amount moves with the price. E.g., 5% price increase, 5% fee increase.
         // If factor is, e.g., 50% the fee increases only 2.5% for a 5% price increase.
-        int feeSize = SignedMath.abs(offer.rollFeeAmount).toInt256();
-        int change = feeSize * offer.rollFeeDeltaFactorBIPS * priceChange / prevPrice / int(BIPS_BASE);
+        int feeSize = SignedMath.abs(offer.feeAmount).toInt256();
+        int change = feeSize * offer.feeDeltaFactorBIPS * priceChange / prevPrice / int(BIPS_BASE);
         // Apply the change depending on the sign of the delta * price-change.
         // Positive factor means provider gets more money with higher price.
         // Negative factor means user gets more money with higher price.
         // E.g., if the fee is -5, the sign of the factor specifies whether provider gains (+5% -> -4.75)
         // or user gains (+5% -> -5.25) with price increase.
-        rollFee = offer.rollFeeAmount + change;
+        rollFee = offer.feeAmount + change;
     }
 
     /**
@@ -145,9 +145,9 @@ contract Rolls is IRolls, BaseManaged {
      * @notice Creates a new roll offer for an existing taker NFT position and pulls the provider NFT.
      * @dev The provider must own the CollarProviderNFT for the position to be rolled
      * @param takerId The ID of the CollarTakerNFT position to be rolled
-     * @param rollFeeAmount The base fee for the roll, can be positive (paid by taker) or
+     * @param feeAmount The base fee for the roll, can be positive (paid by taker) or
      *     negative (paid by provider)
-     * @param rollFeeDeltaFactorBIPS How much the fee changes with price, in basis points, can be
+     * @param feeDeltaFactorBIPS How much the fee changes with price, in basis points, can be
      *     negative. Positive means asset price increase benefits provider, and negative benefits user.
      * @param minPrice The minimum acceptable price for roll execution
      * @param maxPrice The maximum acceptable price for roll execution
@@ -163,8 +163,8 @@ contract Rolls is IRolls, BaseManaged {
      */
     function createRollOffer(
         uint takerId,
-        int rollFeeAmount,
-        int rollFeeDeltaFactorBIPS,
+        int feeAmount,
+        int feeDeltaFactorBIPS,
         // provider protection
         uint minPrice,
         uint maxPrice,
@@ -184,7 +184,7 @@ contract Rolls is IRolls, BaseManaged {
 
         // sanity check bounds
         require(minPrice <= maxPrice, "max price lower than min price");
-        require(SignedMath.abs(rollFeeDeltaFactorBIPS) <= BIPS_BASE, "invalid fee delta change");
+        require(SignedMath.abs(feeDeltaFactorBIPS) <= BIPS_BASE, "invalid fee delta change");
         require(block.timestamp <= deadline, "deadline passed");
 
         // pull the NFT
@@ -194,9 +194,9 @@ contract Rolls is IRolls, BaseManaged {
         rollId = nextRollId++;
         rollOffers[rollId] = RollOffer({
             takerId: takerId,
-            rollFeeAmount: rollFeeAmount,
-            rollFeeDeltaFactorBIPS: rollFeeDeltaFactorBIPS,
-            rollFeeReferencePrice: takerNFT.currentOraclePrice(), // the roll offer fees are for current price
+            feeAmount: feeAmount,
+            feeDeltaFactorBIPS: feeDeltaFactorBIPS,
+            feeReferencePrice: takerNFT.currentOraclePrice(), // the roll offer fees are for current price
             minPrice: minPrice,
             maxPrice: maxPrice,
             minToProvider: minToProvider,
@@ -207,7 +207,7 @@ contract Rolls is IRolls, BaseManaged {
             active: true
         });
 
-        emit OfferCreated(takerId, msg.sender, providerNFT, providerId, rollFeeAmount, rollId);
+        emit OfferCreated(takerId, msg.sender, providerNFT, providerId, feeAmount, rollId);
     }
 
     /**
