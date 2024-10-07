@@ -63,41 +63,4 @@ interface ILoansNFT {
     event SwapperSet(address indexed swapper, bool indexed allowed, bool indexed setDefault);
     event EscrowSettled(uint indexed escrowId, uint lateFee, uint toEscrow, uint fromEscrow, uint leftOver);
     event LoanForeclosed(uint indexed loanId, uint indexed escrowId, uint fromSwap, uint toUser);
-
-    // constants
-    function MAX_SWAP_TWAP_DEVIATION_BIPS() external view returns (uint);
-    function VERSION() external view returns (string memory);
-
-    // immutables
-    function cashAsset() external view returns (IERC20);
-    function collateralAsset() external view returns (IERC20);
-    function takerNFT() external view returns (CollarTakerNFT);
-    // state
-    function getLoan(uint loanId) external view returns (Loan memory);
-    function closingKeeper() external view returns (address);
-    // mutative contract owner
-    function setKeeper(address keeper) external;
-    function setContracts(Rolls rolls, ShortProviderNFT providerNFT, EscrowSupplierNFT escrowNFT) external;
-    // mutative user (+ some keeper)
-    function setKeeperAllowed(bool enabled) external;
-    function openLoan(
-        uint collateralAmount,
-        uint minLoanAmount,
-        SwapParams calldata swapParams,
-        uint shortOffer
-    ) external returns (uint loanId, uint providerId, uint loanAmount);
-    function openEscrowLoan(
-        uint collateralAmount,
-        uint minLoanAmount,
-        SwapParams calldata swapParams,
-        uint shortOffer,
-        uint escrowOffer
-    ) external returns (uint loanId, uint providerId, uint loanAmount);
-    function closeLoan(uint loanId, SwapParams calldata swapParams)
-        external
-        returns (uint collateralReturned);
-    function rollLoan(uint loanId, uint rollId, int minToUser, uint newEscrowOffer)
-        external
-        returns (uint newLoanId, uint newLoanAmount, int transferAmount);
-    function unwrapAndCancelLoan(uint loanId) external;
 }

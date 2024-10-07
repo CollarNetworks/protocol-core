@@ -16,7 +16,7 @@
     - [ ] post deployment: keep non-zero erc20 balances in contracts (to avoid 0-non-zero-0 transfer chains)
 - [ ] #low erc20 tokens are trusted to be simple, but still contracts that hold balances may be safer with balance checks on transfers: taker open, create offers (2). Example compv3 uint max transfer which may not be obvious when whitelisting an asset.
   - mitigation: doc expected erc20 behaviors + consider balance checks
-- [ ] #low remove all unused interface methods
+- [x] #low remove all unused interface methods
 - [ ] #low document for each contract what post-deployment setup is needed (in that contract and others)
 - [ ] #low license header + incorrect email + security contact
 - [x] #low refactor all simple math (min / max / etc) with OZ library
@@ -26,9 +26,18 @@
 
 ###  Provider
 - [ ] #med min take amount to prevent dusting / composability issues / griefing via fee issues / griefing via 0 user locked pos, may be non-negligible in case of low decimals + low gas fees
+- [ ] #low "ShortProviderNFT" is bad name, confusing and inaccurate. Should be "CollarMakerNFT"
 - [ ] #low max allowed protocol fee APR in provider offer
 - [ ] #note no good reason for recipient in withdrawal method
 - [x] #note "unexpected takerId" check is redundant since checked value is returned from call invocation
+
+### Taker
+- [ ] #low putLocked / callLocked are bad names since aren't correct, should be takerLocker / makerLocked
+- [ ] #note Docs are incomplete
+- [x] #note previewSettlement arg position struct is awkward, should expect id
+- [ ] #note naming: deviation -> percent
+- [ ] #note no good reason for recipient in withdrawal method
+- [x] #note cei can be better in settle
 
 ###  Escrow
 - [ ] #low min take amount to prevent dusting / composability issues
@@ -42,7 +51,7 @@
 - [x] #note naming: open instead of create
 
 ### Base admin
-- [ ] #low rescuing nfts is not handled: can save erc20 / nft via using approval + pull instead of transfer
+- [ ] #low rescuing nfts is not handled: use another arg / function to rescue nfts 
 - [ ] #low ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different). override to `nominateOwner`
 - [ ] #note docs for BaseEmergencyAdmin and BaseNFT + why they need config hub
 - [ ] #note naming: EmergencyAdmin is role and not attribute. BaseHubControlled?
@@ -63,18 +72,10 @@
 - [x] #note offer min max price check too strict, can be equal
 - [x] #note `_abs` can be replaced with OZ lib usage
 
-### Taker
-- [ ] #note Docs are incomplete
-- [x] #note previewSettlement arg position struct is awkward, should expect id
-- [ ] #note naming: deviation -> percent
-- [ ] #note no good reason for recipient in withdrawal method
-- [x] #note cei can be better in settle
-
-
 ## Remaining from previous review:
 - [ ] #low (design) providers cannot control their "slippage" (must actively manage liquidity with price changes, and are exposed to oracle risk) accepting trades at any oracle price from the taker contract. maybe worth to store acceptable price ranges per provider for opening positions?
 - [ ] #low Oracle decimals and amounts: 1e18 is used as base token amount, which is confusing if collateral token has lower decimals. e.g., 1e18 USDC is 1 trillion, so price for USDC base token is for 1 trillion units
-- [ ] #note missing interface docs + redirects in implementations
+- [x] #note missing interface docs + redirects in implementations
 
 
 ## Known design issues (for audits)

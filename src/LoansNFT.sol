@@ -535,7 +535,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         require(allowedSwappers[swapParams.swapper], "swapper not allowed");
 
         uint balanceBefore = assetOut.balanceOf(address(this));
-        // approve the dex router
+        // approve the swapper
         assetIn.forceApprove(swapParams.swapper, amountIn);
 
         /* @dev It may be tempting to simplify this by using an arbitrary call instead of a

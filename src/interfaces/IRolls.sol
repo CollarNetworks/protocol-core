@@ -52,38 +52,4 @@ interface IRolls {
         uint newTakerId,
         uint newProviderId
     );
-
-    // constants
-    function VERSION() external view returns (string memory);
-    // immutables
-    function cashAsset() external view returns (IERC20);
-    function takerNFT() external view returns (CollarTakerNFT);
-    // state
-    function nextRollId() external view returns (uint);
-    function getRollOffer(uint rollId) external view returns (RollOffer memory);
-    // views
-    function calculateRollFee(RollOffer memory offer, uint currentPrice)
-        external
-        pure
-        returns (int rollFee);
-    function calculateTransferAmounts(uint rollId, uint price)
-        external
-        view
-        returns (int toTaker, int toProvider, int rollFee);
-
-    // mutative provider
-    function createRollOffer(
-        uint takerId,
-        int rollFeeAmount,
-        int rollFeeDeltaFactorBIPS,
-        uint minPrice,
-        uint maxPrice,
-        int minToProvider,
-        uint deadline
-    ) external returns (uint rollId);
-    function cancelOffer(uint rollId) external;
-    // mutative user
-    function executeRoll(uint rollId, int minToUser)
-        external
-        returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider);
 }

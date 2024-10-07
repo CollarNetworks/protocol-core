@@ -59,33 +59,4 @@ interface IShortProviderNFT {
     event PositionCanceled(
         uint indexed positionId, address indexed recipient, uint withdrawn, uint expiration
     );
-
-    // constants
-    function MAX_CALL_STRIKE_BIPS() external view returns (uint);
-    function MIN_CALL_STRIKE_BIPS() external view returns (uint);
-    function MAX_PUT_STRIKE_BIPS() external view returns (uint);
-    function VERSION() external view returns (string memory);
-    // immutables
-    function taker() external view returns (address);
-    function cashAsset() external view returns (IERC20);
-    function collateralAsset() external view returns (IERC20);
-    // state
-    function nextOfferId() external view returns (uint);
-    function nextPositionId() external view returns (uint);
-    function getOffer(uint offerId) external view returns (LiquidityOffer memory);
-    function getPosition(uint positionId) external view returns (ProviderPosition memory);
-
-    // mutative liquidity
-    function createOffer(uint callStrikeDeviation, uint amount, uint putStrikeDeviation, uint duration)
-        external
-        returns (uint offerId);
-    function updateOfferAmount(uint offerId, uint newAmount) external;
-    // mutative from borrow NFT
-    function mintFromOffer(uint offerId, uint amount, uint takerId)
-        external
-        returns (uint positionId, ProviderPosition memory position);
-    function cancelAndWithdraw(uint positionId, address recipient) external;
-    function settlePosition(uint positionId, int positionChange) external;
-    // mutative by position NFT owner
-    function withdrawFromSettled(uint positionId, address recipient) external;
 }

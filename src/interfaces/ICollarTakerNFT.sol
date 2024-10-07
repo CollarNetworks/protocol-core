@@ -62,23 +62,4 @@ interface ICollarTakerNFT {
     );
     event WithdrawalFromSettled(uint indexed takerId, address indexed recipient, uint withdrawn);
     event OracleSet(OracleUniV3TWAP prevOracle, OracleUniV3TWAP newOracle);
-
-    // constants
-    function VERSION() external view returns (string memory);
-    // immutables
-    function cashAsset() external view returns (IERC20);
-    function collateralAsset() external view returns (IERC20);
-    // state
-    function oracle() external view returns (OracleUniV3TWAP);
-    function getPosition(uint takerId) external view returns (TakerPosition memory);
-    function nextPositionId() external view returns (uint);
-    // mutative
-    function openPairedPosition(uint putLockedCash, ShortProviderNFT providerNFT, uint offerId)
-        external
-        returns (uint takerId, uint providerId);
-    function settlePairedPosition(uint takerId) external;
-    function cancelPairedPosition(uint takerId, address recipient) external;
-    function withdrawFromSettled(uint takerId, address recipient) external returns (uint amount);
-    // owner
-    function setOracle(OracleUniV3TWAP _oracle) external;
 }
