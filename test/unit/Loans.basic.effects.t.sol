@@ -215,7 +215,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(address(takerPosition.providerNFT), address(providerNFT));
         assertEq(takerPosition.providerId, ids.providerId);
         assertEq(takerPosition.initialPrice, twapPrice);
-        assertEq(takerPosition.putLockedCash, swapOut - loanAmount);
+        assertEq(takerPosition.takerLocked, swapOut - loanAmount);
         assertEq(takerPosition.callLockedCash, expectedProviderLocked);
         assertEq(takerPosition.duration, duration);
         assertEq(takerPosition.expiration, block.timestamp + duration);
@@ -348,7 +348,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition({ takerId: loanId });
         // calculate withdrawal amounts according to expected ratios
-        uint withdrawal = takerPosition.putLockedCash * putRatio / BIPS_100PCT
+        uint withdrawal = takerPosition.takerLocked * putRatio / BIPS_100PCT
             + takerPosition.callLockedCash * callRatio / BIPS_100PCT;
         // setup router output
         uint swapOut = prepareSwapToCollateralAtTWAPPrice();
@@ -427,7 +427,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
 
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition({ takerId: loanId });
         // withdrawal: no price change so only user locked (put locked)
-        uint withdrawal = takerPosition.putLockedCash;
+        uint withdrawal = takerPosition.takerLocked;
         // setup router output
         uint swapOut = prepareSwapToCollateralAtTWAPPrice();
         closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
@@ -447,7 +447,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
 
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition({ takerId: loanId });
         // withdrawal: no price change so only user locked (put locked)
-        uint withdrawal = takerPosition.putLockedCash;
+        uint withdrawal = takerPosition.takerLocked;
         // setup router output
         uint swapOut = prepareSwapToCollateralAtTWAPPrice();
         closeAndCheckLoan(loanId, keeper, loanAmount, withdrawal, swapOut);
@@ -462,13 +462,13 @@ contract LoansBasicEffectsTest is LoansTestBase {
     function test_closeLoan_priceHalfUpToCall() public {
         uint delta = (callStrikeDeviation - BIPS_100PCT) / 2;
         uint newPrice = twapPrice * (BIPS_100PCT + delta) / BIPS_100PCT;
-        // price goes to half way to call, withdrawal is 100% putLocked + 50% of callLocked
+        // price goes to half way to call, withdrawal is 100% takerLocked + 50% of callLocked
         checkOpenCloseWithPriceChange(newPrice, BIPS_100PCT, BIPS_100PCT / 2);
     }
 
     function test_closeLoan_priceOverCall() public {
         uint newPrice = twapPrice * (callStrikeDeviation + BIPS_100PCT) / BIPS_100PCT;
-        // price goes over call, withdrawal is 100% putLocked + 100% callLocked
+        // price goes over call, withdrawal is 100% takerLocked + 100% callLocked
         checkOpenCloseWithPriceChange(newPrice, BIPS_100PCT, BIPS_100PCT);
     }
 
@@ -483,7 +483,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         uint putStrikeDeviation = ltv;
         uint delta = (BIPS_100PCT - putStrikeDeviation) / 2;
         uint newPrice = twapPrice * (BIPS_100PCT - delta) / BIPS_100PCT;
-        // price goes half way to put strike, withdrawal is 50% of putLocked and 0% of callLocked
+        // price goes half way to put strike, withdrawal is 50% of takerLocked and 0% of callLocked
         checkOpenCloseWithPriceChange(newPrice, BIPS_100PCT / 2, 0);
     }
 
@@ -545,8 +545,8 @@ contract LoansBasicEffectsTest is LoansTestBase {
         vm.expectRevert(new bytes(0)); // failure to decode extraData
         loans.closeLoan(loanId, defaultSwapParams(0));
 
-        // price doesn't change so all putLocked is withdrawn
-        uint withdrawal = takerNFT.getPosition({ takerId: loanId }).putLockedCash;
+        // price doesn't change so all takerLocked is withdrawn
+        uint withdrawal = takerNFT.getPosition({ takerId: loanId }).takerLocked;
         // must know how much to swap
         uint expectedCashIn = loanAmount + withdrawal;
         // data for closing the loan (the swap back)

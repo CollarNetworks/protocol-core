@@ -503,13 +503,13 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // this assumes LTV === put strike price
         loanAmount = putStrikeDeviation * cashFromSwap / BIPS_BASE;
         // everything that remains is locked on the put side in the collar position
-        uint putLockedCash = cashFromSwap - loanAmount;
+        uint takerLocked = cashFromSwap - loanAmount;
 
         // approve the taker contract
-        cashAsset.forceApprove(address(takerNFT), putLockedCash);
+        cashAsset.forceApprove(address(takerNFT), takerLocked);
 
         // stores, mints, calls providerNFT and mints there, emits the event
-        (takerId, providerId) = takerNFT.openPairedPosition(putLockedCash, currentProviderNFT, offerId);
+        (takerId, providerId) = takerNFT.openPairedPosition(takerLocked, currentProviderNFT, offerId);
     }
 
     function _swapCollateralWithTwapCheck(uint collateralAmount, SwapParams calldata swapParams)
@@ -519,7 +519,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         cashFromSwap = _swap(collateralAsset, cashAsset, collateralAmount, swapParams);
 
         // @dev note that TWAP price is used for payout decision in CollarTakerNFT, and swap price
-        // only affects the putLockedCash passed into it - so does not affect the provider, only the user
+        // only affects the takerLocked passed into it - so does not affect the provider, only the user
         _checkSwapPrice(cashFromSwap, collateralAmount);
     }
 

@@ -155,7 +155,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
     function test_revert_openLoan_IdTaken() public {
         (uint loanId,, uint loanAmount) = createAndCheckLoan();
         uint offerId = providerNFT.nextOfferId() - 1;
-        uint putLocked = swapCashAmount - loanAmount;
+        uint takerLocked = swapCashAmount - loanAmount;
 
         // prep again
         prepareSwapToCashAtTWAPPrice();
@@ -163,7 +163,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
         vm.mockCall(
             address(takerNFT),
-            abi.encodeWithSelector(takerNFT.openPairedPosition.selector, putLocked, providerNFT, offerId),
+            abi.encodeWithSelector(takerNFT.openPairedPosition.selector, takerLocked, providerNFT, offerId),
             abi.encode(loanId, 0, 0, 0) // returns old taker ID
         );
         vm.expectRevert("loanId taken");
@@ -335,7 +335,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
             loanId,
             user1,
             loans.getLoan(loanId).loanAmount,
-            takerNFT.getPosition(loanId).putLockedCash,
+            takerNFT.getPosition(loanId).takerLocked,
             swapOut
         );
 

@@ -13,7 +13,7 @@ import { BaseAssetPairTestSetup, CollarTakerNFT, ShortProviderNFT } from "./Base
 import { Rolls, IRolls } from "../../src/Rolls.sol";
 
 contract RollsTest is BaseAssetPairTestSetup {
-    uint putLocked = swapCashAmount * (BIPS_100PCT - ltv) / BIPS_100PCT; // 100
+    uint takerLocked = swapCashAmount * (BIPS_100PCT - ltv) / BIPS_100PCT; // 100
     uint callLocked = swapCashAmount * (callStrikeDeviation - BIPS_100PCT) / BIPS_100PCT; // 100
 
     // roll offer params
@@ -36,11 +36,11 @@ contract RollsTest is BaseAssetPairTestSetup {
     function createTakerPositions() internal returns (uint takerId, uint providerId) {
         (uint offerId, uint offerId2) = createProviderOffers();
         startHoax(user1);
-        cashAsset.approve(address(takerNFT), 2 * putLocked);
+        cashAsset.approve(address(takerNFT), 2 * takerLocked);
         // open "second" position first, such that the taker ID is incremented
-        takerNFT.openPairedPosition(putLocked, providerNFT2, offerId2);
+        takerNFT.openPairedPosition(takerLocked, providerNFT2, offerId2);
         // now open the position to be used in tests
-        (takerId, providerId) = takerNFT.openPairedPosition(putLocked, providerNFT, offerId);
+        (takerId, providerId) = takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
     }
 
     function createAndCheckRollOffer()
@@ -84,7 +84,7 @@ contract RollsTest is BaseAssetPairTestSetup {
 
     // avoiding stack too deep errors
     struct ExpectedRoll {
-        uint newPutLocked;
+        uint newTakerLocked;
         uint newCallLocked;
         int toTaker;
         int toProvider;
@@ -105,20 +105,20 @@ contract RollsTest is BaseAssetPairTestSetup {
         // taker position
         CollarTakerNFT.TakerPosition memory oldTakerPos = takerNFT.getPosition(takerId);
         // _newLockedAmounts
-        expected.newPutLocked = putLocked * newPrice / twapPrice;
+        expected.newTakerLocked = takerLocked * newPrice / twapPrice;
         expected.newCallLocked =
-            expected.newPutLocked * (callStrikeDeviation - BIPS_100PCT) / (BIPS_100PCT - ltv);
+            expected.newTakerLocked * (callStrikeDeviation - BIPS_100PCT) / (BIPS_100PCT - ltv);
         // check against taker NFT calc
         assertEq(
             expected.newCallLocked,
-            takerNFT.calculateProviderLocked(expected.newPutLocked, ltv, callStrikeDeviation)
+            takerNFT.calculateProviderLocked(expected.newTakerLocked, ltv, callStrikeDeviation)
         );
         // protocol fee
         (expected.toProtocol,) = providerNFT.protocolFee(expected.newCallLocked, duration);
         // _calculateTransferAmounts
         (uint takerSettled, int providerChange) = takerNFT.previewSettlement(takerId, newPrice);
         int providerSettled = int(oldTakerPos.callLockedCash) + providerChange;
-        expected.toTaker = int(takerSettled) - int(expected.newPutLocked) - rollFee;
+        expected.toTaker = int(takerSettled) - int(expected.newTakerLocked) - rollFee;
         expected.toProvider =
             providerSettled - int(expected.newCallLocked) + rollFee - int(expected.toProtocol);
         return expected; // linter wasn't happy without this
@@ -222,7 +222,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         assertEq(address(newTakerPos.providerNFT), address(providerNFT));
         assertEq(newTakerPos.providerId, newProviderId);
         assertEq(newTakerPos.initialPrice, newPrice);
-        assertEq(newTakerPos.putLockedCash, expected.newPutLocked);
+        assertEq(newTakerPos.takerLocked, expected.newTakerLocked);
         assertEq(newTakerPos.callLockedCash, expected.newCallLocked);
         assertEq(newTakerPos.duration, duration);
         assertEq(newTakerPos.expiration, block.timestamp + duration);
@@ -288,7 +288,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         - start 1000 at price 1000, 100 user locked, 200 provider locked
         - no changes except fee being charged
         */
-        assertEq(expected.newPutLocked, 100 ether);
+        assertEq(expected.newTakerLocked, 100 ether);
         assertEq(expected.newCallLocked, 200 ether);
         assertEq(expected.toTaker, -expected.rollFee);
         assertEq(expected.toProvider, expected.rollFee - int(expected.toProtocol));
@@ -302,7 +302,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         - start 1000 at price 1000, 100 user locked, 200 provider locked
         - no changes except fee being charged
         */
-        assertEq(expected.newPutLocked, 100 ether);
+        assertEq(expected.newTakerLocked, 100 ether);
         assertEq(expected.newCallLocked, 200 ether);
         assertEq(expected.toTaker, 0);
         assertEq(expected.toProvider, -int(expected.toProtocol));
@@ -320,7 +320,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         - toTaker = 150 - 105 = 45
         - toProvider = 150 - 210 = -60
         */
-        assertEq(expected.newPutLocked, 105 ether);
+        assertEq(expected.newTakerLocked, 105 ether);
         assertEq(expected.newCallLocked, 210 ether);
         assertEq(expected.toTaker, 45 ether - expected.rollFee);
         assertEq(expected.toProvider, -60 ether + expected.rollFee - int(expected.toProtocol));
@@ -338,7 +338,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         - toTaker = 50 - 95 = -45
         - toProvider = 250 - 190 = 60
         */
-        assertEq(expected.newPutLocked, 95 ether);
+        assertEq(expected.newTakerLocked, 95 ether);
         assertEq(expected.newCallLocked, 190 ether);
         assertEq(expected.toTaker, -45 ether - expected.rollFee);
         assertEq(expected.toProvider, 60 ether + expected.rollFee - int(expected.toProtocol));
@@ -359,7 +359,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         - toTaker = 300 - 130 = 170
         - toProvider = 0 - 260 = -260
         */
-        assertEq(expected.newPutLocked, 130 ether);
+        assertEq(expected.newTakerLocked, 130 ether);
         assertEq(expected.newCallLocked, 260 ether);
         assertEq(expected.toTaker, 170 ether - expected.rollFee);
         assertEq(expected.toProvider, -260 ether + expected.rollFee - int(expected.toProtocol));
@@ -379,7 +379,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         - toTaker = 0 - 80 = -80
         - toProvider = 300 - 160 = 140
         */
-        assertEq(expected.newPutLocked, 80 ether);
+        assertEq(expected.newTakerLocked, 80 ether);
         assertEq(expected.newCallLocked, 160 ether);
         assertEq(expected.toTaker, -80 ether - expected.rollFee);
         assertEq(expected.toProvider, 140 ether + expected.rollFee - int(expected.toProtocol));

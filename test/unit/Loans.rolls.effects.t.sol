@@ -13,7 +13,7 @@ import { LoansTestBase } from "./Loans.basic.effects.t.sol";
 
 contract LoansRollTestBase is LoansTestBase {
     struct ExpectedRoll {
-        uint newPutLocked;
+        uint newTakerLocked;
         uint newCallLocked;
         int toTaker;
         int rollFee;
@@ -36,9 +36,9 @@ contract LoansRollTestBase is LoansTestBase {
         CollarTakerNFT.TakerPosition memory oldTakerPos = takerNFT.getPosition(takerId);
 
         // new position
-        expected.newPutLocked = oldTakerPos.putLockedCash * newPrice / twapPrice;
+        expected.newTakerLocked = oldTakerPos.takerLocked * newPrice / twapPrice;
         expected.newCallLocked =
-            expected.newPutLocked * (callStrikeDeviation - BIPS_100PCT) / (BIPS_100PCT - ltv);
+            expected.newTakerLocked * (callStrikeDeviation - BIPS_100PCT) / (BIPS_100PCT - ltv);
 
         // toTaker = userGain - rollFee, so userGain (loan increase) = toTaker + rollFee
         expected.newLoanAmount =
@@ -164,7 +164,7 @@ contract LoansRollTestBase is LoansTestBase {
 
         // new taker position
         CollarTakerNFT.TakerPosition memory newTakerPos = takerNFT.getPosition(newLoanId);
-        assertEq(newTakerPos.putLockedCash, expected.newPutLocked);
+        assertEq(newTakerPos.takerLocked, expected.newTakerLocked);
         assertEq(newTakerPos.callLockedCash, expected.newCallLocked);
         assertEq(newTakerPos.initialPrice, newPrice);
     }
@@ -173,7 +173,7 @@ contract LoansRollTestBase is LoansTestBase {
         skip(duration);
 
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition({ takerId: loanId });
-        uint withdrawal = takerPosition.putLockedCash;
+        uint withdrawal = takerPosition.takerLocked;
         uint swapOut = prepareSwapToCollateralAtTWAPPrice();
         closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
         return loanId;
@@ -187,7 +187,7 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         (uint newTakerId, ExpectedRoll memory expected) = checkRollLoan(loanId, twapPrice);
 
         // no change in locked amounts
-        assertEq(expected.newPutLocked, takerPosition.putLockedCash);
+        assertEq(expected.newTakerLocked, takerPosition.takerLocked);
         assertEq(expected.newCallLocked, takerPosition.callLockedCash);
         // only fee paid
         assertEq(expected.toTaker, -rollFee);
@@ -209,7 +209,7 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
             (newLoanId, expected) = checkRollLoan(newLoanId, twapPrice);
         }
         // no change in locked amounts
-        assertEq(expected.newPutLocked, takerPosition.putLockedCash);
+        assertEq(expected.newTakerLocked, takerPosition.takerLocked);
         assertEq(expected.newCallLocked, takerPosition.callLockedCash);
         // only fee paid
         assertEq(expected.toTaker, -rollFee); // single fee
@@ -234,7 +234,7 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         uint newPrice = twapPrice * 105 / 100;
         (uint newLoanId, ExpectedRoll memory expected) = checkRollLoan(loanId, newPrice);
 
-        assertEq(expected.newPutLocked, 105 ether); // scaled by price
+        assertEq(expected.newTakerLocked, 105 ether); // scaled by price
         assertEq(expected.newCallLocked, 210 ether); // scaled by price
         assertEq(expected.toTaker, 44 ether); // 45 (+5% * 90% LTV) - 1 (fee)
 
@@ -251,7 +251,7 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         uint newPrice = twapPrice * 95 / 100;
         (uint newLoanId, ExpectedRoll memory expected) = checkRollLoan(loanId, newPrice);
 
-        assertEq(expected.newPutLocked, 95 ether); // scaled by price
+        assertEq(expected.newTakerLocked, 95 ether); // scaled by price
         assertEq(expected.newCallLocked, 190 ether); // scaled by price
         assertEq(expected.toTaker, -46 ether); // -45 (-5% * 90% LTV) - 1 (fee)
 
@@ -268,7 +268,7 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         uint newPrice = twapPrice * 150 / 100;
         (uint newLoanId, ExpectedRoll memory expected) = checkRollLoan(loanId, newPrice);
 
-        assertEq(expected.newPutLocked, 150 ether); // scaled by price
+        assertEq(expected.newTakerLocked, 150 ether); // scaled by price
         assertEq(expected.newCallLocked, 300 ether); // scaled by price
         assertEq(expected.toTaker, 149 ether); // 150 (300 collar settle - 150 collar open) - 1 fee
 
@@ -285,7 +285,7 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         uint newPrice = twapPrice * 50 / 100;
         (uint newLoanId, ExpectedRoll memory expected) = checkRollLoan(loanId, newPrice);
 
-        assertEq(expected.newPutLocked, 50 ether); // scaled by price
+        assertEq(expected.newTakerLocked, 50 ether); // scaled by price
         assertEq(expected.newCallLocked, 100 ether); // scaled by price
         assertEq(expected.toTaker, -51 ether); // -50 (0 collar settle - 50 collar open) - 1 fee
 

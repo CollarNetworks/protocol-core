@@ -91,7 +91,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     // ----- STATE CHANGING FUNCTIONS ----- //
 
     function openPairedPosition(
-        uint putLockedCash, // user portion of collar position
+        uint takerLocked, // user portion of collar position
         ShortProviderNFT providerNFT,
         uint offerId // @dev implies specific provider, put & call deviations, duration
     ) external whenNotPaused returns (uint takerId, uint providerId) {
@@ -110,10 +110,10 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         uint twapPrice = currentOraclePrice();
 
         // stores, mints, calls providerNFT and mints there, emits the event
-        (takerId, providerId) = _openPairedPositionInternal(twapPrice, putLockedCash, providerNFT, offerId);
+        (takerId, providerId) = _openPairedPositionInternal(twapPrice, takerLocked, providerNFT, offerId);
 
         // pull the user side of the locked cash
-        cashAsset.safeTransferFrom(msg.sender, address(this), putLockedCash);
+        cashAsset.safeTransferFrom(msg.sender, address(this), takerLocked);
     }
 
     /// @dev this should be called as soon after expiry as possible, because if the expiry TWAP price becomes
@@ -192,10 +192,10 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         providerNFT.cancelAndWithdraw(providerId, recipient);
 
         // transfer the tokens locked in this contract
-        cashAsset.safeTransfer(recipient, position.putLockedCash);
+        cashAsset.safeTransfer(recipient, position.takerLocked);
 
         emit PairedPositionCanceled(
-            takerId, address(providerNFT), providerId, recipient, position.putLockedCash, position.expiration
+            takerId, address(providerNFT), providerId, recipient, position.takerLocked, position.expiration
         );
     }
 
@@ -209,14 +209,14 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
 
     function _openPairedPositionInternal(
         uint twapPrice,
-        uint putLockedCash,
+        uint takerLocked,
         ShortProviderNFT providerNFT,
         uint offerId
     ) internal returns (uint takerId, uint providerId) {
         ShortProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
         require(offer.duration != 0, "invalid offer");
         uint callLockedCash =
-            calculateProviderLocked(putLockedCash, offer.putStrikeDeviation, offer.callStrikeDeviation);
+            calculateProviderLocked(takerLocked, offer.putStrikeDeviation, offer.callStrikeDeviation);
 
         // open the provider position with duration and callLockedCash locked liquidity (reverts if can't)
         // and sends the provider NFT to the provider
@@ -235,7 +235,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
             initialPrice: twapPrice,
             putStrikePrice: putStrikePrice,
             callStrikePrice: callStrikePrice,
-            putLockedCash: putLockedCash,
+            takerLocked: takerLocked,
             callLockedCash: callLockedCash,
             // unset until settlement
             settled: false,
@@ -284,13 +284,13 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         // restrict endPrice to put-call range
         endPrice = Math.max(Math.min(endPrice, callPrice), putPrice);
 
-        withdrawable = position.putLockedCash;
+        withdrawable = position.takerLocked;
         // endPrice == startPrice is no-op in both branches
         if (endPrice < startPrice) {
             // put range: divide between user and LP, call range: goes to LP
             uint lpPart = startPrice - endPrice;
             uint putRange = startPrice - putPrice;
-            uint lpGain = position.putLockedCash * lpPart / putRange; // no div-zero ensured on open
+            uint lpGain = position.takerLocked * lpPart / putRange; // no div-zero ensured on open
             withdrawable -= lpGain;
             toProvider = lpGain.toInt256();
         } else {

@@ -25,7 +25,7 @@ interface ICollarTakerNFT {
         uint initialPrice;
         uint putStrikePrice;
         uint callStrikePrice;
-        uint putLockedCash;
+        uint takerLocked;
         uint callLockedCash;
         // withdrawal state
         bool settled;
