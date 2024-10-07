@@ -2,7 +2,7 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
-import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
+import { CollarProviderNFT } from "../../src/CollarProviderNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { LoansNFT } from "../../src/LoansNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -195,7 +195,7 @@ contract DeploymentUtils is Script {
                 string memory baseKey = substring(allKeys[i], 0, bytes(allKeys[i]).length - 9);
 
                 result[resultIndex] = DeploymentHelper.AssetPairContracts({
-                    providerNFT: ShortProviderNFT(
+                    providerNFT: CollarProviderNFT(
                         _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_providerNFT")))
                     ),
                     takerNFT: CollarTakerNFT(

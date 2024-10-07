@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/console.sol";
 
 import { ConfigHub } from "../src/ConfigHub.sol";
-import { ShortProviderNFT } from "../src/ShortProviderNFT.sol";
+import { CollarProviderNFT } from "../src/CollarProviderNFT.sol";
 import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
 import { LoansNFT } from "../src/LoansNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -14,7 +14,7 @@ import { SwapperUniV3 } from "../src/SwapperUniV3.sol";
 
 contract DeploymentHelper {
     struct AssetPairContracts {
-        ShortProviderNFT providerNFT;
+        CollarProviderNFT providerNFT;
         CollarTakerNFT takerNFT;
         LoansNFT loansContract;
         Rolls rollsContract;
@@ -65,7 +65,7 @@ contract DeploymentHelper {
             string(abi.encodePacked("Taker ", pairConfig.name)),
             string(abi.encodePacked("T", pairConfig.name))
         );
-        ShortProviderNFT providerNFT = new ShortProviderNFT(
+        CollarProviderNFT providerNFT = new CollarProviderNFT(
             owner,
             configHub,
             pairConfig.cashAsset,

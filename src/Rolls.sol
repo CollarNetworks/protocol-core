@@ -11,7 +11,7 @@ import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/Saf
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { SignedMath } from "@openzeppelin/contracts/utils/math/SignedMath.sol";
 
-import { CollarTakerNFT, ShortProviderNFT } from "./CollarTakerNFT.sol";
+import { CollarTakerNFT, CollarProviderNFT } from "./CollarTakerNFT.sol";
 import { BaseEmergencyAdmin } from "./base/BaseEmergencyAdmin.sol";
 import { IRolls } from "./interfaces/IRolls.sol";
 
@@ -30,9 +30,9 @@ import { IRolls } from "./interfaces/IRolls.sol";
  * Allows for the extension or modification of existing positions prior to expiry if both parties agree.
  *
  * Key Assumptions and Prerequisites:
- * 1. The CollarTakerNFT and ShortProviderNFT contracts are correctly implemented and authorized.
+ * 1. The CollarTakerNFT and CollarProviderNFT contracts are correctly implemented and authorized.
  * 2. The cash asset (ERC-20) used is standard compliant (non-rebasing, no transfer fees, no callbacks).
- * 3. Providers must approve this contract to transfer their ShortProviderNFTs and cash when creating
+ * 3. Providers must approve this contract to transfer their CollarProviderNFTs and cash when creating
  * an offer. The NFT is transferred on offer creation, and cash will be transferred on execution, if
  * and when the user accepts the offer.
  * 4. Takers must approve this contract to transfer their CollarTakerNFTs and any cash that's needed
@@ -143,7 +143,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
 
     /**
      * @notice Creates a new roll offer for an existing taker NFT position and pulls the provider NFT.
-     * @dev The provider must own the ShortProviderNFT for the position to be rolled
+     * @dev The provider must own the CollarProviderNFT for the position to be rolled
      * @param takerId The ID of the CollarTakerNFT position to be rolled
      * @param rollFeeAmount The base fee for the roll, can be positive (paid by taker) or
      *     negative (paid by provider)
@@ -177,7 +177,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         require(!takerPos.settled, "taker position settled");
         require(block.timestamp <= takerPos.expiration, "taker position expired");
 
-        ShortProviderNFT providerNFT = takerPos.providerNFT;
+        CollarProviderNFT providerNFT = takerPos.providerNFT;
         uint providerId = takerPos.providerId;
         // caller is owner
         require(msg.sender == providerNFT.ownerOf(providerId), "not provider ID owner");
@@ -239,7 +239,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
      * @param minToTaker The minimum amount the user (taker) is willing to receive, or maximum willing to
      *     pay if negative. The execution transfer (in or out) will be checked to be >= this value.
      * @return newTakerId The ID of the newly created CollarTakerNFT position
-     * @return newProviderId The ID of the newly created ShortProviderNFT position
+     * @return newProviderId The ID of the newly created CollarProviderNFT position
      * @return toTaker The amount transferred to (or from, if negative) the taker
      * @return toProvider The amount transferred to (or from, if negative) the provider
      */
@@ -287,8 +287,8 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         // @dev this is memory, not storage
         RollOffer memory offer = rollOffers[rollId];
 
-        ShortProviderNFT providerNFT = takerPos.providerNFT;
-        ShortProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(takerPos.providerId);
+        CollarProviderNFT providerNFT = takerPos.providerNFT;
+        CollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(takerPos.providerId);
         // calculate the transfer amounts
         int rollFee = calculateRollFee(offer, newPrice);
         (toTaker, toProvider) = _calculateTransferAmounts({
@@ -369,9 +369,9 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
 
     function _openNewPairedPosition(
         uint currentPrice,
-        ShortProviderNFT providerNFT,
+        CollarProviderNFT providerNFT,
         CollarTakerNFT.TakerPosition memory takerPos,
-        ShortProviderNFT.ProviderPosition memory providerPos
+        CollarProviderNFT.ProviderPosition memory providerPos
     ) internal returns (uint newTakerId, uint newProviderId) {
         // calculate locked amounts for new positions
         (uint newTakerLocked, uint newProviderLocked) = _newLockedAmounts({
@@ -406,7 +406,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         uint newPrice,
         int rollFeeAmount,
         uint takerId,
-        ShortProviderNFT.ProviderPosition memory providerPos
+        CollarProviderNFT.ProviderPosition memory providerPos
     ) internal view returns (int toTaker, int toProvider) {
         // what would the taker and provider get from a settlement of the old position at current settlement price
         (uint takerSettled, int providerGain) = takerNFT.previewSettlement(takerId, newPrice);

@@ -26,7 +26,7 @@
 
 ###  Provider
 - [ ] #med min take amount to prevent dusting / composability issues / griefing via fee issues / griefing via 0 user locked pos, may be non-negligible in case of low decimals + low gas fees
-- [ ] #low "ShortProviderNFT" is bad name, confusing and inaccurate. Should be "CollarProviderNFT"
+- [x] #low "ShortProviderNFT" is bad name, confusing and inaccurate. Should be "CollarProviderNFT"
 - [ ] #low naming: collateralAsset should be "priceAsset", since collateral is ambiguous and is actually cash. Should be just address since not used as erc20.
 - [ ] #low max allowed protocol fee APR in provider offer
 - [ ] #low rethink whether `cancelAndWithdraw` flow is not needed since taker is trusted anyway with settlement, so just settle call can be used (with 0 delta) and expiry check should be removed on provider side.
@@ -40,12 +40,12 @@
 - [x] #note "unexpected takerId" check is redundant since checked value is returned from call invocation
 
 ### Taker
-- [ ] #low putLocked / callLocked are bad names since aren't correct, should be takerLocker / makerLocked
+- [x] #low putLocked / callLocked are bad names since aren't correct, should be takerLocker / makerLocked
 - [ ] #low naming: collateralAsset should be "priceAsset", since collateral is ambiguous and is actually cash. Should be just address since not used as erc20.
 - [ ] #note Docs are incomplete
 - [x] #note previewSettlement arg position struct is awkward, should expect id
 - [x] #note 0 put range check unneeded in calculateProviderLocked
-- [ ] #note naming: deviation -> percent
+- [x] #note naming: deviation -> percent
 - [ ] #note no good reason for recipient in withdrawal method
 - [x] #note cei can be better in settle
 

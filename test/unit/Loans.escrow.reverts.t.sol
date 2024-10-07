@@ -60,13 +60,13 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         duration += 1;
 
         // provider offer has different duration
-        uint shortOffer = createProviderOffer();
+        uint providerOffer = createProviderOffer();
 
         vm.startPrank(user1);
         prepareSwapToCashAtTWAPPrice();
         collateralAsset.approve(address(loans), collateralAmount + escrowFee);
         vm.expectRevert("duration mismatch");
-        openLoan(collateralAmount, minLoanAmount, 0, shortOffer);
+        openLoan(collateralAmount, minLoanAmount, 0, providerOffer);
 
         // loanId mismatch escrow
         vm.mockCall(
@@ -75,7 +75,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
             abi.encode(takerNFT.nextPositionId() - 1)
         );
         vm.expectRevert("unexpected loanId");
-        openLoan(collateralAmount, minLoanAmount, 0, shortOffer);
+        openLoan(collateralAmount, minLoanAmount, 0, providerOffer);
     }
 
     function test_revert_unwrapAndCancelLoan_timing() public {

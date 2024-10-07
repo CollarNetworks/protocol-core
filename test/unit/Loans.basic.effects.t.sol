@@ -9,7 +9,7 @@ import { MockSwapperRouter } from "../utils/MockSwapRouter.sol";
 import { SwapperArbitraryCall } from "../utils/SwapperArbitraryCall.sol";
 
 import {
-    LoansNFT, ILoansNFT, ShortProviderNFT, EscrowSupplierNFT, CollarTakerNFT
+    LoansNFT, ILoansNFT, CollarProviderNFT, EscrowSupplierNFT, CollarTakerNFT
 } from "../../src/LoansNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { SwapperUniV3, ISwapper } from "../../src/SwapperUniV3.sol";
@@ -121,7 +121,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
     }
 
     function createAndCheckLoan() internal returns (uint loanId, uint providerId, uint loanAmount) {
-        uint shortOfferId = createProviderOffer();
+        uint providerOfferId = createProviderOffer();
         maybeCreateEscrowOffer();
 
         // TWAP price must be set for every block
@@ -154,11 +154,11 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
         ILoansNFT.SwapParams memory swapParams = defaultSwapParams(swapCashAmount);
         vm.expectEmit(address(loans));
-        emit ILoansNFT.LoanOpened(ids.loanId, user1, shortOfferId, collateralAmount, expectedLoanAmount);
+        emit ILoansNFT.LoanOpened(ids.loanId, user1, providerOfferId, collateralAmount, expectedLoanAmount);
 
         if (openEscrowLoan) {
             (loanId, providerId, loanAmount) =
-                loans.openEscrowLoan(collateralAmount, minLoanAmount, swapParams, shortOfferId, escrowOfferId);
+                loans.openEscrowLoan(collateralAmount, minLoanAmount, swapParams, providerOfferId, escrowOfferId);
 
             // sanity checks for test values
             assertGt(escrowOfferId, 0);
@@ -167,7 +167,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
             _checkEscrowViews(ids.loanId, ids.nextEscrowId, escrowFee);
         } else {
             (loanId, providerId, loanAmount) =
-                loans.openLoan(collateralAmount, minLoanAmount, swapParams, shortOfferId);
+                loans.openLoan(collateralAmount, minLoanAmount, swapParams, providerOfferId);
 
             // sanity checks for test values
             assertEq(escrowOfferId, 0);
@@ -223,7 +223,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(takerPosition.withdrawable, 0);
 
         // Check provider position
-        ShortProviderNFT.ProviderPosition memory providerPosition = providerNFT.getPosition(ids.providerId);
+        CollarProviderNFT.ProviderPosition memory providerPosition = providerNFT.getPosition(ids.providerId);
         assertEq(providerPosition.expiration, block.timestamp + duration);
         assertEq(providerPosition.principal, expectedProviderLocked);
         assertEq(providerPosition.putStrikePercent, ltv);
@@ -500,7 +500,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         assertTrue(loans.allowedSwappers(address(arbCallSwapper)));
 
         // check that without extraData, open loan fails
-        uint shortOfferId = createProviderOffer();
+        uint providerOfferId = createProviderOffer();
         maybeCreateEscrowOffer();
         prepareSwap(cashAsset, swapCashAmount);
         vm.startPrank(user1);
@@ -508,10 +508,10 @@ contract LoansBasicEffectsTest is LoansTestBase {
         vm.expectRevert(new bytes(0)); // failure to decode extraData
         if (openEscrowLoan) {
             // escrow loan
-            loans.openEscrowLoan(collateralAmount, 0, defaultSwapParams(0), shortOfferId, escrowOfferId);
+            loans.openEscrowLoan(collateralAmount, 0, defaultSwapParams(0), providerOfferId, escrowOfferId);
         } else {
             // simple loan
-            loans.openLoan(collateralAmount, 0, defaultSwapParams(0), shortOfferId);
+            loans.openLoan(collateralAmount, 0, defaultSwapParams(0), providerOfferId);
         }
 
         // call chain: loans -> arbitrary-swapper -> newUniSwapper -> mock-router.

@@ -10,7 +10,7 @@ import { MockOracleUniV3TWAP } from "../utils/MockOracleUniV3TWAP.sol";
 import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 import { ConfigHub } from "../../src/ConfigHub.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
-import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
+import { CollarProviderNFT } from "../../src/CollarProviderNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
 contract BaseAssetPairTestSetup is Test {
@@ -19,8 +19,8 @@ contract BaseAssetPairTestSetup is Test {
     ConfigHub configHub;
     MockOracleUniV3TWAP mockOracle;
     CollarTakerNFT takerNFT;
-    ShortProviderNFT providerNFT;
-    ShortProviderNFT providerNFT2;
+    CollarProviderNFT providerNFT;
+    CollarProviderNFT providerNFT2;
     Rolls rolls;
 
     address owner = makeAddr("owner");
@@ -65,16 +65,16 @@ contract BaseAssetPairTestSetup is Test {
         takerNFT = new CollarTakerNFT(
             owner, configHub, cashAsset, collateralAsset, mockOracle, "CollarTakerNFT", "TKRNFT"
         );
-        providerNFT = new ShortProviderNFT(
+        providerNFT = new CollarProviderNFT(
             owner, configHub, cashAsset, collateralAsset, address(takerNFT), "ProviderNFT", "PRVNFT"
         );
         // this is to avoid having the paired IDs being equal
-        providerNFT2 = new ShortProviderNFT(
+        providerNFT2 = new CollarProviderNFT(
             owner, configHub, cashAsset, collateralAsset, address(takerNFT), "ProviderNFT-2", "PRVNFT-2"
         );
         vm.label(address(mockOracle), "MockOracleUniV3TWAP");
         vm.label(address(takerNFT), "CollarTakerNFT");
-        vm.label(address(providerNFT), "ShortProviderNFT");
+        vm.label(address(providerNFT), "CollarProviderNFT");
 
         // asset pair periphery
         rolls = new Rolls(owner, takerNFT);

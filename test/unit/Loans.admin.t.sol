@@ -10,7 +10,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 import { LoansNFT, ILoansNFT } from "../../src/LoansNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
-import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
+import { CollarProviderNFT } from "../../src/CollarProviderNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
 import {
@@ -32,7 +32,7 @@ contract LoansAdminTest is LoansTestBase {
         loans.setKeeper(keeper);
 
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
-        loans.setContracts(Rolls(address(0)), ShortProviderNFT(address(0)), EscrowSupplierNFT(address(0)));
+        loans.setContracts(Rolls(address(0)), CollarProviderNFT(address(0)), EscrowSupplierNFT(address(0)));
 
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
         loans.setSwapperAllowed(address(0), true, true);
@@ -56,8 +56,8 @@ contract LoansAdminTest is LoansTestBase {
         assertEq(address(loans.currentEscrowNFT()), address(escrowNFT));
         // check can update
         Rolls newRolls = new Rolls(owner, takerNFT);
-        ShortProviderNFT newProvider =
-            new ShortProviderNFT(owner, configHub, cashAsset, collateralAsset, address(takerNFT), "", "");
+        CollarProviderNFT newProvider =
+            new CollarProviderNFT(owner, configHub, cashAsset, collateralAsset, address(takerNFT), "", "");
         EscrowSupplierNFT newEscrow = new EscrowSupplierNFT(owner, configHub, collateralAsset, "", "");
         vm.startPrank(owner);
         vm.expectEmit(address(loans));
@@ -70,7 +70,7 @@ contract LoansAdminTest is LoansTestBase {
 
         // check can unset (set to zero address)
         Rolls unsetRolls = Rolls(address(0));
-        ShortProviderNFT unsetProvider = ShortProviderNFT(address(0));
+        CollarProviderNFT unsetProvider = CollarProviderNFT(address(0));
         EscrowSupplierNFT unsetEscrow = EscrowSupplierNFT(address(0));
         vm.expectEmit(address(loans));
         emit ILoansNFT.ContractsUpdated(unsetRolls, unsetProvider, unsetEscrow);
@@ -168,7 +168,7 @@ contract LoansAdminTest is LoansTestBase {
         // Test revert when called by non-owner (tested elsewhere as well)
         vm.startPrank(user1);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user1));
-        loans.setContracts(Rolls(address(0)), ShortProviderNFT(address(0)), EscrowSupplierNFT(address(0)));
+        loans.setContracts(Rolls(address(0)), CollarProviderNFT(address(0)), EscrowSupplierNFT(address(0)));
 
         vm.startPrank(owner);
         // rolls taker match
@@ -180,7 +180,7 @@ contract LoansAdminTest is LoansTestBase {
         loans.setContracts(invalidTakerRolls, providerNFT, escrowNFT);
 
         // test provider mismatch
-        ShortProviderNFT invalidProvider = new ShortProviderNFT(
+        CollarProviderNFT invalidProvider = new CollarProviderNFT(
             owner, configHub, cashAsset, collateralAsset, address(invalidTakerNFT), "", ""
         );
         vm.expectRevert("provider taker mismatch");

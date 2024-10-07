@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import { ConfigHub } from "../../../src/ConfigHub.sol";
-import { ShortProviderNFT } from "../../../src/ShortProviderNFT.sol";
+import { CollarProviderNFT } from "../../../src/CollarProviderNFT.sol";
 import { OracleUniV3TWAP } from "../../../src/OracleUniV3TWAP.sol";
 import { CollarTakerNFT } from "../../../src/CollarTakerNFT.sol";
 import { LoansNFT, ILoansNFT } from "../../../src/LoansNFT.sol";

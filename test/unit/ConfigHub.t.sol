@@ -11,7 +11,7 @@ import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { ConfigHub, IConfigHub } from "../../src/ConfigHub.sol";
 import { ICollarTakerNFT } from "../../src/interfaces/ICollarTakerNFT.sol";
-import { IShortProviderNFT } from "../../src/interfaces/IShortProviderNFT.sol";
+import { ICollarProviderNFT } from "../../src/interfaces/ICollarProviderNFT.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract ConfigHubTest is Test {

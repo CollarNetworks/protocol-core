@@ -9,7 +9,7 @@ pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ConfigHub } from "../ConfigHub.sol";
-import { ShortProviderNFT } from "../ShortProviderNFT.sol";
+import { CollarProviderNFT } from "../CollarProviderNFT.sol";
 import { OracleUniV3TWAP } from "../OracleUniV3TWAP.sol";
 
 interface ICollarTakerNFT {
@@ -17,7 +17,7 @@ interface ICollarTakerNFT {
     // and are stored for FE / usability since the assumption is that this is used on L2.
     struct TakerPosition {
         // paired NFT info
-        ShortProviderNFT providerNFT;
+        CollarProviderNFT providerNFT;
         uint providerId;
         // collar position info
         uint duration;

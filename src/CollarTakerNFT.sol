@@ -9,7 +9,7 @@ pragma solidity 0.8.22;
 
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-import { ConfigHub, BaseNFT, ShortProviderNFT, Math, IERC20, SafeERC20 } from "./ShortProviderNFT.sol";
+import { ConfigHub, BaseNFT, CollarProviderNFT, Math, IERC20, SafeERC20 } from "./CollarProviderNFT.sol";
 import { OracleUniV3TWAP } from "./OracleUniV3TWAP.sol";
 import { ICollarTakerNFT } from "./interfaces/ICollarTakerNFT.sol";
 
@@ -92,7 +92,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
 
     function openPairedPosition(
         uint takerLocked, // user portion of collar position
-        ShortProviderNFT providerNFT,
+        CollarProviderNFT providerNFT,
         uint offerId // @dev implies specific provider, put & call percents, duration
     ) external whenNotPaused returns (uint takerId, uint providerId) {
         // check assets allowed
@@ -140,7 +140,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         position.withdrawable = withdrawable;
 
         // settle paired and make the transfers
-        (ShortProviderNFT providerNFT, uint providerId) = (position.providerNFT, position.providerId);
+        (CollarProviderNFT providerNFT, uint providerId) = (position.providerNFT, position.providerId);
         if (toProvider > 0) cashAsset.forceApprove(address(providerNFT), uint(toProvider));
         providerNFT.settlePosition(providerId, toProvider);
 
@@ -172,7 +172,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
 
     function cancelPairedPosition(uint takerId, address recipient) external whenNotPaused {
         TakerPosition storage position = positions[takerId];
-        ShortProviderNFT providerNFT = position.providerNFT;
+        CollarProviderNFT providerNFT = position.providerNFT;
         uint providerId = position.providerId;
 
         require(msg.sender == ownerOf(takerId), "not owner of taker ID");
@@ -210,17 +210,17 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     function _openPairedPositionInternal(
         uint twapPrice,
         uint takerLocked,
-        ShortProviderNFT providerNFT,
+        CollarProviderNFT providerNFT,
         uint offerId
     ) internal returns (uint takerId, uint providerId) {
-        ShortProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
+        CollarProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
         require(offer.duration != 0, "invalid offer");
         uint providerLocked =
             calculateProviderLocked(takerLocked, offer.putStrikePercent, offer.callStrikePercent);
 
         // open the provider position with duration and providerLocked locked liquidity (reverts if can't)
         // and sends the provider NFT to the provider
-        ShortProviderNFT.ProviderPosition memory providerPosition;
+        CollarProviderNFT.ProviderPosition memory providerPosition;
         (providerId, providerPosition) = providerNFT.mintFromOffer(offerId, providerLocked, nextTokenId);
         uint putStrikePrice = twapPrice * providerPosition.putStrikePercent / BIPS_BASE;
         uint callStrikePrice = twapPrice * providerPosition.callStrikePercent / BIPS_BASE;

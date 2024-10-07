@@ -11,10 +11,10 @@ import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/Saf
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { BaseNFT, ConfigHub } from "./base/BaseNFT.sol";
-import { IShortProviderNFT } from "./interfaces/IShortProviderNFT.sol";
+import { ICollarProviderNFT } from "./interfaces/ICollarProviderNFT.sol";
 
 /**
- * @title ShortProviderNFT
+ * @title CollarProviderNFT
  *
  * Main Functionality:
  * 1. Allows liquidity providers to create and manage offers for a specific Taker contract.
@@ -41,7 +41,7 @@ import { IShortProviderNFT } from "./interfaces/IShortProviderNFT.sol";
  * 1. Critical functions are only callable by the trusted taker contract.
  * 2. Offer and position parameters are validated against the configHub's configurations.
  */
-contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
+contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
@@ -78,7 +78,7 @@ contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
         collateralAsset = _collateralAsset;
         taker = _taker;
         _setConfigHub(_configHub);
-        emit ShortProviderNFTCreated(address(_cashAsset), address(_collateralAsset), _taker);
+        emit CollarProviderNFTCreated(address(_cashAsset), address(_collateralAsset), _taker);
     }
 
     modifier onlyTaker() {

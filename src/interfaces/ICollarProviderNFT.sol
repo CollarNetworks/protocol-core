@@ -10,7 +10,7 @@ pragma solidity 0.8.22;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ConfigHub } from "../ConfigHub.sol";
 
-interface IShortProviderNFT {
+interface ICollarProviderNFT {
     struct LiquidityOffer {
         address provider;
         uint available;
@@ -33,7 +33,7 @@ interface IShortProviderNFT {
     }
 
     // events
-    event ShortProviderNFTCreated(
+    event CollarProviderNFTCreated(
         address indexed cashAsset, address indexed collateralAsset, address indexed takerContract
     );
     event OfferCreated(

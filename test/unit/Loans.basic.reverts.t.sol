@@ -9,18 +9,18 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 import { LoansNFT, ILoansNFT } from "../../src/LoansNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
-import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
+import { CollarProviderNFT } from "../../src/CollarProviderNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
 import { LoansTestBase } from "./Loans.basic.effects.t.sol";
 
 contract LoansBasicRevertsTest is LoansTestBase {
-    function openLoan(uint _col, uint _minLoan, uint _minSwap, uint _shortOffer) internal {
+    function openLoan(uint _col, uint _minLoan, uint _minSwap, uint _providerOffer) internal {
         if (openEscrowLoan) {
             // uses last set escrowOfferId
-            loans.openEscrowLoan(_col, _minLoan, defaultSwapParams(_minSwap), _shortOffer, escrowOfferId);
+            loans.openEscrowLoan(_col, _minLoan, defaultSwapParams(_minSwap), _providerOffer, escrowOfferId);
         } else {
-            loans.openLoan(_col, _minLoan, defaultSwapParams(_minSwap), _shortOffer);
+            loans.openLoan(_col, _minLoan, defaultSwapParams(_minSwap), _providerOffer);
         }
     }
 
@@ -53,7 +53,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         // unset provider
         vm.startPrank(owner);
         configHub.setCanOpen(address(takerNFT), true);
-        loans.setContracts(rolls, ShortProviderNFT(address(0)), escrowNFT);
+        loans.setContracts(rolls, CollarProviderNFT(address(0)), escrowNFT);
         vm.startPrank(user1);
         vm.expectRevert("provider contract unset");
         openLoan(0, 0, 0, 0);

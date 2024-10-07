@@ -17,8 +17,8 @@ import { BaseAssetPairTestSetup, MockOracleUniV3TWAP } from "./BaseAssetPairTest
 
 import { CollarTakerNFT, ICollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ICollarTakerNFT } from "../../src/interfaces/ICollarTakerNFT.sol";
-import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
-import { IShortProviderNFT } from "../../src/interfaces/IShortProviderNFT.sol";
+import { CollarProviderNFT } from "../../src/CollarProviderNFT.sol";
+import { ICollarProviderNFT } from "../../src/interfaces/ICollarProviderNFT.sol";
 
 contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     uint takerLocked = 1000 ether;
@@ -34,11 +34,11 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
         uint expectedOfferId = providerNFT.nextPositionId();
         vm.expectEmit(address(providerNFT));
-        emit IShortProviderNFT.OfferCreated(
+        emit ICollarProviderNFT.OfferCreated(
             provider, ltv, duration, callStrikePercent, largeAmount, expectedOfferId
         );
         offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration);
-        ShortProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
+        CollarProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
         assertEq(offer.callStrikePercent, callStrikePercent);
         assertEq(offer.available, largeAmount);
         assertEq(offer.provider, provider);
@@ -85,7 +85,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         assertEq(abi.encode(takerPos), abi.encode(expectedTakerPos));
 
         // provider position
-        ShortProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(providerNFTId);
+        CollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(providerNFTId);
         assertEq(providerPos.expiration, block.timestamp + duration);
         assertEq(providerPos.principal, providerLocked);
         assertEq(providerPos.putStrikePercent, ltv);
@@ -142,7 +142,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
         startHoax(user1);
         vm.expectEmit(address(providerNFT));
-        emit IShortProviderNFT.PositionSettled(providerNFTId, expectedProviderChange, expectedProviderOut);
+        emit ICollarProviderNFT.PositionSettled(providerNFTId, expectedProviderChange, expectedProviderOut);
         vm.expectEmit(address(takerNFT));
         emit ICollarTakerNFT.PairedPositionSettled(
             takerId,
@@ -169,7 +169,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         assertEq(takerPosAfter.settled, true);
         assertEq(takerPosAfter.withdrawable, expectedTakerOut);
 
-        ShortProviderNFT.ProviderPosition memory providerPosAfter = providerNFT.getPosition(providerNFTId);
+        CollarProviderNFT.ProviderPosition memory providerPosAfter = providerNFT.getPosition(providerNFTId);
         assertEq(providerPosAfter.settled, true);
         assertEq(providerPosAfter.withdrawable, expectedProviderOut);
     }
@@ -368,7 +368,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         createOffer();
         vm.startPrank(owner);
         configHub.setCashAssetSupport(address(collateralAsset), true);
-        ShortProviderNFT providerNFTBad = new ShortProviderNFT(
+        CollarProviderNFT providerNFTBad = new CollarProviderNFT(
             owner,
             configHub,
             collateralAsset,
@@ -388,7 +388,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         createOffer();
         vm.startPrank(owner);
         configHub.setCollateralAssetSupport(address(cashAsset), true);
-        ShortProviderNFT providerNFTBad = new ShortProviderNFT(
+        CollarProviderNFT providerNFTBad = new CollarProviderNFT(
             owner, configHub, cashAsset, cashAsset, address(takerNFT), "CollarTakerNFTBad", "BRWTSTBAD"
         );
         configHub.setCanOpen(address(providerNFTBad), true);
