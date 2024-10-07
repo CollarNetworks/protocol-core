@@ -40,7 +40,7 @@
 - [x] #note "unexpected takerId" check is redundant since checked value is returned from call invocation
 
 ### Taker
-- [x] #low putLocked / callLocked are bad names since aren't correct, should be takerLocker / makerLocked
+- [x] #low putLocked / callLocked are bad names since aren't correct, should be takerLocker / providerLocked
 - [ ] #low naming: collateralAsset should be "priceAsset", since collateral is ambiguous and is actually cash. Should be just address since not used as erc20.
 - [ ] #note Docs are incomplete
 - [x] #note previewSettlement arg position struct is awkward, should expect id
@@ -57,7 +57,7 @@
 - [ ] #low MAX_SWAP_TWAP_DEVIATION_BIPS is too low, and is a DoS risk => raise to 50%, since only for opens and is only a sanity check
 - [x] #low check canOpen for self and dependencies contracts
 - [ ] #low deadline for all offer specifying txs to prevent abuse of stale txs with current*. This is only relevant for congested networks though so not sure makes sense for arbi.
-- [x] #note naming: setKeeperAllowed should be setAllowsClosingKeeper
+- [x] #note naming: setKeeperApproved and keeperApproved
 - [x] #note naming: open instead of create
 
 ### Base admin
