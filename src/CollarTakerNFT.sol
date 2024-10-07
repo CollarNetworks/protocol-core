@@ -60,7 +60,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
 
     /// @dev calculate the amount of cash the provider will lock for specific terms and taker
     /// locked amount
-    function calculateProviderLocked(uint putLockedCash, uint putStrikeDeviation, uint callStrikeDeviation)
+    function calculateProviderLocked(uint takerLocked, uint putStrikeDeviation, uint callStrikeDeviation)
         public
         pure
         returns (uint)
@@ -68,7 +68,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         uint putRange = BIPS_BASE - putStrikeDeviation;
         uint callRange = callStrikeDeviation - BIPS_BASE;
         require(putRange != 0, "invalid put strike deviation"); // avoid division by zero
-        return callRange * putLockedCash / putRange; // proportionally scaled according to ranges
+        return callRange * takerLocked / putRange; // proportionally scaled according to ranges
     }
 
     /// @dev TWAP price that's used in this contract for opening positions
@@ -81,7 +81,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     function previewSettlement(uint takerId, uint endPrice)
         external
         view
-        returns (uint takerBalance, int providerChange)
+        returns (uint takerBalance, int toProvider)
     {
         return _settlementCalculations(positions[takerId], endPrice);
     }
@@ -131,7 +131,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         // get settlement price. casting is safe since expiration was checked
         (uint endPrice, bool historical) = oracle.pastPriceWithFallback(uint32(position.expiration));
 
-        (uint withdrawable, int providerChange) = _settlementCalculations(position, endPrice);
+        (uint withdrawable, int toProvider) = _settlementCalculations(position, endPrice);
 
         // store changes
         position.settled = true;
@@ -139,11 +139,11 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
 
         // settle paired and make the transfers
         (ShortProviderNFT providerNFT, uint providerId) = (position.providerNFT, position.providerId);
-        if (providerChange > 0) cashAsset.forceApprove(address(providerNFT), uint(providerChange));
-        providerNFT.settlePosition(providerId, providerChange);
+        if (toProvider > 0) cashAsset.forceApprove(address(providerNFT), uint(toProvider));
+        providerNFT.settlePosition(providerId, toProvider);
 
         emit PairedPositionSettled(
-            takerId, address(providerNFT), providerId, endPrice, historical, withdrawable, providerChange
+            takerId, address(providerNFT), providerId, endPrice, historical, withdrawable, toProvider
         );
     }
 
@@ -273,7 +273,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     function _settlementCalculations(TakerPosition memory position, uint endPrice)
         internal
         pure
-        returns (uint withdrawable, int providerChange)
+        returns (uint withdrawable, int toProvider)
     {
         uint startPrice = position.initialPrice;
         uint putPrice = position.putStrikePrice;
@@ -290,7 +290,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
             uint putRange = startPrice - putPrice;
             uint lpGain = position.putLockedCash * lpPart / putRange; // no div-zero ensured on open
             withdrawable -= lpGain;
-            providerChange = lpGain.toInt256();
+            toProvider = lpGain.toInt256();
         } else {
             // put range: goes to user, call range: divide between user and LP
             uint userPart = endPrice - startPrice;
@@ -298,7 +298,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
             uint userGain = position.callLockedCash * userPart / callRange; // no div-zero ensured on open
 
             withdrawable += userGain;
-            providerChange = -userGain.toInt256();
+            toProvider = -userGain.toInt256();
         }
     }
 }

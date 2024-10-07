@@ -46,13 +46,7 @@ interface IShortProviderNFT {
     );
     event OfferUpdated(uint indexed offerId, address indexed provider, uint previousAmount, uint newAmount);
     event PositionCreated(
-        uint indexed positionId,
-        uint indexed putStrikeDeviation,
-        uint indexed duration,
-        uint callStrikeDeviation,
-        uint amount,
-        uint offerId,
-        uint feeAmount
+        uint indexed positionId, uint indexed offerId, uint feeAmount, ProviderPosition position
     );
     event PositionSettled(uint indexed positionId, int positionChange, uint withdrawable);
     event WithdrawalFromSettled(uint indexed positionId, address indexed recipient, uint withdrawn);

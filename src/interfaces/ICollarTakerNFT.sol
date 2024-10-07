@@ -50,7 +50,7 @@ interface ICollarTakerNFT {
         uint endPrice,
         bool historicalPriceUsed,
         uint withdrawable,
-        int providerChange
+        int toProvider
     );
     event PairedPositionCanceled(
         uint indexed takerId,

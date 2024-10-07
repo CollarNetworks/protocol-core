@@ -37,7 +37,7 @@ import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
  *
  * Design Considerations:
  * 1. Uses NFTs to represent escrow positions, allowing for secondary market usage.
- * 2. Implements pausability and asset recovery for emergency situations via BaseEmergencyAdminNFT.
+ * 2. Implements pausability and asset recovery for emergency situations via BaseNFT.
  * 3. Provides a last resort seizure mechanism for extreme scenarios.
  */
 contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {

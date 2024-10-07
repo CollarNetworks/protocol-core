@@ -409,9 +409,9 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         ShortProviderNFT.ProviderPosition memory providerPos
     ) internal view returns (int toTaker, int toProvider) {
         // what would the taker and provider get from a settlement of the old position at current settlement price
-        (uint takerSettled, int providerChange) = takerNFT.previewSettlement(takerId, newPrice);
+        (uint takerSettled, int providerGain) = takerNFT.previewSettlement(takerId, newPrice);
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
-        int providerSettled = takerPos.callLockedCash.toInt256() + providerChange;
+        int providerSettled = takerPos.callLockedCash.toInt256() + providerGain;
 
         // what are the new locked amounts as they will be calculated when opening the new positions
         (uint newPutLocked, uint newCallLocked) = _newLockedAmounts({
