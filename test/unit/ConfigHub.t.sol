@@ -42,8 +42,8 @@ contract ConfigHubTest is Test {
         assertEq(configHub.owner(), owner);
         assertEq(configHub.pendingOwner(), address(0));
         assertEq(configHub.VERSION(), "0.2.0");
-        assertEq(configHub.MIN_CONFIGURABLE_LTV(), 1000);
-        assertEq(configHub.MAX_CONFIGURABLE_LTV(), 9999);
+        assertEq(configHub.MIN_CONFIGURABLE_LTV_BIPS(), 1000);
+        assertEq(configHub.MAX_CONFIGURABLE_LTV_BIPS(), 9999);
         assertEq(configHub.MIN_CONFIGURABLE_DURATION(), 300);
         assertEq(configHub.MAX_CONFIGURABLE_DURATION(), 5 * 365 days);
         assertEq(configHub.pauseGuardian(), address(0));

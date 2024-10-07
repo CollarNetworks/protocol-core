@@ -70,7 +70,7 @@
 - [ ] #low isSupportedCash/Collateral redundant because canOpen is sufficient and the methods are always used together + assets are immutable in all using contracts. increases potential for config issues, gas, and admin dos.
 - [ ] #low ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different), override to `nominateOwner`
 - [ ] #note docs are incomplete
-- [ ] #note naming: BIPS / percent in LTV
+- [x] #note naming: BIPS / percent in LTV
 - [ ] #note MAX_CONFIGURABLE_DURATION 5 years seems excessive?
 
 ### Rolls

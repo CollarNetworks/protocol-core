@@ -17,8 +17,8 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     string public constant VERSION = "0.2.0";
 
     // configuration validation (validate on set)
-    uint public constant MIN_CONFIGURABLE_LTV = BIPS_BASE / 10; // 10%
-    uint public constant MAX_CONFIGURABLE_LTV = BIPS_BASE - 1; // avoid 0 range edge cases
+    uint public constant MIN_CONFIGURABLE_LTV_BIPS = BIPS_BASE / 10; // 10%
+    uint public constant MAX_CONFIGURABLE_LTV_BIPS = BIPS_BASE - 1; // avoid 0 range edge cases
     uint public constant MIN_CONFIGURABLE_DURATION = 300; // 5 minutes
     uint public constant MAX_CONFIGURABLE_DURATION = 5 * 365 days; // 5 years
 
@@ -56,8 +56,8 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     /// @param min The new minimum LTV
     /// @param max The new maximum LTV
     function setLTVRange(uint min, uint max) external onlyOwner {
-        require(min >= MIN_CONFIGURABLE_LTV, "min too low");
-        require(max <= MAX_CONFIGURABLE_LTV, "max too high");
+        require(min >= MIN_CONFIGURABLE_LTV_BIPS, "min too low");
+        require(max <= MAX_CONFIGURABLE_LTV_BIPS, "max too high");
         require(min <= max, "min > max");
         minLTV = min;
         maxLTV = max;
