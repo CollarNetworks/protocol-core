@@ -85,7 +85,7 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
 
         // (uint userWithdrawnAmount, uint providerWithdrawnAmount) = settleAndWithdraw(borrowId);
         // assertEq(userWithdrawnAmount, position.takerLocked, "User should receive put locked cash");
-        // assertEq(providerWithdrawnAmount, position.callLockedCash, "Provider should receive call locked cash");
+        // assertEq(providerWithdrawnAmount, position.providerLocked, "Provider should receive call locked cash");
 
         // assertEq(
         //     pair.cashAsset.balanceOf(user),

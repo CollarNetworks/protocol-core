@@ -363,7 +363,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         takerNFT.cancelPairedPosition(takerId, address(this));
         uint withdrawn = cashAsset.balanceOf(address(this)) - balanceBefore;
         // @dev if this changes, the calculations need to be updated
-        uint expectedAmount = takerPos.takerLocked + takerPos.callLockedCash;
+        uint expectedAmount = takerPos.takerLocked + takerPos.providerLocked;
         require(withdrawn == expectedAmount, "unexpected withdrawal amount");
     }
 
@@ -374,7 +374,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         ShortProviderNFT.ProviderPosition memory providerPos
     ) internal returns (uint newTakerId, uint newProviderId) {
         // calculate locked amounts for new positions
-        (uint newTakerLocked, uint newCallLocked) = _newLockedAmounts({
+        (uint newTakerLocked, uint newProviderLocked) = _newLockedAmounts({
             startPrice: takerPos.initialPrice,
             newPrice: currentPrice,
             takerLocked: takerPos.takerLocked,
@@ -383,8 +383,8 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         });
 
         // add the protocol fee that will be taken from the offer
-        (uint protocolFee,) = providerNFT.protocolFee(newCallLocked, takerPos.duration);
-        uint offerAmount = newCallLocked + protocolFee;
+        (uint protocolFee,) = providerNFT.protocolFee(newProviderLocked, takerPos.duration);
+        uint offerAmount = newProviderLocked + protocolFee;
 
         // create a liquidity offer just for this roll
         cashAsset.forceApprove(address(providerNFT), offerAmount);
@@ -411,10 +411,10 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         // what would the taker and provider get from a settlement of the old position at current settlement price
         (uint takerSettled, int providerGain) = takerNFT.previewSettlement(takerId, newPrice);
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
-        int providerSettled = takerPos.callLockedCash.toInt256() + providerGain;
+        int providerSettled = takerPos.providerLocked.toInt256() + providerGain;
 
         // what are the new locked amounts as they will be calculated when opening the new positions
-        (uint newTakerLocked, uint newCallLocked) = _newLockedAmounts({
+        (uint newTakerLocked, uint newProviderLocked) = _newLockedAmounts({
             startPrice: takerPos.initialPrice,
             newPrice: newPrice,
             takerLocked: takerPos.takerLocked,
@@ -422,17 +422,17 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
             callDeviation: providerPos.callStrikeDeviation
         });
 
-        (uint protocolFee,) = takerPos.providerNFT.protocolFee(newCallLocked, takerPos.duration);
+        (uint protocolFee,) = takerPos.providerNFT.protocolFee(newProviderLocked, takerPos.duration);
 
         // The taker and provider external balances (before fee) should be updated according to
         // their PNL: the money released from their settled position minus the cost of opening the new position.
         // The roll-fee is applied, and can represent any arbitrary adjustment to this (that's expressed by the offer).
         toTaker = takerSettled.toInt256() - newTakerLocked.toInt256() - rollFeeAmount;
-        toProvider = providerSettled - newCallLocked.toInt256() + rollFeeAmount - protocolFee.toInt256();
+        toProvider = providerSettled - newProviderLocked.toInt256() + rollFeeAmount - protocolFee.toInt256();
 
         /*  Does this balance out? Vars:
                 Ts: takerSettled, Ps: providerSettled, put: newTakerLocked,
-                call: newCallLocked, rollFee: rollFee, proFee: protocolFee
+                call: newProviderLocked, rollFee: rollFee, proFee: protocolFee
 
             After settlement (after cancelling and withdrawing old position):
                 Contract balance    = Ts + Ps
@@ -456,7 +456,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         uint takerLocked,
         uint putDeviation,
         uint callDeviation
-    ) internal view returns (uint newTakerLocked, uint newCallLocked) {
+    ) internal view returns (uint newTakerLocked, uint newProviderLocked) {
         // simply scale up using price. As the takerLocked is the main input to CollarTakerNFT's
         // open, this determines the new funds needed.
         // The reason this needs to be scaled with price, instead of just using the previous amount
@@ -464,6 +464,6 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         // maintained constant (instead of the dollar amount).
         newTakerLocked = takerLocked * newPrice / startPrice; // zero start price is invalid and will cause panic
         // use the method that CollarTakerNFT will use to calculate the provider part
-        newCallLocked = takerNFT.calculateProviderLocked(newTakerLocked, putDeviation, callDeviation);
+        newProviderLocked = takerNFT.calculateProviderLocked(newTakerLocked, putDeviation, callDeviation);
     }
 }

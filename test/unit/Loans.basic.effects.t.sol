@@ -216,7 +216,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(takerPosition.providerId, ids.providerId);
         assertEq(takerPosition.initialPrice, twapPrice);
         assertEq(takerPosition.takerLocked, swapOut - loanAmount);
-        assertEq(takerPosition.callLockedCash, expectedProviderLocked);
+        assertEq(takerPosition.providerLocked, expectedProviderLocked);
         assertEq(takerPosition.duration, duration);
         assertEq(takerPosition.expiration, block.timestamp + duration);
         assertFalse(takerPosition.settled);
@@ -349,7 +349,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition({ takerId: loanId });
         // calculate withdrawal amounts according to expected ratios
         uint withdrawal = takerPosition.takerLocked * putRatio / BIPS_100PCT
-            + takerPosition.callLockedCash * callRatio / BIPS_100PCT;
+            + takerPosition.providerLocked * callRatio / BIPS_100PCT;
         // setup router output
         uint swapOut = prepareSwapToCollateralAtTWAPPrice();
         closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
@@ -462,13 +462,13 @@ contract LoansBasicEffectsTest is LoansTestBase {
     function test_closeLoan_priceHalfUpToCall() public {
         uint delta = (callStrikeDeviation - BIPS_100PCT) / 2;
         uint newPrice = twapPrice * (BIPS_100PCT + delta) / BIPS_100PCT;
-        // price goes to half way to call, withdrawal is 100% takerLocked + 50% of callLocked
+        // price goes to half way to call, withdrawal is 100% takerLocked + 50% of providerLocked
         checkOpenCloseWithPriceChange(newPrice, BIPS_100PCT, BIPS_100PCT / 2);
     }
 
     function test_closeLoan_priceOverCall() public {
         uint newPrice = twapPrice * (callStrikeDeviation + BIPS_100PCT) / BIPS_100PCT;
-        // price goes over call, withdrawal is 100% takerLocked + 100% callLocked
+        // price goes over call, withdrawal is 100% takerLocked + 100% providerLocked
         checkOpenCloseWithPriceChange(newPrice, BIPS_100PCT, BIPS_100PCT);
     }
 
@@ -483,7 +483,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         uint putStrikeDeviation = ltv;
         uint delta = (BIPS_100PCT - putStrikeDeviation) / 2;
         uint newPrice = twapPrice * (BIPS_100PCT - delta) / BIPS_100PCT;
-        // price goes half way to put strike, withdrawal is 50% of takerLocked and 0% of callLocked
+        // price goes half way to put strike, withdrawal is 50% of takerLocked and 0% of providerLocked
         checkOpenCloseWithPriceChange(newPrice, BIPS_100PCT / 2, 0);
     }
 

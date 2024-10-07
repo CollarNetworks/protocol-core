@@ -14,7 +14,7 @@ import { LoansTestBase } from "./Loans.basic.effects.t.sol";
 contract LoansRollTestBase is LoansTestBase {
     struct ExpectedRoll {
         uint newTakerLocked;
-        uint newCallLocked;
+        uint newProviderLocked;
         int toTaker;
         int rollFee;
         uint newLoanAmount;
@@ -37,7 +37,7 @@ contract LoansRollTestBase is LoansTestBase {
 
         // new position
         expected.newTakerLocked = oldTakerPos.takerLocked * newPrice / twapPrice;
-        expected.newCallLocked =
+        expected.newProviderLocked =
             expected.newTakerLocked * (callStrikeDeviation - BIPS_100PCT) / (BIPS_100PCT - ltv);
 
         // toTaker = userGain - rollFee, so userGain (loan increase) = toTaker + rollFee
@@ -165,7 +165,7 @@ contract LoansRollTestBase is LoansTestBase {
         // new taker position
         CollarTakerNFT.TakerPosition memory newTakerPos = takerNFT.getPosition(newLoanId);
         assertEq(newTakerPos.takerLocked, expected.newTakerLocked);
-        assertEq(newTakerPos.callLockedCash, expected.newCallLocked);
+        assertEq(newTakerPos.providerLocked, expected.newProviderLocked);
         assertEq(newTakerPos.initialPrice, newPrice);
     }
 
@@ -188,7 +188,7 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
 
         // no change in locked amounts
         assertEq(expected.newTakerLocked, takerPosition.takerLocked);
-        assertEq(expected.newCallLocked, takerPosition.callLockedCash);
+        assertEq(expected.newProviderLocked, takerPosition.providerLocked);
         // only fee paid
         assertEq(expected.toTaker, -rollFee);
         assertEq(expected.newLoanAmount, loans.getLoan(loanId).loanAmount);
@@ -210,7 +210,7 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         }
         // no change in locked amounts
         assertEq(expected.newTakerLocked, takerPosition.takerLocked);
-        assertEq(expected.newCallLocked, takerPosition.callLockedCash);
+        assertEq(expected.newProviderLocked, takerPosition.providerLocked);
         // only fee paid
         assertEq(expected.toTaker, -rollFee); // single fee
         // paid the rollFee 10 times
@@ -235,7 +235,7 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         (uint newLoanId, ExpectedRoll memory expected) = checkRollLoan(loanId, newPrice);
 
         assertEq(expected.newTakerLocked, 105 ether); // scaled by price
-        assertEq(expected.newCallLocked, 210 ether); // scaled by price
+        assertEq(expected.newProviderLocked, 210 ether); // scaled by price
         assertEq(expected.toTaker, 44 ether); // 45 (+5% * 90% LTV) - 1 (fee)
 
         // LTV & collateral relationship maintained (because within collar bounds)
@@ -252,7 +252,7 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         (uint newLoanId, ExpectedRoll memory expected) = checkRollLoan(loanId, newPrice);
 
         assertEq(expected.newTakerLocked, 95 ether); // scaled by price
-        assertEq(expected.newCallLocked, 190 ether); // scaled by price
+        assertEq(expected.newProviderLocked, 190 ether); // scaled by price
         assertEq(expected.toTaker, -46 ether); // -45 (-5% * 90% LTV) - 1 (fee)
 
         // LTV & collateral relationship maintained (because within collar bounds)
@@ -269,7 +269,7 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         (uint newLoanId, ExpectedRoll memory expected) = checkRollLoan(loanId, newPrice);
 
         assertEq(expected.newTakerLocked, 150 ether); // scaled by price
-        assertEq(expected.newCallLocked, 300 ether); // scaled by price
+        assertEq(expected.newProviderLocked, 300 ether); // scaled by price
         assertEq(expected.toTaker, 149 ether); // 150 (300 collar settle - 150 collar open) - 1 fee
 
         // LTV & collateral relationship NOT maintained because outside of collar bounds
@@ -286,7 +286,7 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         (uint newLoanId, ExpectedRoll memory expected) = checkRollLoan(loanId, newPrice);
 
         assertEq(expected.newTakerLocked, 50 ether); // scaled by price
-        assertEq(expected.newCallLocked, 100 ether); // scaled by price
+        assertEq(expected.newProviderLocked, 100 ether); // scaled by price
         assertEq(expected.toTaker, -51 ether); // -50 (0 collar settle - 50 collar open) - 1 fee
 
         // LTV & collateral relationship NOT maintained because outside of collar bounds

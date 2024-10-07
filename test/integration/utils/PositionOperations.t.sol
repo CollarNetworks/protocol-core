@@ -41,7 +41,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         assertEq(position.putStrikePrice, position.initialPrice * offerLTV / 10_000);
         assert(position.callStrikePrice > position.initialPrice);
         assert(position.takerLocked > 0);
-        assert(position.callLockedCash > 0);
+        assert(position.providerLocked > 0);
         assertEq(position.settled, false);
         assertEq(position.withdrawable, 0);
     }
@@ -92,9 +92,9 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
     {
         uint userPart = finalPrice - position.initialPrice;
         uint callRange = position.callStrikePrice - position.initialPrice;
-        uint userGain = position.callLockedCash * userPart / callRange;
+        uint userGain = position.providerLocked * userPart / callRange;
         expectedUserWithdrawable = position.takerLocked + userGain;
-        expectedProviderWithdrawable = position.callLockedCash - userGain;
+        expectedProviderWithdrawable = position.providerLocked - userGain;
     }
 
     function checkPriceUnderPutStrikeValues(
@@ -116,7 +116,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         assertEq(userWithdrawnAmount, 0);
         assertEq(userBalanceAfter, userCashBalanceBeforeSettle);
 
-        uint expectedProviderWithdrawal = position.takerLocked + position.callLockedCash;
+        uint expectedProviderWithdrawal = position.takerLocked + position.providerLocked;
         assertEq(providerWithdrawnAmount, expectedProviderWithdrawal);
         assertEq(providerBalanceAfter, providerCashBalanceBeforeSettle + expectedProviderWithdrawal);
     }
@@ -140,10 +140,10 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         // and the provider gets the rest based on how close the price is to the put strike
         assertEq(userWithdrawnAmount, expectedUserWithdrawable);
         assertEq(userBalanceAfter, userCashBalanceBeforeSettle + expectedUserWithdrawable);
-        assertEq(providerWithdrawnAmount, expectedProviderGain + position.callLockedCash);
+        assertEq(providerWithdrawnAmount, expectedProviderGain + position.providerLocked);
         assertEq(
             providerBalanceAfter,
-            providerCashBalanceBeforeSettle + expectedProviderGain + position.callLockedCash
+            providerCashBalanceBeforeSettle + expectedProviderGain + position.providerLocked
         );
     }
 
@@ -162,7 +162,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
 
         // When price is up past call strike, the user receives all locked cash
         // and the provider receives nothing
-        uint expectedUserWithdrawal = position.takerLocked + position.callLockedCash;
+        uint expectedUserWithdrawal = position.takerLocked + position.providerLocked;
         assertEq(userWithdrawnAmount, expectedUserWithdrawal);
         assertEq(userBalanceAfter, userCashBalanceBeforeSettle + expectedUserWithdrawal);
 

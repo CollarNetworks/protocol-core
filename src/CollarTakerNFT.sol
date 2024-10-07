@@ -215,13 +215,13 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     ) internal returns (uint takerId, uint providerId) {
         ShortProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
         require(offer.duration != 0, "invalid offer");
-        uint callLockedCash =
+        uint providerLocked =
             calculateProviderLocked(takerLocked, offer.putStrikeDeviation, offer.callStrikeDeviation);
 
-        // open the provider position with duration and callLockedCash locked liquidity (reverts if can't)
+        // open the provider position with duration and providerLocked locked liquidity (reverts if can't)
         // and sends the provider NFT to the provider
         ShortProviderNFT.ProviderPosition memory providerPosition;
-        (providerId, providerPosition) = providerNFT.mintFromOffer(offerId, callLockedCash, nextTokenId);
+        (providerId, providerPosition) = providerNFT.mintFromOffer(offerId, providerLocked, nextTokenId);
         uint putStrikePrice = twapPrice * providerPosition.putStrikeDeviation / BIPS_BASE;
         uint callStrikePrice = twapPrice * providerPosition.callStrikeDeviation / BIPS_BASE;
         // avoid boolean edge cases and division by zero when settling
@@ -236,7 +236,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
             putStrikePrice: putStrikePrice,
             callStrikePrice: callStrikePrice,
             takerLocked: takerLocked,
-            callLockedCash: callLockedCash,
+            providerLocked: providerLocked,
             // unset until settlement
             settled: false,
             withdrawable: 0
@@ -297,7 +297,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
             // put range: goes to user, call range: divide between user and LP
             uint userPart = endPrice - startPrice;
             uint callRange = callPrice - startPrice;
-            uint userGain = position.callLockedCash * userPart / callRange; // no div-zero ensured on open
+            uint userGain = position.providerLocked * userPart / callRange; // no div-zero ensured on open
 
             withdrawable += userGain;
             toProvider = -userGain.toInt256();
