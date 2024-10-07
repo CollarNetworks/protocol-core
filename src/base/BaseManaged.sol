@@ -13,7 +13,7 @@ import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 
 import { ConfigHub } from "../ConfigHub.sol";
 
-abstract contract BaseEmergencyAdmin is Ownable2Step, Pausable {
+abstract contract BaseManaged is Ownable2Step, Pausable {
     // ----- State ----- //
     ConfigHub public configHub;
 

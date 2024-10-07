@@ -64,7 +64,7 @@
 - [ ] #low rescuing nfts is not handled: use another arg / function to rescue nfts 
 - [ ] #low ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different). override to `nominateOwner`
 - [ ] #note docs for BaseEmergencyAdmin and BaseNFT + why they need config hub
-- [ ] #note naming: EmergencyAdmin is role and not attribute. BaseHubControlled?
+- [x] #note naming: EmergencyAdmin is role and not attribute. BaseHubControlled?
 
 ###  ConfigHub:
 - [ ] #low isSupportedCash/Collateral redundant because canOpen is sufficient and the methods are always used together + assets are immutable in all using contracts. increases potential for config issues, gas, and admin dos.

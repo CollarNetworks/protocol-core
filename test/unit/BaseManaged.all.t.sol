@@ -10,7 +10,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockOracleUniV3TWAP } from "../utils/MockOracleUniV3TWAP.sol";
 
-import { BaseEmergencyAdmin } from "../../src/base/BaseEmergencyAdmin.sol";
+import {BaseManaged} from "../../src/base/BaseManaged.sol";
 import { ConfigHub } from "../../src/ConfigHub.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { CollarProviderNFT } from "../../src/CollarProviderNFT.sol";
@@ -19,11 +19,11 @@ import { LoansNFT } from "../../src/LoansNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
 // base contract for other tests that will check this functionality
-abstract contract BaseEmergencyAdminTestBase is Test {
+abstract contract BaseManagedTestBase is Test {
     TestERC20 erc20;
     ConfigHub configHub;
 
-    BaseEmergencyAdmin testedContract;
+    BaseManaged testedContract;
 
     address owner = makeAddr("owner");
     address user1 = makeAddr("user1");
@@ -56,7 +56,7 @@ abstract contract BaseEmergencyAdminTestBase is Test {
         vm.expectEmit(address(testedContract));
         emit Pausable.Paused(guardian);
         vm.expectEmit(address(testedContract));
-        emit BaseEmergencyAdmin.PausedByGuardian(guardian);
+        emit BaseManaged.PausedByGuardian(guardian);
         testedContract.pauseByGuardian();
 
         assertTrue(testedContract.paused());
@@ -87,7 +87,7 @@ abstract contract BaseEmergencyAdminTestBase is Test {
 
         vm.prank(owner);
         vm.expectEmit(address(testedContract));
-        emit BaseEmergencyAdmin.ConfigHubUpdated(configHub, newConfigHub);
+        emit BaseManaged.ConfigHubUpdated(configHub, newConfigHub);
         testedContract.setConfigHub(newConfigHub);
 
         assertEq(address(testedContract.configHub()), address(newConfigHub));
@@ -99,7 +99,7 @@ abstract contract BaseEmergencyAdminTestBase is Test {
 
         vm.prank(owner);
         vm.expectEmit(address(testedContract));
-        emit BaseEmergencyAdmin.TokensRescued(address(erc20), amount);
+        emit BaseManaged.TokensRescued(address(erc20), amount);
         testedContract.rescueTokens(address(erc20), amount);
 
         assertEq(erc20.balanceOf(owner), amount);
@@ -186,46 +186,46 @@ contract BadConfigHub2 {
 }
 
 // mock of an inheriting contract (because base is abstract)
-contract TestableBaseEmergencyAdmin is BaseEmergencyAdmin {
-    constructor(address _initialOwner, ConfigHub _configHub) BaseEmergencyAdmin(_initialOwner) {
+contract TestableBaseManaged is BaseManaged {
+    constructor(address _initialOwner, ConfigHub _configHub) BaseManaged(_initialOwner) {
         _setConfigHub(_configHub);
     }
 }
 
 // the tests for the mock contract
-contract BaseEmergencyAdminMockTest is BaseEmergencyAdminTestBase {
+contract BaseManagedMockTest is BaseManagedTestBase {
     function setupTestedContract() internal override {
-        testedContract = new TestableBaseEmergencyAdmin(owner, configHub);
+        testedContract = new TestableBaseManaged(owner, configHub);
     }
 
     function test_revert_constructor_invalidConfigHub() public {
         vm.expectRevert(new bytes(0));
-        new TestableBaseEmergencyAdmin(owner, ConfigHub(address(0)));
+        new TestableBaseManaged(owner, ConfigHub(address(0)));
 
         ConfigHub badHub = ConfigHub(address(new BadConfigHub1()));
         vm.expectRevert();
-        new TestableBaseEmergencyAdmin(owner, badHub);
+        new TestableBaseManaged(owner, badHub);
 
         badHub = ConfigHub(address(new BadConfigHub2()));
         vm.expectRevert("invalid ConfigHub");
-        new TestableBaseEmergencyAdmin(owner, badHub);
+        new TestableBaseManaged(owner, badHub);
     }
 }
 
-contract ProviderNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
+contract ProviderNFTManagedTest is BaseManagedTestBase {
     function setupTestedContract() internal override {
         testedContract =
             new CollarProviderNFT(owner, configHub, erc20, erc20, address(0), "ProviderNFT", "ProviderNFT");
     }
 }
 
-contract EscrowSupplierNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
+contract EscrowSupplierNFTManagedTest is BaseManagedTestBase {
     function setupTestedContract() internal override {
         testedContract = new EscrowSupplierNFT(owner, configHub, erc20, "ProviderNFT", "ProviderNFT");
     }
 }
 
-contract TakerNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
+contract TakerNFTManagedTest is BaseManagedTestBase {
     function setupTestedContract() internal virtual override {
         MockOracleUniV3TWAP oracle = new MockOracleUniV3TWAP(address(erc20), address(erc20));
 
@@ -234,7 +234,7 @@ contract TakerNFTEmergencyAdminTest is BaseEmergencyAdminTestBase {
     }
 }
 
-contract LoansEmergencyAdminTest is TakerNFTEmergencyAdminTest {
+contract LoansManagedTest is TakerNFTManagedTest {
     function setupTestedContract() internal override {
         super.setupTestedContract();
         // take the taker contract setup by the super
@@ -243,7 +243,7 @@ contract LoansEmergencyAdminTest is TakerNFTEmergencyAdminTest {
     }
 }
 
-contract RollsEmergencyAdminTest is TakerNFTEmergencyAdminTest {
+contract RollsManagedTest is TakerNFTManagedTest {
     function setupTestedContract() internal override {
         super.setupTestedContract();
         // take the taker contract setup by the super

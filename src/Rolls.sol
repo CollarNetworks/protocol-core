@@ -12,7 +12,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { SignedMath } from "@openzeppelin/contracts/utils/math/SignedMath.sol";
 
 import { CollarTakerNFT, CollarProviderNFT } from "./CollarTakerNFT.sol";
-import { BaseEmergencyAdmin } from "./base/BaseEmergencyAdmin.sol";
+import {BaseManaged} from "./base/BaseManaged.sol";
 import { IRolls } from "./interfaces/IRolls.sol";
 
 /**
@@ -49,7 +49,7 @@ import { IRolls } from "./interfaces/IRolls.sol";
  * 2. Signed integers are used for many input and output values, and proper care should be
  * taken in understanding the semantics of the positive and negative values.
  */
-contract Rolls is IRolls, BaseEmergencyAdmin {
+contract Rolls is IRolls, BaseManaged {
     using SafeERC20 for IERC20;
     using SafeCast for uint;
 
@@ -70,7 +70,7 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
     /// @dev Rolls needs BaseEmergencyAdmin for pausing since is approved by users, and holds NFTs.
     /// Does not need `canOpen` auth because its auth usage is set directly on Loans,
     /// and it has no long-lived functionality so doesn't need a close-only migration mode.
-    constructor(address initialOwner, CollarTakerNFT _takerNFT) BaseEmergencyAdmin(initialOwner) {
+    constructor(address initialOwner, CollarTakerNFT _takerNFT) BaseManaged(initialOwner) {
         takerNFT = _takerNFT;
         cashAsset = _takerNFT.cashAsset();
         _setConfigHub(_takerNFT.configHub());
