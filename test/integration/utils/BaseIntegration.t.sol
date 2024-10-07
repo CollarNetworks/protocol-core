@@ -63,7 +63,7 @@ abstract contract CollarBaseIntegrationTestConfig is Test, DeploymentHelper, Set
     function _setupConfig(
         address _swapRouter,
         address _cashAsset,
-        address _collateralAsset,
+        address _underlying,
         address _uniV3Pool,
         address whaleWallet,
         uint blockNumber,
@@ -85,23 +85,23 @@ abstract contract CollarBaseIntegrationTestConfig is Test, DeploymentHelper, Set
         user = user1;
         positionDuration = _positionDuration;
         offerLTV = _offerLTV;
-        _deployProtocolContracts(_cashAsset, _collateralAsset, pairName);
+        _deployProtocolContracts(_cashAsset, _underlying, pairName);
     }
 
-    function _deployProtocolContracts(address _cashAsset, address _collateralAsset, string memory pairName)
+    function _deployProtocolContracts(address _cashAsset, address _underlying, string memory pairName)
         internal
     {
         startHoax(owner);
         configHub = deployConfigHub(owner);
-        address[] memory collateralAssets = new address[](1);
-        collateralAssets[0] = _collateralAsset;
+        address[] memory underlyings = new address[](1);
+        underlyings[0] = _underlying;
         address[] memory cashAssets = new address[](1);
         cashAssets[0] = _cashAsset;
         setupConfigHub(
             configHub,
             SetupHelper.HubParams({
                 cashAssets: cashAssets,
-                collateralAssets: collateralAssets,
+                underlyings: underlyings,
                 minLTV: offerLTV,
                 maxLTV: offerLTV,
                 minDuration: positionDuration,
@@ -117,7 +117,7 @@ abstract contract CollarBaseIntegrationTestConfig is Test, DeploymentHelper, Set
             durations: durations,
             ltvs: ltvs,
             cashAsset: IERC20(_cashAsset),
-            collateralAsset: IERC20(_collateralAsset),
+            underlying: IERC20(_underlying),
             oracleFeeTier: 3000,
             swapFeeTier: 3000,
             twapWindow: 15 minutes,
@@ -126,23 +126,23 @@ abstract contract CollarBaseIntegrationTestConfig is Test, DeploymentHelper, Set
         pair = deployContractPair(configHub, pairConfig, owner);
         setupContractPair(configHub, pair);
         pair.cashAsset.forceApprove(address(pair.takerNFT), type(uint).max);
-        pair.collateralAsset.forceApprove(address(pair.takerNFT), type(uint).max);
+        pair.underlying.forceApprove(address(pair.takerNFT), type(uint).max);
     }
 
     function _fundWallets() internal {
         deal(address(pair.cashAsset), whale, bigNumber);
         deal(address(pair.cashAsset), user, bigNumber);
         deal(address(pair.cashAsset), provider, bigNumber);
-        deal(address(pair.collateralAsset), user, bigNumber);
-        deal(address(pair.collateralAsset), provider, bigNumber);
-        deal(address(pair.collateralAsset), whale, bigNumber);
+        deal(address(pair.underlying), user, bigNumber);
+        deal(address(pair.underlying), provider, bigNumber);
+        deal(address(pair.underlying), whale, bigNumber);
     }
 
     function _validateSetup(uint _duration, uint _offerLTV) internal view {
         assertEq(configHub.isValidCollarDuration(_duration), true);
         assertEq(configHub.isValidLTV(_offerLTV), true);
         assertEq(configHub.isSupportedCashAsset(address(pair.cashAsset)), true);
-        assertEq(configHub.isSupportedCollateralAsset(address(pair.collateralAsset)), true);
+        assertEq(configHub.isSupportedUnderlying(address(pair.underlying)), true);
         assertEq(configHub.canOpen(address(pair.takerNFT)), true);
         assertEq(configHub.canOpen(address(pair.providerNFT)), true);
     }

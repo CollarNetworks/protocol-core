@@ -22,9 +22,9 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
 
         // not enough approval for fee
         vm.startPrank(user1);
-        collateralAsset.approve(address(loans), collateralAmount + escrowFee - 1);
+        underlying.approve(address(loans), underlyingAmount + escrowFee - 1);
         vm.expectRevert("insufficient allowance for escrow fee");
-        openLoan(collateralAmount, minLoanAmount, 0, 0);
+        openLoan(underlyingAmount, minLoanAmount, 0, 0);
 
         // unset escrow
         vm.startPrank(owner);
@@ -39,16 +39,16 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         configHub.setCanOpen(address(escrowNFT), false);
         vm.startPrank(user1);
         vm.expectRevert("unsupported escrow contract");
-        openLoan(collateralAmount, 0, 0, 0);
+        openLoan(underlyingAmount, 0, 0, 0);
 
         // bad escrow offer
         vm.startPrank(owner);
         configHub.setCanOpen(address(escrowNFT), true);
         vm.startPrank(user1);
-        collateralAsset.approve(address(loans), collateralAmount + escrowFee);
+        underlying.approve(address(loans), underlyingAmount + escrowFee);
         escrowOfferId = 999; // invalid escrow offer
         vm.expectRevert("invalid offer");
-        openLoan(collateralAmount, minLoanAmount, 0, 0);
+        openLoan(underlyingAmount, minLoanAmount, 0, 0);
     }
 
     function test_revert_openEscrowLoan_escrowValidations() public {
@@ -64,9 +64,9 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
 
         vm.startPrank(user1);
         prepareSwapToCashAtTWAPPrice();
-        collateralAsset.approve(address(loans), collateralAmount + escrowFee);
+        underlying.approve(address(loans), underlyingAmount + escrowFee);
         vm.expectRevert("duration mismatch");
-        openLoan(collateralAmount, minLoanAmount, 0, providerOffer);
+        openLoan(underlyingAmount, minLoanAmount, 0, providerOffer);
 
         // loanId mismatch escrow
         vm.mockCall(
@@ -75,7 +75,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
             abi.encode(takerNFT.nextPositionId() - 1)
         );
         vm.expectRevert("unexpected loanId");
-        openLoan(collateralAmount, minLoanAmount, 0, providerOffer);
+        openLoan(underlyingAmount, minLoanAmount, 0, providerOffer);
     }
 
     function test_revert_unwrapAndCancelLoan_timing() public {
@@ -100,7 +100,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         // at the end of grace period
         skip(gracePeriodEnd - block.timestamp);
         updatePrice();
-        prepareSwapToCollateralAtTWAPPrice();
+        prepareSwapToUnderlyingAtTWAPPrice();
         mockOracle.setCheckPrice(true);
         vm.expectRevert("cannot foreclose yet");
         loans.forecloseLoan(loanId, defaultSwapParams(0));
@@ -133,7 +133,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         // foreclosable now
         skip(1);
         updatePrice();
-        prepareSwapToCollateralAtTWAPPrice();
+        prepareSwapToUnderlyingAtTWAPPrice();
 
         // Keeper can now foreclose
         vm.startPrank(keeper);
@@ -169,7 +169,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         skip(duration + gracePeriod + 1);
         updatePrice();
         mockOracle.setCheckPrice(true);
-        uint swapOut = prepareSwapToCollateralAtTWAPPrice();
+        uint swapOut = prepareSwapToUnderlyingAtTWAPPrice();
 
         // foreclose with an invalid swapper
         vm.startPrank(supplier);

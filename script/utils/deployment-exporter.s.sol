@@ -36,7 +36,7 @@ contract DeploymentUtils is Script {
             DeploymentHelper.AssetPairContracts memory pair = assetPairs[i];
             string memory pairName = string(
                 abi.encodePacked(
-                    vm.toString(address(pair.collateralAsset)), "_", vm.toString(address(pair.cashAsset))
+                    vm.toString(address(pair.underlying)), "_", vm.toString(address(pair.cashAsset))
                 )
             );
 
@@ -79,12 +79,7 @@ contract DeploymentUtils is Script {
 
             json = string(
                 abi.encodePacked(
-                    json,
-                    '"',
-                    pairName,
-                    '_collateralAsset": "',
-                    vm.toString(address(pair.collateralAsset)),
-                    '",'
+                    json, '"', pairName, '_underlying": "', vm.toString(address(pair.underlying)), '",'
                 )
             );
 
@@ -210,8 +205,8 @@ contract DeploymentUtils is Script {
                     cashAsset: IERC20(
                         _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_cashAsset")))
                     ),
-                    collateralAsset: IERC20(
-                        _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_collateralAsset")))
+                    underlying: IERC20(
+                        _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_underlying")))
                     ),
                     oracle: OracleUniV3TWAP(
                         _parseAddress(parsedJson, string(abi.encodePacked(".", baseKey, "_oracle")))
@@ -235,17 +230,15 @@ contract DeploymentUtils is Script {
         return (configHubAddress, result);
     }
 
-    function getByAssetPair(address cashAsset, address collateralAsset)
+    function getByAssetPair(address cashAsset, address underlying)
         public
         view
         returns (address hub, DeploymentHelper.AssetPairContracts memory)
     {
         (address configHub, DeploymentHelper.AssetPairContracts[] memory allPairs) = getAll();
         for (uint i = 0; i < allPairs.length; i++) {
-            if (
-                address(allPairs[i].cashAsset) == cashAsset
-                    && address(allPairs[i].collateralAsset) == collateralAsset
-            ) {
+            if (address(allPairs[i].cashAsset) == cashAsset && address(allPairs[i].underlying) == underlying)
+            {
                 return (configHub, allPairs[i]);
             }
         }

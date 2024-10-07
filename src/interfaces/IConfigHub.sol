@@ -8,7 +8,7 @@
 pragma solidity 0.8.22;
 
 interface IConfigHub {
-    event CollateralAssetSupportSet(address indexed collateralAsset, bool indexed enabled);
+    event UnderlyingSupportSet(address indexed underlying, bool indexed enabled);
     event CashAssetSupportSet(address indexed cashAsset, bool indexed enabled);
     event LTVRangeSet(uint indexed minLTV, uint indexed maxLTV);
     event CollarDurationRangeSet(uint indexed minDuration, uint indexed maxDuration);

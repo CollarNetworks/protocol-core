@@ -19,7 +19,7 @@ contract DeploymentHelper {
         LoansNFT loansContract;
         Rolls rollsContract;
         IERC20 cashAsset;
-        IERC20 collateralAsset;
+        IERC20 underlying;
         OracleUniV3TWAP oracle;
         SwapperUniV3 swapperUniV3;
         uint24 oracleFeeTier;
@@ -31,7 +31,7 @@ contract DeploymentHelper {
     struct PairConfig {
         string name;
         IERC20 cashAsset;
-        IERC20 collateralAsset;
+        IERC20 underlying;
         uint[] durations;
         uint[] ltvs;
         uint24 oracleFeeTier;
@@ -49,7 +49,7 @@ contract DeploymentHelper {
         returns (AssetPairContracts memory contracts)
     {
         OracleUniV3TWAP oracle = new OracleUniV3TWAP(
-            address(pairConfig.collateralAsset),
+            address(pairConfig.underlying),
             address(pairConfig.cashAsset),
             pairConfig.oracleFeeTier,
             pairConfig.twapWindow,
@@ -60,7 +60,7 @@ contract DeploymentHelper {
             owner,
             configHub,
             pairConfig.cashAsset,
-            pairConfig.collateralAsset,
+            pairConfig.underlying,
             oracle,
             string(abi.encodePacked("Taker ", pairConfig.name)),
             string(abi.encodePacked("T", pairConfig.name))
@@ -69,7 +69,7 @@ contract DeploymentHelper {
             owner,
             configHub,
             pairConfig.cashAsset,
-            pairConfig.collateralAsset,
+            pairConfig.underlying,
             address(takerNFT),
             string(abi.encodePacked("Provider ", pairConfig.name)),
             string(abi.encodePacked("P", pairConfig.name))
@@ -89,7 +89,7 @@ contract DeploymentHelper {
             loansContract: loansContract,
             rollsContract: rollsContract,
             cashAsset: pairConfig.cashAsset,
-            collateralAsset: pairConfig.collateralAsset,
+            underlying: pairConfig.underlying,
             oracle: oracle,
             swapperUniV3: swapperUniV3,
             oracleFeeTier: pairConfig.oracleFeeTier,

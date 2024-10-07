@@ -57,8 +57,8 @@ contract LoansAdminTest is LoansTestBase {
         // check can update
         Rolls newRolls = new Rolls(owner, takerNFT);
         CollarProviderNFT newProvider =
-            new CollarProviderNFT(owner, configHub, cashAsset, collateralAsset, address(takerNFT), "", "");
-        EscrowSupplierNFT newEscrow = new EscrowSupplierNFT(owner, configHub, collateralAsset, "", "");
+            new CollarProviderNFT(owner, configHub, cashAsset, underlying, address(takerNFT), "", "");
+        EscrowSupplierNFT newEscrow = new EscrowSupplierNFT(owner, configHub, underlying, "", "");
         vm.startPrank(owner);
         vm.expectEmit(address(loans));
         emit ILoansNFT.ContractsUpdated(newRolls, newProvider, newEscrow);
@@ -173,16 +173,15 @@ contract LoansAdminTest is LoansTestBase {
         vm.startPrank(owner);
         // rolls taker match
         CollarTakerNFT invalidTakerNFT = new CollarTakerNFT(
-            owner, configHub, cashAsset, collateralAsset, mockOracle, "InvalidTakerNFT", "INVTKR"
+            owner, configHub, cashAsset, underlying, mockOracle, "InvalidTakerNFT", "INVTKR"
         );
         Rolls invalidTakerRolls = new Rolls(owner, invalidTakerNFT);
         vm.expectRevert("rolls taker mismatch");
         loans.setContracts(invalidTakerRolls, providerNFT, escrowNFT);
 
         // test provider mismatch
-        CollarProviderNFT invalidProvider = new CollarProviderNFT(
-            owner, configHub, cashAsset, collateralAsset, address(invalidTakerNFT), "", ""
-        );
+        CollarProviderNFT invalidProvider =
+            new CollarProviderNFT(owner, configHub, cashAsset, underlying, address(invalidTakerNFT), "", "");
         vm.expectRevert("provider taker mismatch");
         loans.setContracts(rolls, invalidProvider, escrowNFT);
 

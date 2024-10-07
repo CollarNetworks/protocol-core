@@ -461,7 +461,7 @@ contract Rolls is IRolls, BaseManaged {
         // simply scale up using price. As the takerLocked is the main input to CollarTakerNFT's
         // open, this determines the new funds needed.
         // The reason this needs to be scaled with price, instead of just using the previous amount
-        // is that this can serve the loans use-case, where the "collateral" value (price exposure) is
+        // is that this can serve the loans use-case, where the "underlying" value (price exposure) is
         // maintained constant (instead of the dollar amount).
         newTakerLocked = takerLocked * newPrice / startPrice; // zero start price is invalid and will cause panic
         // use the method that CollarTakerNFT will use to calculate the provider part

@@ -19,14 +19,14 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         vm.stopPrank();
     }
 
-    function openTakerPositionAndCheckValues(uint collateralAmount, uint minCashAmount, uint offerId)
+    function openTakerPositionAndCheckValues(uint underlyingAmount, uint minCashAmount, uint offerId)
         internal
         returns (uint borrowId, CollarTakerNFT.TakerPosition memory position)
     {
         startHoax(user);
-        pair.collateralAsset.forceApprove(address(pair.loansContract), collateralAmount);
+        pair.underlying.forceApprove(address(pair.loansContract), underlyingAmount);
         (borrowId,,) = pair.loansContract.openLoan(
-            collateralAmount,
+            underlyingAmount,
             0,
             ILoansNFT.SwapParams(minCashAmount, address(pair.loansContract.defaultSwapper()), ""),
             offerId

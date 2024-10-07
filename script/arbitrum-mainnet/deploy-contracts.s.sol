@@ -45,12 +45,12 @@ contract DeployContractsArbitrumMainnet is
         (address deployer,,,) = setup();
         vm.startBroadcast(deployer);
         ConfigHub configHub = deployConfigHub(deployer);
-        address[] memory collateralAssets = new address[](5);
-        collateralAssets[0] = WETH;
-        collateralAssets[1] = WBTC;
-        collateralAssets[2] = MATIC;
-        collateralAssets[3] = weETH;
-        collateralAssets[4] = stETH;
+        address[] memory underlyings = new address[](5);
+        underlyings[0] = WETH;
+        underlyings[1] = WBTC;
+        underlyings[2] = MATIC;
+        underlyings[3] = weETH;
+        underlyings[4] = stETH;
         address[] memory cashAssets = new address[](3);
         cashAssets[0] = USDC;
         cashAssets[1] = USDT;
@@ -65,7 +65,7 @@ contract DeployContractsArbitrumMainnet is
             configHub,
             SetupHelper.HubParams({
                 cashAssets: cashAssets,
-                collateralAssets: collateralAssets,
+                underlyings: underlyings,
                 minLTV: minLTV,
                 maxLTV: maxLTV,
                 minDuration: minDuration,
@@ -100,7 +100,7 @@ contract DeployContractsArbitrumMainnet is
             durations: allDurations,
             ltvs: allLTVs,
             cashAsset: IERC20(USDC),
-            collateralAsset: IERC20(WETH),
+            underlying: IERC20(WETH),
             oracleFeeTier: oracleFeeTier,
             swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
@@ -113,7 +113,7 @@ contract DeployContractsArbitrumMainnet is
             durations: singleDuration,
             ltvs: singleLTV,
             cashAsset: IERC20(USDT),
-            collateralAsset: IERC20(WETH),
+            underlying: IERC20(WETH),
             oracleFeeTier: oracleFeeTier,
             swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
@@ -127,7 +127,7 @@ contract DeployContractsArbitrumMainnet is
             durations: singleDuration,
             ltvs: singleLTV,
             cashAsset: IERC20(USDC),
-            collateralAsset: IERC20(WBTC),
+            underlying: IERC20(WBTC),
             oracleFeeTier: oracleFeeTier,
             swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
@@ -141,7 +141,7 @@ contract DeployContractsArbitrumMainnet is
         //     durations: singleDuration,
         //     ltvs: singleLTV,
         //     cashAsset: IERC20(USDC),
-        //     collateralAsset: IERC20(MATIC),
+        //     underlying: IERC20(MATIC),
         //     oracleFeeTier: oracleFeeTier,
         //     swapFeeTier: swapFeeTier,
         //     twapWindow: twapWindow,
@@ -155,7 +155,7 @@ contract DeployContractsArbitrumMainnet is
         //     durations: singleDuration,
         //     ltvs: singleLTV,
         //     cashAsset: IERC20(USDC),
-        //     collateralAsset: IERC20(stETH),
+        //     underlying: IERC20(stETH),
         //     oracleFeeTier: oracleFeeTier,
         //     swapFeeTier: swapFeeTier,
         //     twapWindow: twapWindow,
@@ -169,7 +169,7 @@ contract DeployContractsArbitrumMainnet is
         //     durations: singleDuration,
         //     ltvs: singleLTV,
         //     cashAsset: IERC20(WETH),
-        //     collateralAsset: IERC20(weETH),
+        //     underlying: IERC20(weETH),
         //     oracleFeeTier: oracleFeeTier,
         //     swapFeeTier: swapFeeTier,
         //     twapWindow: twapWindow,

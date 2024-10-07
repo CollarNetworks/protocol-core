@@ -129,22 +129,16 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
     function test_constructor() public {
         vm.expectEmit();
         emit ICollarProviderNFT.CollarProviderNFTCreated(
-            address(cashAsset), address(collateralAsset), address(takerContract)
+            address(cashAsset), address(underlying), address(takerContract)
         );
         CollarProviderNFT newProviderNFT = new CollarProviderNFT(
-            owner,
-            configHub,
-            cashAsset,
-            collateralAsset,
-            address(takerContract),
-            "NewCollarProviderNFT",
-            "NPRVNFT"
+            owner, configHub, cashAsset, underlying, address(takerContract), "NewCollarProviderNFT", "NPRVNFT"
         );
 
         assertEq(address(newProviderNFT.owner()), owner);
         assertEq(address(newProviderNFT.configHub()), address(configHub));
         assertEq(address(newProviderNFT.cashAsset()), address(cashAsset));
-        assertEq(newProviderNFT.collateralAsset(), address(collateralAsset));
+        assertEq(newProviderNFT.underlying(), address(underlying));
         assertEq(address(newProviderNFT.taker()), takerContract);
         assertEq(newProviderNFT.MIN_CALL_STRIKE_BIPS(), 10_001);
         assertEq(newProviderNFT.MAX_CALL_STRIKE_BIPS(), 100_000);
@@ -638,7 +632,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         providerNFT.createOffer(callStrikePercent, largeAmount, putPercent, duration);
         configHub.setCashAssetSupport(address(cashAsset), true);
 
-        configHub.setCollateralAssetSupport(address(collateralAsset), false);
+        configHub.setUnderlyingSupport(address(underlying), false);
         vm.expectRevert("unsupported asset");
         providerNFT.createOffer(callStrikePercent, largeAmount, putPercent, duration);
     }
@@ -703,7 +697,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
 
         vm.startPrank(owner);
         configHub.setCashAssetSupport(address(cashAsset), true);
-        configHub.setCollateralAssetSupport(address(collateralAsset), false);
+        configHub.setUnderlyingSupport(address(underlying), false);
         vm.startPrank(address(takerContract));
         vm.expectRevert("unsupported asset");
         providerNFT.mintFromOffer(offerId, largeAmount / 2, 0);

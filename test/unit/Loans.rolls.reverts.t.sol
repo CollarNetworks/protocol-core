@@ -69,7 +69,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         uint newRollId = createRollOffer(newLoanId);
         vm.startPrank(user1);
         cashAsset.approve(address(loans), type(uint).max);
-        collateralAsset.approve(address(loans), escrowFee);
+        underlying.approve(address(loans), escrowFee);
         loans.rollLoan(newLoanId, newRollId, MIN_INT, escrowOfferId);
         // token is burned
         expectRevertERC721Nonexistent(newLoanId);
@@ -84,7 +84,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         uint rollId = createRollOffer(loanId);
 
         vm.startPrank(user1);
-        collateralAsset.approve(address(loans), escrowFee);
+        underlying.approve(address(loans), escrowFee);
         vm.mockCall(
             address(rolls),
             abi.encodeWithSelector(rolls.executeRoll.selector, rollId, 0),
@@ -254,7 +254,7 @@ contract LoansRollsEscrowRevertsTest is LoansRollsRevertsTest {
         vm.startPrank(user1);
         cashAsset.approve(address(loans), escrowFee - 1);
         cashAsset.approve(address(loans), type(uint).max);
-        collateralAsset.approve(address(loans), escrowFee - 1);
+        underlying.approve(address(loans), escrowFee - 1);
         vm.expectRevert("insufficient allowance for escrow fee");
         loans.rollLoan(loanId, rollId, MIN_INT, escrowOfferId);
 
@@ -280,7 +280,7 @@ contract LoansRollsEscrowRevertsTest is LoansRollsRevertsTest {
         vm.startPrank(user1);
         prepareSwapToCashAtTWAPPrice();
         cashAsset.approve(address(loans), type(uint).max);
-        collateralAsset.approve(address(loans), collateralAmount + escrowFee);
+        underlying.approve(address(loans), underlyingAmount + escrowFee);
         vm.expectRevert("duration mismatch");
         loans.rollLoan(loanId, rollId, MIN_INT, escrowOfferId);
 

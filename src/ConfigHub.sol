@@ -32,7 +32,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     address public pauseGuardian;
     address public feeRecipient;
 
-    mapping(address collateralAssetAddress => bool isSupported) public isSupportedCollateralAsset;
+    mapping(address unlderlyingAddress => bool isSupported) public isSupportedUnderlying;
     mapping(address cashAssetAddress => bool isSupported) public isSupportedCashAsset;
     /// @notice internal contracts auth, "canOpen" means different things within different contracts.
     /// "closing" already opened is allowed (unless paused).
@@ -76,12 +76,12 @@ contract ConfigHub is Ownable2Step, IConfigHub {
         emit CollarDurationRangeSet(min, max);
     }
 
-    /// @notice Sets whether a particular collateral asset is supported
-    /// @param collateralAsset The address of the collateral asset
+    /// @notice Sets whether a particular underlying asset is supported
+    /// @param underlying The address of the underlying asset
     /// @param enabled Whether the asset is supported
-    function setCollateralAssetSupport(address collateralAsset, bool enabled) external onlyOwner {
-        isSupportedCollateralAsset[collateralAsset] = enabled;
-        emit CollateralAssetSupportSet(collateralAsset, enabled);
+    function setUnderlyingSupport(address underlying, bool enabled) external onlyOwner {
+        isSupportedUnderlying[underlying] = enabled;
+        emit UnderlyingSupportSet(underlying, enabled);
     }
 
     /// @notice Sets whether a particular cash asset is supported

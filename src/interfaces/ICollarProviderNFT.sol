@@ -34,7 +34,7 @@ interface ICollarProviderNFT {
 
     // events
     event CollarProviderNFTCreated(
-        address indexed cashAsset, address indexed collateralAsset, address indexed takerContract
+        address indexed cashAsset, address indexed underlying, address indexed takerContract
     );
     event OfferCreated(
         address indexed provider,

@@ -16,7 +16,7 @@ import { EscrowSupplierNFT } from "../EscrowSupplierNFT.sol";
 
 interface ILoansNFT {
     struct Loan {
-        uint collateralAmount;
+        uint underlyingAmount;
         uint loanAmount;
         bool usesEscrow;
         EscrowSupplierNFT escrowNFT; // optional, 0 address for non-escrow loans
@@ -24,7 +24,7 @@ interface ILoansNFT {
     }
 
     struct SwapParams {
-        uint minAmountOut; // can be cash or collateral, in correct token units
+        uint minAmountOut; // can be cash or underlying, in correct token units
         address swapper;
         bytes extraData;
     }
@@ -34,7 +34,7 @@ interface ILoansNFT {
         uint indexed loanId,
         address indexed sender,
         uint indexed providerOfferId,
-        uint collateralAmount,
+        uint underlyingAmount,
         uint loanAmount
     );
     event LoanClosed(
@@ -43,7 +43,7 @@ interface ILoansNFT {
         address indexed user,
         uint repayment,
         uint cashAmount,
-        uint collateralOut
+        uint underlyingOut
     );
     event LoanRolled(
         address indexed sender,

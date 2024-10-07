@@ -290,7 +290,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @notice Switches an escrow to a new escrow.
      * @dev While it is basically startEscrow + endEscrow, calling these methods externally
      * is not possible because startEscrow pulls the escrow amount in and transfers it out,
-     * which is not possible when switching escrows (the loans contract has no collateral for
+     * which is not possible when switching escrows (the loans contract has no underlying for
      * such a transfer at that point). So instead this method is needed to "move" funds internally.
      * @dev Can only be called by the Loans contract that started the original escrow
      * @dev durations can be different (is not problematic within this contract),
@@ -538,7 +538,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     }
 
     function _configHubValidations(uint duration) internal view {
-        require(configHub.isSupportedCollateralAsset(address(asset)), "unsupported asset");
+        require(configHub.isSupportedUnderlying(address(asset)), "unsupported asset");
         require(configHub.isValidCollarDuration(duration), "unsupported duration");
     }
 }

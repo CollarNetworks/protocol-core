@@ -14,8 +14,8 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
     function expectedGracePeriodEnd(uint loanId, uint atPrice) internal view returns (uint) {
         uint expiration = takerNFT.getPosition({ takerId: loanId }).expiration;
         (uint cashAvailable,) = takerNFT.previewSettlement({ takerId: loanId, endPrice: atPrice });
-        uint collateral = cashAvailable * 1e18 / atPrice; // 1e18 is BASE_TOKEN_AMOUNT
-        uint gracePeriod = escrowNFT.cappedGracePeriod(loans.getLoan(loanId).escrowId, collateral);
+        uint underlyingAmt = cashAvailable * 1e18 / atPrice; // 1e18 is BASE_TOKEN_AMOUNT
+        uint gracePeriod = escrowNFT.cappedGracePeriod(loans.getLoan(loanId).escrowId, underlyingAmt);
         return expiration + gracePeriod;
     }
 
@@ -34,14 +34,14 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         skip(duration + actualGracePeriod + skipAfterGrace);
 
         twapPrice = newPrice;
-        uint swapOut = prepareSwapToCollateralAtTWAPPrice();
+        uint swapOut = prepareSwapToUnderlyingAtTWAPPrice();
 
         // calculate expected escrow release values
         uint escrowId = loans.getLoan(loanId).escrowId;
         released = getEscrowReleaseValues(escrowId, swapOut);
         uint expectedToUser = released.fromEscrow + released.leftOver;
-        uint userBalance = collateralAsset.balanceOf(user1);
-        uint escrowBalance = collateralAsset.balanceOf(address(escrowNFT));
+        uint userBalance = underlying.balanceOf(user1);
+        uint escrowBalance = underlying.balanceOf(address(escrowNFT));
 
         // check late fee and grace period values
         assertGt(actualGracePeriod, escrowNFT.MIN_GRACE_PERIOD());
@@ -59,10 +59,9 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         loans.forecloseLoan(loanId, defaultSwapParams(0));
 
         // balances
-        assertEq(collateralAsset.balanceOf(user1), userBalance + expectedToUser);
+        assertEq(underlying.balanceOf(user1), userBalance + expectedToUser);
         assertEq(
-            collateralAsset.balanceOf(address(escrowNFT)),
-            escrowBalance + released.toEscrow - released.fromEscrow
+            underlying.balanceOf(address(escrowNFT)), escrowBalance + released.toEscrow - released.fromEscrow
         );
 
         // struct
@@ -96,8 +95,8 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         loans.unwrapAndCancelLoan(loanId);
 
         // user balance
-        uint userBalance = collateralAsset.balanceOf(user1);
-        uint loansBalance = collateralAsset.balanceOf(address(loans));
+        uint userBalance = underlying.balanceOf(user1);
+        uint loansBalance = underlying.balanceOf(address(loans));
 
         // release escrow via some other way without closing the loan
         // can be lastResortSeizeEscrow if after full grace period
@@ -110,8 +109,8 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         loans.unwrapAndCancelLoan(loanId);
 
         // no funds moved
-        assertEq(collateralAsset.balanceOf(user1), userBalance);
-        assertEq(collateralAsset.balanceOf(address(loans)), loansBalance);
+        assertEq(underlying.balanceOf(user1), userBalance);
+        assertEq(underlying.balanceOf(address(loans)), loansBalance);
 
         // NFT burned
         expectRevertERC721Nonexistent(loanId);
@@ -196,7 +195,7 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         mockOracle.setHistoricalAssetPrice(expiration, lowPrice);
         assertEq(loans.escrowGracePeriodEnd(loanId), expectedGracePeriodEnd(loanId, lowPrice));
 
-        // min grace period (for very high price), very high price means cash is worth 0 collateral
+        // min grace period (for very high price), very high price means cash is worth 0 underlying
         mockOracle.setHistoricalAssetPrice(expiration, type(uint).max);
         assertEq(loans.escrowGracePeriodEnd(loanId), expiration + escrowNFT.MIN_GRACE_PERIOD());
 
@@ -206,7 +205,7 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         assertEq(loans.escrowGracePeriodEnd(loanId), expiration + escrowNFT.MIN_GRACE_PERIOD());
 
         // make preview settlement return a lot of cash, which at low price (1) will buy a lot
-        // of collateral. Grace period should be capped at max grace period.
+        // of underlying. Grace period should be capped at max grace period.
         vm.mockCall(
             address(takerNFT),
             abi.encodeCall(takerNFT.previewSettlement, (loanId, minPrice)),
@@ -249,7 +248,7 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         skip(duration + gracePeriod + 1);
         mockOracle.setCheckPrice(true);
         updatePrice();
-        prepareSwapToCollateralAtTWAPPrice();
+        prepareSwapToUnderlyingAtTWAPPrice();
 
         // settle taker position
         takerNFT.settlePairedPosition({ takerId: loanId });

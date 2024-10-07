@@ -192,17 +192,17 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         emit ICollarTakerNFT.OracleSet(MockOracleUniV3TWAP(address(0)), mockOracle);
         vm.expectEmit();
         emit ICollarTakerNFT.CollarTakerNFTCreated(
-            address(cashAsset), address(collateralAsset), address(mockOracle)
+            address(cashAsset), address(underlying), address(mockOracle)
         );
         CollarTakerNFT takerNFT = new CollarTakerNFT(
-            owner, configHub, cashAsset, collateralAsset, mockOracle, "NewCollarTakerNFT", "NBPNFT"
+            owner, configHub, cashAsset, underlying, mockOracle, "NewCollarTakerNFT", "NBPNFT"
         );
 
         assertEq(takerNFT.owner(), owner);
         assertEq(takerNFT.pendingOwner(), address(0));
         assertEq(address(takerNFT.configHub()), address(configHub));
         assertEq(address(takerNFT.cashAsset()), address(cashAsset));
-        assertEq(takerNFT.collateralAsset(), address(collateralAsset));
+        assertEq(takerNFT.underlying(), address(underlying));
         assertEq(address(takerNFT.oracle()), address(mockOracle));
         assertEq(takerNFT.VERSION(), "0.2.0");
         assertEq(takerNFT.name(), "NewCollarTakerNFT");
@@ -212,37 +212,34 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
     function test_revert_constructor() public {
         // Create an oracle with mismatched assets
-        MockOracleUniV3TWAP invalidOracle =
-            new MockOracleUniV3TWAP(address(cashAsset), address(collateralAsset));
+        MockOracleUniV3TWAP invalidOracle = new MockOracleUniV3TWAP(address(cashAsset), address(underlying));
         vm.expectRevert("oracle asset mismatch");
         new CollarTakerNFT(
-            owner, configHub, cashAsset, collateralAsset, invalidOracle, "NewCollarTakerNFT", "NBPNFT"
+            owner, configHub, cashAsset, underlying, invalidOracle, "NewCollarTakerNFT", "NBPNFT"
         );
 
         invalidOracle = new MockOracleUniV3TWAP(address(cashAsset), address(cashAsset));
         vm.expectRevert("oracle asset mismatch");
         new CollarTakerNFT(
-            owner, configHub, cashAsset, collateralAsset, invalidOracle, "NewCollarTakerNFT", "NBPNFT"
+            owner, configHub, cashAsset, underlying, invalidOracle, "NewCollarTakerNFT", "NBPNFT"
         );
 
-        invalidOracle = new MockOracleUniV3TWAP(address(collateralAsset), address(collateralAsset));
+        invalidOracle = new MockOracleUniV3TWAP(address(underlying), address(underlying));
         vm.expectRevert("oracle asset mismatch");
         new CollarTakerNFT(
-            owner, configHub, cashAsset, collateralAsset, invalidOracle, "NewCollarTakerNFT", "NBPNFT"
+            owner, configHub, cashAsset, underlying, invalidOracle, "NewCollarTakerNFT", "NBPNFT"
         );
 
-        invalidOracle = new MockOracleUniV3TWAP(address(collateralAsset), address(0));
+        invalidOracle = new MockOracleUniV3TWAP(address(underlying), address(0));
         vm.expectRevert("oracle asset mismatch");
         new CollarTakerNFT(
-            owner, configHub, cashAsset, collateralAsset, invalidOracle, "NewCollarTakerNFT", "NBPNFT"
+            owner, configHub, cashAsset, underlying, invalidOracle, "NewCollarTakerNFT", "NBPNFT"
         );
 
-        MockOracleUniV3TWAP newOracle = new MockOracleUniV3TWAP(address(collateralAsset), address(cashAsset));
+        MockOracleUniV3TWAP newOracle = new MockOracleUniV3TWAP(address(underlying), address(cashAsset));
         newOracle.setHistoricalAssetPrice(block.timestamp, 0);
         vm.expectRevert("invalid price");
-        new CollarTakerNFT(
-            owner, configHub, cashAsset, collateralAsset, newOracle, "NewCollarTakerNFT", "NBPNFT"
-        );
+        new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
     }
 
     function test_pausableMethods() public {
@@ -329,10 +326,10 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
     }
 
-    function test_openPairedPositionUnsupportedCollateralAsset() public {
+    function test_openPairedPositionUnsupportedUnderlying() public {
         createOffer();
         vm.startPrank(owner);
-        configHub.setCollateralAssetSupport(address(collateralAsset), false);
+        configHub.setUnderlyingSupport(address(underlying), false);
         startHoax(user1);
         vm.expectRevert("unsupported asset");
         takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
@@ -367,15 +364,9 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     function test_openPairedPositionBadCashAssetMismatch() public {
         createOffer();
         vm.startPrank(owner);
-        configHub.setCashAssetSupport(address(collateralAsset), true);
+        configHub.setCashAssetSupport(address(underlying), true);
         CollarProviderNFT providerNFTBad = new CollarProviderNFT(
-            owner,
-            configHub,
-            collateralAsset,
-            collateralAsset,
-            address(takerNFT),
-            "CollarTakerNFTBad",
-            "BRWTSTBAD"
+            owner, configHub, underlying, underlying, address(takerNFT), "CollarTakerNFTBad", "BRWTSTBAD"
         );
         configHub.setCanOpen(address(providerNFTBad), true);
         startHoax(user1);
@@ -384,10 +375,10 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         takerNFT.openPairedPosition(takerLocked, providerNFTBad, 0);
     }
 
-    function test_openPairedPositionBadCollateralAssetMismatch() public {
+    function test_openPairedPositionBadUnderlyingMismatch() public {
         createOffer();
         vm.startPrank(owner);
-        configHub.setCollateralAssetSupport(address(cashAsset), true);
+        configHub.setUnderlyingSupport(address(cashAsset), true);
         CollarProviderNFT providerNFTBad = new CollarProviderNFT(
             owner, configHub, cashAsset, cashAsset, address(takerNFT), "CollarTakerNFTBad", "BRWTSTBAD"
         );
@@ -631,7 +622,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
     function test_setOracle() public {
         // new oracle
-        MockOracleUniV3TWAP newOracle = new MockOracleUniV3TWAP(address(collateralAsset), address(cashAsset));
+        MockOracleUniV3TWAP newOracle = new MockOracleUniV3TWAP(address(underlying), address(cashAsset));
 
         uint newPrice = 1500 ether;
         newOracle.setHistoricalAssetPrice(block.timestamp, newPrice);
@@ -653,8 +644,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         startHoax(owner);
 
         // Create an oracle with mismatched assets
-        MockOracleUniV3TWAP invalidOracle =
-            new MockOracleUniV3TWAP(address(cashAsset), address(collateralAsset));
+        MockOracleUniV3TWAP invalidOracle = new MockOracleUniV3TWAP(address(cashAsset), address(underlying));
         vm.expectRevert("oracle asset mismatch");
         takerNFT.setOracle(invalidOracle);
 
@@ -662,15 +652,15 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         vm.expectRevert("oracle asset mismatch");
         takerNFT.setOracle(invalidOracle);
 
-        invalidOracle = new MockOracleUniV3TWAP(address(collateralAsset), address(collateralAsset));
+        invalidOracle = new MockOracleUniV3TWAP(address(underlying), address(underlying));
         vm.expectRevert("oracle asset mismatch");
         takerNFT.setOracle(invalidOracle);
 
-        invalidOracle = new MockOracleUniV3TWAP(address(collateralAsset), address(0));
+        invalidOracle = new MockOracleUniV3TWAP(address(underlying), address(0));
         vm.expectRevert("oracle asset mismatch");
         takerNFT.setOracle(invalidOracle);
 
-        MockOracleUniV3TWAP newOracle = new MockOracleUniV3TWAP(address(collateralAsset), address(cashAsset));
+        MockOracleUniV3TWAP newOracle = new MockOracleUniV3TWAP(address(underlying), address(cashAsset));
         newOracle.setHistoricalAssetPrice(block.timestamp, 0);
         vm.expectRevert("invalid price");
         takerNFT.setOracle(newOracle);

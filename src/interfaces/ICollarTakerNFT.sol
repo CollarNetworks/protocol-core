@@ -34,7 +34,7 @@ interface ICollarTakerNFT {
 
     // events
     event CollarTakerNFTCreated(
-        address indexed cashAsset, address indexed collateralAsset, address indexed oracle
+        address indexed cashAsset, address indexed underlying, address indexed oracle
     );
     event PairedPositionOpened(
         uint indexed takerId,

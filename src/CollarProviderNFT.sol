@@ -53,7 +53,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
 
     // ----- IMMUTABLES ----- //
     IERC20 public immutable cashAsset;
-    address public immutable collateralAsset; // not used as ERC20 here
+    address public immutable underlying; // not used as ERC20 here
     // the trusted CollarTakerNFT contract. no interface is assumed because calls are only inbound
     address public immutable taker;
 
@@ -69,16 +69,16 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         address initialOwner,
         ConfigHub _configHub,
         IERC20 _cashAsset,
-        IERC20 _collateralAsset,
+        IERC20 _underlying,
         address _taker,
         string memory _name,
         string memory _symbol
     ) BaseNFT(initialOwner, _name, _symbol) {
         cashAsset = _cashAsset;
-        collateralAsset = address(_collateralAsset);
+        underlying = address(_underlying);
         taker = _taker;
         _setConfigHub(_configHub);
-        emit CollarProviderNFTCreated(address(_cashAsset), address(_collateralAsset), _taker);
+        emit CollarProviderNFTCreated(address(_cashAsset), address(_underlying), _taker);
     }
 
     modifier onlyTaker() {
@@ -342,7 +342,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     function _configHubValidations(uint putStrikePercent, uint duration) internal view {
         // assets
         require(configHub.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
-        require(configHub.isSupportedCollateralAsset(collateralAsset), "unsupported asset");
+        require(configHub.isSupportedUnderlying(underlying), "unsupported asset");
         // terms
         uint ltv = putStrikePercent; // assumed to be always equal
         require(configHub.isValidLTV(ltv), "unsupported LTV");

@@ -86,10 +86,10 @@ contract LoansRollTestBase is LoansTestBase {
         // Execute roll
         vm.startPrank(user1);
         cashAsset.approve(address(loans), type(uint).max);
-        collateralAsset.approve(address(loans), escrowFee);
+        underlying.approve(address(loans), escrowFee);
 
         uint userCash = cashAsset.balanceOf(user1);
-        uint userCollateral = collateralAsset.balanceOf(user1);
+        uint userUnderlying = underlying.balanceOf(user1);
 
         vm.expectEmit(address(loans));
         emit ILoansNFT.LoanRolled(
@@ -130,7 +130,7 @@ contract LoansRollTestBase is LoansTestBase {
 
         // balance change matches roll output value
         assertEq(cashAsset.balanceOf(user1), uint(int(userCash) + expected.toTaker));
-        assertEq(collateralAsset.balanceOf(user1), userCollateral + expected.escrowFeeRefund - escrowFee);
+        assertEq(underlying.balanceOf(user1), userUnderlying + expected.escrowFeeRefund - escrowFee);
         // loan change matches balance change
         int loanChange = int(newLoanAmount) - int(prevLoan.loanAmount);
         assertEq(expected.toTaker, toUser);
@@ -157,7 +157,7 @@ contract LoansRollTestBase is LoansTestBase {
         // new loan state
         ILoansNFT.Loan memory newLoan = loans.getLoan(newLoanId);
         assertEq(newLoan.loanAmount, expected.newLoanAmount);
-        assertEq(newLoan.collateralAmount, loans.getLoan(loanId).collateralAmount);
+        assertEq(newLoan.underlyingAmount, loans.getLoan(loanId).underlyingAmount);
         assertEq(newLoan.usesEscrow, expected.isEscrowLoan);
         assertEq(address(newLoan.escrowNFT), address(expected.isEscrowLoan ? escrowNFT : NO_ESCROW));
         assertEq(newLoan.escrowId, expected.newEscrowId);
@@ -174,7 +174,7 @@ contract LoansRollTestBase is LoansTestBase {
 
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition({ takerId: loanId });
         uint withdrawal = takerPosition.takerLocked;
-        uint swapOut = prepareSwapToCollateralAtTWAPPrice();
+        uint swapOut = prepareSwapToUnderlyingAtTWAPPrice();
         closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
         return loanId;
     }
@@ -238,8 +238,8 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         assertEq(expected.newProviderLocked, 210 ether); // scaled by price
         assertEq(expected.toTaker, 44 ether); // 45 (+5% * 90% LTV) - 1 (fee)
 
-        // LTV & collateral relationship maintained (because within collar bounds)
-        assertEq(collateralAmount * newPrice * ltv / 1e18 / BIPS_100PCT, expected.newLoanAmount);
+        // LTV & underlying relationship maintained (because within collar bounds)
+        assertEq(underlyingAmount * newPrice * ltv / 1e18 / BIPS_100PCT, expected.newLoanAmount);
 
         twapPrice = newPrice;
         checkCloseRolledLoan(newLoanId, expected.newLoanAmount);
@@ -255,8 +255,8 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         assertEq(expected.newProviderLocked, 190 ether); // scaled by price
         assertEq(expected.toTaker, -46 ether); // -45 (-5% * 90% LTV) - 1 (fee)
 
-        // LTV & collateral relationship maintained (because within collar bounds)
-        assertEq(collateralAmount * newPrice * ltv / 1e18 / BIPS_100PCT, expected.newLoanAmount);
+        // LTV & underlying relationship maintained (because within collar bounds)
+        assertEq(underlyingAmount * newPrice * ltv / 1e18 / BIPS_100PCT, expected.newLoanAmount);
 
         twapPrice = newPrice;
         checkCloseRolledLoan(newLoanId, expected.newLoanAmount);
@@ -272,8 +272,8 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         assertEq(expected.newProviderLocked, 300 ether); // scaled by price
         assertEq(expected.toTaker, 149 ether); // 150 (300 collar settle - 150 collar open) - 1 fee
 
-        // LTV & collateral relationship NOT maintained because outside of collar bounds
-        assertTrue(expected.newLoanAmount < collateralAmount * newPrice * ltv / 1e18 / BIPS_100PCT);
+        // LTV & underlying relationship NOT maintained because outside of collar bounds
+        assertTrue(expected.newLoanAmount < underlyingAmount * newPrice * ltv / 1e18 / BIPS_100PCT);
 
         twapPrice = newPrice;
         checkCloseRolledLoan(newLoanId, expected.newLoanAmount);
@@ -289,8 +289,8 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         assertEq(expected.newProviderLocked, 100 ether); // scaled by price
         assertEq(expected.toTaker, -51 ether); // -50 (0 collar settle - 50 collar open) - 1 fee
 
-        // LTV & collateral relationship NOT maintained because outside of collar bounds
-        assertTrue(expected.newLoanAmount > collateralAmount * newPrice * ltv / 1e18 / BIPS_100PCT);
+        // LTV & underlying relationship NOT maintained because outside of collar bounds
+        assertTrue(expected.newLoanAmount > underlyingAmount * newPrice * ltv / 1e18 / BIPS_100PCT);
 
         twapPrice = newPrice;
         checkCloseRolledLoan(newLoanId, expected.newLoanAmount);

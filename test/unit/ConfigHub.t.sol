@@ -68,7 +68,7 @@ contract ConfigHubTest is Test {
         configHub.setCollarDurationRange(0, 0);
 
         vm.expectRevert(user1NotAuthorized);
-        configHub.setCollateralAssetSupport(address(0), true);
+        configHub.setUnderlyingSupport(address(0), true);
 
         vm.expectRevert(user1NotAuthorized);
         configHub.setCashAssetSupport(address(0), true);
@@ -113,18 +113,18 @@ contract ConfigHubTest is Test {
         assertFalse(configHub.isSupportedCashAsset(address(token1)));
     }
 
-    function test_addSupportedCollateralAsset() public {
+    function test_addSupportedUnderlying() public {
         startHoax(owner);
-        assertFalse(configHub.isSupportedCollateralAsset(address(token1)));
-        configHub.setCollateralAssetSupport(address(token1), true);
-        assertTrue(configHub.isSupportedCollateralAsset(address(token1)));
+        assertFalse(configHub.isSupportedUnderlying(address(token1)));
+        configHub.setUnderlyingSupport(address(token1), true);
+        assertTrue(configHub.isSupportedUnderlying(address(token1)));
     }
 
-    function test_removeSupportedCollateralAsset() public {
+    function test_removeSupportedUnderlying() public {
         startHoax(owner);
-        configHub.setCollateralAssetSupport(address(token1), true);
-        configHub.setCollateralAssetSupport(address(token1), false);
-        assertFalse(configHub.isSupportedCollateralAsset(address(token1)));
+        configHub.setUnderlyingSupport(address(token1), true);
+        configHub.setUnderlyingSupport(address(token1), false);
+        assertFalse(configHub.isSupportedUnderlying(address(token1)));
     }
 
     function test_isValidDuration() public {

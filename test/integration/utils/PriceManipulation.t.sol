@@ -26,7 +26,7 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
     using SafeERC20 for IERC20;
 
     function getCurrentAssetPrice() internal view returns (uint) {
-        address baseToken = address(pair.collateralAsset);
+        address baseToken = address(pair.underlying);
         address quoteToken = address(pair.cashAsset);
 
         address uniV3Factory = IPeripheryImmutableState(swapRouterAddress).factory();
@@ -93,11 +93,11 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
 
     function swapAsWhale(uint amount, bool swapCash) internal {
         uint currentPrice = getCurrentAssetPrice();
-        console.log("Current price of collateralAsset in cashAsset before swap: %d", currentPrice);
+        console.log("Current price of underlying in cashAsset before swap: %d", currentPrice);
 
         IV3SwapRouter.ExactInputSingleParams memory swapParams = IV3SwapRouter.ExactInputSingleParams({
-            tokenIn: swapCash ? address(pair.cashAsset) : address(pair.collateralAsset),
-            tokenOut: swapCash ? address(pair.collateralAsset) : address(pair.cashAsset),
+            tokenIn: swapCash ? address(pair.cashAsset) : address(pair.underlying),
+            tokenOut: swapCash ? address(pair.underlying) : address(pair.cashAsset),
             fee: 3000,
             recipient: whale,
             amountIn: amount,
@@ -111,6 +111,6 @@ abstract contract CollarIntegrationPriceManipulation is CollarBaseIntegrationTes
         vm.stopPrank();
 
         currentPrice = getCurrentAssetPrice();
-        console.log("Current price of collateralAsset in cashAsset after swap: %d", currentPrice);
+        console.log("Current price of underlying in cashAsset after swap: %d", currentPrice);
     }
 }

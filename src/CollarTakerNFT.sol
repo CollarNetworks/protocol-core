@@ -23,7 +23,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
 
     // ----- IMMUTABLES ----- //
     IERC20 public immutable cashAsset;
-    address public immutable collateralAsset; // not used as ERC20 here
+    address public immutable underlying; // not used as ERC20 here
 
     // ----- STATE VARIABLES ----- //
     OracleUniV3TWAP public oracle;
@@ -33,16 +33,16 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         address initialOwner,
         ConfigHub _configHub,
         IERC20 _cashAsset,
-        IERC20 _collateralAsset,
+        IERC20 _underlying,
         OracleUniV3TWAP _oracle,
         string memory _name,
         string memory _symbol
     ) BaseNFT(initialOwner, _name, _symbol) {
         cashAsset = _cashAsset;
-        collateralAsset = address(_collateralAsset);
+        underlying = address(_underlying);
         _setConfigHub(_configHub);
         _setOracle(_oracle);
-        emit CollarTakerNFTCreated(address(_cashAsset), address(_collateralAsset), address(_oracle));
+        emit CollarTakerNFTCreated(address(_cashAsset), address(_underlying), address(_oracle));
     }
 
     // ----- VIEW FUNCTIONS ----- //
@@ -97,13 +97,13 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     ) external whenNotPaused returns (uint takerId, uint providerId) {
         // check assets allowed
         require(configHub.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
-        require(configHub.isSupportedCollateralAsset(collateralAsset), "unsupported asset");
+        require(configHub.isSupportedUnderlying(underlying), "unsupported asset");
         // check self allowed
         require(configHub.canOpen(address(this)), "unsupported taker contract");
         // check provider allowed
         require(configHub.canOpen(address(providerNFT)), "unsupported provider contract");
         // check assets match
-        require(providerNFT.collateralAsset() == collateralAsset, "asset mismatch");
+        require(providerNFT.underlying() == underlying, "asset mismatch");
         require(providerNFT.cashAsset() == cashAsset, "asset mismatch");
 
         // get TWAP price
@@ -256,7 +256,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     // internal owner
 
     function _setOracle(OracleUniV3TWAP _oracle) internal {
-        require(_oracle.baseToken() == collateralAsset, "oracle asset mismatch");
+        require(_oracle.baseToken() == underlying, "oracle asset mismatch");
         require(_oracle.quoteToken() == address(cashAsset), "oracle asset mismatch");
         // Ensure doesn't revert and returns a price at least right now.
         // Only a sanity check, since this doesn't ensure that it will work in the future,
