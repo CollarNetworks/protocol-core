@@ -35,16 +35,16 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         uint expectedOfferId = providerNFT.nextPositionId();
         vm.expectEmit(address(providerNFT));
         emit IShortProviderNFT.OfferCreated(
-            provider, ltv, duration, callStrikeDeviation, largeAmount, expectedOfferId
+            provider, ltv, duration, callStrikePercent, largeAmount, expectedOfferId
         );
-        offerId = providerNFT.createOffer(callStrikeDeviation, largeAmount, ltv, duration);
+        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration);
         ShortProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
-        assertEq(offer.callStrikeDeviation, callStrikeDeviation);
+        assertEq(offer.callStrikePercent, callStrikePercent);
         assertEq(offer.available, largeAmount);
         assertEq(offer.provider, provider);
         assertEq(offer.duration, duration);
-        assertEq(offer.callStrikeDeviation, callStrikeDeviation);
-        assertEq(offer.putStrikeDeviation, ltv);
+        assertEq(offer.callStrikePercent, callStrikePercent);
+        assertEq(offer.putStrikePercent, ltv);
     }
 
     function checkOpenPairedPosition() internal returns (uint takerId, uint providerNFTId) {
@@ -56,7 +56,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         // expected values
         uint expectedTakerId = takerNFT.nextPositionId();
         uint expectedProviderId = providerNFT.nextPositionId();
-        uint _providerLocked = checkCalculateProviderLocked(takerLocked, ltv, callStrikeDeviation);
+        uint _providerLocked = checkCalculateProviderLocked(takerLocked, ltv, callStrikePercent);
 
         ICollarTakerNFT.TakerPosition memory expectedTakerPos = ICollarTakerNFT.TakerPosition({
             providerNFT: providerNFT,
@@ -88,8 +88,8 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         ShortProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(providerNFTId);
         assertEq(providerPos.expiration, block.timestamp + duration);
         assertEq(providerPos.principal, providerLocked);
-        assertEq(providerPos.putStrikeDeviation, ltv);
-        assertEq(providerPos.callStrikeDeviation, callStrikeDeviation);
+        assertEq(providerPos.putStrikePercent, ltv);
+        assertEq(providerPos.callStrikePercent, callStrikePercent);
         assertEq(providerPos.settled, false);
         assertEq(providerPos.withdrawable, 0);
     }
@@ -318,7 +318,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
     /**
      * openPaired validation errors:
-     * and create offer doesnt allow you to put a put strike deviation > 10000
+     * and create offer doesnt allow you to put a put strike percent > 10000
      */
     function test_openPairedPositionUnsupportedCashAsset() public {
         createOffer();
@@ -401,7 +401,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     function test_openPairedPositionStrikePricesArentDifferent() public {
         vm.startPrank(owner);
         configHub.setLTVRange(9990, 9990);
-        callStrikeDeviation = 10_010;
+        callStrikePercent = 10_010;
         ltv = 9990;
         createOffer();
         updatePrice(991);

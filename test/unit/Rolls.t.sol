@@ -14,7 +14,7 @@ import { Rolls, IRolls } from "../../src/Rolls.sol";
 
 contract RollsTest is BaseAssetPairTestSetup {
     uint takerLocked = swapCashAmount * (BIPS_100PCT - ltv) / BIPS_100PCT; // 100
-    uint providerLocked = swapCashAmount * (callStrikeDeviation - BIPS_100PCT) / BIPS_100PCT; // 100
+    uint providerLocked = swapCashAmount * (callStrikePercent - BIPS_100PCT) / BIPS_100PCT; // 100
 
     // roll offer params
     int rollFeeAmount = 1 ether;
@@ -27,10 +27,10 @@ contract RollsTest is BaseAssetPairTestSetup {
     function createProviderOffers() internal returns (uint offerId, uint offerId2) {
         startHoax(provider);
         cashAsset.approve(address(providerNFT), largeAmount);
-        offerId = providerNFT.createOffer(callStrikeDeviation, largeAmount, ltv, duration);
+        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration);
         // another provider NFT
         cashAsset.approve(address(providerNFT2), largeAmount);
-        offerId2 = providerNFT2.createOffer(callStrikeDeviation, largeAmount, ltv, duration);
+        offerId2 = providerNFT2.createOffer(callStrikePercent, largeAmount, ltv, duration);
     }
 
     function createTakerPositions() internal returns (uint takerId, uint providerId) {
@@ -107,11 +107,11 @@ contract RollsTest is BaseAssetPairTestSetup {
         // _newLockedAmounts
         expected.newTakerLocked = takerLocked * newPrice / twapPrice;
         expected.newProviderLocked =
-            expected.newTakerLocked * (callStrikeDeviation - BIPS_100PCT) / (BIPS_100PCT - ltv);
+            expected.newTakerLocked * (callStrikePercent - BIPS_100PCT) / (BIPS_100PCT - ltv);
         // check against taker NFT calc
         assertEq(
             expected.newProviderLocked,
-            takerNFT.calculateProviderLocked(expected.newTakerLocked, ltv, callStrikeDeviation)
+            takerNFT.calculateProviderLocked(expected.newTakerLocked, ltv, callStrikePercent)
         );
         // protocol fee
         (expected.toProtocol,) = providerNFT.protocolFee(expected.newProviderLocked, duration);
@@ -233,8 +233,8 @@ contract RollsTest is BaseAssetPairTestSetup {
         ShortProviderNFT.ProviderPosition memory newProviderPos = providerNFT.getPosition(newProviderId);
         assertEq(newProviderPos.expiration, block.timestamp + duration);
         assertEq(newProviderPos.principal, expected.newProviderLocked);
-        assertEq(newProviderPos.putStrikeDeviation, ltv);
-        assertEq(newProviderPos.callStrikeDeviation, callStrikeDeviation);
+        assertEq(newProviderPos.putStrikePercent, ltv);
+        assertEq(newProviderPos.callStrikePercent, callStrikePercent);
         assertFalse(newProviderPos.settled);
         assertEq(newProviderPos.withdrawable, 0);
     }

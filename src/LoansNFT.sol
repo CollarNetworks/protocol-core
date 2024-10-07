@@ -498,10 +498,10 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // The only state reads before are owner-set state: pause and swapper allowlist.
         uint cashFromSwap = _swapCollateralWithTwapCheck(collateralAmount, swapParams);
 
-        uint putStrikeDeviation = currentProviderNFT.getOffer(offerId).putStrikeDeviation;
+        uint putStrikePercent = currentProviderNFT.getOffer(offerId).putStrikePercent;
 
         // this assumes LTV === put strike price
-        loanAmount = putStrikeDeviation * cashFromSwap / BIPS_BASE;
+        loanAmount = putStrikePercent * cashFromSwap / BIPS_BASE;
         // everything that remains is locked on the put side in the collar position
         uint takerLocked = cashFromSwap - loanAmount;
 

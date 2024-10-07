@@ -15,8 +15,8 @@ interface IShortProviderNFT {
         address provider;
         uint available;
         // terms
-        uint putStrikeDeviation;
-        uint callStrikeDeviation;
+        uint putStrikePercent;
+        uint callStrikePercent;
         uint duration;
     }
 
@@ -25,8 +25,8 @@ interface IShortProviderNFT {
         // collar position terms
         uint expiration;
         uint principal;
-        uint putStrikeDeviation;
-        uint callStrikeDeviation;
+        uint putStrikePercent;
+        uint callStrikePercent;
         // withdrawal
         bool settled;
         uint withdrawable;
@@ -38,9 +38,9 @@ interface IShortProviderNFT {
     );
     event OfferCreated(
         address indexed provider,
-        uint indexed putStrikeDeviation,
+        uint indexed putStrikePercent,
         uint indexed duration,
-        uint callStrikeDeviation,
+        uint callStrikePercent,
         uint amount,
         uint offerId
     );

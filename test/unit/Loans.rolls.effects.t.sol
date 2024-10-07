@@ -38,7 +38,7 @@ contract LoansRollTestBase is LoansTestBase {
         // new position
         expected.newTakerLocked = oldTakerPos.takerLocked * newPrice / twapPrice;
         expected.newProviderLocked =
-            expected.newTakerLocked * (callStrikeDeviation - BIPS_100PCT) / (BIPS_100PCT - ltv);
+            expected.newTakerLocked * (callStrikePercent - BIPS_100PCT) / (BIPS_100PCT - ltv);
 
         // toTaker = userGain - rollFee, so userGain (loan increase) = toTaker + rollFee
         expected.newLoanAmount =

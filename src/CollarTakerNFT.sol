@@ -60,14 +60,14 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
 
     /// @dev calculate the amount of cash the provider will lock for specific terms and taker
     /// locked amount
-    function calculateProviderLocked(uint takerLocked, uint putStrikeDeviation, uint callStrikeDeviation)
+    function calculateProviderLocked(uint takerLocked, uint putStrikePercent, uint callStrikePercent)
         public
         pure
         returns (uint)
     {
         // cannot be 0 due to range checks in providerNFT and configHub
-        uint putRange = BIPS_BASE - putStrikeDeviation;
-        uint callRange = callStrikeDeviation - BIPS_BASE;
+        uint putRange = BIPS_BASE - putStrikePercent;
+        uint callRange = callStrikePercent - BIPS_BASE;
         // proportionally scaled according to ranges. Will div-zero panic for 0 putRange.
         // rounds down against of taker to prevent taker abuse by opening small positions
         return takerLocked * callRange / putRange;
@@ -93,7 +93,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     function openPairedPosition(
         uint takerLocked, // user portion of collar position
         ShortProviderNFT providerNFT,
-        uint offerId // @dev implies specific provider, put & call deviations, duration
+        uint offerId // @dev implies specific provider, put & call percents, duration
     ) external whenNotPaused returns (uint takerId, uint providerId) {
         // check assets allowed
         require(configHub.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
@@ -216,14 +216,14 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         ShortProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
         require(offer.duration != 0, "invalid offer");
         uint providerLocked =
-            calculateProviderLocked(takerLocked, offer.putStrikeDeviation, offer.callStrikeDeviation);
+            calculateProviderLocked(takerLocked, offer.putStrikePercent, offer.callStrikePercent);
 
         // open the provider position with duration and providerLocked locked liquidity (reverts if can't)
         // and sends the provider NFT to the provider
         ShortProviderNFT.ProviderPosition memory providerPosition;
         (providerId, providerPosition) = providerNFT.mintFromOffer(offerId, providerLocked, nextTokenId);
-        uint putStrikePrice = twapPrice * providerPosition.putStrikeDeviation / BIPS_BASE;
-        uint callStrikePrice = twapPrice * providerPosition.callStrikeDeviation / BIPS_BASE;
+        uint putStrikePrice = twapPrice * providerPosition.putStrikePercent / BIPS_BASE;
+        uint callStrikePrice = twapPrice * providerPosition.callStrikePercent / BIPS_BASE;
         // avoid boolean edge cases and division by zero when settling
         require(putStrikePrice < twapPrice && callStrikePrice > twapPrice, "strike prices aren't different");
 

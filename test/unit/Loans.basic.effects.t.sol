@@ -90,7 +90,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
     function createProviderOffer() internal returns (uint offerId) {
         startHoax(provider);
         cashAsset.approve(address(providerNFT), largeAmount);
-        offerId = providerNFT.createOffer(callStrikeDeviation, largeAmount, ltv, duration);
+        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration);
     }
 
     function maybeCreateEscrowOffer() internal {
@@ -148,7 +148,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         });
 
         uint expectedLoanAmount = swapOut * ltv / BIPS_100PCT;
-        uint expectedProviderLocked = swapOut * (callStrikeDeviation - BIPS_100PCT) / BIPS_100PCT;
+        uint expectedProviderLocked = swapOut * (callStrikePercent - BIPS_100PCT) / BIPS_100PCT;
         (uint expectedProtocolFee,) = providerNFT.protocolFee(expectedProviderLocked, duration);
         assertGt(expectedProtocolFee, 0); // ensure fee is expected
 
@@ -210,7 +210,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(loan.escrowId, (openEscrowLoan ? ids.nextEscrowId : 0));
 
         // Check taker position
-        uint expectedProviderLocked = swapOut * (callStrikeDeviation - BIPS_100PCT) / BIPS_100PCT;
+        uint expectedProviderLocked = swapOut * (callStrikePercent - BIPS_100PCT) / BIPS_100PCT;
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(ids.loanId);
         assertEq(address(takerPosition.providerNFT), address(providerNFT));
         assertEq(takerPosition.providerId, ids.providerId);
@@ -226,8 +226,8 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         ShortProviderNFT.ProviderPosition memory providerPosition = providerNFT.getPosition(ids.providerId);
         assertEq(providerPosition.expiration, block.timestamp + duration);
         assertEq(providerPosition.principal, expectedProviderLocked);
-        assertEq(providerPosition.putStrikeDeviation, ltv);
-        assertEq(providerPosition.callStrikeDeviation, callStrikeDeviation);
+        assertEq(providerPosition.putStrikePercent, ltv);
+        assertEq(providerPosition.callStrikePercent, callStrikePercent);
         assertFalse(providerPosition.settled);
         assertEq(providerPosition.withdrawable, 0);
     }
@@ -454,42 +454,42 @@ contract LoansBasicEffectsTest is LoansTestBase {
     }
 
     function test_closeLoan_priceUpToCall() public {
-        uint newPrice = twapPrice * callStrikeDeviation / BIPS_100PCT;
+        uint newPrice = twapPrice * callStrikePercent / BIPS_100PCT;
         // price goes to call strike, withdrawal is 100% of pot (100% put + 100% call locked parts)
         checkOpenCloseWithPriceChange(newPrice, BIPS_100PCT, BIPS_100PCT);
     }
 
     function test_closeLoan_priceHalfUpToCall() public {
-        uint delta = (callStrikeDeviation - BIPS_100PCT) / 2;
+        uint delta = (callStrikePercent - BIPS_100PCT) / 2;
         uint newPrice = twapPrice * (BIPS_100PCT + delta) / BIPS_100PCT;
         // price goes to half way to call, withdrawal is 100% takerLocked + 50% of providerLocked
         checkOpenCloseWithPriceChange(newPrice, BIPS_100PCT, BIPS_100PCT / 2);
     }
 
     function test_closeLoan_priceOverCall() public {
-        uint newPrice = twapPrice * (callStrikeDeviation + BIPS_100PCT) / BIPS_100PCT;
+        uint newPrice = twapPrice * (callStrikePercent + BIPS_100PCT) / BIPS_100PCT;
         // price goes over call, withdrawal is 100% takerLocked + 100% providerLocked
         checkOpenCloseWithPriceChange(newPrice, BIPS_100PCT, BIPS_100PCT);
     }
 
     function test_closeLoan_priceDownToPut() public {
-        uint putStrikeDeviation = ltv;
-        uint newPrice = twapPrice * putStrikeDeviation / BIPS_100PCT;
+        uint putStrikePercent = ltv;
+        uint newPrice = twapPrice * putStrikePercent / BIPS_100PCT;
         // price goes to put strike, withdrawal is 0 (all gone to provider)
         checkOpenCloseWithPriceChange(newPrice, 0, 0);
     }
 
     function test_closeLoan_priceHalfDownToPut() public {
-        uint putStrikeDeviation = ltv;
-        uint delta = (BIPS_100PCT - putStrikeDeviation) / 2;
+        uint putStrikePercent = ltv;
+        uint delta = (BIPS_100PCT - putStrikePercent) / 2;
         uint newPrice = twapPrice * (BIPS_100PCT - delta) / BIPS_100PCT;
         // price goes half way to put strike, withdrawal is 50% of takerLocked and 0% of providerLocked
         checkOpenCloseWithPriceChange(newPrice, BIPS_100PCT / 2, 0);
     }
 
     function test_closeLoan_priceBelowPut() public {
-        uint putStrikeDeviation = ltv;
-        uint newPrice = twapPrice * (putStrikeDeviation - BIPS_100PCT / 10) / BIPS_100PCT;
+        uint putStrikePercent = ltv;
+        uint newPrice = twapPrice * (putStrikePercent - BIPS_100PCT / 10) / BIPS_100PCT;
         // price goes below put strike, withdrawal is 0% (all gone to provider)
         checkOpenCloseWithPriceChange(newPrice, 0, 0);
     }

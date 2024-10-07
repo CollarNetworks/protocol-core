@@ -16,7 +16,7 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
 
     address recipient = makeAddr("recipient");
 
-    uint putDeviation = ltv;
+    uint putPercent = ltv;
 
     bool expectNonZeroFee = true;
 
@@ -37,9 +37,9 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
 
         vm.expectEmit(address(providerNFT));
         emit IShortProviderNFT.OfferCreated(
-            provider, putDeviation, duration, callStrikeDeviation, amount, nextOfferId
+            provider, putPercent, duration, callStrikePercent, amount, nextOfferId
         );
-        offerId = providerNFT.createOffer(callStrikeDeviation, amount, putDeviation, duration);
+        offerId = providerNFT.createOffer(callStrikePercent, amount, putPercent, duration);
 
         // offer ID
         assertEq(offerId, nextOfferId);
@@ -48,8 +48,8 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
         offer = providerNFT.getOffer(offerId);
         assertEq(offer.provider, provider);
         assertEq(offer.available, amount);
-        assertEq(offer.putStrikeDeviation, putDeviation);
-        assertEq(offer.callStrikeDeviation, callStrikeDeviation);
+        assertEq(offer.putStrikePercent, putPercent);
+        assertEq(offer.callStrikePercent, callStrikePercent);
         assertEq(offer.duration, duration);
         // balance
         assertEq(cashAsset.balanceOf(provider), balance - amount);
@@ -94,8 +94,8 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
             takerId: takerId,
             expiration: block.timestamp + duration,
             principal: positionAmount,
-            putStrikeDeviation: putDeviation,
-            callStrikeDeviation: callStrikeDeviation,
+            putStrikePercent: putPercent,
+            callStrikePercent: callStrikePercent,
             settled: false,
             withdrawable: 0
         });
@@ -256,8 +256,8 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
         ShortProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
         assertEq(offer.provider, provider);
         assertEq(offer.available, largeAmount * 2);
-        assertEq(offer.putStrikeDeviation, putDeviation);
-        assertEq(offer.callStrikeDeviation, callStrikeDeviation);
+        assertEq(offer.putStrikePercent, putPercent);
+        assertEq(offer.callStrikePercent, callStrikePercent);
         assertEq(offer.duration, duration);
         // balance
         assertEq(cashAsset.balanceOf(provider), balance - largeAmount);
@@ -280,8 +280,8 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
         ShortProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
         assertEq(offer.provider, provider);
         assertEq(offer.available, largeAmount / 2);
-        assertEq(offer.putStrikeDeviation, putDeviation);
-        assertEq(offer.callStrikeDeviation, callStrikeDeviation);
+        assertEq(offer.putStrikePercent, putPercent);
+        assertEq(offer.callStrikePercent, callStrikePercent);
         assertEq(offer.duration, duration);
         // balance
         assertEq(cashAsset.balanceOf(provider), balance + largeAmount / 2);
@@ -489,8 +489,8 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
             ShortProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerIds[i]);
             assertEq(offer.provider, provider);
             assertEq(offer.available, largeAmount / (i + 1));
-            assertEq(offer.putStrikeDeviation, putDeviation);
-            assertEq(offer.callStrikeDeviation, callStrikeDeviation);
+            assertEq(offer.putStrikePercent, putPercent);
+            assertEq(offer.callStrikePercent, callStrikePercent);
             assertEq(offer.duration, duration);
         }
 
@@ -520,8 +520,8 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
             ShortProviderNFT.ProviderPosition memory position = providerNFT.getPosition(positionIds[i]);
             assertEq(position.takerId, i);
             assertEq(position.principal, largeAmount);
-            assertEq(position.putStrikeDeviation, putDeviation);
-            assertEq(position.callStrikeDeviation, callStrikeDeviation);
+            assertEq(position.putStrikePercent, putPercent);
+            assertEq(position.callStrikePercent, callStrikePercent);
             assertEq(position.settled, false);
             assertEq(position.withdrawable, 0);
             assertEq(providerNFT.ownerOf(positionIds[i]), provider);
@@ -612,35 +612,35 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
 
     function test_revert_createOffer_invalidCallStrike() public {
         uint minStrike = providerNFT.MIN_CALL_STRIKE_BIPS();
-        vm.expectRevert("strike deviation too low");
-        providerNFT.createOffer(minStrike - 1, largeAmount, putDeviation, duration);
+        vm.expectRevert("strike percent too low");
+        providerNFT.createOffer(minStrike - 1, largeAmount, putPercent, duration);
 
         uint maxStrike = providerNFT.MAX_CALL_STRIKE_BIPS();
-        vm.expectRevert("strike deviation too high");
-        providerNFT.createOffer(maxStrike + 1, largeAmount, putDeviation, duration);
+        vm.expectRevert("strike percent too high");
+        providerNFT.createOffer(maxStrike + 1, largeAmount, putPercent, duration);
     }
 
     function test_revert_createOffer_ConfigHubValidations() public {
         uint maxPutStrike = providerNFT.MAX_PUT_STRIKE_BIPS();
-        vm.expectRevert("invalid put strike deviation");
-        providerNFT.createOffer(callStrikeDeviation, largeAmount, maxPutStrike + 1, duration);
-        putDeviation = configHub.minLTV() - 1;
+        vm.expectRevert("invalid put strike percent");
+        providerNFT.createOffer(callStrikePercent, largeAmount, maxPutStrike + 1, duration);
+        putPercent = configHub.minLTV() - 1;
         vm.expectRevert("unsupported LTV");
-        providerNFT.createOffer(callStrikeDeviation, largeAmount, putDeviation, duration);
-        putDeviation = 9000;
+        providerNFT.createOffer(callStrikePercent, largeAmount, putPercent, duration);
+        putPercent = 9000;
         duration = configHub.maxDuration() + 1;
         vm.expectRevert("unsupported duration");
-        providerNFT.createOffer(callStrikeDeviation, largeAmount, putDeviation, duration);
+        providerNFT.createOffer(callStrikePercent, largeAmount, putPercent, duration);
 
         vm.startPrank(owner);
         configHub.setCashAssetSupport(address(cashAsset), false);
         vm.expectRevert("unsupported asset");
-        providerNFT.createOffer(callStrikeDeviation, largeAmount, putDeviation, duration);
+        providerNFT.createOffer(callStrikePercent, largeAmount, putPercent, duration);
         configHub.setCashAssetSupport(address(cashAsset), true);
 
         configHub.setCollateralAssetSupport(address(collateralAsset), false);
         vm.expectRevert("unsupported asset");
-        providerNFT.createOffer(callStrikeDeviation, largeAmount, putDeviation, duration);
+        providerNFT.createOffer(callStrikePercent, largeAmount, putPercent, duration);
     }
 
     function test_revert_updateOfferAmount() public {
@@ -673,17 +673,17 @@ contract ShortProviderNFTTest is BaseAssetPairTestSetup {
     }
 
     function test_revert_mintPositionFromOffer_ConfigHubValidations() public {
-        // set a putdeviation that willbe invalid later
+        // set a putpercent that willbe invalid later
         (uint offerId,) = createAndCheckOffer(provider, largeAmount);
         vm.startPrank(owner);
-        putDeviation = putDeviation + 100;
-        configHub.setLTVRange(putDeviation, putDeviation);
+        putPercent = putPercent + 100;
+        configHub.setLTVRange(putPercent, putPercent);
         vm.startPrank(address(takerContract));
         vm.expectRevert("unsupported LTV");
         providerNFT.mintFromOffer(offerId, largeAmount / 2, 0);
         vm.startPrank(owner);
-        putDeviation = 9000;
-        configHub.setLTVRange(putDeviation, configHub.maxLTV());
+        putPercent = 9000;
+        configHub.setLTVRange(putPercent, configHub.maxLTV());
         // set a duration that will be invalid later
         configHub.setCollarDurationRange(duration, configHub.maxDuration());
         (offerId,) = createAndCheckOffer(provider, largeAmount);

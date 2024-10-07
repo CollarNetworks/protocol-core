@@ -12,10 +12,10 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
     using SafeERC20 for IERC20;
 
-    function createProviderOffer(uint callStrikeDeviation, uint amount) internal returns (uint offerId) {
+    function createProviderOffer(uint callStrikePercent, uint amount) internal returns (uint offerId) {
         startHoax(provider);
         pair.cashAsset.forceApprove(address(pair.providerNFT), amount);
-        offerId = pair.providerNFT.createOffer(callStrikeDeviation, amount, offerLTV, positionDuration);
+        offerId = pair.providerNFT.createOffer(callStrikePercent, amount, offerLTV, positionDuration);
         vm.stopPrank();
     }
 
@@ -227,35 +227,35 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
     }
 
     function _setupOffers(uint amountPerOffer) internal {
-        uint[] memory callStrikeDeviations = new uint[](4);
-        callStrikeDeviations[0] = 11_000; // 110%
-        callStrikeDeviations[1] = 11_500; // 115%
-        callStrikeDeviations[2] = 12_000; // 120%
-        callStrikeDeviations[3] = 13_000; // 130%
+        uint[] memory callStrikePercents = new uint[](4);
+        callStrikePercents[0] = 11_000; // 110%
+        callStrikePercents[1] = 11_500; // 115%
+        callStrikePercents[2] = 12_000; // 120%
+        callStrikePercents[3] = 13_000; // 130%
 
         startHoax(provider);
         pair.cashAsset.forceApprove(address(pair.providerNFT), amountPerOffer * 4);
 
-        for (uint i = 0; i < callStrikeDeviations.length; i++) {
-            pair.providerNFT.createOffer(callStrikeDeviations[i], amountPerOffer, offerLTV, positionDuration);
+        for (uint i = 0; i < callStrikePercents.length; i++) {
+            pair.providerNFT.createOffer(callStrikePercents[i], amountPerOffer, offerLTV, positionDuration);
         }
 
         vm.stopPrank();
     }
 
     function _validateOfferSetup(uint amountPerOffer) internal view {
-        uint[] memory callStrikeDeviations = new uint[](4);
-        callStrikeDeviations[0] = 11_000; // 110%
-        callStrikeDeviations[1] = 11_500; // 115%
-        callStrikeDeviations[2] = 12_000; // 120%
-        callStrikeDeviations[3] = 13_000; // 130%
+        uint[] memory callStrikePercents = new uint[](4);
+        callStrikePercents[0] = 11_000; // 110%
+        callStrikePercents[1] = 11_500; // 115%
+        callStrikePercents[2] = 12_000; // 120%
+        callStrikePercents[3] = 13_000; // 130%
 
-        for (uint i = 0; i < callStrikeDeviations.length; i++) {
+        for (uint i = 0; i < callStrikePercents.length; i++) {
             ShortProviderNFT.LiquidityOffer memory offer = pair.providerNFT.getOffer(1 + i); // starts from 1
             assertEq(offer.provider, provider);
             assertEq(offer.available, amountPerOffer);
-            assertEq(offer.putStrikeDeviation, offerLTV);
-            assertEq(offer.callStrikeDeviation, callStrikeDeviations[i]);
+            assertEq(offer.putStrikePercent, offerLTV);
+            assertEq(offer.callStrikePercent, callStrikePercents[i]);
             assertEq(offer.duration, positionDuration);
         }
     }

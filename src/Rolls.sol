@@ -378,8 +378,8 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
             startPrice: takerPos.initialPrice,
             newPrice: currentPrice,
             takerLocked: takerPos.takerLocked,
-            putDeviation: providerPos.putStrikeDeviation,
-            callDeviation: providerPos.callStrikeDeviation
+            putPercent: providerPos.putStrikePercent,
+            callPercent: providerPos.callStrikePercent
         });
 
         // add the protocol fee that will be taken from the offer
@@ -389,9 +389,9 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         // create a liquidity offer just for this roll
         cashAsset.forceApprove(address(providerNFT), offerAmount);
         uint liquidityOfferId = providerNFT.createOffer({
-            callStrikeDeviation: providerPos.callStrikeDeviation,
+            callStrikePercent: providerPos.callStrikePercent,
             amount: offerAmount,
-            putStrikeDeviation: providerPos.putStrikeDeviation,
+            putStrikePercent: providerPos.putStrikePercent,
             duration: takerPos.duration
         });
 
@@ -418,8 +418,8 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
             startPrice: takerPos.initialPrice,
             newPrice: newPrice,
             takerLocked: takerPos.takerLocked,
-            putDeviation: providerPos.putStrikeDeviation,
-            callDeviation: providerPos.callStrikeDeviation
+            putPercent: providerPos.putStrikePercent,
+            callPercent: providerPos.callStrikePercent
         });
 
         (uint protocolFee,) = takerPos.providerNFT.protocolFee(newProviderLocked, takerPos.duration);
@@ -454,8 +454,8 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         uint startPrice,
         uint newPrice,
         uint takerLocked,
-        uint putDeviation,
-        uint callDeviation
+        uint putPercent,
+        uint callPercent
     ) internal view returns (uint newTakerLocked, uint newProviderLocked) {
         // simply scale up using price. As the takerLocked is the main input to CollarTakerNFT's
         // open, this determines the new funds needed.
@@ -464,6 +464,6 @@ contract Rolls is IRolls, BaseEmergencyAdmin {
         // maintained constant (instead of the dollar amount).
         newTakerLocked = takerLocked * newPrice / startPrice; // zero start price is invalid and will cause panic
         // use the method that CollarTakerNFT will use to calculate the provider part
-        newProviderLocked = takerNFT.calculateProviderLocked(newTakerLocked, putDeviation, callDeviation);
+        newProviderLocked = takerNFT.calculateProviderLocked(newTakerLocked, putPercent, callPercent);
     }
 }

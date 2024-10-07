@@ -33,7 +33,7 @@ import { IShortProviderNFT } from "./interfaces/IShortProviderNFT.sol";
  *    from this contract.
  * 2. The associated taker contract is trusted and properly implemented.
  * 3. The ConfigHub contract correctly manages protocol parameters and authorization.
- * 4. Put strike deviation is assumed to always equal the Loan-to-Value (LTV) ratio.
+ * 4. Put strike percent is assumed to always equal the Loan-to-Value (LTV) ratio.
  * 5. Asset (ERC-20) contracts are simple, non rebasing, do not allow reentrancy, and transfers
  *    work as expected.
  *
@@ -123,33 +123,33 @@ contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
     /// @notice Creates a new non transferrable liquidity offer of cash asset, for specific terms.
     /// The cash is held at the contract, but can be withdrawn at any time if unused.
     /// The caller MUST be able to handle ERC-721 and interact with this contract later.
-    /// @param callStrikeDeviation The call strike deviation in basis points
+    /// @param callStrikePercent The call strike percent in basis points
     /// @param amount The amount of cash asset to offer
-    /// @param putStrikeDeviation The put strike deviation in basis points
+    /// @param putStrikePercent The put strike percent in basis points
     /// @param duration The duration of the offer in seconds
     /// @return offerId The ID of the newly created offer
-    function createOffer(uint callStrikeDeviation, uint amount, uint putStrikeDeviation, uint duration)
+    function createOffer(uint callStrikePercent, uint amount, uint putStrikePercent, uint duration)
         external
         whenNotPaused
         returns (uint offerId)
     {
         // sanity checks
-        require(callStrikeDeviation >= MIN_CALL_STRIKE_BIPS, "strike deviation too low");
-        require(callStrikeDeviation <= MAX_CALL_STRIKE_BIPS, "strike deviation too high");
-        require(putStrikeDeviation <= MAX_PUT_STRIKE_BIPS, "invalid put strike deviation");
+        require(callStrikePercent >= MIN_CALL_STRIKE_BIPS, "strike percent too low");
+        require(callStrikePercent <= MAX_CALL_STRIKE_BIPS, "strike percent too high");
+        require(putStrikePercent <= MAX_PUT_STRIKE_BIPS, "invalid put strike percent");
         // config hub allows values to avoid creating offers that can't be taken
-        _configHubValidations(putStrikeDeviation, duration);
+        _configHubValidations(putStrikePercent, duration);
 
         offerId = nextOfferId++;
         liquidityOffers[offerId] = LiquidityOffer({
             provider: msg.sender,
             available: amount,
-            putStrikeDeviation: putStrikeDeviation,
-            callStrikeDeviation: callStrikeDeviation,
+            putStrikePercent: putStrikePercent,
+            callStrikePercent: callStrikePercent,
             duration: duration
         });
         cashAsset.safeTransferFrom(msg.sender, address(this), amount);
-        emit OfferCreated(msg.sender, putStrikeDeviation, duration, callStrikeDeviation, amount, offerId);
+        emit OfferCreated(msg.sender, putStrikePercent, duration, callStrikePercent, amount, offerId);
     }
 
     /// @notice Updates the amount of an existing offer by either transferring from the offer
@@ -204,7 +204,7 @@ contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
         LiquidityOffer storage offer = liquidityOffers[offerId];
 
         // check params are still supported
-        _configHubValidations(offer.putStrikeDeviation, offer.duration);
+        _configHubValidations(offer.putStrikePercent, offer.duration);
 
         // calc protocol fee to subtract from offer (on top of amount)
         (uint fee, address feeRecipient) = protocolFee(amount, offer.duration);
@@ -220,8 +220,8 @@ contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
             takerId: takerId,
             expiration: block.timestamp + offer.duration,
             principal: amount,
-            putStrikeDeviation: offer.putStrikeDeviation,
-            callStrikeDeviation: offer.callStrikeDeviation,
+            putStrikePercent: offer.putStrikePercent,
+            callStrikePercent: offer.callStrikePercent,
             settled: false,
             withdrawable: 0
         });
@@ -339,12 +339,12 @@ contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
 
     // ----- INTERNAL VIEWS ----- //
 
-    function _configHubValidations(uint putStrikeDeviation, uint duration) internal view {
+    function _configHubValidations(uint putStrikePercent, uint duration) internal view {
         // assets
         require(configHub.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
         require(configHub.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
         // terms
-        uint ltv = putStrikeDeviation; // assumed to be always equal
+        uint ltv = putStrikePercent; // assumed to be always equal
         require(configHub.isValidLTV(ltv), "unsupported LTV");
         require(configHub.isValidCollarDuration(duration), "unsupported duration");
     }

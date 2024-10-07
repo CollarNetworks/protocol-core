@@ -34,7 +34,7 @@ contract BaseAssetPairTestSetup is Test {
 
     uint ltv = 9000;
     uint duration = 300;
-    uint callStrikeDeviation = 12_000;
+    uint callStrikePercent = 12_000;
     uint protocolFeeAPR = 100;
 
     uint collateralAmount = 1 ether;

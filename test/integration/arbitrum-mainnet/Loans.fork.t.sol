@@ -13,14 +13,14 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
 
     function createProviderOffer(
         DeploymentHelper.AssetPairContracts memory pair,
-        uint callStrikeDeviation,
+        uint callStrikePercent,
         uint amount
     ) internal returns (uint offerId) {
         vm.startPrank(provider);
         uint cashBalance = pair.cashAsset.balanceOf(provider);
         console.log("Provider cash balance: %d", cashBalance);
         pair.cashAsset.approve(address(pair.providerNFT), amount);
-        offerId = pair.providerNFT.createOffer(callStrikeDeviation, amount, pair.ltvs[0], pair.durations[0]);
+        offerId = pair.providerNFT.createOffer(callStrikePercent, amount, pair.ltvs[0], pair.durations[0]);
         vm.stopPrank();
     }
 
