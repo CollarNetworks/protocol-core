@@ -157,8 +157,9 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         emit ILoansNFT.LoanOpened(ids.loanId, user1, providerOfferId, collateralAmount, expectedLoanAmount);
 
         if (openEscrowLoan) {
-            (loanId, providerId, loanAmount) =
-                loans.openEscrowLoan(collateralAmount, minLoanAmount, swapParams, providerOfferId, escrowOfferId);
+            (loanId, providerId, loanAmount) = loans.openEscrowLoan(
+                collateralAmount, minLoanAmount, swapParams, providerOfferId, escrowOfferId
+            );
 
             // sanity checks for test values
             assertGt(escrowOfferId, 0);

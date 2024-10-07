@@ -9,7 +9,7 @@ pragma solidity 0.8.22;
 
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
-import {BaseManaged, ConfigHub } from "./BaseManaged.sol";
+import { BaseManaged, ConfigHub } from "./BaseManaged.sol";
 
 abstract contract BaseNFT is BaseManaged, ERC721 {
     // ----- State ----- //

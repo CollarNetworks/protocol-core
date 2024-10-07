@@ -144,7 +144,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         assertEq(address(newProviderNFT.owner()), owner);
         assertEq(address(newProviderNFT.configHub()), address(configHub));
         assertEq(address(newProviderNFT.cashAsset()), address(cashAsset));
-        assertEq(address(newProviderNFT.collateralAsset()), address(collateralAsset));
+        assertEq(newProviderNFT.collateralAsset(), address(collateralAsset));
         assertEq(address(newProviderNFT.taker()), takerContract);
         assertEq(newProviderNFT.MIN_CALL_STRIKE_BIPS(), 10_001);
         assertEq(newProviderNFT.MAX_CALL_STRIKE_BIPS(), 100_000);

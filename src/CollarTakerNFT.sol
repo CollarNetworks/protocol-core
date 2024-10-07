@@ -23,7 +23,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
 
     // ----- IMMUTABLES ----- //
     IERC20 public immutable cashAsset;
-    IERC20 public immutable collateralAsset;
+    address public immutable collateralAsset; // not used as ERC20 here
 
     // ----- STATE VARIABLES ----- //
     OracleUniV3TWAP public oracle;
@@ -39,7 +39,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         string memory _symbol
     ) BaseNFT(initialOwner, _name, _symbol) {
         cashAsset = _cashAsset;
-        collateralAsset = _collateralAsset;
+        collateralAsset = address(_collateralAsset);
         _setConfigHub(_configHub);
         _setOracle(_oracle);
         emit CollarTakerNFTCreated(address(_cashAsset), address(_collateralAsset), address(_oracle));
@@ -97,7 +97,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     ) external whenNotPaused returns (uint takerId, uint providerId) {
         // check assets allowed
         require(configHub.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
-        require(configHub.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
+        require(configHub.isSupportedCollateralAsset(collateralAsset), "unsupported asset");
         // check self allowed
         require(configHub.canOpen(address(this)), "unsupported taker contract");
         // check provider allowed
@@ -256,7 +256,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     // internal owner
 
     function _setOracle(OracleUniV3TWAP _oracle) internal {
-        require(_oracle.baseToken() == address(collateralAsset), "oracle asset mismatch");
+        require(_oracle.baseToken() == collateralAsset, "oracle asset mismatch");
         require(_oracle.quoteToken() == address(cashAsset), "oracle asset mismatch");
         // Ensure doesn't revert and returns a price at least right now.
         // Only a sanity check, since this doesn't ensure that it will work in the future,

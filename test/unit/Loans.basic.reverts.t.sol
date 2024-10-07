@@ -332,11 +332,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         skip(duration);
         uint swapOut = prepareSwapToCollateralAtTWAPPrice();
         closeAndCheckLoan(
-            loanId,
-            user1,
-            loans.getLoan(loanId).loanAmount,
-            takerNFT.getPosition(loanId).takerLocked,
-            swapOut
+            loanId, user1, loans.getLoan(loanId).loanAmount, takerNFT.getPosition(loanId).takerLocked, swapOut
         );
 
         // Try to cancel the already closed loan

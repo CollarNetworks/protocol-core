@@ -12,7 +12,7 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { SignedMath } from "@openzeppelin/contracts/utils/math/SignedMath.sol";
 
 import { CollarTakerNFT, CollarProviderNFT } from "./CollarTakerNFT.sol";
-import {BaseManaged} from "./base/BaseManaged.sol";
+import { BaseManaged } from "./base/BaseManaged.sol";
 import { IRolls } from "./interfaces/IRolls.sol";
 
 /**
@@ -397,7 +397,8 @@ contract Rolls is IRolls, BaseManaged {
 
         // take the liquidity offer as taker
         cashAsset.forceApprove(address(takerNFT), newTakerLocked);
-        (newTakerId, newProviderId) = takerNFT.openPairedPosition(newTakerLocked, providerNFT, liquidityOfferId);
+        (newTakerId, newProviderId) =
+            takerNFT.openPairedPosition(newTakerLocked, providerNFT, liquidityOfferId);
     }
 
     // ----- INTERNAL VIEWS ----- //

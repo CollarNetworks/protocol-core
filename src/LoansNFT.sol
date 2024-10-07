@@ -82,7 +82,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     {
         takerNFT = _takerNFT;
         cashAsset = _takerNFT.cashAsset();
-        collateralAsset = _takerNFT.collateralAsset();
+        collateralAsset = IERC20(_takerNFT.collateralAsset());
         _setConfigHub(_takerNFT.configHub());
     }
 

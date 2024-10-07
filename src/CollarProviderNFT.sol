@@ -53,7 +53,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
 
     // ----- IMMUTABLES ----- //
     IERC20 public immutable cashAsset;
-    IERC20 public immutable collateralAsset; // only used for validation
+    address public immutable collateralAsset; // not used as ERC20 here
     // the trusted CollarTakerNFT contract. no interface is assumed because calls are only inbound
     address public immutable taker;
 
@@ -75,7 +75,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         string memory _symbol
     ) BaseNFT(initialOwner, _name, _symbol) {
         cashAsset = _cashAsset;
-        collateralAsset = _collateralAsset;
+        collateralAsset = address(_collateralAsset);
         taker = _taker;
         _setConfigHub(_configHub);
         emit CollarProviderNFTCreated(address(_cashAsset), address(_collateralAsset), _taker);
@@ -342,7 +342,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     function _configHubValidations(uint putStrikePercent, uint duration) internal view {
         // assets
         require(configHub.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
-        require(configHub.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
+        require(configHub.isSupportedCollateralAsset(collateralAsset), "unsupported asset");
         // terms
         uint ltv = putStrikePercent; // assumed to be always equal
         require(configHub.isValidLTV(ltv), "unsupported LTV");
