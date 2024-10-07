@@ -408,17 +408,17 @@ contract LoansBasicEffectsTest is LoansTestBase {
 
     function test_allowsClosingKeeper() public {
         startHoax(user1);
-        assertFalse(loans.allowsClosingKeeper(user1));
+        assertFalse(loans.keeperApproved(user1));
 
         vm.expectEmit(address(loans));
-        emit ILoansNFT.ClosingKeeperAllowed(user1, true);
-        loans.setKeeperAllowed(true);
-        assertTrue(loans.allowsClosingKeeper(user1));
+        emit ILoansNFT.ClosingKeeperApproved(user1, true);
+        loans.setKeeperApproved(true);
+        assertTrue(loans.keeperApproved(user1));
 
         vm.expectEmit(address(loans));
-        emit ILoansNFT.ClosingKeeperAllowed(user1, false);
-        loans.setKeeperAllowed(false);
-        assertFalse(loans.allowsClosingKeeper(user1));
+        emit ILoansNFT.ClosingKeeperApproved(user1, false);
+        loans.setKeeperApproved(false);
+        assertFalse(loans.keeperApproved(user1));
     }
 
     function test_closeLoan_simple() public {
@@ -443,7 +443,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
 
         // Allow the keeper to close the loan
         vm.startPrank(user1);
-        loans.setKeeperAllowed(true);
+        loans.setKeeperApproved(true);
 
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition({ takerId: loanId });
         // withdrawal: no price change so only user locked (put locked)

@@ -134,7 +134,7 @@ contract LoansAdminTest is LoansTestBase {
         loans.openEscrowLoan(0, 0, defaultSwapParams(0), 0, 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.setKeeperAllowed(true);
+        loans.setKeeperApproved(true);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
         loans.closeLoan(loanId, defaultSwapParams(0));

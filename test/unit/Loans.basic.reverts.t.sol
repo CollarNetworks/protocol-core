@@ -294,7 +294,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         loans.closeLoan(loanId, defaultSwapParams(0));
 
         vm.startPrank(user1);
-        loans.setKeeperAllowed(true);
+        loans.setKeeperApproved(true);
 
         vm.startPrank(user1);
         // transfer invalidates approval

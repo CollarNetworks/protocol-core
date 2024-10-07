@@ -55,7 +55,7 @@ interface ILoansNFT {
         int transferAmount
     );
     event LoanCancelled(uint indexed loanId, address indexed sender);
-    event ClosingKeeperAllowed(address indexed sender, bool indexed enabled);
+    event ClosingKeeperApproved(address indexed sender, bool indexed enabled);
     event ClosingKeeperUpdated(address indexed previousKeeper, address indexed newKeeper);
     event ContractsUpdated(
         Rolls indexed rolls, CollarProviderNFT indexed providerNFT, EscrowSupplierNFT indexed escrowNFT

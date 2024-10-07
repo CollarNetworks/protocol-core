@@ -65,7 +65,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     // swap back during loan closing
     address public closingKeeper;
     // callers (users or escrow owners) that allow a keeper for loan closing
-    mapping(address sender => bool enabled) public allowsClosingKeeper;
+    mapping(address sender => bool enabled) public keeperApproved;
     // the currently configured & allowed rolls contract for this takerNFT and cash asset
     Rolls public currentRolls;
     // the currently configured provider contract for opening (may change)
@@ -387,9 +387,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
      * that should be valid when closeLoan is called by the keeper.
      * @param enabled True to allow the keeper, false to disallow
      */
-    function setKeeperAllowed(bool enabled) external whenNotPaused {
-        allowsClosingKeeper[msg.sender] = enabled;
-        emit ClosingKeeperAllowed(msg.sender, enabled);
+    function setKeeperApproved(bool enabled) external whenNotPaused {
+        keeperApproved[msg.sender] = enabled;
+        emit ClosingKeeperApproved(msg.sender, enabled);
     }
 
     // ----- Admin methods ----- //
@@ -795,8 +795,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         bool isSender = msg.sender == authorizedSender; // is the auth target
         bool isKeeper = msg.sender == closingKeeper;
         // our auth target allows the keeper
-        bool keeperAllowed = allowsClosingKeeper[authorizedSender];
-        return isSender || (keeperAllowed && isKeeper);
+        bool _keeperApproved = keeperApproved[authorizedSender];
+        return isSender || (_keeperApproved && isKeeper);
     }
 
     function _newLoanIdCheck(uint takerId) internal view returns (uint loanId) {

@@ -236,7 +236,7 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
 
         // Supplier allows the keeper to foreclose
         vm.startPrank(supplier);
-        loans.setKeeperAllowed(true);
+        loans.setKeeperApproved(true);
 
         // by keeper
         checkForecloseLoan(twapPrice, 1, keeper);

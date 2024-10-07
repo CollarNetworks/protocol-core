@@ -57,7 +57,7 @@
 - [ ] #low MAX_SWAP_TWAP_DEVIATION_BIPS is too low, and is a DoS risk => raise to 50%, since only for opens and is only a sanity check
 - [x] #low check canOpen for self and dependencies contracts
 - [ ] #low deadline for all offer specifying txs to prevent abuse of stale txs with current*. This is only relevant for congested networks though so not sure makes sense for arbi.
-- [ ] #note naming: setKeeperAllowed should be setAllowsClosingKeeper
+- [x] #note naming: setKeeperAllowed should be setAllowsClosingKeeper
 - [x] #note naming: open instead of create
 
 ### Base admin

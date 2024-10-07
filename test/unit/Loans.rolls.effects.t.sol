@@ -223,7 +223,7 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
 
     function test_rollLoan_setKeeperAllowed_preserved() public {
         (uint loanId,,) = createAndCheckLoan();
-        loans.setKeeperAllowed(true);
+        loans.setKeeperApproved(true);
         // checked to correspond to previous value in checkRollLoan
         checkRollLoan(loanId, twapPrice);
     }
