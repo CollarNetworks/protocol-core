@@ -65,10 +65,12 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         pure
         returns (uint)
     {
+        // cannot be 0 due to range checks in providerNFT and configHub
         uint putRange = BIPS_BASE - putStrikeDeviation;
         uint callRange = callStrikeDeviation - BIPS_BASE;
-        require(putRange != 0, "invalid put strike deviation"); // avoid division by zero
-        return callRange * takerLocked / putRange; // proportionally scaled according to ranges
+        // proportionally scaled according to ranges. Will div-zero panic for 0 putRange.
+        // rounds down against of taker to prevent taker abuse by opening small positions
+        return takerLocked * callRange / putRange;
     }
 
     /// @dev TWAP price that's used in this contract for opening positions

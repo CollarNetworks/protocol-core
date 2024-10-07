@@ -318,7 +318,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
     /**
      * openPaired validation errors:
-     *  "invalid put strike deviation" // cant get this since it checks that putStrike deviation is < 10000
      * and create offer doesnt allow you to put a put strike deviation > 10000
      */
     function test_openPairedPositionUnsupportedCashAsset() public {
@@ -628,15 +627,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         startHoax(provider);
         vm.expectRevert("already settled");
         takerNFT.cancelPairedPosition(takerId, user1);
-    }
-
-    function test_calculateProviderLocked_revert() public {
-        uint putLockedCash = 1000 ether;
-        uint putStrikeDeviation = 10_000; // This will cause a division by zero
-        uint callStrikeDeviation = 12_000;
-
-        vm.expectRevert("invalid put strike deviation");
-        takerNFT.calculateProviderLocked(putLockedCash, putStrikeDeviation, callStrikeDeviation);
     }
 
     function test_setOracle() public {
