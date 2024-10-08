@@ -36,14 +36,6 @@ interface IRolls {
     );
     event OfferCancelled(uint indexed rollId, uint indexed takerId, address indexed provider);
     event OfferExecuted(
-        uint indexed rollId,
-        uint indexed takerId,
-        CollarProviderNFT indexed providerNFT,
-        uint providerId,
-        int toTaker,
-        int toProvider,
-        int rollFee,
-        uint newTakerId,
-        uint newProviderId
+        uint indexed rollId, int toTaker, int toProvider, int rollFee, uint newTakerId, uint newProviderId
     );
 }

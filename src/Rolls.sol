@@ -117,13 +117,12 @@ contract Rolls is IRolls, BaseManaged {
         returns (int toTaker, int toProvider, int rollFee)
     {
         RollOffer memory offer = rollOffers[rollId];
-        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offer.takerId);
         rollFee = calculateRollFee(offer, price);
         (toTaker, toProvider) = _calculateTransferAmounts({
             newPrice: price,
             rollFeeAmount: rollFee,
             takerId: offer.takerId,
-            providerPos: takerPos.providerNFT.getPosition(takerPos.providerId)
+            providerPos: offer.providerNFT.getPosition(offer.providerId)
         });
     }
 
@@ -209,7 +208,7 @@ contract Rolls is IRolls, BaseManaged {
      */
     function cancelOffer(uint rollId) external whenNotPaused {
         RollOffer storage offer = rollOffers[rollId];
-        require(msg.sender == offer.provider, "not initial provider");
+        require(msg.sender == offer.provider, "not offer provider");
         require(offer.active, "offer not active");
         // cancel offer
         offer.active = false;
@@ -220,26 +219,27 @@ contract Rolls is IRolls, BaseManaged {
 
     /**
      * @notice Executes a roll, settling the existing paired position and creating a new one.
-     * This pulls and distributes cash, pulls taker NFT, and sends out new taker and provider NFTs.
+     * This pulls cash, pulls taker NFT, sends out new taker and provider NFTs, and pays cash.
      * @dev The caller must be the owner of the CollarTakerNFT for the position being rolled,
      * and must have approved sufficient cash if cash needs to be paid (depends on offer and current price)
      * @param rollId The ID of the roll offer to execute
      * @param minToTaker The minimum amount the user (taker) is willing to receive, or maximum willing to
-     *     pay if negative. The execution transfer (in or out) will be checked to be >= this value.
+     *     pay if negative. The transfer (in or out, signed int too) will be checked to be >= this value.
      * @return newTakerId The ID of the newly created CollarTakerNFT position
      * @return newProviderId The ID of the newly created CollarProviderNFT position
      * @return toTaker The amount transferred to (or from, if negative) the taker
      * @return toProvider The amount transferred to (or from, if negative) the provider
      */
-    function executeRoll(
-        uint rollId,
-        int minToTaker // signed "slippage", user protection
-    ) external whenNotPaused returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider) {
+    function executeRoll(uint rollId, int minToTaker)
+        external
+        whenNotPaused
+        returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider)
+    {
         RollOffer memory offer = rollOffers[rollId];
         // offer was cancelled (if taken tokens would be burned)
         require(offer.active, "invalid offer");
         // store the inactive state before external calls as extra reentrancy precaution
-        // @dev this writes to storage
+        // @dev only this line writes to storage
         rollOffers[rollId].active = false;
 
         // offer is within its terms
@@ -261,23 +261,14 @@ contract Rolls is IRolls, BaseManaged {
         require(block.timestamp <= takerPos.expiration, "taker position expired");
 
         int rollFee = calculateRollFee(offer, newPrice);
+
         (newTakerId, newProviderId, toTaker, toProvider) = _executeRoll(offer, newPrice, rollFee);
 
         // check transfers are sufficient / or pulls are not excessive
         require(toTaker >= minToTaker, "taker transfer slippage");
         require(toProvider >= offer.minToProvider, "provider transfer slippage");
 
-        emit OfferExecuted(
-            rollId,
-            offer.takerId,
-            offer.providerNFT,
-            offer.providerId,
-            toTaker,
-            toProvider,
-            rollFee,
-            newTakerId,
-            newProviderId
-        );
+        emit OfferExecuted(rollId, toTaker, toProvider, rollFee, newTakerId, newProviderId);
     }
 
     // ----- INTERNAL MUTATIVE ----- //
@@ -286,9 +277,8 @@ contract Rolls is IRolls, BaseManaged {
         internal
         returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider)
     {
-        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offer.takerId);
-        CollarProviderNFT providerNFT = takerPos.providerNFT;
-        CollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(takerPos.providerId);
+        CollarProviderNFT providerNFT = offer.providerNFT;
+        CollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(offer.providerId);
 
         // calculate the transfer amounts
         (toTaker, toProvider) = _calculateTransferAmounts({
@@ -300,14 +290,15 @@ contract Rolls is IRolls, BaseManaged {
 
         // pull the taker NFT from the user (we already have the provider NFT)
         takerNFT.transferFrom(msg.sender, address(this), offer.takerId);
+
         // now that we have both NFTs, cancel the positions and withdraw
-        _cancelPairedPositionAndWithdraw(offer.takerId, takerPos);
+        CollarTakerNFT.TakerPosition memory takerPos = _cancelPairedPositionAndWithdraw(offer.takerId);
 
         // pull cash as needed
         _pullCash(toTaker, msg.sender, toProvider, offer.provider);
 
         // open the new positions
-        (newTakerId, newProviderId) = _openNewPairedPosition(newPrice, providerNFT, takerPos, providerPos);
+        (newTakerId, newProviderId) = _openNewPairedPosition(newPrice, takerPos, providerPos);
 
         // pay cash as needed
         _payCash(toTaker, msg.sender, toProvider, offer.provider);
@@ -339,9 +330,11 @@ contract Rolls is IRolls, BaseManaged {
         }
     }
 
-    function _cancelPairedPositionAndWithdraw(uint takerId, CollarTakerNFT.TakerPosition memory takerPos)
+    function _cancelPairedPositionAndWithdraw(uint takerId)
         internal
+        returns (CollarTakerNFT.TakerPosition memory takerPos)
     {
+        takerPos = takerNFT.getPosition(takerId);
         // approve the takerNFT to pull the provider NFT, as both NFTs are needed for cancellation
         takerPos.providerNFT.approve(address(takerNFT), takerPos.providerId);
         // cancel and withdraw the cash from the existing paired position
@@ -356,21 +349,21 @@ contract Rolls is IRolls, BaseManaged {
     }
 
     function _openNewPairedPosition(
-        uint currentPrice,
-        CollarProviderNFT providerNFT,
+        uint newPrice,
         CollarTakerNFT.TakerPosition memory takerPos,
         CollarProviderNFT.ProviderPosition memory providerPos
     ) internal returns (uint newTakerId, uint newProviderId) {
         // calculate locked amounts for new positions
         (uint newTakerLocked, uint newProviderLocked) = _newLockedAmounts({
             startPrice: takerPos.startPrice,
-            newPrice: currentPrice,
+            newPrice: newPrice,
             takerLocked: takerPos.takerLocked,
             putPercent: providerPos.putStrikePercent,
             callPercent: providerPos.callStrikePercent
         });
 
         // add the protocol fee that will be taken from the offer
+        CollarProviderNFT providerNFT = takerPos.providerNFT;
         (uint protocolFee,) = providerNFT.protocolFee(newProviderLocked, takerPos.duration);
         uint offerAmount = newProviderLocked + protocolFee;
 

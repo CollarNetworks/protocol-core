@@ -168,15 +168,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         cashAsset.approve(address(rolls), expected.toTaker < 0 ? uint(-expected.toTaker) : 0);
         vm.expectEmit(address(rolls));
         emit IRolls.OfferExecuted(
-            rollId,
-            offer.takerId,
-            offer.providerNFT,
-            offer.providerId,
-            expected.toTaker,
-            expected.toProvider,
-            expected.rollFee,
-            nextTakerId,
-            nextProviderId
+            rollId, expected.toTaker, expected.toProvider, expected.rollFee, nextTakerId, nextProviderId
         );
         int toTaker;
         int toProvider;
@@ -609,12 +601,12 @@ contract RollsTest is BaseAssetPairTestSetup {
 
         // Non-existent offer
         uint nonExistentRollId = rollId + 1;
-        vm.expectRevert("not initial provider");
+        vm.expectRevert("not offer provider");
         rolls.cancelOffer(nonExistentRollId);
 
         // Caller is not the initial provider
         startHoax(user1);
-        vm.expectRevert("not initial provider");
+        vm.expectRevert("not offer provider");
         rolls.cancelOffer(rollId);
 
         // Offer already executed
