@@ -43,7 +43,10 @@
 ### Taker
 - [x] #low putLocked / callLocked are bad names since aren't correct, should be takerLocker / providerLocked
 - [x] #low naming: collateralAsset should be "underlying", since collateral is ambiguous and is actually cash. Should be just address since not used as erc20.
+- [x] #low expiration should be calculated and checked vs. provider position because is key parameter (to reduce coupling)
+- [x] #low not all oracle views are checked in _setOracle, use interface instead of contract, check all used views
 - [ ] #note Docs are incomplete
+- [x] #note timestamp casting is not necessarily safe (if duration is not checked by provider)
 - [x] #note previewSettlement arg position struct is awkward, should expect id
 - [x] #note 0 put range check unneeded in calculateProviderLocked
 - [x] #note naming: deviation -> percent
@@ -70,11 +73,15 @@
 ###  ConfigHub:
 - [ ] #low isSupportedCash/Collateral redundant because canOpen is sufficient and the methods are always used together + assets are immutable in all using contracts. increases potential for config issues, gas, and admin dos.
 - [ ] #low ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different), override to `nominateOwner`
+- [ ] #low pause guardians should be a mapping / set to avoid having to share pauser pkey between team members / owner multi-sig signers and bot
 - [ ] #note docs are incomplete
 - [x] #note naming: BIPS / percent in LTV
 - [ ] #note MAX_CONFIGURABLE_DURATION 5 years seems excessive?
 
 ### Rolls
+- [ ] #low taker has insufficent protection: needs deadline for congestion / stale transactions, max roll fee for direct fee control (since fee adjusts with price)
+- [ ] #note "active" state variable can be replaced by checking if contract owns provider NFT
+- [ ] #note provider deadline protection may be excessive, since can cancel stale offers, and has price limits, and requires approvals
 - [x] #note create offer balance and allowance checks seem redundant since for spoofing can easily be passed by providing positive amount, and for mistake prevention only helps with temporary issues. Consider removing to reduce complexity.
 - [x] #note naming: `rollFee*` stutter
 - [x] #note execute checks order can be more intuitive: access control move to top, rearrange other checks
@@ -93,3 +100,4 @@
 - no refund of protocol fee for cancellations, e.g., in case of rolls. fee APR and roll frequency are assumed to be low, and rolls are assumed to be beneficial enough to users to be worth it. accepted as low risk economic issue.
 - loanNFT owner is pushed any collateral leftovers during foreclosure instead of pulling (so can be a contract that will not forward it to actual user, e.g., an NFT trading contract). accepted severity low: low likelihood, medium impact.
 - loans currentProviderNFT, currentEscrowNFT, and currentRolls are assumed to change infrequently, so a stale transaction in which an offer for a different contract was intended by user is expected to be unlikely: arbitrum is unlikely to keep pending stale transactions, admin is trusted not to abuse, offer is assumed to not coincide with another existing offer in case of mistake, and various slippage parameters are assumed to be sufficient to prevent malicious scenarios. accepted risk up to low severity.
+- because oracle uses 1e18 as token amount, underlying asset tokens with more than 18 decimals and/or very low prices may have low precious prices  

@@ -345,6 +345,10 @@ contract Rolls is IRolls, BaseManaged {
 
     // ----- INTERNAL VIEWS ----- //
 
+    /// @dev calculates everything that will happen in _executeRoll. This assumes full, down to the wei,
+    /// match of all amounts between "preview" and actual "execution". If implementations change, a different
+    /// Rolls contracts will need to be used for them. Roll contracts are assumed
+    /// to be easy to replace and migrate (only unexecuted offers need to be cancelled)
     function _previewTransferAmounts(uint takerId, uint newPrice, int rollFeeAmount)
         internal
         view
