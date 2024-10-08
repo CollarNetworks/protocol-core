@@ -135,7 +135,7 @@ contract Rolls is IRolls, BaseManaged {
      * @param maxPrice The maximum acceptable price for roll execution
      * @param minToProvider The minimum amount the provider is willing to receive, or maximum willing to pay
      *     if negative. The execution transfer (in or out) will be checked to be >= this value.
-     * @param deadline The timestamp after which this offer can no longer be executed
+     * @param deadline The timestamp after which this offer can no longer be created or executed
      * @return rollId The ID of the newly created roll offer
      *
      * @dev if the provider will need to provide cash on execution, they must approve the contract to pull that
@@ -231,15 +231,18 @@ contract Rolls is IRolls, BaseManaged {
         returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider)
     {
         RollOffer memory offer = rollOffers[rollId];
+
         // offer doesn't exist, was cancelled, or executed
         require(offer.active, "invalid offer");
         // auth, will revert if takerId was burned already
         require(msg.sender == takerNFT.ownerOf(offer.takerId), "not taker ID owner");
+
         // @dev an expired position should settle at some past price, so if rolling after expiry is allowed,
         // a different price may be used in settlement calculations instead of current price.
         // This is prevented by this check, since supporting the complexity of such scenarios is not needed.
         uint expiration = takerNFT.getPosition(offer.takerId).expiration;
         require(block.timestamp <= expiration, "taker position expired");
+
         // offer is within its terms
         uint newPrice = takerNFT.currentOraclePrice();
         require(newPrice <= offer.maxPrice, "price too high");
@@ -257,6 +260,7 @@ contract Rolls is IRolls, BaseManaged {
         // check transfers are sufficient / or pulls are not excessive. Only the preview
         // values will be used to pull / pay cash, so checking them is correct.
         // This contract does not hold any resting balance, so no other assets are available.
+        // If preview amounts do not match actual amounts, _executeRoll will revert.
         require(toTaker >= minToTaker, "taker transfer slippage");
         require(toProvider >= offer.minToProvider, "provider transfer slippage");
 
@@ -277,40 +281,23 @@ contract Rolls is IRolls, BaseManaged {
         // now that we have both NFTs, cancel the positions and withdraw
         _cancelPairedPositionAndWithdraw(offer.takerId);
 
-        // pull cash as needed. This needs to be done before opening new positions.
-        _pullCash(toTaker, msg.sender, toProvider, offer.provider);
+        // pull cash as needed. This needs to be done before opening new positions
+        address provider = offer.provider;
+        // assumes approval from the taker, Reverts for type(int).min
+        if (toTaker < 0) cashAsset.safeTransferFrom(msg.sender, address(this), uint(-toTaker));
+        // assumes approval from the provider. Reverts for type(int).min
+        if (toProvider < 0) cashAsset.safeTransferFrom(provider, address(this), uint(-toProvider));
 
         // open the new positions
         (newTakerId, newProviderId) = _openNewPairedPosition(newPrice, offer.takerId);
 
         // pay cash as needed
-        _payCash(toTaker, msg.sender, toProvider, offer.provider);
+        if (toTaker > 0) cashAsset.safeTransfer(msg.sender, uint(toTaker));
+        if (toProvider > 0) cashAsset.safeTransfer(provider, uint(toProvider));
 
         // we now own both of the new NFT IDs, so send them out to their new proud owners
         takerNFT.transferFrom(address(this), msg.sender, newTakerId);
         offer.providerNFT.transferFrom(address(this), offer.provider, newProviderId);
-    }
-
-    function _pullCash(int toTaker, address taker, int toProvider, address provider) internal {
-        if (toTaker < 0) {
-            // assumes approval from the taker, @dev reverts for type(int).min
-            cashAsset.safeTransferFrom(taker, address(this), uint(-toTaker));
-        }
-        if (toProvider < 0) {
-            // @dev this requires the original owner of the providerId (stored in the offer) when
-            // the roll offer was created to still allow this contract to pull their funds, and
-            // still have sufficient balance for that. Reverts for type(int).min
-            cashAsset.safeTransferFrom(provider, address(this), uint(-toProvider));
-        }
-    }
-
-    function _payCash(int toTaker, address taker, int toProvider, address provider) internal {
-        if (toTaker > 0) {
-            cashAsset.safeTransfer(taker, uint(toTaker));
-        }
-        if (toProvider > 0) {
-            cashAsset.safeTransfer(provider, uint(toProvider));
-        }
     }
 
     function _cancelPairedPositionAndWithdraw(uint takerId) internal {
@@ -335,13 +322,7 @@ contract Rolls is IRolls, BaseManaged {
         CollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(takerPos.providerId);
 
         // calculate locked amounts for new positions
-        (uint newTakerLocked, uint newProviderLocked) = _newLockedAmounts({
-            startPrice: takerPos.startPrice,
-            newPrice: newPrice,
-            takerLocked: takerPos.takerLocked,
-            putPercent: providerPos.putStrikePercent,
-            callPercent: providerPos.callStrikePercent
-        });
+        (uint newTakerLocked, uint newProviderLocked) = _newLockedAmounts(takerPos, providerPos, newPrice);
 
         // add the protocol fee that will be taken from the offer
         (uint protocolFee,) = providerNFT.protocolFee(newProviderLocked, takerPos.duration);
@@ -369,46 +350,44 @@ contract Rolls is IRolls, BaseManaged {
         view
         returns (int toTaker, int toProvider)
     {
-        // what would the taker and provider get from a settlement of the old position at current settlement price
-        (uint takerSettled, int providerGain) = takerNFT.previewSettlement(takerId, newPrice);
-
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
         CollarProviderNFT providerNFT = takerPos.providerNFT;
         CollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(takerPos.providerId);
 
+        // what would the taker and provider get from a settlement of the old position at current price
+        (uint takerSettled, int providerGain) = takerNFT.previewSettlement(takerId, newPrice);
+        // provider settled is locked + its settlement gain
         int providerSettled = takerPos.providerLocked.toInt256() + providerGain;
 
         // what are the new locked amounts as they will be calculated when opening the new positions
-        (uint newTakerLocked, uint newProviderLocked) = _newLockedAmounts({
-            startPrice: takerPos.startPrice,
-            newPrice: newPrice,
-            takerLocked: takerPos.takerLocked,
-            putPercent: providerPos.putStrikePercent,
-            callPercent: providerPos.callStrikePercent
-        });
+        (uint newTakerLocked, uint newProviderLocked) = _newLockedAmounts(takerPos, providerPos, newPrice);
 
+        // new protocol fee. @dev there is no refund for previously paid protocol fee
         (uint protocolFee,) = providerNFT.protocolFee(newProviderLocked, takerPos.duration);
 
-        // The taker and provider external balances (before fee) should be updated according to
-        // their PNL: the money released from their settled position minus the cost of opening the new position.
-        // The roll-fee is applied, and can represent any arbitrary adjustment to this (that's expressed by the offer).
+        // The taker and provider external balances (before fee) should be updated as if
+        // they settled and withdrawn the old positions, and opened the new positions.
+        // The roll-fee is paid to the provider by the taker, and can represent any arbitrary adjustment
+        // to this (that's expressed by the offer).
         toTaker = takerSettled.toInt256() - newTakerLocked.toInt256() - rollFeeAmount;
         toProvider = providerSettled - newProviderLocked.toInt256() + rollFeeAmount - protocolFee.toInt256();
 
-        /*  Does this balance out? Vars:
+        /*  Proof.
+
+            Vars:
                 Ts: takerSettled, Ps: providerSettled, put: newTakerLocked,
                 call: newProviderLocked, rollFee: rollFee, proFee: protocolFee
 
             After settlement (after cancelling and withdrawing old position):
-                Contract balance    = Ts + Ps
+                Contract balance = Ts + Ps
 
             Then contract receives / pays:
-                1. toPairedPosition =           put + call
-                2. toTaker          = Ts      - put        - rollFee
-                3. toProvider       =      Ps       - call + rollFee - proFee
-                4. toProtocol       =                                + proFee
+            1.  toPairedPosition =           put + call
+            2.  toTaker          = Ts      - put        - rollFee
+            3.  toProvider       =      Ps       - call + rollFee - proFee
+            4.  toProtocol       =                                + proFee
 
-            All payments summed     = Ts + Ps
+            All payments summed  = Ts + Ps
 
             So the contract pays out everything it receives, and everyone gets their correct updates.
         */
@@ -416,19 +395,19 @@ contract Rolls is IRolls, BaseManaged {
 
     // @dev the amounts needed for a new position given the old position
     function _newLockedAmounts(
-        uint startPrice,
-        uint newPrice,
-        uint takerLocked,
-        uint putPercent,
-        uint callPercent
+        CollarTakerNFT.TakerPosition memory takerPos,
+        CollarProviderNFT.ProviderPosition memory providerPos,
+        uint newPrice
     ) internal view returns (uint newTakerLocked, uint newProviderLocked) {
-        // simply scale up using price. As the takerLocked is the main input to CollarTakerNFT's
-        // open, this determines the new funds needed.
-        // The reason this needs to be scaled with price, instead of just using the previous amount
-        // is that this can serve the loans use-case, where the "underlying" value (price exposure) is
-        // maintained constant (instead of the dollar amount).
-        newTakerLocked = takerLocked * newPrice / startPrice; // zero start price is invalid and will cause panic
+        // New position is determined by calculating newTakerLocked, since it is the input argument.
+        // Scale up using price to maintain same level of exposure to underlying asset.
+        // The reason this needs to be scaled with price, is that this can should fit the loans use-case
+        // where the position should track the value of the initial amount of underlying asset
+        // (price exposure), instead of (for example) initial cash amount.
+        newTakerLocked = takerPos.takerLocked * newPrice / takerPos.startPrice; // zero start price is invalid and will cause panic
         // use the method that CollarTakerNFT will use to calculate the provider part
-        newProviderLocked = takerNFT.calculateProviderLocked(newTakerLocked, putPercent, callPercent);
+        newProviderLocked = takerNFT.calculateProviderLocked(
+            newTakerLocked, providerPos.putStrikePercent, providerPos.callStrikePercent
+        );
     }
 }
