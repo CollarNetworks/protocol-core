@@ -190,12 +190,11 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// @param amount The amount of cash asset to use for the new position
     /// @param takerId The ID of the taker position for which this position is minted
     /// @return positionId The ID of the newly created position (NFT token ID)
-    /// @return position The details of the newly created position
     function mintFromOffer(uint offerId, uint amount, uint takerId)
         external
         whenNotPaused
         onlyTaker
-        returns (uint positionId, ProviderPosition memory position)
+        returns (uint positionId)
     {
         // @dev only checked on open, not checked later on settle / cancel to allow withdraw-only mode
         require(configHub.canOpen(msg.sender), "unsupported taker contract");
@@ -216,7 +215,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         // storage updates
         offer.available = prevOfferAmount - amount - fee;
         positionId = nextTokenId++;
-        position = ProviderPosition({
+        positions[positionId] = ProviderPosition({
             takerId: takerId,
             expiration: block.timestamp + offer.duration,
             principal: amount,
@@ -225,12 +224,11 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
             settled: false,
             withdrawable: 0
         });
-        positions[positionId] = position;
 
         emit OfferUpdated(offerId, msg.sender, prevOfferAmount, offer.available);
 
         // emit creation before transfer. No need to emit takerId, because it's emitted by the taker event
-        emit PositionCreated(positionId, offerId, fee, position);
+        emit PositionCreated(positionId, offerId, fee, positions[positionId]);
 
         // mint the NFT to the provider
         // @dev does not use _safeMint to avoid reentrancy

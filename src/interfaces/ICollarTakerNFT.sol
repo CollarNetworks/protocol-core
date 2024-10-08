@@ -22,7 +22,7 @@ interface ICollarTakerNFT {
         // collar position info
         uint duration;
         uint expiration;
-        uint initialPrice;
+        uint startPrice;
         uint putStrikePrice;
         uint callStrikePrice;
         uint takerLocked;

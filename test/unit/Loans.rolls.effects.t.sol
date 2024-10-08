@@ -166,7 +166,7 @@ contract LoansRollTestBase is LoansTestBase {
         CollarTakerNFT.TakerPosition memory newTakerPos = takerNFT.getPosition(newLoanId);
         assertEq(newTakerPos.takerLocked, expected.newTakerLocked);
         assertEq(newTakerPos.providerLocked, expected.newProviderLocked);
-        assertEq(newTakerPos.initialPrice, newPrice);
+        assertEq(newTakerPos.startPrice, newPrice);
     }
 
     function checkCloseRolledLoan(uint loanId, uint loanAmount) public returns (uint) {

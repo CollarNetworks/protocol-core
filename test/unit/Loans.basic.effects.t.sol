@@ -215,7 +215,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(ids.loanId);
         assertEq(address(takerPosition.providerNFT), address(providerNFT));
         assertEq(takerPosition.providerId, ids.providerId);
-        assertEq(takerPosition.initialPrice, twapPrice);
+        assertEq(takerPosition.startPrice, twapPrice);
         assertEq(takerPosition.takerLocked, swapOut - loanAmount);
         assertEq(takerPosition.providerLocked, expectedProviderLocked);
         assertEq(takerPosition.duration, duration);

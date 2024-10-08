@@ -106,13 +106,13 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         );
         vm.expectEmit(address(providerNFT));
         emit ICollarProviderNFT.PositionCreated(nextPosId, offerId, fee, expectedPosition);
-        (positionId, position) = providerNFT.mintFromOffer(offerId, positionAmount, takerId);
+        positionId = providerNFT.mintFromOffer(offerId, positionAmount, takerId);
+        position = providerNFT.getPosition(positionId);
 
         // Check position details
         assertEq(positionId, nextPosId);
-        assertEq(abi.encode(expectedPosition), abi.encode(position));
-        // check position view
-        assertEq(abi.encode(providerNFT.getPosition(positionId)), abi.encode(position));
+        // check the position (from the view)
+        assertEq(abi.encode(position), abi.encode(expectedPosition));
 
         // Check updated offer
         CollarProviderNFT.LiquidityOffer memory updatedOffer = providerNFT.getOffer(offerId);
@@ -502,7 +502,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         vm.startPrank(address(takerContract));
         for (uint i = 0; i < positionCount; i++) {
             uint amount = largeAmount;
-            (positionIds[i],) = providerNFT.mintFromOffer(offerId, amount, i);
+            positionIds[i] = providerNFT.mintFromOffer(offerId, amount, i);
         }
 
         CollarProviderNFT.LiquidityOffer memory updatedOffer = providerNFT.getOffer(offerId);

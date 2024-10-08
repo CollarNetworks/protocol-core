@@ -106,11 +106,43 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         require(providerNFT.underlying() == underlying, "asset mismatch");
         require(providerNFT.cashAsset() == cashAsset, "asset mismatch");
 
-        // get TWAP price
-        uint twapPrice = currentOraclePrice();
+        CollarProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
+        require(offer.duration != 0, "invalid offer");
+        uint providerLocked =
+            calculateProviderLocked(takerLocked, offer.putStrikePercent, offer.callStrikePercent);
 
-        // stores, mints, calls providerNFT and mints there, emits the event
-        (takerId, providerId) = _openPairedPositionInternal(twapPrice, takerLocked, providerNFT, offerId);
+        // prices
+        uint startPrice = currentOraclePrice();
+        (uint putStrikePrice, uint callStrikePrice) = _strikePricesWithCheck(offer, startPrice);
+
+        // open the provider position for providerLocked amount (reverts if can't).
+        // sends the provider NFT to the provider
+        providerId = providerNFT.mintFromOffer(offerId, providerLocked, nextTokenId);
+        uint expiration = providerNFT.getPosition(providerId).expiration;
+
+        TakerPosition memory takerPosition = TakerPosition({
+            providerNFT: providerNFT,
+            providerId: providerId,
+            duration: offer.duration,
+            expiration: expiration,
+            startPrice: startPrice,
+            putStrikePrice: putStrikePrice,
+            callStrikePrice: callStrikePrice,
+            takerLocked: takerLocked,
+            providerLocked: providerLocked,
+            // unset until settlement
+            settled: false,
+            withdrawable: 0
+        });
+
+        // increment ID
+        takerId = nextTokenId++;
+        // store position data
+        positions[takerId] = takerPosition;
+        // mint the NFT to the sender, @dev does not use _safeMint to avoid reentrancy
+        _mint(msg.sender, takerId);
+
+        emit PairedPositionOpened(takerId, address(providerNFT), providerId, offerId, takerPosition);
 
         // pull the user side of the locked cash
         cashAsset.safeTransferFrom(msg.sender, address(this), takerLocked);
@@ -118,11 +150,11 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
 
     /// @dev this should be called as soon after expiry as possible, because if the expiry TWAP price becomes
     /// unavailable in the UniV3 oracle, the current price will be used instead of it.
-    /// Both taker and providder should be incentivised to call this method, however it's possible that
+    /// Both taker and provider are incentivised to call this method, however it's possible that
     /// one side is not (e.g., due to being at max loss). For this reason a keeper should be run to
-    /// prevent regular users with gains from neglecting to settle their positions on time.
-    /// @dev To increase the timespan during which the price is available use
-    /// `increaseCardinality` (or the pool's `increaseObservationCardinalityNext`).
+    /// prevent users with gains from not settling their positions on time.
+    /// @dev To increase the timespan during which the historical price is available use
+    /// `oracle.increaseCardinality` (or the pool's `increaseObservationCardinalityNext`).
     function settlePairedPosition(uint takerId) external whenNotPaused {
         TakerPosition storage position = positions[takerId];
 
@@ -207,52 +239,6 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    function _openPairedPositionInternal(
-        uint twapPrice,
-        uint takerLocked,
-        CollarProviderNFT providerNFT,
-        uint offerId
-    ) internal returns (uint takerId, uint providerId) {
-        CollarProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
-        require(offer.duration != 0, "invalid offer");
-        uint providerLocked =
-            calculateProviderLocked(takerLocked, offer.putStrikePercent, offer.callStrikePercent);
-
-        // open the provider position with duration and providerLocked locked liquidity (reverts if can't)
-        // and sends the provider NFT to the provider
-        CollarProviderNFT.ProviderPosition memory providerPosition;
-        (providerId, providerPosition) = providerNFT.mintFromOffer(offerId, providerLocked, nextTokenId);
-        uint putStrikePrice = twapPrice * providerPosition.putStrikePercent / BIPS_BASE;
-        uint callStrikePrice = twapPrice * providerPosition.callStrikePercent / BIPS_BASE;
-        // avoid boolean edge cases and division by zero when settling
-        require(putStrikePrice < twapPrice && callStrikePrice > twapPrice, "strike prices aren't different");
-
-        TakerPosition memory takerPosition = TakerPosition({
-            providerNFT: providerNFT,
-            providerId: providerId,
-            duration: offer.duration,
-            expiration: providerPosition.expiration,
-            initialPrice: twapPrice,
-            putStrikePrice: putStrikePrice,
-            callStrikePrice: callStrikePrice,
-            takerLocked: takerLocked,
-            providerLocked: providerLocked,
-            // unset until settlement
-            settled: false,
-            withdrawable: 0
-        });
-
-        // increment ID
-        takerId = nextTokenId++;
-        // store position data
-        positions[takerId] = takerPosition;
-        // mint the NFT to the sender
-        // @dev does not use _safeMint to avoid reentrancy
-        _mint(msg.sender, takerId);
-
-        emit PairedPositionOpened(takerId, address(providerNFT), providerId, offerId, takerPosition);
-    }
-
     // internal owner
 
     function _setOracle(OracleUniV3TWAP _oracle) internal {
@@ -272,12 +258,23 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
 
     // calculations
 
+    function _strikePricesWithCheck(CollarProviderNFT.LiquidityOffer memory offer, uint startPrice)
+        internal
+        pure
+        returns (uint putStrikePrice, uint callStrikePrice)
+    {
+        putStrikePrice = startPrice * offer.putStrikePercent / BIPS_BASE;
+        callStrikePrice = startPrice * offer.callStrikePercent / BIPS_BASE;
+        // avoid boolean edge cases and division by zero when settling
+        require(putStrikePrice < startPrice && callStrikePrice > startPrice, "strike prices not different");
+    }
+
     function _settlementCalculations(TakerPosition memory position, uint endPrice)
         internal
         pure
         returns (uint withdrawable, int toProvider)
     {
-        uint startPrice = position.initialPrice;
+        uint startPrice = position.startPrice;
         uint putPrice = position.putStrikePrice;
         uint callPrice = position.callStrikePrice;
 

@@ -375,7 +375,7 @@ contract Rolls is IRolls, BaseManaged {
     ) internal returns (uint newTakerId, uint newProviderId) {
         // calculate locked amounts for new positions
         (uint newTakerLocked, uint newProviderLocked) = _newLockedAmounts({
-            startPrice: takerPos.initialPrice,
+            startPrice: takerPos.startPrice,
             newPrice: currentPrice,
             takerLocked: takerPos.takerLocked,
             putPercent: providerPos.putStrikePercent,
@@ -416,7 +416,7 @@ contract Rolls is IRolls, BaseManaged {
 
         // what are the new locked amounts as they will be calculated when opening the new positions
         (uint newTakerLocked, uint newProviderLocked) = _newLockedAmounts({
-            startPrice: takerPos.initialPrice,
+            startPrice: takerPos.startPrice,
             newPrice: newPrice,
             takerLocked: takerPos.takerLocked,
             putPercent: providerPos.putStrikePercent,

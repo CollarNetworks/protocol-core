@@ -38,8 +38,8 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         assertEq(address(position.providerNFT), address(pair.providerNFT));
         assertEq(position.duration, positionDuration);
         assertEq(position.expiration, block.timestamp + positionDuration);
-        assertEq(position.putStrikePrice, position.initialPrice * offerLTV / 10_000);
-        assert(position.callStrikePrice > position.initialPrice);
+        assertEq(position.putStrikePrice, position.startPrice * offerLTV / 10_000);
+        assert(position.callStrikePrice > position.startPrice);
         assert(position.takerLocked > 0);
         assert(position.providerLocked > 0);
         assertEq(position.settled, false);
@@ -79,8 +79,8 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         pure
         returns (uint expectedUserWithdrawable, uint expectedProviderGain)
     {
-        uint lpPart = position.initialPrice - finalPrice;
-        uint putRange = position.initialPrice - position.putStrikePrice;
+        uint lpPart = position.startPrice - finalPrice;
+        uint putRange = position.startPrice - position.putStrikePrice;
         expectedProviderGain = position.takerLocked * lpPart / putRange;
         expectedUserWithdrawable = position.takerLocked - expectedProviderGain;
     }
@@ -90,8 +90,8 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         pure
         returns (uint expectedUserWithdrawable, uint expectedProviderWithdrawable)
     {
-        uint userPart = finalPrice - position.initialPrice;
-        uint callRange = position.callStrikePrice - position.initialPrice;
+        uint userPart = finalPrice - position.startPrice;
+        uint callRange = position.callStrikePrice - position.startPrice;
         uint userGain = position.providerLocked * userPart / callRange;
         expectedUserWithdrawable = position.takerLocked + userGain;
         expectedProviderWithdrawable = position.providerLocked - userGain;

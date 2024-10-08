@@ -63,7 +63,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
             providerId: expectedProviderId,
             duration: duration,
             expiration: block.timestamp + duration,
-            initialPrice: twapPrice,
+            startPrice: twapPrice,
             putStrikePrice: putStrikePrice,
             callStrikePrice: callStrikePrice,
             takerLocked: takerLocked,
@@ -398,7 +398,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         updatePrice(991);
         startHoax(user1);
         cashAsset.approve(address(takerNFT), takerLocked);
-        vm.expectRevert("strike prices aren't different");
+        vm.expectRevert("strike prices not different");
         takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
     }
 
