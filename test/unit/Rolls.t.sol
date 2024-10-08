@@ -650,11 +650,6 @@ contract RollsTest is BaseAssetPairTestSetup {
         vm.expectRevert("taker position expired");
         rolls.executeRoll(rollId, type(int).min);
 
-        // Taker position settled
-        takerNFT.settlePairedPosition(takerId);
-        vm.expectRevert("taker position settled");
-        rolls.executeRoll(rollId, type(int).min);
-
         // new offer
         (takerId, rollId, offer) = createAndCheckRollOffer();
         // Offer already executed

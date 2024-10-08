@@ -236,34 +236,29 @@ contract Rolls is IRolls, BaseManaged {
         returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider)
     {
         RollOffer memory offer = rollOffers[rollId];
-        // offer was cancelled (if taken tokens would be burned)
+        // offer doesn't exist, was cancelled, or executed
         require(offer.active, "invalid offer");
-        // store the inactive state before external calls as extra reentrancy precaution
-        // @dev only this line writes to storage
-        rollOffers[rollId].active = false;
-
+        // auth, will revert if takerId was burned already
+        require(msg.sender == takerNFT.ownerOf(offer.takerId), "not taker ID owner");
         // offer is within its terms
         uint newPrice = takerNFT.currentOraclePrice();
         require(newPrice <= offer.maxPrice, "price too high");
         require(newPrice >= offer.minPrice, "price too low");
         require(block.timestamp <= offer.deadline, "deadline passed");
 
-        // auth, will revert if takerId was burned already
-        require(msg.sender == takerNFT.ownerOf(offer.takerId), "not taker ID owner");
-
-        // position is not settled yet. it must exist still (otherwise ownerOf would revert)
-        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offer.takerId);
-        // settled position cannot be cancelled
-        require(!takerPos.settled, "taker position settled");
         // @dev an expired position should settle at some past price, so if rolling after expiry is allowed,
         // a different price may be used in settlement calculations instead of current price.
         // This is prevented by this check, since supporting the complexity of such scenarios is not needed.
-        require(block.timestamp <= takerPos.expiration, "taker position expired");
+        uint expiration = takerNFT.getPosition(offer.takerId).expiration;
+        require(block.timestamp <= expiration, "taker position expired");
+
+        // store the inactive state before external calls as extra reentrancy precaution
+        // @dev only this line writes to storage
+        rollOffers[rollId].active = false;
 
         int rollFee = calculateRollFee(offer, newPrice);
 
         (newTakerId, newProviderId, toTaker, toProvider) = _executeRoll(offer, newPrice, rollFee);
-
         // check transfers are sufficient / or pulls are not excessive
         require(toTaker >= minToTaker, "taker transfer slippage");
         require(toProvider >= offer.minToProvider, "provider transfer slippage");
