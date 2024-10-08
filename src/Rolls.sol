@@ -118,12 +118,7 @@ contract Rolls is IRolls, BaseManaged {
     {
         RollOffer memory offer = rollOffers[rollId];
         rollFee = calculateRollFee(offer, price);
-        (toTaker, toProvider) = _calculateTransferAmounts({
-            newPrice: price,
-            rollFeeAmount: rollFee,
-            takerId: offer.takerId,
-            providerPos: offer.providerNFT.getPosition(offer.providerId)
-        });
+        (toTaker, toProvider) = _calculateTransferAmounts(price, rollFee, offer.takerId);
     }
 
     // ----- MUTATIVE FUNCTIONS ----- //
@@ -271,36 +266,27 @@ contract Rolls is IRolls, BaseManaged {
         internal
         returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider)
     {
-        CollarProviderNFT providerNFT = offer.providerNFT;
-        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offer.takerId);
-        CollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(offer.providerId);
-
         // calculate the transfer amounts
-        (toTaker, toProvider) = _calculateTransferAmounts({
-            newPrice: newPrice,
-            rollFeeAmount: rollFee,
-            takerId: offer.takerId,
-            providerPos: providerPos
-        });
+        (toTaker, toProvider) = _calculateTransferAmounts(newPrice, rollFee, offer.takerId);
 
         // pull the taker NFT from the user (we already have the provider NFT)
         takerNFT.transferFrom(msg.sender, address(this), offer.takerId);
 
         // now that we have both NFTs, cancel the positions and withdraw
-        _cancelPairedPositionAndWithdraw(offer.takerId, takerPos);
+        _cancelPairedPositionAndWithdraw(offer.takerId);
 
         // pull cash as needed
         _pullCash(toTaker, msg.sender, toProvider, offer.provider);
 
         // open the new positions
-        (newTakerId, newProviderId) = _openNewPairedPosition(newPrice, takerPos, providerPos);
+        (newTakerId, newProviderId) = _openNewPairedPosition(newPrice, offer.takerId);
 
         // pay cash as needed
         _payCash(toTaker, msg.sender, toProvider, offer.provider);
 
-        // we now own both of the NFT IDs, so send them out to their new proud owners
+        // we now own both of the new NFT IDs, so send them out to their new proud owners
         takerNFT.transferFrom(address(this), msg.sender, newTakerId);
-        providerNFT.transferFrom(address(this), offer.provider, newProviderId);
+        offer.providerNFT.transferFrom(address(this), offer.provider, newProviderId);
     }
 
     function _pullCash(int toTaker, address taker, int toProvider, address provider) internal {
@@ -325,9 +311,8 @@ contract Rolls is IRolls, BaseManaged {
         }
     }
 
-    function _cancelPairedPositionAndWithdraw(uint takerId, CollarTakerNFT.TakerPosition memory takerPos)
-        internal
-    {
+    function _cancelPairedPositionAndWithdraw(uint takerId) internal {
+        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
         // approve the takerNFT to pull the provider NFT, as both NFTs are needed for cancellation
         takerPos.providerNFT.approve(address(takerNFT), takerPos.providerId);
         // cancel and withdraw the cash from the existing paired position
@@ -339,11 +324,14 @@ contract Rolls is IRolls, BaseManaged {
         require(withdrawn == expectedAmount, "unexpected withdrawal amount");
     }
 
-    function _openNewPairedPosition(
-        uint newPrice,
-        CollarTakerNFT.TakerPosition memory takerPos,
-        CollarProviderNFT.ProviderPosition memory providerPos
-    ) internal returns (uint newTakerId, uint newProviderId) {
+    function _openNewPairedPosition(uint newPrice, uint takerId)
+        internal
+        returns (uint newTakerId, uint newProviderId)
+    {
+        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
+        CollarProviderNFT providerNFT = takerPos.providerNFT;
+        CollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(takerPos.providerId);
+
         // calculate locked amounts for new positions
         (uint newTakerLocked, uint newProviderLocked) = _newLockedAmounts({
             startPrice: takerPos.startPrice,
@@ -354,7 +342,6 @@ contract Rolls is IRolls, BaseManaged {
         });
 
         // add the protocol fee that will be taken from the offer
-        CollarProviderNFT providerNFT = takerPos.providerNFT;
         (uint protocolFee,) = providerNFT.protocolFee(newProviderLocked, takerPos.duration);
         uint offerAmount = newProviderLocked + protocolFee;
 
@@ -375,15 +362,18 @@ contract Rolls is IRolls, BaseManaged {
 
     // ----- INTERNAL VIEWS ----- //
 
-    function _calculateTransferAmounts(
-        uint newPrice,
-        int rollFeeAmount,
-        uint takerId,
-        CollarProviderNFT.ProviderPosition memory providerPos
-    ) internal view returns (int toTaker, int toProvider) {
+    function _calculateTransferAmounts(uint newPrice, int rollFeeAmount, uint takerId)
+        internal
+        view
+        returns (int toTaker, int toProvider)
+    {
         // what would the taker and provider get from a settlement of the old position at current settlement price
         (uint takerSettled, int providerGain) = takerNFT.previewSettlement(takerId, newPrice);
+
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
+        CollarProviderNFT providerNFT = takerPos.providerNFT;
+        CollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(takerPos.providerId);
+
         int providerSettled = takerPos.providerLocked.toInt256() + providerGain;
 
         // what are the new locked amounts as they will be calculated when opening the new positions
@@ -395,7 +385,7 @@ contract Rolls is IRolls, BaseManaged {
             callPercent: providerPos.callStrikePercent
         });
 
-        (uint protocolFee,) = takerPos.providerNFT.protocolFee(newProviderLocked, takerPos.duration);
+        (uint protocolFee,) = providerNFT.protocolFee(newProviderLocked, takerPos.duration);
 
         // The taker and provider external balances (before fee) should be updated according to
         // their PNL: the money released from their settled position minus the cost of opening the new position.
