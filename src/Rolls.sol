@@ -15,9 +15,9 @@ import { IRolls } from "./interfaces/IRolls.sol";
  * expiry.
  *
  * Main Functionality:
- * 1. Allows providers to create roll offers for existing positions.
- * 2. Handles the cancellation of created roll offers.
- * 3. Executes rolls, cancelling (settling) existing positions and creating new ones with updated terms.
+ * 1. Allows providers to create and cancel roll offers for existing positions.
+ * 2. Allows takers to execute rolls, cancelling existing collar positions and creating new ones
+ *    with updated terms.
  * 4. Manages the transfer of funds between takers and providers during rolls.
  *
  * Role in the Protocol:
@@ -25,18 +25,12 @@ import { IRolls } from "./interfaces/IRolls.sol";
  *
  * Key Assumptions and Prerequisites:
  * 1. The CollarTakerNFT and CollarProviderNFT contracts are correctly implemented and authorized.
- * 2. The cash asset (ERC-20) used is standard compliant (non-rebasing, no transfer fees, no callbacks).
+ * 2. The cash asset (ERC-20) used is simple (non-rebasing, no transfer fees, no callbacks).
  * 3. Providers must approve this contract to transfer their CollarProviderNFTs and cash when creating
  * an offer. The NFT is transferred on offer creation, and cash will be transferred on execution, if
- * and when the user accepts the offer.
+ * and when the taker accepts the offer.
  * 4. Takers must approve this contract to transfer their CollarTakerNFTs and any cash that's needed
  * to be pulled.
- *
- * Design Considerations:
- * 1. Offers are made by providers, and accepted (and executed) by takers.
- * 2. Implements pausability for emergency situations.
- * 3. Calculates fees based on price changes to allow correct fee pricing when asset price moves.
- * 4. Settles existing positions and creates new ones atomically to ensure consistency.
  *
  * Security Considerations:
  * 1. Does not hold cash (only during execution), but will have approvals to spend cash.
@@ -61,7 +55,7 @@ contract Rolls is IRolls, BaseManaged {
 
     mapping(uint rollId => RollOffer) internal rollOffers;
 
-    /// @dev Rolls needs BaseEmergencyAdmin for pausing since is approved by users, and holds NFTs.
+    /// @dev Rolls needs BaseManaged for pausing since is approved by users, and holds NFTs.
     /// Does not need `canOpen` auth because its auth usage is set directly on Loans,
     /// and it has no long-lived functionality so doesn't need a close-only migration mode.
     constructor(address initialOwner, CollarTakerNFT _takerNFT) BaseManaged(initialOwner) {
@@ -81,20 +75,20 @@ contract Rolls is IRolls, BaseManaged {
      * @notice Calculates the roll fee based on the price
      * @dev The fee changes based on the price change since the offer was created.
      * All three of - price change, roll fee, and delta-factor - can be negative. The fee is adjusted
-     * such that positive `price-change x delta-factor` increase the fee (provider benefits), and decrease
-     * the fee (taker benefits) if negative.
+     * such that positive `price-change x delta-factor` increases the fee (provider benefits),
+     * and negative decreases the fee (taker benefits).
      * 0 delta-factor means the fee is constant, 100% delta-factor (10_000 in bips), means the price
-     * linearly scales the fee (according to the sign logic)
+     * linearly scales the fee (according to the sign logic).
      * @param offer The roll offer to calculate the fee for
-     * @param currentPrice The current price to use for the calculation
-     * @return rollFee The calculated roll fee (in cash amount)
+     * @param price The price to use for the calculation, in ITakerOracle price units
+     * @return rollFee The calculated roll fee (in cash amount), positive if paid to provider
      */
-    function calculateRollFee(RollOffer memory offer, uint currentPrice) public pure returns (int rollFee) {
+    function calculateRollFee(RollOffer memory offer, uint price) public pure returns (int rollFee) {
         int prevPrice = offer.feeReferencePrice.toInt256();
-        int priceChange = currentPrice.toInt256() - prevPrice;
+        int priceChange = price.toInt256() - prevPrice;
         // Scaling the fee magnitude by the delta (price change) multiplied by the factor.
         // For deltaFactor of 100%, this results in linear scaling of the fee with price.
-        // If factor is BIPS_BASE the amount moves with the price. E.g., 5% price increase, 5% fee increase.
+        // So for BIPS_BASE the result moves with the price. E.g., 5% price increase, 5% fee increase.
         // If factor is, e.g., 50% the fee increases only 2.5% for a 5% price increase.
         int feeSize = SignedMath.abs(offer.feeAmount).toInt256();
         int change = feeSize * offer.feeDeltaFactorBIPS * priceChange / prevPrice / int(BIPS_BASE);
@@ -108,7 +102,7 @@ contract Rolls is IRolls, BaseManaged {
 
     /**
      * @notice Calculates the amounts to be transferred during a roll execution at a specific price.
-     * This does not check any of the execution validity conditions (deadline, price range, etc...).
+     * This does not check any validity conditions (existence, deadline, price range, etc...).
      * @dev If validity is important, a staticcall to the executeRoll method should be used instead of
      * this view.
      * @param rollId The ID of the roll offer
@@ -241,12 +235,12 @@ contract Rolls is IRolls, BaseManaged {
         uint rollId,
         int minToTaker // signed "slippage", user protection
     ) external whenNotPaused returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider) {
-        RollOffer storage offer = rollOffers[rollId];
+        RollOffer memory offer = rollOffers[rollId];
         // offer was cancelled (if taken tokens would be burned)
         require(offer.active, "invalid offer");
         // store the inactive state before external calls as extra reentrancy precaution
         // @dev this writes to storage
-        offer.active = false;
+        rollOffers[rollId].active = false;
 
         // offer is within its terms
         uint newPrice = takerNFT.currentOraclePrice();
@@ -266,26 +260,37 @@ contract Rolls is IRolls, BaseManaged {
         // This is prevented by this check, since supporting the complexity of such scenarios is not needed.
         require(block.timestamp <= takerPos.expiration, "taker position expired");
 
-        (newTakerId, newProviderId, toTaker, toProvider) = _executeRoll(rollId, newPrice, takerPos);
+        int rollFee = calculateRollFee(offer, newPrice);
+        (newTakerId, newProviderId, toTaker, toProvider) = _executeRoll(offer, newPrice, rollFee);
 
         // check transfers are sufficient / or pulls are not excessive
         require(toTaker >= minToTaker, "taker transfer slippage");
         require(toProvider >= offer.minToProvider, "provider transfer slippage");
+
+        emit OfferExecuted(
+            rollId,
+            offer.takerId,
+            offer.providerNFT,
+            offer.providerId,
+            toTaker,
+            toProvider,
+            rollFee,
+            newTakerId,
+            newProviderId
+        );
     }
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    function _executeRoll(uint rollId, uint newPrice, CollarTakerNFT.TakerPosition memory takerPos)
+    function _executeRoll(RollOffer memory offer, uint newPrice, int rollFee)
         internal
         returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider)
     {
-        // @dev this is memory, not storage
-        RollOffer memory offer = rollOffers[rollId];
-
+        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offer.takerId);
         CollarProviderNFT providerNFT = takerPos.providerNFT;
         CollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(takerPos.providerId);
+
         // calculate the transfer amounts
-        int rollFee = calculateRollFee(offer, newPrice);
         (toTaker, toProvider) = _calculateTransferAmounts({
             newPrice: newPrice,
             rollFeeAmount: rollFee,
@@ -310,18 +315,6 @@ contract Rolls is IRolls, BaseManaged {
         // we now own both of the NFT IDs, so send them out to their new proud owners
         takerNFT.transferFrom(address(this), msg.sender, newTakerId);
         providerNFT.transferFrom(address(this), offer.provider, newProviderId);
-
-        emit OfferExecuted(
-            rollId,
-            offer.takerId,
-            offer.providerNFT,
-            offer.providerId,
-            toTaker,
-            toProvider,
-            rollFee,
-            newTakerId,
-            newProviderId
-        );
     }
 
     function _pullCash(int toTaker, address taker, int toProvider, address provider) internal {
