@@ -240,6 +240,17 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         newOracle.setHistoricalAssetPrice(block.timestamp, 0);
         vm.expectRevert("invalid price");
         new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
+
+        newOracle.setHistoricalAssetPrice(block.timestamp, 1);
+        vm.mockCallRevert(
+            address(newOracle), abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))), ""
+        );
+        vm.expectRevert(new bytes(0));
+        new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
+
+        vm.mockCallRevert(address(newOracle), abi.encodeCall(newOracle.BASE_TOKEN_AMOUNT, ()), "");
+        vm.expectRevert(new bytes(0));
+        new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
     }
 
     function test_pausableMethods() public {
@@ -359,6 +370,20 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         cashAsset.approve(address(takerNFT), takerLocked);
         vm.expectRevert("invalid offer");
         takerNFT.openPairedPosition(takerLocked, providerNFT, 1000);
+    }
+
+    function test_openPairedPosition_expirationMistmatch() public {
+        createOffer();
+        startHoax(user1);
+        CollarProviderNFT.ProviderPosition memory badExpiryPosition;
+        badExpiryPosition.expiration = block.timestamp + duration + 1;
+        vm.mockCall(
+            address(providerNFT),
+            abi.encodeCall(providerNFT.getPosition, (providerNFT.nextPositionId())),
+            abi.encode(badExpiryPosition)
+        );
+        vm.expectRevert("expiration mismatch");
+        takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
     }
 
     function test_openPairedPositionBadCashAssetMismatch() public {
@@ -664,5 +689,16 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         newOracle.setHistoricalAssetPrice(block.timestamp, 0);
         vm.expectRevert("invalid price");
         takerNFT.setOracle(newOracle);
+
+        newOracle.setHistoricalAssetPrice(block.timestamp, 1);
+        vm.mockCallRevert(
+            address(newOracle), abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))), ""
+        );
+        vm.expectRevert(new bytes(0));
+        new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
+
+        vm.mockCallRevert(address(newOracle), abi.encodeCall(newOracle.BASE_TOKEN_AMOUNT, ()), "");
+        vm.expectRevert(new bytes(0));
+        new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
     }
 }

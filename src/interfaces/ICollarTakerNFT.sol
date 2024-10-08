@@ -10,7 +10,7 @@ pragma solidity 0.8.22;
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ConfigHub } from "../ConfigHub.sol";
 import { CollarProviderNFT } from "../CollarProviderNFT.sol";
-import { OracleUniV3TWAP } from "../OracleUniV3TWAP.sol";
+import { ITakerOracle } from "./ITakerOracle.sol";
 
 interface ICollarTakerNFT {
     // @dev Some data can be trimmed down from this struct, since some of the fields aren't needed on-chain,
@@ -61,5 +61,5 @@ interface ICollarTakerNFT {
         uint expiration
     );
     event WithdrawalFromSettled(uint indexed takerId, address indexed recipient, uint withdrawn);
-    event OracleSet(OracleUniV3TWAP prevOracle, OracleUniV3TWAP newOracle);
+    event OracleSet(ITakerOracle prevOracle, ITakerOracle newOracle);
 }
