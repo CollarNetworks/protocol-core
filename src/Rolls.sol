@@ -111,14 +111,14 @@ contract Rolls is IRolls, BaseManaged {
      * @return toProvider The amount that would be transferred to (or from, if negative) the provider
      * @return rollFee The roll fee that would be applied
      */
-    function calculateTransferAmounts(uint rollId, uint price)
+    function previewTransferAmounts(uint rollId, uint price)
         external
         view
         returns (int toTaker, int toProvider, int rollFee)
     {
         RollOffer memory offer = rollOffers[rollId];
         rollFee = calculateRollFee(offer, price);
-        (toTaker, toProvider) = _calculateTransferAmounts(price, rollFee, offer.takerId);
+        (toTaker, toProvider) = _previewTransferAmounts(offer.takerId, price, rollFee);
     }
 
     // ----- MUTATIVE FUNCTIONS ----- //
@@ -252,30 +252,32 @@ contract Rolls is IRolls, BaseManaged {
 
         int rollFee = calculateRollFee(offer, newPrice);
 
-        (newTakerId, newProviderId, toTaker, toProvider) = _executeRoll(offer, newPrice, rollFee);
-        // check transfers are sufficient / or pulls are not excessive
+        // preview the transfer amounts first, because cash may need to be pulled first
+        (toTaker, toProvider) = _previewTransferAmounts(offer.takerId, newPrice, rollFee);
+        // check transfers are sufficient / or pulls are not excessive. Only the preview
+        // values will be used to pull / pay cash, so checking them is correct.
+        // This contract does not hold any resting balance, so no other assets are available.
         require(toTaker >= minToTaker, "taker transfer slippage");
         require(toProvider >= offer.minToProvider, "provider transfer slippage");
+
+        (newTakerId, newProviderId) = _executeRoll(offer, newPrice, toTaker, toProvider);
 
         emit OfferExecuted(rollId, toTaker, toProvider, rollFee, newTakerId, newProviderId);
     }
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    function _executeRoll(RollOffer memory offer, uint newPrice, int rollFee)
+    function _executeRoll(RollOffer memory offer, uint newPrice, int toTaker, int toProvider)
         internal
-        returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider)
+        returns (uint newTakerId, uint newProviderId)
     {
-        // calculate the transfer amounts
-        (toTaker, toProvider) = _calculateTransferAmounts(newPrice, rollFee, offer.takerId);
-
         // pull the taker NFT from the user (we already have the provider NFT)
         takerNFT.transferFrom(msg.sender, address(this), offer.takerId);
 
         // now that we have both NFTs, cancel the positions and withdraw
         _cancelPairedPositionAndWithdraw(offer.takerId);
 
-        // pull cash as needed
+        // pull cash as needed. This needs to be done before opening new positions.
         _pullCash(toTaker, msg.sender, toProvider, offer.provider);
 
         // open the new positions
@@ -362,7 +364,7 @@ contract Rolls is IRolls, BaseManaged {
 
     // ----- INTERNAL VIEWS ----- //
 
-    function _calculateTransferAmounts(uint newPrice, int rollFeeAmount, uint takerId)
+    function _previewTransferAmounts(uint takerId, uint newPrice, int rollFeeAmount)
         internal
         view
         returns (int toTaker, int toProvider)

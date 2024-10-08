@@ -30,7 +30,7 @@ contract LoansRollTestBase is LoansTestBase {
         returns (ExpectedRoll memory expected)
     {
         // roll transfers
-        (expected.toTaker,, expected.rollFee) = rolls.calculateTransferAmounts(rollId, newPrice);
+        (expected.toTaker,, expected.rollFee) = rolls.previewTransferAmounts(rollId, newPrice);
 
         uint takerId = rolls.getRollOffer(rollId).takerId;
         CollarTakerNFT.TakerPosition memory oldTakerPos = takerNFT.getPosition(takerId);

@@ -102,7 +102,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         cashAsset.approve(address(loans), type(uint).max);
 
         // Calculate expected loan change
-        (int loanChangePreview,,) = rolls.calculateTransferAmounts(rollId, twapPrice);
+        (int loanChangePreview,,) = rolls.previewTransferAmounts(rollId, twapPrice);
 
         // this reverts in Rolls
         vm.expectRevert("taker transfer slippage");
@@ -150,7 +150,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         updatePrice(lowPrice);
 
         // Calculate expected loan change
-        (int loanChangePreview,,) = rolls.calculateTransferAmounts(rollId, lowPrice);
+        (int loanChangePreview,,) = rolls.previewTransferAmounts(rollId, lowPrice);
         require(loanChangePreview < 0, "loanChangePreview should be negative for this test");
 
         cashAsset.approve(address(loans), uint(-loanChangePreview) - 1);
@@ -211,7 +211,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         int largeRepayment = -int(loanAmount + 1);
         vm.mockCall(
             address(rolls),
-            abi.encodeWithSelector(rolls.calculateTransferAmounts.selector, rollId, twapPrice),
+            abi.encodeWithSelector(rolls.previewTransferAmounts.selector, rollId, twapPrice),
             abi.encode(largeRepayment, 0, 0)
         );
         vm.mockCall(

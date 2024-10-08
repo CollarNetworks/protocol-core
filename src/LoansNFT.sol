@@ -617,7 +617,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // get transfer amount and fee from rolls
         int transferPreview;
         (transferPreview,, rollFee) =
-            currentRolls.calculateTransferAmounts(rollId, takerNFT.currentOraclePrice());
+            currentRolls.previewTransferAmounts(rollId, takerNFT.currentOraclePrice());
 
         // pull cash
         if (transferPreview < 0) {

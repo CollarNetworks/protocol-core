@@ -130,7 +130,7 @@ contract RollsTest is BaseAssetPairTestSetup {
     {
         // compare to view
         (int toTakerView, int toProviderView, int rollFeeView) =
-            rolls.calculateTransferAmounts(rollId, newPrice);
+            rolls.previewTransferAmounts(rollId, newPrice);
         assertEq(toTakerView, expected.toTaker);
         assertEq(toProviderView, expected.toProvider);
         assertEq(rollFeeView, expected.rollFee);
@@ -695,7 +695,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         startHoax(user1);
         takerNFT.approve(address(rolls), takerId);
         cashAsset.approve(address(rolls), type(uint).max);
-        (int toTaker,,) = rolls.calculateTransferAmounts(rollId, twapPrice);
+        (int toTaker,,) = rolls.previewTransferAmounts(rollId, twapPrice);
         vm.expectRevert("taker transfer slippage");
         rolls.executeRoll(rollId, toTaker + 1);
 
@@ -729,7 +729,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         cashAsset.approve(address(rolls), 0);
         uint lowPrice = twapPrice * 9 / 10;
         updatePrice(lowPrice);
-        (int toTaker,,) = rolls.calculateTransferAmounts(rollId, lowPrice);
+        (int toTaker,,) = rolls.previewTransferAmounts(rollId, lowPrice);
         vm.expectRevert(
             abi.encodeWithSelector(
                 IERC20Errors.ERC20InsufficientAllowance.selector, address(rolls), 0, uint(-toTaker)
@@ -739,11 +739,14 @@ contract RollsTest is BaseAssetPairTestSetup {
     }
 
     function test_revert_executeRoll_provider_approval() public {
+        // avoid tripping slippage check
+        minToProvider = -int(providerLocked);
         (uint takerId, uint rollId,) = createAndCheckRollOffer();
 
+        // price is higher so that provider will need to pay
         uint highPrice = twapPrice * 11 / 10;
         updatePrice(highPrice);
-        (, int toProvider,) = rolls.calculateTransferAmounts(rollId, highPrice);
+        (, int toProvider,) = rolls.previewTransferAmounts(rollId, highPrice);
 
         // provider revoked approval
         cashAsset.approve(address(rolls), uint(-toProvider) - 1);
