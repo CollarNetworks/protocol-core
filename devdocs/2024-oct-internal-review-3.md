@@ -18,8 +18,9 @@
   - mitigation: doc expected erc20 behaviors + consider balance checks
 - [x] #low remove all unused interface methods
 - [ ] #low document for each contract what post-deployment setup is needed (in that contract and others)
-- [ ] #low license header + incorrect email + security contact
+- [ ] #low incorrect email + missing security contact
 - [x] #low refactor all simple math (min / max / etc) with OZ library
+- [x] #note copyright header
 - [x] #note unused imports in a few places
 - [x] #note several notes and nits from lightchaser https://gist.github.com/ChaseTheLight01/a66ec6b0599e1760f8512c42ec5f96ea
 - [x] #note memory structs should be preferred to storage when access is read-only (even though gas is slightly higher) for clarity
