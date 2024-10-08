@@ -178,28 +178,24 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         );
     }
 
-    function withdrawFromSettled(uint takerId, address recipient)
-        external
-        whenNotPaused
-        returns (uint amount)
-    {
+    function withdrawFromSettled(uint takerId) external whenNotPaused returns (uint withdrawal) {
         require(msg.sender == ownerOf(takerId), "not position owner");
 
         TakerPosition storage position = positions[takerId];
         require(position.settled, "not settled");
 
-        amount = position.withdrawable;
+        withdrawal = position.withdrawable;
         // zero out withdrawable
         position.withdrawable = 0;
         // burn token
         _burn(takerId);
         // transfer tokens
-        cashAsset.safeTransfer(recipient, amount);
+        cashAsset.safeTransfer(msg.sender, withdrawal);
 
-        emit WithdrawalFromSettled(takerId, recipient, amount);
+        emit WithdrawalFromSettled(takerId, withdrawal);
     }
 
-    function cancelPairedPosition(uint takerId, address recipient) external whenNotPaused {
+    function cancelPairedPosition(uint takerId) external whenNotPaused returns (uint withdrawal) {
         require(msg.sender == ownerOf(takerId), "not owner of taker ID");
 
         TakerPosition storage position = positions[takerId];
@@ -217,14 +213,15 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         // pull the provider NFT to this contract
         providerNFT.transferFrom(msg.sender, address(this), providerId);
 
-        // now that this contract has the provider NFT - cancel it and withdraw funds to sender
-        providerNFT.cancelAndWithdraw(providerId, recipient);
+        // now that this contract has the provider NFT - cancel it and withdraw
+        uint providerWithdrawal = providerNFT.cancelAndWithdraw(providerId);
 
-        // transfer the tokens locked in this contract
-        cashAsset.safeTransfer(recipient, position.takerLocked);
+        // transfer the tokens locked in this contract and the withdrawal from provider
+        withdrawal = position.takerLocked + providerWithdrawal;
+        cashAsset.safeTransfer(msg.sender, withdrawal);
 
         emit PairedPositionCanceled(
-            takerId, address(providerNFT), providerId, recipient, position.takerLocked, position.expiration
+            takerId, address(providerNFT), providerId, withdrawal, position.expiration
         );
     }
 

@@ -240,17 +240,16 @@ contract Rolls is IRolls, BaseManaged {
         require(offer.active, "invalid offer");
         // auth, will revert if takerId was burned already
         require(msg.sender == takerNFT.ownerOf(offer.takerId), "not taker ID owner");
-        // offer is within its terms
-        uint newPrice = takerNFT.currentOraclePrice();
-        require(newPrice <= offer.maxPrice, "price too high");
-        require(newPrice >= offer.minPrice, "price too low");
-        require(block.timestamp <= offer.deadline, "deadline passed");
-
         // @dev an expired position should settle at some past price, so if rolling after expiry is allowed,
         // a different price may be used in settlement calculations instead of current price.
         // This is prevented by this check, since supporting the complexity of such scenarios is not needed.
         uint expiration = takerNFT.getPosition(offer.takerId).expiration;
         require(block.timestamp <= expiration, "taker position expired");
+        // offer is within its terms
+        uint newPrice = takerNFT.currentOraclePrice();
+        require(newPrice <= offer.maxPrice, "price too high");
+        require(newPrice >= offer.minPrice, "price too low");
+        require(block.timestamp <= offer.deadline, "deadline passed");
 
         // store the inactive state before external calls as extra reentrancy precaution
         // @dev only this line writes to storage
@@ -273,6 +272,7 @@ contract Rolls is IRolls, BaseManaged {
         returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider)
     {
         CollarProviderNFT providerNFT = offer.providerNFT;
+        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offer.takerId);
         CollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(offer.providerId);
 
         // calculate the transfer amounts
@@ -287,7 +287,7 @@ contract Rolls is IRolls, BaseManaged {
         takerNFT.transferFrom(msg.sender, address(this), offer.takerId);
 
         // now that we have both NFTs, cancel the positions and withdraw
-        CollarTakerNFT.TakerPosition memory takerPos = _cancelPairedPositionAndWithdraw(offer.takerId);
+        _cancelPairedPositionAndWithdraw(offer.takerId, takerPos);
 
         // pull cash as needed
         _pullCash(toTaker, msg.sender, toProvider, offer.provider);
@@ -325,21 +325,17 @@ contract Rolls is IRolls, BaseManaged {
         }
     }
 
-    function _cancelPairedPositionAndWithdraw(uint takerId)
+    function _cancelPairedPositionAndWithdraw(uint takerId, CollarTakerNFT.TakerPosition memory takerPos)
         internal
-        returns (CollarTakerNFT.TakerPosition memory takerPos)
     {
-        takerPos = takerNFT.getPosition(takerId);
         // approve the takerNFT to pull the provider NFT, as both NFTs are needed for cancellation
         takerPos.providerNFT.approve(address(takerNFT), takerPos.providerId);
         // cancel and withdraw the cash from the existing paired position
         // @dev this relies on being the owner of both NFTs. it burns both NFTs, and withdraws
         // both put and locked cash to this contract
-        uint balanceBefore = cashAsset.balanceOf(address(this));
-        takerNFT.cancelPairedPosition(takerId, address(this));
-        uint withdrawn = cashAsset.balanceOf(address(this)) - balanceBefore;
-        // @dev if this changes, the calculations need to be updated
+        uint withdrawn = takerNFT.cancelPairedPosition(takerId);
         uint expectedAmount = takerPos.takerLocked + takerPos.providerLocked;
+        // @dev this invariant is assumed by the transfer calculations
         require(withdrawn == expectedAmount, "unexpected withdrawal amount");
     }
 

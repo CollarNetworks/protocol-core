@@ -678,8 +678,12 @@ contract RollsTest is BaseAssetPairTestSetup {
         rolls.executeRoll(rollId, type(int).min);
 
         // Deadline passed
+        deadline = block.timestamp + 1;
+        updatePrice(twapPrice);
+        (, rollId,) = createAndCheckRollOffer();
         skip(deadline + 1);
         updatePrice(twapPrice);
+        startHoax(user1);
         vm.expectRevert("deadline passed");
         rolls.executeRoll(rollId, type(int).min);
     }
@@ -768,8 +772,8 @@ contract RollsTest is BaseAssetPairTestSetup {
         // Mock the cancelPairedPosition function to do nothing
         vm.mockCall(
             address(takerNFT),
-            abi.encodeWithSelector(takerNFT.cancelPairedPosition.selector, takerId, address(rolls)),
-            "" // does nothing
+            abi.encodeCall(takerNFT.cancelPairedPosition, (takerId)),
+            abi.encode(0) // 0 withdrawal
         );
 
         // Attempt to execute the roll

@@ -598,7 +598,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
         /// @dev this should not be optional, since otherwise there is no point to the entire call
         /// (and the position NFT would be burned already, so would not belong to sender)
-        withdrawnAmount = takerNFT.withdrawFromSettled(takerId, address(this));
+        withdrawnAmount = takerNFT.withdrawFromSettled(takerId);
     }
 
     function _executeRoll(uint loanId, uint rollId, int minToUser)

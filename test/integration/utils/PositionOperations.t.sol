@@ -60,7 +60,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
 
         // User withdrawal
         uint userBalanceBefore = pair.cashAsset.balanceOf(user);
-        pair.takerNFT.withdrawFromSettled(borrowId, user);
+        pair.takerNFT.withdrawFromSettled(borrowId);
         uint userBalanceAfter = pair.cashAsset.balanceOf(user);
         userWithdrawnAmount = userBalanceAfter - userBalanceBefore;
         vm.stopPrank();
@@ -68,7 +68,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         // Provider withdrawal
         startHoax(provider);
         uint providerBalanceBefore = pair.cashAsset.balanceOf(provider);
-        pair.providerNFT.withdrawFromSettled(position.providerId, provider);
+        pair.providerNFT.withdrawFromSettled(position.providerId);
         uint providerBalanceAfter = pair.cashAsset.balanceOf(provider);
         providerWithdrawnAmount = providerBalanceAfter - providerBalanceBefore;
         vm.stopPrank();

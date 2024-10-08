@@ -37,7 +37,7 @@
     - redundant checks in taker and maker
     - cannot cancel with delta if needed
     - more gas by having to approve and transfer provider NFT
-- [ ] #note no good reason for recipient in withdrawal method
+- [x] #note no good reason for recipient in withdrawal method
 - [x] #note "unexpected takerId" check is redundant since checked value is returned from call invocation
 
 ### Taker
@@ -47,7 +47,7 @@
 - [x] #note previewSettlement arg position struct is awkward, should expect id
 - [x] #note 0 put range check unneeded in calculateProviderLocked
 - [x] #note naming: deviation -> percent
-- [ ] #note no good reason for recipient in withdrawal method
+- [x] #note no good reason for recipient in withdrawal method
 - [x] #note cei can be better in settle
 
 ###  Escrow

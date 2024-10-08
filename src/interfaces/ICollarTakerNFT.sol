@@ -50,10 +50,9 @@ interface ICollarTakerNFT {
         uint indexed takerId,
         address indexed providerNFT,
         uint indexed providerId,
-        address recipient,
         uint withdrawn,
         uint expiration
     );
-    event WithdrawalFromSettled(uint indexed takerId, address indexed recipient, uint withdrawn);
+    event WithdrawalFromSettled(uint indexed takerId, uint withdrawn);
     event OracleSet(ITakerOracle prevOracle, ITakerOracle newOracle);
 }
