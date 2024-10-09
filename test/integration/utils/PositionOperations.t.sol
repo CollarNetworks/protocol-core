@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import { CollarBaseIntegrationTestConfig, ILoansNFT } from "./BaseIntegration.t.sol";
-import { ShortProviderNFT } from "../../../src/ShortProviderNFT.sol";
+import { CollarProviderNFT } from "../../../src/CollarProviderNFT.sol";
 import { CollarTakerNFT } from "../../../src/CollarTakerNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -12,21 +12,21 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
     using SafeERC20 for IERC20;
 
-    function createProviderOffer(uint callStrikeDeviation, uint amount) internal returns (uint offerId) {
+    function createProviderOffer(uint callStrikePercent, uint amount) internal returns (uint offerId) {
         startHoax(provider);
         pair.cashAsset.forceApprove(address(pair.providerNFT), amount);
-        offerId = pair.providerNFT.createOffer(callStrikeDeviation, amount, offerLTV, positionDuration);
+        offerId = pair.providerNFT.createOffer(callStrikePercent, amount, offerLTV, positionDuration);
         vm.stopPrank();
     }
 
-    function openTakerPositionAndCheckValues(uint collateralAmount, uint minCashAmount, uint offerId)
+    function openTakerPositionAndCheckValues(uint underlyingAmount, uint minCashAmount, uint offerId)
         internal
         returns (uint borrowId, CollarTakerNFT.TakerPosition memory position)
     {
         startHoax(user);
-        pair.collateralAsset.forceApprove(address(pair.loansContract), collateralAmount);
+        pair.underlying.forceApprove(address(pair.loansContract), underlyingAmount);
         (borrowId,,) = pair.loansContract.openLoan(
-            collateralAmount,
+            underlyingAmount,
             0,
             ILoansNFT.SwapParams(minCashAmount, address(pair.loansContract.defaultSwapper()), ""),
             offerId
@@ -38,10 +38,10 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         assertEq(address(position.providerNFT), address(pair.providerNFT));
         assertEq(position.duration, positionDuration);
         assertEq(position.expiration, block.timestamp + positionDuration);
-        assertEq(position.putStrikePrice, position.initialPrice * offerLTV / 10_000);
-        assert(position.callStrikePrice > position.initialPrice);
-        assert(position.putLockedCash > 0);
-        assert(position.callLockedCash > 0);
+        assertEq(position.putStrikePrice, position.startPrice * offerLTV / 10_000);
+        assert(position.callStrikePrice > position.startPrice);
+        assert(position.takerLocked > 0);
+        assert(position.providerLocked > 0);
         assertEq(position.settled, false);
         assertEq(position.withdrawable, 0);
     }
@@ -60,7 +60,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
 
         // User withdrawal
         uint userBalanceBefore = pair.cashAsset.balanceOf(user);
-        pair.takerNFT.withdrawFromSettled(borrowId, user);
+        pair.takerNFT.withdrawFromSettled(borrowId);
         uint userBalanceAfter = pair.cashAsset.balanceOf(user);
         userWithdrawnAmount = userBalanceAfter - userBalanceBefore;
         vm.stopPrank();
@@ -68,7 +68,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         // Provider withdrawal
         startHoax(provider);
         uint providerBalanceBefore = pair.cashAsset.balanceOf(provider);
-        pair.providerNFT.withdrawFromSettled(position.providerId, provider);
+        pair.providerNFT.withdrawFromSettled(position.providerId);
         uint providerBalanceAfter = pair.cashAsset.balanceOf(provider);
         providerWithdrawnAmount = providerBalanceAfter - providerBalanceBefore;
         vm.stopPrank();
@@ -79,10 +79,10 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         pure
         returns (uint expectedUserWithdrawable, uint expectedProviderGain)
     {
-        uint lpPart = position.initialPrice - finalPrice;
-        uint putRange = position.initialPrice - position.putStrikePrice;
-        expectedProviderGain = position.putLockedCash * lpPart / putRange;
-        expectedUserWithdrawable = position.putLockedCash - expectedProviderGain;
+        uint lpPart = position.startPrice - finalPrice;
+        uint putRange = position.startPrice - position.putStrikePrice;
+        expectedProviderGain = position.takerLocked * lpPart / putRange;
+        expectedUserWithdrawable = position.takerLocked - expectedProviderGain;
     }
 
     function calculatePriceUpValues(CollarTakerNFT.TakerPosition memory position, uint finalPrice)
@@ -90,11 +90,11 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         pure
         returns (uint expectedUserWithdrawable, uint expectedProviderWithdrawable)
     {
-        uint userPart = finalPrice - position.initialPrice;
-        uint callRange = position.callStrikePrice - position.initialPrice;
-        uint userGain = position.callLockedCash * userPart / callRange;
-        expectedUserWithdrawable = position.putLockedCash + userGain;
-        expectedProviderWithdrawable = position.callLockedCash - userGain;
+        uint userPart = finalPrice - position.startPrice;
+        uint callRange = position.callStrikePrice - position.startPrice;
+        uint userGain = position.providerLocked * userPart / callRange;
+        expectedUserWithdrawable = position.takerLocked + userGain;
+        expectedProviderWithdrawable = position.providerLocked - userGain;
     }
 
     function checkPriceUnderPutStrikeValues(
@@ -116,7 +116,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         assertEq(userWithdrawnAmount, 0);
         assertEq(userBalanceAfter, userCashBalanceBeforeSettle);
 
-        uint expectedProviderWithdrawal = position.putLockedCash + position.callLockedCash;
+        uint expectedProviderWithdrawal = position.takerLocked + position.providerLocked;
         assertEq(providerWithdrawnAmount, expectedProviderWithdrawal);
         assertEq(providerBalanceAfter, providerCashBalanceBeforeSettle + expectedProviderWithdrawal);
     }
@@ -140,10 +140,10 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         // and the provider gets the rest based on how close the price is to the put strike
         assertEq(userWithdrawnAmount, expectedUserWithdrawable);
         assertEq(userBalanceAfter, userCashBalanceBeforeSettle + expectedUserWithdrawable);
-        assertEq(providerWithdrawnAmount, expectedProviderGain + position.callLockedCash);
+        assertEq(providerWithdrawnAmount, expectedProviderGain + position.providerLocked);
         assertEq(
             providerBalanceAfter,
-            providerCashBalanceBeforeSettle + expectedProviderGain + position.callLockedCash
+            providerCashBalanceBeforeSettle + expectedProviderGain + position.providerLocked
         );
     }
 
@@ -162,7 +162,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
 
         // When price is up past call strike, the user receives all locked cash
         // and the provider receives nothing
-        uint expectedUserWithdrawal = position.putLockedCash + position.callLockedCash;
+        uint expectedUserWithdrawal = position.takerLocked + position.providerLocked;
         assertEq(userWithdrawnAmount, expectedUserWithdrawal);
         assertEq(userBalanceAfter, userCashBalanceBeforeSettle + expectedUserWithdrawal);
 
@@ -227,35 +227,35 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
     }
 
     function _setupOffers(uint amountPerOffer) internal {
-        uint[] memory callStrikeDeviations = new uint[](4);
-        callStrikeDeviations[0] = 11_000; // 110%
-        callStrikeDeviations[1] = 11_500; // 115%
-        callStrikeDeviations[2] = 12_000; // 120%
-        callStrikeDeviations[3] = 13_000; // 130%
+        uint[] memory callStrikePercents = new uint[](4);
+        callStrikePercents[0] = 11_000; // 110%
+        callStrikePercents[1] = 11_500; // 115%
+        callStrikePercents[2] = 12_000; // 120%
+        callStrikePercents[3] = 13_000; // 130%
 
         startHoax(provider);
         pair.cashAsset.forceApprove(address(pair.providerNFT), amountPerOffer * 4);
 
-        for (uint i = 0; i < callStrikeDeviations.length; i++) {
-            pair.providerNFT.createOffer(callStrikeDeviations[i], amountPerOffer, offerLTV, positionDuration);
+        for (uint i = 0; i < callStrikePercents.length; i++) {
+            pair.providerNFT.createOffer(callStrikePercents[i], amountPerOffer, offerLTV, positionDuration);
         }
 
         vm.stopPrank();
     }
 
     function _validateOfferSetup(uint amountPerOffer) internal view {
-        uint[] memory callStrikeDeviations = new uint[](4);
-        callStrikeDeviations[0] = 11_000; // 110%
-        callStrikeDeviations[1] = 11_500; // 115%
-        callStrikeDeviations[2] = 12_000; // 120%
-        callStrikeDeviations[3] = 13_000; // 130%
+        uint[] memory callStrikePercents = new uint[](4);
+        callStrikePercents[0] = 11_000; // 110%
+        callStrikePercents[1] = 11_500; // 115%
+        callStrikePercents[2] = 12_000; // 120%
+        callStrikePercents[3] = 13_000; // 130%
 
-        for (uint i = 0; i < callStrikeDeviations.length; i++) {
-            ShortProviderNFT.LiquidityOffer memory offer = pair.providerNFT.getOffer(1 + i); // starts from 1
+        for (uint i = 0; i < callStrikePercents.length; i++) {
+            CollarProviderNFT.LiquidityOffer memory offer = pair.providerNFT.getOffer(1 + i); // starts from 1
             assertEq(offer.provider, provider);
             assertEq(offer.available, amountPerOffer);
-            assertEq(offer.putStrikeDeviation, offerLTV);
-            assertEq(offer.callStrikeDeviation, callStrikeDeviations[i]);
+            assertEq(offer.putStrikePercent, offerLTV);
+            assertEq(offer.callStrikePercent, callStrikePercents[i]);
             assertEq(offer.duration, positionDuration);
         }
     }

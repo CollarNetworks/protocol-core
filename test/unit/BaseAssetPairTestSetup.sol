@@ -10,17 +10,17 @@ import { MockOracleUniV3TWAP } from "../utils/MockOracleUniV3TWAP.sol";
 import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 import { ConfigHub } from "../../src/ConfigHub.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
-import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
+import { CollarProviderNFT } from "../../src/CollarProviderNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
 contract BaseAssetPairTestSetup is Test {
     TestERC20 cashAsset;
-    TestERC20 collateralAsset;
+    TestERC20 underlying;
     ConfigHub configHub;
     MockOracleUniV3TWAP mockOracle;
     CollarTakerNFT takerNFT;
-    ShortProviderNFT providerNFT;
-    ShortProviderNFT providerNFT2;
+    CollarProviderNFT providerNFT;
+    CollarProviderNFT providerNFT2;
     Rolls rolls;
 
     address owner = makeAddr("owner");
@@ -34,13 +34,13 @@ contract BaseAssetPairTestSetup is Test {
 
     uint ltv = 9000;
     uint duration = 300;
-    uint callStrikeDeviation = 12_000;
+    uint callStrikePercent = 12_000;
     uint protocolFeeAPR = 100;
 
-    uint collateralAmount = 1 ether;
+    uint underlyingAmount = 1 ether;
     uint largeAmount = 100_000 ether;
     uint twapPrice = 1000 ether;
-    uint swapCashAmount = (collateralAmount * twapPrice / 1e18);
+    uint swapCashAmount = (underlyingAmount * twapPrice / 1e18);
 
     int rollFee = 1 ether;
 
@@ -53,28 +53,28 @@ contract BaseAssetPairTestSetup is Test {
 
     function deployContracts() internal {
         cashAsset = new TestERC20("TestCash", "TestCash");
-        collateralAsset = new TestERC20("TestCollat", "TestCollat");
+        underlying = new TestERC20("TestCollat", "TestCollat");
         vm.label(address(cashAsset), "TestCash");
-        vm.label(address(collateralAsset), "TestCollat");
+        vm.label(address(underlying), "TestCollat");
 
         configHub = new ConfigHub(owner);
         vm.label(address(configHub), "ConfigHub");
 
         // asset pair contracts
-        mockOracle = new MockOracleUniV3TWAP(address(collateralAsset), address(cashAsset));
+        mockOracle = new MockOracleUniV3TWAP(address(underlying), address(cashAsset));
         takerNFT = new CollarTakerNFT(
-            owner, configHub, cashAsset, collateralAsset, mockOracle, "CollarTakerNFT", "TKRNFT"
+            owner, configHub, cashAsset, underlying, mockOracle, "CollarTakerNFT", "TKRNFT"
         );
-        providerNFT = new ShortProviderNFT(
-            owner, configHub, cashAsset, collateralAsset, address(takerNFT), "ProviderNFT", "PRVNFT"
+        providerNFT = new CollarProviderNFT(
+            owner, configHub, cashAsset, underlying, address(takerNFT), "ProviderNFT", "PRVNFT"
         );
         // this is to avoid having the paired IDs being equal
-        providerNFT2 = new ShortProviderNFT(
-            owner, configHub, cashAsset, collateralAsset, address(takerNFT), "ProviderNFT-2", "PRVNFT-2"
+        providerNFT2 = new CollarProviderNFT(
+            owner, configHub, cashAsset, underlying, address(takerNFT), "ProviderNFT-2", "PRVNFT-2"
         );
         vm.label(address(mockOracle), "MockOracleUniV3TWAP");
         vm.label(address(takerNFT), "CollarTakerNFT");
-        vm.label(address(providerNFT), "ShortProviderNFT");
+        vm.label(address(providerNFT), "CollarProviderNFT");
 
         // asset pair periphery
         rolls = new Rolls(owner, takerNFT);
@@ -86,7 +86,7 @@ contract BaseAssetPairTestSetup is Test {
 
         // assets
         configHub.setCashAssetSupport(address(cashAsset), true);
-        configHub.setCollateralAssetSupport(address(collateralAsset), true);
+        configHub.setUnderlyingSupport(address(underlying), true);
         // terms
         configHub.setLTVRange(ltv, ltv);
         configHub.setCollarDurationRange(duration, duration);
@@ -109,10 +109,10 @@ contract BaseAssetPairTestSetup is Test {
     }
 
     function mintAssets() public {
-        collateralAsset.mint(user1, collateralAmount * 10);
+        underlying.mint(user1, underlyingAmount * 10);
         cashAsset.mint(user1, swapCashAmount * 10);
         cashAsset.mint(provider, largeAmount * 10);
-        collateralAsset.mint(supplier, largeAmount * 10);
+        underlying.mint(supplier, largeAmount * 10);
     }
 
     function expectRevertERC721Nonexistent(uint id) internal {

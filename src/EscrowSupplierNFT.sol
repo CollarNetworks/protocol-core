@@ -1,10 +1,4 @@
-// SPDX-License-Identifier: MIT
-
-/*
- * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocolentAsset.xyz>
- * All rights reserved. No warranty, explicit or implicit, provided.
- */
-
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -33,8 +27,8 @@ import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
  * 1. Escrow suppliers must be able to receive ERC-721 tokens to withdraw offers or earnings.
  * 2. The associated Loans contracts are trusted and properly implemented.
  * 3. The ConfigHub contract correctly manages protocol parameters and authorization.
- * 4. Asset (ERC-20) contracts are simple (non rebasing) and do not allow reentrancy.
- *
+ * 4. Asset (ERC-20) contracts are simple (non rebasing), do not allow reentrancy, balance changes from
+ *    transfer arguments.
  * Design Considerations:
  * 1. Uses NFTs to represent escrow positions, allowing for secondary market usage.
  * 2. Implements pausability and asset recovery for emergency situations via BaseNFT.
@@ -290,7 +284,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @notice Switches an escrow to a new escrow.
      * @dev While it is basically startEscrow + endEscrow, calling these methods externally
      * is not possible because startEscrow pulls the escrow amount in and transfers it out,
-     * which is not possible when switching escrows (the loans contract has no collateral for
+     * which is not possible when switching escrows (the loans contract has no underlying for
      * such a transfer at that point). So instead this method is needed to "move" funds internally.
      * @dev Can only be called by the Loans contract that started the original escrow
      * @dev durations can be different (is not problematic within this contract),
@@ -538,7 +532,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     }
 
     function _configHubValidations(uint duration) internal view {
-        require(configHub.isSupportedCollateralAsset(address(asset)), "unsupported asset");
+        require(configHub.isSupportedUnderlying(address(asset)), "unsupported asset");
         require(configHub.isValidCollarDuration(duration), "unsupported duration");
     }
 }

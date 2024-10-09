@@ -46,7 +46,7 @@ abstract contract DeploymentLoader is DeploymentUtils {
         return (ConfigHub(configHubAddress), pairs);
     }
 
-    function getPairByAssets(address cashAsset, address collateralAsset)
+    function getPairByAssets(address cashAsset, address underlying)
         internal
         view
         returns (DeploymentHelper.AssetPairContracts memory pair)
@@ -55,13 +55,13 @@ abstract contract DeploymentLoader is DeploymentUtils {
             for (uint i = 0; i < deployedPairs.length; i++) {
                 if (
                     address(deployedPairs[i].cashAsset) == cashAsset
-                        && address(deployedPairs[i].collateralAsset) == collateralAsset
+                        && address(deployedPairs[i].underlying) == underlying
                 ) {
                     return deployedPairs[i];
                 }
             }
         } else {
-            (, pair) = getByAssetPair(cashAsset, collateralAsset);
+            (, pair) = getByAssetPair(cashAsset, underlying);
         }
     }
 }

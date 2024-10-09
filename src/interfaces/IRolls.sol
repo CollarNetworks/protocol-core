@@ -1,30 +1,24 @@
-// SPDX-License-Identifier: MIT
-
-/*
- * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocolentAsset.xyz>
- * All rights reserved. No warranty, explicit or implicit, provided.
- */
-
+// SPDX-License-Identifier: GPL 2.0
 pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { CollarTakerNFT } from "../CollarTakerNFT.sol";
-import { ShortProviderNFT } from "../ShortProviderNFT.sol";
+import { CollarProviderNFT } from "../CollarProviderNFT.sol";
 
 interface IRolls {
     struct RollOffer {
         // terms
         uint takerId;
-        int rollFeeAmount;
-        int rollFeeDeltaFactorBIPS; // bips change of fee amount for delta (ratio) of price change
-        uint rollFeeReferencePrice;
+        int feeAmount;
+        int feeDeltaFactorBIPS; // bips change of fee amount for delta (ratio) of price change
+        uint feeReferencePrice;
         // provider protection
         uint minPrice;
         uint maxPrice;
         int minToProvider;
         uint deadline;
         // somewhat redundant (since it comes from the taker ID), but safer for cancellations
-        ShortProviderNFT providerNFT;
+        CollarProviderNFT providerNFT;
         uint providerId;
         // state
         address provider;
@@ -35,21 +29,13 @@ interface IRolls {
     event OfferCreated(
         uint indexed takerId,
         address indexed provider,
-        ShortProviderNFT indexed providerNFT,
+        CollarProviderNFT indexed providerNFT,
         uint providerId,
         int rollFeeAmount,
         uint rollId
     );
     event OfferCancelled(uint indexed rollId, uint indexed takerId, address indexed provider);
     event OfferExecuted(
-        uint indexed rollId,
-        uint indexed takerId,
-        ShortProviderNFT indexed providerNFT,
-        uint providerId,
-        int toTaker,
-        int toProvider,
-        int rollFee,
-        uint newTakerId,
-        uint newProviderId
+        uint indexed rollId, int toTaker, int toProvider, int rollFee, uint newTakerId, uint newProviderId
     );
 }

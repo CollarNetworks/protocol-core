@@ -69,7 +69,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         uint newRollId = createRollOffer(newLoanId);
         vm.startPrank(user1);
         cashAsset.approve(address(loans), type(uint).max);
-        collateralAsset.approve(address(loans), escrowFee);
+        underlying.approve(address(loans), escrowFee);
         loans.rollLoan(newLoanId, newRollId, MIN_INT, escrowOfferId);
         // token is burned
         expectRevertERC721Nonexistent(newLoanId);
@@ -84,7 +84,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         uint rollId = createRollOffer(loanId);
 
         vm.startPrank(user1);
-        collateralAsset.approve(address(loans), escrowFee);
+        underlying.approve(address(loans), escrowFee);
         vm.mockCall(
             address(rolls),
             abi.encodeWithSelector(rolls.executeRoll.selector, rollId, 0),
@@ -102,7 +102,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         cashAsset.approve(address(loans), type(uint).max);
 
         // Calculate expected loan change
-        (int loanChangePreview,,) = rolls.calculateTransferAmounts(rollId, twapPrice);
+        (int loanChangePreview,,) = rolls.previewTransferAmounts(rollId, twapPrice);
 
         // this reverts in Rolls
         vm.expectRevert("taker transfer slippage");
@@ -150,7 +150,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         updatePrice(lowPrice);
 
         // Calculate expected loan change
-        (int loanChangePreview,,) = rolls.calculateTransferAmounts(rollId, lowPrice);
+        (int loanChangePreview,,) = rolls.previewTransferAmounts(rollId, lowPrice);
         require(loanChangePreview < 0, "loanChangePreview should be negative for this test");
 
         cashAsset.approve(address(loans), uint(-loanChangePreview) - 1);
@@ -174,7 +174,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
 
         // Allow the keeper to close the loan (but not roll)
         vm.startPrank(user1);
-        loans.setKeeperAllowed(true);
+        loans.setKeeperApproved(true);
 
         // Attempt to roll the loan as the keeper
         vm.startPrank(keeper);
@@ -211,7 +211,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         int largeRepayment = -int(loanAmount + 1);
         vm.mockCall(
             address(rolls),
-            abi.encodeWithSelector(rolls.calculateTransferAmounts.selector, rollId, twapPrice),
+            abi.encodeWithSelector(rolls.previewTransferAmounts.selector, rollId, twapPrice),
             abi.encode(largeRepayment, 0, 0)
         );
         vm.mockCall(
@@ -254,7 +254,7 @@ contract LoansRollsEscrowRevertsTest is LoansRollsRevertsTest {
         vm.startPrank(user1);
         cashAsset.approve(address(loans), escrowFee - 1);
         cashAsset.approve(address(loans), type(uint).max);
-        collateralAsset.approve(address(loans), escrowFee - 1);
+        underlying.approve(address(loans), escrowFee - 1);
         vm.expectRevert("insufficient allowance for escrow fee");
         loans.rollLoan(loanId, rollId, MIN_INT, escrowOfferId);
 
@@ -280,7 +280,7 @@ contract LoansRollsEscrowRevertsTest is LoansRollsRevertsTest {
         vm.startPrank(user1);
         prepareSwapToCashAtTWAPPrice();
         cashAsset.approve(address(loans), type(uint).max);
-        collateralAsset.approve(address(loans), collateralAmount + escrowFee);
+        underlying.approve(address(loans), underlyingAmount + escrowFee);
         vm.expectRevert("duration mismatch");
         loans.rollLoan(loanId, rollId, MIN_INT, escrowOfferId);
 

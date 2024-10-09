@@ -1,14 +1,8 @@
-// SPDX-License-Identifier: MIT
-
-/*
- * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocolentAsset.xyz>
- * All rights reserved. No warranty, explicit or implicit, provided.
- */
-
+// SPDX-License-Identifier: GPL 2.0
 pragma solidity 0.8.22;
 
 interface IConfigHub {
-    event CollateralAssetSupportSet(address indexed collateralAsset, bool indexed enabled);
+    event UnderlyingSupportSet(address indexed underlying, bool indexed enabled);
     event CashAssetSupportSet(address indexed cashAsset, bool indexed enabled);
     event LTVRangeSet(uint indexed minLTV, uint indexed maxLTV);
     event CollarDurationRangeSet(uint indexed minDuration, uint indexed maxDuration);

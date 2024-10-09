@@ -1,10 +1,4 @@
-// SPDX-License-Identifier: MIT
-
-/*
- * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocolentAsset.xyz>
- * All rights reserved. No warranty, explicit or implicit, provided.
- */
-
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.22;
 
 import { Ownable2Step, Ownable } from "@openzeppelin/contracts/access/Ownable2Step.sol";
@@ -17,8 +11,8 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     string public constant VERSION = "0.2.0";
 
     // configuration validation (validate on set)
-    uint public constant MIN_CONFIGURABLE_LTV = BIPS_BASE / 10; // 10%
-    uint public constant MAX_CONFIGURABLE_LTV = BIPS_BASE - 1; // avoid 0 range edge cases
+    uint public constant MIN_CONFIGURABLE_LTV_BIPS = BIPS_BASE / 10; // 10%
+    uint public constant MAX_CONFIGURABLE_LTV_BIPS = BIPS_BASE - 1; // avoid 0 range edge cases
     uint public constant MIN_CONFIGURABLE_DURATION = 300; // 5 minutes
     uint public constant MAX_CONFIGURABLE_DURATION = 5 * 365 days; // 5 years
 
@@ -32,7 +26,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     address public pauseGuardian;
     address public feeRecipient;
 
-    mapping(address collateralAssetAddress => bool isSupported) public isSupportedCollateralAsset;
+    mapping(address unlderlyingAddress => bool isSupported) public isSupportedUnderlying;
     mapping(address cashAssetAddress => bool isSupported) public isSupportedCashAsset;
     /// @notice internal contracts auth, "canOpen" means different things within different contracts.
     /// "closing" already opened is allowed (unless paused).
@@ -56,8 +50,8 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     /// @param min The new minimum LTV
     /// @param max The new maximum LTV
     function setLTVRange(uint min, uint max) external onlyOwner {
-        require(min >= MIN_CONFIGURABLE_LTV, "min too low");
-        require(max <= MAX_CONFIGURABLE_LTV, "max too high");
+        require(min >= MIN_CONFIGURABLE_LTV_BIPS, "min too low");
+        require(max <= MAX_CONFIGURABLE_LTV_BIPS, "max too high");
         require(min <= max, "min > max");
         minLTV = min;
         maxLTV = max;
@@ -76,12 +70,12 @@ contract ConfigHub is Ownable2Step, IConfigHub {
         emit CollarDurationRangeSet(min, max);
     }
 
-    /// @notice Sets whether a particular collateral asset is supported
-    /// @param collateralAsset The address of the collateral asset
+    /// @notice Sets whether a particular underlying asset is supported
+    /// @param underlying The address of the underlying asset
     /// @param enabled Whether the asset is supported
-    function setCollateralAssetSupport(address collateralAsset, bool enabled) external onlyOwner {
-        isSupportedCollateralAsset[collateralAsset] = enabled;
-        emit CollateralAssetSupportSet(collateralAsset, enabled);
+    function setUnderlyingSupport(address underlying, bool enabled) external onlyOwner {
+        isSupportedUnderlying[underlying] = enabled;
+        emit UnderlyingSupportSet(underlying, enabled);
     }
 
     /// @notice Sets whether a particular cash asset is supported

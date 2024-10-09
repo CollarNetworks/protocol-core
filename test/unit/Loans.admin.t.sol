@@ -10,7 +10,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 import { LoansNFT, ILoansNFT } from "../../src/LoansNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
-import { ShortProviderNFT } from "../../src/ShortProviderNFT.sol";
+import { CollarProviderNFT } from "../../src/CollarProviderNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
 import {
@@ -32,7 +32,7 @@ contract LoansAdminTest is LoansTestBase {
         loans.setKeeper(keeper);
 
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
-        loans.setContracts(Rolls(address(0)), ShortProviderNFT(address(0)), EscrowSupplierNFT(address(0)));
+        loans.setContracts(Rolls(address(0)), CollarProviderNFT(address(0)), EscrowSupplierNFT(address(0)));
 
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
         loans.setSwapperAllowed(address(0), true, true);
@@ -56,9 +56,9 @@ contract LoansAdminTest is LoansTestBase {
         assertEq(address(loans.currentEscrowNFT()), address(escrowNFT));
         // check can update
         Rolls newRolls = new Rolls(owner, takerNFT);
-        ShortProviderNFT newProvider =
-            new ShortProviderNFT(owner, configHub, cashAsset, collateralAsset, address(takerNFT), "", "");
-        EscrowSupplierNFT newEscrow = new EscrowSupplierNFT(owner, configHub, collateralAsset, "", "");
+        CollarProviderNFT newProvider =
+            new CollarProviderNFT(owner, configHub, cashAsset, underlying, address(takerNFT), "", "");
+        EscrowSupplierNFT newEscrow = new EscrowSupplierNFT(owner, configHub, underlying, "", "");
         vm.startPrank(owner);
         vm.expectEmit(address(loans));
         emit ILoansNFT.ContractsUpdated(newRolls, newProvider, newEscrow);
@@ -70,7 +70,7 @@ contract LoansAdminTest is LoansTestBase {
 
         // check can unset (set to zero address)
         Rolls unsetRolls = Rolls(address(0));
-        ShortProviderNFT unsetProvider = ShortProviderNFT(address(0));
+        CollarProviderNFT unsetProvider = CollarProviderNFT(address(0));
         EscrowSupplierNFT unsetEscrow = EscrowSupplierNFT(address(0));
         vm.expectEmit(address(loans));
         emit ILoansNFT.ContractsUpdated(unsetRolls, unsetProvider, unsetEscrow);
@@ -134,7 +134,7 @@ contract LoansAdminTest is LoansTestBase {
         loans.openEscrowLoan(0, 0, defaultSwapParams(0), 0, 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.setKeeperAllowed(true);
+        loans.setKeeperApproved(true);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
         loans.closeLoan(loanId, defaultSwapParams(0));
@@ -168,21 +168,20 @@ contract LoansAdminTest is LoansTestBase {
         // Test revert when called by non-owner (tested elsewhere as well)
         vm.startPrank(user1);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user1));
-        loans.setContracts(Rolls(address(0)), ShortProviderNFT(address(0)), EscrowSupplierNFT(address(0)));
+        loans.setContracts(Rolls(address(0)), CollarProviderNFT(address(0)), EscrowSupplierNFT(address(0)));
 
         vm.startPrank(owner);
         // rolls taker match
         CollarTakerNFT invalidTakerNFT = new CollarTakerNFT(
-            owner, configHub, cashAsset, collateralAsset, mockOracle, "InvalidTakerNFT", "INVTKR"
+            owner, configHub, cashAsset, underlying, mockOracle, "InvalidTakerNFT", "INVTKR"
         );
         Rolls invalidTakerRolls = new Rolls(owner, invalidTakerNFT);
         vm.expectRevert("rolls taker mismatch");
         loans.setContracts(invalidTakerRolls, providerNFT, escrowNFT);
 
         // test provider mismatch
-        ShortProviderNFT invalidProvider = new ShortProviderNFT(
-            owner, configHub, cashAsset, collateralAsset, address(invalidTakerNFT), "", ""
-        );
+        CollarProviderNFT invalidProvider =
+            new CollarProviderNFT(owner, configHub, cashAsset, underlying, address(invalidTakerNFT), "", "");
         vm.expectRevert("provider taker mismatch");
         loans.setContracts(rolls, invalidProvider, escrowNFT);
 

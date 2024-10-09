@@ -8,39 +8,39 @@ import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
-import { BaseAssetPairTestSetup, CollarTakerNFT, ShortProviderNFT } from "./BaseAssetPairTestSetup.sol";
+import { BaseAssetPairTestSetup, CollarTakerNFT, CollarProviderNFT } from "./BaseAssetPairTestSetup.sol";
 
 import { Rolls, IRolls } from "../../src/Rolls.sol";
 
 contract RollsTest is BaseAssetPairTestSetup {
-    uint putLocked = swapCashAmount * (BIPS_100PCT - ltv) / BIPS_100PCT; // 100
-    uint callLocked = swapCashAmount * (callStrikeDeviation - BIPS_100PCT) / BIPS_100PCT; // 100
+    uint takerLocked = swapCashAmount * (BIPS_100PCT - ltv) / BIPS_100PCT; // 100
+    uint providerLocked = swapCashAmount * (callStrikePercent - BIPS_100PCT) / BIPS_100PCT; // 100
 
     // roll offer params
-    int rollFeeAmount = 1 ether;
-    int rollFeeDeltaFactorBIPS = 5000; // 50%
+    int feeAmount = 1 ether;
+    int feeDeltaFactorBIPS = 5000; // 50%
     uint minPrice = twapPrice * 9 / 10;
     uint maxPrice = twapPrice * 11 / 10;
-    int minToProvider = -int(callLocked) / 2;
+    int minToProvider = -int(providerLocked) / 2;
     uint deadline = block.timestamp + 1 days;
 
     function createProviderOffers() internal returns (uint offerId, uint offerId2) {
         startHoax(provider);
         cashAsset.approve(address(providerNFT), largeAmount);
-        offerId = providerNFT.createOffer(callStrikeDeviation, largeAmount, ltv, duration);
+        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration);
         // another provider NFT
         cashAsset.approve(address(providerNFT2), largeAmount);
-        offerId2 = providerNFT2.createOffer(callStrikeDeviation, largeAmount, ltv, duration);
+        offerId2 = providerNFT2.createOffer(callStrikePercent, largeAmount, ltv, duration);
     }
 
     function createTakerPositions() internal returns (uint takerId, uint providerId) {
         (uint offerId, uint offerId2) = createProviderOffers();
         startHoax(user1);
-        cashAsset.approve(address(takerNFT), 2 * putLocked);
+        cashAsset.approve(address(takerNFT), 2 * takerLocked);
         // open "second" position first, such that the taker ID is incremented
-        takerNFT.openPairedPosition(putLocked, providerNFT2, offerId2);
+        takerNFT.openPairedPosition(takerLocked, providerNFT2, offerId2);
         // now open the position to be used in tests
-        (takerId, providerId) = takerNFT.openPairedPosition(putLocked, providerNFT, offerId);
+        (takerId, providerId) = takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
     }
 
     function createAndCheckRollOffer()
@@ -56,9 +56,9 @@ contract RollsTest is BaseAssetPairTestSetup {
 
         uint nextRollId = rolls.nextRollId();
         vm.expectEmit(address(rolls));
-        emit IRolls.OfferCreated(takerId, provider, providerNFT, providerId, rollFeeAmount, nextRollId);
+        emit IRolls.OfferCreated(takerId, provider, providerNFT, providerId, feeAmount, nextRollId);
         rollId = rolls.createRollOffer(
-            takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
+            takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
         );
 
         // return values
@@ -67,9 +67,9 @@ contract RollsTest is BaseAssetPairTestSetup {
         // state
         offer = rolls.getRollOffer(rollId);
         assertEq(offer.takerId, takerId);
-        assertEq(offer.rollFeeAmount, rollFeeAmount);
-        assertEq(offer.rollFeeDeltaFactorBIPS, rollFeeDeltaFactorBIPS);
-        assertEq(offer.rollFeeReferencePrice, twapPrice);
+        assertEq(offer.feeAmount, feeAmount);
+        assertEq(offer.feeDeltaFactorBIPS, feeDeltaFactorBIPS);
+        assertEq(offer.feeReferencePrice, twapPrice);
         assertEq(offer.minPrice, minPrice);
         assertEq(offer.maxPrice, maxPrice);
         assertEq(offer.minToProvider, minToProvider);
@@ -84,8 +84,8 @@ contract RollsTest is BaseAssetPairTestSetup {
 
     // avoiding stack too deep errors
     struct ExpectedRoll {
-        uint newPutLocked;
-        uint newCallLocked;
+        uint newTakerLocked;
+        uint newProviderLocked;
         int toTaker;
         int toProvider;
         int rollFee;
@@ -105,22 +105,22 @@ contract RollsTest is BaseAssetPairTestSetup {
         // taker position
         CollarTakerNFT.TakerPosition memory oldTakerPos = takerNFT.getPosition(takerId);
         // _newLockedAmounts
-        expected.newPutLocked = putLocked * newPrice / twapPrice;
-        expected.newCallLocked =
-            expected.newPutLocked * (callStrikeDeviation - BIPS_100PCT) / (BIPS_100PCT - ltv);
+        expected.newTakerLocked = takerLocked * newPrice / twapPrice;
+        expected.newProviderLocked =
+            expected.newTakerLocked * (callStrikePercent - BIPS_100PCT) / (BIPS_100PCT - ltv);
         // check against taker NFT calc
         assertEq(
-            expected.newCallLocked,
-            takerNFT.calculateProviderLocked(expected.newPutLocked, ltv, callStrikeDeviation)
+            expected.newProviderLocked,
+            takerNFT.calculateProviderLocked(expected.newTakerLocked, ltv, callStrikePercent)
         );
         // protocol fee
-        (expected.toProtocol,) = providerNFT.protocolFee(expected.newCallLocked, duration);
+        (expected.toProtocol,) = providerNFT.protocolFee(expected.newProviderLocked, duration);
         // _calculateTransferAmounts
         (uint takerSettled, int providerChange) = takerNFT.previewSettlement(takerId, newPrice);
-        int providerSettled = int(oldTakerPos.callLockedCash) + providerChange;
-        expected.toTaker = int(takerSettled) - int(expected.newPutLocked) - rollFee;
+        int providerSettled = int(oldTakerPos.providerLocked) + providerChange;
+        expected.toTaker = int(takerSettled) - int(expected.newTakerLocked) - rollFee;
         expected.toProvider =
-            providerSettled - int(expected.newCallLocked) + rollFee - int(expected.toProtocol);
+            providerSettled - int(expected.newProviderLocked) + rollFee - int(expected.toProtocol);
         return expected; // linter wasn't happy without this
     }
 
@@ -130,7 +130,7 @@ contract RollsTest is BaseAssetPairTestSetup {
     {
         // compare to view
         (int toTakerView, int toProviderView, int rollFeeView) =
-            rolls.calculateTransferAmounts(rollId, newPrice);
+            rolls.previewTransferAmounts(rollId, newPrice);
         assertEq(toTakerView, expected.toTaker);
         assertEq(toProviderView, expected.toProvider);
         assertEq(rollFeeView, expected.rollFee);
@@ -168,15 +168,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         cashAsset.approve(address(rolls), expected.toTaker < 0 ? uint(-expected.toTaker) : 0);
         vm.expectEmit(address(rolls));
         emit IRolls.OfferExecuted(
-            rollId,
-            offer.takerId,
-            offer.providerNFT,
-            offer.providerId,
-            expected.toTaker,
-            expected.toProvider,
-            expected.rollFee,
-            nextTakerId,
-            nextProviderId
+            rollId, expected.toTaker, expected.toProvider, expected.rollFee, nextTakerId, nextProviderId
         );
         int toTaker;
         int toProvider;
@@ -221,20 +213,20 @@ contract RollsTest is BaseAssetPairTestSetup {
         CollarTakerNFT.TakerPosition memory newTakerPos = takerNFT.getPosition(newTakerId);
         assertEq(address(newTakerPos.providerNFT), address(providerNFT));
         assertEq(newTakerPos.providerId, newProviderId);
-        assertEq(newTakerPos.initialPrice, newPrice);
-        assertEq(newTakerPos.putLockedCash, expected.newPutLocked);
-        assertEq(newTakerPos.callLockedCash, expected.newCallLocked);
+        assertEq(newTakerPos.startPrice, newPrice);
+        assertEq(newTakerPos.takerLocked, expected.newTakerLocked);
+        assertEq(newTakerPos.providerLocked, expected.newProviderLocked);
         assertEq(newTakerPos.duration, duration);
         assertEq(newTakerPos.expiration, block.timestamp + duration);
         assertFalse(newTakerPos.settled);
         assertEq(newTakerPos.withdrawable, 0);
 
         // Check new provider position details
-        ShortProviderNFT.ProviderPosition memory newProviderPos = providerNFT.getPosition(newProviderId);
+        CollarProviderNFT.ProviderPosition memory newProviderPos = providerNFT.getPosition(newProviderId);
         assertEq(newProviderPos.expiration, block.timestamp + duration);
-        assertEq(newProviderPos.principal, expected.newCallLocked);
-        assertEq(newProviderPos.putStrikeDeviation, ltv);
-        assertEq(newProviderPos.callStrikeDeviation, callStrikeDeviation);
+        assertEq(newProviderPos.principal, expected.newProviderLocked);
+        assertEq(newProviderPos.putStrikePercent, ltv);
+        assertEq(newProviderPos.callStrikePercent, callStrikePercent);
         assertFalse(newProviderPos.settled);
         assertEq(newProviderPos.withdrawable, 0);
     }
@@ -288,22 +280,22 @@ contract RollsTest is BaseAssetPairTestSetup {
         - start 1000 at price 1000, 100 user locked, 200 provider locked
         - no changes except fee being charged
         */
-        assertEq(expected.newPutLocked, 100 ether);
-        assertEq(expected.newCallLocked, 200 ether);
+        assertEq(expected.newTakerLocked, 100 ether);
+        assertEq(expected.newProviderLocked, 200 ether);
         assertEq(expected.toTaker, -expected.rollFee);
         assertEq(expected.toProvider, expected.rollFee - int(expected.toProtocol));
     }
 
     function test_executeRoll_no_change_no_fee() public {
-        rollFeeAmount = 0;
+        feeAmount = 0;
         ExpectedRoll memory expected = checkExecuteRollForPriceChange(twapPrice);
 
         /* check specific amounts
         - start 1000 at price 1000, 100 user locked, 200 provider locked
         - no changes except fee being charged
         */
-        assertEq(expected.newPutLocked, 100 ether);
-        assertEq(expected.newCallLocked, 200 ether);
+        assertEq(expected.newTakerLocked, 100 ether);
+        assertEq(expected.newProviderLocked, 200 ether);
         assertEq(expected.toTaker, 0);
         assertEq(expected.toProvider, -int(expected.toProtocol));
     }
@@ -320,8 +312,8 @@ contract RollsTest is BaseAssetPairTestSetup {
         - toTaker = 150 - 105 = 45
         - toProvider = 150 - 210 = -60
         */
-        assertEq(expected.newPutLocked, 105 ether);
-        assertEq(expected.newCallLocked, 210 ether);
+        assertEq(expected.newTakerLocked, 105 ether);
+        assertEq(expected.newProviderLocked, 210 ether);
         assertEq(expected.toTaker, 45 ether - expected.rollFee);
         assertEq(expected.toProvider, -60 ether + expected.rollFee - int(expected.toProtocol));
     }
@@ -338,8 +330,8 @@ contract RollsTest is BaseAssetPairTestSetup {
         - toTaker = 50 - 95 = -45
         - toProvider = 250 - 190 = 60
         */
-        assertEq(expected.newPutLocked, 95 ether);
-        assertEq(expected.newCallLocked, 190 ether);
+        assertEq(expected.newTakerLocked, 95 ether);
+        assertEq(expected.newProviderLocked, 190 ether);
         assertEq(expected.toTaker, -45 ether - expected.rollFee);
         assertEq(expected.toProvider, 60 ether + expected.rollFee - int(expected.toProtocol));
     }
@@ -359,8 +351,8 @@ contract RollsTest is BaseAssetPairTestSetup {
         - toTaker = 300 - 130 = 170
         - toProvider = 0 - 260 = -260
         */
-        assertEq(expected.newPutLocked, 130 ether);
-        assertEq(expected.newCallLocked, 260 ether);
+        assertEq(expected.newTakerLocked, 130 ether);
+        assertEq(expected.newProviderLocked, 260 ether);
         assertEq(expected.toTaker, 170 ether - expected.rollFee);
         assertEq(expected.toProvider, -260 ether + expected.rollFee - int(expected.toProtocol));
     }
@@ -379,8 +371,8 @@ contract RollsTest is BaseAssetPairTestSetup {
         - toTaker = 0 - 80 = -80
         - toProvider = 300 - 160 = 140
         */
-        assertEq(expected.newPutLocked, 80 ether);
-        assertEq(expected.newCallLocked, 160 ether);
+        assertEq(expected.newTakerLocked, 80 ether);
+        assertEq(expected.newProviderLocked, 160 ether);
         assertEq(expected.toTaker, -80 ether - expected.rollFee);
         assertEq(expected.toProvider, 140 ether + expected.rollFee - int(expected.toProtocol));
     }
@@ -389,7 +381,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         (,, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
 
         // No price change
-        assertEq(rolls.calculateRollFee(offer, twapPrice), rollFeeAmount, "no price change");
+        assertEq(rolls.calculateRollFee(offer, twapPrice), feeAmount, "no price change");
 
         // Price increase, positive fee, positive delta factor
         uint newPrice = twapPrice * 110 / 100; // 10% increase
@@ -397,65 +389,65 @@ contract RollsTest is BaseAssetPairTestSetup {
         assertEq(rolls.calculateRollFee(offer, newPrice), 1.05 ether, "f+ p+ d+");
 
         // Price increase, positive fee, negative delta factor
-        offer.rollFeeAmount = 1 ether;
-        offer.rollFeeDeltaFactorBIPS = -5000; // -50%
+        offer.feeAmount = 1 ether;
+        offer.feeDeltaFactorBIPS = -5000; // -50%
         newPrice = twapPrice * 110 / 100;
         // Expected: 1 ether - (1 ether * 50% * 10%) = 0.95 ether
         assertEq(rolls.calculateRollFee(offer, newPrice), 0.95 ether, "f+ p+ d-");
 
         // Price decrease, positive fee, negative delta factor
         newPrice = twapPrice * 90 / 100; // 10% decrease
-        offer.rollFeeDeltaFactorBIPS = -5000;
+        offer.feeDeltaFactorBIPS = -5000;
         // Expected: 1 ether + (1 ether * 50% * 10%) = 1.05 ether
         assertEq(rolls.calculateRollFee(offer, newPrice), 1.05 ether, "f+ p- d-");
 
         // Price decrease, positive fee, positive delta factor
         newPrice = twapPrice * 90 / 100; // 10% decrease
-        offer.rollFeeDeltaFactorBIPS = 5000;
+        offer.feeDeltaFactorBIPS = 5000;
         // Expected: 1 ether - (1 ether * 50% * 10%) = 0.95 ether
         assertEq(rolls.calculateRollFee(offer, newPrice), 0.95 ether, "f+ p- d+");
 
         // Price increase, negative fee, positive delta factor
-        offer.rollFeeAmount = -1 ether;
+        offer.feeAmount = -1 ether;
         newPrice = twapPrice * 110 / 100;
         // Expected: -1 ether + (1 ether * 50% * 10%) = -0.95 ether
         assertEq(rolls.calculateRollFee(offer, newPrice), -0.95 ether, "f- p+ d+");
 
         // Price increase, negative fee, positive delta factor
-        offer.rollFeeAmount = -1 ether;
+        offer.feeAmount = -1 ether;
         newPrice = twapPrice * 110 / 100;
-        offer.rollFeeDeltaFactorBIPS = -5000;
+        offer.feeDeltaFactorBIPS = -5000;
         // Expected: -1 ether - (1 ether * 50% * 10%) = -1.05 ether
         assertEq(rolls.calculateRollFee(offer, newPrice), -1.05 ether, "f- p+ d-");
 
         // Price decrease, negative fee, negative delta factor
-        offer.rollFeeAmount = -1 ether;
+        offer.feeAmount = -1 ether;
         newPrice = twapPrice * 90 / 100; // 10% decrease
-        offer.rollFeeDeltaFactorBIPS = 5000;
+        offer.feeDeltaFactorBIPS = 5000;
         // Expected: -1 ether - (1 ether * 50% * 10%) = -1.05 ether
         assertEq(rolls.calculateRollFee(offer, newPrice), -1.05 ether, "f- p- d+");
 
         // Price decrease, negative fee, negative delta factor
-        offer.rollFeeAmount = -1 ether;
+        offer.feeAmount = -1 ether;
         newPrice = twapPrice * 90 / 100; // 10% decrease
-        offer.rollFeeDeltaFactorBIPS = -5000;
+        offer.feeDeltaFactorBIPS = -5000;
         // Expected: -1 ether + (1 ether * 50% * 10%) = -0.95 ether
         assertEq(rolls.calculateRollFee(offer, newPrice), -0.95 ether, "f- p- d-");
 
         // Large price change (100% increase)
-        offer.rollFeeAmount = 1 ether;
+        offer.feeAmount = 1 ether;
         newPrice = twapPrice * 200 / 100;
-        offer.rollFeeDeltaFactorBIPS = 5000; // 50%
+        offer.feeDeltaFactorBIPS = 5000; // 50%
         // Expected: 1 ether + (1 ether * 50% * 100%) = 1.5 ether
         assertEq(rolls.calculateRollFee(offer, newPrice), 1.5 ether, "+100%");
 
         // Zero fee
-        offer.rollFeeAmount = 0;
+        offer.feeAmount = 0;
         assertEq(rolls.calculateRollFee(offer, twapPrice * 150 / 100), 0, "0 fee");
 
         // Test case 9: Zero delta factor
-        offer.rollFeeAmount = 1 ether;
-        offer.rollFeeDeltaFactorBIPS = 0;
+        offer.feeAmount = 1 ether;
+        offer.feeDeltaFactorBIPS = 0;
         assertEq(rolls.calculateRollFee(offer, twapPrice * 150 / 100), 1 ether, "0 delta");
     }
 
@@ -468,24 +460,24 @@ contract RollsTest is BaseAssetPairTestSetup {
         assertEq(rolls.calculateRollFee(offer, twapPrice * 2), 1.5 ether, "+100%");
 
         // Edge cases for fee amounts
-        offer.rollFeeAmount = type(int).min;
+        offer.feeAmount = type(int).min;
         vm.expectRevert(); // SafeCastOverflowedUintToInt
         rolls.calculateRollFee(offer, twapPrice * 110 / 100);
 
-        offer.rollFeeAmount = type(int).max;
+        offer.feeAmount = type(int).max;
         vm.expectRevert(); // SafeCastOverflowedUintToInt
         rolls.calculateRollFee(offer, twapPrice * 110 / 100);
 
         // Edge cases for delta factors
-        offer.rollFeeAmount = 1 ether;
-        offer.rollFeeDeltaFactorBIPS = 10_000; // 100%
+        offer.feeAmount = 1 ether;
+        offer.feeDeltaFactorBIPS = 10_000; // 100%
         assertEq(rolls.calculateRollFee(offer, 0), 0, "full delta factor no fee");
 
-        offer.rollFeeDeltaFactorBIPS = 10_000; // 100%
+        offer.feeDeltaFactorBIPS = 10_000; // 100%
         assertEq(rolls.calculateRollFee(offer, twapPrice * 110 / 100), 1.1 ether, "linear fee");
 
         // Precision check
-        offer.rollFeeDeltaFactorBIPS = 10_000; // 100%
+        offer.feeDeltaFactorBIPS = 10_000; // 100%
         assertGt(rolls.calculateRollFee(offer, 10_001 * twapPrice / 10_000), 1 ether, "tiny price change");
     }
 
@@ -533,22 +525,20 @@ contract RollsTest is BaseAssetPairTestSetup {
 
         // Non-existent taker position
         vm.expectRevert("taker position doesn't exist");
-        rolls.createRollOffer(
-            999, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
-        );
+        rolls.createRollOffer(999, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline);
 
         // expired taker position
         skip(duration + 1);
         vm.expectRevert("taker position expired");
         rolls.createRollOffer(
-            takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
+            takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
         );
 
         // Settled taker position
         takerNFT.settlePairedPosition(takerId);
         vm.expectRevert("taker position settled");
         rolls.createRollOffer(
-            takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
+            takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
         );
 
         // new taker position
@@ -561,33 +551,27 @@ contract RollsTest is BaseAssetPairTestSetup {
         startHoax(user1);
         vm.expectRevert("not provider ID owner");
         rolls.createRollOffer(
-            takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
+            takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
         );
 
         // Invalid price bounds
         startHoax(provider);
         vm.expectRevert("max price lower than min price");
         rolls.createRollOffer(
-            takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, maxPrice, minPrice, minToProvider, deadline
+            takerId, feeAmount, feeDeltaFactorBIPS, maxPrice, minPrice, minToProvider, deadline
         );
 
         // Invalid fee delta change
         vm.expectRevert("invalid fee delta change");
-        rolls.createRollOffer(takerId, rollFeeAmount, 10_001, minPrice, maxPrice, minToProvider, deadline);
+        rolls.createRollOffer(takerId, feeAmount, 10_001, minPrice, maxPrice, minToProvider, deadline);
 
         vm.expectRevert("invalid fee delta change");
-        rolls.createRollOffer(takerId, rollFeeAmount, -10_001, minPrice, maxPrice, minToProvider, deadline);
+        rolls.createRollOffer(takerId, feeAmount, -10_001, minPrice, maxPrice, minToProvider, deadline);
 
         // Deadline in the past
         vm.expectRevert("deadline passed");
         rolls.createRollOffer(
-            takerId,
-            rollFeeAmount,
-            rollFeeDeltaFactorBIPS,
-            minPrice,
-            maxPrice,
-            minToProvider,
-            block.timestamp - 1
+            takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, block.timestamp - 1
         );
 
         // NFT not approved
@@ -598,17 +582,17 @@ contract RollsTest is BaseAssetPairTestSetup {
             )
         );
         rolls.createRollOffer(
-            takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
+            takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
         );
 
         // cannot create twice
         providerNFT.approve(address(rolls), providerId);
         rolls.createRollOffer(
-            takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
+            takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
         );
         vm.expectRevert("not provider ID owner");
         rolls.createRollOffer(
-            takerId, rollFeeAmount, rollFeeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
+            takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
         );
     }
 
@@ -617,12 +601,12 @@ contract RollsTest is BaseAssetPairTestSetup {
 
         // Non-existent offer
         uint nonExistentRollId = rollId + 1;
-        vm.expectRevert("not initial provider");
+        vm.expectRevert("not offer provider");
         rolls.cancelOffer(nonExistentRollId);
 
         // Caller is not the initial provider
         startHoax(user1);
-        vm.expectRevert("not initial provider");
+        vm.expectRevert("not offer provider");
         rolls.cancelOffer(rollId);
 
         // Offer already executed
@@ -666,11 +650,6 @@ contract RollsTest is BaseAssetPairTestSetup {
         vm.expectRevert("taker position expired");
         rolls.executeRoll(rollId, type(int).min);
 
-        // Taker position settled
-        takerNFT.settlePairedPosition(takerId);
-        vm.expectRevert("taker position settled");
-        rolls.executeRoll(rollId, type(int).min);
-
         // new offer
         (takerId, rollId, offer) = createAndCheckRollOffer();
         // Offer already executed
@@ -699,8 +678,12 @@ contract RollsTest is BaseAssetPairTestSetup {
         rolls.executeRoll(rollId, type(int).min);
 
         // Deadline passed
+        deadline = block.timestamp + 1;
+        updatePrice(twapPrice);
+        (, rollId,) = createAndCheckRollOffer();
         skip(deadline + 1);
         updatePrice(twapPrice);
+        startHoax(user1);
         vm.expectRevert("deadline passed");
         rolls.executeRoll(rollId, type(int).min);
     }
@@ -712,7 +695,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         startHoax(user1);
         takerNFT.approve(address(rolls), takerId);
         cashAsset.approve(address(rolls), type(uint).max);
-        (int toTaker,,) = rolls.calculateTransferAmounts(rollId, twapPrice);
+        (int toTaker,,) = rolls.previewTransferAmounts(rollId, twapPrice);
         vm.expectRevert("taker transfer slippage");
         rolls.executeRoll(rollId, toTaker + 1);
 
@@ -746,7 +729,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         cashAsset.approve(address(rolls), 0);
         uint lowPrice = twapPrice * 9 / 10;
         updatePrice(lowPrice);
-        (int toTaker,,) = rolls.calculateTransferAmounts(rollId, lowPrice);
+        (int toTaker,,) = rolls.previewTransferAmounts(rollId, lowPrice);
         vm.expectRevert(
             abi.encodeWithSelector(
                 IERC20Errors.ERC20InsufficientAllowance.selector, address(rolls), 0, uint(-toTaker)
@@ -756,11 +739,14 @@ contract RollsTest is BaseAssetPairTestSetup {
     }
 
     function test_revert_executeRoll_provider_approval() public {
+        // avoid tripping slippage check
+        minToProvider = -int(providerLocked);
         (uint takerId, uint rollId,) = createAndCheckRollOffer();
 
+        // price is higher so that provider will need to pay
         uint highPrice = twapPrice * 11 / 10;
         updatePrice(highPrice);
-        (, int toProvider,) = rolls.calculateTransferAmounts(rollId, highPrice);
+        (, int toProvider,) = rolls.previewTransferAmounts(rollId, highPrice);
 
         // provider revoked approval
         cashAsset.approve(address(rolls), uint(-toProvider) - 1);
@@ -789,8 +775,8 @@ contract RollsTest is BaseAssetPairTestSetup {
         // Mock the cancelPairedPosition function to do nothing
         vm.mockCall(
             address(takerNFT),
-            abi.encodeWithSelector(takerNFT.cancelPairedPosition.selector, takerId, address(rolls)),
-            "" // does nothing
+            abi.encodeCall(takerNFT.cancelPairedPosition, (takerId)),
+            abi.encode(0) // 0 withdrawal
         );
 
         // Attempt to execute the roll

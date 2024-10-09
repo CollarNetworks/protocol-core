@@ -1,22 +1,16 @@
-// SPDX-License-Identifier: MIT
-
-/*
- * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocolentAsset.xyz>
- * All rights reserved. No warranty, explicit or implicit, provided.
- */
-
+// SPDX-License-Identifier: GPL 2.0
 pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ConfigHub } from "../ConfigHub.sol";
 import { CollarTakerNFT } from "../CollarTakerNFT.sol";
-import { ShortProviderNFT } from "../ShortProviderNFT.sol";
+import { CollarProviderNFT } from "../CollarProviderNFT.sol";
 import { Rolls } from "../Rolls.sol";
 import { EscrowSupplierNFT } from "../EscrowSupplierNFT.sol";
 
 interface ILoansNFT {
     struct Loan {
-        uint collateralAmount;
+        uint underlyingAmount;
         uint loanAmount;
         bool usesEscrow;
         EscrowSupplierNFT escrowNFT; // optional, 0 address for non-escrow loans
@@ -24,7 +18,7 @@ interface ILoansNFT {
     }
 
     struct SwapParams {
-        uint minAmountOut; // can be cash or collateral, in correct token units
+        uint minAmountOut; // can be cash or underlying, in correct token units
         address swapper;
         bytes extraData;
     }
@@ -33,8 +27,8 @@ interface ILoansNFT {
     event LoanOpened(
         uint indexed loanId,
         address indexed sender,
-        uint indexed shortOfferId,
-        uint collateralAmount,
+        uint indexed providerOfferId,
+        uint underlyingAmount,
         uint loanAmount
     );
     event LoanClosed(
@@ -43,7 +37,7 @@ interface ILoansNFT {
         address indexed user,
         uint repayment,
         uint cashAmount,
-        uint collateralOut
+        uint underlyingOut
     );
     event LoanRolled(
         address indexed sender,
@@ -55,10 +49,10 @@ interface ILoansNFT {
         int transferAmount
     );
     event LoanCancelled(uint indexed loanId, address indexed sender);
-    event ClosingKeeperAllowed(address indexed sender, bool indexed enabled);
+    event ClosingKeeperApproved(address indexed sender, bool indexed enabled);
     event ClosingKeeperUpdated(address indexed previousKeeper, address indexed newKeeper);
     event ContractsUpdated(
-        Rolls indexed rolls, ShortProviderNFT indexed providerNFT, EscrowSupplierNFT indexed escrowNFT
+        Rolls indexed rolls, CollarProviderNFT indexed providerNFT, EscrowSupplierNFT indexed escrowNFT
     );
     event SwapperSet(address indexed swapper, bool indexed allowed, bool indexed setDefault);
     event EscrowSettled(uint indexed escrowId, uint lateFee, uint toEscrow, uint fromEscrow, uint leftOver);

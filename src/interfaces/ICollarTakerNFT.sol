@@ -1,32 +1,26 @@
-// SPDX-License-Identifier: MIT
-
-/*
- * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocolentAsset.xyz>
- * All rights reserved. No warranty, explicit or implicit, provided.
- */
-
+// SPDX-License-Identifier: GPL 2.0
 pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ConfigHub } from "../ConfigHub.sol";
-import { ShortProviderNFT } from "../ShortProviderNFT.sol";
-import { OracleUniV3TWAP } from "../OracleUniV3TWAP.sol";
+import { CollarProviderNFT } from "../CollarProviderNFT.sol";
+import { ITakerOracle } from "./ITakerOracle.sol";
 
 interface ICollarTakerNFT {
     // @dev Some data can be trimmed down from this struct, since some of the fields aren't needed on-chain,
     // and are stored for FE / usability since the assumption is that this is used on L2.
     struct TakerPosition {
         // paired NFT info
-        ShortProviderNFT providerNFT;
+        CollarProviderNFT providerNFT;
         uint providerId;
         // collar position info
         uint duration;
         uint expiration;
-        uint initialPrice;
+        uint startPrice;
         uint putStrikePrice;
         uint callStrikePrice;
-        uint putLockedCash;
-        uint callLockedCash;
+        uint takerLocked;
+        uint providerLocked;
         // withdrawal state
         bool settled;
         uint withdrawable;
@@ -34,7 +28,7 @@ interface ICollarTakerNFT {
 
     // events
     event CollarTakerNFTCreated(
-        address indexed cashAsset, address indexed collateralAsset, address indexed oracle
+        address indexed cashAsset, address indexed underlying, address indexed oracle
     );
     event PairedPositionOpened(
         uint indexed takerId,
@@ -56,10 +50,9 @@ interface ICollarTakerNFT {
         uint indexed takerId,
         address indexed providerNFT,
         uint indexed providerId,
-        address recipient,
         uint withdrawn,
         uint expiration
     );
-    event WithdrawalFromSettled(uint indexed takerId, address indexed recipient, uint withdrawn);
-    event OracleSet(OracleUniV3TWAP prevOracle, OracleUniV3TWAP newOracle);
+    event WithdrawalFromSettled(uint indexed takerId, uint withdrawn);
+    event OracleSet(ITakerOracle prevOracle, ITakerOracle newOracle);
 }

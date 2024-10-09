@@ -24,7 +24,7 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
 
     function setUp() public override {
         super.setUp();
-        asset = collateralAsset;
+        asset = underlying;
         escrowNFT = new EscrowSupplierNFT(owner, configHub, asset, "ES Test", "ES Test");
 
         vm.startPrank(owner);

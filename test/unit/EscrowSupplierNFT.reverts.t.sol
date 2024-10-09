@@ -32,7 +32,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
 
         // bad asset
         vm.startPrank(owner);
-        configHub.setCollateralAssetSupport(address(asset), false);
+        configHub.setUnderlyingSupport(address(asset), false);
         vm.startPrank(supplier1);
         vm.expectRevert("unsupported asset");
         escrowNFT.createOffer(largeAmount, duration, interestAPR, gracePeriod, lateFeeAPR);
@@ -70,7 +70,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
 
         // bad asset
         vm.startPrank(owner);
-        configHub.setCollateralAssetSupport(address(asset), false);
+        configHub.setUnderlyingSupport(address(asset), false);
         vm.startPrank(loans);
         vm.expectRevert("unsupported asset");
         escrowNFT.startEscrow(offerId, largeAmount, 1 ether, 1000);
@@ -105,7 +105,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
 
         // bad asset
         vm.startPrank(owner);
-        configHub.setCollateralAssetSupport(address(asset), false);
+        configHub.setUnderlyingSupport(address(asset), false);
         vm.startPrank(loans);
         vm.expectRevert("unsupported asset");
         escrowNFT.switchEscrow(escrowId, newOfferId, 1000, minFee);

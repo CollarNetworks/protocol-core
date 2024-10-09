@@ -1,16 +1,10 @@
-// SPDX-License-Identifier: MIT
-
-/*
- * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocolentAsset.xyz>
- * All rights reserved. No warranty, explicit or implicit, provided.
- */
-
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.22;
 
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import { CollarTakerNFT, ShortProviderNFT, BaseNFT, ConfigHub } from "./CollarTakerNFT.sol";
+import { CollarTakerNFT, CollarProviderNFT, BaseNFT, ConfigHub } from "./CollarTakerNFT.sol";
 import { Rolls } from "./Rolls.sol";
 import { EscrowSupplierNFT, IEscrowSupplierNFT } from "./EscrowSupplierNFT.sol";
 import { ISwapper } from "./interfaces/ISwapper.sol";
@@ -18,21 +12,21 @@ import { ILoansNFT } from "./interfaces/ILoansNFT.sol";
 
 /**
  * @title LoansNFT
- * @dev This contract manages opening, closing, and rolling of collateralized loans via Collar positions,
+ * @dev This contract manages opening, closing, and rolling of loans via Collar positions,
  * with optional escrow support.
  *
  * Main Functionality:
- * 1. Allows users to open loans by providing collateral and borrowing against it, with or without escrow.
- * 2. Handles the swapping of collateral to the cash asset via allowed Swappers (that use dex routers).
+ * 1. Allows users to open loans by providing underlying and borrowing against it, with or without escrow.
+ * 2. Handles the swapping of underlying to the cash asset via allowed Swappers (that use dex routers).
  * 3. Wraps CollarTakerNFT (keeps it in the contract), and mints an NFT with loanId == takerId to the user.
- * 4. Manages loan closure, including repayment and swapping back to collateral.
+ * 4. Manages loan closure, including repayment and swapping back to underlying.
  * 5. Provides keeper functionality for automated loan closure and foreclosure to mitigate price fluctuation risks.
  * 6. Allows rolling (extending) the loan via an owner and user approved Rolls contract.
  * 7. Supports escrow functionality, including opening escrow loans, switching escrows during rolls, and foreclosure.
  *
  * Key Assumptions and Prerequisites:
- * 1. Allowed Swappers and the underlying dex routers / aggregators are trusted and properly implemented.
- * 2. Depends on ConfigHub, CollarTakerNFT, ShortProviderNFT, EscrowSupplierNFT, Rolls, and their
+ * 1. Allowed Swappers and the dex routers / aggregators they use are trusted and properly implemented.
+ * 2. Depends on ConfigHub, CollarTakerNFT, CollarProviderNFT, EscrowSupplierNFT, Rolls, and their
  * dependencies (Oracle).
  * 3. Assets (ERC-20) used are standard compliant (non-rebasing, no transfer fees, no callbacks).
  *
@@ -56,7 +50,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     // ----- IMMUTABLES ----- //
     CollarTakerNFT public immutable takerNFT;
     IERC20 public immutable cashAsset;
-    IERC20 public immutable collateralAsset;
+    IERC20 public immutable underlying;
 
     // ----- STATE VARIABLES ----- //
     /// @notice Stores loan information for each NFT ID
@@ -65,11 +59,11 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     // swap back during loan closing
     address public closingKeeper;
     // callers (users or escrow owners) that allow a keeper for loan closing
-    mapping(address sender => bool enabled) public allowsClosingKeeper;
+    mapping(address sender => bool enabled) public keeperApproved;
     // the currently configured & allowed rolls contract for this takerNFT and cash asset
     Rolls public currentRolls;
     // the currently configured provider contract for opening (may change)
-    ShortProviderNFT public currentProviderNFT;
+    CollarProviderNFT public currentProviderNFT;
     // the currently configured escrow contract for opening (may change)
     EscrowSupplierNFT public currentEscrowNFT;
     // a convenience view to allow querying for a swapper onchain / FE without subgraph
@@ -82,7 +76,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     {
         takerNFT = _takerNFT;
         cashAsset = _takerNFT.cashAsset();
-        collateralAsset = _takerNFT.collateralAsset();
+        underlying = IERC20(_takerNFT.underlying());
         _setConfigHub(_takerNFT.configHub());
     }
 
@@ -115,15 +109,15 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         (uint cashAvailable,) = takerNFT.previewSettlement(_takerId(loanId), oraclePrice);
 
         // oracle price is for 1e18 tokens (regardless of decimals):
-        // oracle-price = collateral-price * 1e18, so price = oracle-price / 1e18,
-        // since collateral = cash / price, we get collateral = cash * 1e18 / oracle-price.
+        // oracle-price = underlying-price * 1e18, so price = oracle-price / 1e18,
+        // since underlying = cash / price, we get underlying = cash * 1e18 / oracle-price.
         // round down is ok since it's against the user (being foreclosed).
         // division by zero is not prevented because because a panic is ok with an invalid price
-        uint collateral = cashAvailable * takerNFT.oracle().BASE_TOKEN_AMOUNT() / oraclePrice;
+        uint underlyingAmount = cashAvailable * takerNFT.oracle().BASE_TOKEN_AMOUNT() / oraclePrice;
 
         Loan memory loan = loans[loanId];
-        // assume all available collateral can be used for fees (escrowNFT will cap between max and min)
-        uint gracePeriod = loan.escrowNFT.cappedGracePeriod(loan.escrowId, collateral);
+        // assume all available underlying can be used for fees (escrowNFT will cap between max and min)
+        uint gracePeriod = loan.escrowNFT.cappedGracePeriod(loan.escrowId, underlyingAmount);
         // always after expiration, also cappedGracePeriod() is at least min-grace-period
         return expiration + gracePeriod;
     }
@@ -133,67 +127,67 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     // ----- User / Keeper methods ----- //
 
     /**
-     * @notice Opens a new loan by providing collateral and borrowing against it
-     *      1. Transfers collateral from the user to this contract
-     *      2. Swaps collateral for cash
+     * @notice Opens a new loan by providing underlying and borrowing against it
+     *      1. Transfers underlying from the user to this contract
+     *      2. Swaps underlying for cash
      *      3. Opens a loan position using the CollarTakerNFT contract
      *      4. Transfers the borrowed amount to the user
      *      5. Transfers the minted NFT to the user
-     * @param collateralAmount The amount of collateral asset to be provided
+     * @param underlyingAmount The amount of underlying asset to be provided
      * @param minLoanAmount The minimum acceptable loan amount (slippage protection)
      * @param swapParams SwapParams struct with:
-     *     - The minimum acceptable amount of cash from the collateral swap (slippage protection)
+     *     - The minimum acceptable amount of cash from the underlying swap (slippage protection)
      *     - an allowed Swapper
      *     - any extraData the swapper needs to use
-     * @param shortOffer The ID of the liquidity offer to use from the provider
+     * @param providerOffer The ID of the liquidity offer to use from the provider
      * @return loanId The ID of the minted NFT representing the loan
-     * @return providerId The ID of the minted ShortProviderNFT paired with this loan
+     * @return providerId The ID of the minted CollarProviderNFT paired with this loan
      * @return loanAmount The actual amount of the loan opened in cash asset
      */
     function openLoan(
-        uint collateralAmount,
+        uint underlyingAmount,
         uint minLoanAmount,
         SwapParams calldata swapParams,
-        uint shortOffer
+        uint providerOffer
     ) public whenNotPaused returns (uint loanId, uint providerId, uint loanAmount) {
-        return _openLoan(collateralAmount, minLoanAmount, swapParams, shortOffer, false, 0);
+        return _openLoan(underlyingAmount, minLoanAmount, swapParams, providerOffer, false, 0);
     }
 
     /**
-     * @notice Opens a new escrow-type loan by providing collateral and borrowing against it
-     *      1. Transfers collateral from the user to this contract
-     *      2. Uses the escrow contract to deposit user's callateral, and take supplier's collateral
-     *      3. Swaps collateral for cash
+     * @notice Opens a new escrow-type loan by providing underlying and borrowing against it
+     *      1. Transfers underlying from the user to this contract
+     *      2. Uses the escrow contract to deposit user's underlying, and take supplier's underlying
+     *      3. Swaps underlying for cash
      *      4. Opens a loan position using the CollarTakerNFT contract
      *      5. Transfers the borrowed amount to the user
      *      6. Transfers the minted NFT to the user
-     * @param collateralAmount The amount of collateral asset to be provided
+     * @param underlyingAmount The amount of underlying asset to be provided
      * @param minLoanAmount The minimum acceptable loan amount (slippage protection)
      * @param swapParams SwapParams struct with:
-     *     - The minimum acceptable amount of cash from the collateral swap (slippage protection)
+     *     - The minimum acceptable amount of cash from the underlying swap (slippage protection)
      *     - an allowed Swapper
      *     - any extraData the swapper needs to use
-     * @param shortOffer The ID of the liquidity offer to use from the provider
+     * @param providerOffer The ID of the liquidity offer to use from the provider
      * @param escrowOffer The ID of the escrow offer to use from the supplier
      * @return loanId The ID of the minted NFT representing the loan
-     * @return providerId The ID of the minted ShortProviderNFT paired with this loan
+     * @return providerId The ID of the minted CollarProviderNFT paired with this loan
      * @return loanAmount The actual amount of the loan opened in cash asset
      */
     function openEscrowLoan(
-        uint collateralAmount,
+        uint underlyingAmount,
         uint minLoanAmount,
         SwapParams calldata swapParams,
-        uint shortOffer,
+        uint providerOffer,
         uint escrowOffer
     ) external whenNotPaused returns (uint loanId, uint providerId, uint loanAmount) {
-        return _openLoan(collateralAmount, minLoanAmount, swapParams, shortOffer, true, escrowOffer);
+        return _openLoan(underlyingAmount, minLoanAmount, swapParams, providerOffer, true, escrowOffer);
     }
 
     /**
-     * @notice Closes an existing loan, repaying the borrowed amount and returning collateral.
-     * If escrow was used, releases it by returning the swapped collateral in exchange for the user's collateral
+     * @notice Closes an existing loan, repaying the borrowed amount and returning underlying.
+     * If escrow was used, releases it by returning the swapped underlying in exchange for the user's underlying
      * handling any late fees.
-     * The amount of collateral returned may be smaller or larger than originally deposited,
+     * The amount of underlying returned may be smaller or larger than originally deposited,
      * depending on the position's settlement result, fees, and the final swap.
      * This method can be called by either the loan's owner (the CollarTakerNFT owner) or by a keeper
      * if the keeper was allowed by the current owner (by calling setKeeperAllowed). Using a keeper
@@ -206,21 +200,21 @@ contract LoansNFT is ILoansNFT, BaseNFT {
      *      1. Transfers the repayment amount from the user to this contract
      *      2. Settles the CollarTakerNFT position
      *      3. Withdraws any available funds from the settled position
-     *      4. Swaps the total cash amount back to collateral asset
+     *      4. Swaps the total cash amount back to underlying asset
      *      5. Releases the escrow if needed
-     *      6. Transfers the collateral back to the user
+     *      6. Transfers the underlying back to the user
      *      7. Burns the NFT
      * @param loanId The ID of the CollarTakerNFT representing the loan to close
      * @param swapParams SwapParams struct with:
-     *     - The minimum acceptable amount of collateral to receive (slippage protection)
+     *     - The minimum acceptable amount of underlying to receive (slippage protection)
      *     - an allowed Swapper
      *     - any extraData the swapper needs to use
-     * @return collateralOut The actual amount of collateral asset returned to the user
+     * @return underlyingOut The actual amount of underlying asset returned to the user
      */
     function closeLoan(uint loanId, SwapParams calldata swapParams)
         external
         whenNotPaused // also checked in _burn (mutations false positive)
-        returns (uint collateralOut)
+        returns (uint underlyingOut)
     {
         /// @dev will also revert on non-existent (unminted / burned) loan ID
         require(_isSenderOrKeeperFor(ownerOf(loanId)), "not NFT owner or allowed keeper");
@@ -230,20 +224,20 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
         uint fromSwap = _closeLoanNoTFOut(loanId, swapParams);
 
-        collateralOut = _conditionalReleaseEscrow(loanId, fromSwap);
+        underlyingOut = _conditionalReleaseEscrow(loanId, fromSwap);
 
-        collateralAsset.safeTransfer(user, collateralOut);
+        underlying.safeTransfer(user, underlyingOut);
     }
 
     /**
      * @notice Rolls an existing loan to a new taker position with updated terms via a Rolls contract.
      * The loan amount is updated according to the funds transferred (excluding the roll-fee), and the
-     * collateral is unchanged.
+     * underlying is unchanged.
      * If the loan uses escrow, the previous escrow is switched for a new escrow, the new fee is pulled
      * from the user, and any refund for the previous escrow fee is sent to the user.
      * @dev The user must have approved this contract prior to calling:
      *      - Cash asset for potential repayment (if needed according for Roll execution)
-     *      - Collateral asset for new escrow fee (if the original loan used escrow)
+     *      - Underlying asset for new escrow fee (if the original loan used escrow)
      * @param loanId The ID of the NFT representing the loan to be rolled
      * @param rollId The ID of the roll offer to be executed
      * @param minToUser The minimum acceptable transfer to user (negative if expecting to pay)
@@ -283,7 +277,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         newLoanId = _newLoanIdCheck(newTakerId);
         // store the new loan data
         loans[newLoanId] = Loan({
-            collateralAmount: prevLoan.collateralAmount,
+            underlyingAmount: prevLoan.underlyingAmount,
             loanAmount: newLoanAmount,
             usesEscrow: prevLoan.usesEscrow,
             escrowNFT: prevLoan.escrowNFT,
@@ -325,7 +319,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
      * is dynamically limited by the position's cash, to minimize late-fee underpayment.
      * @dev Can be called only by the escrow owner or an allowed keeper (if authorized by escrow owner)
      * @param loanId The ID of the loan to foreclose
-     * @param swapParams Swap parameters for cash to collateral conversion
+     * @param swapParams Swap parameters for cash to underlying conversion
      */
     function forecloseLoan(uint loanId, SwapParams calldata swapParams) external whenNotPaused {
         Loan memory loan = loans[loanId];
@@ -367,13 +361,13 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         uint cashAvailable = _settleAndWithdrawTaker(loanId);
 
         // @dev Reentrancy assumption: no user state writes or reads AFTER the swapper call in _swap.
-        uint fromSwap = _swap(cashAsset, collateralAsset, cashAvailable, swapParams);
+        uint fromSwap = _swap(cashAsset, underlying, cashAvailable, swapParams);
 
         // Release escrow, and send any leftovers to user. Their express trigger of balance update
         // (withdrawal) is neglected here due to being anyway in an undesirable state of being foreclosed
         // due to not repaying on time.
         uint toUser = _releaseEscrow(escrowNFT, escrowId, fromSwap);
-        collateralAsset.safeTransfer(user, toUser);
+        underlying.safeTransfer(user, toUser);
 
         emit LoanForeclosed(loanId, escrowId, fromSwap, toUser);
     }
@@ -387,9 +381,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
      * that should be valid when closeLoan is called by the keeper.
      * @param enabled True to allow the keeper, false to disallow
      */
-    function setKeeperAllowed(bool enabled) external whenNotPaused {
-        allowsClosingKeeper[msg.sender] = enabled;
-        emit ClosingKeeperAllowed(msg.sender, enabled);
+    function setKeeperApproved(bool enabled) external whenNotPaused {
+        keeperApproved[msg.sender] = enabled;
+        emit ClosingKeeperApproved(msg.sender, enabled);
     }
 
     // ----- Admin methods ----- //
@@ -404,7 +398,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     /// @notice Sets the dependency contracts to be used for rolling and opening loans
     /// @dev swapper is not set here because multiple swappers can be allowed at a time
     /// @dev only owner
-    function setContracts(Rolls rolls, ShortProviderNFT providerNFT, EscrowSupplierNFT escrowNFT)
+    function setContracts(Rolls rolls, CollarProviderNFT providerNFT, EscrowSupplierNFT escrowNFT)
         external
         onlyOwner
     {
@@ -413,7 +407,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             address(providerNFT) == UNSET || providerNFT.taker() == address(takerNFT),
             "provider taker mismatch"
         );
-        require(address(escrowNFT) == UNSET || escrowNFT.asset() == collateralAsset, "escrow asset mismatch");
+        require(address(escrowNFT) == UNSET || escrowNFT.asset() == underlying, "escrow asset mismatch");
         currentRolls = rolls;
         currentProviderNFT = providerNFT;
         currentEscrowNFT = escrowNFT;
@@ -438,10 +432,10 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
     /// @dev handles both escrow and non-escrow loans
     function _openLoan(
-        uint collateralAmount,
+        uint underlyingAmount,
         uint minLoanAmount,
         SwapParams calldata swapParams,
-        uint shortOffer,
+        uint providerOffer,
         bool usesEscrow,
         uint escrowOffer
     ) internal returns (uint loanId, uint providerId, uint loanAmount) {
@@ -451,21 +445,21 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
         // @dev in additional to this, escrow interest fee may also be pulled in _conditionalOpenEscrow
         // So approval needs to be for this + interest fee
-        collateralAsset.safeTransferFrom(msg.sender, address(this), collateralAmount);
+        underlying.safeTransferFrom(msg.sender, address(this), underlyingAmount);
 
-        // handle optional escrow, must be done first, to use "supplier's" collateral in swap
+        // handle optional escrow, must be done first, to use "supplier's" underlying in swap
         (EscrowSupplierNFT escrowNFT, uint escrowId) =
-            _conditionalOpenEscrow(usesEscrow, collateralAmount, escrowOffer);
+            _conditionalOpenEscrow(usesEscrow, underlyingAmount, escrowOffer);
 
         // @dev Reentrancy assumption: no user state writes or reads BEFORE this call
         uint takerId;
-        (takerId, providerId, loanAmount) = _swapAndMintCollar(collateralAmount, shortOffer, swapParams);
+        (takerId, providerId, loanAmount) = _swapAndMintCollar(underlyingAmount, providerOffer, swapParams);
         require(loanAmount >= minLoanAmount, "loan amount too low");
 
         loanId = _newLoanIdCheck(takerId);
         // store the loan opening data
         loans[loanId] = Loan({
-            collateralAmount: collateralAmount,
+            underlyingAmount: underlyingAmount,
             loanAmount: loanAmount,
             usesEscrow: usesEscrow,
             escrowNFT: escrowNFT, // save the escrow used
@@ -479,48 +473,48 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // transfer the full loan amount on open
         cashAsset.safeTransfer(msg.sender, loanAmount);
 
-        emit LoanOpened(loanId, msg.sender, shortOffer, collateralAmount, loanAmount);
+        emit LoanOpened(loanId, msg.sender, providerOffer, underlyingAmount, loanAmount);
     }
 
-    /// @dev swaps collateral to cash and mints collar position
-    function _swapAndMintCollar(uint collateralAmount, uint offerId, SwapParams calldata swapParams)
+    /// @dev swaps underlying to cash and mints collar position
+    function _swapAndMintCollar(uint underlyingAmount, uint offerId, SwapParams calldata swapParams)
         internal
         returns (uint takerId, uint providerId, uint loanAmount)
     {
         require(configHub.canOpen(address(takerNFT)), "unsupported taker contract");
         // provider contract is valid
         require(address(currentProviderNFT) != UNSET, "provider contract unset");
-        // 0 collateral is later checked to mean non-existing loan, also prevents div-zero
-        require(collateralAmount != 0, "invalid collateral amount");
+        // 0 underlying is later checked to mean non-existing loan, also prevents div-zero
+        require(underlyingAmount != 0, "invalid underlying amount");
 
-        // swap collateral
+        // swap underlying
         // @dev Reentrancy assumption: no user state writes or reads BEFORE the swapper call in _swap.
         // The only state reads before are owner-set state: pause and swapper allowlist.
-        uint cashFromSwap = _swapCollateralWithTwapCheck(collateralAmount, swapParams);
+        uint cashFromSwap = _swapUnderlyingWithTwapCheck(underlyingAmount, swapParams);
 
-        uint putStrikeDeviation = currentProviderNFT.getOffer(offerId).putStrikeDeviation;
+        uint putStrikePercent = currentProviderNFT.getOffer(offerId).putStrikePercent;
 
         // this assumes LTV === put strike price
-        loanAmount = putStrikeDeviation * cashFromSwap / BIPS_BASE;
+        loanAmount = putStrikePercent * cashFromSwap / BIPS_BASE;
         // everything that remains is locked on the put side in the collar position
-        uint putLockedCash = cashFromSwap - loanAmount;
+        uint takerLocked = cashFromSwap - loanAmount;
 
         // approve the taker contract
-        cashAsset.forceApprove(address(takerNFT), putLockedCash);
+        cashAsset.forceApprove(address(takerNFT), takerLocked);
 
         // stores, mints, calls providerNFT and mints there, emits the event
-        (takerId, providerId) = takerNFT.openPairedPosition(putLockedCash, currentProviderNFT, offerId);
+        (takerId, providerId) = takerNFT.openPairedPosition(takerLocked, currentProviderNFT, offerId);
     }
 
-    function _swapCollateralWithTwapCheck(uint collateralAmount, SwapParams calldata swapParams)
+    function _swapUnderlyingWithTwapCheck(uint underlyingAmount, SwapParams calldata swapParams)
         internal
         returns (uint cashFromSwap)
     {
-        cashFromSwap = _swap(collateralAsset, cashAsset, collateralAmount, swapParams);
+        cashFromSwap = _swap(underlying, cashAsset, underlyingAmount, swapParams);
 
         // @dev note that TWAP price is used for payout decision in CollarTakerNFT, and swap price
-        // only affects the putLockedCash passed into it - so does not affect the provider, only the user
-        _checkSwapPrice(cashFromSwap, collateralAmount);
+        // only affects the takerLocked passed into it - so does not affect the provider, only the user
+        _checkSwapPrice(cashFromSwap, underlyingAmount);
     }
 
     /// @dev swap logic with balance and slippage checks
@@ -561,10 +555,10 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
     /// @dev loan closure logic without final transfer
     /// @dev access control (loanId owner ot their keeper) is expected to be checked by caller
-    /// @dev this method DOES NOT transfer the swapped collateral to user
+    /// @dev this method DOES NOT transfer the swapped underlying to user
     function _closeLoanNoTFOut(uint loanId, SwapParams calldata swapParams)
         internal
-        returns (uint collateralOut)
+        returns (uint underlyingOut)
     {
         // @dev user is the NFT owner, since msg.sender can be a keeper
         // If called by keeper, the user must trust it because:
@@ -587,9 +581,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
         // @dev Reentrancy assumption: no user state writes or reads AFTER the swapper call in _swap.
         uint cashAmount = loanAmount + takerWithdrawal;
-        collateralOut = _swap(cashAsset, collateralAsset, cashAmount, swapParams);
+        underlyingOut = _swap(cashAsset, underlying, cashAmount, swapParams);
 
-        emit LoanClosed(loanId, msg.sender, user, loanAmount, cashAmount, collateralOut);
+        emit LoanClosed(loanId, msg.sender, user, loanAmount, cashAmount, underlyingOut);
     }
 
     function _settleAndWithdrawTaker(uint loanId) internal returns (uint withdrawnAmount) {
@@ -604,7 +598,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
         /// @dev this should not be optional, since otherwise there is no point to the entire call
         /// (and the position NFT would be burned already, so would not belong to sender)
-        withdrawnAmount = takerNFT.withdrawFromSettled(takerId, address(this));
+        withdrawnAmount = takerNFT.withdrawFromSettled(takerId);
     }
 
     function _executeRoll(uint loanId, uint rollId, int minToUser)
@@ -623,7 +617,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // get transfer amount and fee from rolls
         int transferPreview;
         (transferPreview,, rollFee) =
-            currentRolls.calculateTransferAmounts(rollId, takerNFT.currentOraclePrice());
+            currentRolls.previewTransferAmounts(rollId, takerNFT.currentOraclePrice());
 
         // pull cash
         if (transferPreview < 0) {
@@ -669,8 +663,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             require(configHub.canOpen(address(escrowNFT)), "unsupported escrow contract");
 
             uint fee = _pullEscrowFee(escrowNFT, escrowOffer, escrowed);
-            // @dev collateralAmount was pulled already before calling this method
-            collateralAsset.forceApprove(address(escrowNFT), escrowed + fee);
+            // @dev underlyingAmount was pulled already before calling this method
+            underlying.forceApprove(address(escrowNFT), escrowed + fee);
             (escrowId,) = escrowNFT.startEscrow({
                 offerId: escrowOffer,
                 escrowed: escrowed,
@@ -692,8 +686,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             // check this escrow is still allowed
             require(configHub.canOpen(address(prevLoan.escrowNFT)), "unsupported escrow contract");
 
-            uint newFee = _pullEscrowFee(prevLoan.escrowNFT, escrowOffer, prevLoan.collateralAmount);
-            collateralAsset.forceApprove(address(prevLoan.escrowNFT), newFee);
+            uint newFee = _pullEscrowFee(prevLoan.escrowNFT, escrowOffer, prevLoan.underlyingAmount);
+            underlying.forceApprove(address(prevLoan.escrowNFT), newFee);
             // rotate escrows
             uint feeRefund;
             (newEscrowId,, feeRefund) = prevLoan.escrowNFT.switchEscrow({
@@ -704,7 +698,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             });
 
             // send potential interest fee refund
-            collateralAsset.safeTransfer(msg.sender, feeRefund);
+            underlying.safeTransfer(msg.sender, feeRefund);
         } else {
             // returns default empty value
         }
@@ -717,20 +711,20 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // calc and pull the interest fee to be paid upfront
         interestFee = escrowNFT.interestFee(escrowOffer, escrowed);
         // explicit approval check here to provide clearer error since fee amount is not provided by user
-        uint allowance = collateralAsset.allowance(msg.sender, address(this));
+        uint allowance = underlying.allowance(msg.sender, address(this));
         require(allowance >= interestFee, "insufficient allowance for escrow fee");
-        collateralAsset.safeTransferFrom(msg.sender, address(this), interestFee);
+        underlying.safeTransferFrom(msg.sender, address(this), interestFee);
     }
 
-    function _conditionalReleaseEscrow(uint loanId, uint fromSwap) internal returns (uint collateralOut) {
+    function _conditionalReleaseEscrow(uint loanId, uint fromSwap) internal returns (uint underlyingOut) {
         Loan memory loan = loans[loanId];
-        // collateral is what's released by escrow, or return the full swap amount if escrow not used
+        // underlying is what's released by escrow, or return the full swap amount if escrow not used
         return loan.usesEscrow ? _releaseEscrow(loan.escrowNFT, loan.escrowId, fromSwap) : fromSwap;
     }
 
     function _releaseEscrow(EscrowSupplierNFT escrowNFT, uint escrowId, uint fromSwap)
         internal
-        returns (uint collateralOut)
+        returns (uint underlyingOut)
     {
         // get late fee owing
         (uint lateFee, uint escrowed) = escrowNFT.lateFees(escrowId);
@@ -741,7 +735,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         uint leftOver = fromSwap - toEscrow;
 
         // release from escrow, this can be smaller than available
-        collateralAsset.forceApprove(address(escrowNFT), toEscrow);
+        underlying.forceApprove(address(escrowNFT), toEscrow);
         // fromEscrow is what escrow returns after deducting any shortfall.
         // (although not problematic, there should not be any interest fee refund here,
         // because this method is called after expiry)
@@ -749,7 +743,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // @dev no balance checks because contract holds no funds, mismatch will cause reverts
 
         // the released and the leftovers to be sent to user. Zero-value-transfer is allowed
-        collateralOut = fromEscrow + leftOver;
+        underlyingOut = fromEscrow + leftOver;
 
         emit EscrowSettled(escrowId, lateFee, toEscrow, fromEscrow, leftOver);
     }
@@ -784,7 +778,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
                 // @dev no balance checks because contract holds no funds, mismatch will cause reverts
 
                 // send potential interest fee refund
-                collateralAsset.safeTransfer(refundRecipient, toUser);
+                underlying.safeTransfer(refundRecipient, toUser);
             }
         }
     }
@@ -795,8 +789,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         bool isSender = msg.sender == authorizedSender; // is the auth target
         bool isKeeper = msg.sender == closingKeeper;
         // our auth target allows the keeper
-        bool keeperAllowed = allowsClosingKeeper[authorizedSender];
-        return isSender || (keeperAllowed && isKeeper);
+        bool _keeperApproved = keeperApproved[authorizedSender];
+        return isSender || (_keeperApproved && isKeeper);
     }
 
     function _newLoanIdCheck(uint takerId) internal view returns (uint loanId) {
@@ -807,7 +801,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // check that the ID is not yet taken. This should not be possible, since takerId should mint
         // new IDs correctly, but can be checked for completeness.
         // @dev non-zero should be ensured when opening loan
-        require(loans[loanId].collateralAmount == 0, "loanId taken");
+        require(loans[loanId].underlyingAmount == 0, "loanId taken");
     }
 
     function _takerId(uint loanId) internal pure returns (uint takerId) {
@@ -824,10 +818,10 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     /// Due to this, price manipulation *should* NOT leak value from provider / protocol.
     /// The caller (user) is protected via a slippage parameter, and SHOULD use it to avoid MEV (if present).
     /// So, this check is just extra precaution and avoidance of extreme edge-cases.
-    function _checkSwapPrice(uint cashFromSwap, uint collateralAmount) internal view {
+    function _checkSwapPrice(uint cashFromSwap, uint underlyingAmount) internal view {
         uint twapPrice = takerNFT.currentOraclePrice();
-        // collateral is checked on open to not be 0
-        uint swapPrice = cashFromSwap * takerNFT.oracle().BASE_TOKEN_AMOUNT() / collateralAmount;
+        // underlying is checked on open to not be 0
+        uint swapPrice = cashFromSwap * takerNFT.oracle().BASE_TOKEN_AMOUNT() / underlyingAmount;
         uint diff = swapPrice > twapPrice ? swapPrice - twapPrice : twapPrice - swapPrice;
         uint deviation = diff * BIPS_BASE / twapPrice;
         require(deviation <= MAX_SWAP_TWAP_DEVIATION_BIPS, "swap and twap price too different");
@@ -840,7 +834,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     {
         // The transfer subtracted the fee, so it needs to be added back. The fee is not part of
         // the loan so that if price hasn't changed, after rolling, the updated
-        // loan amount would still be equivalent to the initial collateral.
+        // loan amount would still be equivalent to the initial underlying.
         // Example: transfer = position-gain - fee = 100 - 1 = 99
         //      So: position-gain = transfer + fee = 99 + 1 = 100
         int loanChange = rollTransferIn + rollFee;

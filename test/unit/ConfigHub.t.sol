@@ -1,17 +1,11 @@
 // SPDX-License-Identifier: MIT
-
-/*
- * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocolentAsset.xyz>
- * All rights reserved. No warranty, explicit or implicit, provided.
- */
-
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { ConfigHub, IConfigHub } from "../../src/ConfigHub.sol";
 import { ICollarTakerNFT } from "../../src/interfaces/ICollarTakerNFT.sol";
-import { IShortProviderNFT } from "../../src/interfaces/IShortProviderNFT.sol";
+import { ICollarProviderNFT } from "../../src/interfaces/ICollarProviderNFT.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract ConfigHubTest is Test {
@@ -42,8 +36,8 @@ contract ConfigHubTest is Test {
         assertEq(configHub.owner(), owner);
         assertEq(configHub.pendingOwner(), address(0));
         assertEq(configHub.VERSION(), "0.2.0");
-        assertEq(configHub.MIN_CONFIGURABLE_LTV(), 1000);
-        assertEq(configHub.MAX_CONFIGURABLE_LTV(), 9999);
+        assertEq(configHub.MIN_CONFIGURABLE_LTV_BIPS(), 1000);
+        assertEq(configHub.MAX_CONFIGURABLE_LTV_BIPS(), 9999);
         assertEq(configHub.MIN_CONFIGURABLE_DURATION(), 300);
         assertEq(configHub.MAX_CONFIGURABLE_DURATION(), 5 * 365 days);
         assertEq(configHub.pauseGuardian(), address(0));
@@ -68,7 +62,7 @@ contract ConfigHubTest is Test {
         configHub.setCollarDurationRange(0, 0);
 
         vm.expectRevert(user1NotAuthorized);
-        configHub.setCollateralAssetSupport(address(0), true);
+        configHub.setUnderlyingSupport(address(0), true);
 
         vm.expectRevert(user1NotAuthorized);
         configHub.setCashAssetSupport(address(0), true);
@@ -113,18 +107,18 @@ contract ConfigHubTest is Test {
         assertFalse(configHub.isSupportedCashAsset(address(token1)));
     }
 
-    function test_addSupportedCollateralAsset() public {
+    function test_addSupportedUnderlying() public {
         startHoax(owner);
-        assertFalse(configHub.isSupportedCollateralAsset(address(token1)));
-        configHub.setCollateralAssetSupport(address(token1), true);
-        assertTrue(configHub.isSupportedCollateralAsset(address(token1)));
+        assertFalse(configHub.isSupportedUnderlying(address(token1)));
+        configHub.setUnderlyingSupport(address(token1), true);
+        assertTrue(configHub.isSupportedUnderlying(address(token1)));
     }
 
-    function test_removeSupportedCollateralAsset() public {
+    function test_removeSupportedUnderlying() public {
         startHoax(owner);
-        configHub.setCollateralAssetSupport(address(token1), true);
-        configHub.setCollateralAssetSupport(address(token1), false);
-        assertFalse(configHub.isSupportedCollateralAsset(address(token1)));
+        configHub.setUnderlyingSupport(address(token1), true);
+        configHub.setUnderlyingSupport(address(token1), false);
+        assertFalse(configHub.isSupportedUnderlying(address(token1)));
     }
 
     function test_isValidDuration() public {

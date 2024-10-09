@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/console.sol";
 
 import { ConfigHub } from "../src/ConfigHub.sol";
-import { ShortProviderNFT } from "../src/ShortProviderNFT.sol";
+import { CollarProviderNFT } from "../src/CollarProviderNFT.sol";
 import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
 import { LoansNFT } from "../src/LoansNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -14,12 +14,12 @@ import { SwapperUniV3 } from "../src/SwapperUniV3.sol";
 
 contract DeploymentHelper {
     struct AssetPairContracts {
-        ShortProviderNFT providerNFT;
+        CollarProviderNFT providerNFT;
         CollarTakerNFT takerNFT;
         LoansNFT loansContract;
         Rolls rollsContract;
         IERC20 cashAsset;
-        IERC20 collateralAsset;
+        IERC20 underlying;
         OracleUniV3TWAP oracle;
         SwapperUniV3 swapperUniV3;
         uint24 oracleFeeTier;
@@ -31,7 +31,7 @@ contract DeploymentHelper {
     struct PairConfig {
         string name;
         IERC20 cashAsset;
-        IERC20 collateralAsset;
+        IERC20 underlying;
         uint[] durations;
         uint[] ltvs;
         uint24 oracleFeeTier;
@@ -49,7 +49,7 @@ contract DeploymentHelper {
         returns (AssetPairContracts memory contracts)
     {
         OracleUniV3TWAP oracle = new OracleUniV3TWAP(
-            address(pairConfig.collateralAsset),
+            address(pairConfig.underlying),
             address(pairConfig.cashAsset),
             pairConfig.oracleFeeTier,
             pairConfig.twapWindow,
@@ -60,16 +60,16 @@ contract DeploymentHelper {
             owner,
             configHub,
             pairConfig.cashAsset,
-            pairConfig.collateralAsset,
+            pairConfig.underlying,
             oracle,
             string(abi.encodePacked("Taker ", pairConfig.name)),
             string(abi.encodePacked("T", pairConfig.name))
         );
-        ShortProviderNFT providerNFT = new ShortProviderNFT(
+        CollarProviderNFT providerNFT = new CollarProviderNFT(
             owner,
             configHub,
             pairConfig.cashAsset,
-            pairConfig.collateralAsset,
+            pairConfig.underlying,
             address(takerNFT),
             string(abi.encodePacked("Provider ", pairConfig.name)),
             string(abi.encodePacked("P", pairConfig.name))
@@ -89,7 +89,7 @@ contract DeploymentHelper {
             loansContract: loansContract,
             rollsContract: rollsContract,
             cashAsset: pairConfig.cashAsset,
-            collateralAsset: pairConfig.collateralAsset,
+            underlying: pairConfig.underlying,
             oracle: oracle,
             swapperUniV3: swapperUniV3,
             oracleFeeTier: pairConfig.oracleFeeTier,
