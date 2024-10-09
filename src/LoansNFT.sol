@@ -726,11 +726,11 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         internal
         returns (uint underlyingOut)
     {
-        // get late fee owing
-        (uint lateFee, uint escrowed) = escrowNFT.lateFees(escrowId);
+        // get owing and late fee
+        (uint owed, uint lateFee) = escrowNFT.owedTo(escrowId);
 
         // if owing more than swapped, use all, otherwise just what's owed
-        uint toEscrow = Math.min(fromSwap, escrowed + lateFee);
+        uint toEscrow = Math.min(fromSwap, owed);
         // if owing less than swapped, left over gains are for the user
         uint leftOver = fromSwap - toEscrow;
 

@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.22;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { SafeERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { BaseNFT, ConfigHub } from "./base/BaseNFT.sol";
@@ -18,36 +17,35 @@ import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
  * 3. Handles starting, ending, and switching of escrow positions.
  * 4. Manages withdrawals of released escrows and last-resort emergency seizures.
  *
- * Role in the Protocol:
- * This contract acts as the interface for escrow suppliers to LoansNFT in the Collar Protocol.
- * It works in tandem with corresponding LoansNFT contracts, which are trusted by this contract
- * to manage the borrower side of escrow positions and enforce late fees.
+ * Difference vs. CollarProviderNFT:
+ * - Asset: Escrow is "supplied" in underlying tokens (e.g., ETH), while "providers"
+ * provide cash (e.g., USDC).
+ * - Risk: "Suppliers" (as opposed to "providers") have no downside, and no exposure to price,
+ * and have fixed / limited upside (interest and late fees).
+ * - Optional: only used for escrow backed loans for specific tax reasons, not for regular loans.
  *
  * Key Assumptions and Prerequisites:
- * 1. Escrow suppliers must be able to receive ERC-721 tokens to withdraw offers or earnings.
+ * 1. Escrow suppliers must be able to receive ERC-721 to use this contract.
  * 2. The associated Loans contracts are trusted and properly implemented.
- * 3. The ConfigHub contract correctly manages protocol parameters and authorization.
- * 4. Asset (ERC-20) contracts are simple (non rebasing), do not allow reentrancy, balance changes from
- *    transfer arguments.
- * Design Considerations:
- * 1. Uses NFTs to represent escrow positions, allowing for secondary market usage.
- * 2. Implements pausability and asset recovery for emergency situations via BaseNFT.
- * 3. Provides a last resort seizure mechanism for extreme scenarios.
+ * 3. ConfigHub contract correctly manages protocol parameters and authorization.
+ * 4. Asset (ERC-20) contracts are simple (non rebasing), do not allow reentrancy. Balance
+ *    changes corresponds to transfer arguments.
  */
 contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
     uint internal constant YEAR = 365 days;
+
     uint public constant MAX_INTEREST_APR_BIPS = BIPS_BASE; // 100% APR
+    uint public constant MAX_LATE_FEE_APR_BIPS = BIPS_BASE * 12; // 1200% APR (100% for a max period of 30 days)
     uint public constant MIN_GRACE_PERIOD = 1 days;
     uint public constant MAX_GRACE_PERIOD = 30 days;
-    uint public constant MAX_LATE_FEE_APR_BIPS = BIPS_BASE * 12; // 1200% APR (100% for a max period of 30 days)
 
     string public constant VERSION = "0.2.0";
 
     // ----- IMMUTABLES ----- //
-    IERC20 public immutable asset;
+    IERC20 public immutable asset; // corresponds to Loans' underlying
 
     // ----- STATE ----- //
     // @dev this is NOT the NFT id, this is a  separate non transferrable ID
@@ -83,29 +81,30 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         return nextTokenId;
     }
 
-    /// @notice Retrieves the details of a specific escrow (corresponds to the NFT token ID)
-    /// @dev This is used instead of the default getter because the default getter returns a tuple
-    function getEscrow(uint escrowId) external view returns (Escrow memory) {
-        return escrows[escrowId];
-    }
-
     /// @notice Retrieves the details of a specific non-transferrable offer.
     /// @dev This is used instead of the default getter because the default getter returns a tuple
     function getOffer(uint offerId) external view returns (Offer memory) {
         return offers[offerId];
     }
 
+    /// @notice Retrieves the details of a specific escrow (corresponds to the NFT token ID)
+    /// @dev This is used instead of the default getter because the default getter returns a tuple
+    function getEscrow(uint escrowId) external view returns (Escrow memory) {
+        return escrows[escrowId];
+    }
+
     /**
-     * @notice Calculates the late fees for an escrow with a min-grace-period "cliff": Overdue
-     * time is counted from expiry, but during the min-grace-period late fees are
-     * returned as 0 (even though are "accumulating").
+     * @notice Returns the late fees for an escrow, and the original escrowed amount.
+     * Uses a MIN_GRACE_PERIOD "cliff": Overdue time is counted from expiry, but during
+     * the MIN_GRACE_PERIOD late fees are returned as 0 (even though are "accumulating" for it).
      * @param escrowId The ID of the escrow to calculate late fees for
-     * @return fee The calculated late fee
-     * @return escrowed The original escrowed amount
+     * @return totalOwed Total owed: escrowed amount + late fee
+     * @return lateFee The calculated late fee
      */
-    function lateFees(uint escrowId) external view returns (uint fee, uint escrowed) {
+    function owedTo(uint escrowId) external view returns (uint totalOwed, uint lateFee) {
         Escrow memory escrow = escrows[escrowId];
-        return (_lateFee(escrow), escrow.escrowed);
+        lateFee = _lateFee(escrow);
+        return (escrow.escrowed + lateFee, lateFee);
     }
 
     /**

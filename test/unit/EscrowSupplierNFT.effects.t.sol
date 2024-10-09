@@ -472,33 +472,38 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
 
         // No late fee during min grace period
         skip(duration + escrowNFT.MIN_GRACE_PERIOD() - 1);
-        (uint lateFee, uint escrowed) = escrowNFT.lateFees(escrowId);
+        (uint owed, uint lateFee) = escrowNFT.owedTo(escrowId);
         assertEq(lateFee, 0);
-        assertEq(escrowed, escrowAmount);
+        assertEq(owed, escrowAmount);
 
         // Late fee after grace period
         skip(1);
-        (lateFee,) = escrowNFT.lateFees(escrowId);
+        (owed, lateFee) = escrowNFT.owedTo(escrowId);
         uint expectedFee = expectedLateFees(escrow);
         assertTrue(expectedFee > 0);
         assertEq(lateFee, expectedFee);
+        assertEq(owed, escrowAmount + expectedFee);
 
         skip(escrow.gracePeriod - escrowNFT.MIN_GRACE_PERIOD()); // we skipped min-grace already
-        (uint cappedLateFee,) = escrowNFT.lateFees(escrowId);
+        uint cappedLateFee;
+        (owed, cappedLateFee) = escrowNFT.owedTo(escrowId);
         expectedFee = expectedLateFees(escrow);
         assertTrue(cappedLateFee > 0);
         assertEq(cappedLateFee, expectedFee);
+        assertEq(owed, escrowAmount + cappedLateFee);
 
         // Late fee capped at grace period
         skip(365 days);
-        (uint feeAfterGracePeriod,) = escrowNFT.lateFees(escrowId);
+        uint feeAfterGracePeriod;
+        (owed, feeAfterGracePeriod) = escrowNFT.owedTo(escrowId);
         assertEq(feeAfterGracePeriod, cappedLateFee);
+        assertEq(owed, escrowAmount + feeAfterGracePeriod);
 
         // APR 0
         lateFeeAPR = 0;
         (escrowId, escrow) = createAndCheckEscrow(supplier1, largeAmount, escrowAmount, fee);
         skip(duration + 365 days);
-        (feeAfterGracePeriod,) = escrowNFT.lateFees(escrowId);
+        (, feeAfterGracePeriod) = escrowNFT.owedTo(escrowId);
         assertEq(feeAfterGracePeriod, 0);
     }
 

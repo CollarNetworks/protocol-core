@@ -261,9 +261,8 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         view
         returns (EscrowReleaseAmounts memory released)
     {
-        uint escrowed;
-        (released.lateFee, escrowed) = escrowNFT.lateFees(escrowId);
-        uint owed = released.lateFee + escrowed;
+        uint owed;
+        (owed, released.lateFee) = escrowNFT.owedTo(escrowId);
         released.toEscrow = swapOut < owed ? swapOut : owed;
         released.leftOver = swapOut - released.toEscrow;
         (, released.fromEscrow,) = escrowNFT.previewRelease(escrowId, released.toEscrow);

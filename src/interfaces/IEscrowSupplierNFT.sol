@@ -16,7 +16,7 @@ interface IEscrowSupplierNFT {
     }
 
     struct Escrow {
-        // reference (for views)
+        // reference
         address loans;
         uint loanId;
         // terms
