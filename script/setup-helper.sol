@@ -11,7 +11,7 @@ import { DeploymentHelper } from "./deployment-helper.sol";
 contract SetupHelper {
     struct HubParams {
         address[] cashAssets;
-        address[] collateralAssets;
+        address[] underlyings;
         uint minLTV;
         uint maxLTV;
         uint minDuration;
@@ -30,8 +30,8 @@ contract SetupHelper {
         for (uint i = 0; i < hubParams.cashAssets.length; i++) {
             configHub.setCashAssetSupport(hubParams.cashAssets[i], true);
         }
-        for (uint i = 0; i < hubParams.collateralAssets.length; i++) {
-            configHub.setCollateralAssetSupport(hubParams.collateralAssets[i], true);
+        for (uint i = 0; i < hubParams.underlyings.length; i++) {
+            configHub.setUnderlyingSupport(hubParams.underlyings[i], true);
         }
         configHub.setLTVRange(hubParams.minLTV, hubParams.maxLTV);
         configHub.setCollarDurationRange(hubParams.minDuration, hubParams.maxDuration);

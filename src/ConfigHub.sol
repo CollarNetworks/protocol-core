@@ -1,31 +1,22 @@
-// SPDX-License-Identifier: MIT
-
-/*
- * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocolentAsset.xyz>
- * All rights reserved. No warranty, explicit or implicit, provided.
- */
-
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.22;
 
 import { Ownable2Step, Ownable } from "@openzeppelin/contracts/access/Ownable2Step.sol";
-// internal imports
+
 import { IConfigHub } from "./interfaces/IConfigHub.sol";
-import { IShortProviderNFT } from "./interfaces/IShortProviderNFT.sol";
-import { ICollarTakerNFT } from "./interfaces/ICollarTakerNFT.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract ConfigHub is Ownable2Step, IConfigHub {
     uint internal constant BIPS_BASE = 10_000;
 
-    // -- public state variables ---
     string public constant VERSION = "0.2.0";
 
     // configuration validation (validate on set)
-    uint public constant MIN_CONFIGURABLE_LTV = 1000;
-    uint public constant MAX_CONFIGURABLE_LTV = 9999;
-    uint public constant MIN_CONFIGURABLE_DURATION = 300;
-    uint public constant MAX_CONFIGURABLE_DURATION = 5 * 365 days;
-    // configured values (set by owner)
+    uint public constant MIN_CONFIGURABLE_LTV_BIPS = BIPS_BASE / 10; // 10%
+    uint public constant MAX_CONFIGURABLE_LTV_BIPS = BIPS_BASE - 1; // avoid 0 range edge cases
+    uint public constant MIN_CONFIGURABLE_DURATION = 300; // 5 minutes
+    uint public constant MAX_CONFIGURABLE_DURATION = 5 * 365 days; // 5 years
+
+    // -- state variables ---
     uint public minLTV;
     uint public maxLTV;
     uint public minDuration;
@@ -35,53 +26,61 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     address public pauseGuardian;
     address public feeRecipient;
 
-    // -- internal state variables ---
-    mapping(address collateralAssetAddress => bool isSupported) public isSupportedCollateralAsset;
+    mapping(address unlderlyingAddress => bool isSupported) public isSupportedUnderlying;
     mapping(address cashAssetAddress => bool isSupported) public isSupportedCashAsset;
+    /// @notice internal contracts auth, "canOpen" means different things within different contracts.
+    /// "closing" already opened is allowed (unless paused).
     mapping(address contractAddress => bool enabled) public canOpen;
 
     constructor(address _initialOwner) Ownable(_initialOwner) { }
 
-    // ----- state-changing functions (see IConfigHub for documentation) -----
+    // ----- Setters (only owner) -----
 
-    // TODO: doc, and use for Loans as well
+    /// @notice set the ability of an internal contract to "open" positions.
+    /// "canOpen" means different things within different contracts, and is used both for auth
+    /// and to allow a "close-only" migration route for contracts that are phased out.
+    /// This is a low resolution flag, and each using contract should validate that
+    /// the contract it is using matches its intention (e.g., assets, interface)
     function setCanOpen(address contractAddress, bool enabled) external onlyOwner {
-        // TODO: check VERSION view to work for validation?
         canOpen[contractAddress] = enabled;
         emit ContractCanOpenSet(contractAddress, enabled);
     }
 
-    // ltv
-
+    /// @notice Sets the LTV minimum and max values for the configHub
+    /// @param min The new minimum LTV
+    /// @param max The new maximum LTV
     function setLTVRange(uint min, uint max) external onlyOwner {
-        require(min >= MIN_CONFIGURABLE_LTV, "min too low");
-        require(max <= MAX_CONFIGURABLE_LTV, "max too high");
+        require(min >= MIN_CONFIGURABLE_LTV_BIPS, "min too low");
+        require(max <= MAX_CONFIGURABLE_LTV_BIPS, "max too high");
         require(min <= max, "min > max");
         minLTV = min;
         maxLTV = max;
         emit LTVRangeSet(min, max);
     }
 
-    // collar durations
-
+    /// @notice Sets the minimum and maximum collar durations for the configHub
+    /// @param min The new minimum collar duration
+    /// @param max The new maximum collar duration
     function setCollarDurationRange(uint min, uint max) external onlyOwner {
-        require(min <= max, "min > max");
         require(min >= MIN_CONFIGURABLE_DURATION, "min too low");
         require(max <= MAX_CONFIGURABLE_DURATION, "max too high");
+        require(min <= max, "min > max");
         minDuration = min;
         maxDuration = max;
         emit CollarDurationRangeSet(min, max);
     }
 
-    // collateral assets
-
-    function setCollateralAssetSupport(address collateralAsset, bool enabled) external onlyOwner {
-        isSupportedCollateralAsset[collateralAsset] = enabled;
-        emit CollateralAssetSupportSet(collateralAsset, enabled);
+    /// @notice Sets whether a particular underlying asset is supported
+    /// @param underlying The address of the underlying asset
+    /// @param enabled Whether the asset is supported
+    function setUnderlyingSupport(address underlying, bool enabled) external onlyOwner {
+        isSupportedUnderlying[underlying] = enabled;
+        emit UnderlyingSupportSet(underlying, enabled);
     }
 
-    // cash assets
-
+    /// @notice Sets whether a particular cash asset is supported
+    /// @param cashAsset The address of the cash asset
+    /// @param enabled Whether the asset is supported
     function setCashAssetSupport(address cashAsset, bool enabled) external onlyOwner {
         isSupportedCashAsset[cashAsset] = enabled;
         emit CashAssetSupportSet(cashAsset, enabled);
@@ -89,6 +88,9 @@ contract ConfigHub is Ownable2Step, IConfigHub {
 
     // pausing
 
+    /// @notice Sets an address that can pause (but not unpause) any of the contracts that
+    /// use this ConfigHub.
+    /// @param newGuardian The address of the new guardian
     function setPauseGuardian(address newGuardian) external onlyOwner {
         emit PauseGuardianSet(pauseGuardian, newGuardian); // emit before for the prev-value
         pauseGuardian = newGuardian;
@@ -96,24 +98,27 @@ contract ConfigHub is Ownable2Step, IConfigHub {
 
     // protocol fee
 
-    function setProtocolFeeParams(uint _apr, address _recipient) external onlyOwner {
-        require(_apr <= BIPS_BASE, "invalid fee");
-        require(_recipient != address(0) || _apr == 0, "must set recipient for non-zero APR");
-        emit ProtocolFeeParamsUpdated(protocolFeeAPR, _apr, feeRecipient, _recipient);
-        protocolFeeAPR = _apr;
-        feeRecipient = _recipient;
+    /// @notice Sets the APR in BIPs, and the address that receive the protocol fee.
+    /// @param apr The APR in BIPs
+    /// @param recipient The recipient address. Can be zero if APR is 0, to allow disabling.
+    function setProtocolFeeParams(uint apr, address recipient) external onlyOwner {
+        require(apr <= BIPS_BASE, "invalid fee"); // 100% max APR
+        require(recipient != address(0) || apr == 0, "must set recipient for non-zero APR");
+        emit ProtocolFeeParamsUpdated(protocolFeeAPR, apr, feeRecipient, recipient);
+        protocolFeeAPR = apr;
+        feeRecipient = recipient;
     }
 
-    // ----- view functions (see IConfigHub for documentation) -----
+    // ----- Views -----
 
-    // collar durations
-
+    /// @notice Checks to see if a particular collar duration is supported
+    /// @param duration The duration to check
     function isValidCollarDuration(uint duration) external view returns (bool) {
         return duration >= minDuration && duration <= maxDuration;
     }
 
-    // ltvs
-
+    /// @notice Checks to see if a particular LTV is supported
+    /// @param ltv The LTV to check
     function isValidLTV(uint ltv) external view returns (bool) {
         return ltv >= minLTV && ltv <= maxLTV;
     }

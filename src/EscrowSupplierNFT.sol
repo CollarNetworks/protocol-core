@@ -1,17 +1,11 @@
-// SPDX-License-Identifier: MIT
-
-/*
- * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocolentAsset.xyz>
- * All rights reserved. No warranty, explicit or implicit, provided.
- */
-
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-// internal
-import { ConfigHub } from "./ConfigHub.sol";
-import { BaseNFT } from "./base/BaseNFT.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+
+import { BaseNFT, ConfigHub } from "./base/BaseNFT.sol";
 import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
 
 /**
@@ -33,17 +27,18 @@ import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
  * 1. Escrow suppliers must be able to receive ERC-721 tokens to withdraw offers or earnings.
  * 2. The associated Loans contracts are trusted and properly implemented.
  * 3. The ConfigHub contract correctly manages protocol parameters and authorization.
- * 4. Asset (ERC-20) contracts are simple (non rebasing) and do not allow reentrancy.
- *
+ * 4. Asset (ERC-20) contracts are simple (non rebasing), do not allow reentrancy, balance changes from
+ *    transfer arguments.
  * Design Considerations:
  * 1. Uses NFTs to represent escrow positions, allowing for secondary market usage.
- * 2. Implements pausability and asset recovery for emergency situations via BaseEmergencyAdminNFT.
+ * 2. Implements pausability and asset recovery for emergency situations via BaseNFT.
  * 3. Provides a last resort seizure mechanism for extreme scenarios.
  */
 contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
+    uint internal constant YEAR = 365 days;
     uint public constant MAX_INTEREST_APR_BIPS = BIPS_BASE; // 100% APR
     uint public constant MIN_GRACE_PERIOD = 1 days;
     uint public constant MAX_GRACE_PERIOD = 30 days;
@@ -109,7 +104,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @return escrowed The original escrowed amount
      */
     function lateFees(uint escrowId) external view returns (uint fee, uint escrowed) {
-        Escrow storage escrow = escrows[escrowId];
+        Escrow memory escrow = escrows[escrowId];
         return (_lateFee(escrow), escrow.escrowed);
     }
 
@@ -123,23 +118,23 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @return gracePeriod The calculated grace period in seconds
      */
     function cappedGracePeriod(uint escrowId, uint lateFee) external view returns (uint gracePeriod) {
-        Escrow storage escrow = escrows[escrowId];
+        Escrow memory escrow = escrows[escrowId];
         // set to max
         gracePeriod = escrow.gracePeriod;
+        // avoid div-zero
         if (escrow.escrowed != 0 && escrow.lateFeeAPR != 0) {
-            // avoid div-zero
             // Calculate the grace period at which the fee will be higher than what's available.
             // Otherwise, late fees will be underpaid.
             // fee = escrowed * time * APR / year / 100bips;
             // time = fee * year * 100bips / escrowed / APR;
             // rounding down, against the user
-            uint valueToTime = lateFee * 365 days * BIPS_BASE / escrow.escrowed / escrow.lateFeeAPR;
+            uint valueToTime = lateFee * YEAR * BIPS_BASE / escrow.escrowed / escrow.lateFeeAPR;
             // reduce from max to valueToTime (what can be paid for using that feeAmount)
-            gracePeriod = _min(valueToTime, gracePeriod);
+            gracePeriod = Math.min(valueToTime, gracePeriod);
         }
         // increase to min if below it (for consistency with late fee being 0 during that period)
         // @dev this means that even if no funds are available, min grace period is available
-        gracePeriod = _max(gracePeriod, MIN_GRACE_PERIOD);
+        gracePeriod = Math.max(gracePeriod, MIN_GRACE_PERIOD);
     }
 
     /**
@@ -148,9 +143,9 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @param escrowed The escrowed amount
      * @return fee The calculated interest fee
      */
-    function interestFee(uint offerId, uint escrowed) public view returns (uint fee) {
-        Offer storage offer = offers[offerId];
-        return _divUp(escrowed * offer.interestAPR * offer.duration, BIPS_BASE * 365 days);
+    function interestFee(uint offerId, uint escrowed) public view returns (uint) {
+        Offer memory offer = offers[offerId];
+        return Math.ceilDiv(escrowed * offer.interestAPR * offer.duration, BIPS_BASE * YEAR);
     }
 
     /**
@@ -167,7 +162,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         view
         returns (uint withdrawal, uint toLoans, uint refund)
     {
-        refund = _refundInterestFee(escrows[escrowId]);
+        refund = _interestFeeRefund(escrows[escrowId]);
         (withdrawal, toLoans) = _releaseCalculations(escrows[escrowId], fromLoans);
     }
 
@@ -289,7 +284,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @notice Switches an escrow to a new escrow.
      * @dev While it is basically startEscrow + endEscrow, calling these methods externally
      * is not possible because startEscrow pulls the escrow amount in and transfers it out,
-     * which is not possible when switching escrows (the loans contract has no collateral for
+     * which is not possible when switching escrows (the loans contract has no underlying for
      * such a transfer at that point). So instead this method is needed to "move" funds internally.
      * @dev Can only be called by the Loans contract that started the original escrow
      * @dev durations can be different (is not problematic within this contract),
@@ -466,7 +461,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
     // ----- INTERNAL VIEWS ----- //
 
-    function _releaseCalculations(Escrow storage escrow, uint fromLoans)
+    function _releaseCalculations(Escrow memory escrow, uint fromLoans)
         internal
         view
         returns (uint withdrawal, uint toLoans)
@@ -477,7 +472,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         // lateFee is non-zero after min-grace-period is over (late close loan / seized escrow)
         uint lateFee = _lateFee(escrow);
         // refund due to early release. If late fee is not 0, this is likely 0 (because is after expiry).
-        uint interestRefund = _refundInterestFee(escrow);
+        uint interestRefund = _interestFeeRefund(escrow);
 
         // everything owed: original escrow + (interest held - interest refund) + late fee
         uint targetWithdrawal = escrow.escrowed + escrow.interestHeld + lateFee - interestRefund;
@@ -486,7 +481,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         uint available = escrow.escrowed + escrow.interestHeld + fromLoans;
 
         // use as much as possible from available up to target
-        withdrawal = _min(available, targetWithdrawal);
+        withdrawal = Math.min(available, targetWithdrawal);
         // refund the rest if anything is left
         toLoans = available - withdrawal;
 
@@ -503,30 +498,31 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
         So while a seizeEscrow() method in this contract *could* call to Loans, the keeper access control +
         the swap parameters + the reduced-grace-period time (by withdrawal), all make it more sensible to
-        be done via Loans directly.
+        be done via Loans directly. The result is that "principal" is always guaranteed by this contract due
+        to always remaining in it, but correct late fees payment depends on Loans implementation.
         */
     }
 
-    function _lateFee(Escrow storage escrow) internal view returns (uint) {
+    function _lateFee(Escrow memory escrow) internal view returns (uint) {
         if (block.timestamp < escrow.expiration + MIN_GRACE_PERIOD) {
             // grace period cliff
             return 0;
         }
         uint overdue = block.timestamp - escrow.expiration; // counts from expiration despite the cliff
         // cap at specified grace period
-        overdue = _min(overdue, escrow.gracePeriod);
+        overdue = Math.min(overdue, escrow.gracePeriod);
         // @dev rounds up to prevent avoiding fee using many small positions
-        return _divUp(escrow.escrowed * escrow.lateFeeAPR * overdue, BIPS_BASE * 365 days);
+        return Math.ceilDiv(escrow.escrowed * escrow.lateFeeAPR * overdue, BIPS_BASE * YEAR);
     }
 
-    function _refundInterestFee(Escrow storage escrow) internal view returns (uint refund) {
+    function _interestFeeRefund(Escrow memory escrow) internal view returns (uint refund) {
         uint duration = escrow.duration;
         // startTime = expiration - duration, elapsed = now - startTime
         uint elapsed = block.timestamp + duration - escrow.expiration;
         // cap to duration
-        elapsed = _min(elapsed, duration);
+        elapsed = Math.min(elapsed, duration);
         // refund is for time remaining, and is rounded down
-        refund = escrow.interestHeld * (duration - elapsed) / duration;
+        refund = escrow.interestHeld * (duration - elapsed) / duration; // no div-zero due to min-duration
 
         /* @dev there is no APR calculation here (APR calc used only on open), only time calculation because:
          1. simpler
@@ -536,7 +532,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     }
 
     function _configHubValidations(uint duration) internal view {
-        require(configHub.isSupportedCollateralAsset(address(asset)), "unsupported asset");
+        require(configHub.isSupportedUnderlying(address(asset)), "unsupported asset");
         require(configHub.isValidCollarDuration(duration), "unsupported duration");
     }
 }

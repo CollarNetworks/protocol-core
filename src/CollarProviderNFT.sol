@@ -1,26 +1,19 @@
-// SPDX-License-Identifier: MIT
-
-/*
- * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocolentAsset.xyz>
- * All rights reserved. No warranty, explicit or implicit, provided.
- */
-
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.22;
 
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-// internal
-import { ConfigHub } from "./ConfigHub.sol";
-import { BaseNFT } from "./base/BaseNFT.sol";
-import { IShortProviderNFT } from "./interfaces/IShortProviderNFT.sol";
+import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+
+import { BaseNFT, ConfigHub } from "./base/BaseNFT.sol";
+import { ICollarProviderNFT } from "./interfaces/ICollarProviderNFT.sol";
 
 /**
- * @title ShortProviderNFT
+ * @title CollarProviderNFT
  *
  * Main Functionality:
  * 1. Allows liquidity providers to create and manage offers for a specific Taker contract.
- * 2. Mints NFTs representing provider positions when offers are taken allowing a secondary market
- *    for unexpired positions, cancellations, and rolls.
+ * 2. Mints NFTs representing provider positions when offers are taken allowing cancellations, rolls,
+ *    and a secondary market for unexpired positions.
  * 3. Handles settlement and cancellation of positions.
  * 4. Manages withdrawals of settled positions.
  *
@@ -34,56 +27,52 @@ import { IShortProviderNFT } from "./interfaces/IShortProviderNFT.sol";
  *    from this contract.
  * 2. The associated taker contract is trusted and properly implemented.
  * 3. The ConfigHub contract correctly manages protocol parameters and authorization.
- * 4. Put strike deviation is assumed to always equal the Loan-to-Value (LTV) ratio.
- * 5. Asset (ERC-20) contracts are simple (non rebasing) and do not allow reentrancy.
- *
- * Design Considerations:
- * 1. Uses NFTs to represent positions, allowing for the necessary secondary market for
- *    cancellations and rolls, and for usage with third-party marketplaces and contracts.
- * 2. Implements pausability and asset recovery for emergency situations via BaseEmergencyAdminNFT.
+ * 4. Put strike percent is assumed to always equal the Loan-to-Value (LTV) ratio.
+ * 5. Asset (ERC-20) contracts are simple, non rebasing, do not allow reentrancy, balance changes
+ *    correspond to transfer arguments.
  *
  * Security Notes:
  * 1. Critical functions are only callable by the trusted taker contract.
  * 2. Offer and position parameters are validated against the configHub's configurations.
  */
-contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
+contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
-    uint public constant MIN_CALL_STRIKE_BIPS = BIPS_BASE + 1; // 1x or 100%
+    uint public constant MIN_CALL_STRIKE_BIPS = BIPS_BASE + 1; // 1 more than 1x
     uint public constant MAX_CALL_STRIKE_BIPS = 10 * BIPS_BASE; // 10x or 1000%
-    uint public constant MAX_PUT_STRIKE_BIPS = BIPS_BASE - 1;
+    uint public constant MAX_PUT_STRIKE_BIPS = BIPS_BASE - 1; // 1 less than 1x
 
     string public constant VERSION = "0.2.0";
 
     // ----- IMMUTABLES ----- //
     IERC20 public immutable cashAsset;
-    IERC20 public immutable collateralAsset;
+    address public immutable underlying; // not used as ERC20 here
     // the trusted CollarTakerNFT contract. no interface is assumed because calls are only inbound
     address public immutable taker;
 
     // ----- STATE ----- //
-    // @dev this is NOT the NFT id, this is separate ID
+    // @dev this is NOT the NFT id, this is separate ID for offers
     uint public nextOfferId = 1; // starts from 1 so that 0 ID is not used
-    // offerId is non transferrable
+    // non transferrable offers
     mapping(uint offerId => LiquidityOffer) internal liquidityOffers;
-    // positionId is the NFT token ID (tracked in BaseEmergencyAdminNFT)
+    // positionId is the NFT token ID (defined in BaseNFT)
     mapping(uint positionId => ProviderPosition) internal positions;
 
     constructor(
         address initialOwner,
         ConfigHub _configHub,
         IERC20 _cashAsset,
-        IERC20 _collateralAsset,
+        IERC20 _underlying,
         address _taker,
         string memory _name,
         string memory _symbol
     ) BaseNFT(initialOwner, _name, _symbol) {
         cashAsset = _cashAsset;
-        collateralAsset = _collateralAsset;
+        underlying = address(_underlying);
         taker = _taker;
         _setConfigHub(_configHub);
-        emit ShortProviderNFTCreated(address(_cashAsset), address(_collateralAsset), _taker);
+        emit CollarProviderNFTCreated(address(_cashAsset), address(_underlying), _taker);
     }
 
     modifier onlyTaker() {
@@ -106,7 +95,7 @@ contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
 
     /// @notice Retrieves the details of a specific non-transferrable offer.
     /// @dev This is used instead of the default getter because the default getter returns a tuple
-    function getOffer(uint offerId) external view returns (LiquidityOffer memory) {
+    function getOffer(uint offerId) public view returns (LiquidityOffer memory) {
         return liquidityOffers[offerId];
     }
 
@@ -114,10 +103,11 @@ contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
     /// @dev fee is set to 0 if recipient is zero because no transfer will be done
     function protocolFee(uint providerLocked, uint duration) public view returns (uint fee, address to) {
         to = configHub.feeRecipient();
+        // prevents non-zero fee to zero-recipient.
         fee = to == address(0)
             ? 0
-            // @dev rounds up to prevent avoiding fee using many small positions.
-            : _divUp(providerLocked * configHub.protocolFeeAPR() * duration, BIPS_BASE * 365 days);
+            // rounds up to prevent avoiding fee using many small positions.
+            : Math.ceilDiv(providerLocked * configHub.protocolFeeAPR() * duration, BIPS_BASE * 365 days);
     }
 
     // ----- MUTATIVE ----- //
@@ -126,39 +116,37 @@ contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
 
     /// @notice Creates a new non transferrable liquidity offer of cash asset, for specific terms.
     /// The cash is held at the contract, but can be withdrawn at any time if unused.
-    /// New positions that take the offer reduce the offer amount stored in the offer state.
     /// The caller MUST be able to handle ERC-721 and interact with this contract later.
-    /// @param callStrikeDeviation The call strike deviation in basis points
+    /// @param callStrikePercent The call strike percent in basis points
     /// @param amount The amount of cash asset to offer
-    /// @param putStrikeDeviation The put strike deviation in basis points
+    /// @param putStrikePercent The put strike percent in basis points
     /// @param duration The duration of the offer in seconds
     /// @return offerId The ID of the newly created offer
-    function createOffer(
-        uint callStrikeDeviation, // up to the provider
-        uint amount, // up to the provider
-        uint putStrikeDeviation, // validated vs. configHub
-        uint duration // validated vs. configHub
-    ) external whenNotPaused returns (uint offerId) {
+    function createOffer(uint callStrikePercent, uint amount, uint putStrikePercent, uint duration)
+        external
+        whenNotPaused
+        returns (uint offerId)
+    {
         // sanity checks
-        require(callStrikeDeviation >= MIN_CALL_STRIKE_BIPS, "strike deviation too low");
-        require(callStrikeDeviation <= MAX_CALL_STRIKE_BIPS, "strike deviation too high");
-        require(putStrikeDeviation <= MAX_PUT_STRIKE_BIPS, "invalid put strike deviation");
-        // config hub allows values
-        _configHubValidations(putStrikeDeviation, duration);
+        require(callStrikePercent >= MIN_CALL_STRIKE_BIPS, "strike percent too low");
+        require(callStrikePercent <= MAX_CALL_STRIKE_BIPS, "strike percent too high");
+        require(putStrikePercent <= MAX_PUT_STRIKE_BIPS, "invalid put strike percent");
+        // config hub allows values to avoid creating offers that can't be taken
+        _configHubValidations(putStrikePercent, duration);
 
         offerId = nextOfferId++;
         liquidityOffers[offerId] = LiquidityOffer({
             provider: msg.sender,
             available: amount,
-            putStrikeDeviation: putStrikeDeviation,
-            callStrikeDeviation: callStrikeDeviation,
+            putStrikePercent: putStrikePercent,
+            callStrikePercent: callStrikePercent,
             duration: duration
         });
         cashAsset.safeTransferFrom(msg.sender, address(this), amount);
-        emit OfferCreated(msg.sender, putStrikeDeviation, duration, callStrikeDeviation, amount, offerId);
+        emit OfferCreated(msg.sender, putStrikePercent, duration, callStrikePercent, amount, offerId);
     }
 
-    /// @notice Updates the amount of an existing liquidity offer by either transferring from the offer
+    /// @notice Updates the amount of an existing offer by either transferring from the offer
     /// owner into the contract (when the new amount is higher), or transferring to the owner from the
     /// contract when the new amount is lower. Only available to the original owner of the offer.
     /// @dev An offer is never deleted, so can always be reused if more cash is deposited into it.
@@ -191,17 +179,16 @@ contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
     /// Offer parameters are checked vs. the global config to ensure they are still supported.
     /// Protocol fee (based on the provider amount and duration) is deducted from offer, and sent
     /// to fee recipient. Offer amount is updated as well.
-    /// The NFT representing ownership of the position, is minted to original provider of the offer.
+    /// The NFT, representing ownership of the position, is minted to original provider of the offer.
     /// @param offerId The ID of the offer to mint from
     /// @param amount The amount of cash asset to use for the new position
     /// @param takerId The ID of the taker position for which this position is minted
     /// @return positionId The ID of the newly created position (NFT token ID)
-    /// @return position The details of the newly created position
     function mintFromOffer(uint offerId, uint amount, uint takerId)
         external
         whenNotPaused
         onlyTaker
-        returns (uint positionId, ProviderPosition memory position)
+        returns (uint positionId)
     {
         // @dev only checked on open, not checked later on settle / cancel to allow withdraw-only mode
         require(configHub.canOpen(msg.sender), "unsupported taker contract");
@@ -210,7 +197,7 @@ contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
         LiquidityOffer storage offer = liquidityOffers[offerId];
 
         // check params are still supported
-        _configHubValidations(offer.putStrikeDeviation, offer.duration);
+        _configHubValidations(offer.putStrikePercent, offer.duration);
 
         // calc protocol fee to subtract from offer (on top of amount)
         (uint fee, address feeRecipient) = protocolFee(amount, offer.duration);
@@ -222,37 +209,28 @@ contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
         // storage updates
         offer.available = prevOfferAmount - amount - fee;
         positionId = nextTokenId++;
-        position = ProviderPosition({
+        positions[positionId] = ProviderPosition({
             takerId: takerId,
             expiration: block.timestamp + offer.duration,
             principal: amount,
-            putStrikeDeviation: offer.putStrikeDeviation,
-            callStrikeDeviation: offer.callStrikeDeviation,
+            putStrikePercent: offer.putStrikePercent,
+            callStrikePercent: offer.callStrikePercent,
             settled: false,
             withdrawable: 0
         });
-        positions[positionId] = position;
+
+        emit OfferUpdated(offerId, msg.sender, prevOfferAmount, offer.available);
 
         // emit creation before transfer. No need to emit takerId, because it's emitted by the taker event
-        emit PositionCreated(
-            positionId,
-            position.putStrikeDeviation,
-            offer.duration,
-            position.callStrikeDeviation,
-            amount,
-            offerId,
-            fee
-        );
+        emit PositionCreated(positionId, offerId, fee, positions[positionId]);
+
         // mint the NFT to the provider
         // @dev does not use _safeMint to avoid reentrancy
         _mint(offer.provider, positionId);
 
-        // non-zero fee for zero-recipient is prevented in protocolFee() view and in ConfigHub setter
-        if (feeRecipient != address(0)) {
-            cashAsset.safeTransfer(feeRecipient, fee);
-        }
-
-        emit OfferUpdated(offerId, msg.sender, prevOfferAmount, offer.available);
+        // zero-fee transfer is prevented because recipient can be zero address, which reverts for many ERC20s.
+        // zero-recipient for non-zero fee is prevented in protocolFee view.
+        if (fee != 0) cashAsset.safeTransfer(feeRecipient, fee);
     }
 
     /// @notice Settles an existing position. Can ONLY be called through the
@@ -263,103 +241,100 @@ contract ShortProviderNFT is IShortProviderNFT, BaseNFT {
     /// this method is called via the taker contract and can be called by anyone.
     /// Allowing a third-party caller to trigger transfer of funds on behalf of the provider
     /// introduces several risks: 1) if the provider is a contract it may have its own bookkeeping,
-    /// 2) if the NFT is traded on a NFT-market or in an escrow - that contract cannot handle
+    /// 2) if the NFT is traded on a NFT-market or in an escrow - that contract will not handle
     /// settlement funds correctly 3) the provider may want to choose the timing or destination
     /// of the withdrawal themselves 4) In the NFT-market case, this can be used to front-run an order
     /// because it changes the underlying value of the NFT. Conversely, withdrawal (later) must burn the NFT
     /// to prevent the last issue.
     /// The funds that are transferred here are between the two contracts, and don't change the value
-    /// of the NFT abruptly (only preventing settlement at future price).
+    /// of the NFT abruptly (only prevent settlement at future price).
     /// @param positionId The ID of the position to settle (NFT token ID)
-    /// @param positionChange The change in position value (positive or negative)
-    function settlePosition(uint positionId, int positionChange) external whenNotPaused onlyTaker {
+    /// @param cashDelta The change in position value (positive or negative)
+    function settlePosition(uint positionId, int cashDelta) external whenNotPaused onlyTaker {
         ProviderPosition storage position = positions[positionId];
 
         require(block.timestamp >= position.expiration, "not expired");
+
         require(!position.settled, "already settled");
+        position.settled = true; // done here as CEI
 
-        position.settled = true; // done here as this also acts as partial-reentrancy protection
-
-        uint withdrawable = position.principal;
-        if (positionChange < 0) {
-            uint toRemove = uint(-positionChange); // will revert for type(int).min
-            require(toRemove <= withdrawable, "loss is too high");
-            withdrawable -= toRemove;
-            // we owe the taker some tokens
-            cashAsset.safeTransfer(taker, toRemove);
-        } else if (positionChange > 0) {
-            uint toAdd = uint(positionChange);
-            withdrawable += toAdd;
+        uint initial = position.principal;
+        if (cashDelta > 0) {
+            uint toAdd = uint(cashDelta);
+            position.withdrawable = initial + toAdd;
             // the taker owes us some tokens, requires approval
             cashAsset.safeTransferFrom(taker, address(this), toAdd);
-        } else { } // no change
+        } else {
+            // handles no-change as well (zero-value-transfer ok)
+            uint toRemove = uint(-cashDelta); // will revert for type(int).min
+            require(toRemove <= initial, "loss is too high");
+            position.withdrawable = initial - toRemove;
+            // we owe the taker some tokens
+            cashAsset.safeTransfer(taker, toRemove);
+        }
 
-        // store the updated state
-        position.withdrawable = withdrawable;
-
-        emit PositionSettled(positionId, positionChange, withdrawable);
+        emit PositionSettled(positionId, cashDelta, position.withdrawable);
     }
 
-    /// @notice Cancels a position and withdraws the principal to a recipient. Burns the NFT.
+    /// @notice Cancels a position and withdraws the principal to current owner. Burns the NFT.
     /// Can ONLY be called through the taker contract, which MUST be the owner of NFT
-    /// when the call is made (so will have received it from the provider), and is trusted
+    /// when the call is made (so will have received it from the consenting provider), and is trusted
     /// to cancel the other side of the position.
     /// @dev note that a withdrawal is triggerred (and the NFT is burned) because in contrast
     /// to settlement, during cancellation the caller MUST be the NFT owner (is the provider),
     /// so is assumed to specify the withdrawal correctly for their funds.
     /// @param positionId The ID of the position to cancel (NFT token ID)
-    /// @param recipient The address to receive the withdrawn funds
-    function cancelAndWithdraw(uint positionId, address recipient) external whenNotPaused onlyTaker {
+    function cancelAndWithdraw(uint positionId) external whenNotPaused onlyTaker returns (uint withdrawal) {
+        // caller is BOTH taker contract, and NFT owner
         require(msg.sender == ownerOf(positionId), "caller does not own token");
 
         ProviderPosition storage position = positions[positionId];
-
         require(!position.settled, "already settled");
-        position.settled = true; // done here as this also acts as reentrancy protection
 
-        uint withdrawal = position.principal;
+        // store changes
+        position.settled = true; // done here as CEI
 
         // burn token
         _burn(positionId);
 
-        cashAsset.safeTransfer(recipient, withdrawal);
+        withdrawal = position.principal;
+        cashAsset.safeTransfer(msg.sender, withdrawal);
 
-        emit PositionCanceled(positionId, recipient, withdrawal, position.expiration);
+        emit PositionCanceled(positionId, withdrawal, position.expiration);
     }
 
     // ----- actions by position owner ----- //
 
     /// @notice Withdraws funds from a settled position. Can only be called for a settled position
-    /// (and not a cancelled one), and checks the ownernship of the NFT. Burns the NFT.
+    /// (and not a cancelled one), and checks the ownership of the NFT. Burns the NFT.
     /// @param positionId The ID of the settled position to withdraw from (NFT token ID).
-    /// @param recipient The address to receive the withdrawn funds
-    function withdrawFromSettled(uint positionId, address recipient) external whenNotPaused {
+    function withdrawFromSettled(uint positionId) external whenNotPaused returns (uint withdrawal) {
         require(msg.sender == ownerOf(positionId), "not position owner");
 
         ProviderPosition storage position = positions[positionId];
         require(position.settled, "not settled");
 
-        uint withdrawable = position.withdrawable;
+        withdrawal = position.withdrawable;
         // zero out withdrawable
         position.withdrawable = 0;
         // burn token
         _burn(positionId);
         // transfer tokens
-        cashAsset.safeTransfer(recipient, withdrawable);
+        cashAsset.safeTransfer(msg.sender, withdrawal);
 
-        emit WithdrawalFromSettled(positionId, recipient, withdrawable);
+        emit WithdrawalFromSettled(positionId, withdrawal);
     }
 
     // ----- INTERNAL MUTATIVE ----- //
 
     // ----- INTERNAL VIEWS ----- //
 
-    function _configHubValidations(uint putStrikeDeviation, uint duration) internal view {
+    function _configHubValidations(uint putStrikePercent, uint duration) internal view {
         // assets
         require(configHub.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
-        require(configHub.isSupportedCollateralAsset(address(collateralAsset)), "unsupported asset");
+        require(configHub.isSupportedUnderlying(underlying), "unsupported asset");
         // terms
-        uint ltv = putStrikeDeviation; // assumed to be always equal
+        uint ltv = putStrikePercent; // assumed to be always equal
         require(configHub.isValidLTV(ltv), "unsupported LTV");
         require(configHub.isValidCollarDuration(duration), "unsupported duration");
     }

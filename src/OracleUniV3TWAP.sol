@@ -1,10 +1,4 @@
-// SPDX-License-Identifier: MIT
-
-/*
- * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocolentAsset.xyz>
- * All rights reserved. No warranty, explicit or implicit, provided.
- */
-
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.22;
 
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
@@ -12,7 +6,10 @@ import { OracleLibrary, IUniswapV3Pool } from "@uniswap/v3-periphery/contracts/l
 import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 
-/// The warning below copied from Euler: https://github.com/euler-xyz/euler-price-oracle/blob/95e5d325cd9f4290d147821ff08add14ca99b136/src/adapter/uniswap/UniswapV3Oracle.sol#L14-L22
+import { ITakerOracle } from "./interfaces/ITakerOracle.sol";
+
+/// The warning below copied from Euler:
+///     https://github.com/euler-xyz/euler-price-oracle/blob/95e5d325cd9f4290d147821ff08add14ca99b136/src/adapter/uniswap/UniswapV3Oracle.sol#L14-L22
 /// WARNING: READ THIS BEFORE DEPLOYING
 /// Do not use Uniswap V3 as an oracle unless you understand its security implications.
 /// Instead, consider using another provider as a primary price source.
@@ -22,7 +19,7 @@ import { IPeripheryImmutableState } from
 /// The chosen pool must have enough total liquidity and some full-range liquidity to resist manipulation.
 /// The chosen pool must have had sufficient liquidity when past observations were recorded in the buffer.
 /// Networks with short block times are highly susceptible to TWAP manipulation due to the reduced attack cost.
-contract OracleUniV3TWAP {
+contract OracleUniV3TWAP is ITakerOracle {
     uint128 public constant BASE_TOKEN_AMOUNT = 1e18;
     uint32 public constant MIN_TWAP_WINDOW = 300;
     string public constant VERSION = "0.2.0";
@@ -100,16 +97,18 @@ contract OracleUniV3TWAP {
 
     // ----- Internal Views ----- //
 
-    /// Adapted from Euler: https://github.com/euler-xyz/euler-price-oracle/blob/95e5d325cd9f4290d147821ff08add14ca99b136/src/adapter/uniswap/UniswapV3Oracle.sol#L46-L56
+    /// Adapted from Euler:
+    ///     https://github.com/euler-xyz/euler-price-oracle/blob/95e5d325cd9f4290d147821ff08add14ca99b136/src/adapter/uniswap/UniswapV3Oracle.sol#L46-L56
     function _getPoolAddress(address _uniV3SwapRouter) internal view virtual returns (address poolAddress) {
         address uniV3Factory = IPeripheryImmutableState(_uniV3SwapRouter).factory();
         poolAddress = IUniswapV3Factory(uniV3Factory).getPool(baseToken, quoteToken, feeTier);
     }
 
-    /// Adapted from Euler: https://github.com/euler-xyz/euler-price-oracle/blob/95e5d325cd9f4290d147821ff08add14ca99b136/src/adapter/uniswap/UniswapV3Oracle.sol#L73-L78
+    /// Adapted from Euler:
+    ///     https://github.com/euler-xyz/euler-price-oracle/blob/95e5d325cd9f4290d147821ff08add14ca99b136/src/adapter/uniswap/UniswapV3Oracle.sol#L73-L78
     function _getQuote(uint32[] memory secondsAgos) internal view virtual returns (uint) {
         // Calculate the mean tick over the twap window.
-        /// @dev this can revert with error OLD() if either value in secondsAgo is out of range of available observations
+        /// @dev can revert with error OLD() if any value in secondsAgo is not in available observations
         (int56[] memory tickCumulatives,) = pool.observe(secondsAgos);
         int56 tickCumulativesDelta = tickCumulatives[1] - tickCumulatives[0];
         int24 tick = int24(tickCumulativesDelta / int56(uint56(twapWindow)));

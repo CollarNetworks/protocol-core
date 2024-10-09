@@ -2,7 +2,6 @@
 pragma solidity 0.8.22;
 
 import "forge-std/console.sol";
-import { IConfigHub } from "../../src/interfaces/IConfigHub.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { CollarIntegrationPriceManipulation } from "./utils/PriceManipulation.t.sol";
@@ -26,7 +25,7 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
         _setupConfig({
             _swapRouter: 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45,
             _cashAsset: 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8, // USDC
-            _collateralAsset: 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1, // WETH
+            _underlying: 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1, // WETH
             _uniV3Pool: 0x17c14D2c404D167802b16C450d3c99F88F2c4F4d,
             whaleWallet: 0xB38e8c17e38363aF6EbdCb3dAE12e0243582891D,
             blockNumber: _blockNumberToUse,
@@ -85,8 +84,8 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
         // uint providerCashBalanceBefore = pair.cashAsset.balanceOf(provider);
 
         // (uint userWithdrawnAmount, uint providerWithdrawnAmount) = settleAndWithdraw(borrowId);
-        // assertEq(userWithdrawnAmount, position.putLockedCash, "User should receive put locked cash");
-        // assertEq(providerWithdrawnAmount, position.callLockedCash, "Provider should receive call locked cash");
+        // assertEq(userWithdrawnAmount, position.takerLocked, "User should receive put locked cash");
+        // assertEq(providerWithdrawnAmount, position.providerLocked, "Provider should receive call locked cash");
 
         // assertEq(
         //     pair.cashAsset.balanceOf(user),
@@ -100,15 +99,15 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
         // );
     }
 
-    function testFuzz_openAndClosePositionPriceUnderPutStrike(uint collateralAmount, uint24 callStrikeTick)
+    function testFuzz_openAndClosePositionPriceUnderPutStrike(uint underlyingAmount, uint24 callStrikeTick)
         public
         assumeValidCallStrikeTick(callStrikeTick)
     {
-        collateralAmount = bound(collateralAmount, 1 ether, 20 ether);
+        underlyingAmount = bound(underlyingAmount, 1 ether, 20 ether);
         callStrikeTick = uint24(bound(callStrikeTick, uint(110), uint(130)));
 
         (uint borrowId,) =
-            openTakerPositionAndCheckValues(collateralAmount, 0.3e6, getOfferIndex(callStrikeTick));
+            openTakerPositionAndCheckValues(underlyingAmount, 0.3e6, getOfferIndex(callStrikeTick));
         uint userCashBalanceAfterOpen = pair.cashAsset.balanceOf(user);
         uint providerCashBalanceBeforeClose = pair.cashAsset.balanceOf(provider);
 
@@ -132,14 +131,14 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
     }
 
     function testFuzz_openAndClosePositionPriceDownShortOfPutStrike(
-        uint collateralAmount,
+        uint underlyingAmount,
         uint24 callStrikeTick
     ) public assumeValidCallStrikeTick(callStrikeTick) {
-        collateralAmount = bound(collateralAmount, 1 ether, 20 ether);
+        underlyingAmount = bound(underlyingAmount, 1 ether, 20 ether);
         callStrikeTick = uint24(bound(callStrikeTick, uint(110), uint(130)));
 
         (uint borrowId,) =
-            openTakerPositionAndCheckValues(collateralAmount, 0.3e6, getOfferIndex(callStrikeTick));
+            openTakerPositionAndCheckValues(underlyingAmount, 0.3e6, getOfferIndex(callStrikeTick));
         uint userCashBalanceAfterOpen = pair.cashAsset.balanceOf(user);
         uint providerCashBalanceBeforeClose = pair.cashAsset.balanceOf(provider);
 
@@ -166,15 +165,15 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
         );
     }
 
-    function testFuzz_openAndClosePositionPriceUpPastCallStrike(uint collateralAmount, uint24 callStrikeTick)
+    function testFuzz_openAndClosePositionPriceUpPastCallStrike(uint underlyingAmount, uint24 callStrikeTick)
         public
         assumeValidCallStrikeTick(callStrikeTick)
     {
-        collateralAmount = bound(collateralAmount, 1 ether, 20 ether);
+        underlyingAmount = bound(underlyingAmount, 1 ether, 20 ether);
         callStrikeTick = uint24(bound(callStrikeTick, uint(110), uint(130)));
 
         (uint borrowId,) =
-            openTakerPositionAndCheckValues(collateralAmount, 0.3e6, getOfferIndex(callStrikeTick));
+            openTakerPositionAndCheckValues(underlyingAmount, 0.3e6, getOfferIndex(callStrikeTick));
         uint userCashBalanceAfterOpen = pair.cashAsset.balanceOf(user);
         uint providerCashBalanceBeforeClose = pair.cashAsset.balanceOf(provider);
 
@@ -198,14 +197,14 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
     }
 
     function testFuzz_openAndClosePositionPriceUpShortOfCallStrike(
-        uint collateralAmount,
+        uint underlyingAmount,
         uint24 callStrikeTick
     ) public assumeValidCallStrikeTick(callStrikeTick) {
-        collateralAmount = bound(collateralAmount, 1 ether, 20 ether);
+        underlyingAmount = bound(underlyingAmount, 1 ether, 20 ether);
         callStrikeTick = uint24(bound(callStrikeTick, uint(110), uint(130)));
 
         (uint borrowId,) =
-            openTakerPositionAndCheckValues(collateralAmount, 0.3e6, getOfferIndex(callStrikeTick));
+            openTakerPositionAndCheckValues(underlyingAmount, 0.3e6, getOfferIndex(callStrikeTick));
         uint userCashBalanceAfterOpen = pair.cashAsset.balanceOf(user);
         uint providerCashBalanceBeforeClose = pair.cashAsset.balanceOf(provider);
 
