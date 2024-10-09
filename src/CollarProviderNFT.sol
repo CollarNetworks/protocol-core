@@ -28,8 +28,8 @@ import { ICollarProviderNFT } from "./interfaces/ICollarProviderNFT.sol";
  * 2. The associated taker contract is trusted and properly implemented.
  * 3. The ConfigHub contract correctly manages protocol parameters and authorization.
  * 4. Put strike percent is assumed to always equal the Loan-to-Value (LTV) ratio.
- * 5. Asset (ERC-20) contracts are simple, non rebasing, do not allow reentrancy, and transfers
- *    work as expected.
+ * 5. Asset (ERC-20) contracts are simple, non rebasing, do not allow reentrancy, balance changes
+ *    correspond to transfer arguments.
  *
  * Security Notes:
  * 1. Critical functions are only callable by the trusted taker contract.
@@ -256,7 +256,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         require(block.timestamp >= position.expiration, "not expired");
 
         require(!position.settled, "already settled");
-        position.settled = true; // done here as this also acts as partial-reentrancy protection
+        position.settled = true; // done here as CEI
 
         uint initial = position.principal;
         if (cashDelta > 0) {
@@ -289,15 +289,15 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         require(msg.sender == ownerOf(positionId), "caller does not own token");
 
         ProviderPosition storage position = positions[positionId];
-
         require(!position.settled, "already settled");
-        position.settled = true; // done here as this also acts as reentrancy protection
 
-        withdrawal = position.principal;
+        // store changes
+        position.settled = true; // done here as CEI
 
         // burn token
         _burn(positionId);
 
+        withdrawal = position.principal;
         cashAsset.safeTransfer(msg.sender, withdrawal);
 
         emit PositionCanceled(positionId, withdrawal, position.expiration);

@@ -249,8 +249,7 @@ contract Rolls is IRolls, BaseManaged {
         require(newPrice >= offer.minPrice, "price too low");
         require(block.timestamp <= offer.deadline, "deadline passed");
 
-        // store the inactive state before external calls as extra reentrancy precaution
-        // @dev only this line writes to storage
+        // @dev only this line writes to storage. Update storage here for CEI
         rollOffers[rollId].active = false;
 
         int rollFee = calculateRollFee(offer, newPrice);
