@@ -1,10 +1,4 @@
-// SPDX-License-Identifier: MIT
-
-/*
- * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocolentAsset.xyz>
- * All rights reserved. No warranty, explicit or implicit, provided.
- */
-
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.22;
 
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -34,8 +28,8 @@ import { ICollarProviderNFT } from "./interfaces/ICollarProviderNFT.sol";
  * 2. The associated taker contract is trusted and properly implemented.
  * 3. The ConfigHub contract correctly manages protocol parameters and authorization.
  * 4. Put strike percent is assumed to always equal the Loan-to-Value (LTV) ratio.
- * 5. Asset (ERC-20) contracts are simple, non rebasing, do not allow reentrancy, and transfers
- *    work as expected.
+ * 5. Asset (ERC-20) contracts are simple, non rebasing, do not allow reentrancy, balance changes
+ *    correspond to transfer arguments.
  *
  * Security Notes:
  * 1. Critical functions are only callable by the trusted taker contract.
@@ -190,12 +184,11 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// @param amount The amount of cash asset to use for the new position
     /// @param takerId The ID of the taker position for which this position is minted
     /// @return positionId The ID of the newly created position (NFT token ID)
-    /// @return position The details of the newly created position
     function mintFromOffer(uint offerId, uint amount, uint takerId)
         external
         whenNotPaused
         onlyTaker
-        returns (uint positionId, ProviderPosition memory position)
+        returns (uint positionId)
     {
         // @dev only checked on open, not checked later on settle / cancel to allow withdraw-only mode
         require(configHub.canOpen(msg.sender), "unsupported taker contract");
@@ -216,7 +209,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         // storage updates
         offer.available = prevOfferAmount - amount - fee;
         positionId = nextTokenId++;
-        position = ProviderPosition({
+        positions[positionId] = ProviderPosition({
             takerId: takerId,
             expiration: block.timestamp + offer.duration,
             principal: amount,
@@ -225,12 +218,11 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
             settled: false,
             withdrawable: 0
         });
-        positions[positionId] = position;
 
         emit OfferUpdated(offerId, msg.sender, prevOfferAmount, offer.available);
 
         // emit creation before transfer. No need to emit takerId, because it's emitted by the taker event
-        emit PositionCreated(positionId, offerId, fee, position);
+        emit PositionCreated(positionId, offerId, fee, positions[positionId]);
 
         // mint the NFT to the provider
         // @dev does not use _safeMint to avoid reentrancy
@@ -264,7 +256,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         require(block.timestamp >= position.expiration, "not expired");
 
         require(!position.settled, "already settled");
-        position.settled = true; // done here as this also acts as partial-reentrancy protection
+        position.settled = true; // done here as CEI
 
         uint initial = position.principal;
         if (cashDelta > 0) {
@@ -284,55 +276,53 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         emit PositionSettled(positionId, cashDelta, position.withdrawable);
     }
 
-    /// @notice Cancels a position and withdraws the principal to a recipient. Burns the NFT.
+    /// @notice Cancels a position and withdraws the principal to current owner. Burns the NFT.
     /// Can ONLY be called through the taker contract, which MUST be the owner of NFT
-    /// when the call is made (so will have received it from the concenting provider), and is trusted
+    /// when the call is made (so will have received it from the consenting provider), and is trusted
     /// to cancel the other side of the position.
     /// @dev note that a withdrawal is triggerred (and the NFT is burned) because in contrast
     /// to settlement, during cancellation the caller MUST be the NFT owner (is the provider),
     /// so is assumed to specify the withdrawal correctly for their funds.
     /// @param positionId The ID of the position to cancel (NFT token ID)
-    /// @param recipient The address to receive the withdrawn funds
-    function cancelAndWithdraw(uint positionId, address recipient) external whenNotPaused onlyTaker {
+    function cancelAndWithdraw(uint positionId) external whenNotPaused onlyTaker returns (uint withdrawal) {
         // caller is BOTH taker contract, and NFT owner
         require(msg.sender == ownerOf(positionId), "caller does not own token");
 
         ProviderPosition storage position = positions[positionId];
-
         require(!position.settled, "already settled");
-        position.settled = true; // done here as this also acts as reentrancy protection
 
-        uint withdrawal = position.principal;
+        // store changes
+        position.settled = true; // done here as CEI
 
         // burn token
         _burn(positionId);
 
-        cashAsset.safeTransfer(recipient, withdrawal);
+        withdrawal = position.principal;
+        cashAsset.safeTransfer(msg.sender, withdrawal);
 
-        emit PositionCanceled(positionId, recipient, withdrawal, position.expiration);
+        emit PositionCanceled(positionId, withdrawal, position.expiration);
     }
 
     // ----- actions by position owner ----- //
 
     /// @notice Withdraws funds from a settled position. Can only be called for a settled position
-    /// (and not a cancelled one), and checks the ownernship of the NFT. Burns the NFT.
+    /// (and not a cancelled one), and checks the ownership of the NFT. Burns the NFT.
     /// @param positionId The ID of the settled position to withdraw from (NFT token ID).
-    /// @param recipient The address to receive the withdrawn funds
-    function withdrawFromSettled(uint positionId, address recipient) external whenNotPaused {
+    function withdrawFromSettled(uint positionId) external whenNotPaused returns (uint withdrawal) {
         require(msg.sender == ownerOf(positionId), "not position owner");
 
         ProviderPosition storage position = positions[positionId];
         require(position.settled, "not settled");
 
-        uint withdrawable = position.withdrawable;
+        withdrawal = position.withdrawable;
         // zero out withdrawable
         position.withdrawable = 0;
         // burn token
         _burn(positionId);
         // transfer tokens
-        cashAsset.safeTransfer(recipient, withdrawable);
+        cashAsset.safeTransfer(msg.sender, withdrawal);
 
-        emit WithdrawalFromSettled(positionId, recipient, withdrawable);
+        emit WithdrawalFromSettled(positionId, withdrawal);
     }
 
     // ----- INTERNAL MUTATIVE ----- //

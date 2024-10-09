@@ -1,10 +1,4 @@
-// SPDX-License-Identifier: MIT
-
-/*
- * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocolentAsset.xyz>
- * All rights reserved. No warranty, explicit or implicit, provided.
- */
-
+// SPDX-License-Identifier: GPL 2.0
 pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -49,8 +43,6 @@ interface ICollarProviderNFT {
         uint indexed positionId, uint indexed offerId, uint feeAmount, ProviderPosition position
     );
     event PositionSettled(uint indexed positionId, int positionChange, uint withdrawable);
-    event WithdrawalFromSettled(uint indexed positionId, address indexed recipient, uint withdrawn);
-    event PositionCanceled(
-        uint indexed positionId, address indexed recipient, uint withdrawn, uint expiration
-    );
+    event WithdrawalFromSettled(uint indexed positionId, uint withdrawn);
+    event PositionCanceled(uint indexed positionId, uint withdrawn, uint expiration);
 }

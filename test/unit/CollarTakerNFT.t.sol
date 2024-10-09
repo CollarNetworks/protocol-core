@@ -1,10 +1,4 @@
 // SPDX-License-Identifier: MIT
-
-/*
- * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocolentAsset.xyz>
- * All rights reserved. No warranty, explicit or implicit, provided.
- */
-
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
@@ -63,7 +57,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
             providerId: expectedProviderId,
             duration: duration,
             expiration: block.timestamp + duration,
-            initialPrice: twapPrice,
+            startPrice: twapPrice,
             putStrikePrice: putStrikePrice,
             callStrikePrice: callStrikePrice,
             takerLocked: takerLocked,
@@ -177,8 +171,8 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     function checkWithdrawFromSettled(uint takerId, uint expectedTakerOut) public {
         uint cashBalanceBefore = cashAsset.balanceOf(user1);
         vm.expectEmit(address(takerNFT));
-        emit ICollarTakerNFT.WithdrawalFromSettled(takerId, user1, expectedTakerOut);
-        uint withdrawal = takerNFT.withdrawFromSettled(takerId, user1);
+        emit ICollarTakerNFT.WithdrawalFromSettled(takerId, expectedTakerOut);
+        uint withdrawal = takerNFT.withdrawFromSettled(takerId);
         assertEq(withdrawal, expectedTakerOut);
         assertEq(cashAsset.balanceOf(user1), cashBalanceBefore + expectedTakerOut);
         CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(takerId);
@@ -240,6 +234,17 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         newOracle.setHistoricalAssetPrice(block.timestamp, 0);
         vm.expectRevert("invalid price");
         new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
+
+        newOracle.setHistoricalAssetPrice(block.timestamp, 1);
+        vm.mockCallRevert(
+            address(newOracle), abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))), ""
+        );
+        vm.expectRevert(new bytes(0));
+        new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
+
+        vm.mockCallRevert(address(newOracle), abi.encodeCall(newOracle.BASE_TOKEN_AMOUNT, ()), "");
+        vm.expectRevert(new bytes(0));
+        new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
     }
 
     function test_pausableMethods() public {
@@ -259,11 +264,11 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
         // Try to withdraw from settled while paused
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        takerNFT.withdrawFromSettled(0, address(this));
+        takerNFT.withdrawFromSettled(0);
 
         // Try to cancel a paired position while paused
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        takerNFT.cancelPairedPosition(0, address(this));
+        takerNFT.cancelPairedPosition(0);
 
         // transfers are paused
         vm.startPrank(user1);
@@ -361,6 +366,20 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         takerNFT.openPairedPosition(takerLocked, providerNFT, 1000);
     }
 
+    function test_openPairedPosition_expirationMistmatch() public {
+        createOffer();
+        startHoax(user1);
+        CollarProviderNFT.ProviderPosition memory badExpiryPosition;
+        badExpiryPosition.expiration = block.timestamp + duration + 1;
+        vm.mockCall(
+            address(providerNFT),
+            abi.encodeCall(providerNFT.getPosition, (providerNFT.nextPositionId())),
+            abi.encode(badExpiryPosition)
+        );
+        vm.expectRevert("expiration mismatch");
+        takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
+    }
+
     function test_openPairedPositionBadCashAssetMismatch() public {
         createOffer();
         vm.startPrank(owner);
@@ -398,7 +417,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         updatePrice(991);
         startHoax(user1);
         cashAsset.approve(address(takerNFT), takerLocked);
-        vm.expectRevert("strike prices aren't different");
+        vm.expectRevert("strike prices not different");
         takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
     }
 
@@ -486,23 +505,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         checkWithdrawFromSettled(takerId, takerLocked + providerLocked);
     }
 
-    function test_withdrawRecipient() public {
-        uint expectedTakerOut = takerLocked;
-        uint takerId = createAndSettlePosition(twapPrice, 0);
-        // non owner recipient
-        address recipient = address(0x123);
-        uint cashBalanceBefore = cashAsset.balanceOf(recipient);
-        uint cashBalanceUserBefore = cashAsset.balanceOf(user1);
-        vm.expectEmit(address(takerNFT));
-        emit ICollarTakerNFT.WithdrawalFromSettled(takerId, recipient, expectedTakerOut);
-        uint withdrawal = takerNFT.withdrawFromSettled(takerId, recipient);
-        assertEq(withdrawal, expectedTakerOut);
-        assertEq(cashAsset.balanceOf(recipient), cashBalanceBefore + expectedTakerOut);
-        assertEq(cashAsset.balanceOf(user1), cashBalanceUserBefore);
-        CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(takerId);
-        assertEq(position.withdrawable, 0);
-    }
-
     function test_settlePairedPosition_NonExistentPosition() public {
         vm.expectRevert("position doesn't exist");
         takerNFT.settlePairedPosition(999); // Use a position ID that doesn't exist
@@ -541,7 +543,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         // Try to withdraw with a different address
         startHoax(address(0xdead));
         vm.expectRevert("not position owner");
-        takerNFT.withdrawFromSettled(takerId, address(0xdead));
+        takerNFT.withdrawFromSettled(takerId);
     }
 
     function test_withdrawFromSettled_NotSettled() public {
@@ -550,17 +552,16 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         // Try to withdraw before settling
         startHoax(user1);
         vm.expectRevert("not settled");
-        takerNFT.withdrawFromSettled(takerId, user1);
+        takerNFT.withdrawFromSettled(takerId);
     }
 
     function test_cancelPairedPosition() public {
         (uint takerId, uint providerNFTId) = checkOpenPairedPosition();
 
-        address recipient = address(123);
-
         uint userCashBefore = cashAsset.balanceOf(user1);
         uint providerCashBefore = cashAsset.balanceOf(provider);
-        uint recipientCashBefore = cashAsset.balanceOf(recipient);
+
+        uint expectedWithdrawal = takerLocked + providerLocked;
 
         startHoax(user1);
         takerNFT.safeTransferFrom(user1, provider, takerId);
@@ -569,9 +570,11 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         providerNFT.approve(address(takerNFT), providerNFTId);
         vm.expectEmit(address(takerNFT));
         emit ICollarTakerNFT.PairedPositionCanceled(
-            takerId, address(providerNFT), providerNFTId, recipient, takerLocked, block.timestamp + duration
+            takerId, address(providerNFT), providerNFTId, expectedWithdrawal, block.timestamp + duration
         );
-        takerNFT.cancelPairedPosition(takerId, recipient);
+        uint withdrawal = takerNFT.cancelPairedPosition(takerId);
+
+        assertEq(withdrawal, expectedWithdrawal);
 
         // view
         CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(takerId);
@@ -579,9 +582,8 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         assertEq(position.withdrawable, 0);
 
         // balances
-        assertEq(cashAsset.balanceOf(recipient), recipientCashBefore + takerLocked + providerLocked);
         assertEq(cashAsset.balanceOf(user1), userCashBefore);
-        assertEq(cashAsset.balanceOf(provider), providerCashBefore);
+        assertEq(cashAsset.balanceOf(provider), providerCashBefore + expectedWithdrawal);
     }
 
     function test_cancelPairedPosition_NotOwnerOfTakerID() public {
@@ -590,7 +592,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         // Try to cancel with a different address
         startHoax(address(0xdead));
         vm.expectRevert("not owner of taker ID");
-        takerNFT.cancelPairedPosition(takerId, address(0xdead));
+        takerNFT.cancelPairedPosition(takerId);
     }
 
     function test_cancelPairedPosition_NotOwnerOfProviderID() public {
@@ -603,7 +605,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         // Try to cancel with the new taker NFT owner
         startHoax(address(0xbeef));
         vm.expectRevert("not owner of provider ID");
-        takerNFT.cancelPairedPosition(takerId, address(0xbeef));
+        takerNFT.cancelPairedPosition(takerId);
     }
 
     function test_cancelPairedPosition_AlreadySettled() public {
@@ -617,7 +619,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         takerNFT.safeTransferFrom(user1, provider, takerId);
         startHoax(provider);
         vm.expectRevert("already settled");
-        takerNFT.cancelPairedPosition(takerId, user1);
+        takerNFT.cancelPairedPosition(takerId);
     }
 
     function test_setOracle() public {
@@ -664,5 +666,16 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         newOracle.setHistoricalAssetPrice(block.timestamp, 0);
         vm.expectRevert("invalid price");
         takerNFT.setOracle(newOracle);
+
+        newOracle.setHistoricalAssetPrice(block.timestamp, 1);
+        vm.mockCallRevert(
+            address(newOracle), abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))), ""
+        );
+        vm.expectRevert(new bytes(0));
+        new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
+
+        vm.mockCallRevert(address(newOracle), abi.encodeCall(newOracle.BASE_TOKEN_AMOUNT, ()), "");
+        vm.expectRevert(new bytes(0));
+        new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
     }
 }

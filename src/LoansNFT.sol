@@ -1,10 +1,4 @@
-// SPDX-License-Identifier: MIT
-
-/*
- * Copyright (c) 2023 Collar Networks, Inc. <hello@collarprotocolentAsset.xyz>
- * All rights reserved. No warranty, explicit or implicit, provided.
- */
-
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.22;
 
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -604,7 +598,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
         /// @dev this should not be optional, since otherwise there is no point to the entire call
         /// (and the position NFT would be burned already, so would not belong to sender)
-        withdrawnAmount = takerNFT.withdrawFromSettled(takerId, address(this));
+        withdrawnAmount = takerNFT.withdrawFromSettled(takerId);
     }
 
     function _executeRoll(uint loanId, uint rollId, int minToUser)
@@ -623,7 +617,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // get transfer amount and fee from rolls
         int transferPreview;
         (transferPreview,, rollFee) =
-            currentRolls.calculateTransferAmounts(rollId, takerNFT.currentOraclePrice());
+            currentRolls.previewTransferAmounts(rollId, takerNFT.currentOraclePrice());
 
         // pull cash
         if (transferPreview < 0) {

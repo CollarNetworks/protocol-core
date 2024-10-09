@@ -130,7 +130,7 @@ contract RollsTest is BaseAssetPairTestSetup {
     {
         // compare to view
         (int toTakerView, int toProviderView, int rollFeeView) =
-            rolls.calculateTransferAmounts(rollId, newPrice);
+            rolls.previewTransferAmounts(rollId, newPrice);
         assertEq(toTakerView, expected.toTaker);
         assertEq(toProviderView, expected.toProvider);
         assertEq(rollFeeView, expected.rollFee);
@@ -168,15 +168,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         cashAsset.approve(address(rolls), expected.toTaker < 0 ? uint(-expected.toTaker) : 0);
         vm.expectEmit(address(rolls));
         emit IRolls.OfferExecuted(
-            rollId,
-            offer.takerId,
-            offer.providerNFT,
-            offer.providerId,
-            expected.toTaker,
-            expected.toProvider,
-            expected.rollFee,
-            nextTakerId,
-            nextProviderId
+            rollId, expected.toTaker, expected.toProvider, expected.rollFee, nextTakerId, nextProviderId
         );
         int toTaker;
         int toProvider;
@@ -221,7 +213,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         CollarTakerNFT.TakerPosition memory newTakerPos = takerNFT.getPosition(newTakerId);
         assertEq(address(newTakerPos.providerNFT), address(providerNFT));
         assertEq(newTakerPos.providerId, newProviderId);
-        assertEq(newTakerPos.initialPrice, newPrice);
+        assertEq(newTakerPos.startPrice, newPrice);
         assertEq(newTakerPos.takerLocked, expected.newTakerLocked);
         assertEq(newTakerPos.providerLocked, expected.newProviderLocked);
         assertEq(newTakerPos.duration, duration);
@@ -609,12 +601,12 @@ contract RollsTest is BaseAssetPairTestSetup {
 
         // Non-existent offer
         uint nonExistentRollId = rollId + 1;
-        vm.expectRevert("not initial provider");
+        vm.expectRevert("not offer provider");
         rolls.cancelOffer(nonExistentRollId);
 
         // Caller is not the initial provider
         startHoax(user1);
-        vm.expectRevert("not initial provider");
+        vm.expectRevert("not offer provider");
         rolls.cancelOffer(rollId);
 
         // Offer already executed
@@ -658,11 +650,6 @@ contract RollsTest is BaseAssetPairTestSetup {
         vm.expectRevert("taker position expired");
         rolls.executeRoll(rollId, type(int).min);
 
-        // Taker position settled
-        takerNFT.settlePairedPosition(takerId);
-        vm.expectRevert("taker position settled");
-        rolls.executeRoll(rollId, type(int).min);
-
         // new offer
         (takerId, rollId, offer) = createAndCheckRollOffer();
         // Offer already executed
@@ -691,8 +678,12 @@ contract RollsTest is BaseAssetPairTestSetup {
         rolls.executeRoll(rollId, type(int).min);
 
         // Deadline passed
+        deadline = block.timestamp + 1;
+        updatePrice(twapPrice);
+        (, rollId,) = createAndCheckRollOffer();
         skip(deadline + 1);
         updatePrice(twapPrice);
+        startHoax(user1);
         vm.expectRevert("deadline passed");
         rolls.executeRoll(rollId, type(int).min);
     }
@@ -704,7 +695,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         startHoax(user1);
         takerNFT.approve(address(rolls), takerId);
         cashAsset.approve(address(rolls), type(uint).max);
-        (int toTaker,,) = rolls.calculateTransferAmounts(rollId, twapPrice);
+        (int toTaker,,) = rolls.previewTransferAmounts(rollId, twapPrice);
         vm.expectRevert("taker transfer slippage");
         rolls.executeRoll(rollId, toTaker + 1);
 
@@ -738,7 +729,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         cashAsset.approve(address(rolls), 0);
         uint lowPrice = twapPrice * 9 / 10;
         updatePrice(lowPrice);
-        (int toTaker,,) = rolls.calculateTransferAmounts(rollId, lowPrice);
+        (int toTaker,,) = rolls.previewTransferAmounts(rollId, lowPrice);
         vm.expectRevert(
             abi.encodeWithSelector(
                 IERC20Errors.ERC20InsufficientAllowance.selector, address(rolls), 0, uint(-toTaker)
@@ -748,11 +739,14 @@ contract RollsTest is BaseAssetPairTestSetup {
     }
 
     function test_revert_executeRoll_provider_approval() public {
+        // avoid tripping slippage check
+        minToProvider = -int(providerLocked);
         (uint takerId, uint rollId,) = createAndCheckRollOffer();
 
+        // price is higher so that provider will need to pay
         uint highPrice = twapPrice * 11 / 10;
         updatePrice(highPrice);
-        (, int toProvider,) = rolls.calculateTransferAmounts(rollId, highPrice);
+        (, int toProvider,) = rolls.previewTransferAmounts(rollId, highPrice);
 
         // provider revoked approval
         cashAsset.approve(address(rolls), uint(-toProvider) - 1);
@@ -781,8 +775,8 @@ contract RollsTest is BaseAssetPairTestSetup {
         // Mock the cancelPairedPosition function to do nothing
         vm.mockCall(
             address(takerNFT),
-            abi.encodeWithSelector(takerNFT.cancelPairedPosition.selector, takerId, address(rolls)),
-            "" // does nothing
+            abi.encodeCall(takerNFT.cancelPairedPosition, (takerId)),
+            abi.encode(0) // 0 withdrawal
         );
 
         // Attempt to execute the roll
