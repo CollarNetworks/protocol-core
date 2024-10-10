@@ -1,14 +1,16 @@
+# ⚠️ WIP
+
 # Issues
 
 ### General
 - [ ] #med overall gas usage is high impacting composability (ability to batch several operations), and user gas costs. Some easy things can be done to reduce while minimally impacting safety / readability / usability
-  - Examples with `forge test -vvv --isolate --nmc Fork --gas-report --nmt revert`:
-    - Loans: roll 1.461M, openEscrow 1.224M, open 867K, close 557K
-    - Rolls: execute 893K, create 365K
-    - Taker: open 609K
-    - Escrow: start 327K, switch 388K
+  - Examples with `forge test --isolate --nmc "Fork" --gas-report --nmt revert | grep "rollLoan\|openLoan\|openEscrowLoan\|closeLoan\|executeRoll\|createOffer\|openPairedPosition\|startEscrow\|switchEscrow" | grep -v test`:
+    - Loans: roll 1.760M, openEscrowLoan 1.513M, openLoan 1.085K, close 599K
+    - Rolls: execute 1.022K, create 382K
+    - Taker: open 755K
+    - Escrow: start 404K, switch 469K
   - mitigations:
-    - [x] remove usage of ERC721Enumerable (since its added functionality is unused)
+    - [x] remove usage of ERC721Enumerable (since its added functionality is unused): rollLoan to 1.471M, openLoan 871K.
     - [ ] remove fields that aren't needed / can be calculated from other fields (call-price, put-price, callLockedCash)
     - [ ] reuse fields where it makes sense: principal & withdrawable
     - [ ] pack fields in storage (time u32, bips uint16, nft-id u64 due to batching). Use packed only for storage, but use full size for internal and external interfaces everywhere else (StoredPos / MemPos).
@@ -26,7 +28,7 @@
 - [x] #note memory structs should be preferred to storage when access is read-only (even though gas is slightly higher) for clarity
 
 ###  Provider
-- [ ] #med min take amount to prevent dusting / composability issues / griefing via fee issues / griefing via 0 user locked pos, may be non-negligible in case of low decimals + low gas fees
+- [ ] #med min take amount to prevent dusting / composability issues / griefing via protocol fee issues / griefing via 0 user locked pos, may be non-negligible in case of low decimals + low gas fees
 - [x] #low "ShortProviderNFT" is bad name, confusing and inaccurate. Should be "CollarProviderNFT"
 - [x] #low naming: collateralAsset should be "underlying", since collateral is ambiguous and is actually cash. Should be just address since not used as erc20.
 - [ ] #low max allowed protocol fee APR in provider offer
@@ -54,7 +56,7 @@
 - [x] #note cei can be better in settle
 
 ###  Escrow
-- [ ] #low min take amount to prevent dusting / composability issues
+- [ ] #med min take amount to prevent dusting / composability issues
 - [x] #low switchEscrow should ensure not expired because is using 0 fromLoans
 - [x] #note naming: lateFee view should be `owedTo` because is used for total owed mainly
 - [x] #note naming: gracePeriod should be maxGracePeriod
