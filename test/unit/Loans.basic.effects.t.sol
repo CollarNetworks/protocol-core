@@ -240,7 +240,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(escrow.loans, address(loans));
         assertEq(escrow.loanId, loanId);
         assertEq(escrow.escrowed, underlyingAmount);
-        assertEq(escrow.gracePeriod, gracePeriod);
+        assertEq(escrow.maxGracePeriod, gracePeriod);
         assertEq(escrow.lateFeeAPR, lateFeeAPR);
         assertEq(escrow.duration, duration);
         assertEq(escrow.expiration, block.timestamp + duration);

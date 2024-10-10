@@ -665,7 +665,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             uint fee = _pullEscrowFee(escrowNFT, escrowOffer, escrowed);
             // @dev underlyingAmount was pulled already before calling this method
             underlying.forceApprove(address(escrowNFT), escrowed + fee);
-            (escrowId,) = escrowNFT.startEscrow({
+            escrowId = escrowNFT.startEscrow({
                 offerId: escrowOffer,
                 escrowed: escrowed,
                 fee: fee,
@@ -690,7 +690,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             underlying.forceApprove(address(prevLoan.escrowNFT), newFee);
             // rotate escrows
             uint feeRefund;
-            (newEscrowId,, feeRefund) = prevLoan.escrowNFT.switchEscrow({
+            (newEscrowId, feeRefund) = prevLoan.escrowNFT.switchEscrow({
                 releaseEscrowId: prevLoan.escrowId,
                 offerId: escrowOffer,
                 newLoanId: expectedNewLoanId, // @dev should be validated after this

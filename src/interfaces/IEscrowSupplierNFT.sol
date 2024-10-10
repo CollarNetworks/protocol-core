@@ -11,7 +11,7 @@ interface IEscrowSupplierNFT {
         // terms
         uint duration;
         uint interestAPR;
-        uint gracePeriod;
+        uint maxGracePeriod;
         uint lateFeeAPR;
     }
 
@@ -21,7 +21,7 @@ interface IEscrowSupplierNFT {
         uint loanId;
         // terms
         uint escrowed;
-        uint gracePeriod;
+        uint maxGracePeriod;
         uint lateFeeAPR;
         // interest & refund
         uint duration;
@@ -37,7 +37,7 @@ interface IEscrowSupplierNFT {
         address indexed supplier,
         uint indexed interestAPR,
         uint indexed duration,
-        uint gracePeriod,
+        uint maxGracePeriod,
         uint lateFeeAPR,
         uint available,
         uint offerId
@@ -48,7 +48,7 @@ interface IEscrowSupplierNFT {
         uint indexed amount,
         uint indexed duration,
         uint interestFee,
-        uint gracePeriod,
+        uint maxGracePeriod,
         uint offerId
     );
     event EscrowReleased(uint indexed escrowId, uint repaid, uint withdrawable, uint toLoans);
