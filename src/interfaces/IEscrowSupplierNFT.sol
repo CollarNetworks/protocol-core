@@ -11,17 +11,17 @@ interface IEscrowSupplierNFT {
         // terms
         uint duration;
         uint interestAPR;
-        uint gracePeriod;
+        uint maxGracePeriod;
         uint lateFeeAPR;
     }
 
     struct Escrow {
-        // reference (for views)
+        // reference
         address loans;
         uint loanId;
         // terms
         uint escrowed;
-        uint gracePeriod;
+        uint maxGracePeriod;
         uint lateFeeAPR;
         // interest & refund
         uint duration;
@@ -37,7 +37,7 @@ interface IEscrowSupplierNFT {
         address indexed supplier,
         uint indexed interestAPR,
         uint indexed duration,
-        uint gracePeriod,
+        uint maxGracePeriod,
         uint lateFeeAPR,
         uint available,
         uint offerId
@@ -48,10 +48,10 @@ interface IEscrowSupplierNFT {
         uint indexed amount,
         uint indexed duration,
         uint interestFee,
-        uint gracePeriod,
+        uint maxGracePeriod,
         uint offerId
     );
-    event EscrowReleased(uint indexed escrowId, uint repaid, uint withdrawable, uint toLoans);
+    event EscrowReleased(uint indexed escrowId, uint fromLoans, uint withdrawable, uint toLoans);
     event EscrowsSwitched(uint indexed oldEscrowId, uint indexed newEscrowId);
     event WithdrawalFromReleased(uint indexed escrowId, address indexed recipient, uint withdrawn);
     event EscrowSeizedLastResort(uint indexed escrowId, address indexed recipient, uint withdrawn);

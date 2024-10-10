@@ -143,7 +143,7 @@ contract Rolls is IRolls, BaseManaged {
      * If offer becomes unexecutable due to insufficient provider cash approval or balance it should ideally be
      * filtered out by the FE as not executable (and provider be made aware).
      */
-    function createRollOffer(
+    function createOffer(
         uint takerId,
         int feeAmount,
         int feeDeltaFactorBIPS,

@@ -462,7 +462,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             underlyingAmount: underlyingAmount,
             loanAmount: loanAmount,
             usesEscrow: usesEscrow,
-            escrowNFT: escrowNFT, // save the escrow used
+            escrowNFT: escrowNFT,
             escrowId: escrowId
         });
         // some validations that can only be done here, after everything is available
@@ -665,7 +665,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             uint fee = _pullEscrowFee(escrowNFT, escrowOffer, escrowed);
             // @dev underlyingAmount was pulled already before calling this method
             underlying.forceApprove(address(escrowNFT), escrowed + fee);
-            (escrowId,) = escrowNFT.startEscrow({
+            escrowId = escrowNFT.startEscrow({
                 offerId: escrowOffer,
                 escrowed: escrowed,
                 fee: fee,
@@ -690,7 +690,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             underlying.forceApprove(address(prevLoan.escrowNFT), newFee);
             // rotate escrows
             uint feeRefund;
-            (newEscrowId,, feeRefund) = prevLoan.escrowNFT.switchEscrow({
+            (newEscrowId, feeRefund) = prevLoan.escrowNFT.switchEscrow({
                 releaseEscrowId: prevLoan.escrowId,
                 offerId: escrowOffer,
                 newLoanId: expectedNewLoanId, // @dev should be validated after this
@@ -726,11 +726,11 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         internal
         returns (uint underlyingOut)
     {
-        // get late fee owing
-        (uint lateFee, uint escrowed) = escrowNFT.lateFees(escrowId);
+        // get owing and late fee
+        (uint owed, uint lateFee) = escrowNFT.owedTo(escrowId);
 
         // if owing more than swapped, use all, otherwise just what's owed
-        uint toEscrow = Math.min(fromSwap, escrowed + lateFee);
+        uint toEscrow = Math.min(fromSwap, owed);
         // if owing less than swapped, left over gains are for the user
         uint leftOver = fromSwap - toEscrow;
 

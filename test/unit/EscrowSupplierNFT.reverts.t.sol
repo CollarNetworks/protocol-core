@@ -13,7 +13,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
 
         uint val = escrowNFT.MAX_INTEREST_APR_BIPS();
         vm.expectRevert("interest APR too high");
-        escrowNFT.createOffer(largeAmount, duration, val + 1, gracePeriod, lateFeeAPR);
+        escrowNFT.createOffer(largeAmount, duration, val + 1, maxGracePeriod, lateFeeAPR);
 
         val = escrowNFT.MIN_GRACE_PERIOD();
         vm.expectRevert("grace period too short");
@@ -25,17 +25,17 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
 
         val = escrowNFT.MAX_LATE_FEE_APR_BIPS();
         vm.expectRevert("late fee APR too high");
-        escrowNFT.createOffer(largeAmount, duration, interestAPR, gracePeriod, val + 1);
+        escrowNFT.createOffer(largeAmount, duration, interestAPR, maxGracePeriod, val + 1);
 
         vm.expectRevert("unsupported duration");
-        escrowNFT.createOffer(largeAmount, duration + 1, interestAPR, gracePeriod, lateFeeAPR);
+        escrowNFT.createOffer(largeAmount, duration + 1, interestAPR, maxGracePeriod, lateFeeAPR);
 
         // bad asset
         vm.startPrank(owner);
         configHub.setUnderlyingSupport(address(asset), false);
         vm.startPrank(supplier1);
         vm.expectRevert("unsupported asset");
-        escrowNFT.createOffer(largeAmount, duration, interestAPR, gracePeriod, lateFeeAPR);
+        escrowNFT.createOffer(largeAmount, duration, interestAPR, maxGracePeriod, lateFeeAPR);
     }
 
     function test_revert_updateOfferAmount_notSupplier() public {
@@ -82,18 +82,20 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         startHoax(loans);
         asset.approve(address(escrowNFT), largeAmount);
 
-        // new offer is insufficient
         (uint newOfferId,) = createAndCheckOffer(supplier2, largeAmount - 1);
-        startHoax(loans);
-        vm.expectRevert("amount too high");
-        escrowNFT.switchEscrow(escrowId, newOfferId, 1000, 0);
-        (newOfferId,) = createAndCheckOffer(supplier2, largeAmount);
+        uint minFee = escrowNFT.interestFee(newOfferId, largeAmount - 1);
 
-        uint minFee = escrowNFT.interestFee(newOfferId, largeAmount);
+        // fee
         startHoax(loans);
         vm.expectRevert("insufficient fee");
         escrowNFT.switchEscrow(escrowId, newOfferId, 1000, minFee - 1);
 
+        // new offer is insufficient
+        vm.expectRevert("amount too high");
+        escrowNFT.switchEscrow(escrowId, newOfferId, 1000, minFee);
+        (newOfferId,) = createAndCheckOffer(supplier2, largeAmount);
+
+        startHoax(loans);
         vm.expectRevert("invalid offer");
         escrowNFT.switchEscrow(escrowId, newOfferId + 1, 1000, minFee);
 
@@ -108,6 +110,14 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         configHub.setUnderlyingSupport(address(asset), false);
         vm.startPrank(loans);
         vm.expectRevert("unsupported asset");
+        escrowNFT.switchEscrow(escrowId, newOfferId, 1000, minFee);
+
+        // expired escrow
+        vm.startPrank(owner);
+        configHub.setUnderlyingSupport(address(asset), true);
+        vm.startPrank(loans);
+        skip(duration + 1);
+        vm.expectRevert("expired escrow");
         escrowNFT.switchEscrow(escrowId, newOfferId, 1000, minFee);
     }
 
@@ -234,7 +244,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         vm.expectRevert("not escrow owner");
         escrowNFT.lastResortSeizeEscrow(escrowId);
 
-        skip(duration + gracePeriod);
+        skip(duration + maxGracePeriod);
         startHoax(supplier1);
         vm.expectRevert("grace period not elapsed");
         escrowNFT.lastResortSeizeEscrow(escrowId);
