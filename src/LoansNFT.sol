@@ -462,7 +462,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             underlyingAmount: underlyingAmount,
             loanAmount: loanAmount,
             usesEscrow: usesEscrow,
-            escrowNFT: escrowNFT, // save the escrow used
+            escrowNFT: escrowNFT,
             escrowId: escrowId
         });
         // some validations that can only be done here, after everything is available

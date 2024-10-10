@@ -282,11 +282,11 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     /**
      * @notice Switches an escrow to a new escrow.
      * @dev While it is basically startEscrow + endEscrow, calling these methods externally
-     * is not possible because startEscrow pulls the escrow amount in and transfers it out,
-     * which is not possible when switching escrows (the loans contract has no underlying for
-     * such a transfer at that point). So instead this method is needed to "move" funds internally.
+     * is not possible: startEscrow pulls the escrow amount in and transfers it out,
+     * which is not possible when switching escrows because the caller (loans) has no underlying for
+     * such a transfer at that point. So instead this method is needed to "move" funds internally.
      * @dev Can only be called by the Loans contract that started the original escrow
-     * @dev durations can be different (is not problematic within this contract),
+     * @dev durations can theoretically be different (is not problematic within this contract),
      * but Loans - the only caller of this - should check the new offer duration / new escrow
      * expiration is as is needed for its use.
      * @param releaseEscrowId The ID of the escrow to release
@@ -303,26 +303,26 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         returns (uint newEscrowId, uint feeRefund)
     {
         Escrow memory previousEscrow = escrows[releaseEscrowId];
-        // do not allow expired escrow to be switched since 0 fromLoans is assumed
+        // do not allow expired escrow to be switched since 0 fromLoans is used for _endEscrow
         require(block.timestamp <= previousEscrow.expiration, "expired escrow");
 
         /*
-        1. initially user's escrow E secures O (old ID). O's own funds are away.
-        2. E is then "transferred" to secure N (new ID). N's own funds are taken, to release O.
-        3. O is released (with N's funds, which are now secured by E (user's escrow).
+        1. initially user's escrow "E" secures old ID, "O". O's supplier's funds are away.
+        2. E is then "transferred" to secure new ID, "N". N's supplier's funds are taken, to release O.
+        3. O is released (with N's funds). N's funds are now secured by E (user's escrow).
 
         Interest is accounted separately by transferring the full N's interest fee
-        (held until release), and refunding O's interest held if O is released early (it likely is).
+        (held until release), and refunding O's interest held.
         */
 
-        // O (old escrow): Release funds to the supplier of previous ID.
-        // The withdrawable for previous supplier comes from the N's offer, not from Loans repayment.
+        // "O" (old escrow): Release funds to the supplier.
+        // The withdrawable for O's supplier comes from the N's offer, not from Loans repayment.
         // The escrowed loans-funds (E) move into the new escrow of the new supplier.
-        // fromLoans must be 0, otherwise escrow will be sent to Loans instead of only the fee refund
+        // fromLoans must be 0, otherwise escrow will be sent to Loans instead of only the fee refund.
         feeRefund = _endEscrow(releaseEscrowId, 0);
 
-        // N (new escrow): Mint a new escrow from the offer.
-        // The escrow funds are the loan-escrow funds that have been escrowed in the ID being released.
+        // N (new escrow): Mint a new escrow from the offer (can be old or new offer).
+        // The escrow funds are funds that have been escrowed in the ID being released ("O").
         // The offer is reduced (which is used to repay the previous supplier)
         // A new escrow ID is minted.
         newEscrowId = _startEscrow(offerId, previousEscrow.escrowed, newFee, newLoanId);
@@ -360,28 +360,31 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * WARNING: DO NOT use this is normal circumstances, instead use LoansNFT.forecloseLoan().
      * This method is only for extreme scenarios to ensure suppliers can always withdraw even if
      * original LoansNFT is broken / disabled / disallowed by admin.
-     * This method can only be used after the full grace period is elapsed, and does not pay any late fees.
+     * This method can only be used after the max grace period is elapsed, and does not pay any late fees.
      * @dev Ideally the owner of the NFT will call LoansNFT.forecloseLoan() which is callable earlier
      * or pays late fees (or both). If they do that, "released" will be set to true, disabling this method.
      * In the opposite situation, if the NFT owner chooses to call this method by mistake,
      * the LoansNFT method will not be callable, because "released" will true (+NFT will be burned).
-     * @dev Only for use when Loans contracts are unavailable to handle release / seizure
      * @param escrowId The ID of the escrow to seize
      */
     function lastResortSeizeEscrow(uint escrowId) external whenNotPaused {
         require(msg.sender == ownerOf(escrowId), "not escrow owner"); // will revert for burned
 
-        Escrow storage escrow = escrows[escrowId];
+        Escrow memory escrow = escrows[escrowId];
         require(!escrow.released, "already released");
         require(block.timestamp > escrow.expiration + escrow.maxGracePeriod, "grace period not elapsed");
-        escrow.released = true;
-        // @dev escrow.withdrawable is not set here (_releaseEscrow not called): withdrawal is immediate
-        uint withdawal = escrow.escrowed + escrow.interestHeld; // escrowed and full interest
 
-        // burn token
-        // @dev we burn the NFT because this is a withdrawal and a direct last action by NFT owner
+        // update storage
+        escrows[escrowId].released = true;
+
+        // burn token because this is a withdrawal and a direct last action by NFT owner
         _burn(escrowId);
+
+        // @dev withdrawal is immediate, so escrow.withdrawable is not set here (no _releaseEscrow call).
+        // release escrowed and full interest
+        uint withdawal = escrow.escrowed + escrow.interestHeld;
         asset.safeTransfer(msg.sender, withdawal);
+
         emit EscrowSeizedLastResort(escrowId, msg.sender, withdawal);
     }
 
@@ -389,8 +392,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
     /// @notice Sets whether a Loans contract is allowed to interact with this contract
     function setLoansAllowed(address loans, bool allowed) external onlyOwner {
-        // @dev no sanity check for Loans interface since it is not relied on: calls are made
-        // from Loans to this contract
+        // @dev no checks for Loans interface since calls are only from Loans to this contract
         allowedLoans[loans] = allowed;
         emit LoansAllowedSet(loans, allowed);
     }
@@ -410,11 +412,11 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         // check params are still supported
         _configHubValidations(offer.duration);
 
-        // we don't check equality to avoid revert due to minor precision inaccuracy to the upside,
+        // we don't check equality to avoid revert due to minor inaccuracies to the upside,
         // even though exact value should be used from the view.
         require(fee >= interestFee(offerId, escrowed), "insufficient fee");
 
-        // @dev fee is not taken from offer, because it is transferred in from escrow taker
+        // @dev fee is not taken from offer, because it is transferred in from loans
         uint prevOfferAmount = offer.available;
         require(escrowed <= prevOfferAmount, "amount too high");
 
@@ -516,17 +518,18 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
     function _interestFeeRefund(Escrow memory escrow) internal view returns (uint refund) {
         uint duration = escrow.duration;
-        // startTime = expiration - duration, elapsed = now - startTime
+        // elapsed = now - startTime; startTime = expiration - duration
         uint elapsed = block.timestamp + duration - escrow.expiration;
         // cap to duration
         elapsed = Math.min(elapsed, duration);
-        // refund is for time remaining, and is rounded down
-        refund = escrow.interestHeld * (duration - elapsed) / duration; // no div-zero due to min-duration
+        // refund is for time remaining. round down against user.
+        // no div-zero due to range checks in ConfigHub
+        refund = escrow.interestHeld * (duration - elapsed) / duration;
 
-        /* @dev there is no APR calculation here (APR calc used only on open), only time calculation because:
+        /* @dev there is no APR calculation here (APR calc used only on open) because:
          1. simpler
          2. avoidance of mismatch due to rounding issues
-         3. actual fee passed may be higher (it's checked to be above the minimal fee)
+         3. actual fee held may be higher (it's checked to be >= APR calculated fee)
         */
     }
 
