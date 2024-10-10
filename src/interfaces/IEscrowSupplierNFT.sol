@@ -51,7 +51,7 @@ interface IEscrowSupplierNFT {
         uint maxGracePeriod,
         uint offerId
     );
-    event EscrowReleased(uint indexed escrowId, uint repaid, uint withdrawable, uint toLoans);
+    event EscrowReleased(uint indexed escrowId, uint fromLoans, uint withdrawable, uint toLoans);
     event EscrowsSwitched(uint indexed oldEscrowId, uint indexed newEscrowId);
     event WithdrawalFromReleased(uint indexed escrowId, address indexed recipient, uint withdrawn);
     event EscrowSeizedLastResort(uint indexed escrowId, address indexed recipient, uint withdrawn);

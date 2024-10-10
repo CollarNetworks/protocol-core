@@ -249,14 +249,15 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         onlyLoans
         returns (uint escrowId)
     {
-        escrowId = _mintFromOffer(offerId, escrowed, fee, loanId);
+        escrowId = _startEscrow(offerId, escrowed, fee, loanId);
 
         // @dev despite the fact that they partially cancel out, so can be done as just fee transfer,
         // these transfers are the whole point of this contract from product point of view.
-        // The transfer events for the full amounts are needed.
+        // The transfer events for the full amounts are needed such that the tokens used for the swap
+        // in Loans should be "supplier's", and not "borrower's" from CGT tax lows perspective.
+        // transfer "borrower's" funds in
         asset.safeTransferFrom(msg.sender, address(this), escrowed + fee);
-        // transfer the supplier's funds, equal to the escrowed amount, to loans.
-        // @dev this is less than amount because of the interest fee held
+        // transfer "supplier's" funds out
         asset.safeTransfer(msg.sender, escrowed);
     }
 
@@ -270,7 +271,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @return toLoans Amount to be returned to loans including potential refund and deducing shortfalls
      */
     function endEscrow(uint escrowId, uint repaid) external whenNotPaused onlyLoans returns (uint toLoans) {
-        toLoans = _releaseEscrow(escrowId, repaid);
+        toLoans = _endEscrow(escrowId, repaid);
 
         // transfer in the repaid assets in: original supplier's assets, plus any late fee
         asset.safeTransferFrom(msg.sender, address(this), repaid);
@@ -301,6 +302,10 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         onlyLoans
         returns (uint newEscrowId, uint feeRefund)
     {
+        Escrow memory previousEscrow = escrows[releaseEscrowId];
+        // do not allow expired escrow to be switched since 0 fromLoans is assumed
+        require(block.timestamp <= previousEscrow.expiration, "expired escrow");
+
         /*
         1. initially user's escrow E secures O (old ID). O's own funds are away.
         2. E is then "transferred" to secure N (new ID). N's own funds are taken, to release O.
@@ -314,14 +319,13 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         // The withdrawable for previous supplier comes from the N's offer, not from Loans repayment.
         // The escrowed loans-funds (E) move into the new escrow of the new supplier.
         // fromLoans must be 0, otherwise escrow will be sent to Loans instead of only the fee refund
-        uint newEscrowAmount = escrows[releaseEscrowId].escrowed;
-        feeRefund = _releaseEscrow(releaseEscrowId, 0);
+        feeRefund = _endEscrow(releaseEscrowId, 0);
 
         // N (new escrow): Mint a new escrow from the offer.
         // The escrow funds are the loan-escrow funds that have been escrowed in the ID being released.
         // The offer is reduced (which is used to repay the previous supplier)
         // A new escrow ID is minted.
-        newEscrowId = _mintFromOffer(offerId, newEscrowAmount, newFee, newLoanId);
+        newEscrowId = _startEscrow(offerId, previousEscrow.escrowed, newFee, newLoanId);
 
         // fee transfers
         asset.safeTransferFrom(msg.sender, address(this), newFee);
@@ -393,31 +397,29 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    function _mintFromOffer(uint offerId, uint escrowed, uint fee, uint loanId)
+    function _startEscrow(uint offerId, uint escrowed, uint fee, uint loanId)
         internal
         returns (uint escrowId)
     {
         require(configHub.canOpen(msg.sender), "unsupported loans contract");
         require(configHub.canOpen(address(this)), "unsupported supplier contract");
 
-        Offer storage offer = offers[offerId];
+        Offer memory offer = offers[offerId];
         require(offer.supplier != address(0), "invalid offer"); // revert here for clarity
 
         // check params are still supported
         _configHubValidations(offer.duration);
 
-        // check amount
+        // we don't check equality to avoid revert due to minor precision inaccuracy to the upside,
+        // even though exact value should be used from the view.
+        require(fee >= interestFee(offerId, escrowed), "insufficient fee");
+
         // @dev fee is not taken from offer, because it is transferred in from escrow taker
         uint prevOfferAmount = offer.available;
         require(escrowed <= prevOfferAmount, "amount too high");
 
-        uint minFee = interestFee(offerId, escrowed);
-        // we don't check equality to avoid revert due to minor precision inaccuracy to the upside,
-        // even though exact value can be calculated from the view.
-        require(fee >= minFee, "insufficient fee");
-
         // storage updates
-        offer.available = prevOfferAmount - escrowed;
+        offers[offerId].available -= escrowed;
         escrowId = nextTokenId++;
         escrows[escrowId] = Escrow({
             loans: msg.sender,
@@ -438,18 +440,17 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         // @dev does not use _safeMint to avoid reentrancy
         _mint(offer.supplier, escrowId);
 
-        emit OfferUpdated(offerId, offer.supplier, prevOfferAmount, offer.available);
+        emit OfferUpdated(offerId, offer.supplier, prevOfferAmount, prevOfferAmount - escrowed);
     }
 
-    function _releaseEscrow(uint escrowId, uint fromLoans) internal returns (uint toLoans) {
+    function _endEscrow(uint escrowId, uint fromLoans) internal returns (uint toLoans) {
         Escrow storage escrow = escrows[escrowId];
         require(!escrow.released, "already released");
         // only allow the same loans contract to release
         require(msg.sender == escrow.loans, "loans address mismatch");
-        // update storage
-        escrow.released = true;
 
-        // calculate and store withdrawal and refund
+        // storage updates
+        escrow.released = true;
         (escrow.withdrawable, toLoans,) = _releaseCalculations(escrow, fromLoans);
 
         emit EscrowReleased(escrowId, fromLoans, escrow.withdrawable, toLoans);
@@ -463,9 +464,9 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         returns (uint withdrawal, uint toLoans, uint interestRefund)
     {
         // handle under-payment (slippage, default) or over-payment (excessive late fees):
-        // any shortfall are for the borrower (e.g., slippage) - taken out of the funds held
+        // any shortfall is for the borrower (e.g., slippage) - taken out of the escrow funds held
 
-        // lateFee is non-zero after min-grace-period is over (late close loan / seized escrow)
+        // lateFee is non-zero after MIN_GRACE_PERIOD is over (late close loan / seized escrow)
         uint lateFee = _lateFee(escrow);
         // refund due to early release. If late fee is not 0, this is likely 0 (because is after expiry).
         interestRefund = _interestFeeRefund(escrow);
@@ -473,21 +474,23 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         // everything owed: original escrow + (interest held - interest refund) + late fee
         uint targetWithdrawal = escrow.escrowed + escrow.interestHeld + lateFee - interestRefund;
         // what we have is what we held (escrow + full interest) and whatever loans just sent us
-        // @dev note that withdrawal of at least escrow is guaranteed (due to being held in this contract)
+        // @dev note that withdrawal of at least escrow + interest fee is always guaranteed
         uint available = escrow.escrowed + escrow.interestHeld + fromLoans;
 
         // use as much as possible from available up to target
         withdrawal = Math.min(available, targetWithdrawal);
-        // refund the rest if anything is left
+        // refund the rest if anything is left, this accounts both for interestRefund and any overpayment
         toLoans = available - withdrawal;
 
-        // @dev note 1: that interest refund "theoretically" covers some of the late fee shortfall, but
+        // @dev note 1: interest refund "theoretically" covers some of the late fee shortfall, but
         // "in practice" this will never happen because either late fees are 0 or interest refund is 0.
-        // @dev note 2: if fromLoans is 0, and lateFee is 0 (roll case), toLoans is just the interest refund
 
-        /* @dev late fees are calculated, but cannot be "enforced" here, and instead Loans is trusted to use
-        the views on this contract to correctly calculate the late fees and grace period to ensure they are
-        not underpaid. This contract needs to trust Loans to do so for these reasons:
+        // @dev note 2: for (swtichEscrow, fromLoans is 0, and lateFee is 0, so toLoans is just
+        // the interest refund
+
+        /* @dev note 3: late fees are calculated, but cannot be "enforced" here, and instead Loans is
+        trusted to use the views on this contract to correctly calculate the late fees and grace period
+        to ensure they are not underpaid. This contract needs to trust Loans to do so for these reasons:
         1. Loans needs to swap from cash, and has the information needed to calculate the funds available
         for late fees (withdrawal amount, oracle rate, etc).
         2. Loans needs swap parameters, and has a keeper authorisation system for access control.
