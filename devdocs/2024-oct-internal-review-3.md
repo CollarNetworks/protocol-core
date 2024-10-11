@@ -9,7 +9,7 @@
     - Rolls: execute 1.022K, create 382K
     - Taker: open 755K
     - Escrow: start 404K, switch 469K
-  - Composability risk: a contract that needs to batch multiple actions may not be able to fit all of them into a single tx in an Arbitrum block (limited to 12.5M, but on average is around 1.5M full, https://arbiscan.io/blocks?ps=100&p=1)
+  - Composability risk: a contract that needs to batch multiple actions may have issues fitting all of them into a single tx in an Arbitrum block (unclear what the block limit is, but average usage is between 1M-3M, https://arbiscan.io/blocks?ps=100&p=1, on testnet I can make a 32M tx, but haven't tried on arbi mainnet)
   - mitigations:
     - [x] remove usage of ERC721Enumerable (since its added functionality is unused): rollLoan to 1.471M, openLoan 871K.
     - [ ] remove fields that aren't needed / can be calculated from other fields (call-price, put-price, callLockedCash)
