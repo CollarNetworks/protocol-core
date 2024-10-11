@@ -24,7 +24,7 @@ https://github.com/euler-xyz/euler-price-oracle/blob/95e5d325cd9f4290d147821ff08
 ------
 
 These mitigations should be in place when using this oracle:
-- Read at least this https://medium.com/@chinmayf/so-you-want-to-use-twap-1f992f9d3819
+- First, read this https://medium.com/@chinmayf/so-you-want-to-use-twap-1f992f9d3819
 - Cardinality should be increased to cover the needed time window. If cardinality < time window, in extreme
 volatility, if every block has a pool action, time window will not be available. Contracts should be
 designed such that this risk (short infrequent DoS) should be acceptable (with low likelihood), or
