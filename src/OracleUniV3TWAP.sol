@@ -21,10 +21,6 @@ https://github.com/euler-xyz/euler-price-oracle/blob/95e5d325cd9f4290d147821ff08
 > The observation buffer must contain enough observations to accommodate for the chosen TWAP window.
 > The chosen pool must have enough total liquidity and some full-range liquidity to resist manipulation.
 > The chosen pool must have had sufficient liquidity when past observations were recorded in the buffer.
-> Networks with short block times are highly susceptible to TWAP manipulation due to the reduced attack cost.
-Note (artdgn): the last sentence above is inaccurate and (git-blame) based on contest findings that refer to outdated
-docs regarding older rollup versions in which some L2s had block.timestamp that would return L1 timestamp.
-This is no longer relevant.
 ------
 
 These mitigations should be in place when using this oracle:
