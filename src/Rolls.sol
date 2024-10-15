@@ -378,17 +378,17 @@ contract Rolls is IRolls, BaseManaged {
         /*  Proof.
 
             Vars:
-                Ts: takerSettled, Ps: providerSettled, put: newTakerLocked,
-                call: newProviderLocked, rollFee: rollFee, proFee: protocolFee
+                Ts: takerSettled, Ps: providerSettled, nT: newTakerLocked,
+                nP: newProviderLocked, rollFee: rollFee, proFee: protocolFee
 
             After settlement (after cancelling and withdrawing old position):
                 Contract balance = Ts + Ps
 
             Then contract receives / pays:
-            1.  toPairedPosition =           put + call
-            2.  toTaker          = Ts      - put        - rollFee
-            3.  toProvider       =      Ps       - call + rollFee - proFee
-            4.  toProtocol       =                                + proFee
+            1.  toPairedPosition =           nT + nP
+            2.  toTaker          = Ts      - nT      - rollFee
+            3.  toProvider       =      Ps      - nP + rollFee - proFee
+            4.  toProtocol       =                             + proFee
 
             All payments summed  = Ts + Ps
 
