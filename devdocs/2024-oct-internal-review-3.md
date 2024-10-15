@@ -3,13 +3,19 @@
 # Issues
 
 ### General
-- [ ] #med overall gas usage is high impacting composability (ability to batch several operations), and user gas costs. Some easy things can be done to reduce while minimally impacting safety / readability / usability
+- [ ] #med/#low price ignoring decimals is confusing, error prone, violates "least astonishment", and is insufficiently documented:
+  - While not too impactful if used only internally, price is expected as input argument for some methods, and is returned as output from others. This will certainly cause constant UX and integration issues, waste everyone's time. It may also lead to user and integration errors, which may cause loss of funds, or loss of time, or reputational damage.  
+  - Mitigaion: 
+    - calculate prices for underlying's decimals instead of the BASE_TOKEN_AMOUNT, or set BASE_TOKEN_AMOUNT according to decimals. 
+    - Remove BASE_TOKEN_AMOUNT from oracle (possibly into taker), and add "quote" methods that would convert between asset amounts instead (for use within Loans)
+    - Consider refactoring preview views (taker, rolls, etc) expecting prices to instead query them internally.  
+- [ ] #med/#low overall gas usage is high impacting composability (ability to batch several operations), and user gas costs. Some easy things can be done to reduce while minimally impacting safety / readability / usability
   - Examples with `forge test --isolate --nmc "Fork" --gas-report --nmt revert | grep "rollLoan\|openLoan\|openEscrowLoan\|closeLoan\|executeRoll\|createOffer\|openPairedPosition\|startEscrow\|switchEscrow" | grep -v test`:
     - Loans: roll 1.760M, openEscrowLoan 1.513M, openLoan 1.085K, close 599K
     - Rolls: execute 1.022K, create 382K
     - Taker: open 755K
     - Escrow: start 404K, switch 469K
-  - Composability risk: a contract that needs to batch multiple actions may have issues fitting all of them into a single tx in an Arbitrum block (unclear what the block limit is, but average usage is between 1M-3M, https://arbiscan.io/blocks?ps=100&p=1, on testnet I can make a 32M tx, but haven't tried on arbi mainnet)
+  - Composability risk: a contract that needs to batch multiple actions may have issues fitting all of them into a single tx in an Arbitrum block (although it is up to 32M gas, average usage is between 1M-3M, https://arbiscan.io/blocks?ps=100&p=1)
   - mitigations:
     - [x] remove usage of ERC721Enumerable (since its added functionality is unused): rollLoan to 1.471M, openLoan 871K.
     - [ ] remove fields that aren't needed / can be calculated from other fields (call-price, put-price, callLockedCash)
@@ -70,7 +76,7 @@
 - [x] #note naming: lateFee view should be `owedTo` because is used for total owed mainly
 - [x] #note naming: gracePeriod should be maxGracePeriod
 - [x] #note no need to return the struct from start / switch escrow
-
+- [x] #note document why cancelling escrow loans immediately does not allow griefing escrow suppliers
 
 ###  Loans
 - [ ] #low escrow fee or maxFee should be specified by user 
