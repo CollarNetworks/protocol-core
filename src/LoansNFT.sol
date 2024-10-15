@@ -37,9 +37,6 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     uint internal constant BIPS_BASE = 10_000;
     address internal constant UNSET = address(0);
 
-    /// should be set to not be overly restrictive since is mostly sanity-check
-    uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 500;
-
     string public constant VERSION = "0.2.0";
 
     // ----- IMMUTABLES ----- //
@@ -497,7 +494,13 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // swap underlying
         // @dev Reentrancy assumption: no user state writes or reads BEFORE the swapper call in _swap.
         // The only state reads before are owner-set state (e.g., pause and swapper allowlist).
-        uint cashFromSwap = _swapUnderlyingWithTwapCheck(underlyingAmount, swapParams);
+        uint cashFromSwap = _swap(underlying, cashAsset, underlyingAmount, swapParams);
+        /* @dev note on swap price manipulation:
+        The swap price is only used for "pot sizing", but not for payouts division on expiry.
+        Due to this, price manipulation *should* NOT leak value from provider / escrow / protocol,
+        only from sender. But sender (borrower) is protected via a slippage parameter, and should
+        use it to avoid MEV (if present).
+        */
 
         uint putStrikePercent = currentProviderNFT.getOffer(offerId).putStrikePercent;
 
@@ -511,18 +514,6 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
         // stores, mints, calls providerNFT and mints there, emits the event
         (takerId, providerId) = takerNFT.openPairedPosition(takerLocked, currentProviderNFT, offerId);
-    }
-
-    function _swapUnderlyingWithTwapCheck(uint underlyingAmount, SwapParams calldata swapParams)
-        internal
-        returns (uint cashFromSwap)
-    {
-        cashFromSwap = _swap(underlying, cashAsset, underlyingAmount, swapParams);
-
-        // @dev note that TWAP price is used for payout decision in CollarTakerNFT, and swap price
-        // only affects the takerLocked passed into it - so does not affect the provider or the escrow,
-        // only affects the user's loan and scaling of the collar "pot"
-        _checkSwapPrice(cashFromSwap, underlyingAmount);
     }
 
     /// @dev swap logic with balance and slippage checks
@@ -821,22 +812,6 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
     function _expiration(uint loanId) internal view returns (uint) {
         return takerNFT.getPosition(_takerId(loanId)).expiration;
-    }
-
-    /// @dev should be used for opening only. If used for close will prevent closing if slippage is too high.
-    /// The swap price is only used for "pot sizing", but not for payouts division on expiry.
-    /// Due to this, price manipulation *should* NOT leak value from provider / protocol, only from sender.
-    /// But sender (borrower) is protected via a slippage parameter, and SHOULD use it to avoid MEV (if present).
-    /// So, this check is just extra precaution and avoidance of extreme slippage edge-cases.
-    function _checkSwapPrice(uint cashFromSwap, uint underlyingAmount) internal view {
-        uint twapPrice = takerNFT.currentOraclePrice();
-        // underlying is checked on open to not be 0 so no div-zero
-        // swapPrice is calculated in 1e18 (BASE_TOKEN_AMOUNT) terms to be of the same type as
-        // oracle price
-        uint swapPrice = cashFromSwap * takerNFT.oracle().BASE_TOKEN_AMOUNT() / underlyingAmount;
-        uint diff = swapPrice > twapPrice ? swapPrice - twapPrice : twapPrice - swapPrice;
-        uint deviation = diff * BIPS_BASE / twapPrice;
-        require(deviation <= MAX_SWAP_TWAP_DEVIATION_BIPS, "swap and twap price too different");
     }
 
     function _calculateNewLoan(int rollTransferIn, int rollFee, uint initialLoanAmount)

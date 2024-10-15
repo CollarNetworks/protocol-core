@@ -106,11 +106,6 @@ contract LoansBasicRevertsTest is LoansTestBase {
         mockSwapperRouter.setupSwap(swapCashAmount, swapCashAmount);
         vm.expectRevert("slippage exceeded");
         openLoan(underlyingAmount, minLoanAmount, swapCashAmount + 1, offerId);
-
-        // deviation vs.TWAP
-        prepareSwap(cashAsset, swapCashAmount / 2);
-        vm.expectRevert("swap and twap price too different");
-        openLoan(underlyingAmount, minLoanAmount, 0, offerId);
     }
 
     function test_revert_openLoan_swapper_not_allowed() public {

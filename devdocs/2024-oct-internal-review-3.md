@@ -76,7 +76,7 @@
 - [ ] #low escrow fee or maxFee should be specified by user 
 - [ ] #low no open param for deadline / price increase (up) in case of congestion / sequencer outage
 - [ ] #low swap-twap check should use twap value from before the swap, since swap is influencing the twap (reducing price)
-- [ ] #low MAX_SWAP_TWAP_DEVIATION_BIPS is too low, and is a DoS risk => raise to 50%, since only for opens and is only a sanity check. Consider removing completely since benefit is unclear, but adds complexity and dos vectors and scenarios (e.g., volatility)
+- [x] #low MAX_SWAP_TWAP_DEVIATION_BIPS is too low, and is a DoS risk => raise to 50%, since only for opens and is only a sanity check. Consider removing completely since benefit is unclear, but adds complexity and dos vectors and scenarios (e.g., volatility)
 - [x] #low check canOpen for self and dependencies contracts
 - [ ] #low deadline / expected provider address for all offer-specifying methods (open, roll) to prevent abuse of stale txs with current* in case of congestion / outage coinciding with config updates.
 - [x] #note document why no slippage check is done on what escrow releases on close 
