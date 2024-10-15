@@ -72,7 +72,8 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         return oracle.currentPrice();
     }
 
-    /// @dev TWAP price that's used in this contract for settling positions
+    /// @dev TWAP price that's used in this contract for settling positions. Falls back to current
+    /// TWAP price if historical price is no longer available.
     function historicalOraclePrice(uint timestamp) public view returns (uint price, bool historical) {
         return oracle.pastPriceWithFallback(timestamp.toUint32());
     }

@@ -19,28 +19,23 @@ import { ILoansNFT } from "./interfaces/ILoansNFT.sol";
  * 1. Allows users to open loans by providing underlying and borrowing against it, with or without escrow.
  * 2. Handles the swapping of underlying to the cash asset via allowed Swappers (that use dex routers).
  * 3. Wraps CollarTakerNFT (keeps it in the contract), and mints an NFT with loanId == takerId to the user.
- * 4. Manages loan closure, including repayment and swapping back to underlying.
+ * 4. Manages loan closure, repayment of cash, swapping back to underlying, and releasing escrow if needed.
  * 5. Provides keeper functionality for automated loan closure and foreclosure to mitigate price fluctuation risks.
  * 6. Allows rolling (extending) the loan via an owner and user approved Rolls contract.
- * 7. Supports escrow functionality, including opening escrow loans, switching escrows during rolls, and foreclosure.
+ * 7. Allows foreclosing escrow loans that were not repaid on time.
  *
  * Key Assumptions and Prerequisites:
- * 1. Allowed Swappers and the dex routers / aggregators they use are trusted and properly implemented.
+ * 1. Allowed Swappers and the dex routers / aggregators they use are properly implemented.
  * 2. Depends on ConfigHub, CollarTakerNFT, CollarProviderNFT, EscrowSupplierNFT, Rolls, and their
  * dependencies (Oracle).
- * 3. Assets (ERC-20) used are standard compliant (non-rebasing, no transfer fees, no callbacks).
- *
- * Design Considerations:
- * 1. Mints and holds CollarTakerNFT NFTs, and mints LoanNFT IDs (equal to the wrapped CollarTakerNFT ID)
- *    to borrowers to represent loan positions, allowing for potential secondary market trading.
- * 2. Includes a keeper system for automated loan closure and foreclosure to allow users and escrow suppliers
- *    to delegate time-sensitive actions.
+ * 3. Assets (ERC-20) used are simple: no hooks, balance updates only and exactly
+ * according to transfer arguments (no rebasing, no FoT), 0 value approvals and transfers work.
  */
 contract LoansNFT is ILoansNFT, BaseNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
-    address internal constant UNSET = address(0); // "magic" for disabled address
+    address internal constant UNSET = address(0);
 
     /// should be set to not be overly restrictive since is mostly sanity-check
     uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 500;
@@ -53,22 +48,26 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     IERC20 public immutable underlying;
 
     // ----- STATE VARIABLES ----- //
+
+    // ----- User state ----- //
     /// @notice Stores loan information for each NFT ID
     mapping(uint loanId => Loan) internal loans;
-    // optional keeper (set by contract owner) that's needed for the time-sensitive
-    // swap back during loan closing
-    address public closingKeeper;
     // callers (users or escrow owners) that allow a keeper for loan closing
     mapping(address sender => bool enabled) public keeperApproved;
-    // the currently configured & allowed rolls contract for this takerNFT and cash asset
+
+    // ----- Admin state ----- //
+    // optional keeper (set by contract owner) that's useful for the time-sensitive
+    // swap back during loan closing and foreclosing
+    address public closingKeeper;
+    // the currently configured & allowed rolls contract for this takerNFT and cash asset. Can be unset.
     Rolls public currentRolls;
-    // the currently configured provider contract for opening (may change)
+    // the currently configured provider contract for opening. Can be unset.
     CollarProviderNFT public currentProviderNFT;
-    // the currently configured escrow contract for opening (may change)
+    // the currently configured escrow contract for opening. Can be unset.
     EscrowSupplierNFT public currentEscrowNFT;
     // a convenience view to allow querying for a swapper onchain / FE without subgraph
     address public defaultSwapper;
-    // contracts used for swaps, including the defaultSwapper
+    // contracts allowed for swaps, including the defaultSwapper
     mapping(address swapper => bool allowed) public allowedSwappers;
 
     constructor(address initialOwner, CollarTakerNFT _takerNFT, string memory _name, string memory _symbol)
@@ -94,7 +93,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         return loans[loanId];
     }
 
-    /// @notice Calculates the end of the grace period using position cash value available for late fees.
+    /// @notice The latest end of the grace period using position cash value available for late fees.
     /// @dev Uses TWAP price for calculations, handles both pre and post-expiration scenarios.
     /// No validation of loan existing or being active, so can return nonsense values for invalid loans.
     /// In future pre-expiration estimation case (as off-chain view), will estimate using current price.
@@ -129,7 +128,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     // ----- User / Keeper methods ----- //
 
     /**
-     * @notice Opens a new loan by providing underlying and borrowing against it
+     * @notice Opens a new loan by providing underlying and borrowing against it (without using escrow)
      *      1. Transfers underlying from the user to this contract
      *      2. Swaps underlying for cash
      *      3. Opens a loan position using the CollarTakerNFT contract
@@ -446,8 +445,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         uint escrowOffer
     ) internal returns (uint loanId, uint providerId, uint loanAmount) {
         require(configHub.canOpen(address(this)), "unsupported loans contract");
-        // provider NFT is checked by taker
-        // escrow NFT is checked in _conditionalOpenEscrow, taker is checked in _swapAndMintPaired
+        // provider NFT canOpen is checked by taker contract
+        // taker NFT canOpen is checked in _swapAndMintPaired
+        // escrow NFT canOpen is checked in _conditionalOpenEscrow
 
         // @dev in additional to this, escrow interest fee may also be pulled in _conditionalOpenEscrow
         // So approval needs to be for this + interest fee
@@ -457,7 +457,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         (EscrowSupplierNFT escrowNFT, uint escrowId) =
             _conditionalOpenEscrow(usesEscrow, underlyingAmount, escrowOffer);
 
-        // @dev Reentrancy assumption: no user state writes or reads BEFORE this call
+        // @dev Reentrancy assumption: no user state writes or reads BEFORE this call due to potential
+        // untrusted calls during swapping
         uint takerId;
         (takerId, providerId, loanAmount) = _swapAndMintCollar(underlyingAmount, providerOffer, swapParams);
         require(loanAmount >= minLoanAmount, "loan amount too low");
@@ -488,14 +489,14 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         returns (uint takerId, uint providerId, uint loanAmount)
     {
         require(configHub.canOpen(address(takerNFT)), "unsupported taker contract");
-        // provider contract is valid
+        // provider contract is set
         require(address(currentProviderNFT) != UNSET, "provider contract unset");
         // 0 underlying is later checked to mean non-existing loan, also prevents div-zero
         require(underlyingAmount != 0, "invalid underlying amount");
 
         // swap underlying
         // @dev Reentrancy assumption: no user state writes or reads BEFORE the swapper call in _swap.
-        // The only state reads before are owner-set state: pause and swapper allowlist.
+        // The only state reads before are owner-set state (e.g., pause and swapper allowlist).
         uint cashFromSwap = _swapUnderlyingWithTwapCheck(underlyingAmount, swapParams);
 
         uint putStrikePercent = currentProviderNFT.getOffer(offerId).putStrikePercent;
@@ -519,7 +520,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         cashFromSwap = _swap(underlying, cashAsset, underlyingAmount, swapParams);
 
         // @dev note that TWAP price is used for payout decision in CollarTakerNFT, and swap price
-        // only affects the takerLocked passed into it - so does not affect the provider, only the user
+        // only affects the takerLocked passed into it - so does not affect the provider or the escrow,
+        // only affects the user's loan and scaling of the collar "pot"
         _checkSwapPrice(cashFromSwap, underlyingAmount);
     }
 
@@ -547,6 +549,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         3. Swap's amountIn would need to be calculated off-chain exactly, which in case of closing
         the loan is problematic if position was not settled already (and so exact withdrawal amount
         is not known), so would require first settling, and then closing.
+
+        The interface still allows arbitrary complexity via the extraData field if needed.
         */
         uint amountOutSwapper = ISwapper(swapParams.swapper).swap(
             assetIn, assetOut, amountIn, swapParams.minAmountOut, swapParams.extraData
@@ -554,7 +558,6 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // Calculate the actual amount received
         amountOut = assetOut.balanceOf(address(this)) - balanceBefore;
         // check balance is updated as expected and as reported by swapper (no other balance changes)
-        // asset cannot be fee-on-transfer or rebasing (e.g., internal shares accounting)
         require(amountOut == amountOutSwapper, "balance update mismatch");
         // check amount is as expected by user
         require(amountOut >= swapParams.minAmountOut, "slippage exceeded");
@@ -664,7 +667,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     {
         if (usesEscrow) {
             escrowNFT = currentEscrowNFT;
-            // escrow contract is valid
+            // escrow contract is set
             require(address(escrowNFT) != UNSET, "escrow contract unset");
             // whitelisted only
             require(configHub.canOpen(address(escrowNFT)), "unsupported escrow contract");
@@ -717,8 +720,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     {
         // calc and pull the interest fee to be paid upfront
         interestFee = escrowNFT.interestFee(escrowOffer, escrowed);
-        // explicit approval check here to provide clearer error since fee amount is not provided by user
+        // explicit allowance check here to provide clearer error since fee amount is not a user argument
         uint allowance = underlying.allowance(msg.sender, address(this));
+        // underlyingAmount was already pulled, so its allowance has been consumed
         require(allowance >= interestFee, "insufficient allowance for escrow fee");
         underlying.safeTransferFrom(msg.sender, address(this), interestFee);
     }
@@ -821,12 +825,14 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
     /// @dev should be used for opening only. If used for close will prevent closing if slippage is too high.
     /// The swap price is only used for "pot sizing", but not for payouts division on expiry.
-    /// Due to this, price manipulation *should* NOT leak value from provider / protocol.
-    /// The caller (user) is protected via a slippage parameter, and SHOULD use it to avoid MEV (if present).
-    /// So, this check is just extra precaution and avoidance of extreme edge-cases.
+    /// Due to this, price manipulation *should* NOT leak value from provider / protocol, only from sender.
+    /// But sender (borrower) is protected via a slippage parameter, and SHOULD use it to avoid MEV (if present).
+    /// So, this check is just extra precaution and avoidance of extreme slippage edge-cases.
     function _checkSwapPrice(uint cashFromSwap, uint underlyingAmount) internal view {
         uint twapPrice = takerNFT.currentOraclePrice();
-        // underlying is checked on open to not be 0
+        // underlying is checked on open to not be 0 so no div-zero
+        // swapPrice is calculated in 1e18 (BASE_TOKEN_AMOUNT) terms to be of the same type as
+        // oracle price
         uint swapPrice = cashFromSwap * takerNFT.oracle().BASE_TOKEN_AMOUNT() / underlyingAmount;
         uint diff = swapPrice > twapPrice ? swapPrice - twapPrice : twapPrice - swapPrice;
         uint deviation = diff * BIPS_BASE / twapPrice;

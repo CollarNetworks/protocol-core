@@ -13,7 +13,7 @@ interface ILoansNFT {
         uint underlyingAmount;
         uint loanAmount;
         bool usesEscrow;
-        EscrowSupplierNFT escrowNFT; // optional, 0 address for non-escrow loans
+        EscrowSupplierNFT escrowNFT; // optional, 0 address for non-escrow loans (`usesEscrow` == false)
         uint escrowId;
     }
 
