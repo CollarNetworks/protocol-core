@@ -750,4 +750,12 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         );
         takerNFT.historicalOraclePrice(overflow32);
     }
+
+    function test_revert_historicalOraclePrice_overflow() public {
+        uint overflow32 = uint(type(uint32).max) + 1;
+        vm.expectRevert(
+            abi.encodeWithSelector(SafeCast.SafeCastOverflowedUintDowncast.selector, 32, overflow32)
+        );
+        takerNFT.historicalOraclePrice(overflow32);
+    }
 }
