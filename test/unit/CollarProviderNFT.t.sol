@@ -89,6 +89,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         uint takerId = 1000; // arbitrary
 
         CollarProviderNFT.ProviderPosition memory expectedPosition = ICollarProviderNFT.ProviderPosition({
+            offerId: offerId,
             takerId: takerId,
             expiration: block.timestamp + duration,
             principal: positionAmount,
@@ -512,6 +513,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
 
         for (uint i = 0; i < positionCount; i++) {
             CollarProviderNFT.ProviderPosition memory position = providerNFT.getPosition(positionIds[i]);
+            assertEq(position.offerId, offerId);
             assertEq(position.takerId, i);
             assertEq(position.principal, largeAmount);
             assertEq(position.putStrikePercent, putPercent);

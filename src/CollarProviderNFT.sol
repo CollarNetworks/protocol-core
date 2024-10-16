@@ -57,7 +57,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     // non transferrable offers
     mapping(uint offerId => LiquidityOffer) internal liquidityOffers;
     // positionId is the NFT token ID (defined in BaseNFT)
-    mapping(uint positionId => ProviderPosition) internal positions;
+    mapping(uint positionId => ProviderPositionStored) internal positions;
 
     constructor(
         address initialOwner,
@@ -89,8 +89,19 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
 
     /// @notice Retrieves the details of a specific position (corresponds to the NFT token ID)
     /// @dev This is used instead of the default getter because the default getter returns a tuple
-    function getPosition(uint positionId) external view returns (ProviderPosition memory) {
-        return positions[positionId];
+    function getPosition(uint positionId) public view returns (ProviderPosition memory) {
+        ProviderPositionStored memory stored = positions[positionId];
+        LiquidityOffer memory offer = getOffer(stored.offerId);
+        return ProviderPosition({
+            takerId : stored.takerId,
+            offerId : stored.offerId,
+            expiration : stored.expiration,
+            principal : stored.principal,
+            putStrikePercent : offer.putStrikePercent,
+            callStrikePercent : offer.callStrikePercent,
+            settled : stored.settled,
+            withdrawable : stored.withdrawable
+        });
     }
 
     /// @notice Retrieves the details of a specific non-transferrable offer.
@@ -209,12 +220,11 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         // storage updates
         offer.available = prevOfferAmount - amount - fee;
         positionId = nextTokenId++;
-        positions[positionId] = ProviderPosition({
+        positions[positionId] = ProviderPositionStored({
+            offerId: offerId,
             takerId: takerId,
             expiration: block.timestamp + offer.duration,
             principal: amount,
-            putStrikePercent: offer.putStrikePercent,
-            callStrikePercent: offer.callStrikePercent,
             settled: false,
             withdrawable: 0
         });
@@ -222,7 +232,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         emit OfferUpdated(offerId, msg.sender, prevOfferAmount, offer.available);
 
         // emit creation before transfer. No need to emit takerId, because it's emitted by the taker event
-        emit PositionCreated(positionId, offerId, fee, positions[positionId]);
+        emit PositionCreated(positionId, offerId, fee, getPosition(positionId));
 
         // mint the NFT to the provider
         // @dev does not use _safeMint to avoid reentrancy
@@ -251,7 +261,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// @param positionId The ID of the position to settle (NFT token ID)
     /// @param cashDelta The change in position value (positive or negative)
     function settlePosition(uint positionId, int cashDelta) external whenNotPaused onlyTaker {
-        ProviderPosition storage position = positions[positionId];
+        ProviderPositionStored storage position = positions[positionId];
 
         require(block.timestamp >= position.expiration, "not expired");
 
@@ -288,7 +298,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         // caller is BOTH taker contract, and NFT owner
         require(msg.sender == ownerOf(positionId), "caller does not own token");
 
-        ProviderPosition storage position = positions[positionId];
+        ProviderPositionStored storage position = positions[positionId];
         require(!position.settled, "already settled");
 
         // store changes
@@ -311,7 +321,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     function withdrawFromSettled(uint positionId) external whenNotPaused returns (uint withdrawal) {
         require(msg.sender == ownerOf(positionId), "not position owner");
 
-        ProviderPosition storage position = positions[positionId];
+        ProviderPositionStored storage position = positions[positionId];
         require(position.settled, "not settled");
 
         withdrawal = position.withdrawable;

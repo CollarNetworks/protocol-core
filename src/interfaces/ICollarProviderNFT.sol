@@ -14,7 +14,19 @@ interface ICollarProviderNFT {
         uint duration;
     }
 
+    struct ProviderPositionStored {
+        uint offerId;
+        uint takerId; // the corresponding paired ID for onchain / view reference
+        // collar position terms
+        uint expiration;
+        uint principal;
+        // withdrawal
+        bool settled;
+        uint withdrawable;
+    }
+
     struct ProviderPosition {
+        uint offerId; // the LiquidityOffer offerId
         uint takerId; // the corresponding paired ID for onchain / view reference
         // collar position terms
         uint expiration;
