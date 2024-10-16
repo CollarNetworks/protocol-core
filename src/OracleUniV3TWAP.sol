@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.22;
 
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import { OracleLibrary, IUniswapV3Pool } from "@uniswap/v3-periphery/contracts/libraries/OracleLibrary.sol";
 import { IPeripheryImmutableState } from
@@ -51,12 +53,12 @@ Suggested monitoring for pools and possible replacement pools (other fee tiers):
 to measure arbitrage responsiveness.
 */
 contract OracleUniV3TWAP is ITakerOracle {
-    uint128 public constant BASE_TOKEN_AMOUNT = 1e18;
     uint32 public constant MIN_TWAP_WINDOW = 300;
     string public constant VERSION = "0.2.0";
 
     address public immutable baseToken;
     address public immutable quoteToken;
+    uint128 public immutable baseUnitAmount;
     uint24 public immutable feeTier;
     uint32 public immutable twapWindow;
     IUniswapV3Pool public immutable pool;
@@ -73,6 +75,7 @@ contract OracleUniV3TWAP is ITakerOracle {
         quoteToken = _quoteToken;
         feeTier = _feeTier;
         twapWindow = _twapWindow;
+        baseUnitAmount = 10 ** IERC20Metadata(_baseToken).decimals();
         pool = IUniswapV3Pool(_getPoolAddress(_uniV3SwapRouter));
     }
 
@@ -114,6 +117,18 @@ contract OracleUniV3TWAP is ITakerOracle {
         }
     }
 
+    /// logic helper to encapsulate the conversion and baseUnitAmount usage. Rounds down.
+    function convertToBaseAmount(uint quoteTokenAmount, uint atPrice) external pure returns (uint) {
+        // oracle price is for baseTokenAmount tokens
+        return quoteTokenAmount * baseUnitAmount / atPrice;
+    }
+
+    /// logic helper to encapsulate the conversion and baseUnitAmount usage. Rounds down.
+    function convertToQuoteAmount(uint baseTokenAmount, uint atPrice) external pure returns (uint) {
+        // oracle price is for baseTokenAmount tokens
+        return baseTokenAmount * atPrice / baseUnitAmount;
+    }
+
     function currentCardinality() public view returns (uint16 observationCardinalityNext) {
         (,,,, observationCardinalityNext,,) = pool.slot0();
     }
@@ -142,6 +157,6 @@ contract OracleUniV3TWAP is ITakerOracle {
         int56 tickCumulativesDelta = tickCumulatives[1] - tickCumulatives[0];
         int24 tick = int24(tickCumulativesDelta / int56(uint56(twapWindow)));
         if (tickCumulativesDelta < 0 && (tickCumulativesDelta % int56(uint56(twapWindow)) != 0)) tick--;
-        return OracleLibrary.getQuoteAtTick(tick, BASE_TOKEN_AMOUNT, baseToken, quoteToken);
+        return OracleLibrary.getQuoteAtTick(tick, baseUnitAmount, baseToken, quoteToken);
     }
 }

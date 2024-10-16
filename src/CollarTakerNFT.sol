@@ -255,8 +255,10 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         (uint price,) = _oracle.pastPriceWithFallback(uint32(block.timestamp));
         require(price != 0, "invalid price");
 
-        // check this view doesn't revert and returns a value (required for amount conversions)
-        require(_oracle.BASE_TOKEN_AMOUNT() != 0, "invalid oracle");
+        // check these views don't revert (part of the interface used in Loans)
+        // note: _oracle.convertToBaseAmount(price, price) should be _oracle.baseUnitAmount(), but checking this
+        // may be too strict for composite oracles later on, and .baseUnitAmount() is not used internally now
+        require(_oracle.convertToBaseAmount(price, price) != 0, "invalid oracle");
 
         emit OracleSet(oracle, _oracle); // emit before for the prev value
         oracle = _oracle;

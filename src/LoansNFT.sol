@@ -102,16 +102,14 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // if this is called before expiration (externally), estimate value using current time and price
         uint settleTime = Math.min(block.timestamp, expiration);
         // the price that will be used for settlement (past if available, or current if not)
-        (uint oraclePrice,) = takerNFT.historicalOraclePrice(settleTime);
+        (uint settlePrice,) = takerNFT.historicalOraclePrice(settleTime);
+        (uint cashAvailable,) = takerNFT.previewSettlement(_takerId(loanId), settlePrice);
 
-        (uint cashAvailable,) = takerNFT.previewSettlement(_takerId(loanId), oraclePrice);
-
-        // oracle price is for 1e18 tokens (regardless of decimals):
-        // oracle-price = underlying-price * 1e18, so price = oracle-price / 1e18,
-        // since underlying = cash / price, we get underlying = cash * 1e18 / oracle-price.
+        ITakerOracle oracle = takerNFT.oracle();
+        // use current price for conversion, because settlePrice may be historical, so may be wrong
+        // for estimating current swap (spot) output value.
         // round down is ok since it's against the user (being foreclosed).
-        // division by zero is not prevented because because a panic is ok with an invalid price
-        uint underlyingAmount = cashAvailable * takerNFT.oracle().BASE_TOKEN_AMOUNT() / oraclePrice;
+        uint underlyingAmount = oracle.convertToBaseAmount(cashAvailable, oracle.currentPrice());
 
         Loan memory loan = loans[loanId];
         // assume all available underlying can be used for fees (escrowNFT will cap between max and min)

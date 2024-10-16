@@ -243,7 +243,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         vm.expectRevert(new bytes(0));
         new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
 
-        vm.mockCallRevert(address(newOracle), abi.encodeCall(newOracle.BASE_TOKEN_AMOUNT, ()), "");
+        vm.mockCallRevert(address(newOracle), abi.encodeCall(newOracle.baseUnitAmount, ()), "");
         vm.expectRevert(new bytes(0));
         new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
     }
@@ -683,7 +683,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         vm.expectRevert(new bytes(0));
         new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
 
-        vm.mockCallRevert(address(newOracle), abi.encodeCall(newOracle.BASE_TOKEN_AMOUNT, ()), "");
+        vm.mockCallRevert(address(newOracle), abi.encodeCall(newOracle.baseUnitAmount, ()), "");
         vm.expectRevert(new bytes(0));
         new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
     }
