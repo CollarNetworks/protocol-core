@@ -71,7 +71,7 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
         pair.providerNFT.approve(address(pair.rollsContract), providerId);
         uint currentPrice = pair.takerNFT.currentOraclePrice();
         uint takerId = loanId;
-        rollOfferId = pair.rollsContract.createRollOffer(
+        rollOfferId = pair.rollsContract.createOffer(
             takerId,
             rollFee,
             rollDeltaFactor,

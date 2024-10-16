@@ -57,7 +57,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         uint nextRollId = rolls.nextRollId();
         vm.expectEmit(address(rolls));
         emit IRolls.OfferCreated(takerId, provider, providerNFT, providerId, feeAmount, nextRollId);
-        rollId = rolls.createRollOffer(
+        rollId = rolls.createOffer(
             takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
         );
 
@@ -493,7 +493,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         vm.startPrank(user1);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        rolls.createRollOffer(0, 0, 0, 0, 0, 0, 0);
+        rolls.createOffer(0, 0, 0, 0, 0, 0, 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
         rolls.cancelOffer(0);
@@ -525,21 +525,17 @@ contract RollsTest is BaseAssetPairTestSetup {
 
         // Non-existent taker position
         vm.expectRevert("taker position doesn't exist");
-        rolls.createRollOffer(999, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline);
+        rolls.createOffer(999, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline);
 
         // expired taker position
         skip(duration + 1);
         vm.expectRevert("taker position expired");
-        rolls.createRollOffer(
-            takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
-        );
+        rolls.createOffer(takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline);
 
         // Settled taker position
         takerNFT.settlePairedPosition(takerId);
         vm.expectRevert("taker position settled");
-        rolls.createRollOffer(
-            takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
-        );
+        rolls.createOffer(takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline);
 
         // new taker position
         updatePrice();
@@ -550,27 +546,23 @@ contract RollsTest is BaseAssetPairTestSetup {
         // Caller is not the provider position owner
         startHoax(user1);
         vm.expectRevert("not provider ID owner");
-        rolls.createRollOffer(
-            takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
-        );
+        rolls.createOffer(takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline);
 
         // Invalid price bounds
         startHoax(provider);
         vm.expectRevert("max price lower than min price");
-        rolls.createRollOffer(
-            takerId, feeAmount, feeDeltaFactorBIPS, maxPrice, minPrice, minToProvider, deadline
-        );
+        rolls.createOffer(takerId, feeAmount, feeDeltaFactorBIPS, maxPrice, minPrice, minToProvider, deadline);
 
         // Invalid fee delta change
         vm.expectRevert("invalid fee delta change");
-        rolls.createRollOffer(takerId, feeAmount, 10_001, minPrice, maxPrice, minToProvider, deadline);
+        rolls.createOffer(takerId, feeAmount, 10_001, minPrice, maxPrice, minToProvider, deadline);
 
         vm.expectRevert("invalid fee delta change");
-        rolls.createRollOffer(takerId, feeAmount, -10_001, minPrice, maxPrice, minToProvider, deadline);
+        rolls.createOffer(takerId, feeAmount, -10_001, minPrice, maxPrice, minToProvider, deadline);
 
         // Deadline in the past
         vm.expectRevert("deadline passed");
-        rolls.createRollOffer(
+        rolls.createOffer(
             takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, block.timestamp - 1
         );
 
@@ -581,19 +573,13 @@ contract RollsTest is BaseAssetPairTestSetup {
                 IERC721Errors.ERC721InsufficientApproval.selector, address(rolls), providerId
             )
         );
-        rolls.createRollOffer(
-            takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
-        );
+        rolls.createOffer(takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline);
 
         // cannot create twice
         providerNFT.approve(address(rolls), providerId);
-        rolls.createRollOffer(
-            takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
-        );
+        rolls.createOffer(takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline);
         vm.expectRevert("not provider ID owner");
-        rolls.createRollOffer(
-            takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
-        );
+        rolls.createOffer(takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline);
     }
 
     function test_revert_cancelOffer() public {

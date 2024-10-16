@@ -143,7 +143,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
     function test_revert_forecloseLoan_invalidLoanStates() public {
         // foreclose a non-existent loan
         uint nonExistentLoanId = 999;
-        vm.expectRevert("not an escrowed loan");
+        expectRevertERC721Nonexistent(nonExistentLoanId);
         loans.forecloseLoan(nonExistentLoanId, defaultSwapParams(0));
 
         // create and cancel a loan

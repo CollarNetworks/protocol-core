@@ -21,6 +21,7 @@ contract SwapperUniV3 is ISwapper {
     /**
      * @param _uniV3SwapRouter The address of the Uniswap V3 router.
      * @param _feeTier The fee tier to be used for swaps. Must be one of 100, 500, 3000, or 10000.
+     * Note that 100 may not be supported on all networks.
      */
     constructor(address _uniV3SwapRouter, uint24 _feeTier) {
         // sanity check router
@@ -37,18 +38,18 @@ contract SwapperUniV3 is ISwapper {
 
     /**
      * @notice Swaps a specified amount of one token for another via a direct Uniswap V3 route with
-     * the configured fee tier.
-     * @dev A called of this function assumes that as long as Uniswap V3 router and tokens involved
-     * are non-malicious that reentrancy won't be an issue the direct swapping route.
+     * the configured fee tier using `exactInputSingle`.
+     * @dev This function assumes that as long as the swap router and the two tokens involved
+     * are non-malicious and don't allow reentrancy, reentrancy is not possible, because the route is direct.
      * Additional checks:
-     *  - The output of thw router is checked to correspond exactly to the balance change.
+     *  - The output of the router is checked to correspond exactly to the balance change.
      *  - A slippage check vs. minAmountOut.
      * @param assetIn ERC20 token being swapped from.
      * @param assetOut ERC20 token being swapped to.
      * @param amountIn The amount of `assetIn` to swap.
      * @param minAmountOut The minimum amount of `assetOut` to accept, limiting slippage.
-     * @param extraData Arbitrary bytes data that are unused in this contract.
-     *     This part of the interface can be utilized for more complex routing in other implementations.
+     * @param extraData Arbitrary bytes data (unused in this contract) that are part of ISwapper interface
+     * for more complex integrations in other implementations.
      * @return amountOut The actual amount of `assetOut` received from the swap.
      */
     function swap(IERC20 assetIn, IERC20 assetOut, uint amountIn, uint minAmountOut, bytes calldata extraData)
@@ -59,13 +60,12 @@ contract SwapperUniV3 is ISwapper {
         // extraData should be used in swappers which expect more off-chain input, such as routes
         extraData;
 
+        // pull funds (assumes approval from caller)
         assetIn.safeTransferFrom(msg.sender, address(this), amountIn);
-
-        uint balanceBefore = assetOut.balanceOf(address(this));
-
-        // approve router
+        // approve router to pull
         assetIn.forceApprove(address(uniV3SwapRouter), amountIn);
 
+        uint balanceBefore = assetOut.balanceOf(address(this));
         // reentrancy assumptions: router is trusted + swap path is direct (not through multiple pools).
         // @dev This swapper is safe from reentrancy under the assumption of trusted router and tokens.
         // However, in general a multi-hop swap route (via more flexible routers) can allow reentrancy via
@@ -82,9 +82,9 @@ contract SwapperUniV3 is ISwapper {
                 sqrtPriceLimitX96: 0
             })
         );
-
-        // Calculate the actual amount received
+        // actual amount received
         amountOut = assetOut.balanceOf(address(this)) - balanceBefore;
+
         // check balance is updated as expected and as reported by router (no other balance changes)
         // asset cannot be fee-on-transfer or rebasing (e.g., internal shares accounting)
         require(amountOut == amountOutRouter, "balance update mismatch");

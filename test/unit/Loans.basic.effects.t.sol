@@ -240,7 +240,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(escrow.loans, address(loans));
         assertEq(escrow.loanId, loanId);
         assertEq(escrow.escrowed, underlyingAmount);
-        assertEq(escrow.gracePeriod, gracePeriod);
+        assertEq(escrow.maxGracePeriod, gracePeriod);
         assertEq(escrow.lateFeeAPR, lateFeeAPR);
         assertEq(escrow.duration, duration);
         assertEq(escrow.expiration, block.timestamp + duration);
@@ -261,9 +261,8 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         view
         returns (EscrowReleaseAmounts memory released)
     {
-        uint escrowed;
-        (released.lateFee, escrowed) = escrowNFT.lateFees(escrowId);
-        uint owed = released.lateFee + escrowed;
+        uint owed;
+        (owed, released.lateFee) = escrowNFT.owedTo(escrowId);
         released.toEscrow = swapOut < owed ? swapOut : owed;
         released.leftOver = swapOut - released.toEscrow;
         (, released.fromEscrow,) = escrowNFT.previewRelease(escrowId, released.toEscrow);
@@ -391,7 +390,6 @@ contract LoansBasicEffectsTest is LoansTestBase {
         assertEq(address(loans.takerNFT()), address(takerNFT));
         assertEq(address(loans.cashAsset()), address(cashAsset));
         assertEq(address(loans.underlying()), address(underlying));
-        assertEq(loans.MAX_SWAP_TWAP_DEVIATION_BIPS(), 500);
         assertEq(loans.VERSION(), "0.2.0");
         assertEq(loans.owner(), owner);
         assertEq(loans.closingKeeper(), address(0));

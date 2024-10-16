@@ -13,7 +13,7 @@ interface ILoansNFT {
         uint underlyingAmount;
         uint loanAmount;
         bool usesEscrow;
-        EscrowSupplierNFT escrowNFT; // optional, 0 address for non-escrow loans
+        EscrowSupplierNFT escrowNFT; // optional, 0 address for non-escrow loans (`usesEscrow` == false)
         uint escrowId;
     }
 
@@ -34,7 +34,7 @@ interface ILoansNFT {
     event LoanClosed(
         uint indexed loanId,
         address indexed sender,
-        address indexed user,
+        address indexed borrower,
         uint repayment,
         uint cashAmount,
         uint underlyingOut
@@ -56,5 +56,5 @@ interface ILoansNFT {
     );
     event SwapperSet(address indexed swapper, bool indexed allowed, bool indexed setDefault);
     event EscrowSettled(uint indexed escrowId, uint lateFee, uint toEscrow, uint fromEscrow, uint leftOver);
-    event LoanForeclosed(uint indexed loanId, uint indexed escrowId, uint fromSwap, uint toUser);
+    event LoanForeclosed(uint indexed loanId, uint indexed escrowId, uint fromSwap, uint toBorrower);
 }

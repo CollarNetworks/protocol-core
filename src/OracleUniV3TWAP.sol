@@ -8,17 +8,48 @@ import { IPeripheryImmutableState } from
 
 import { ITakerOracle } from "./interfaces/ITakerOracle.sol";
 
-/// The warning below copied from Euler:
-///     https://github.com/euler-xyz/euler-price-oracle/blob/95e5d325cd9f4290d147821ff08add14ca99b136/src/adapter/uniswap/UniswapV3Oracle.sol#L14-L22
-/// WARNING: READ THIS BEFORE DEPLOYING
-/// Do not use Uniswap V3 as an oracle unless you understand its security implications.
-/// Instead, consider using another provider as a primary price source.
-/// Under PoS a validator may be chosen to propose consecutive blocks, allowing risk-free multi-block manipulation.
-/// The cardinality of the observation buffer must be grown sufficiently to accommodate for the chosen TWAP window.
-/// The observation buffer must contain enough observations to accommodate for the chosen TWAP window.
-/// The chosen pool must have enough total liquidity and some full-range liquidity to resist manipulation.
-/// The chosen pool must have had sufficient liquidity when past observations were recorded in the buffer.
-/// Networks with short block times are highly susceptible to TWAP manipulation due to the reduced attack cost.
+/*
+WARNING: READ THIS BEFORE DEPLOYING regarding using Uniswap v3 TWAP as an oracle.
+
+------
+Some warnings copied from Euler:
+https://github.com/euler-xyz/euler-price-oracle/blob/95e5d325cd9f4290d147821ff08add14ca99b136/src/adapter/uniswap/UniswapV3Oracle.sol#L14-L22
+> Do not use Uniswap V3 as an oracle unless you understand its security implications.
+> Instead, consider using another provider as a primary price source.
+> Under PoS a validator may be chosen to propose consecutive blocks, allowing risk-free multi-block manipulation.
+> The cardinality of the observation buffer must be grown sufficiently to accommodate for the chosen TWAP window.
+> The observation buffer must contain enough observations to accommodate for the chosen TWAP window.
+> The chosen pool must have enough total liquidity and some full-range liquidity to resist manipulation.
+> The chosen pool must have had sufficient liquidity when past observations were recorded in the buffer.
+------
+
+These mitigations should be in place when using this oracle:
+- First, read this https://medium.com/@chinmayf/so-you-want-to-use-twap-1f992f9d3819
+- Cardinality should be increased to cover the needed time window. If cardinality < time window, in extreme
+volatility, if every block has a pool action, time window will not be available. Contracts should be
+designed such that this risk (short infrequent DoS) should be acceptable (with low likelihood), or
+cardinality should be increased above twap window.
+- Pool liquidity should be deep and wide. Ideally, at least some full range liquidity should be in place.
+This means that stable pair pools are especially risky, since tend to have liquidity in a very narrow range.
+Arbitrage is expected only within good liquidity range (outside of it is not worth to the arbitrageurs).
+- Lack of arbitrage or insufficiently responsive arbitrage (slower than twap window), means pool can be
+manipulated (while taking some risk). Example: https://x.com/mudit__gupta/status/1455627465678749696
+- L2 sequencer MEV, outages, or partial outages (e.g., preventing most arbitrage txs), need to be taken into
+account when setting the time window. A censoring sequencer, that can exclude arbitrage transactions for
+the duration of the window can manipulate the price.
+- Liquidity can migrate between pools and dexes, so contracts should allow switching oracles.
+- Continuously monitor (see below) the pool (and its replacements) suitability and switch as needed.
+- Recommend large protocol LPs to maintain some full-range liquidity in pools they have significant
+exposure to.
+
+Suggested monitoring for pools and possible replacement pools (other fee tiers):
+- Liquidity amount.
+- Full range liquidity amount.
+- Liquidity depth (trade size required to move price by +-X%).
+- Age of oldest available observation (to detect when cardinality is insufficient).
+- Pool price delay during spikes behind external market price (Binance / Chainlink) prices
+to measure arbitrage responsiveness.
+*/
 contract OracleUniV3TWAP is ITakerOracle {
     uint128 public constant BASE_TOKEN_AMOUNT = 1e18;
     uint32 public constant MIN_TWAP_WINDOW = 300;
@@ -47,10 +78,6 @@ contract OracleUniV3TWAP is ITakerOracle {
 
     // ----- Views ----- //
 
-    function currentCardinality() public view returns (uint16 observationCardinalityNext) {
-        (,,,, observationCardinalityNext,,) = pool.slot0();
-    }
-
     function currentPrice() public view returns (uint) {
         return pastPrice(uint32(block.timestamp));
     }
@@ -58,11 +85,10 @@ contract OracleUniV3TWAP is ITakerOracle {
     function pastPrice(uint32 timestamp) public view returns (uint) {
         // _secondsAgos is in offsets format. e.g., [120, 60] means that observations 120 and 60
         // seconds ago will be used for the TWAP calculation
-        uint32 twapEndOffset = uint32(block.timestamp) - timestamp;
+        uint32 secondsAgo = uint32(block.timestamp) - timestamp; // will revert for future timestamp
         uint32[] memory secondsAgos = new uint32[](2);
-        secondsAgos[0] = twapEndOffset + twapWindow;
-        secondsAgos[1] = twapEndOffset;
-
+        secondsAgos[0] = secondsAgo + twapWindow;
+        secondsAgos[1] = secondsAgo;
         return _getQuote(secondsAgos);
     }
 
@@ -75,18 +101,21 @@ contract OracleUniV3TWAP is ITakerOracle {
     /// uses the actual expiry price instead of the latest price.
     /// A more sophisticated fallback is possible - that will try to use the oldest historical price available,
     /// but that requires a more complex and tight integration with the pool.
-    function pastPriceWithFallback(uint32 timestamp) public view returns (uint price, bool pastPriceOk) {
-        // low level try-catch, because high level try-catch is a mistake
-        bytes memory retVal;
-        (pastPriceOk, retVal) = address(this).staticcall(abi.encodeCall(this.pastPrice, timestamp));
-        // the caller cannot make the above call fail OOG using too little gas (e.g., to force the fallback)
-        // because this will cause the fallback to fail too (since it requires a non-trivial amount of gas too)
-        if (pastPriceOk) {
-            // this will revert if cannot be decoded, which means oracle interface doesn't match
-            price = abi.decode(retVal, (uint));
-        } else {
-            price = currentPrice();
+    function pastPriceWithFallback(uint32 timestamp) public view returns (uint price, bool historical) {
+        // high level try/catch is error-prone and hides failure cases, low level try/catch is more
+        // complex so also not ideal. If reviewing changes to this must read docs:
+        //    https://docs.soliditylang.org/en/v0.8.22/control-structures.html#try-catch
+        // The "try" can revert on decode error, but it's impossible since this is calling self.
+        try this.pastPrice(timestamp) returns (uint _price) {
+            return (_price, true);
+        } catch {
+            // fallback to current price in case it is available, do not check error reason
+            return (currentPrice(), false);
         }
+    }
+
+    function currentCardinality() public view returns (uint16 observationCardinalityNext) {
+        (,,,, observationCardinalityNext,,) = pool.slot0();
     }
 
     // ----- Mutative ----- //
@@ -108,7 +137,7 @@ contract OracleUniV3TWAP is ITakerOracle {
     ///     https://github.com/euler-xyz/euler-price-oracle/blob/95e5d325cd9f4290d147821ff08add14ca99b136/src/adapter/uniswap/UniswapV3Oracle.sol#L73-L78
     function _getQuote(uint32[] memory secondsAgos) internal view virtual returns (uint) {
         // Calculate the mean tick over the twap window.
-        /// @dev can revert with error OLD() if any value in secondsAgo is not in available observations
+        /// @dev will revert with error OLD() if any value in secondsAgo is not in available observations
         (int56[] memory tickCumulatives,) = pool.observe(secondsAgos);
         int56 tickCumulativesDelta = tickCumulatives[1] - tickCumulatives[0];
         int24 tick = int24(tickCumulativesDelta / int56(uint56(twapWindow)));
