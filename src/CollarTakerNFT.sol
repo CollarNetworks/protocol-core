@@ -251,12 +251,14 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         // since the observations buffer can be filled such that the required time window is not available.
         // @dev this means this contract can be temporarily DoSed unless the cardinality is set
         // to at least twap-window. For 5 minutes TWAP on Arbitrum this is 300 (obs. are set by timestamps)
-        require(_oracle.currentPrice() != 0, "invalid price");
+        require(_oracle.currentPrice() != 0, "invalid current price");
         (uint price,) = _oracle.pastPriceWithFallback(uint32(block.timestamp));
-        require(price != 0, "invalid price");
+        require(price != 0, "invalid past price");
 
-        // check this view doesn't revert and returns a value (required for amount conversions)
-        require(_oracle.BASE_TOKEN_AMOUNT() != 0, "invalid oracle");
+        // check these views don't revert (part of the interface used in Loans)
+        // note: .convertToBaseAmount(price, price) should equal .baseUnitAmount(), but checking this
+        // may be too strict for more complex oracles, and .baseUnitAmount() is not used internally now
+        require(_oracle.convertToBaseAmount(price, price) != 0, "invalid convertToBaseAmount");
 
         emit OracleSet(oracle, _oracle); // emit before for the prev value
         oracle = _oracle;

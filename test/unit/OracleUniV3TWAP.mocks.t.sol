@@ -13,7 +13,7 @@ import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswa
 import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 
-import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
+import { OracleUniV3TWAP, IERC20Metadata } from "../../src/OracleUniV3TWAP.sol";
 
 contract OracleUniV3TWAPTest is Test {
     OracleUniV3TWAP public oracle;
@@ -42,6 +42,8 @@ contract OracleUniV3TWAPTest is Test {
     uint priceTickInverse1000 = 999_900_670_889_993; // 0.00099
     uint priceTickInverse1001 = 999_800_690_820_911; // 0.00099
 
+    uint8 decimals = 18;
+
     function setUp() public {
         mockRouterAndFactoryCalls();
         oracle = new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, mockRouter);
@@ -60,6 +62,9 @@ contract OracleUniV3TWAPTest is Test {
             abi.encodeCall(IUniswapV3Factory.getPool, (baseToken, quoteToken, feeTier)),
             abi.encode(mockPool)
         );
+
+        // Mock the decimals call
+        vm.mockCall(baseToken, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(decimals));
     }
 
     function mockObserve(int24 tick, uint32 ago) internal {
@@ -87,9 +92,16 @@ contract OracleUniV3TWAPTest is Test {
         assertEq(oracle.MIN_TWAP_WINDOW(), 300);
         assertEq(oracle.baseToken(), baseToken);
         assertEq(oracle.quoteToken(), quoteToken);
+        assertEq(oracle.baseUnitAmount(), 10 ** decimals);
         assertEq(oracle.feeTier(), feeTier);
         assertEq(oracle.twapWindow(), twapWindow);
         assertEq(address(oracle.pool()), mockPool);
+
+        // test different decimals
+        decimals = 2;
+        mockRouterAndFactoryCalls();
+        oracle = new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, mockRouter);
+        assertEq(oracle.baseUnitAmount(), 10 ** decimals);
     }
 
     function test_currentCardinality() public {
@@ -222,6 +234,16 @@ contract OracleUniV3TWAPTest is Test {
         assertEq(price, priceTickInverse1001);
     }
 
+    function test_conversions() public view {
+        assertEq(oracle.baseUnitAmount(), 1 ether);
+        // to base
+        assertEq(oracle.convertToBaseAmount(1, 1000 ether), 0);
+        assertEq(oracle.convertToBaseAmount(1 ether, 1000 ether), 1 ether / 1000);
+        // to quote
+        assertEq(oracle.convertToQuoteAmount(1, 1000 ether), 1000);
+        assertEq(oracle.convertToQuoteAmount(1, 0.1 ether), 0);
+    }
+
     // revert tests
 
     function test_revert_constructor_invalidPool() public {
@@ -233,5 +255,12 @@ contract OracleUniV3TWAPTest is Test {
     function test_revert_constructor_invalidTWAPWindow() public {
         vm.expectRevert("twap window too short");
         new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow - 1, mockRouter);
+    }
+
+    function test_revert_constructor_invalidDecimals() public {
+        // Mock the decimals call
+        vm.mockCall(baseToken, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(39));
+        vm.expectRevert("invalid decimals");
+        new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, mockRouter);
     }
 }

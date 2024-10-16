@@ -1,12 +1,12 @@
 # Issues
 
 ### General
-- [ ] #med/#low price ignoring decimals is confusing, error prone, violates "least astonishment", and is insufficiently documented outside of oracle:
+- [x] #med/#low price ignoring decimals is confusing, error prone, violates "least astonishment", and is insufficiently documented outside of oracle:
   - While not too impactful if used only internally, price is expected as input argument for some methods, and is returned as output from others. This will certainly cause constant UX and integration difficulties, waste team's time, and undermine trust. It may also lead to user and integration mistakes, which may cause loss of funds, or loss of time, or reputational damage.  
   - Mitigaion: 
     - calculate prices for underlying's decimals instead of the BASE_TOKEN_AMOUNT, or set BASE_TOKEN_AMOUNT according to decimals. 
     - Refactor BASE_TOKEN_AMOUNT from oracle (possibly into taker), and expose "quote" methods that would convert between asset amounts in the oracle or taker (for use within Loans)
-    - Consider refactoring preview views (taker, rolls, etc) expecting prices to instead query them internally.  
+    - ~~Consider refactoring preview views (taker, rolls, etc) expecting prices to instead query them internally.~~  
 - [ ] #med/#low overall gas usage is high impacting composability (ability to batch several operations), and user gas costs with the highest call being at 1.7M gas. Some easy things can be done to reduce while minimally impacting safety / readability / usability
   - Examples with `forge test --isolate --nmc "Fork" --gas-report --nmt revert | grep "rollLoan\|openLoan\|openEscrowLoan\|closeLoan\|executeRoll\|createOffer\|openPairedPosition\|startEscrow\|switchEscrow" | grep -v test`:
     - Loans: roll 1.760M, openEscrowLoan 1.513M, openLoan 1.085K, close 599K
@@ -62,7 +62,8 @@
 - [x] #note document why cancelling escrow loans immediately does not allow griefing escrow suppliers
 
 ###  Loans
-- [ ] #med `escrowGracePeriodEnd` can overestimate grace period because uses historical price for both settlement and conversion. Should use current price for conversion.
+- [x] #med `escrowGracePeriodEnd` can overestimate grace period because uses historical price for both settlement and conversion. Should use current price for conversion.
+- [x] #med `escrowGracePeriodEnd` can overestimate grace period because doesn't check if position is settled already, so may estimate cash incorrectly. Should only estimate for settled to reduce complexity.
 - [ ] #low escrow fee or maxFee should be specified by user
 - [ ] #low no open param for deadline / price increase (up) in case of congestion / sequencer outage
 - [ ] #low deadline / expected offer contract address for all offer-specifying methods (open, roll) to prevent abuse of stale txs with current* in case of congestion / outage coinciding with config updates.
@@ -104,7 +105,7 @@
 - [ ] #note MAX_CONFIGURABLE_DURATION 5 years seems excessive?
 
 ### Rolls
-- [ ] #low taker has insufficent protection: needs deadline for congestion / stale transactions, max roll fee for direct fee control (since fee adjusts with price)
+- [ ] #low taker has insufficient protection: needs deadline for congestion / stale transactions, max roll fee for direct fee control (since fee adjusts with price)
 - [ ] #note provider deadline protection may be excessive, since can cancel stale offers, and has price limits, and requires approvals
 - [x] #note "active" state variable can be replaced by checking if contract owns provider NFT. Ack, won't fix.
 - [x] #note create offer balance and allowance checks seem redundant since for spoofing can easily be passed by providing positive amount, and for mistake prevention only helps with temporary issues. Consider removing to reduce complexity.
@@ -129,4 +130,4 @@
 - no refund of protocol fee for cancellations, e.g., in case of rolls. fee APR and roll frequency are assumed to be low, and rolls are assumed to be beneficial enough to users to be worth it. accepted as low risk economic issue.
 - loanNFT owner is pushed any collateral leftovers during foreclosure instead of pulling (so can be a contract that will not forward it to actual user, e.g., an NFT trading contract). accepted severity low: low likelihood, medium impact.
 - loans currentProviderNFT, currentEscrowNFT, and currentRolls are assumed to change infrequently, so a stale transaction in which an offer for a different contract was intended by user is expected to be unlikely: arbitrum is unlikely to keep pending stale transactions, admin is trusted not to abuse, offer is assumed to not coincide with another existing offer in case of mistake, and various slippage parameters are assumed to be sufficient to prevent malicious scenarios. accepted risk up to low severity.
-- because oracle uses 1e18 as token amount, underlying asset tokens with more than 18 decimals and/or very low prices may have low precision prices  
+- because oracle uses the unlderying's decimals for base unit amount, underlying asset tokens with few decimals and/or very low prices in their "cash" token may have low precision prices. For example GUSD (2 decimals) as underlying, and WBTC as cash (doesn't make much sense), will result in just 4 decimals of price. Therefore, asset (underlying) tokens with sufficient decimals and price ranges should be used.

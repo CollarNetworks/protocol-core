@@ -32,7 +32,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
     // escrow
     uint interestAPR = 500; // 5%
-    uint gracePeriod = 7 days;
+    uint maxGracePeriod = 7 days;
     uint lateFeeAPR = 10_000; // 100%
 
     // basic tests are without escrow
@@ -98,7 +98,8 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         if (openEscrowLoan) {
             startHoax(supplier);
             underlying.approve(address(escrowNFT), largeAmount);
-            escrowOfferId = escrowNFT.createOffer(largeAmount, duration, interestAPR, gracePeriod, lateFeeAPR);
+            escrowOfferId =
+                escrowNFT.createOffer(largeAmount, duration, interestAPR, maxGracePeriod, lateFeeAPR);
             escrowFee = escrowNFT.interestFee(escrowOfferId, underlyingAmount);
         } else {
             // reset to 0
@@ -240,7 +241,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(escrow.loans, address(loans));
         assertEq(escrow.loanId, loanId);
         assertEq(escrow.escrowed, underlyingAmount);
-        assertEq(escrow.maxGracePeriod, gracePeriod);
+        assertEq(escrow.maxGracePeriod, maxGracePeriod);
         assertEq(escrow.lateFeeAPR, lateFeeAPR);
         assertEq(escrow.duration, duration);
         assertEq(escrow.expiration, block.timestamp + duration);
@@ -373,6 +374,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
     }
 
     function expectedLateFees(uint overdue) internal view returns (uint fee) {
+        overdue = overdue > maxGracePeriod ? maxGracePeriod : overdue;
         fee = divUp(underlyingAmount * lateFeeAPR * overdue, BIPS_100PCT * 365 days);
     }
 
