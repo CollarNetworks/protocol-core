@@ -19,7 +19,7 @@ interface ICollarProviderNFT {
         uint takerId; // the corresponding paired ID for onchain / view reference
         // collar position terms
         uint expiration;
-        uint principal;
+        uint providerLocked;
         // withdrawal
         bool settled;
         uint withdrawable;
@@ -30,7 +30,7 @@ interface ICollarProviderNFT {
         uint takerId; // the corresponding paired ID for onchain / view reference
         // collar position terms
         uint expiration;
-        uint principal;
+        uint providerLocked;
         uint putStrikePercent;
         uint callStrikePercent;
         // withdrawal

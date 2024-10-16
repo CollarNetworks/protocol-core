@@ -227,7 +227,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         // Check provider position
         CollarProviderNFT.ProviderPosition memory providerPosition = providerNFT.getPosition(ids.providerId);
         assertEq(providerPosition.expiration, block.timestamp + duration);
-        assertEq(providerPosition.principal, expectedProviderLocked);
+        assertEq(providerPosition.providerLocked, expectedProviderLocked);
         assertEq(providerPosition.putStrikePercent, ltv);
         assertEq(providerPosition.callStrikePercent, callStrikePercent);
         assertFalse(providerPosition.settled);

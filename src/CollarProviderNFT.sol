@@ -96,7 +96,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
             takerId : stored.takerId,
             offerId : stored.offerId,
             expiration : stored.expiration,
-            principal : stored.principal,
+            providerLocked : stored.providerLocked,
             putStrikePercent : offer.putStrikePercent,
             callStrikePercent : offer.callStrikePercent,
             settled : stored.settled,
@@ -224,7 +224,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
             offerId: offerId,
             takerId: takerId,
             expiration: block.timestamp + offer.duration,
-            principal: amount,
+            providerLocked: amount,
             settled: false,
             withdrawable: 0
         });
@@ -268,7 +268,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         require(!position.settled, "already settled");
         position.settled = true; // done here as CEI
 
-        uint initial = position.principal;
+        uint initial = position.providerLocked;
         if (cashDelta > 0) {
             uint toAdd = uint(cashDelta);
             position.withdrawable = initial + toAdd;
@@ -286,7 +286,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         emit PositionSettled(positionId, cashDelta, position.withdrawable);
     }
 
-    /// @notice Cancels a position and withdraws the principal to current owner. Burns the NFT.
+    /// @notice Cancels a position and withdraws providerLocked to current owner. Burns the NFT.
     /// Can ONLY be called through the taker contract, which MUST be the owner of NFT
     /// when the call is made (so will have received it from the consenting provider), and is trusted
     /// to cancel the other side of the position.
@@ -307,7 +307,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         // burn token
         _burn(positionId);
 
-        withdrawal = position.principal;
+        withdrawal = position.providerLocked;
         cashAsset.safeTransfer(msg.sender, withdrawal);
 
         emit PositionCanceled(positionId, withdrawal, position.expiration);

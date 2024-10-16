@@ -92,7 +92,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
             offerId: offerId,
             takerId: takerId,
             expiration: block.timestamp + duration,
-            principal: positionAmount,
+            providerLocked: positionAmount,
             putStrikePercent: putPercent,
             callStrikePercent: callStrikePercent,
             settled: false,
@@ -515,7 +515,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
             CollarProviderNFT.ProviderPosition memory position = providerNFT.getPosition(positionIds[i]);
             assertEq(position.offerId, offerId);
             assertEq(position.takerId, i);
-            assertEq(position.principal, largeAmount);
+            assertEq(position.providerLocked, largeAmount);
             assertEq(position.putStrikePercent, putPercent);
             assertEq(position.callStrikePercent, callStrikePercent);
             assertEq(position.settled, false);
@@ -551,7 +551,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         // Check that the position is settled
         CollarProviderNFT.ProviderPosition memory settledPosition = providerNFT.getPosition(positionId);
         assertEq(settledPosition.settled, true);
-        assertEq(settledPosition.withdrawable, position.principal + uint(positionChange));
+        assertEq(settledPosition.withdrawable, position.providerLocked + uint(positionChange));
 
         // Withdraw from the settled position
         uint newOwnerBalance = cashAsset.balanceOf(newOwner);
@@ -559,8 +559,8 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         uint withdrwal = providerNFT.withdrawFromSettled(positionId);
 
         // Check that the withdrawal was successful
-        assertEq(withdrwal, position.principal + uint(positionChange));
-        assertEq(cashAsset.balanceOf(newOwner) - newOwnerBalance, position.principal + uint(positionChange));
+        assertEq(withdrwal, position.providerLocked + uint(positionChange));
+        assertEq(cashAsset.balanceOf(newOwner) - newOwnerBalance, position.providerLocked + uint(positionChange));
 
         // Check that the position is burned after withdrawal
         expectRevertERC721Nonexistent(positionId);

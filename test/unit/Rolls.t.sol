@@ -224,7 +224,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         // Check new provider position details
         CollarProviderNFT.ProviderPosition memory newProviderPos = providerNFT.getPosition(newProviderId);
         assertEq(newProviderPos.expiration, block.timestamp + duration);
-        assertEq(newProviderPos.principal, expected.newProviderLocked);
+        assertEq(newProviderPos.providerLocked, expected.newProviderLocked);
         assertEq(newProviderPos.putStrikePercent, ltv);
         assertEq(newProviderPos.callStrikePercent, callStrikePercent);
         assertFalse(newProviderPos.settled);

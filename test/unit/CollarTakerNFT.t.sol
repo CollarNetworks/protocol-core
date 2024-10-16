@@ -82,7 +82,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         // provider position
         CollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(providerNFTId);
         assertEq(providerPos.expiration, block.timestamp + duration);
-        assertEq(providerPos.principal, providerLocked);
+        assertEq(providerPos.providerLocked, providerLocked);
         assertEq(providerPos.putStrikePercent, ltv);
         assertEq(providerPos.callStrikePercent, callStrikePercent);
         assertEq(providerPos.settled, false);
