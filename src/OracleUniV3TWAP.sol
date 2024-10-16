@@ -119,6 +119,7 @@ contract OracleUniV3TWAP is ITakerOracle {
     }
 
     /// logic helper to encapsulate the conversion and baseUnitAmount usage. Rounds down.
+    /// will panic for 0 price (invalid)
     function convertToBaseAmount(uint quoteTokenAmount, uint atPrice) external view returns (uint) {
         // oracle price is for baseTokenAmount tokens
         return quoteTokenAmount * baseUnitAmount / atPrice;
