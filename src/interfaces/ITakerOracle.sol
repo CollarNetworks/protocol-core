@@ -6,7 +6,7 @@ interface ITakerOracle {
     // constants
     function baseToken() external view returns (address);
     function quoteToken() external view returns (address);
-    function baseUnitAmount() external view returns (uint128);
+    function baseUnitAmount() external view returns (uint);
     // price views
     function currentPrice() external view returns (uint);
     function pastPriceWithFallback(uint32 timestamp) external view returns (uint price, bool historical);

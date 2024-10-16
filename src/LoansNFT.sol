@@ -4,9 +4,10 @@ pragma solidity 0.8.22;
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
-import { CollarTakerNFT, CollarProviderNFT, BaseNFT, ConfigHub } from "./CollarTakerNFT.sol";
-import { Rolls } from "./Rolls.sol";
+import { CollarTakerNFT, ICollarTakerNFT, ITakerOracle, BaseNFT, ConfigHub } from "./CollarTakerNFT.sol";
+import { Rolls, CollarProviderNFT } from "./Rolls.sol";
 import { EscrowSupplierNFT, IEscrowSupplierNFT } from "./EscrowSupplierNFT.sol";
+import { ISwapper } from "./interfaces/ISwapper.sol";
 import { ISwapper } from "./interfaces/ISwapper.sol";
 import { ILoansNFT } from "./interfaces/ILoansNFT.sol";
 
@@ -90,32 +91,25 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         return loans[loanId];
     }
 
-    /// @notice The latest end of the grace period using position cash value available for late fees.
-    /// @dev Uses TWAP price for calculations, handles both pre and post-expiration scenarios.
+    /// @notice The available grace period using position cash value available for late fees.
+    /// @dev Uses TWAP price for calculations, reverts if position not settled (and therefore before expiry).
     /// No validation of loan existing or being active, so can return nonsense values for invalid loans.
-    /// In future pre-expiration estimation case (as off-chain view), will estimate using current price.
     /// @param loanId The ID of the loan to calculate for
-    /// @return The timestamp when the grace period ends
-    function escrowGracePeriodEnd(uint loanId) public view returns (uint) {
-        uint expiration = _expiration(loanId);
+    /// @return The length of the grace period
+    function escrowGracePeriod(uint loanId) public view returns (uint) {
+        ICollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(_takerId(loanId));
+        // @dev avoid settlement estimation complexity
+        require(takerPosition.settled, "taker position not settled");
+        uint cashAvailable = takerPosition.withdrawable;
 
-        // if this is called before expiration (externally), estimate value using current time and price
-        uint settleTime = Math.min(block.timestamp, expiration);
-        // the price that will be used for settlement (past if available, or current if not)
-        (uint settlePrice,) = takerNFT.historicalOraclePrice(settleTime);
-        (uint cashAvailable,) = takerNFT.previewSettlement(_takerId(loanId), settlePrice);
-
-        ITakerOracle oracle = takerNFT.oracle();
-        // use current price for conversion, because settlePrice may be historical, so may be wrong
-        // for estimating current swap (spot) output value.
+        // use current price for estimation of swap output.
         // round down is ok since it's against the user (being foreclosed).
+        ITakerOracle oracle = takerNFT.oracle();
         uint underlyingAmount = oracle.convertToBaseAmount(cashAvailable, oracle.currentPrice());
 
         Loan memory loan = loans[loanId];
         // assume all available underlying can be used for fees (escrowNFT will cap between max and min)
-        uint gracePeriod = loan.escrowNFT.cappedGracePeriod(loan.escrowId, underlyingAmount);
-        // always after expiration, also cappedGracePeriod() is at least min-grace-period
-        return expiration + gracePeriod;
+        return loan.escrowNFT.cappedGracePeriod(loan.escrowId, underlyingAmount);
     }
 
     // ----- STATE CHANGING FUNCTIONS ----- //
@@ -348,12 +342,16 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         address escrowOwner = escrowNFT.ownerOf(escrowId);
         require(_isSenderOrKeeperFor(escrowOwner), "not escrow owner or allowed keeper");
 
-        // @dev escrowGracePeriodEnd uses twap-price, while actual foreclosing swap is using spot price.
+        // If position is not settled, estimating withdrawable funds for escrowGracePeriod is unnecessarily
+        // complex. Instead, since positions can and should be settled soon after expiry - require that it is.
+        require(takerNFT.getPosition(_takerId(loanId)).settled, "taker position not settled");
+
+        // @dev escrowGracePeriod uses twap-price, while actual foreclosing swap is using spot price.
         // This has several implications:
         // 1. This protects foreclosing from price manipulation edge-cases.
         // 2. The final swap can be manipulated against the supplier, so either they or a trusted keeper
         //    should do it.
-        // 3. This also means that swap amount may be different from the estimation in escrowGracePeriodEnd
+        // 3. This also means that swap amount may be different from the estimation in escrowGracePeriod
         //    if near the end of a grace-period that was capped.
         //    In this case, if swap price is less than twap, the late fees may be slightly underpaid
         //    because of the swap-twap difference and slippage.
@@ -361,15 +359,17 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         //    to their benefit, but it still can't pay more than the lateFees calculated by time, and can only
         //    result in "leftovers" that will go to the borrower, so makes no sense for them to do (since
         //    manipulation costs money).
-        require(block.timestamp > escrowGracePeriodEnd(loanId), "cannot foreclose yet");
+        uint gracePeriodEnd = _expiration(loanId) + escrowGracePeriod(loanId);
+        require(block.timestamp > gracePeriodEnd, "cannot foreclose yet");
 
         // burn NFT from the user. Prevents any further actions for this loan.
         // Although they are not the caller, altering their assets is fine here because
         // foreclosing is a state with other negative consequence they should try to avoid anyway
         _burn(loanId);
 
-        // @dev will revert if too early, although the escrowGracePeriodEnd check above will revert first
-        uint cashAvailable = _settleAndWithdrawTaker(loanId);
+        // position was checked to settled already, so we only need to withdraw.
+        // @dev because taker NFT is held by this contract, this could not have been called already
+        uint cashAvailable = takerNFT.withdrawFromSettled(_takerId(loanId));
 
         // @dev Reentrancy assumption: no user state writes or reads AFTER the swapper call in _swap.
         // A call to escrowNFT.endEscrow is made after this, but escrow belongs to the caller, and is

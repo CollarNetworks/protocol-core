@@ -13,7 +13,7 @@ import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswa
 import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 
-import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
+import { OracleUniV3TWAP, IERC20Metadata } from "../../src/OracleUniV3TWAP.sol";
 
 contract OracleUniV3TWAPTest is Test {
     OracleUniV3TWAP public oracle;
@@ -60,6 +60,9 @@ contract OracleUniV3TWAPTest is Test {
             abi.encodeCall(IUniswapV3Factory.getPool, (baseToken, quoteToken, feeTier)),
             abi.encode(mockPool)
         );
+
+        // Mock the decimals call
+        vm.mockCall(baseToken, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(18));
     }
 
     function mockObserve(int24 tick, uint32 ago) internal {
@@ -233,5 +236,12 @@ contract OracleUniV3TWAPTest is Test {
     function test_revert_constructor_invalidTWAPWindow() public {
         vm.expectRevert("twap window too short");
         new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow - 1, mockRouter);
+    }
+
+    function test_revert_constructor_invalidDecimals() public {
+        // Mock the decimals call
+        vm.mockCall(baseToken, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(39));
+        vm.expectRevert("invalid decimals");
+        new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, mockRouter);
     }
 }

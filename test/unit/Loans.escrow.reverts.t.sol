@@ -90,15 +90,23 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
     function test_revert_forecloseLoan_timingAndAuthorization() public {
         (uint loanId,,) = createAndCheckLoan();
 
-        uint gracePeriodEnd = loans.escrowGracePeriodEnd(loanId);
+        // view reverts too escrowGracePeriod
+        vm.expectRevert("taker position not settled");
+        loans.escrowGracePeriod(loanId);
 
-        // foreclose before grace period ends
+        // foreclose before settlement
         vm.startPrank(supplier);
-        vm.expectRevert("cannot foreclose yet");
+        vm.expectRevert("taker position not settled");
         loans.forecloseLoan(loanId, defaultSwapParams(0));
 
+        // settle
+        skip(duration);
+        updatePrice();
+        takerNFT.settlePairedPosition(loanId);
+        uint gracePeriod = loans.escrowGracePeriod(loanId);
+
         // at the end of grace period
-        skip(gracePeriodEnd - block.timestamp);
+        skip(gracePeriod);
         updatePrice();
         prepareSwapToUnderlyingAtTWAPPrice();
         mockOracle.setCheckPrice(true);
@@ -166,8 +174,9 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         (uint loanId,,) = createAndCheckLoan();
 
         // after grace period
-        skip(duration + gracePeriod + 1);
+        skip(duration + maxGracePeriod + 1);
         updatePrice();
+        takerNFT.settlePairedPosition(loanId);
         mockOracle.setCheckPrice(true);
         uint swapOut = prepareSwapToUnderlyingAtTWAPPrice();
 

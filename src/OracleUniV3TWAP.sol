@@ -58,7 +58,7 @@ contract OracleUniV3TWAP is ITakerOracle {
 
     address public immutable baseToken;
     address public immutable quoteToken;
-    uint128 public immutable baseUnitAmount;
+    uint public immutable baseUnitAmount;
     uint24 public immutable feeTier;
     uint32 public immutable twapWindow;
     IUniswapV3Pool public immutable pool;
@@ -76,6 +76,7 @@ contract OracleUniV3TWAP is ITakerOracle {
         feeTier = _feeTier;
         twapWindow = _twapWindow;
         baseUnitAmount = 10 ** IERC20Metadata(_baseToken).decimals();
+        require(baseUnitAmount <= type(uint128).max, "invalid decimals");
         pool = IUniswapV3Pool(_getPoolAddress(_uniV3SwapRouter));
     }
 
@@ -118,13 +119,13 @@ contract OracleUniV3TWAP is ITakerOracle {
     }
 
     /// logic helper to encapsulate the conversion and baseUnitAmount usage. Rounds down.
-    function convertToBaseAmount(uint quoteTokenAmount, uint atPrice) external pure returns (uint) {
+    function convertToBaseAmount(uint quoteTokenAmount, uint atPrice) external view returns (uint) {
         // oracle price is for baseTokenAmount tokens
         return quoteTokenAmount * baseUnitAmount / atPrice;
     }
 
     /// logic helper to encapsulate the conversion and baseUnitAmount usage. Rounds down.
-    function convertToQuoteAmount(uint baseTokenAmount, uint atPrice) external pure returns (uint) {
+    function convertToQuoteAmount(uint baseTokenAmount, uint atPrice) external view returns (uint) {
         // oracle price is for baseTokenAmount tokens
         return baseTokenAmount * atPrice / baseUnitAmount;
     }
@@ -157,6 +158,6 @@ contract OracleUniV3TWAP is ITakerOracle {
         int56 tickCumulativesDelta = tickCumulatives[1] - tickCumulatives[0];
         int24 tick = int24(tickCumulativesDelta / int56(uint56(twapWindow)));
         if (tickCumulativesDelta < 0 && (tickCumulativesDelta % int56(uint56(twapWindow)) != 0)) tick--;
-        return OracleLibrary.getQuoteAtTick(tick, baseUnitAmount, baseToken, quoteToken);
+        return OracleLibrary.getQuoteAtTick(tick, uint128(baseUnitAmount), baseToken, quoteToken);
     }
 }

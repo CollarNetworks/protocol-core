@@ -114,9 +114,9 @@ contract OracleUniV3TWAP_ArbiMain_WETHUSDC_ForkTest is OracleUniV3TWAP_ArbiMain_
         baseToken = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // USDC
         quoteToken = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
 
-        // 368M ETH (= 1 trillion / 2713) for 1e18 USDC (1 trillion USDC)
-        expectedCurPrice = 368_559_882_855_728_784_761_983_870;
-        expectedPriceTwapWindowAgo = 367_602_919_598_965_378_923_333_340;
+        // 0.00036 ETH (= 1e18 / 2713) for 1e6 USDC (1 USDC)
+        expectedCurPrice = 368_559_882_855_728;
+        expectedPriceTwapWindowAgo = 367_602_919_598_965;
     }
 }
 
@@ -133,9 +133,9 @@ contract OracleUniV3TWAP_ArbiSepolia_USDCWBTC_ForkTest is OracleUniV3TWAP_ArbiMa
         pool = 0xa9933Deb1cEB37163f7F601eb69Dc923cAD3fcBc;
 
         expectedCardinality = 1000;
-        // price is for 1e10 WBTC in USDC (because WBTC is 8 decimals, but token amount is 1e18)
-        expectedCurPrice = 592_517_723_878_423_009_994; // 59000 * 1e10 (amount) * 1e6 (USDC decimals)
-        expectedPriceTwapWindowAgo = 592_458_478_030_619_947_999;
+        // price is for 1e8 WBTC in USDC (because WBTC is 8 decimals)
+        expectedCurPrice = 59_251_772_387; // 59000 * 1e6 (USDC decimals)
+        expectedPriceTwapWindowAgo = 59_245_847_803;
     }
 }
 
