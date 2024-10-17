@@ -330,9 +330,15 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         assertFalse(supportsUnsupported);
     }
 
-    function test_revert_getPosition_empty() public {
+    function test_revert_nonExistentID() public {
         vm.expectRevert("taker position does not exist");
-        CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(0);
+        takerNFT.getPosition(1000);
+
+        vm.expectRevert("taker position does not exist");
+        takerNFT.previewSettlement(1000, 0);
+
+        vm.expectRevert("taker position does not exist");
+        takerNFT.settlePairedPosition(1000);
     }
 
     /**
@@ -540,11 +546,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         // settled at historical price and got 100% of providerLocked
         checkSettlePosition(takerId, currentPrice, -int(providerLocked), false);
         checkWithdrawFromSettled(takerId, takerLocked + providerLocked);
-    }
-
-    function test_settlePairedPosition_NonExistentPosition() public {
-        vm.expectRevert("taker position does not exist");
-        takerNFT.settlePairedPosition(999); // Use a position ID that doesn't exist
     }
 
     function test_settlePairedPosition_NotExpired() public {

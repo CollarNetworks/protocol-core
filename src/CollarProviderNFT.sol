@@ -91,6 +91,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// @dev This is used instead of the default getter because the default getter returns a tuple
     function getPosition(uint positionId) public view returns (ProviderPosition memory) {
         ProviderPositionStored memory stored = positions[positionId];
+        require(stored.expiration != 0, "provider position does not exist");
         LiquidityOffer memory offer = getOffer(stored.offerId);
         return ProviderPosition({
             takerId: stored.takerId,

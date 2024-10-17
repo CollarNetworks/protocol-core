@@ -747,9 +747,15 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         // can't settle twice
         vm.expectRevert("already settled");
         providerNFT.settlePosition(positionId, 0);
+    }
 
+    function test_revert_nonExistentID() public {
         vm.expectRevert("provider position does not exist");
-        providerNFT.settlePosition(999, 0); // Use a position ID that doesn't exist
+        providerNFT.getPosition(1000);
+
+        vm.startPrank(takerContract);
+        vm.expectRevert("provider position does not exist");
+        providerNFT.settlePosition(1000, 0);
     }
 
     function test_revert_settlePosition_afterCancel() public {
