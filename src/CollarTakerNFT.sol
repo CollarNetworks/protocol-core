@@ -157,7 +157,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
             startPrice: startPrice,
             takerLocked: takerLocked,
             withdrawable: 0 // unset until settlement
-        });
+         });
         // mint the NFT to the sender, @dev does not use _safeMint to avoid reentrancy
         _mint(msg.sender, takerId);
 
@@ -224,18 +224,17 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         require(!position.settled, "already settled");
 
         (CollarProviderNFT providerNFT, uint providerId) = (position.providerNFT, position.providerId);
-        // this is redundant due to NFT transfer from msg.sender later, but is a clearer error.
+        // check that caller is owner of provider NFT
         require(msg.sender == providerNFT.ownerOf(providerId), "not owner of provider ID");
+        // check that provider NFT is approved to this contract (provider side consent to cancelling)
+        require(providerNFT.getApproved(providerId) == address(this), "provider ID not approved by owner");
 
         // storage changes. withdrawable is 0 before settlement, so needs no update
         positions[takerId].settled = true;
         // burn token
         _burn(takerId);
 
-        // pull the provider NFT to this contract
-        providerNFT.transferFrom(msg.sender, address(this), providerId);
-
-        // now that this contract has the provider NFT - cancel it and withdraw
+        // cancel and withdraw
         uint providerWithdrawal = providerNFT.cancelAndWithdraw(providerId);
 
         // transfer the tokens locked in this contract and the withdrawal from provider

@@ -316,7 +316,7 @@ contract Rolls is IRolls, BaseManaged {
 
     function _cancelPairedPositionAndWithdraw(uint takerId) internal {
         ICollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
-        // approve the takerNFT to pull the provider NFT, as both NFTs are needed for cancellation
+        // approve the provider NFT ID to the takerNFT contract, which is needed for cancellation
         takerPos.providerNFT.approve(address(takerNFT), takerPos.providerId);
         // cancel and withdraw the cash from the existing paired position
         // @dev this relies on being the owner of both NFTs. it burns both NFTs, and withdraws

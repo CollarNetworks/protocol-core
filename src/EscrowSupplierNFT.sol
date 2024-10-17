@@ -457,7 +457,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
             escrowed: escrowed,
             interestHeld: fee,
             withdrawable: 0 // unset until release
-        });
+         });
 
         // emit before token transfer event in mint for easier indexing
         emit EscrowCreated(escrowId, escrowed, offer.duration, fee, offer.maxGracePeriod, offerId);

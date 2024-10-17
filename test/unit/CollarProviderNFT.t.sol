@@ -203,8 +203,8 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         uint contractBalance = cashAsset.balanceOf(address(providerNFT));
 
         vm.startPrank(provider);
-        // position must be owner by taker contract
-        providerNFT.transferFrom(provider, takerContract, positionId);
+        // position must be approved to taker contract
+        providerNFT.approve(takerContract, positionId);
         vm.startPrank(takerContract);
         vm.expectEmit(address(providerNFT));
         emit ICollarProviderNFT.PositionCanceled(
@@ -451,8 +451,8 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         skip(duration + 1);
 
         vm.startPrank(provider);
-        // position must be owner by taker contract
-        providerNFT.transferFrom(provider, takerContract, positionId);
+        // position must be approved to the taker contract
+        providerNFT.approve(takerContract, positionId);
         vm.startPrank(takerContract);
         vm.expectEmit(address(providerNFT));
         emit ICollarProviderNFT.PositionCanceled(positionId, amountToMint, position.expiration);
@@ -763,9 +763,9 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
 
         skip(duration);
 
-        // transfer the NFT to taker contract
+        // approve the NFT to taker contract
         vm.startPrank(provider);
-        providerNFT.transferFrom(provider, takerContract, positionId);
+        providerNFT.approve(takerContract, positionId);
         vm.startPrank(address(takerContract));
         providerNFT.cancelAndWithdraw(positionId);
 
@@ -802,15 +802,15 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         vm.startPrank(owner);
         configHub.setCanOpen(takerContract, true);
         vm.startPrank(address(takerContract));
-        vm.expectRevert("caller does not own token");
+        vm.expectRevert("caller not approved for token");
         providerNFT.cancelAndWithdraw(positionId);
 
         skip(duration);
         providerNFT.settlePosition(positionId, 0);
 
-        // transfer the NFT to taker contract
+        // approve the NFT to taker contract
         vm.startPrank(provider);
-        providerNFT.transferFrom(provider, takerContract, positionId);
+        providerNFT.approve(takerContract, positionId);
         vm.startPrank(address(takerContract));
         vm.expectRevert("already settled");
         providerNFT.cancelAndWithdraw(positionId);

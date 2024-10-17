@@ -527,10 +527,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         // Non-existent taker position
         vm.mockCall(
             address(takerNFT),
-            abi.encodeCall(
-                takerNFT.getPosition,
-                (999)
-            ),
+            abi.encodeCall(takerNFT.getPosition, (999)),
             abi.encode(ICollarTakerNFT.TakerPosition(providerNFT, 0, 0, 0, 0, 0, 0, 0, 0, false, 0))
         );
         vm.expectRevert("rolls: taker position does not exist");

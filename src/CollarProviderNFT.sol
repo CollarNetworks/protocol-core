@@ -112,11 +112,11 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     function getOffer(uint offerId) public view returns (LiquidityOffer memory) {
         LiquidityOfferStored memory stored = liquidityOffers[offerId];
         return LiquidityOffer({
-            provider : stored.provider,
-            available : stored.available,
-            duration : stored.duration,
-            putStrikePercent : stored.putStrikePercent,
-            callStrikePercent : stored.callStrikePercent
+            provider: stored.provider,
+            available: stored.available,
+            duration: stored.duration,
+            putStrikePercent: stored.putStrikePercent,
+            callStrikePercent: stored.callStrikePercent
         });
     }
 
@@ -239,7 +239,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
             settled: false, // unset until settlement
             providerLocked: providerLocked,
             withdrawable: 0 // unset until settlement
-        });
+         });
 
         emit OfferUpdated(offerId, msg.sender, prevOfferAmount, newAvailable);
 
@@ -300,16 +300,16 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     }
 
     /// @notice Cancels a position and withdraws providerLocked to current owner. Burns the NFT.
-    /// Can ONLY be called through the taker contract, which MUST be the owner of NFT
-    /// when the call is made (so will have received it from the consenting provider), and is trusted
-    /// to cancel the other side of the position.
+    /// Can ONLY be called through the taker, which should check that BOTH NFTs are owned by its caller.
+    /// This contract double-checks that this NFT was approved to taker by the owner
+    /// when the call is made (which ensures a consenting provider).
     /// @dev note that a withdrawal is triggerred (and the NFT is burned) because in contrast
-    /// to settlement, during cancellation the caller MUST be the NFT owner (is the provider),
+    /// to settlement, during cancellation the taker's caller MUST be the NFT owner (is the provider),
     /// so is assumed to specify the withdrawal correctly for their funds.
     /// @param positionId The ID of the position to cancel (NFT token ID)
     function cancelAndWithdraw(uint positionId) external whenNotPaused onlyTaker returns (uint withdrawal) {
-        // caller is BOTH taker contract, and NFT owner
-        require(msg.sender == ownerOf(positionId), "caller does not own token");
+        // caller is BOTH taker contract (`onlyTaker`), and was approved by NFT owner
+        require(msg.sender == getApproved(positionId), "caller not approved for token");
 
         ProviderPositionStored storage position = positions[positionId];
         require(!position.settled, "already settled");
