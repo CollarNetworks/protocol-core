@@ -54,7 +54,7 @@ contract Rolls is IRolls, BaseManaged {
 
     uint public nextRollId = 1; // starts from 1 so that 0 ID is not used
 
-    mapping(uint rollId => RollOffer) internal rollOffers;
+    mapping(uint rollId => RollOfferStored) internal rollOffers;
 
     /// @dev Rolls needs BaseManaged for pausing since is approved by users, and holds NFTs.
     /// Does not need `canOpen` auth because its auth usage is set directly on Loans,
@@ -68,8 +68,22 @@ contract Rolls is IRolls, BaseManaged {
     // ----- VIEW FUNCTIONS ----- //
 
     /// @dev return memory struct (the default getter returns tuple)
-    function getRollOffer(uint rollId) external view returns (RollOffer memory) {
-        return rollOffers[rollId];
+    function getRollOffer(uint rollId) public view returns (RollOffer memory) {
+        RollOfferStored memory stored = rollOffers[rollId];
+        return RollOffer({
+            takerId: stored.takerId,
+            feeAmount: stored.feeAmount,
+            feeDeltaFactorBIPS: stored.feeDeltaFactorBIPS,
+            feeReferencePrice: stored.feeReferencePrice,
+            minPrice: stored.minPrice,
+            maxPrice: stored.maxPrice,
+            minToProvider: stored.minToProvider,
+            deadline: stored.deadline,
+            providerNFT: stored.providerNFT,
+            providerId: stored.providerId,
+            provider: stored.provider,
+            active: stored.active
+        });
     }
 
     /**
@@ -117,7 +131,7 @@ contract Rolls is IRolls, BaseManaged {
         view
         returns (int toTaker, int toProvider, int rollFee)
     {
-        RollOffer memory offer = rollOffers[rollId];
+        RollOffer memory offer = getRollOffer(rollId);
         rollFee = calculateRollFee(offer, price);
         (toTaker, toProvider) = _previewTransferAmounts(offer.takerId, price, rollFee);
     }
@@ -175,19 +189,19 @@ contract Rolls is IRolls, BaseManaged {
 
         // store the offer
         rollId = nextRollId++;
-        rollOffers[rollId] = RollOffer({
-            takerId: takerId,
+        rollOffers[rollId] = RollOfferStored({
+            providerNFT: providerNFT,
+            providerId: SafeCast.toUint64(providerId),
+            deadline: SafeCast.toUint32(deadline),
+            takerId: SafeCast.toUint64(takerId),
+            feeDeltaFactorBIPS: SafeCast.toInt24(feeDeltaFactorBIPS),
+            active: true,
+            provider: msg.sender,
             feeAmount: feeAmount,
-            feeDeltaFactorBIPS: feeDeltaFactorBIPS,
             feeReferencePrice: takerNFT.currentOraclePrice(), // the roll offer fees are for current price
             minPrice: minPrice,
             maxPrice: maxPrice,
-            minToProvider: minToProvider,
-            deadline: deadline,
-            providerNFT: providerNFT,
-            providerId: providerId,
-            provider: msg.sender,
-            active: true
+            minToProvider: minToProvider
         });
 
         emit OfferCreated(takerId, msg.sender, providerNFT, providerId, feeAmount, rollId);
@@ -203,11 +217,11 @@ contract Rolls is IRolls, BaseManaged {
      * the most an update can cause there is a revert of taking the offer.
      */
     function cancelOffer(uint rollId) external whenNotPaused {
-        RollOffer storage offer = rollOffers[rollId];
+        RollOffer memory offer = getRollOffer(rollId);
         require(msg.sender == offer.provider, "not offer provider");
         require(offer.active, "offer not active");
-        // cancel offer
-        offer.active = false;
+        // store cancelled state
+        rollOffers[rollId].active = false;
         // return the NFT
         offer.providerNFT.transferFrom(address(this), msg.sender, offer.providerId);
         emit OfferCancelled(rollId, offer.takerId, offer.provider);
@@ -231,7 +245,7 @@ contract Rolls is IRolls, BaseManaged {
         whenNotPaused
         returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider)
     {
-        RollOffer memory offer = rollOffers[rollId];
+        RollOffer memory offer = getRollOffer(rollId);
 
         // offer doesn't exist, was cancelled, or executed
         require(offer.active, "invalid offer");

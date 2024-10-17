@@ -11,7 +11,7 @@ interface IEscrowSupplierNFT {
         uint32 maxGracePeriod;
         uint24 interestAPR; // allows up to 167,772%, must allow MAX_INTEREST_APR_BIPS
         uint24 lateFeeAPR; // allows up to 167,772%, must allow MAX_LATE_FEE_APR_BIPS
-        // Note that maxGracePeriod can also be u24 (194 days), and interestAPR can be u16 (650%) and
+        // Note that `maxGracePeriod` can also be u24 (194 days), and `interestAPR` can be u16 (650%) and
         // they will all fit into one slot with provider, but the impact is minimal, so not worth the
         // messiness (coupling, mental overhead).
         // second slot
