@@ -81,6 +81,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
         // provider position
         CollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(providerNFTId);
+        assertEq(providerPos.duration, duration);
         assertEq(providerPos.expiration, block.timestamp + duration);
         assertEq(providerPos.providerLocked, providerLocked);
         assertEq(providerPos.putStrikePercent, ltv);
@@ -238,18 +239,16 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
         newOracle.setHistoricalAssetPrice(block.timestamp, 1);
         vm.mockCallRevert(
-            address(newOracle), abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))), "mocked"
+            address(newOracle),
+            abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))),
+            "mocked"
         );
         vm.expectRevert("mocked");
         new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
 
         newOracle.setHistoricalAssetPrice(block.timestamp, 1);
         // 1 current price, but 0 historical price
-        vm.mockCall(
-            address(newOracle),
-            abi.encodeCall(newOracle.currentPrice, ()),
-            abi.encode(1)
-        );
+        vm.mockCall(address(newOracle), abi.encodeCall(newOracle.currentPrice, ()), abi.encode(1));
         vm.mockCall(
             address(newOracle),
             abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))),
@@ -272,7 +271,9 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
         // reverting historical price
         vm.mockCallRevert(
-            address(newOracle), abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))), "mocked"
+            address(newOracle),
+            abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))),
+            "mocked"
         );
         vm.expectRevert("mocked");
         new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
@@ -329,13 +330,9 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         assertFalse(supportsUnsupported);
     }
 
-    function test_getPosition_empty() public view {
+    function test_revert_getPosition_empty() public {
+        vm.expectRevert("taker position does not exist");
         CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(0);
-        assertEq(position.callStrikePrice, 0);
-        assertEq(position.takerLocked, 0);
-        assertEq(position.providerLocked, 0);
-        assertEq(position.settled, false);
-        assertEq(position.withdrawable, 0);
     }
 
     /**
@@ -546,7 +543,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     }
 
     function test_settlePairedPosition_NonExistentPosition() public {
-        vm.expectRevert("position doesn't exist");
+        vm.expectRevert("taker position does not exist");
         takerNFT.settlePairedPosition(999); // Use a position ID that doesn't exist
     }
 
@@ -709,11 +706,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
         newOracle.setHistoricalAssetPrice(block.timestamp, 1);
         // 1 current price, but 0 historical price
-        vm.mockCall(
-            address(newOracle),
-            abi.encodeCall(newOracle.currentPrice, ()),
-            abi.encode(1)
-        );
+        vm.mockCall(address(newOracle), abi.encodeCall(newOracle.currentPrice, ()), abi.encode(1));
         vm.mockCall(
             address(newOracle),
             abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))),
@@ -737,7 +730,9 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
         // reverting historical price
         vm.mockCallRevert(
-            address(newOracle), abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))), "mocked"
+            address(newOracle),
+            abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))),
+            "mocked"
         );
         vm.expectRevert("mocked");
         takerNFT.setOracle(newOracle);

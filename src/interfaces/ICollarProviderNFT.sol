@@ -29,6 +29,7 @@ interface ICollarProviderNFT {
         uint offerId; // the LiquidityOffer offerId
         uint takerId; // the corresponding paired ID for onchain / view reference
         // collar position terms
+        uint duration;
         uint expiration;
         uint providerLocked;
         uint putStrikePercent;

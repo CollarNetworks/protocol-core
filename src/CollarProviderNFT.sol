@@ -93,14 +93,15 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         ProviderPositionStored memory stored = positions[positionId];
         LiquidityOffer memory offer = getOffer(stored.offerId);
         return ProviderPosition({
-            takerId : stored.takerId,
-            offerId : stored.offerId,
-            expiration : stored.expiration,
-            providerLocked : stored.providerLocked,
-            putStrikePercent : offer.putStrikePercent,
-            callStrikePercent : offer.callStrikePercent,
-            settled : stored.settled,
-            withdrawable : stored.withdrawable
+            takerId: stored.takerId,
+            offerId: stored.offerId,
+            duration: offer.duration,
+            expiration: stored.expiration,
+            providerLocked: stored.providerLocked,
+            putStrikePercent: offer.putStrikePercent,
+            callStrikePercent: offer.callStrikePercent,
+            settled: stored.settled,
+            withdrawable: stored.withdrawable
         });
     }
 
@@ -192,10 +193,10 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// to fee recipient. Offer amount is updated as well.
     /// The NFT, representing ownership of the position, is minted to original provider of the offer.
     /// @param offerId The ID of the offer to mint from
-    /// @param amount The amount of cash asset to use for the new position
+    /// @param providerLocked The amount of cash asset to use for the new position
     /// @param takerId The ID of the taker position for which this position is minted
     /// @return positionId The ID of the newly created position (NFT token ID)
-    function mintFromOffer(uint offerId, uint amount, uint takerId)
+    function mintFromOffer(uint offerId, uint providerLocked, uint takerId)
         external
         whenNotPaused
         onlyTaker
@@ -211,20 +212,20 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         _configHubValidations(offer.putStrikePercent, offer.duration);
 
         // calc protocol fee to subtract from offer (on top of amount)
-        (uint fee, address feeRecipient) = protocolFee(amount, offer.duration);
+        (uint fee, address feeRecipient) = protocolFee(providerLocked, offer.duration);
 
         // check amount
         uint prevOfferAmount = offer.available;
-        require(amount + fee <= prevOfferAmount, "amount too high");
+        require(providerLocked + fee <= prevOfferAmount, "amount too high");
 
         // storage updates
-        offer.available = prevOfferAmount - amount - fee;
+        offer.available = prevOfferAmount - providerLocked - fee;
         positionId = nextTokenId++;
         positions[positionId] = ProviderPositionStored({
             offerId: offerId,
             takerId: takerId,
             expiration: block.timestamp + offer.duration,
-            providerLocked: amount,
+            providerLocked: providerLocked,
             settled: false,
             withdrawable: 0
         });
@@ -263,6 +264,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     function settlePosition(uint positionId, int cashDelta) external whenNotPaused onlyTaker {
         ProviderPositionStored storage position = positions[positionId];
 
+        require(position.expiration != 0, "provider position does not exist");
         require(block.timestamp >= position.expiration, "not expired");
 
         require(!position.settled, "already settled");

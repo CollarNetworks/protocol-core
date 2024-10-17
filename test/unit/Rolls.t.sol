@@ -223,6 +223,7 @@ contract RollsTest is BaseAssetPairTestSetup {
 
         // Check new provider position details
         CollarProviderNFT.ProviderPosition memory newProviderPos = providerNFT.getPosition(newProviderId);
+        assertEq(newProviderPos.duration, duration);
         assertEq(newProviderPos.expiration, block.timestamp + duration);
         assertEq(newProviderPos.providerLocked, expected.newProviderLocked);
         assertEq(newProviderPos.putStrikePercent, ltv);
@@ -524,7 +525,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         cashAsset.approve(address(rolls), uint(-minToProvider));
 
         // Non-existent taker position
-        vm.expectRevert("taker position doesn't exist");
+        vm.expectRevert("taker position does not exist");
         rolls.createOffer(999, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline);
 
         // expired taker position

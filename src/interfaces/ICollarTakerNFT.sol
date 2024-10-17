@@ -7,8 +7,18 @@ import { CollarProviderNFT } from "../CollarProviderNFT.sol";
 import { ITakerOracle } from "./ITakerOracle.sol";
 
 interface ICollarTakerNFT {
-    // @dev Some data can be trimmed down from this struct, since some of the fields aren't needed on-chain,
-    // and are stored for FE / usability since the assumption is that this is used on L2.
+    struct TakerPositionStored {
+        // paired NFT info
+        CollarProviderNFT providerNFT;
+        uint providerId;
+        // collar position info
+        uint startPrice;
+        uint takerLocked;
+        // withdrawal state
+        bool settled;
+        uint withdrawable;
+    }
+
     struct TakerPosition {
         // paired NFT info
         CollarProviderNFT providerNFT;

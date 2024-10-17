@@ -91,6 +91,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         CollarProviderNFT.ProviderPosition memory expectedPosition = ICollarProviderNFT.ProviderPosition({
             offerId: offerId,
             takerId: takerId,
+            duration: duration,
             expiration: block.timestamp + duration,
             providerLocked: positionAmount,
             putStrikePercent: putPercent,
@@ -560,7 +561,9 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
 
         // Check that the withdrawal was successful
         assertEq(withdrwal, position.providerLocked + uint(positionChange));
-        assertEq(cashAsset.balanceOf(newOwner) - newOwnerBalance, position.providerLocked + uint(positionChange));
+        assertEq(
+            cashAsset.balanceOf(newOwner) - newOwnerBalance, position.providerLocked + uint(positionChange)
+        );
 
         // Check that the position is burned after withdrawal
         expectRevertERC721Nonexistent(positionId);
@@ -725,7 +728,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         vm.startPrank(owner);
         configHub.setCanOpen(takerContract, true);
 
-        vm.startPrank(address(takerContract));
+        vm.startPrank(takerContract);
         vm.expectRevert("not expired");
         providerNFT.settlePosition(positionId, 0);
 
@@ -744,6 +747,9 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         // can't settle twice
         vm.expectRevert("already settled");
         providerNFT.settlePosition(positionId, 0);
+
+        vm.expectRevert("provider position does not exist");
+        providerNFT.settlePosition(999, 0); // Use a position ID that doesn't exist
     }
 
     function test_revert_settlePosition_afterCancel() public {

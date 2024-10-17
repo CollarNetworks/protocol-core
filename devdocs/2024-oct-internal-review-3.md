@@ -50,6 +50,7 @@
     - more gas by having to approve and transfer provider NFT
 - [x] #low "ShortProviderNFT" is bad name, confusing and inaccurate. Should be "CollarProviderNFT"
 - [x] #low naming: collateralAsset should be "underlying", since collateral is ambiguous and is actually cash. Should be just address since not used as erc20.
+- [x] #low settle position doesn't check that position exists (relies on taker)
 - [x] #note no good reason for recipient in withdrawal method
 - [x] #note "unexpected takerId" check is redundant since checked value is returned from call invocation
 
