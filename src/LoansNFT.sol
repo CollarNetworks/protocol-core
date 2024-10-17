@@ -737,7 +737,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         returns (uint underlyingOut)
     {
         // get owing and late fee (included in totalOwed)
-        (uint totalOwed, uint lateFee) = escrowNFT.owedTo(escrowId);
+        (uint totalOwed, uint lateFee) = escrowNFT.currentOwed(escrowId);
 
         // if owing more than swapped, use all, otherwise just what's owed
         uint toEscrow = Math.min(fromSwap, totalOwed);

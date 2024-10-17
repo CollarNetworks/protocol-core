@@ -125,7 +125,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @return totalOwed Total owed: escrowed amount + late fee
      * @return lateFee The calculated late fee
      */
-    function owedTo(uint escrowId) external view returns (uint totalOwed, uint lateFee) {
+    function currentOwed(uint escrowId) external view returns (uint totalOwed, uint lateFee) {
         Escrow memory escrow = getEscrow(escrowId);
         lateFee = _lateFee(escrow);
         return (escrow.escrowed + lateFee, lateFee);

@@ -126,7 +126,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         escrowNFT.getEscrow(1000);
 
         vm.expectRevert("escrow position does not exist");
-        escrowNFT.owedTo(1000);
+        escrowNFT.currentOwed(1000);
 
         vm.expectRevert("escrow position does not exist");
         escrowNFT.cappedGracePeriod(1000, 0);

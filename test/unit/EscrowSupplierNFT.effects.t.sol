@@ -476,13 +476,13 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
 
         // No late fee during min grace period
         skip(duration + escrowNFT.MIN_GRACE_PERIOD() - 1);
-        (uint owed, uint lateFee) = escrowNFT.owedTo(escrowId);
+        (uint owed, uint lateFee) = escrowNFT.currentOwed(escrowId);
         assertEq(lateFee, 0);
         assertEq(owed, escrowAmount);
 
         // Late fee after grace period
         skip(1);
-        (owed, lateFee) = escrowNFT.owedTo(escrowId);
+        (owed, lateFee) = escrowNFT.currentOwed(escrowId);
         uint expectedFee = expectedLateFees(escrow);
         assertTrue(expectedFee > 0);
         assertEq(lateFee, expectedFee);
@@ -490,7 +490,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
 
         skip(escrow.maxGracePeriod - escrowNFT.MIN_GRACE_PERIOD()); // we skipped min-grace already
         uint cappedLateFee;
-        (owed, cappedLateFee) = escrowNFT.owedTo(escrowId);
+        (owed, cappedLateFee) = escrowNFT.currentOwed(escrowId);
         expectedFee = expectedLateFees(escrow);
         assertTrue(cappedLateFee > 0);
         assertEq(cappedLateFee, expectedFee);
@@ -499,7 +499,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         // Late fee capped at grace period
         skip(365 days);
         uint feeAfterGracePeriod;
-        (owed, feeAfterGracePeriod) = escrowNFT.owedTo(escrowId);
+        (owed, feeAfterGracePeriod) = escrowNFT.currentOwed(escrowId);
         assertEq(feeAfterGracePeriod, cappedLateFee);
         assertEq(owed, escrowAmount + feeAfterGracePeriod);
 
@@ -507,7 +507,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         lateFeeAPR = 0;
         (escrowId, escrow) = createAndCheckEscrow(supplier1, largeAmount, escrowAmount, fee);
         skip(duration + 365 days);
-        (, feeAfterGracePeriod) = escrowNFT.owedTo(escrowId);
+        (, feeAfterGracePeriod) = escrowNFT.currentOwed(escrowId);
         assertEq(feeAfterGracePeriod, 0);
     }
 
