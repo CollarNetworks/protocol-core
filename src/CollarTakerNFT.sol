@@ -218,16 +218,16 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     }
 
     function cancelPairedPosition(uint takerId) external whenNotPaused returns (uint withdrawal) {
-        require(msg.sender == ownerOf(takerId), "not owner of taker ID");
-
         TakerPosition memory position = getPosition(takerId);
-        require(!position.settled, "already settled");
-
         (CollarProviderNFT providerNFT, uint providerId) = (position.providerNFT, position.providerId);
-        // check that caller is owner of provider NFT
+
+        // must be taker NFT owner
+        require(msg.sender == ownerOf(takerId), "not owner of taker ID");
+        // must be provider NFT owner as well
         require(msg.sender == providerNFT.ownerOf(providerId), "not owner of provider ID");
-        // check that provider NFT is approved to this contract (provider side consent to cancelling)
-        require(providerNFT.getApproved(providerId) == address(this), "provider ID not approved by owner");
+
+        // must not be settled yet
+        require(!position.settled, "already settled");
 
         // storage changes. withdrawable is 0 before settlement, so needs no update
         positions[takerId].settled = true;

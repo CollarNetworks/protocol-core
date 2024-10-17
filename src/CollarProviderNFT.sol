@@ -276,6 +276,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         ProviderPositionStored storage position = positions[positionId];
 
         require(position.expiration != 0, "provider position does not exist");
+        // taker will check expiry, but this ensures an invariant and guards against taker bugs
         require(block.timestamp >= position.expiration, "not expired");
 
         require(!position.settled, "already settled");
@@ -308,11 +309,21 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// so is assumed to specify the withdrawal correctly for their funds.
     /// @param positionId The ID of the position to cancel (NFT token ID)
     function cancelAndWithdraw(uint positionId) external whenNotPaused onlyTaker returns (uint withdrawal) {
-        // caller is BOTH taker contract (`onlyTaker`), and was approved by NFT owner
-        require(msg.sender == getApproved(positionId), "caller not approved for token");
-
         ProviderPositionStored storage position = positions[positionId];
+        require(position.expiration != 0, "provider position does not exist");
         require(!position.settled, "already settled");
+
+        /* @dev Ensure caller is BOTH taker contract (`onlyTaker`), and was approved by NFT owner
+        While taker contract is trusted here, and must check ownership of BOTH tokens, its this contract's
+        responsibility (and invariant) to ensure the token owner's consent to cancel.
+        While it can't check that the owner is taker's caller, it can at least check an approval to guard
+        against taker implementation bug. Here `_isAuthorized` returns `true` if `msg.sender` is:
+            1) owner
+            2) operator (isApprovedForAll for owner)
+            3) was approved for the specific ID (getApproved for positionId).
+        */
+        bool callerApprovedForId = _isAuthorized(ownerOf(positionId), msg.sender, positionId);
+        require(callerApprovedForId, "caller not approved for provider ID");
 
         // store changes
         position.settled = true; // done here as CEI

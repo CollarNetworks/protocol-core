@@ -459,6 +459,29 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         providerNFT.cancelAndWithdraw(positionId);
     }
 
+    function test_cancelAndWithdraw_approvals() public {
+        (uint positionId, ) = createAndCheckPosition(provider, largeAmount, largeAmount / 10);
+        // approve of ID works
+        vm.startPrank(provider);
+        providerNFT.approve(takerContract, positionId);
+        vm.startPrank(takerContract);
+        providerNFT.cancelAndWithdraw(positionId);
+
+        (positionId, ) = createAndCheckPosition(provider, largeAmount, largeAmount / 10);
+        // ownership works
+        vm.startPrank(provider);
+        providerNFT.transferFrom(provider, takerContract, positionId);
+        vm.startPrank(takerContract);
+        providerNFT.cancelAndWithdraw(positionId);
+
+        (positionId, ) = createAndCheckPosition(provider, largeAmount, largeAmount / 10);
+        // setApprovalForAll works
+        vm.startPrank(provider);
+        providerNFT.setApprovalForAll(takerContract, true);
+        vm.startPrank(takerContract);
+        providerNFT.cancelAndWithdraw(positionId);
+    }
+
     function test_unpause() public {
         vm.startPrank(owner);
         providerNFT.pause();
@@ -756,6 +779,9 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         vm.startPrank(takerContract);
         vm.expectRevert("provider position does not exist");
         providerNFT.settlePosition(1000, 0);
+
+        vm.expectRevert("provider position does not exist");
+        providerNFT.cancelAndWithdraw(1000);
     }
 
     function test_revert_settlePosition_afterCancel() public {
@@ -798,11 +824,10 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         vm.startPrank(address(0xdead));
         vm.expectRevert("unauthorized taker contract");
         providerNFT.cancelAndWithdraw(positionId);
-
         vm.startPrank(owner);
         configHub.setCanOpen(takerContract, true);
         vm.startPrank(address(takerContract));
-        vm.expectRevert("caller not approved for token");
+        vm.expectRevert("caller not approved for provider ID");
         providerNFT.cancelAndWithdraw(positionId);
 
         skip(duration);

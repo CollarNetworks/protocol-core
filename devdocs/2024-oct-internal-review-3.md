@@ -16,9 +16,11 @@
   - Composability risk: a contract that needs to batch many actions may have issues fitting all of them into a single tx in an Arbitrum block (although it is up to 32M gas, average usage is between 1M-3M, https://arbiscan.io/blocks?ps=100&p=1)
   - mitigations:
     - [x] remove usage of ERC721Enumerable (since its added functionality is unused): rollLoan to 1.471M, openLoan 871K.
-    - [ ] remove fields that aren't needed / can be calculated from other fields (call-price, put-price, callLockedCash). E.g., DRY fields (don't copy from offer to position, just store offerId)
-    - [ ] reuse fields where it makes sense: principal & withdrawable
-    - [ ] pack fields in storage (time u32, bips uint16, nft-id u64 due to batching). Use packed only for storage, but use full size for internal and external interfaces everywhere else (StoredPos / MemPos).
+    - [x] remove fields that aren't needed / can be calculated from other fields (call-price, put-price, callLockedCash). E.g., DRY fields (don't copy from offer to position, just store offerId)
+    - [x] ~~reuse fields where it makes sense: principal & withdrawable~~ not impactful
+    - [x] pack fields in storage (time u32, bips uint16, nft-id u64 due to batching). Use packed only for storage, but use full size for internal and external interfaces everywhere else (StoredPos / MemPos).
+    - [x] reduce nft approvals and transfers in cancel
+    - [x] ~~check if removing forceApprove helps~~ not too impactful
     - [ ] pack confighub values to reduce cold sloads during opens
     - [ ] post deployment: keep non-zero erc20 balances in contracts (to avoid 0-non-zero-0 transfer chains)
 - [ ] #low erc20 tokens are trusted to be simple, but still contracts that hold balances may be safer with balance checks on transfers: taker open, create offers (2). Example compv3 uint max transfer which may not be obvious when whitelisting an asset.
@@ -41,13 +43,7 @@
 ###  Provider
 - [ ] #med min take amount to prevent dusting / composability issues / griefing via protocol fee issues / griefing via 0 user locked pos, may be non-negligible in case of low decimals + low gas fees
 - [ ] #low max allowed protocol fee APR in provider offer
-- [ ] #low rethink whether `cancelAndWithdraw` flow is not needed since taker is trusted anyway with settlement, so just settle call can be used (with 0 delta) and expiry check should be removed on provider side.
-  - pros of separate flows: ensures ownership of NFT and concent, ensures expiry invariant
-  - cons of separate flows:
-    - added complexity by having different before / after expiry flows
-    - redundant checks in taker and maker
-    - cannot cancel with delta if needed
-    - more gas by having to approve and transfer provider NFT
+- [x] #low ~~rethink whether `cancelAndWithdraw` flow is not needed since taker is trusted anyway with settlement, so just settle call can be used (with 0 delta) and expiry check should be removed on provider side.~~ withdrawal in "settlement vis cancel" case becomes problematic
 - [x] #low "ShortProviderNFT" is bad name, confusing and inaccurate. Should be "CollarProviderNFT"
 - [x] #low naming: collateralAsset should be "underlying", since collateral is ambiguous and is actually cash. Should be just address since not used as erc20.
 - [x] #low settle position doesn't check that position exists (relies on taker)
