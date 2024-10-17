@@ -10,7 +10,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 import { BaseAssetPairTestSetup, CollarTakerNFT, CollarProviderNFT } from "./BaseAssetPairTestSetup.sol";
 
-import { Rolls, IRolls } from "../../src/Rolls.sol";
+import { Rolls, IRolls, ICollarTakerNFT } from "../../src/Rolls.sol";
 
 contract RollsTest is BaseAssetPairTestSetup {
     uint takerLocked = swapCashAmount * (BIPS_100PCT - ltv) / BIPS_100PCT; // 100
@@ -223,8 +223,9 @@ contract RollsTest is BaseAssetPairTestSetup {
 
         // Check new provider position details
         CollarProviderNFT.ProviderPosition memory newProviderPos = providerNFT.getPosition(newProviderId);
+        assertEq(newProviderPos.duration, duration);
         assertEq(newProviderPos.expiration, block.timestamp + duration);
-        assertEq(newProviderPos.principal, expected.newProviderLocked);
+        assertEq(newProviderPos.providerLocked, expected.newProviderLocked);
         assertEq(newProviderPos.putStrikePercent, ltv);
         assertEq(newProviderPos.callStrikePercent, callStrikePercent);
         assertFalse(newProviderPos.settled);
@@ -524,7 +525,12 @@ contract RollsTest is BaseAssetPairTestSetup {
         cashAsset.approve(address(rolls), uint(-minToProvider));
 
         // Non-existent taker position
-        vm.expectRevert("taker position doesn't exist");
+        vm.mockCall(
+            address(takerNFT),
+            abi.encodeCall(takerNFT.getPosition, (999)),
+            abi.encode(ICollarTakerNFT.TakerPosition(providerNFT, 0, 0, 0, 0, 0, 0, 0, 0, false, 0))
+        );
+        vm.expectRevert("rolls: taker position does not exist");
         rolls.createOffer(999, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline);
 
         // expired taker position

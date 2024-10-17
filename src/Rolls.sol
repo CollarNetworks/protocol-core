@@ -5,7 +5,8 @@ import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/Saf
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { SignedMath } from "@openzeppelin/contracts/utils/math/SignedMath.sol";
 
-import { CollarTakerNFT, CollarProviderNFT } from "./CollarTakerNFT.sol";
+import { CollarTakerNFT, ICollarTakerNFT } from "./CollarTakerNFT.sol";
+import { CollarProviderNFT, ICollarProviderNFT } from "./CollarProviderNFT.sol";
 import { BaseManaged } from "./base/BaseManaged.sol";
 import { IRolls } from "./interfaces/IRolls.sol";
 
@@ -53,7 +54,7 @@ contract Rolls is IRolls, BaseManaged {
 
     uint public nextRollId = 1; // starts from 1 so that 0 ID is not used
 
-    mapping(uint rollId => RollOffer) internal rollOffers;
+    mapping(uint rollId => RollOfferStored) internal rollOffers;
 
     /// @dev Rolls needs BaseManaged for pausing since is approved by users, and holds NFTs.
     /// Does not need `canOpen` auth because its auth usage is set directly on Loans,
@@ -67,8 +68,22 @@ contract Rolls is IRolls, BaseManaged {
     // ----- VIEW FUNCTIONS ----- //
 
     /// @dev return memory struct (the default getter returns tuple)
-    function getRollOffer(uint rollId) external view returns (RollOffer memory) {
-        return rollOffers[rollId];
+    function getRollOffer(uint rollId) public view returns (RollOffer memory) {
+        RollOfferStored memory stored = rollOffers[rollId];
+        return RollOffer({
+            takerId: stored.takerId,
+            feeAmount: stored.feeAmount,
+            feeDeltaFactorBIPS: stored.feeDeltaFactorBIPS,
+            feeReferencePrice: stored.feeReferencePrice,
+            minPrice: stored.minPrice,
+            maxPrice: stored.maxPrice,
+            minToProvider: stored.minToProvider,
+            deadline: stored.deadline,
+            providerNFT: stored.providerNFT,
+            providerId: stored.providerId,
+            provider: stored.provider,
+            active: stored.active
+        });
     }
 
     /**
@@ -116,7 +131,7 @@ contract Rolls is IRolls, BaseManaged {
         view
         returns (int toTaker, int toProvider, int rollFee)
     {
-        RollOffer memory offer = rollOffers[rollId];
+        RollOffer memory offer = getRollOffer(rollId);
         rollFee = calculateRollFee(offer, price);
         (toTaker, toProvider) = _previewTransferAmounts(offer.takerId, price, rollFee);
     }
@@ -154,8 +169,8 @@ contract Rolls is IRolls, BaseManaged {
         uint deadline
     ) external whenNotPaused returns (uint rollId) {
         // taker position is valid
-        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
-        require(takerPos.expiration != 0, "taker position doesn't exist");
+        ICollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
+        require(takerPos.expiration != 0, "rolls: taker position does not exist");
         require(!takerPos.settled, "taker position settled");
         require(block.timestamp <= takerPos.expiration, "taker position expired");
 
@@ -174,19 +189,19 @@ contract Rolls is IRolls, BaseManaged {
 
         // store the offer
         rollId = nextRollId++;
-        rollOffers[rollId] = RollOffer({
-            takerId: takerId,
+        rollOffers[rollId] = RollOfferStored({
+            providerNFT: providerNFT,
+            providerId: SafeCast.toUint64(providerId),
+            deadline: SafeCast.toUint32(deadline),
+            takerId: SafeCast.toUint64(takerId),
+            feeDeltaFactorBIPS: SafeCast.toInt24(feeDeltaFactorBIPS),
+            active: true,
+            provider: msg.sender,
             feeAmount: feeAmount,
-            feeDeltaFactorBIPS: feeDeltaFactorBIPS,
             feeReferencePrice: takerNFT.currentOraclePrice(), // the roll offer fees are for current price
             minPrice: minPrice,
             maxPrice: maxPrice,
-            minToProvider: minToProvider,
-            deadline: deadline,
-            providerNFT: providerNFT,
-            providerId: providerId,
-            provider: msg.sender,
-            active: true
+            minToProvider: minToProvider
         });
 
         emit OfferCreated(takerId, msg.sender, providerNFT, providerId, feeAmount, rollId);
@@ -202,11 +217,11 @@ contract Rolls is IRolls, BaseManaged {
      * the most an update can cause there is a revert of taking the offer.
      */
     function cancelOffer(uint rollId) external whenNotPaused {
-        RollOffer storage offer = rollOffers[rollId];
+        RollOffer memory offer = getRollOffer(rollId);
         require(msg.sender == offer.provider, "not offer provider");
         require(offer.active, "offer not active");
-        // cancel offer
-        offer.active = false;
+        // store cancelled state
+        rollOffers[rollId].active = false;
         // return the NFT
         offer.providerNFT.transferFrom(address(this), msg.sender, offer.providerId);
         emit OfferCancelled(rollId, offer.takerId, offer.provider);
@@ -230,7 +245,7 @@ contract Rolls is IRolls, BaseManaged {
         whenNotPaused
         returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider)
     {
-        RollOffer memory offer = rollOffers[rollId];
+        RollOffer memory offer = getRollOffer(rollId);
 
         // offer doesn't exist, was cancelled, or executed
         require(offer.active, "invalid offer");
@@ -300,8 +315,8 @@ contract Rolls is IRolls, BaseManaged {
     }
 
     function _cancelPairedPositionAndWithdraw(uint takerId) internal {
-        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
-        // approve the takerNFT to pull the provider NFT, as both NFTs are needed for cancellation
+        ICollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
+        // approve the provider NFT ID to the takerNFT contract, which is needed for cancellation
         takerPos.providerNFT.approve(address(takerNFT), takerPos.providerId);
         // cancel and withdraw the cash from the existing paired position
         // @dev this relies on being the owner of both NFTs. it burns both NFTs, and withdraws
@@ -316,9 +331,9 @@ contract Rolls is IRolls, BaseManaged {
         internal
         returns (uint newTakerId, uint newProviderId)
     {
-        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
+        ICollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
         CollarProviderNFT providerNFT = takerPos.providerNFT;
-        CollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(takerPos.providerId);
+        ICollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(takerPos.providerId);
 
         // calculate locked amounts for new positions
         (uint newTakerLocked, uint newProviderLocked) = _newLockedAmounts(takerPos, providerPos, newPrice);
@@ -353,9 +368,9 @@ contract Rolls is IRolls, BaseManaged {
         view
         returns (int toTaker, int toProvider)
     {
-        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
+        ICollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
         CollarProviderNFT providerNFT = takerPos.providerNFT;
-        CollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(takerPos.providerId);
+        ICollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(takerPos.providerId);
 
         // what would the taker and provider get from a settlement of the old position at current price.
         // it is correct to use current price for settlement: a) this is before expiry b) no actual
@@ -400,8 +415,8 @@ contract Rolls is IRolls, BaseManaged {
 
     // @dev the amounts needed for a new position given the old position
     function _newLockedAmounts(
-        CollarTakerNFT.TakerPosition memory takerPos,
-        CollarProviderNFT.ProviderPosition memory providerPos,
+        ICollarTakerNFT.TakerPosition memory takerPos,
+        ICollarProviderNFT.ProviderPosition memory providerPos,
         uint newPrice
     ) internal view returns (uint newTakerLocked, uint newProviderLocked) {
         // New position is determined by calculating newTakerLocked, since it is the input argument.

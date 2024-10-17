@@ -6,6 +6,24 @@ import { CollarTakerNFT } from "../CollarTakerNFT.sol";
 import { CollarProviderNFT } from "../CollarProviderNFT.sol";
 
 interface IRolls {
+    struct RollOfferStored {
+        // first slot
+        CollarProviderNFT providerNFT;
+        uint64 providerId;
+        uint32 deadline;
+        // second slot
+        uint64 takerId;
+        int24 feeDeltaFactorBIPS; // allows up to +-838%, must allow at least BIPS_BASE
+        bool active;
+        address provider;
+        // rest of slots
+        int feeAmount;
+        uint feeReferencePrice;
+        uint minPrice;
+        uint maxPrice;
+        int minToProvider;
+    }
+
     struct RollOffer {
         // terms
         uint takerId;
