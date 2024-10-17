@@ -152,12 +152,11 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         // store position data
         positions[takerId] = TakerPositionStored({
             providerNFT: providerNFT,
-            providerId: providerId,
+            providerId: SafeCast.toUint64(providerId),
+            settled: false, // unset until settlement
             startPrice: startPrice,
             takerLocked: takerLocked,
-            // unset until settlement
-            settled: false,
-            withdrawable: 0
+            withdrawable: 0 // unset until settlement
         });
         // mint the NFT to the sender, @dev does not use _safeMint to avoid reentrancy
         _mint(msg.sender, takerId);

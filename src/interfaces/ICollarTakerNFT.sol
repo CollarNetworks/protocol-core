@@ -8,14 +8,13 @@ import { ITakerOracle } from "./ITakerOracle.sol";
 
 interface ICollarTakerNFT {
     struct TakerPositionStored {
-        // paired NFT info
+        // packed first slot
         CollarProviderNFT providerNFT;
-        uint providerId;
-        // collar position info
+        uint64 providerId; // assumes IDs are ordered
+        bool settled;
+        // next slots
         uint startPrice;
         uint takerLocked;
-        // withdrawal state
-        bool settled;
         uint withdrawable;
     }
 

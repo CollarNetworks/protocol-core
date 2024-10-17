@@ -3,6 +3,7 @@ pragma solidity 0.8.22;
 
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { BaseNFT, ConfigHub } from "./base/BaseNFT.sol";
 import { ICollarProviderNFT } from "./interfaces/ICollarProviderNFT.sol";
@@ -55,7 +56,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     // @dev this is NOT the NFT id, this is separate ID for offers
     uint public nextOfferId = 1; // starts from 1 so that 0 ID is not used
     // non transferrable offers
-    mapping(uint offerId => LiquidityOffer) internal liquidityOffers;
+    mapping(uint offerId => LiquidityOfferStored) internal liquidityOffers;
     // positionId is the NFT token ID (defined in BaseNFT)
     mapping(uint positionId => ProviderPositionStored) internal positions;
 
@@ -109,7 +110,14 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// @notice Retrieves the details of a specific non-transferrable offer.
     /// @dev This is used instead of the default getter because the default getter returns a tuple
     function getOffer(uint offerId) public view returns (LiquidityOffer memory) {
-        return liquidityOffers[offerId];
+        LiquidityOfferStored memory stored = liquidityOffers[offerId];
+        return LiquidityOffer({
+            provider : stored.provider,
+            available : stored.available,
+            duration : stored.duration,
+            putStrikePercent : stored.putStrikePercent,
+            callStrikePercent : stored.callStrikePercent
+        });
     }
 
     /// @notice Calculates the protocol fee charged from offers on position creation.
@@ -148,12 +156,12 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         _configHubValidations(putStrikePercent, duration);
 
         offerId = nextOfferId++;
-        liquidityOffers[offerId] = LiquidityOffer({
+        liquidityOffers[offerId] = LiquidityOfferStored({
             provider: msg.sender,
-            available: amount,
-            putStrikePercent: putStrikePercent,
-            callStrikePercent: callStrikePercent,
-            duration: duration
+            putStrikePercent: SafeCast.toUint24(putStrikePercent),
+            callStrikePercent: SafeCast.toUint24(callStrikePercent),
+            duration: SafeCast.toUint32(duration),
+            available: amount
         });
         cashAsset.safeTransferFrom(msg.sender, address(this), amount);
         emit OfferCreated(msg.sender, putStrikePercent, duration, callStrikePercent, amount, offerId);
@@ -166,18 +174,19 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// @param offerId The ID of the offer to update
     /// @param newAmount The new amount of cash asset for the offer
     function updateOfferAmount(uint offerId, uint newAmount) external whenNotPaused {
-        require(msg.sender == liquidityOffers[offerId].provider, "not offer provider");
+        LiquidityOfferStored storage offer = liquidityOffers[offerId];
+        require(msg.sender == offer.provider, "not offer provider");
 
-        uint previousAmount = liquidityOffers[offerId].available;
+        uint previousAmount = offer.available;
         if (newAmount > previousAmount) {
             // deposit more
             uint toAdd = newAmount - previousAmount;
-            liquidityOffers[offerId].available += toAdd;
+            offer.available += toAdd;
             cashAsset.safeTransferFrom(msg.sender, address(this), toAdd);
         } else if (newAmount < previousAmount) {
             // withdraw
             uint toRemove = previousAmount - newAmount;
-            liquidityOffers[offerId].available -= toRemove;
+            offer.available -= toRemove;
             cashAsset.safeTransfer(msg.sender, toRemove);
         } else { } // no change
         emit OfferUpdated(offerId, msg.sender, previousAmount, newAmount);
@@ -207,7 +216,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         require(configHub.canOpen(msg.sender), "unsupported taker contract");
         require(configHub.canOpen(address(this)), "unsupported provider contract");
 
-        LiquidityOffer storage offer = liquidityOffers[offerId];
+        LiquidityOffer memory offer = getOffer(offerId);
 
         // check params are still supported
         _configHubValidations(offer.putStrikePercent, offer.duration);
@@ -218,20 +227,21 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         // check amount
         uint prevOfferAmount = offer.available;
         require(providerLocked + fee <= prevOfferAmount, "amount too high");
+        uint newAvailable = prevOfferAmount - providerLocked - fee;
 
         // storage updates
-        offer.available = prevOfferAmount - providerLocked - fee;
+        liquidityOffers[offerId].available = newAvailable;
         positionId = nextTokenId++;
         positions[positionId] = ProviderPositionStored({
-            offerId: offerId,
-            takerId: takerId,
-            expiration: block.timestamp + offer.duration,
+            offerId: SafeCast.toUint64(offerId),
+            takerId: SafeCast.toUint64(takerId),
+            expiration: SafeCast.toUint32(block.timestamp + offer.duration),
+            settled: false, // unset until settlement
             providerLocked: providerLocked,
-            settled: false,
-            withdrawable: 0
+            withdrawable: 0 // unset until settlement
         });
 
-        emit OfferUpdated(offerId, msg.sender, prevOfferAmount, offer.available);
+        emit OfferUpdated(offerId, msg.sender, prevOfferAmount, newAvailable);
 
         // emit creation before transfer. No need to emit takerId, because it's emitted by the taker event
         emit PositionCreated(positionId, offerId, fee, getPosition(positionId));

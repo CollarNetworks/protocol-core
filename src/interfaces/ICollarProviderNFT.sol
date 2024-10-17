@@ -5,23 +5,33 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ConfigHub } from "../ConfigHub.sol";
 
 interface ICollarProviderNFT {
+    struct LiquidityOfferStored {
+        // packed first slot
+        address provider;
+        uint24 putStrikePercent; // supports up to 167,772 % (1677x)
+        uint24 callStrikePercent; // supports up to 167,772 % (1677x)
+        uint32 duration;
+        // next slots
+        uint available;
+    }
+
     struct LiquidityOffer {
         address provider;
         uint available;
         // terms
+        uint duration;
         uint putStrikePercent;
         uint callStrikePercent;
-        uint duration;
     }
 
     struct ProviderPositionStored {
-        uint offerId;
-        uint takerId; // the corresponding paired ID for onchain / view reference
-        // collar position terms
-        uint expiration;
-        uint providerLocked;
-        // withdrawal
+        // packed first slot
+        uint64 offerId; // assumes IDs are ordered
+        uint64 takerId; // assumes IDs are ordered
+        uint32 expiration;
         bool settled;
+        // next slots
+        uint providerLocked;
         uint withdrawable;
     }
 
