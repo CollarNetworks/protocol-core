@@ -538,9 +538,6 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         (uint newEscrowId,) = createAndCheckEscrow(supplier1, largeAmount, escrowAmount, fee);
         // full grace period even with no fee
         assertEq(escrowNFT.cappedGracePeriod(newEscrowId, 0), maxGracePeriod);
-
-        // non existent ID is not validated, but still min grace period is returned
-        assertEq(escrowNFT.cappedGracePeriod(1000, 1), escrowNFT.MIN_GRACE_PERIOD());
     }
 
     function test_interestFee_noFee() public {

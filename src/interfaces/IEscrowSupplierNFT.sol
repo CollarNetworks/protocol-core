@@ -15,7 +15,23 @@ interface IEscrowSupplierNFT {
         uint lateFeeAPR;
     }
 
+    struct EscrowStored {
+        uint offerId;
+        // reference
+        address loans;
+        uint loanId;
+        // terms
+        uint escrowed;
+        // interest & refund
+        uint expiration;
+        uint interestHeld;
+        // withdrawal
+        bool released;
+        uint withdrawable;
+    }
+
     struct Escrow {
+        uint offerId;
         // reference
         address loans;
         uint loanId;

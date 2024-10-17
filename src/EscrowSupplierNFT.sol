@@ -56,7 +56,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
     mapping(uint offerId => Offer) internal offers;
 
-    mapping(uint escrowId => Escrow) internal escrows;
+    mapping(uint escrowId => EscrowStored) internal escrows;
 
     constructor(
         address initialOwner,
@@ -83,14 +83,29 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
     /// @notice Retrieves the details of a specific non-transferrable offer.
     /// @dev This is used instead of the default getter because the default getter returns a tuple
-    function getOffer(uint offerId) external view returns (Offer memory) {
+    function getOffer(uint offerId) public view returns (Offer memory) {
         return offers[offerId];
     }
 
     /// @notice Retrieves the details of a specific escrow (corresponds to the NFT token ID)
     /// @dev This is used instead of the default getter because the default getter returns a tuple
-    function getEscrow(uint escrowId) external view returns (Escrow memory) {
-        return escrows[escrowId];
+    function getEscrow(uint escrowId) public view returns (Escrow memory) {
+        EscrowStored memory stored = escrows[escrowId];
+        require(stored.expiration != 0, "escrow position does not exist");
+        Offer memory offer = getOffer(stored.offerId);
+        return Escrow({
+            offerId: stored.offerId,
+            loans: stored.loans,
+            loanId: stored.loanId,
+            escrowed: stored.escrowed,
+            maxGracePeriod: offer.maxGracePeriod,
+            lateFeeAPR: offer.lateFeeAPR,
+            duration: offer.duration,
+            expiration: stored.expiration,
+            interestHeld: stored.interestHeld,
+            released: stored.released,
+            withdrawable: stored.withdrawable
+        });
     }
 
     /**
@@ -102,7 +117,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @return lateFee The calculated late fee
      */
     function owedTo(uint escrowId) external view returns (uint totalOwed, uint lateFee) {
-        Escrow memory escrow = escrows[escrowId];
+        Escrow memory escrow = getEscrow(escrowId);
         lateFee = _lateFee(escrow);
         return (escrow.escrowed + lateFee, lateFee);
     }
@@ -117,7 +132,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @return The calculated grace period in seconds
      */
     function cappedGracePeriod(uint escrowId, uint maxLateFee) external view returns (uint) {
-        Escrow memory escrow = escrows[escrowId];
+        Escrow memory escrow = getEscrow(escrowId);
         // initialize with max according to terms
         uint period = escrow.maxGracePeriod;
         // avoid div-zero
@@ -160,7 +175,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         view
         returns (uint withdrawal, uint toLoans, uint refund)
     {
-        (withdrawal, toLoans, refund) = _releaseCalculations(escrows[escrowId], fromLoans);
+        (withdrawal, toLoans, refund) = _releaseCalculations(getEscrow(escrowId), fromLoans);
     }
 
     // ----- MUTATIVE ----- //
@@ -302,7 +317,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         onlyLoans
         returns (uint newEscrowId, uint feeRefund)
     {
-        Escrow memory previousEscrow = escrows[releaseEscrowId];
+        Escrow memory previousEscrow = getEscrow(releaseEscrowId);
         // do not allow expired escrow to be switched since 0 fromLoans is used for _endEscrow
         require(block.timestamp <= previousEscrow.expiration, "expired escrow");
 
@@ -341,12 +356,12 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     function withdrawReleased(uint escrowId) external whenNotPaused {
         require(msg.sender == ownerOf(escrowId), "not escrow owner"); // will revert for burned
 
-        Escrow storage escrow = escrows[escrowId];
+        Escrow memory escrow = getEscrow(escrowId);
         require(escrow.released, "not released");
 
         uint withdrawable = escrow.withdrawable;
-        // zero out withdrawable
-        escrow.withdrawable = 0;
+        // store zeroed out withdrawable
+        escrows[escrowId].withdrawable = 0;
         // burn token
         _burn(escrowId);
         // transfer tokens
@@ -370,7 +385,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     function lastResortSeizeEscrow(uint escrowId) external whenNotPaused {
         require(msg.sender == ownerOf(escrowId), "not escrow owner"); // will revert for burned
 
-        Escrow memory escrow = escrows[escrowId];
+        Escrow memory escrow = getEscrow(escrowId);
         require(!escrow.released, "already released");
         require(block.timestamp > escrow.expiration + escrow.maxGracePeriod, "grace period not elapsed");
 
@@ -423,13 +438,11 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         // storage updates
         offers[offerId].available -= escrowed;
         escrowId = nextTokenId++;
-        escrows[escrowId] = Escrow({
+        escrows[escrowId] = EscrowStored({
+            offerId: offerId,
             loans: msg.sender,
             loanId: loanId,
             escrowed: escrowed,
-            maxGracePeriod: offer.maxGracePeriod,
-            lateFeeAPR: offer.lateFeeAPR,
-            duration: offer.duration,
             expiration: block.timestamp + offer.duration,
             interestHeld: fee,
             released: false,
@@ -446,16 +459,19 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     }
 
     function _endEscrow(uint escrowId, uint fromLoans) internal returns (uint toLoans) {
-        Escrow storage escrow = escrows[escrowId];
+        Escrow memory escrow = getEscrow(escrowId);
         require(!escrow.released, "already released");
         // only allow the same loans contract to release
         require(msg.sender == escrow.loans, "loans address mismatch");
 
-        // storage updates
-        escrow.released = true;
-        (escrow.withdrawable, toLoans,) = _releaseCalculations(escrow, fromLoans);
+        uint withdrawable;
+        (withdrawable, toLoans,) = _releaseCalculations(escrow, fromLoans);
 
-        emit EscrowReleased(escrowId, fromLoans, escrow.withdrawable, toLoans);
+        // storage updates
+        escrows[escrowId].released = true;
+        escrows[escrowId].withdrawable = withdrawable;
+
+        emit EscrowReleased(escrowId, fromLoans, withdrawable, toLoans);
     }
 
     // ----- INTERNAL VIEWS ----- //
