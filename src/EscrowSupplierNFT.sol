@@ -3,6 +3,7 @@ pragma solidity 0.8.22;
 
 import { SafeERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { BaseNFT, ConfigHub } from "./base/BaseNFT.sol";
 import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
@@ -54,7 +55,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     // allowed loans contracts
     mapping(address loans => bool allowed) public allowedLoans;
 
-    mapping(uint offerId => Offer) internal offers;
+    mapping(uint offerId => OfferStored) internal offers;
 
     mapping(uint escrowId => EscrowStored) internal escrows;
 
@@ -84,7 +85,15 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     /// @notice Retrieves the details of a specific non-transferrable offer.
     /// @dev This is used instead of the default getter because the default getter returns a tuple
     function getOffer(uint offerId) public view returns (Offer memory) {
-        return offers[offerId];
+        OfferStored memory stored = offers[offerId];
+        return Offer({
+            supplier: stored.supplier,
+            available: stored.available,
+            duration: stored.duration,
+            interestAPR: stored.interestAPR,
+            maxGracePeriod: stored.maxGracePeriod,
+            lateFeeAPR: stored.lateFeeAPR
+        });
     }
 
     /// @notice Retrieves the details of a specific escrow (corresponds to the NFT token ID)
@@ -157,7 +166,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @return fee The calculated interest fee
      */
     function interestFee(uint offerId, uint escrowed) public view returns (uint) {
-        Offer memory offer = offers[offerId];
+        Offer memory offer = getOffer(offerId);
         // rounds up against the user
         return Math.ceilDiv(escrowed * offer.interestAPR * offer.duration, BIPS_BASE * YEAR);
     }
@@ -205,13 +214,13 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         _configHubValidations(duration);
 
         offerId = nextOfferId++;
-        offers[offerId] = Offer({
+        offers[offerId] = OfferStored({
             supplier: msg.sender,
-            available: amount,
-            duration: duration,
-            interestAPR: interestAPR,
-            maxGracePeriod: maxGracePeriod,
-            lateFeeAPR: lateFeeAPR
+            duration: SafeCast.toUint32(duration),
+            maxGracePeriod: SafeCast.toUint32(maxGracePeriod),
+            interestAPR: SafeCast.toUint24(interestAPR),
+            lateFeeAPR: SafeCast.toUint24(lateFeeAPR),
+            available: amount
         });
         asset.safeTransferFrom(msg.sender, address(this), amount);
         emit OfferCreated(msg.sender, interestAPR, duration, maxGracePeriod, lateFeeAPR, amount, offerId);
@@ -224,18 +233,19 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @param newAmount The new offer amount
      */
     function updateOfferAmount(uint offerId, uint newAmount) external whenNotPaused {
-        require(msg.sender == offers[offerId].supplier, "not offer supplier");
+        OfferStored storage offer = offers[offerId];
+        require(msg.sender == offer.supplier, "not offer supplier");
 
-        uint previousAmount = offers[offerId].available;
+        uint previousAmount = offer.available;
         if (newAmount > previousAmount) {
             // deposit more
             uint toAdd = newAmount - previousAmount;
-            offers[offerId].available += toAdd;
+            offer.available += toAdd;
             asset.safeTransferFrom(msg.sender, address(this), toAdd);
         } else if (newAmount < previousAmount) {
             // withdraw
             uint toRemove = previousAmount - newAmount;
-            offers[offerId].available -= toRemove;
+            offer.available -= toRemove;
             asset.safeTransfer(msg.sender, toRemove);
         } else { } // no change
         emit OfferUpdated(offerId, msg.sender, previousAmount, newAmount);
@@ -421,7 +431,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         require(configHub.canOpen(msg.sender), "unsupported loans contract");
         require(configHub.canOpen(address(this)), "unsupported supplier contract");
 
-        Offer memory offer = offers[offerId];
+        Offer memory offer = getOffer(offerId);
         require(offer.supplier != address(0), "invalid offer"); // revert here for clarity
 
         // check params are still supported
@@ -439,14 +449,14 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         offers[offerId].available -= escrowed;
         escrowId = nextTokenId++;
         escrows[escrowId] = EscrowStored({
-            offerId: offerId,
+            offerId: SafeCast.toUint64(offerId),
+            loanId: SafeCast.toUint64(loanId),
+            expiration: SafeCast.toUint32(block.timestamp + offer.duration),
+            released: false, // unset until release
             loans: msg.sender,
-            loanId: loanId,
             escrowed: escrowed,
-            expiration: block.timestamp + offer.duration,
             interestHeld: fee,
-            released: false,
-            withdrawable: 0
+            withdrawable: 0 // unset until release
         });
 
         // emit before token transfer event in mint for easier indexing
