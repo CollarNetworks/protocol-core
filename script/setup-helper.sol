@@ -8,7 +8,7 @@ import { Rolls } from "../src/Rolls.sol";
 import { SwapperUniV3 } from "../src/SwapperUniV3.sol";
 import { DeploymentHelper } from "./deployment-helper.sol";
 
-contract SetupHelper {
+library SetupHelper {
     struct HubParams {
         address[] cashAssets;
         address[] underlyings;
@@ -18,7 +18,7 @@ contract SetupHelper {
         uint maxDuration;
     }
 
-    function setupContractPair(ConfigHub hub, DeploymentHelper.AssetPairContracts memory pair) public {
+    function setupContractPair(ConfigHub hub, DeploymentHelper.AssetPairContracts memory pair) internal {
         hub.setCanOpen(address(pair.takerNFT), true);
         hub.setCanOpen(address(pair.providerNFT), true);
         hub.setCanOpen(address(pair.loansContract), true);
@@ -26,7 +26,7 @@ contract SetupHelper {
         pair.loansContract.setSwapperAllowed(address(pair.swapperUniV3), true, true);
     }
 
-    function setupConfigHub(ConfigHub configHub, HubParams memory hubParams) public {
+    function setupConfigHub(ConfigHub configHub, HubParams memory hubParams) internal {
         for (uint i = 0; i < hubParams.cashAssets.length; i++) {
             configHub.setCashAssetSupport(hubParams.cashAssets[i], true);
         }

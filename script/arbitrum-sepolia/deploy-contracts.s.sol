@@ -23,14 +23,7 @@ import { SetupHelper } from "../setup-helper.sol";
 import { WalletLoader } from "../wallet-loader.s.sol";
 import { UniswapNewPoolHelper } from "../../test/utils/UniswapNewPoolHelper.sol";
 
-contract DeployContractsArbitrumSepolia is
-    Script,
-    DeploymentUtils,
-    UniswapNewPoolHelper,
-    SetupHelper,
-    DeploymentHelper,
-    WalletLoader
-{
+contract DeployContractsArbitrumSepolia is Script, DeploymentUtils, UniswapNewPoolHelper {
     uint chainId = 421_614; // Arbitrum Sepolia chain ID
     IV3SwapRouter constant SWAP_ROUTER = IV3SwapRouter(0x101F443B4d1b059569D643917553c771E1b9663E);
     INonfungiblePositionManager constant POSITION_MANAGER =
@@ -46,11 +39,11 @@ contract DeployContractsArbitrumSepolia is
 
     function run() external {
         require(chainId == block.chainid, "chainId does not match the chainId in config");
-        (address deployer,,,) = setup();
+        (address deployer,,,) = WalletLoader.loadWalletsFromEnv(vm);
 
         vm.startBroadcast(deployer);
 
-        ConfigHub configHub = deployConfigHub(deployer);
+        ConfigHub configHub = DeploymentHelper.deployConfigHub(deployer);
 
         (cashAssetAddress, underlyingAddress) = _setupAssets();
 
@@ -59,9 +52,9 @@ contract DeployContractsArbitrumSepolia is
         address[] memory cashAssets = new address[](1);
         cashAssets[0] = cashAssetAddress;
 
-        setupConfigHub(
+        SetupHelper.setupConfigHub(
             configHub,
-            HubParams({
+            SetupHelper.HubParams({
                 cashAssets: cashAssets,
                 underlyings: underlyings,
                 minLTV: ltv,
@@ -80,7 +73,7 @@ contract DeployContractsArbitrumSepolia is
         uint24 oracleFeeTier = 3000;
         uint24 swapFeeTier = 3000;
 
-        PairConfig memory pairConfig = PairConfig({
+        DeploymentHelper.PairConfig memory pairConfig = DeploymentHelper.PairConfig({
             name: "COLLATERAL/CASH",
             durations: durations,
             ltvs: ltvs,
@@ -92,13 +85,15 @@ contract DeployContractsArbitrumSepolia is
             swapRouter: address(SWAP_ROUTER)
         });
 
-        AssetPairContracts memory contracts = deployContractPair(configHub, pairConfig, deployer);
+        DeploymentHelper.AssetPairContracts memory contracts =
+            DeploymentHelper.deployContractPair(configHub, pairConfig, deployer);
 
-        setupContractPair(configHub, contracts);
+        SetupHelper.setupContractPair(configHub, contracts);
 
         vm.stopBroadcast();
 
-        AssetPairContracts[] memory contractsArray = new AssetPairContracts[](1);
+        DeploymentHelper.AssetPairContracts[] memory contractsArray =
+            new DeploymentHelper.AssetPairContracts[](1);
         contractsArray[0] = contracts;
         exportDeployment(
             "arbitrum_sepolia_collar_protocol_deployment",
