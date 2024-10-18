@@ -5,7 +5,7 @@ import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/Saf
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { CollarTakerNFT, ICollarTakerNFT, ITakerOracle, BaseNFT, ConfigHub } from "./CollarTakerNFT.sol";
-import { Rolls, CollarProviderNFT } from "./Rolls.sol";
+import { Rolls, CollarProviderNFT, IRolls } from "./Rolls.sol";
 import { EscrowSupplierNFT, IEscrowSupplierNFT } from "./EscrowSupplierNFT.sol";
 import { ISwapper } from "./interfaces/ISwapper.sol";
 import { ISwapper } from "./interfaces/ISwapper.sol";
@@ -98,7 +98,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     /// @return The length of the grace period
     function escrowGracePeriod(uint loanId) public view returns (uint) {
         ICollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(_takerId(loanId));
-        // @dev avoid settlement estimation complexity
+        // @dev avoid settlement estimation complexity: if position is not settled, estimating
+        // withdrawable funds is unnecessarily complex.
+        // Instead, since positions can and should be settled soon after expiry - require that it is.
         require(takerPosition.settled, "taker position not settled");
         uint cashAvailable = takerPosition.withdrawable;
 
@@ -341,10 +343,6 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // @dev will also revert on non-existent (unminted / burned) escrow ID
         address escrowOwner = escrowNFT.ownerOf(escrowId);
         require(_isSenderOrKeeperFor(escrowOwner), "not escrow owner or allowed keeper");
-
-        // If position is not settled, estimating withdrawable funds for escrowGracePeriod is unnecessarily
-        // complex. Instead, since positions can and should be settled soon after expiry - require that it is.
-        require(takerNFT.getPosition(_takerId(loanId)).settled, "taker position not settled");
 
         // @dev escrowGracePeriod uses twap-price, while actual foreclosing swap is using spot price.
         // This has several implications:
@@ -605,7 +603,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         uint takerId = _takerId(loanId);
 
         // position could have been settled by anyone already
-        bool settled = takerNFT.getPosition(takerId).settled;
+        (, bool settled) = takerNFT.expirationAndSettled(takerId);
         if (!settled) {
             /// @dev this will revert on: too early, no position, calculation issues, ...
             takerNFT.settlePairedPosition(takerId);
@@ -622,13 +620,12 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         uint initialBalance = cashAsset.balanceOf(address(this));
 
         // get transfer amount and fee from rolls
-        int toTakerPreview;
-        (toTakerPreview,, rollFee) =
-            currentRolls.previewTransferAmounts(rollId, takerNFT.currentOraclePrice());
+        IRolls.PreviewResults memory preview = currentRolls.previewRoll(rollId, takerNFT.currentOraclePrice());
+        rollFee = preview.rollFee;
 
         // pull cash
-        if (toTakerPreview < 0) {
-            uint fromUser = uint(-toTakerPreview); // will revert for type(int).min
+        if (preview.toTaker < 0) {
+            uint fromUser = uint(-preview.toTaker); // will revert for type(int).min
             // pull cash first, because rolls will try to pull it (if needed) from this contract
             // @dev assumes approval
             cashAsset.safeTransferFrom(msg.sender, address(this), fromUser);
@@ -641,7 +638,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // execute roll
         (newTakerId,, toTaker,) = currentRolls.executeRoll(rollId, minToUser);
         // check return value matches preview, which is used for updating the loan and pulling cash
-        require(toTaker == toTakerPreview, "unexpected transfer amount");
+        require(toTaker == preview.toTaker, "unexpected transfer amount");
         // check slippage (would have been checked in Rolls as well)
         require(toTaker >= minToUser, "roll transfer < minToUser");
 
@@ -737,7 +734,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         returns (uint underlyingOut)
     {
         // get owing and late fee (included in totalOwed)
-        (uint totalOwed, uint lateFee) = escrowNFT.owedTo(escrowId);
+        (uint totalOwed, uint lateFee) = escrowNFT.currentOwed(escrowId);
 
         // if owing more than swapped, use all, otherwise just what's owed
         uint toEscrow = Math.min(fromSwap, totalOwed);
@@ -827,8 +824,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         takerId = loanId;
     }
 
-    function _expiration(uint loanId) internal view returns (uint) {
-        return takerNFT.getPosition(_takerId(loanId)).expiration;
+    function _expiration(uint loanId) internal view returns (uint expiration) {
+        (expiration,) = takerNFT.expirationAndSettled(_takerId(loanId));
     }
 
     function _loanAmountAfterRoll(int fromRollsToUser, int rollFee, uint prevLoanAmount)

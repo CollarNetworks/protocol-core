@@ -66,6 +66,12 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         defaultSwapper = address(swapperUniV3);
         loans.setSwapperAllowed(defaultSwapper, true, true);
         vm.stopPrank();
+
+        // mint dust (as in mintDustToContracts)
+        cashAsset.mint(address(loans), 1);
+        cashAsset.mint(defaultSwapper, 1);
+        underlying.mint(address(loans), 1);
+        underlying.mint(defaultSwapper, 1);
     }
 
     function prepareSwap(TestERC20 asset, uint amount) public {
@@ -226,8 +232,9 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
         // Check provider position
         CollarProviderNFT.ProviderPosition memory providerPosition = providerNFT.getPosition(ids.providerId);
+        assertEq(providerPosition.duration, duration);
         assertEq(providerPosition.expiration, block.timestamp + duration);
-        assertEq(providerPosition.principal, expectedProviderLocked);
+        assertEq(providerPosition.providerLocked, expectedProviderLocked);
         assertEq(providerPosition.putStrikePercent, ltv);
         assertEq(providerPosition.callStrikePercent, callStrikePercent);
         assertFalse(providerPosition.settled);
@@ -238,6 +245,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(escrowNFT.ownerOf(escrowId), supplier);
 
         EscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(escrowId);
+        assertEq(escrow.offerId, escrowOfferId);
         assertEq(escrow.loans, address(loans));
         assertEq(escrow.loanId, loanId);
         assertEq(escrow.escrowed, underlyingAmount);
@@ -263,7 +271,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         returns (EscrowReleaseAmounts memory released)
     {
         uint owed;
-        (owed, released.lateFee) = escrowNFT.owedTo(escrowId);
+        (owed, released.lateFee) = escrowNFT.currentOwed(escrowId);
         released.toEscrow = swapOut < owed ? swapOut : owed;
         released.leftOver = swapOut - released.toEscrow;
         (, released.fromEscrow,) = escrowNFT.previewRelease(escrowId, released.toEscrow);
