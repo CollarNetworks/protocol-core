@@ -752,15 +752,4 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         );
         takerNFT.historicalOraclePrice(overflow32);
     }
-
-    function test_gas_checkOpenPairedPosition() public {
-        startHoax(provider);
-        cashAsset.approve(address(providerNFT), largeAmount);
-        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration);
-
-        startHoax(user1);
-        cashAsset.approve(address(takerNFT), takerLocked);
-
-        takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
-    }
 }

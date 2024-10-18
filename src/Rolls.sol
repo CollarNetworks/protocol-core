@@ -306,7 +306,7 @@ contract Rolls is IRolls, BaseManaged {
         if (toProvider < 0) cashAsset.safeTransferFrom(provider, address(this), uint(-toProvider));
 
         // open the new positions
-        (newTakerId, newProviderId) = _openNewPairedPosition(newPrice, offer.takerId, takerPos, providerPos);
+        (newTakerId, newProviderId) = _openNewPairedPosition(takerPos, providerPos, newPrice);
 
         // pay cash as needed
         if (toTaker > 0) cashAsset.safeTransfer(msg.sender, uint(toTaker));
@@ -332,10 +332,9 @@ contract Rolls is IRolls, BaseManaged {
     }
 
     function _openNewPairedPosition(
-        uint newPrice,
-        uint takerId,
         ICollarTakerNFT.TakerPosition memory takerPos,
-        ICollarProviderNFT.ProviderPosition memory providerPos
+        ICollarProviderNFT.ProviderPosition memory providerPos,
+        uint newPrice
     ) internal returns (uint newTakerId, uint newProviderId) {
         CollarProviderNFT providerNFT = takerPos.providerNFT;
 
