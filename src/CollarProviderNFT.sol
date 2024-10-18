@@ -250,7 +250,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         emit OfferUpdated(offerId, msg.sender, prevOfferAmount, newAvailable);
 
         // emit creation before transfer. No need to emit takerId, because it's emitted by the taker event
-        emit PositionCreated(positionId, offerId, fee, getPosition(positionId));
+        emit PositionCreated(positionId, offerId, fee, providerLocked);
 
         // mint the NFT to the provider
         // @dev does not use _safeMint to avoid reentrancy

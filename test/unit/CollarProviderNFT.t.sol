@@ -105,7 +105,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
             offerId, address(takerContract), offerAmount, offerAmount - positionAmount - fee
         );
         vm.expectEmit(address(providerNFT));
-        emit ICollarProviderNFT.PositionCreated(nextPosId, offerId, fee, expectedPosition);
+        emit ICollarProviderNFT.PositionCreated(nextPosId, offerId, fee, positionAmount);
         positionId = providerNFT.mintFromOffer(offerId, positionAmount, takerId);
         position = providerNFT.getPosition(positionId);
 

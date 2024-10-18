@@ -62,9 +62,7 @@ interface ICollarProviderNFT {
         uint offerId
     );
     event OfferUpdated(uint indexed offerId, address indexed provider, uint previousAmount, uint newAmount);
-    event PositionCreated(
-        uint indexed positionId, uint indexed offerId, uint feeAmount, ProviderPosition position
-    );
+    event PositionCreated(uint indexed positionId, uint indexed offerId, uint feeAmount, uint providerLocked);
     event PositionSettled(uint indexed positionId, int positionChange, uint withdrawable);
     event WithdrawalFromSettled(uint indexed positionId, uint withdrawn);
     event PositionCanceled(uint indexed positionId, uint withdrawn, uint expiration);
