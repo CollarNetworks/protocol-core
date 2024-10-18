@@ -7,12 +7,16 @@
     - calculate prices for underlying's decimals instead of the BASE_TOKEN_AMOUNT, or set BASE_TOKEN_AMOUNT according to decimals. 
     - Refactor BASE_TOKEN_AMOUNT from oracle (possibly into taker), and expose "quote" methods that would convert between asset amounts in the oracle or taker (for use within Loans)
     - ~~Consider refactoring preview views (taker, rolls, etc) expecting prices to instead query them internally.~~  
-- [ ] #med/#low overall gas usage is high impacting composability (ability to batch several operations), and user gas costs with the highest call being at 1.7M gas. Some easy things can be done to reduce while minimally impacting safety / readability / usability
-  - Examples with `forge test --isolate --nmc "Fork" --gas-report --nmt revert | grep "rollLoan\|openLoan\|openEscrowLoan\|closeLoan\|executeRoll\|createOffer\|openPairedPosition\|startEscrow\|switchEscrow" | grep -v test`:
-    - Loans: roll 1.760M, openEscrowLoan 1.513M, openLoan 1.085K, close 599K
-    - Rolls: execute 1.022K, create 382K
-    - Taker: open 755K
-    - Escrow: start 404K, switch 469K
+- [x] #med/#low overall gas usage is high impacting composability (ability to batch several operations), and user gas costs with the highest call being at 1.7M gas. Some easy things can be done to reduce while minimally impacting safety / readability / usability
+  - Examples with `forge clean && forge test --isolate --nmc "Fork" --gas-report --nmt revert | grep "rollLoan\|openLoan\|openEscrowLoan\|closeLoan\|executeRoll\|createOffer\|openPairedPosition\|startEscrow\|switchEscrow" | grep -v test`:
+    - Loans before: roll 1.760M, openEscrowLoan 1.513M, openLoan 1.085K, close 599K
+    - Loans after : roll 1.001M, openEscrowLoan 885K, openLoan 636K, close 477K
+    - Rolls before: execute 1.022M, create 382K
+    - Rolls after : execute 550K, create 267K
+    - Taker before: open 755K
+    - Taker after : open 371K
+    - Escrow before: start 404K, switch 469K
+    - Escrow after : start 229K, switch 279K
   - Composability risk: a contract that needs to batch many actions may have issues fitting all of them into a single tx in an Arbitrum block (although it is up to 32M gas, average usage is between 1M-3M, https://arbiscan.io/blocks?ps=100&p=1)
   - mitigations:
     - [x] remove usage of ERC721Enumerable (since its added functionality is unused): rollLoan to 1.471M, openLoan 871K.
@@ -22,7 +26,7 @@
     - [x] reduce nft approvals and transfers in cancel
     - [x] ~~check if removing forceApprove helps~~ not too impactful
     - [x] pack confighub values to reduce cold sloads during opens
-    - [ ] post deployment: keep non-zero erc20 balances in contracts (to avoid 0-non-zero-0 transfer chains)
+    - [x] post deployment: keep non-zero erc20 balances in contracts (to avoid 0-non-zero-0 transfer chains)
 - [ ] #low erc20 tokens are trusted to be simple, but still contracts that hold balances may be safer with balance checks on transfers: taker open, create offers (2). Example compv3 uint max transfer which may not be obvious when whitelisting an asset.
   - mitigation: doc expected erc20 behaviors + consider balance checks
   - checklist for tokens (to add as docs), https://github.com/d-xo/weird-erc20:
@@ -103,7 +107,7 @@
 
 ### Rolls
 - [ ] #low taker has insufficient protection: needs deadline for congestion / stale transactions, max roll fee for direct fee control (since fee adjusts with price)
-- [ ] #note provider deadline protection may be excessive, since can cancel stale offers, and has price limits, and requires approvals
+- [x] #note ~~provider deadline protection may be excessive, since can cancel stale offers, and has price limits, and requires approvals~~ better to leave as is
 - [x] #note "active" state variable can be replaced by checking if contract owns provider NFT. Ack, won't fix.
 - [x] #note create offer balance and allowance checks seem redundant since for spoofing can easily be passed by providing positive amount, and for mistake prevention only helps with temporary issues. Consider removing to reduce complexity.
 - [x] #note naming: `rollFee*` stutter

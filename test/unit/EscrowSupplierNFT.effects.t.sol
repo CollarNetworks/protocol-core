@@ -36,6 +36,8 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         asset.mint(loans, largeAmount * 10);
         asset.mint(supplier1, largeAmount * 10);
         asset.mint(supplier2, largeAmount * 10);
+        // mint dust (as in mintDustToContracts)
+        asset.mint(address(escrowNFT), 1);
     }
 
     function createAndCheckOffer(address supplier, uint amount)

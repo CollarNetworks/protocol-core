@@ -66,6 +66,12 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         defaultSwapper = address(swapperUniV3);
         loans.setSwapperAllowed(defaultSwapper, true, true);
         vm.stopPrank();
+
+        // mint dust (as in mintDustToContracts)
+        cashAsset.mint(address(loans), 1);
+        cashAsset.mint(defaultSwapper, 1);
+        underlying.mint(address(loans), 1);
+        underlying.mint(defaultSwapper, 1);
     }
 
     function prepareSwap(TestERC20 asset, uint amount) public {
