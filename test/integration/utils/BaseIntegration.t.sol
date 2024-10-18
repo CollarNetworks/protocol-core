@@ -14,7 +14,7 @@ import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfac
 import { DeploymentHelper } from "../../../script/deployment-helper.sol";
 import { SetupHelper } from "../../../script/setup-helper.sol";
 
-abstract contract CollarBaseIntegrationTestConfig is Test, DeploymentHelper, SetupHelper {
+abstract contract CollarBaseIntegrationTestConfig is Test {
     using SafeERC20 for IERC20;
 
     ConfigHub configHub;
@@ -92,12 +92,12 @@ abstract contract CollarBaseIntegrationTestConfig is Test, DeploymentHelper, Set
         internal
     {
         startHoax(owner);
-        configHub = deployConfigHub(owner);
+        configHub = DeploymentHelper.deployConfigHub(owner);
         address[] memory underlyings = new address[](1);
         underlyings[0] = _underlying;
         address[] memory cashAssets = new address[](1);
         cashAssets[0] = _cashAsset;
-        setupConfigHub(
+        SetupHelper.setupConfigHub(
             configHub,
             SetupHelper.HubParams({
                 cashAssets: cashAssets,
@@ -123,8 +123,8 @@ abstract contract CollarBaseIntegrationTestConfig is Test, DeploymentHelper, Set
             twapWindow: 15 minutes,
             swapRouter: swapRouterAddress
         });
-        pair = deployContractPair(configHub, pairConfig, owner);
-        setupContractPair(configHub, pair);
+        pair = DeploymentHelper.deployContractPair(configHub, pairConfig, owner);
+        SetupHelper.setupContractPair(configHub, pair);
         pair.cashAsset.forceApprove(address(pair.takerNFT), type(uint).max);
         pair.underlying.forceApprove(address(pair.takerNFT), type(uint).max);
     }
