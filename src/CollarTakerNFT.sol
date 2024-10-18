@@ -73,6 +73,14 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         });
     }
 
+    /// @notice Expiration time and settled state of a specific position (corresponds to the NFT token ID)
+    /// @dev This is more gas efficient than SLOADing everything in getPosition if just expiration / settled
+    /// is needed
+    function expirationAndSettled(uint takerId) external view returns (uint expiration, bool settled) {
+        TakerPositionStored storage stored = positions[takerId];
+        return (stored.providerNFT.expiration(stored.providerId), stored.settled);
+    }
+
     /// @dev calculate the amount of cash the provider will lock for specific terms and taker
     /// locked amount
     function calculateProviderLocked(uint takerLocked, uint putStrikePercent, uint callStrikePercent)
@@ -145,7 +153,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
 
         // check expiration matches expected
         uint expiration = block.timestamp + offer.duration;
-        require(expiration == providerNFT.getPosition(providerId).expiration, "expiration mismatch");
+        require(expiration == providerNFT.expiration(providerId), "expiration mismatch");
 
         // increment ID
         takerId = nextTokenId++;

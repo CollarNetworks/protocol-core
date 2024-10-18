@@ -78,6 +78,9 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         // position view
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
         assertEq(abi.encode(takerPos), abi.encode(expectedTakerPos));
+        (uint expiration, bool settled) = takerNFT.expirationAndSettled(takerId);
+        assertEq(expiration, expectedTakerPos.expiration);
+        assertEq(settled, expectedTakerPos.settled);
 
         // provider position
         CollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(providerNFTId);
@@ -164,6 +167,8 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         CollarTakerNFT.TakerPosition memory takerPosAfter = takerNFT.getPosition(takerId);
         assertEq(takerPosAfter.settled, true);
         assertEq(takerPosAfter.withdrawable, expectedTakerOut);
+        (, bool settled) = takerNFT.expirationAndSettled(takerId);
+        assertEq(settled, true);
 
         CollarProviderNFT.ProviderPosition memory providerPosAfter = providerNFT.getPosition(providerNFTId);
         assertEq(providerPosAfter.settled, true);
@@ -404,12 +409,11 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     function test_openPairedPosition_expirationMistmatch() public {
         createOffer();
         startHoax(user1);
-        CollarProviderNFT.ProviderPosition memory badExpiryPosition;
-        badExpiryPosition.expiration = block.timestamp + duration + 1;
+        uint badExpiration = block.timestamp + duration + 1;
         vm.mockCall(
             address(providerNFT),
-            abi.encodeCall(providerNFT.getPosition, (providerNFT.nextPositionId())),
-            abi.encode(badExpiryPosition)
+            abi.encodeCall(providerNFT.expiration, (providerNFT.nextPositionId())),
+            abi.encode(badExpiration)
         );
         vm.expectRevert("expiration mismatch");
         takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
@@ -618,6 +622,8 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         CollarTakerNFT.TakerPosition memory position = takerNFT.getPosition(takerId);
         assertEq(position.settled, true);
         assertEq(position.withdrawable, 0);
+        (, bool settled) = takerNFT.expirationAndSettled(takerId);
+        assertEq(settled, true);
 
         // balances
         assertEq(cashAsset.balanceOf(user1), userCashBefore);

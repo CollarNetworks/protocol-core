@@ -107,6 +107,12 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         });
     }
 
+    /// @notice Expiration time of a specific position
+    /// @dev This is more gas efficient than SLOADing everything in getPosition if just expiration is needed
+    function expiration(uint positionId) external view returns (uint) {
+        return positions[positionId].expiration;
+    }
+
     /// @notice Retrieves the details of a specific non-transferrable offer.
     /// @dev This is used instead of the default getter because the default getter returns a tuple
     function getOffer(uint offerId) public view returns (LiquidityOffer memory) {

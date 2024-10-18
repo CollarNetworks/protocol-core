@@ -98,7 +98,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     /// @return The length of the grace period
     function escrowGracePeriod(uint loanId) public view returns (uint) {
         ICollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(_takerId(loanId));
-        // @dev avoid settlement estimation complexity
+        // @dev avoid settlement estimation complexity: if position is not settled, estimating
+        // withdrawable funds is unnecessarily complex.
+        // Instead, since positions can and should be settled soon after expiry - require that it is.
         require(takerPosition.settled, "taker position not settled");
         uint cashAvailable = takerPosition.withdrawable;
 
@@ -341,10 +343,6 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // @dev will also revert on non-existent (unminted / burned) escrow ID
         address escrowOwner = escrowNFT.ownerOf(escrowId);
         require(_isSenderOrKeeperFor(escrowOwner), "not escrow owner or allowed keeper");
-
-        // If position is not settled, estimating withdrawable funds for escrowGracePeriod is unnecessarily
-        // complex. Instead, since positions can and should be settled soon after expiry - require that it is.
-        require(takerNFT.getPosition(_takerId(loanId)).settled, "taker position not settled");
 
         // @dev escrowGracePeriod uses twap-price, while actual foreclosing swap is using spot price.
         // This has several implications:
@@ -605,7 +603,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         uint takerId = _takerId(loanId);
 
         // position could have been settled by anyone already
-        bool settled = takerNFT.getPosition(takerId).settled;
+        (, bool settled) = takerNFT.expirationAndSettled(takerId);
         if (!settled) {
             /// @dev this will revert on: too early, no position, calculation issues, ...
             takerNFT.settlePairedPosition(takerId);
@@ -827,8 +825,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         takerId = loanId;
     }
 
-    function _expiration(uint loanId) internal view returns (uint) {
-        return takerNFT.getPosition(_takerId(loanId)).expiration;
+    function _expiration(uint loanId) internal view returns (uint expiration) {
+        (expiration,) = takerNFT.expirationAndSettled(_takerId(loanId));
     }
 
     function _loanAmountAfterRoll(int fromRollsToUser, int rollFee, uint prevLoanAmount)

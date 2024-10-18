@@ -113,6 +113,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         assertEq(positionId, nextPosId);
         // check the position (from the view)
         assertEq(abi.encode(position), abi.encode(expectedPosition));
+        assertEq(providerNFT.expiration(positionId), expectedPosition.expiration);
 
         // Check updated offer
         CollarProviderNFT.LiquidityOffer memory updatedOffer = providerNFT.getOffer(offerId);

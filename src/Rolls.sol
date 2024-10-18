@@ -255,7 +255,7 @@ contract Rolls is IRolls, BaseManaged {
         // @dev an expired position should settle at some past price, so if rolling after expiry is allowed,
         // a different price may be used in settlement calculations instead of current price.
         // This is prevented by this check, since supporting the complexity of such scenarios is not needed.
-        uint expiration = takerNFT.getPosition(offer.takerId).expiration;
+        (uint expiration,) = takerNFT.expirationAndSettled(offer.takerId);
         require(block.timestamp <= expiration, "taker position expired");
 
         // offer is within its terms
