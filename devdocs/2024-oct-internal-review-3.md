@@ -21,7 +21,7 @@
     - [x] pack fields in storage (time u32, bips uint16, nft-id u64 due to batching). Use packed only for storage, but use full size for internal and external interfaces everywhere else (StoredPos / MemPos).
     - [x] reduce nft approvals and transfers in cancel
     - [x] ~~check if removing forceApprove helps~~ not too impactful
-    - [ ] pack confighub values to reduce cold sloads during opens
+    - [x] pack confighub values to reduce cold sloads during opens
     - [ ] post deployment: keep non-zero erc20 balances in contracts (to avoid 0-non-zero-0 transfer chains)
 - [ ] #low erc20 tokens are trusted to be simple, but still contracts that hold balances may be safer with balance checks on transfers: taker open, create offers (2). Example compv3 uint max transfer which may not be obvious when whitelisting an asset.
   - mitigation: doc expected erc20 behaviors + consider balance checks
