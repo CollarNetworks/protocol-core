@@ -5,7 +5,7 @@ import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/Saf
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import { CollarTakerNFT, ICollarTakerNFT, ITakerOracle, BaseNFT, ConfigHub } from "./CollarTakerNFT.sol";
-import { Rolls, CollarProviderNFT } from "./Rolls.sol";
+import { Rolls, CollarProviderNFT, IRolls } from "./Rolls.sol";
 import { EscrowSupplierNFT, IEscrowSupplierNFT } from "./EscrowSupplierNFT.sol";
 import { ISwapper } from "./interfaces/ISwapper.sol";
 import { ISwapper } from "./interfaces/ISwapper.sol";
@@ -620,13 +620,12 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         uint initialBalance = cashAsset.balanceOf(address(this));
 
         // get transfer amount and fee from rolls
-        int toTakerPreview;
-        (toTakerPreview,, rollFee) =
-            currentRolls.previewTransferAmounts(rollId, takerNFT.currentOraclePrice());
+        IRolls.PreviewResults memory preview = currentRolls.previewRoll(rollId, takerNFT.currentOraclePrice());
+        rollFee = preview.rollFee;
 
         // pull cash
-        if (toTakerPreview < 0) {
-            uint fromUser = uint(-toTakerPreview); // will revert for type(int).min
+        if (preview.toTaker < 0) {
+            uint fromUser = uint(- preview.toTaker); // will revert for type(int).min
             // pull cash first, because rolls will try to pull it (if needed) from this contract
             // @dev assumes approval
             cashAsset.safeTransferFrom(msg.sender, address(this), fromUser);
@@ -639,7 +638,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // execute roll
         (newTakerId,, toTaker,) = currentRolls.executeRoll(rollId, minToUser);
         // check return value matches preview, which is used for updating the loan and pulling cash
-        require(toTaker == toTakerPreview, "unexpected transfer amount");
+        require(toTaker == preview.toTaker, "unexpected transfer amount");
         // check slippage (would have been checked in Rolls as well)
         require(toTaker >= minToUser, "roll transfer < minToUser");
 

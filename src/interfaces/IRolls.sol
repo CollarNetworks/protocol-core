@@ -2,10 +2,21 @@
 pragma solidity 0.8.22;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { CollarTakerNFT } from "../CollarTakerNFT.sol";
-import { CollarProviderNFT } from "../CollarProviderNFT.sol";
+import { CollarTakerNFT, ICollarTakerNFT } from "../CollarTakerNFT.sol";
+import { CollarProviderNFT, ICollarProviderNFT } from "../CollarProviderNFT.sol";
 
 interface IRolls {
+    struct PreviewResults {
+        int toTaker;
+        int toProvider;
+        int rollFee;
+        ICollarTakerNFT.TakerPosition takerPos;
+        ICollarProviderNFT.ProviderPosition providerPos;
+        uint newTakerLocked;
+        uint newProviderLocked;
+        uint protocolFee;
+    }
+
     struct RollOfferStored {
         // first slot
         CollarProviderNFT providerNFT;

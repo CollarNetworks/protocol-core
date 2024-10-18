@@ -8,7 +8,7 @@ import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 
 import { LoansNFT, IEscrowSupplierNFT } from "../../src/LoansNFT.sol";
-import { Rolls } from "../../src/Rolls.sol";
+import { Rolls, IRolls, ICollarTakerNFT, ICollarProviderNFT } from "../../src/Rolls.sol";
 
 import { LoansRollTestBase } from "./Loans.rolls.effects.t.sol";
 
@@ -102,7 +102,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         cashAsset.approve(address(loans), type(uint).max);
 
         // Calculate expected loan change
-        (int loanChangePreview,,) = rolls.previewTransferAmounts(rollId, twapPrice);
+        int loanChangePreview = rolls.previewRoll(rollId, twapPrice).toTaker;
 
         // this reverts in Rolls
         vm.expectRevert("taker transfer slippage");
@@ -150,7 +150,8 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         updatePrice(lowPrice);
 
         // Calculate expected loan change
-        (int loanChangePreview,,) = rolls.previewTransferAmounts(rollId, lowPrice);
+        int loanChangePreview = rolls.previewRoll(rollId, lowPrice).toTaker;
+
         require(loanChangePreview < 0, "loanChangePreview should be negative for this test");
 
         cashAsset.approve(address(loans), uint(-loanChangePreview) - 1);
@@ -208,11 +209,13 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
 
         // Mock the calculateTransferAmounts function to return a large negative value.
         // It's negative because paying to rolls is pulling from the user - repaying the loan.
+        ICollarTakerNFT.TakerPosition memory emptyTakerPos;
+        ICollarProviderNFT.ProviderPosition memory emptyProviderPos;
         int largeRepayment = -int(loanAmount + 1);
         vm.mockCall(
             address(rolls),
-            abi.encodeWithSelector(rolls.previewTransferAmounts.selector, rollId, twapPrice),
-            abi.encode(largeRepayment, 0, 0)
+            abi.encodeWithSelector(rolls.previewRoll.selector, rollId, twapPrice),
+            abi.encode(IRolls.PreviewResults(largeRepayment, 0, 0, emptyTakerPos, emptyProviderPos, 0, 0, 0))
         );
         vm.mockCall(
             address(rolls),

@@ -129,11 +129,13 @@ contract RollsTest is BaseAssetPairTestSetup {
         view
     {
         // compare to view
-        (int toTakerView, int toProviderView, int rollFeeView) =
-            rolls.previewTransferAmounts(rollId, newPrice);
-        assertEq(toTakerView, expected.toTaker);
-        assertEq(toProviderView, expected.toProvider);
-        assertEq(rollFeeView, expected.rollFee);
+        IRolls.PreviewResults memory preview = rolls.previewRoll(rollId, newPrice);
+        assertEq(preview.toTaker, expected.toTaker);
+        assertEq(preview.toProvider, expected.toProvider);
+        assertEq(preview.rollFee, expected.rollFee);
+        assertEq(preview.newTakerLocked, expected.newTakerLocked);
+        assertEq(preview.newProviderLocked, expected.newProviderLocked);
+        assertEq(preview.protocolFee, expected.toProtocol);
     }
 
     // stack too deep
@@ -687,7 +689,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         startHoax(user1);
         takerNFT.approve(address(rolls), takerId);
         cashAsset.approve(address(rolls), type(uint).max);
-        (int toTaker,,) = rolls.previewTransferAmounts(rollId, twapPrice);
+        int toTaker = rolls.previewRoll(rollId, twapPrice).toTaker;
         vm.expectRevert("taker transfer slippage");
         rolls.executeRoll(rollId, toTaker + 1);
 
@@ -721,7 +723,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         cashAsset.approve(address(rolls), 0);
         uint lowPrice = twapPrice * 9 / 10;
         updatePrice(lowPrice);
-        (int toTaker,,) = rolls.previewTransferAmounts(rollId, lowPrice);
+        int toTaker = rolls.previewRoll(rollId, lowPrice).toTaker;
         vm.expectRevert(
             abi.encodeWithSelector(
                 IERC20Errors.ERC20InsufficientAllowance.selector, address(rolls), 0, uint(-toTaker)
@@ -738,7 +740,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         // price is higher so that provider will need to pay
         uint highPrice = twapPrice * 11 / 10;
         updatePrice(highPrice);
-        (, int toProvider,) = rolls.previewTransferAmounts(rollId, highPrice);
+        int toProvider = rolls.previewRoll(rollId, highPrice).toProvider;
 
         // provider revoked approval
         cashAsset.approve(address(rolls), uint(-toProvider) - 1);
@@ -776,3 +778,36 @@ contract RollsTest is BaseAssetPairTestSetup {
         rolls.executeRoll(rollId, type(int).min);
     }
 }
+
+//contract GasTest is RollsTest {
+//    uint rollId;
+//
+//    function setUp() public override {
+//        super.setUp();
+//        startHoax(user1);
+//        takerNFT.setApprovalForAll(address(rolls), true);
+//        cashAsset.approve(address(rolls), type(uint).max);
+//        cashAsset.approve(address(takerNFT), type(uint).max);
+//
+//        startHoax(provider);
+//        cashAsset.approve(address(providerNFT), type(uint).max);
+//        providerNFT.setApprovalForAll(address(rolls), true);
+//        cashAsset.approve(address(rolls), type(uint).max);
+//
+//        uint offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration);
+//
+//        startHoax(user1);
+//        (uint takerId,) = takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
+//
+//        startHoax(provider);
+//        rollId = rolls.createOffer(
+//            takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
+//        );
+//
+//        startHoax(user1);
+//    }
+//
+//    function test_gas_executeRoll() public {
+//        rolls.executeRoll(rollId, type(int).min);
+//    }
+//}

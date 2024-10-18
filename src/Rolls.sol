@@ -122,18 +122,11 @@ contract Rolls is IRolls, BaseManaged {
      * this view.
      * @param rollId The ID of the roll offer
      * @param price The price to use for the calculation
-     * @return toTaker The amount that would be transferred to (or from, if negative) the taker
-     * @return toProvider The amount that would be transferred to (or from, if negative) the provider
-     * @return rollFee The roll fee that would be applied
+     * @return PreviewResults Struct of preview results calculations
      */
-    function previewTransferAmounts(uint rollId, uint price)
-        external
-        view
-        returns (int toTaker, int toProvider, int rollFee)
-    {
+    function previewRoll(uint rollId, uint price) external view returns (PreviewResults memory) {
         RollOffer memory offer = getRollOffer(rollId);
-        rollFee = calculateRollFee(offer, price);
-        (toTaker, toProvider,,) = _previewTransferAmounts(offer.takerId, price, rollFee);
+        return _previewRoll(offer.takerId, price, calculateRollFee(offer, price));
     }
 
     // ----- MUTATIVE FUNCTIONS ----- //
@@ -269,44 +262,43 @@ contract Rolls is IRolls, BaseManaged {
 
         int rollFee = calculateRollFee(offer, newPrice);
 
-        (newTakerId, newProviderId, toTaker, toProvider) = _executeRoll(offer, newPrice, rollFee);
-        // Check transfers are sufficient / or pulls are not excessive. toTaker and toProvider, come
-        // from preview, but they were used to pull / pay cash, so checking them is correct.
-        // This contract does not hold any resting balance, so no other assets are available.
-        // If preview amounts do not match actual amounts, _executeRoll would revert.
+        // preview the transfer amounts first, because cash may need to be pulled first
+        PreviewResults memory preview = _previewRoll(offer.takerId, newPrice, rollFee);
+        // Check transfers are sufficient / or pulls are not excessive. toTaker and toProvider come
+        // from preview, but the preview results is what will be used to pull / pay cash, so checking
+        // them is correct. If preview amounts do not match actual amounts, _executeRoll would revert,
+        // since this contract does not hold any resting balance (no other assets are available).
+        (toTaker, toProvider) = (preview.toTaker, preview.toProvider);
         require(toTaker >= minToTaker, "taker transfer slippage");
         require(toProvider >= offer.minToProvider, "provider transfer slippage");
+
+        (newTakerId, newProviderId) = _executeRoll(offer, preview);
 
         emit OfferExecuted(rollId, toTaker, toProvider, rollFee, newTakerId, newProviderId);
     }
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    function _executeRoll(RollOffer memory offer, uint newPrice, int rollFee)
+    function _executeRoll(RollOffer memory offer, PreviewResults memory preview)
         internal
-        returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider)
+        returns (uint newTakerId, uint newProviderId)
     {
-        ICollarTakerNFT.TakerPosition memory takerPos;
-        ICollarProviderNFT.ProviderPosition memory providerPos;
-        // preview the transfer amounts first, because cash may need to be pulled first
-        (toTaker, toProvider, takerPos, providerPos) =
-            _previewTransferAmounts(offer.takerId, newPrice, rollFee);
-
         // pull the taker NFT from the user (we already have the provider NFT)
         takerNFT.transferFrom(msg.sender, address(this), offer.takerId);
 
         // now that we have both NFTs, cancel the positions and withdraw
-        _cancelPairedPositionAndWithdraw(offer.takerId, takerPos);
+        _cancelPairedPositionAndWithdraw(offer.takerId, preview.takerPos);
 
         // pull cash as needed. This needs to be done before opening new positions
         address provider = offer.provider;
+        (int toTaker, int toProvider) = (preview.toTaker, preview.toProvider);
         // assumes approval from the taker, Reverts for type(int).min
         if (toTaker < 0) cashAsset.safeTransferFrom(msg.sender, address(this), uint(-toTaker));
         // assumes approval from the provider. Reverts for type(int).min
         if (toProvider < 0) cashAsset.safeTransferFrom(provider, address(this), uint(-toProvider));
 
         // open the new positions
-        (newTakerId, newProviderId) = _openNewPairedPosition(takerPos, providerPos, newPrice);
+        (newTakerId, newProviderId) = _openNewPairedPosition(preview);
 
         // pay cash as needed
         if (toTaker > 0) cashAsset.safeTransfer(msg.sender, uint(toTaker));
@@ -331,33 +323,28 @@ contract Rolls is IRolls, BaseManaged {
         require(withdrawn == expectedAmount, "unexpected withdrawal amount");
     }
 
-    function _openNewPairedPosition(
-        ICollarTakerNFT.TakerPosition memory takerPos,
-        ICollarProviderNFT.ProviderPosition memory providerPos,
-        uint newPrice
-    ) internal returns (uint newTakerId, uint newProviderId) {
-        CollarProviderNFT providerNFT = takerPos.providerNFT;
-
-        // calculate locked amounts for new positions
-        (uint newTakerLocked, uint newProviderLocked) = _newLockedAmounts(takerPos, providerPos, newPrice);
+    function _openNewPairedPosition(PreviewResults memory preview)
+        internal
+        returns (uint newTakerId, uint newProviderId)
+    {
+        CollarProviderNFT providerNFT = preview.takerPos.providerNFT;
 
         // add the protocol fee that will be taken from the offer
-        (uint protocolFee,) = providerNFT.protocolFee(newProviderLocked, takerPos.duration);
-        uint offerAmount = newProviderLocked + protocolFee;
+        uint offerAmount = preview.newProviderLocked + preview.protocolFee;
 
         // create a liquidity offer just for this roll
         cashAsset.forceApprove(address(providerNFT), offerAmount);
         uint liquidityOfferId = providerNFT.createOffer({
-            callStrikePercent: providerPos.callStrikePercent,
+            callStrikePercent: preview.providerPos.callStrikePercent,
             amount: offerAmount,
-            putStrikePercent: providerPos.putStrikePercent,
-            duration: takerPos.duration
+            putStrikePercent: preview.providerPos.putStrikePercent,
+            duration: preview.takerPos.duration
         });
 
         // take the liquidity offer as taker
-        cashAsset.forceApprove(address(takerNFT), newTakerLocked);
+        cashAsset.forceApprove(address(takerNFT), preview.newTakerLocked);
         (newTakerId, newProviderId) =
-            takerNFT.openPairedPosition(newTakerLocked, providerNFT, liquidityOfferId);
+            takerNFT.openPairedPosition(preview.newTakerLocked, providerNFT, liquidityOfferId);
     }
 
     // ----- INTERNAL VIEWS ----- //
@@ -366,19 +353,14 @@ contract Rolls is IRolls, BaseManaged {
     /// match of all amounts between "preview" and actual "execution". If implementations change, a different
     /// Rolls contracts will need to be used for them. Roll contracts are assumed
     /// to be easy to replace and migrate (only unexecuted offers need to be cancelled)
-    function _previewTransferAmounts(uint takerId, uint newPrice, int rollFeeAmount)
+    function _previewRoll(uint takerId, uint newPrice, int rollFeeAmount)
         internal
         view
-        returns (
-            int toTaker,
-            int toProvider,
-            ICollarTakerNFT.TakerPosition memory takerPos,
-            ICollarProviderNFT.ProviderPosition memory providerPos
-        )
+        returns (PreviewResults memory)
     {
-        takerPos = takerNFT.getPosition(takerId);
+        ICollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
         CollarProviderNFT providerNFT = takerPos.providerNFT;
-        providerPos = providerNFT.getPosition(takerPos.providerId);
+        ICollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(takerPos.providerId);
 
         // what would the taker and provider get from a settlement of the old position at current price.
         // it is correct to use current price for settlement: a) this is before expiry b) no actual
@@ -397,8 +379,9 @@ contract Rolls is IRolls, BaseManaged {
         // they settled and withdrawn the old positions, and opened the new positions.
         // The roll-fee is paid to the provider by the taker, and can represent any arbitrary adjustment
         // to this (that's expressed by the offer).
-        toTaker = takerSettled.toInt256() - newTakerLocked.toInt256() - rollFeeAmount;
-        toProvider = providerSettled - newProviderLocked.toInt256() + rollFeeAmount - protocolFee.toInt256();
+        int toTaker = takerSettled.toInt256() - newTakerLocked.toInt256() - rollFeeAmount;
+        int toProvider =
+            providerSettled - newProviderLocked.toInt256() + rollFeeAmount - protocolFee.toInt256();
 
         /*  Proof.
 
@@ -419,6 +402,17 @@ contract Rolls is IRolls, BaseManaged {
 
             So the contract pays out everything it receives, and everyone gets their correct updates.
         */
+
+        return PreviewResults({
+            toTaker: toTaker,
+            toProvider: toProvider,
+            rollFee: rollFeeAmount,
+            takerPos: takerPos,
+            providerPos: providerPos,
+            newTakerLocked: newTakerLocked,
+            newProviderLocked: newProviderLocked,
+            protocolFee: protocolFee
+        });
     }
 
     // @dev the amounts needed for a new position given the old position
