@@ -136,6 +136,7 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
 
         // Check escrow details
         assertEq(escrowId, expectedId);
+        assertEq(escrow.offerId, offerId);
         assertEq(escrow.loans, loans);
         assertEq(escrow.loanId, loanId);
         assertEq(escrow.escrowed, escrowAmount);
@@ -433,6 +434,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
 
         // Check new escrow
         EscrowSupplierNFT.Escrow memory newEscrow = escrowNFT.getEscrow(newEscrowId);
+        assertEq(newEscrow.offerId, newOfferId);
         assertEq(newEscrow.loans, loans);
         assertEq(newEscrow.loanId, newLoanId);
         assertEq(newEscrow.escrowed, amounts.escrowAmount);

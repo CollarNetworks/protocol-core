@@ -239,6 +239,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(escrowNFT.ownerOf(escrowId), supplier);
 
         EscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(escrowId);
+        assertEq(escrow.offerId, escrowOfferId);
         assertEq(escrow.loans, address(loans));
         assertEq(escrow.loanId, loanId);
         assertEq(escrow.escrowed, underlyingAmount);
