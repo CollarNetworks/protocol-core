@@ -460,21 +460,21 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
     }
 
     function test_cancelAndWithdraw_approvals() public {
-        (uint positionId, ) = createAndCheckPosition(provider, largeAmount, largeAmount / 10);
+        (uint positionId,) = createAndCheckPosition(provider, largeAmount, largeAmount / 10);
         // approve of ID works
         vm.startPrank(provider);
         providerNFT.approve(takerContract, positionId);
         vm.startPrank(takerContract);
         providerNFT.cancelAndWithdraw(positionId);
 
-        (positionId, ) = createAndCheckPosition(provider, largeAmount, largeAmount / 10);
+        (positionId,) = createAndCheckPosition(provider, largeAmount, largeAmount / 10);
         // ownership works
         vm.startPrank(provider);
         providerNFT.transferFrom(provider, takerContract, positionId);
         vm.startPrank(takerContract);
         providerNFT.cancelAndWithdraw(positionId);
 
-        (positionId, ) = createAndCheckPosition(provider, largeAmount, largeAmount / 10);
+        (positionId,) = createAndCheckPosition(provider, largeAmount, largeAmount / 10);
         // setApprovalForAll works
         vm.startPrank(provider);
         providerNFT.setApprovalForAll(takerContract, true);

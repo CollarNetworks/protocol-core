@@ -133,7 +133,7 @@ contract Rolls is IRolls, BaseManaged {
     {
         RollOffer memory offer = getRollOffer(rollId);
         rollFee = calculateRollFee(offer, price);
-        (toTaker, toProvider) = _previewTransferAmounts(offer.takerId, price, rollFee);
+        (toTaker, toProvider,,) = _previewTransferAmounts(offer.takerId, price, rollFee);
     }
 
     // ----- MUTATIVE FUNCTIONS ----- //
@@ -269,31 +269,34 @@ contract Rolls is IRolls, BaseManaged {
 
         int rollFee = calculateRollFee(offer, newPrice);
 
-        // preview the transfer amounts first, because cash may need to be pulled first
-        (toTaker, toProvider) = _previewTransferAmounts(offer.takerId, newPrice, rollFee);
-        // check transfers are sufficient / or pulls are not excessive. Only the preview
-        // values will be used to pull / pay cash, so checking them is correct.
+        (newTakerId, newProviderId, toTaker, toProvider) = _executeRoll(offer, newPrice, rollFee);
+        // Check transfers are sufficient / or pulls are not excessive. toTaker and toProvider, come
+        // from preview, but they were used to pull / pay cash, so checking them is correct.
         // This contract does not hold any resting balance, so no other assets are available.
-        // If preview amounts do not match actual amounts, _executeRoll will revert.
+        // If preview amounts do not match actual amounts, _executeRoll would revert.
         require(toTaker >= minToTaker, "taker transfer slippage");
         require(toProvider >= offer.minToProvider, "provider transfer slippage");
-
-        (newTakerId, newProviderId) = _executeRoll(offer, newPrice, toTaker, toProvider);
 
         emit OfferExecuted(rollId, toTaker, toProvider, rollFee, newTakerId, newProviderId);
     }
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    function _executeRoll(RollOffer memory offer, uint newPrice, int toTaker, int toProvider)
+    function _executeRoll(RollOffer memory offer, uint newPrice, int rollFee)
         internal
-        returns (uint newTakerId, uint newProviderId)
+        returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider)
     {
+        ICollarTakerNFT.TakerPosition memory takerPos;
+        ICollarProviderNFT.ProviderPosition memory providerPos;
+        // preview the transfer amounts first, because cash may need to be pulled first
+        (toTaker, toProvider, takerPos, providerPos) =
+            _previewTransferAmounts(offer.takerId, newPrice, rollFee);
+
         // pull the taker NFT from the user (we already have the provider NFT)
         takerNFT.transferFrom(msg.sender, address(this), offer.takerId);
 
         // now that we have both NFTs, cancel the positions and withdraw
-        _cancelPairedPositionAndWithdraw(offer.takerId);
+        _cancelPairedPositionAndWithdraw(offer.takerId, takerPos);
 
         // pull cash as needed. This needs to be done before opening new positions
         address provider = offer.provider;
@@ -303,7 +306,7 @@ contract Rolls is IRolls, BaseManaged {
         if (toProvider < 0) cashAsset.safeTransferFrom(provider, address(this), uint(-toProvider));
 
         // open the new positions
-        (newTakerId, newProviderId) = _openNewPairedPosition(newPrice, offer.takerId);
+        (newTakerId, newProviderId) = _openNewPairedPosition(newPrice, offer.takerId, takerPos, providerPos);
 
         // pay cash as needed
         if (toTaker > 0) cashAsset.safeTransfer(msg.sender, uint(toTaker));
@@ -314,8 +317,9 @@ contract Rolls is IRolls, BaseManaged {
         offer.providerNFT.transferFrom(address(this), offer.provider, newProviderId);
     }
 
-    function _cancelPairedPositionAndWithdraw(uint takerId) internal {
-        ICollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
+    function _cancelPairedPositionAndWithdraw(uint takerId, ICollarTakerNFT.TakerPosition memory takerPos)
+        internal
+    {
         // approve the provider NFT ID to the takerNFT contract, which is needed for cancellation
         takerPos.providerNFT.approve(address(takerNFT), takerPos.providerId);
         // cancel and withdraw the cash from the existing paired position
@@ -327,13 +331,13 @@ contract Rolls is IRolls, BaseManaged {
         require(withdrawn == expectedAmount, "unexpected withdrawal amount");
     }
 
-    function _openNewPairedPosition(uint newPrice, uint takerId)
-        internal
-        returns (uint newTakerId, uint newProviderId)
-    {
-        ICollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
+    function _openNewPairedPosition(
+        uint newPrice,
+        uint takerId,
+        ICollarTakerNFT.TakerPosition memory takerPos,
+        ICollarProviderNFT.ProviderPosition memory providerPos
+    ) internal returns (uint newTakerId, uint newProviderId) {
         CollarProviderNFT providerNFT = takerPos.providerNFT;
-        ICollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(takerPos.providerId);
 
         // calculate locked amounts for new positions
         (uint newTakerLocked, uint newProviderLocked) = _newLockedAmounts(takerPos, providerPos, newPrice);
@@ -366,11 +370,16 @@ contract Rolls is IRolls, BaseManaged {
     function _previewTransferAmounts(uint takerId, uint newPrice, int rollFeeAmount)
         internal
         view
-        returns (int toTaker, int toProvider)
+        returns (
+            int toTaker,
+            int toProvider,
+            ICollarTakerNFT.TakerPosition memory takerPos,
+            ICollarProviderNFT.ProviderPosition memory providerPos
+        )
     {
-        ICollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
+        takerPos = takerNFT.getPosition(takerId);
         CollarProviderNFT providerNFT = takerPos.providerNFT;
-        ICollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(takerPos.providerId);
+        providerPos = providerNFT.getPosition(takerPos.providerId);
 
         // what would the taker and provider get from a settlement of the old position at current price.
         // it is correct to use current price for settlement: a) this is before expiry b) no actual
