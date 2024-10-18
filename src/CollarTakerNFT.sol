@@ -109,12 +109,12 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
 
     /// @dev preview the settlement calculation updates at a particular price
     /// @dev no validation, so may revert with division by zero for bad values
-    function previewSettlement(uint takerId, uint endPrice)
+    function previewSettlement(TakerPosition memory position, uint endPrice)
         external
         view
         returns (uint takerBalance, int providerDelta)
     {
-        return _settlementCalculations(getPosition(takerId), endPrice);
+        return _settlementCalculations(position, endPrice);
     }
 
     // ----- STATE CHANGING FUNCTIONS ----- //

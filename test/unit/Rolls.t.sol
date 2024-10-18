@@ -116,7 +116,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         // protocol fee
         (expected.toProtocol,) = providerNFT.protocolFee(expected.newProviderLocked, duration);
         // _calculateTransferAmounts
-        (uint takerSettled, int providerChange) = takerNFT.previewSettlement(takerId, newPrice);
+        (uint takerSettled, int providerChange) = takerNFT.previewSettlement(oldTakerPos, newPrice);
         int providerSettled = int(oldTakerPos.providerLocked) + providerChange;
         expected.toTaker = int(takerSettled) - int(expected.newTakerLocked) - rollFee;
         expected.toProvider =

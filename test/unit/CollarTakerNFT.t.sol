@@ -131,7 +131,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         // check the view
         {
             (uint takerBalanceView, int providerChangeView) =
-                takerNFT.previewSettlement(takerId, expectedSettlePrice);
+                takerNFT.previewSettlement(takerPos, expectedSettlePrice);
             assertEq(takerBalanceView, expectedTakerOut);
             assertEq(providerChangeView, expectedProviderChange);
         }
@@ -338,9 +338,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     function test_revert_nonExistentID() public {
         vm.expectRevert("taker position does not exist");
         takerNFT.getPosition(1000);
-
-        vm.expectRevert("taker position does not exist");
-        takerNFT.previewSettlement(1000, 0);
 
         vm.expectRevert("taker position does not exist");
         takerNFT.settlePairedPosition(1000);

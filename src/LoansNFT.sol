@@ -625,7 +625,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
         // pull cash
         if (preview.toTaker < 0) {
-            uint fromUser = uint(- preview.toTaker); // will revert for type(int).min
+            uint fromUser = uint(-preview.toTaker); // will revert for type(int).min
             // pull cash first, because rolls will try to pull it (if needed) from this contract
             // @dev assumes approval
             cashAsset.safeTransferFrom(msg.sender, address(this), fromUser);

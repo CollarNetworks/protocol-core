@@ -365,7 +365,7 @@ contract Rolls is IRolls, BaseManaged {
         // what would the taker and provider get from a settlement of the old position at current price.
         // it is correct to use current price for settlement: a) this is before expiry b) no actual
         // settlement will be done (positions will be cancelled) - it's simulation only.
-        (uint takerSettled, int providerGain) = takerNFT.previewSettlement(takerId, newPrice);
+        (uint takerSettled, int providerGain) = takerNFT.previewSettlement(takerPos, newPrice);
         // provider settled is locked + its settlement gain
         int providerSettled = takerPos.providerLocked.toInt256() + providerGain;
 
