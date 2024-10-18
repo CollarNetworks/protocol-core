@@ -8,7 +8,7 @@ import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 
 import { LoansNFT, IEscrowSupplierNFT } from "../../src/LoansNFT.sol";
-import { Rolls, IRolls, ICollarTakerNFT, ICollarProviderNFT } from "../../src/Rolls.sol";
+import { Rolls, IRolls, ICollarTakerNFT } from "../../src/Rolls.sol";
 
 import { LoansRollTestBase } from "./Loans.rolls.effects.t.sol";
 
@@ -210,12 +210,11 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         // Mock the calculateTransferAmounts function to return a large negative value.
         // It's negative because paying to rolls is pulling from the user - repaying the loan.
         ICollarTakerNFT.TakerPosition memory emptyTakerPos;
-        ICollarProviderNFT.ProviderPosition memory emptyProviderPos;
         int largeRepayment = -int(loanAmount + 1);
         vm.mockCall(
             address(rolls),
             abi.encodeWithSelector(rolls.previewRoll.selector, rollId, twapPrice),
-            abi.encode(IRolls.PreviewResults(largeRepayment, 0, 0, emptyTakerPos, emptyProviderPos, 0, 0, 0))
+            abi.encode(IRolls.PreviewResults(largeRepayment, 0, 0, emptyTakerPos, 0, 0, 0))
         );
         vm.mockCall(
             address(rolls),

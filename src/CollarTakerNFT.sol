@@ -55,17 +55,14 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         // @dev the provider position fields that are used are assumed to be immutable (set once)
         ICollarProviderNFT.ProviderPosition memory providerPos =
             stored.providerNFT.getPosition(stored.providerId);
-        // calculation is static (pure) from immutable values
-        (uint putStrikePrice, uint callStrikePrice) =
-            _strikePrices(providerPos.putStrikePercent, providerPos.callStrikePercent, stored.startPrice);
         return TakerPosition({
             providerNFT: stored.providerNFT,
             providerId: stored.providerId,
             duration: providerPos.duration, // comes from the offer, implicitly checked with expiration
             expiration: providerPos.expiration, // checked to match on creation
             startPrice: stored.startPrice,
-            putStrikePrice: putStrikePrice, // calculated here
-            callStrikePrice: callStrikePrice, // calculated here
+            putStrikePercent: providerPos.putStrikePercent,
+            callStrikePercent: providerPos.callStrikePercent,
             takerLocked: stored.takerLocked,
             providerLocked: providerPos.providerLocked, // assumed immutable
             settled: stored.settled,
@@ -111,7 +108,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     /// @dev no validation, so may revert with division by zero for bad values
     function previewSettlement(TakerPosition memory position, uint endPrice)
         external
-        view
+        pure
         returns (uint takerBalance, int providerDelta)
     {
         return _settlementCalculations(position, endPrice);
@@ -306,11 +303,11 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         returns (uint takerBalance, int providerDelta)
     {
         uint startPrice = position.startPrice;
-        uint putPrice = position.putStrikePrice;
-        uint callPrice = position.callStrikePrice;
+        (uint putStrikePrice, uint callStrikePrice) =
+            _strikePrices(position.putStrikePercent, position.callStrikePercent, startPrice);
 
         // restrict endPrice to put-call range
-        endPrice = Math.max(Math.min(endPrice, callPrice), putPrice);
+        endPrice = Math.max(Math.min(endPrice, callStrikePrice), putStrikePrice);
 
         // start with locked (corresponds to endPrice == startPrice)
         takerBalance = position.takerLocked;
@@ -319,7 +316,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
             // takerLocked: divided between taker and provider
             // providerLocked: all goes to provider
             uint providerGainRange = startPrice - endPrice;
-            uint putRange = startPrice - putPrice;
+            uint putRange = startPrice - putStrikePrice;
             uint providerGain = position.takerLocked * providerGainRange / putRange; // no div-zero ensured on open
             takerBalance -= providerGain;
             providerDelta = providerGain.toInt256();
@@ -327,7 +324,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
             // takerLocked: all goes to taker
             // providerLocked: divided between taker and provider
             uint takerGainRange = endPrice - startPrice;
-            uint callRange = callPrice - startPrice;
+            uint callRange = callStrikePrice - startPrice;
             uint takerGain = position.providerLocked * takerGainRange / callRange; // no div-zero ensured on open
 
             takerBalance += takerGain;

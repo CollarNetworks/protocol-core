@@ -11,7 +11,6 @@ interface IRolls {
         int toProvider;
         int rollFee;
         ICollarTakerNFT.TakerPosition takerPos;
-        ICollarProviderNFT.ProviderPosition providerPos;
         uint newTakerLocked;
         uint newProviderLocked;
         uint protocolFee;

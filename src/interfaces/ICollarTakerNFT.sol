@@ -26,8 +26,8 @@ interface ICollarTakerNFT {
         uint duration;
         uint expiration;
         uint startPrice;
-        uint putStrikePrice;
-        uint callStrikePrice;
+        uint putStrikePercent;
+        uint callStrikePercent;
         uint takerLocked;
         uint providerLocked;
         // withdrawal state
