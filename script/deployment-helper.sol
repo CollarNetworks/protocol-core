@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.22;
 
-import "forge-std/console.sol";
-
 import { ConfigHub } from "../src/ConfigHub.sol";
 import { CollarProviderNFT } from "../src/CollarProviderNFT.sol";
 import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
@@ -12,7 +10,7 @@ import { Rolls } from "../src/Rolls.sol";
 import { OracleUniV3TWAP } from "../src/OracleUniV3TWAP.sol";
 import { SwapperUniV3 } from "../src/SwapperUniV3.sol";
 
-contract DeploymentHelper {
+library DeploymentHelper {
     struct AssetPairContracts {
         CollarProviderNFT providerNFT;
         CollarTakerNFT takerNFT;
@@ -40,12 +38,12 @@ contract DeploymentHelper {
         address swapRouter;
     }
 
-    function deployConfigHub(address owner) public returns (ConfigHub) {
+    function deployConfigHub(address owner) internal returns (ConfigHub) {
         return new ConfigHub(owner);
     }
 
     function deployContractPair(ConfigHub configHub, PairConfig memory pairConfig, address owner)
-        public
+        internal
         returns (AssetPairContracts memory contracts)
     {
         OracleUniV3TWAP oracle = new OracleUniV3TWAP(
@@ -82,7 +80,7 @@ contract DeploymentHelper {
         );
         Rolls rollsContract = new Rolls(owner, takerNFT);
         SwapperUniV3 swapperUniV3 = new SwapperUniV3(pairConfig.swapRouter, pairConfig.swapFeeTier);
-        console.log("done");
+
         contracts = AssetPairContracts({
             providerNFT: providerNFT,
             takerNFT: takerNFT,

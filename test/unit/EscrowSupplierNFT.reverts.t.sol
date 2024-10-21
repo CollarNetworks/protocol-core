@@ -181,6 +181,27 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         escrowNFT.switchEscrow(1000, 0, 0, 0);
     }
 
+    function test_revert_nonExistentID() public {
+        vm.expectRevert("escrow position does not exist");
+        escrowNFT.getEscrow(1000);
+
+        vm.expectRevert("escrow position does not exist");
+        escrowNFT.currentOwed(1000);
+
+        vm.expectRevert("escrow position does not exist");
+        escrowNFT.cappedGracePeriod(1000, 0);
+
+        vm.expectRevert("escrow position does not exist");
+        escrowNFT.previewRelease(1000, 0);
+
+        vm.startPrank(loans);
+        vm.expectRevert("escrow position does not exist");
+        escrowNFT.endEscrow(1000, 0);
+
+        vm.expectRevert("escrow position does not exist");
+        escrowNFT.switchEscrow(1000, 0, 0, 0);
+    }
+
     function test_revert_startEscrow_unauthorizedLoans() public {
         (uint offerId,) = createAndCheckOffer(supplier1, largeAmount);
 

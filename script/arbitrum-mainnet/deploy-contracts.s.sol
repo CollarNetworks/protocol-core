@@ -15,13 +15,7 @@ import { SetupHelper } from "../setup-helper.sol";
 import { DeploymentHelper } from "../deployment-helper.sol";
 import { WalletLoader } from "../wallet-loader.s.sol";
 
-contract DeployContractsArbitrumMainnet is
-    Script,
-    DeploymentUtils,
-    DeploymentHelper,
-    SetupHelper,
-    WalletLoader
-{
+contract DeployContractsArbitrumMainnet is Script, DeploymentUtils {
     uint chainId = 42_161; // id for arbitrum mainnet
     address USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
     address USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
@@ -32,7 +26,7 @@ contract DeployContractsArbitrumMainnet is
     address MATIC = 0x561877b6b3DD7651313794e5F2894B2F18bE0766;
     address swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
 
-    AssetPairContracts[] public assetPairContracts;
+    DeploymentHelper.AssetPairContracts[] public assetPairContracts;
 
     uint[] allDurations = [5 minutes, 30 days, 12 * 30 days];
     uint[] allLTVs = [9000, 5000];
@@ -42,9 +36,9 @@ contract DeployContractsArbitrumMainnet is
 
     function run() external {
         require(chainId == block.chainid, "chainId does not match the chainId in config");
-        (address deployer,,,) = setup();
+        (address deployer,,,) = WalletLoader.loadWalletsFromEnv(vm);
         vm.startBroadcast(deployer);
-        ConfigHub configHub = deployConfigHub(deployer);
+        ConfigHub configHub = DeploymentHelper.deployConfigHub(deployer);
         address[] memory underlyings = new address[](5);
         underlyings[0] = WETH;
         underlyings[1] = WBTC;
@@ -61,7 +55,7 @@ contract DeployContractsArbitrumMainnet is
         uint maxDuration = allDurations[2];
         console.log("deployed confighub at address: %s", address(configHub));
 
-        setupConfigHub(
+        SetupHelper.setupConfigHub(
             configHub,
             SetupHelper.HubParams({
                 cashAssets: cashAssets,
@@ -77,7 +71,7 @@ contract DeployContractsArbitrumMainnet is
         _createContractPairs(configHub, deployer);
         console.log("finished creating contract pairs");
         for (uint i = 0; i < assetPairContracts.length; i++) {
-            setupContractPair(configHub, assetPairContracts[i]);
+            SetupHelper.setupContractPair(configHub, assetPairContracts[i]);
         }
         vm.stopBroadcast();
 
@@ -106,7 +100,7 @@ contract DeployContractsArbitrumMainnet is
             twapWindow: twapWindow,
             swapRouter: swapRouterAddress
         });
-        assetPairContracts.push(deployContractPair(configHub, USDCWETHPairConfig, owner));
+        assetPairContracts.push(DeploymentHelper.deployContractPair(configHub, USDCWETHPairConfig, owner));
 
         DeploymentHelper.PairConfig memory USDTWETHPairConfig = DeploymentHelper.PairConfig({
             name: "USDT/WETH",
@@ -120,7 +114,7 @@ contract DeployContractsArbitrumMainnet is
             swapRouter: swapRouterAddress
         });
 
-        assetPairContracts.push(deployContractPair(configHub, USDTWETHPairConfig, owner));
+        assetPairContracts.push(DeploymentHelper.deployContractPair(configHub, USDTWETHPairConfig, owner));
 
         DeploymentHelper.PairConfig memory USDCWBTCPairConfig = DeploymentHelper.PairConfig({
             name: "USDC/WBTC",
@@ -134,7 +128,7 @@ contract DeployContractsArbitrumMainnet is
             swapRouter: swapRouterAddress
         });
 
-        assetPairContracts.push(deployContractPair(configHub, USDCWBTCPairConfig, owner));
+        assetPairContracts.push(DeploymentHelper.deployContractPair(configHub, USDCWBTCPairConfig, owner));
 
         // DeploymentHelper.PairConfig memory USDCMATICPairConfig = DeploymentHelper.PairConfig({
         //     name: "USDC/MATIC",
