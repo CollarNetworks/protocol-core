@@ -49,7 +49,7 @@ contract BaseAssetPairTestSetup is Test {
         configureContracts();
         updatePrice();
         mintAssets();
-        mintDustToContracts();
+        mintDustToProtocolAddresses();
     }
 
     function deployContracts() internal {
@@ -116,12 +116,13 @@ contract BaseAssetPairTestSetup is Test {
         underlying.mint(supplier, largeAmount * 10);
     }
 
-    function mintDustToContracts() public {
+    function mintDustToProtocolAddresses() public {
         // this both ensures balances aren't assumed to be 0, and reduces gas usage
         cashAsset.mint(address(takerNFT), 1);
         cashAsset.mint(address(providerNFT), 1);
         cashAsset.mint(address(providerNFT2), 1);
         cashAsset.mint(address(rolls), 1);
+        cashAsset.mint(protocolFeeRecipient, 1);
     }
 
     function expectRevertERC721Nonexistent(uint id) internal {

@@ -8,7 +8,6 @@ import { CollarTakerNFT, ICollarTakerNFT, ITakerOracle, BaseNFT, ConfigHub } fro
 import { Rolls, CollarProviderNFT, IRolls } from "./Rolls.sol";
 import { EscrowSupplierNFT, IEscrowSupplierNFT } from "./EscrowSupplierNFT.sol";
 import { ISwapper } from "./interfaces/ISwapper.sol";
-import { ISwapper } from "./interfaces/ISwapper.sol";
 import { ILoansNFT } from "./interfaces/ILoansNFT.sol";
 
 /**
