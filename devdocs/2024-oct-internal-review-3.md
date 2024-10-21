@@ -27,7 +27,7 @@
     - [x] ~~check if removing forceApprove helps~~ not too impactful
     - [x] pack confighub values to reduce cold sloads during opens
     - [x] ~~try solady ERC721~~ not enough difference suprisingly (between 1K-10K gas difference at most)
-    - [x] post deployment: keep non-zero erc20 balances in contracts (to avoid 0-non-zero-0 transfer chains)
+    - [x] post deployment: keep non-zero erc20 and NFT balances in contracts (to avoid 0-non-zero-0 transfer chains)
 - [ ] #low erc20 tokens are trusted to be simple, but still contracts that hold balances may be safer with balance checks on transfers: taker open, create offers (2). Example compv3 uint max transfer which may not be obvious when whitelisting an asset.
   - mitigation: doc expected erc20 behaviors + consider balance checks
   - checklist for tokens (to add as docs), https://github.com/d-xo/weird-erc20:

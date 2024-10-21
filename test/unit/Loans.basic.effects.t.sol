@@ -75,6 +75,9 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         underlying.mint(address(escrowNFT), 1);
         underlying.mint(address(mockSwapperRouter), 1);
         underlying.mint(defaultSwapper, 1);
+
+        // dust NFTs
+        dustPairedPositionNFTs(address(loans));
     }
 
     function prepareSwap(TestERC20 asset, uint amount) public {

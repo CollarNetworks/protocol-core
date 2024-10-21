@@ -522,6 +522,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         uint[] memory positionIds = new uint[](positionCount);
         uint fee = checkProtocolFeeView(largeAmount);
         uint offerAmount = (largeAmount + fee) * positionCount;
+        uint feeRecipientBalance = cashAsset.balanceOf(protocolFeeRecipient);
 
         (uint offerId,) = createAndCheckOffer(provider, offerAmount);
 
@@ -534,7 +535,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         CollarProviderNFT.LiquidityOffer memory updatedOffer = providerNFT.getOffer(offerId);
         assertEq(updatedOffer.available, 0);
 
-        assertEq(cashAsset.balanceOf(protocolFeeRecipient), fee * positionCount);
+        assertEq(cashAsset.balanceOf(protocolFeeRecipient), feeRecipientBalance + fee * positionCount);
 
         for (uint i = 0; i < positionCount; i++) {
             CollarProviderNFT.ProviderPosition memory position = providerNFT.getPosition(positionIds[i]);
