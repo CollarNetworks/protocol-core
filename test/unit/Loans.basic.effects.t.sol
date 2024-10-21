@@ -69,8 +69,11 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
         // mint dust (as in mintDustToContracts)
         cashAsset.mint(address(loans), 1);
+        cashAsset.mint(address(mockSwapperRouter), 1);
         cashAsset.mint(defaultSwapper, 1);
         underlying.mint(address(loans), 1);
+        underlying.mint(address(escrowNFT), 1);
+        underlying.mint(address(mockSwapperRouter), 1);
         underlying.mint(defaultSwapper, 1);
     }
 
