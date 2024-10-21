@@ -10,13 +10,13 @@
 - [x] #med/#low overall gas usage is high impacting composability (ability to batch several operations), and user gas costs with the highest call being at 1.7M gas. Some easy things can be done to reduce while minimally impacting safety / readability / usability
   - Examples with `forge clean && forge test --isolate --nmc "Fork" --gas-report --nmt revert | grep "rollLoan\|openLoan\|openEscrowLoan\|closeLoan\|executeRoll\|createOffer\|openPairedPosition\|startEscrow\|switchEscrow" | grep -v test`:
     - Loans before: roll 1.760M, openEscrowLoan 1.513M, openLoan 1.085K, close 599K
-    - Loans after : roll 1.001M, openEscrowLoan 885K, openLoan 636K, close 477K
+    - Loans after : roll 1.003M, openEscrowLoan 834K, openLoan 595K, close 463K
     - Rolls before: execute 1.022M, create 382K
-    - Rolls after : execute 550K, create 267K
+    - Rolls after : execute 545K, create 250K
     - Taker before: open 755K
-    - Taker after : open 371K
+    - Taker after : open 354K
     - Escrow before: start 404K, switch 469K
-    - Escrow after : start 229K, switch 279K
+    - Escrow after : start 229K, switch 276K
   - Composability risk: a contract that needs to batch many actions may have issues fitting all of them into a single tx in an Arbitrum block (although it is up to 32M gas, average usage is between 1M-3M, https://arbiscan.io/blocks?ps=100&p=1)
   - mitigations:
     - [x] remove usage of ERC721Enumerable (since its added functionality is unused): rollLoan to 1.471M, openLoan 871K.
