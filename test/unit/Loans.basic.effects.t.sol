@@ -314,8 +314,6 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
         // caller closes the loan
         vm.startPrank(caller);
-        vm.expectEmit(address(loans));
-        emit ILoansNFT.LoanClosed(loanId, caller, user1, loanAmount, loanAmount + withdrawal, swapOut);
         if (loan.usesEscrow) {
             // expect this only if escrow is used
             vm.expectEmit(address(loans));
@@ -323,6 +321,8 @@ contract LoansTestBase is BaseAssetPairTestSetup {
                 loan.escrowId, released.lateFee, released.toEscrow, released.fromEscrow, released.leftOver
             );
         }
+        vm.expectEmit(address(loans));
+        emit ILoansNFT.LoanClosed(loanId, caller, user1, loanAmount, loanAmount + withdrawal, swapOut);
         uint underlyingOut = loans.closeLoan(loanId, defaultSwapParams(0));
 
         // Check balances and return value

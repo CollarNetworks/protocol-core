@@ -10,7 +10,7 @@
 - [x] #med/#low overall gas usage is high impacting composability (ability to batch several operations), and user gas costs with the highest call being at 1.7M gas. Some easy things can be done to reduce while minimally impacting safety / readability / usability
   - Examples with `forge clean && forge test --isolate --nmc "Fork" --gas-report --nmt revert | grep "rollLoan\|openLoan\|openEscrowLoan\|closeLoan\|executeRoll\|createOffer\|openPairedPosition\|startEscrow\|switchEscrow" | grep -v test`:
     - Loans before: roll 1.760M, openEscrowLoan 1.513M, openLoan 1.085K, close 599K
-    - Loans after : roll 1.003M, openEscrowLoan 834K, openLoan 595K, close 463K
+    - Loans after : roll 979M, openEscrowLoan 812K, openLoan 593K, close 461K
     - Rolls before: execute 1.022M, create 382K
     - Rolls after : execute 545K, create 250K
     - Taker before: open 755K

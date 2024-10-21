@@ -83,7 +83,6 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     }
 
     /// @notice Retrieves the details of a specific non-transferrable offer.
-    /// @dev This is used instead of the default getter because the default getter returns a tuple
     function getOffer(uint offerId) public view returns (Offer memory) {
         OfferStored memory stored = offers[offerId];
         return Offer({
@@ -97,7 +96,6 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     }
 
     /// @notice Retrieves the details of a specific escrow (corresponds to the NFT token ID)
-    /// @dev This is used instead of the default getter because the default getter returns a tuple
     function getEscrow(uint escrowId) public view returns (Escrow memory) {
         EscrowStored memory stored = escrows[escrowId];
         require(stored.expiration != 0, "escrow position does not exist");
