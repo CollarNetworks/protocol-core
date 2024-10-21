@@ -60,7 +60,7 @@
 - [x] #low switchEscrow should ensure not expired because is using 0 fromLoans
 - [x] #note naming: lateFee view should be `owedTo` because is used for total owed mainly
 - [x] #note naming: gracePeriod should be maxGracePeriod
-- [ ] #note switchEscrow order of params (fee and loanId) is reverse from startEscrow, which is error prone
+- [x] #note switchEscrow order of params (fee and loanId) is reverse from startEscrow, which is error prone
 - [x] #note no need to return the struct from start / switch escrow
 - [x] #note document why cancelling escrow loans immediately does not allow griefing escrow suppliers
 

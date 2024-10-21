@@ -698,8 +698,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             (newEscrowId, feeRefund) = prevLoan.escrowNFT.switchEscrow({
                 releaseEscrowId: prevLoan.escrowId,
                 offerId: escrowOffer,
-                newLoanId: newLoanId,
-                newFee: newFee
+                newFee: newFee,
+                newLoanId: newLoanId
             });
 
             // check escrow and loan have matching fields

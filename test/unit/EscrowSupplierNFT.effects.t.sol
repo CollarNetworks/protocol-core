@@ -343,7 +343,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         (uint escrowId,) = createAndCheckEscrowFromOffer(offerId, 0, 0);
         // 0 amount works for switchEscrow when minEscrow = 0
         startHoax(loans);
-        escrowNFT.switchEscrow(escrowId, offerId, 1000, 0);
+        escrowNFT.switchEscrow(escrowId, offerId, 0, 0);
 
         uint fee = 1 ether;
         minEscrow = largeAmount / 10;
@@ -352,7 +352,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         (escrowId,) = createAndCheckEscrowFromOffer(offerId, minEscrow, fee);
         startHoax(loans);
         asset.approve(address(escrowNFT), fee);
-        escrowNFT.switchEscrow(escrowId, offerId, 1000, fee);
+        escrowNFT.switchEscrow(escrowId, offerId, fee, 0);
     }
 
     function test_endEscrow_withdrawReleased_simple() public {
@@ -446,7 +446,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         vm.expectEmit(address(escrowNFT));
         emit IEscrowSupplierNFT.EscrowsSwitched(oldEscrowId, expectedId);
         (uint newEscrowId, uint feeRefund) =
-            escrowNFT.switchEscrow(oldEscrowId, newOfferId, newLoanId, amounts.newFee);
+            escrowNFT.switchEscrow(oldEscrowId, newOfferId, amounts.newFee, newLoanId);
 
         // check return values
         assertEq(newEscrowId, expectedId);

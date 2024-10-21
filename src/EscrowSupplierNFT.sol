@@ -324,12 +324,12 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * expiration is as is needed for its use.
      * @param releaseEscrowId The ID of the escrow to release
      * @param offerId The ID of the new offer
-     * @param newLoanId The new loan ID
      * @param newFee The new interest fee amount
+     * @param newLoanId The new loan ID
      * @return newEscrowId The ID of the new escrow
      * @return feeRefund The refunded fee amount from the old escrow's upfront interest
      */
-    function switchEscrow(uint releaseEscrowId, uint offerId, uint newLoanId, uint newFee)
+    function switchEscrow(uint releaseEscrowId, uint offerId, uint newFee, uint newLoanId)
         external
         whenNotPaused
         onlyLoans
