@@ -20,7 +20,7 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
         uint cashBalance = pair.cashAsset.balanceOf(provider);
         console.log("Provider cash balance: %d", cashBalance);
         pair.cashAsset.approve(address(pair.providerNFT), amount);
-        offerId = pair.providerNFT.createOffer(callStrikePercent, amount, pair.ltvs[0], pair.durations[0]);
+        offerId = pair.providerNFT.createOffer(callStrikePercent, amount, pair.ltvs[0], pair.durations[0], 0);
         vm.stopPrank();
     }
 

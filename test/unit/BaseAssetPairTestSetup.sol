@@ -133,7 +133,7 @@ contract BaseAssetPairTestSetup is Test {
         startHoax(provider);
         cashAsset.approve(address(providerNFT), 2);
         // symmetric offer, offer is 2 because of protocol fee (rounded up)
-        uint offerId = providerNFT.createOffer(BIPS_100PCT + (BIPS_100PCT - ltv), 2, ltv, duration);
+        uint offerId = providerNFT.createOffer(BIPS_100PCT + (BIPS_100PCT - ltv), 2, ltv, duration, 0);
         cashAsset.approve(address(takerNFT), 1);
         // open the two positions
         (uint takerId, uint providerId) = takerNFT.openPairedPosition(1, providerNFT, offerId);

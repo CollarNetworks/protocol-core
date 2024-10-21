@@ -91,7 +91,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
             duration: stored.duration,
             interestAPR: stored.interestAPR,
             maxGracePeriod: stored.maxGracePeriod,
-            lateFeeAPR: stored.lateFeeAPR
+            lateFeeAPR: stored.lateFeeAPR,
+            minEscrow: stored.minEscrow
         });
     }
 
@@ -198,13 +199,17 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @param interestAPR The annual interest rate in basis points
      * @param maxGracePeriod The maximum grace period duration in seconds
      * @param lateFeeAPR The annual late fee rate in basis points
+     * @param minEscrow The minimum escrow amount. Protection from dust mints.
      * @return offerId The ID of the created offer
      */
-    function createOffer(uint amount, uint duration, uint interestAPR, uint maxGracePeriod, uint lateFeeAPR)
-        external
-        whenNotPaused
-        returns (uint offerId)
-    {
+    function createOffer(
+        uint amount,
+        uint duration,
+        uint interestAPR,
+        uint maxGracePeriod,
+        uint lateFeeAPR,
+        uint minEscrow
+    ) external whenNotPaused returns (uint offerId) {
         // sanity checks
         require(interestAPR <= MAX_INTEREST_APR_BIPS, "interest APR too high");
         require(lateFeeAPR <= MAX_LATE_FEE_APR_BIPS, "late fee APR too high");
@@ -220,10 +225,13 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
             maxGracePeriod: SafeCast.toUint32(maxGracePeriod),
             interestAPR: SafeCast.toUint24(interestAPR),
             lateFeeAPR: SafeCast.toUint24(lateFeeAPR),
+            minEscrow: minEscrow,
             available: amount
         });
         asset.safeTransferFrom(msg.sender, address(this), amount);
-        emit OfferCreated(msg.sender, interestAPR, duration, maxGracePeriod, lateFeeAPR, amount, offerId);
+        emit OfferCreated(
+            msg.sender, interestAPR, duration, maxGracePeriod, lateFeeAPR, amount, offerId, minEscrow
+        );
     }
 
     /**
@@ -316,12 +324,12 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * expiration is as is needed for its use.
      * @param releaseEscrowId The ID of the escrow to release
      * @param offerId The ID of the new offer
-     * @param newLoanId The new loan ID
      * @param newFee The new interest fee amount
+     * @param newLoanId The new loan ID
      * @return newEscrowId The ID of the new escrow
      * @return feeRefund The refunded fee amount from the old escrow's upfront interest
      */
-    function switchEscrow(uint releaseEscrowId, uint offerId, uint newLoanId, uint newFee)
+    function switchEscrow(uint releaseEscrowId, uint offerId, uint newFee, uint newLoanId)
         external
         whenNotPaused
         onlyLoans
@@ -441,6 +449,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         // even though exact value should be used from the view.
         require(fee >= interestFee(offerId, escrowed), "insufficient fee");
 
+        // check amount
+        require(escrowed >= offer.minEscrow, "amount too low");
         // @dev fee is not taken from offer, because it is transferred in from loans
         uint prevOfferAmount = offer.available;
         require(escrowed <= prevOfferAmount, "amount too high");

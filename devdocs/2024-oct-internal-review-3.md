@@ -46,7 +46,7 @@
 - [x] #note memory structs should be preferred to storage when access is read-only (even though gas is slightly higher) for clarity
 
 ###  Provider
-- [ ] #med min take amount to prevent dusting / composability issues / griefing via protocol fee issues / griefing via 0 user locked pos, may be non-negligible in case of low decimals + low gas fees
+- [x] #med min take amount to prevent dusting / composability issues / griefing via protocol fee issues / griefing via 0 user locked pos, may be non-negligible in case of low decimals + low gas fees
 - [ ] #low max allowed protocol fee APR in provider offer
 - [x] #low ~~rethink whether `cancelAndWithdraw` flow is not needed since taker is trusted anyway with settlement, so just settle call can be used (with 0 delta) and expiry check should be removed on provider side.~~ withdrawal in "settlement vis cancel" case becomes problematic
 - [x] #low "ShortProviderNFT" is bad name, confusing and inaccurate. Should be "CollarProviderNFT"
@@ -56,10 +56,11 @@
 - [x] #note "unexpected takerId" check is redundant since checked value is returned from call invocation
 
 ###  Escrow
-- [ ] #med min take amount to prevent dusting / composability issues
+- [x] #med min take amount to prevent dusting / composability issues
 - [x] #low switchEscrow should ensure not expired because is using 0 fromLoans
 - [x] #note naming: lateFee view should be `owedTo` because is used for total owed mainly
 - [x] #note naming: gracePeriod should be maxGracePeriod
+- [x] #note switchEscrow order of params (fee and loanId) is reverse from startEscrow, which is error prone
 - [x] #note no need to return the struct from start / switch escrow
 - [x] #note document why cancelling escrow loans immediately does not allow griefing escrow suppliers
 

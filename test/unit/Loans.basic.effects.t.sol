@@ -102,7 +102,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
     function createProviderOffer() internal returns (uint offerId) {
         startHoax(provider);
         cashAsset.approve(address(providerNFT), largeAmount);
-        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration);
+        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration, 0);
     }
 
     function maybeCreateEscrowOffer() internal {
@@ -111,7 +111,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
             startHoax(supplier);
             underlying.approve(address(escrowNFT), largeAmount);
             escrowOfferId =
-                escrowNFT.createOffer(largeAmount, duration, interestAPR, maxGracePeriod, lateFeeAPR);
+                escrowNFT.createOffer(largeAmount, duration, interestAPR, maxGracePeriod, lateFeeAPR, 0);
             escrowFee = escrowNFT.interestFee(escrowOfferId, underlyingAmount);
         } else {
             // reset to 0

@@ -15,7 +15,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
     function createProviderOffer(uint callStrikePercent, uint amount) internal returns (uint offerId) {
         startHoax(provider);
         pair.cashAsset.forceApprove(address(pair.providerNFT), amount);
-        offerId = pair.providerNFT.createOffer(callStrikePercent, amount, offerLTV, positionDuration);
+        offerId = pair.providerNFT.createOffer(callStrikePercent, amount, offerLTV, positionDuration, 0);
         vm.stopPrank();
     }
 
@@ -239,7 +239,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         pair.cashAsset.forceApprove(address(pair.providerNFT), amountPerOffer * 4);
 
         for (uint i = 0; i < callStrikePercents.length; i++) {
-            pair.providerNFT.createOffer(callStrikePercents[i], amountPerOffer, offerLTV, positionDuration);
+            pair.providerNFT.createOffer(callStrikePercents[i], amountPerOffer, offerLTV, positionDuration, 0);
         }
 
         vm.stopPrank();

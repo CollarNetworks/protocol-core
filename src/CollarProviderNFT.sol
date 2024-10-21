@@ -119,7 +119,8 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
             available: stored.available,
             duration: stored.duration,
             putStrikePercent: stored.putStrikePercent,
-            callStrikePercent: stored.callStrikePercent
+            callStrikePercent: stored.callStrikePercent,
+            minLocked: stored.minLocked
         });
     }
 
@@ -145,12 +146,15 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// @param amount The amount of cash asset to offer
     /// @param putStrikePercent The put strike percent in basis points
     /// @param duration The duration of the offer in seconds
+    /// @param minLocked The minimum position amount. Protection from dust mints.
     /// @return offerId The ID of the newly created offer
-    function createOffer(uint callStrikePercent, uint amount, uint putStrikePercent, uint duration)
-        external
-        whenNotPaused
-        returns (uint offerId)
-    {
+    function createOffer(
+        uint callStrikePercent,
+        uint amount,
+        uint putStrikePercent,
+        uint duration,
+        uint minLocked
+    ) external whenNotPaused returns (uint offerId) {
         // sanity checks
         require(callStrikePercent >= MIN_CALL_STRIKE_BIPS, "strike percent too low");
         require(callStrikePercent <= MAX_CALL_STRIKE_BIPS, "strike percent too high");
@@ -164,10 +168,13 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
             putStrikePercent: SafeCast.toUint24(putStrikePercent),
             callStrikePercent: SafeCast.toUint24(callStrikePercent),
             duration: SafeCast.toUint32(duration),
+            minLocked: minLocked,
             available: amount
         });
         cashAsset.safeTransferFrom(msg.sender, address(this), amount);
-        emit OfferCreated(msg.sender, putStrikePercent, duration, callStrikePercent, amount, offerId);
+        emit OfferCreated(
+            msg.sender, putStrikePercent, duration, callStrikePercent, amount, offerId, minLocked
+        );
     }
 
     /// @notice Updates the amount of an existing offer by either transferring from the offer
@@ -228,6 +235,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         (uint fee, address feeRecipient) = protocolFee(providerLocked, offer.duration);
 
         // check amount
+        require(providerLocked >= offer.minLocked, "amount too low");
         uint prevOfferAmount = offer.available;
         require(providerLocked + fee <= prevOfferAmount, "amount too high");
         uint newAvailable = prevOfferAmount - providerLocked - fee;

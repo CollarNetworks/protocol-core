@@ -30,9 +30,9 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         uint expectedOfferId = providerNFT.nextPositionId();
         vm.expectEmit(address(providerNFT));
         emit ICollarProviderNFT.OfferCreated(
-            provider, ltv, duration, callStrikePercent, largeAmount, expectedOfferId
+            provider, ltv, duration, callStrikePercent, largeAmount, expectedOfferId, 0
         );
-        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration);
+        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration, 0);
         CollarProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
         assertEq(offer.callStrikePercent, callStrikePercent);
         assertEq(offer.available, largeAmount);
