@@ -322,6 +322,15 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         (positionId, position) = createAndCheckPosition(provider, largeAmount + fee, largeAmount);
     }
 
+    function test_mintFromOffer_minLocked() public {
+        // 0 amount works when minLocked = 0
+        createAndCheckPosition(provider, largeAmount, 0);
+
+        // check non-zero minLocked effects (event)
+        minLocked = largeAmount / 2;
+        createAndCheckPosition(provider, largeAmount, largeAmount / 2);
+    }
+
     function test_protocolFee_zeroAddressRecipient() public {
         // check fee is on
         assertFalse(configHub.feeRecipient() == address(0));
@@ -741,15 +750,6 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         vm.startPrank(address(takerContract));
         vm.expectRevert("amount too high");
         providerNFT.mintFromOffer(offerId, largeAmount + 1, 0);
-    }
-
-    function test_mintFromOffer_minLocked() public {
-        // 0 amount works when minLocked = 0
-        createAndCheckPosition(provider, largeAmount, 0);
-
-        // check non-zero minLocked effects (event)
-        minLocked = largeAmount / 2;
-        createAndCheckPosition(provider, largeAmount, largeAmount / 2);
     }
 
     function test_revert_mintFromOffer_amountTooLow() public {

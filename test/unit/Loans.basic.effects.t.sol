@@ -111,7 +111,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
             startHoax(supplier);
             underlying.approve(address(escrowNFT), largeAmount);
             escrowOfferId =
-                escrowNFT.createOffer(largeAmount, duration, interestAPR, maxGracePeriod, lateFeeAPR);
+                escrowNFT.createOffer(largeAmount, duration, interestAPR, maxGracePeriod, lateFeeAPR, 0);
             escrowFee = escrowNFT.interestFee(escrowOfferId, underlyingAmount);
         } else {
             // reset to 0

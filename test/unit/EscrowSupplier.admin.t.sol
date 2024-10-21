@@ -56,7 +56,7 @@ contract EscrowSupplierNFT_AdminTest is BaseEscrowSupplierNFTTest {
         vm.startPrank(user1);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        escrowNFT.createOffer(0, 0, 0, 0, 0);
+        escrowNFT.createOffer(0, 0, 0, 0, 0, 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
         escrowNFT.updateOfferAmount(0, 0);

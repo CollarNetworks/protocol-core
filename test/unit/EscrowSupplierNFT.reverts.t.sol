@@ -13,29 +13,29 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
 
         uint val = escrowNFT.MAX_INTEREST_APR_BIPS();
         vm.expectRevert("interest APR too high");
-        escrowNFT.createOffer(largeAmount, duration, val + 1, maxGracePeriod, lateFeeAPR);
+        escrowNFT.createOffer(largeAmount, duration, val + 1, maxGracePeriod, lateFeeAPR, 0);
 
         val = escrowNFT.MIN_GRACE_PERIOD();
         vm.expectRevert("grace period too short");
-        escrowNFT.createOffer(largeAmount, duration, interestAPR, val - 1, lateFeeAPR);
+        escrowNFT.createOffer(largeAmount, duration, interestAPR, val - 1, lateFeeAPR, 0);
 
         val = escrowNFT.MAX_GRACE_PERIOD();
         vm.expectRevert("grace period too long");
-        escrowNFT.createOffer(largeAmount, duration, interestAPR, val + 1, lateFeeAPR);
+        escrowNFT.createOffer(largeAmount, duration, interestAPR, val + 1, lateFeeAPR, 0);
 
         val = escrowNFT.MAX_LATE_FEE_APR_BIPS();
         vm.expectRevert("late fee APR too high");
-        escrowNFT.createOffer(largeAmount, duration, interestAPR, maxGracePeriod, val + 1);
+        escrowNFT.createOffer(largeAmount, duration, interestAPR, maxGracePeriod, val + 1, 0);
 
         vm.expectRevert("unsupported duration");
-        escrowNFT.createOffer(largeAmount, duration + 1, interestAPR, maxGracePeriod, lateFeeAPR);
+        escrowNFT.createOffer(largeAmount, duration + 1, interestAPR, maxGracePeriod, lateFeeAPR, 0);
 
         // bad asset
         vm.startPrank(owner);
         configHub.setUnderlyingSupport(address(asset), false);
         vm.startPrank(supplier1);
         vm.expectRevert("unsupported asset");
-        escrowNFT.createOffer(largeAmount, duration, interestAPR, maxGracePeriod, lateFeeAPR);
+        escrowNFT.createOffer(largeAmount, duration, interestAPR, maxGracePeriod, lateFeeAPR, 0);
     }
 
     function test_revert_updateOfferAmount_notSupplier() public {
@@ -44,6 +44,23 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         startHoax(supplier2);
         vm.expectRevert("not offer supplier");
         escrowNFT.updateOfferAmount(offerId, largeAmount / 2);
+    }
+
+    function test_revert_startEscrow_minEscrow() public {
+        minEscrow = 1;
+        (uint offerId,) = createAndCheckOffer(supplier1, largeAmount);
+
+        startHoax(loans);
+        vm.expectRevert("amount too low");
+        escrowNFT.startEscrow(offerId, 0, 0, 0);
+
+        minEscrow = largeAmount / 2;
+        uint fee = 1 ether;
+        (offerId,) = createAndCheckOffer(supplier1, largeAmount);
+        startHoax(loans);
+        asset.approve(address(escrowNFT), largeAmount / 2);
+        vm.expectRevert("amount too low");
+        escrowNFT.startEscrow(offerId, minEscrow - 1, fee, 0);
     }
 
     function test_revert_startEscrow_invalidParams() public {
@@ -74,6 +91,28 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         vm.startPrank(loans);
         vm.expectRevert("unsupported asset");
         escrowNFT.startEscrow(offerId, largeAmount, 1 ether, 1000);
+    }
+
+    function test_revert_switchEscrow_minEscrow() public {
+        (uint offer1,) = createAndCheckOffer(supplier1, largeAmount);
+        minEscrow = 1;
+        (uint offer2,) = createAndCheckOffer(supplier1, largeAmount);
+        minEscrow = largeAmount / 2;
+        (uint offer3,) = createAndCheckOffer(supplier1, largeAmount);
+
+        startHoax(loans);
+        // dust escrow
+        (uint escrowId) = escrowNFT.startEscrow(offer1, 0, 0, 0);
+        // switch to offer2, does not accept dust
+        vm.expectRevert("amount too low");
+        escrowNFT.switchEscrow(escrowId, offer2, 0, 0);
+
+        uint fee = 1 ether;
+        asset.approve(address(escrowNFT), largeAmount / 2 + fee - 1);
+        (escrowId) = escrowNFT.startEscrow(offer1, largeAmount / 2 - 1, fee, 0);
+        // switch to offer3, does not accept the amount
+        vm.expectRevert("amount too low");
+        escrowNFT.switchEscrow(escrowId, offer3, 0, fee);
     }
 
     function test_revert_switchEscrow_invalidParams() public {

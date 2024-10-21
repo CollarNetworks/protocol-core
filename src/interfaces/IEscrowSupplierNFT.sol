@@ -16,7 +16,8 @@ interface IEscrowSupplierNFT {
         // messiness (coupling, mental overhead).
         // second slot
         address supplier;
-        // next slot
+        // next slots
+        uint minEscrow;
         uint available;
     }
 
@@ -28,6 +29,7 @@ interface IEscrowSupplierNFT {
         uint interestAPR;
         uint maxGracePeriod;
         uint lateFeeAPR;
+        uint minEscrow;
     }
 
     struct EscrowStored {
@@ -70,7 +72,8 @@ interface IEscrowSupplierNFT {
         uint maxGracePeriod,
         uint lateFeeAPR,
         uint available,
-        uint offerId
+        uint offerId,
+        uint minEscrow
     );
     event OfferUpdated(uint indexed offerId, address indexed supplier, uint previousAmount, uint newAmount);
     event EscrowCreated(
