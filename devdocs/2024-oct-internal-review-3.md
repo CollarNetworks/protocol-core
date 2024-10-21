@@ -10,13 +10,13 @@
 - [x] #med/#low overall gas usage is high impacting composability (ability to batch several operations), and user gas costs with the highest call being at 1.7M gas. Some easy things can be done to reduce while minimally impacting safety / readability / usability
   - Examples with `forge clean && forge test --isolate --nmc "Fork" --gas-report --nmt revert | grep "rollLoan\|openLoan\|openEscrowLoan\|closeLoan\|executeRoll\|createOffer\|openPairedPosition\|startEscrow\|switchEscrow" | grep -v test`:
     - Loans before: roll 1.760M, openEscrowLoan 1.513M, openLoan 1.085K, close 599K
-    - Loans after : roll 1.001M, openEscrowLoan 885K, openLoan 636K, close 477K
+    - Loans after : roll 979M, openEscrowLoan 812K, openLoan 593K, close 461K
     - Rolls before: execute 1.022M, create 382K
-    - Rolls after : execute 550K, create 267K
+    - Rolls after : execute 545K, create 250K
     - Taker before: open 755K
-    - Taker after : open 371K
+    - Taker after : open 354K
     - Escrow before: start 404K, switch 469K
-    - Escrow after : start 229K, switch 279K
+    - Escrow after : start 229K, switch 276K
   - Composability risk: a contract that needs to batch many actions may have issues fitting all of them into a single tx in an Arbitrum block (although it is up to 32M gas, average usage is between 1M-3M, https://arbiscan.io/blocks?ps=100&p=1)
   - mitigations:
     - [x] remove usage of ERC721Enumerable (since its added functionality is unused): rollLoan to 1.471M, openLoan 871K.
@@ -26,7 +26,8 @@
     - [x] reduce nft approvals and transfers in cancel
     - [x] ~~check if removing forceApprove helps~~ not too impactful
     - [x] pack confighub values to reduce cold sloads during opens
-    - [x] post deployment: keep non-zero erc20 balances in contracts (to avoid 0-non-zero-0 transfer chains)
+    - [x] ~~try solady ERC721~~ not enough difference suprisingly (between 1K-10K gas difference at most)
+    - [x] post deployment: keep non-zero erc20 and NFT balances in contracts (to avoid 0-non-zero-0 transfer chains)
 - [ ] #low erc20 tokens are trusted to be simple, but still contracts that hold balances may be safer with balance checks on transfers: taker open, create offers (2). Example compv3 uint max transfer which may not be obvious when whitelisting an asset.
   - mitigation: doc expected erc20 behaviors + consider balance checks
   - checklist for tokens (to add as docs), https://github.com/d-xo/weird-erc20:

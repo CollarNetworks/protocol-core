@@ -778,36 +778,3 @@ contract RollsTest is BaseAssetPairTestSetup {
         rolls.executeRoll(rollId, type(int).min);
     }
 }
-
-//contract GasTest is RollsTest {
-//    uint rollId;
-//
-//    function setUp() public override {
-//        super.setUp();
-//        startHoax(user1);
-//        takerNFT.setApprovalForAll(address(rolls), true);
-//        cashAsset.approve(address(rolls), type(uint).max);
-//        cashAsset.approve(address(takerNFT), type(uint).max);
-//
-//        startHoax(provider);
-//        cashAsset.approve(address(providerNFT), type(uint).max);
-//        providerNFT.setApprovalForAll(address(rolls), true);
-//        cashAsset.approve(address(rolls), type(uint).max);
-//
-//        uint offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration);
-//
-//        startHoax(user1);
-//        (uint takerId,) = takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
-//
-//        startHoax(provider);
-//        rollId = rolls.createOffer(
-//            takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
-//        );
-//
-//        startHoax(user1);
-//    }
-//
-//    function test_gas_executeRoll() public {
-//        rolls.executeRoll(rollId, type(int).min);
-//    }
-//}

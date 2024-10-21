@@ -83,7 +83,6 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     }
 
     /// @notice Retrieves the details of a specific non-transferrable offer.
-    /// @dev This is used instead of the default getter because the default getter returns a tuple
     function getOffer(uint offerId) public view returns (Offer memory) {
         OfferStored memory stored = offers[offerId];
         return Offer({
@@ -97,9 +96,10 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     }
 
     /// @notice Retrieves the details of a specific escrow (corresponds to the NFT token ID)
-    /// @dev This is used instead of the default getter because the default getter returns a tuple
     function getEscrow(uint escrowId) public view returns (Escrow memory) {
         EscrowStored memory stored = escrows[escrowId];
+        // @dev this is checked because expiration is used in several places, and it's better to add
+        // this check here instead of in each such place
         require(stored.expiration != 0, "escrow position does not exist");
         Offer memory offer = getOffer(stored.offerId);
         return Escrow({
@@ -296,7 +296,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @return toLoans Amount to be returned to loans including potential refund and deducing shortfalls
      */
     function endEscrow(uint escrowId, uint repaid) external whenNotPaused onlyLoans returns (uint toLoans) {
-        toLoans = _endEscrow(escrowId, repaid);
+        toLoans = _endEscrow(escrowId, getEscrow(escrowId), repaid);
 
         // transfer in the repaid assets in: original supplier's assets, plus any late fee
         asset.safeTransferFrom(msg.sender, address(this), repaid);
@@ -344,7 +344,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         // The withdrawable for O's supplier comes from the N's offer, not from Loans repayment.
         // The escrowed loans-funds (E) move into the new escrow of the new supplier.
         // fromLoans must be 0, otherwise escrow will be sent to Loans instead of only the fee refund.
-        feeRefund = _endEscrow(releaseEscrowId, 0);
+        feeRefund = _endEscrow(releaseEscrowId, previousEscrow, 0);
 
         // N (new escrow): Mint a new escrow from the offer (can be old or new offer).
         // The escrow funds are funds that have been escrowed in the ID being released ("O").
@@ -468,8 +468,10 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         emit OfferUpdated(offerId, offer.supplier, prevOfferAmount, prevOfferAmount - escrowed);
     }
 
-    function _endEscrow(uint escrowId, uint fromLoans) internal returns (uint toLoans) {
-        Escrow memory escrow = getEscrow(escrowId);
+    function _endEscrow(uint escrowId, Escrow memory escrow, uint fromLoans)
+        internal
+        returns (uint toLoans)
+    {
         require(!escrow.released, "already released");
         // only allow the same loans contract to release
         require(msg.sender == escrow.loans, "loans address mismatch");

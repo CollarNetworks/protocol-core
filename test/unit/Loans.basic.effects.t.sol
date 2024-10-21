@@ -69,9 +69,15 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
         // mint dust (as in mintDustToContracts)
         cashAsset.mint(address(loans), 1);
+        cashAsset.mint(address(mockSwapperRouter), 1);
         cashAsset.mint(defaultSwapper, 1);
         underlying.mint(address(loans), 1);
+        underlying.mint(address(escrowNFT), 1);
+        underlying.mint(address(mockSwapperRouter), 1);
         underlying.mint(defaultSwapper, 1);
+
+        // dust NFTs
+        dustPairedPositionNFTs(address(loans));
     }
 
     function prepareSwap(TestERC20 asset, uint amount) public {
@@ -308,8 +314,6 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
         // caller closes the loan
         vm.startPrank(caller);
-        vm.expectEmit(address(loans));
-        emit ILoansNFT.LoanClosed(loanId, caller, user1, loanAmount, loanAmount + withdrawal, swapOut);
         if (loan.usesEscrow) {
             // expect this only if escrow is used
             vm.expectEmit(address(loans));
@@ -317,6 +321,8 @@ contract LoansTestBase is BaseAssetPairTestSetup {
                 loan.escrowId, released.lateFee, released.toEscrow, released.fromEscrow, released.leftOver
             );
         }
+        vm.expectEmit(address(loans));
+        emit ILoansNFT.LoanClosed(loanId, caller, user1, loanAmount, loanAmount + withdrawal, swapOut);
         uint underlyingOut = loans.closeLoan(loanId, defaultSwapParams(0));
 
         // Check balances and return value

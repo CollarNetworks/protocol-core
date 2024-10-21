@@ -343,22 +343,16 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         takerNFT.settlePairedPosition(1000);
     }
 
-    /**
-     * mutative functions
-     * function cancelPairedPosition(uint takerId, address recipient) external;
-     */
     function test_openPairedPosition() public {
+        uint nextTakertId = takerNFT.nextPositionId();
+        uint nextProviderId = providerNFT.nextPositionId();
         uint userBalanceBefore = cashAsset.balanceOf(user1);
         (uint takerId, uint providerNFTId) = checkOpenPairedPosition();
-        assertEq(takerId, 1);
-        assertEq(providerNFTId, 1);
+        assertEq(takerId, nextTakertId);
+        assertEq(providerNFTId, nextProviderId);
         assertEq(cashAsset.balanceOf(user1), userBalanceBefore - takerLocked);
     }
 
-    /**
-     * openPaired validation errors:
-     * and create offer doesnt allow you to put a put strike percent > 10000
-     */
     function test_openPairedPositionUnsupportedCashAsset() public {
         createOffer();
         vm.startPrank(owner);

@@ -291,7 +291,7 @@ contract LoansRollsEscrowRevertsTest is LoansRollsRevertsTest {
         badEscrow.expiration = block.timestamp + duration + 1;
         vm.mockCall(
             address(escrowNFT),
-            abi.encodeCall(escrowNFT.getEscrow, (takerNFT.nextPositionId())),
+            abi.encodeCall(escrowNFT.getEscrow, (escrowNFT.nextEscrowId())),
             abi.encode(badEscrow)
         );
         vm.expectRevert("unexpected loanId");

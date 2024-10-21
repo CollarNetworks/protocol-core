@@ -3,11 +3,11 @@ pragma solidity 0.8.22;
 
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { CollarTakerNFT, ICollarTakerNFT, ITakerOracle, BaseNFT, ConfigHub } from "./CollarTakerNFT.sol";
 import { Rolls, CollarProviderNFT, IRolls } from "./Rolls.sol";
 import { EscrowSupplierNFT, IEscrowSupplierNFT } from "./EscrowSupplierNFT.sol";
-import { ISwapper } from "./interfaces/ISwapper.sol";
 import { ISwapper } from "./interfaces/ISwapper.sol";
 import { ILoansNFT } from "./interfaces/ILoansNFT.sol";
 
@@ -49,7 +49,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
     // ----- User state ----- //
     /// @notice Stores loan information for each NFT ID
-    mapping(uint loanId => Loan) internal loans;
+    mapping(uint loanId => LoanStored) internal loans;
     // callers (users or escrow owners) that allow a keeper for loan closing
     mapping(address sender => bool enabled) public keeperApproved;
 
@@ -86,9 +86,15 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     // ----- VIEW FUNCTIONS ----- //
 
     /// @notice Retrieves loan information for a given taker NFT ID
-    /// @dev return memory struct (the default getter returns tuple)
-    function getLoan(uint loanId) external view returns (Loan memory) {
-        return loans[loanId];
+    function getLoan(uint loanId) public view returns (Loan memory) {
+        LoanStored memory stored = loans[loanId];
+        return Loan({
+            underlyingAmount: stored.underlyingAmount,
+            loanAmount: stored.loanAmount,
+            usesEscrow: stored.usesEscrow,
+            escrowNFT: stored.escrowNFT,
+            escrowId: stored.escrowId
+        });
     }
 
     /// @notice The available grace period using position cash value available for late fees.
@@ -109,7 +115,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         ITakerOracle oracle = takerNFT.oracle();
         uint underlyingAmount = oracle.convertToBaseAmount(cashAvailable, oracle.currentPrice());
 
-        Loan memory loan = loans[loanId];
+        Loan memory loan = getLoan(loanId);
         // assume all available underlying can be used for fees (escrowNFT will cap between max and min)
         return loan.escrowNFT.cappedGracePeriod(loan.escrowId, underlyingAmount);
     }
@@ -210,9 +216,6 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         whenNotPaused // also checked in _burn (mutations false positive)
         returns (uint underlyingOut)
     {
-        /// @dev ownerOf will revert on non-existent (unminted / burned) loan ID
-        require(_isSenderOrKeeperFor(ownerOf(loanId)), "not NFT owner or allowed keeper");
-
         // @dev cache the borrower now, since _closeLoan will burn the NFT, so ownerOf will revert
         // Borrower is the NFT owner, since msg.sender can be a keeper.
         // If called by keeper, the borrower must trust it because:
@@ -220,16 +223,37 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // - call burns the NFT from borrower
         // - call sends the final funds to the borrower
         // - keeper sets the SwapParams and its slippage parameter
+        /// @dev ownerOf will revert on non-existent (unminted / burned) loan ID
         address borrower = ownerOf(loanId);
+        require(_isSenderOrKeeperFor(borrower), "not NFT owner or allowed keeper");
 
-        uint underlyingFromSwap = _closeLoan(loanId, borrower, swapParams);
+        // burn token. This prevents any other (or reentrant) calls for this loan
+        _burn(loanId);
+
+        // @dev will check settle, or try to settle - will revert if cannot settle yet (not expired)
+        uint takerWithdrawal = _settleAndWithdrawTaker(loanId);
+
+        Loan memory loan = getLoan(loanId);
+        // full repayment is supported, if funds aren't available for full repayment, cash only
+        // settlement is available via unwrapAndCancelLoan()
+        uint repayment = loan.loanAmount;
+
+        // @dev assumes approval
+        cashAsset.safeTransferFrom(borrower, address(this), repayment);
+
+        // total cash available
+        uint cashAmount = repayment + takerWithdrawal;
+        // @dev Reentrancy assumption: no user state writes or reads AFTER the swapper call in _swap.
+        uint underlyingFromSwap = _swap(cashAsset, underlying, cashAmount, swapParams);
 
         // release escrow if it was used, paying any late fees if needed
         // @dev no slippage param / check on escrow release result since it depends only on time
         // so cannot be manipulated and so can be checked off-chain / known in advance reliably
-        underlyingOut = _conditionalReleaseEscrow(loanId, underlyingFromSwap);
+        underlyingOut = _conditionalReleaseEscrow(loan, underlyingFromSwap);
 
         underlying.safeTransfer(borrower, underlyingOut);
+
+        emit LoanClosed(loanId, msg.sender, borrower, repayment, cashAmount, underlyingFromSwap);
     }
 
     /**
@@ -275,7 +299,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         (uint newTakerId, int _toUser, int rollFee) = _executeRoll(loanId, rollId, minToUser);
         toUser = _toUser; // convenience to allow declaring all outputs above
 
-        Loan memory prevLoan = loans[loanId];
+        Loan memory prevLoan = getLoan(loanId);
         // calculate the updated loan amount (changed due to the roll)
         newLoanAmount = _loanAmountAfterRoll(toUser, rollFee, prevLoan.loanAmount);
 
@@ -287,12 +311,12 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         uint newEscrowId = _conditionalSwitchEscrow(prevLoan, newEscrowOffer, newLoanId);
 
         // store the new loan data
-        loans[newLoanId] = Loan({
+        loans[newLoanId] = LoanStored({
             underlyingAmount: prevLoan.underlyingAmount,
             loanAmount: newLoanAmount,
             usesEscrow: prevLoan.usesEscrow,
             escrowNFT: prevLoan.escrowNFT,
-            escrowId: newEscrowId
+            escrowId: SafeCast.toUint64(newEscrowId)
         });
 
         // mint the new loan NFT to the user, keep the taker NFT (with the same ID) in this contract
@@ -334,7 +358,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // and because owner address won't be available after burning the NFT
         address borrower = ownerOf(loanId);
 
-        Loan memory loan = loans[loanId];
+        Loan memory loan = getLoan(loanId);
         require(loan.usesEscrow, "not an escrowed loan");
 
         (EscrowSupplierNFT escrowNFT, uint escrowId) = (loan.escrowNFT, loan.escrowId);
@@ -486,12 +510,12 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         if (usesEscrow) _escrowValidations(loanId, escrowNFT, escrowId);
 
         // store the loan opening data
-        loans[loanId] = Loan({
+        loans[loanId] = LoanStored({
             underlyingAmount: underlyingAmount,
             loanAmount: loanAmount,
             usesEscrow: usesEscrow,
             escrowNFT: escrowNFT,
-            escrowId: escrowId
+            escrowId: SafeCast.toUint64(escrowId)
         });
 
         // mint the loan NFT to the borrower, keep the taker NFT (with the same ID) in this contract
@@ -575,29 +599,6 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         require(amountOut == amountOutSwapper, "balance update mismatch");
         // check amount is as expected by user
         require(amountOut >= swapParams.minAmountOut, "slippage exceeded");
-    }
-
-    /// @dev loan closure logic without final transfer of underlying
-    function _closeLoan(uint loanId, address borrower, SwapParams calldata swapParams)
-        internal
-        returns (uint underlyingFromSwap)
-    {
-        // burn token. This prevents any other (or reentrant) calls for this loan
-        _burn(loanId);
-
-        // total cash available
-        // @dev will check settle, or try to settle - will revert if cannot settle yet (not expired)
-        uint takerWithdrawal = _settleAndWithdrawTaker(loanId);
-
-        uint repayment = loans[loanId].loanAmount;
-        // @dev assumes approval
-        cashAsset.safeTransferFrom(borrower, address(this), repayment);
-
-        uint cashAmount = repayment + takerWithdrawal;
-        // @dev Reentrancy assumption: no user state writes or reads AFTER the swapper call in _swap.
-        underlyingFromSwap = _swap(cashAsset, underlying, cashAmount, swapParams);
-
-        emit LoanClosed(loanId, msg.sender, borrower, repayment, cashAmount, underlyingFromSwap);
     }
 
     function _settleAndWithdrawTaker(uint loanId) internal returns (uint withdrawnAmount) {
@@ -724,8 +725,10 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         underlying.safeTransferFrom(msg.sender, address(this), interestFee);
     }
 
-    function _conditionalReleaseEscrow(uint loanId, uint fromSwap) internal returns (uint underlyingOut) {
-        Loan memory loan = loans[loanId];
+    function _conditionalReleaseEscrow(Loan memory loan, uint fromSwap)
+        internal
+        returns (uint underlyingOut)
+    {
         // if escrow not used: return the full swap amount, otherwise the underlying after releasing escrow
         return loan.usesEscrow ? _releaseEscrow(loan.escrowNFT, loan.escrowId, fromSwap) : fromSwap;
     }
@@ -756,7 +759,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     }
 
     function _conditionalCheckAndCancelEscrow(uint loanId, address refundRecipient) internal {
-        Loan memory loan = loans[loanId];
+        Loan memory loan = getLoan(loanId);
         // only check and release if escrow was used
         if (loan.usesEscrow) {
             (EscrowSupplierNFT escrowNFT, uint escrowId) = (loan.escrowNFT, loan.escrowId);

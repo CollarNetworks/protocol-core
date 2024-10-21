@@ -48,9 +48,9 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     }
 
     /// @notice Retrieves the details of a specific position (corresponds to the NFT token ID)
-    /// @dev This is used instead of the default getter because the default getter returns a tuple
     function getPosition(uint takerId) public view returns (TakerPosition memory) {
         TakerPositionStored memory stored = positions[takerId];
+        // do not try to call non-existent provider
         require(address(stored.providerNFT) != address(0), "taker position does not exist");
         // @dev the provider position fields that are used are assumed to be immutable (set once)
         ICollarProviderNFT.ProviderPosition memory providerPos =
