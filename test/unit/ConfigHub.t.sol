@@ -198,8 +198,8 @@ contract ConfigHubTest is Test {
         startHoax(owner);
 
         // reverts
-        vm.expectRevert("invalid fee");
-        configHub.setProtocolFeeParams(10_000 + 1, address(0)); // more than 100%
+        vm.expectRevert("fee APR too high");
+        configHub.setProtocolFeeParams(100 + 1, address(0)); // more than 1%
 
         vm.expectRevert("must set recipient for non-zero APR");
         configHub.setProtocolFeeParams(1, address(0));
