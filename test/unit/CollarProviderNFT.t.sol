@@ -15,6 +15,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
     address takerContract;
 
     uint putPercent = ltv;
+    uint minLocked = 0;
 
     bool expectNonZeroFee = true;
 
@@ -35,9 +36,9 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
 
         vm.expectEmit(address(providerNFT));
         emit ICollarProviderNFT.OfferCreated(
-            provider, putPercent, duration, callStrikePercent, amount, nextOfferId
+            provider, putPercent, duration, callStrikePercent, amount, nextOfferId, minLocked
         );
-        offerId = providerNFT.createOffer(callStrikePercent, amount, putPercent, duration);
+        offerId = providerNFT.createOffer(callStrikePercent, amount, putPercent, duration, minLocked);
 
         // offer ID
         assertEq(offerId, nextOfferId);
@@ -60,7 +61,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         expectedFee = numer == 0 ? 0 : (1 + ((numer - 1) / BIPS_100PCT / 365 days));
         // no fee for 0 recipient
         expectedFee = (configHub.feeRecipient() == address(0)) ? 0 : expectedFee;
-        if (expectNonZeroFee) {
+        if (positionAmount != 0 && expectNonZeroFee) {
             // do we expect zero fee?
             assertTrue(expectedFee > 0);
         }
@@ -612,7 +613,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         vm.startPrank(provider);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        providerNFT.createOffer(0, 0, 0, 0);
+        providerNFT.createOffer(0, 0, 0, 0, 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
         providerNFT.updateOfferAmount(0, 0);
@@ -638,34 +639,34 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
     function test_revert_createOffer_invalidCallStrike() public {
         uint minStrike = providerNFT.MIN_CALL_STRIKE_BIPS();
         vm.expectRevert("strike percent too low");
-        providerNFT.createOffer(minStrike - 1, largeAmount, putPercent, duration);
+        providerNFT.createOffer(minStrike - 1, largeAmount, putPercent, duration, minLocked);
 
         uint maxStrike = providerNFT.MAX_CALL_STRIKE_BIPS();
         vm.expectRevert("strike percent too high");
-        providerNFT.createOffer(maxStrike + 1, largeAmount, putPercent, duration);
+        providerNFT.createOffer(maxStrike + 1, largeAmount, putPercent, duration, minLocked);
     }
 
     function test_revert_createOffer_ConfigHubValidations() public {
         uint maxPutStrike = providerNFT.MAX_PUT_STRIKE_BIPS();
         vm.expectRevert("invalid put strike percent");
-        providerNFT.createOffer(callStrikePercent, largeAmount, maxPutStrike + 1, duration);
+        providerNFT.createOffer(callStrikePercent, largeAmount, maxPutStrike + 1, duration, minLocked);
         putPercent = configHub.minLTV() - 1;
         vm.expectRevert("unsupported LTV");
-        providerNFT.createOffer(callStrikePercent, largeAmount, putPercent, duration);
+        providerNFT.createOffer(callStrikePercent, largeAmount, putPercent, duration, minLocked);
         putPercent = 9000;
         duration = configHub.maxDuration() + 1;
         vm.expectRevert("unsupported duration");
-        providerNFT.createOffer(callStrikePercent, largeAmount, putPercent, duration);
+        providerNFT.createOffer(callStrikePercent, largeAmount, putPercent, duration, minLocked);
 
         vm.startPrank(owner);
         configHub.setCashAssetSupport(address(cashAsset), false);
         vm.expectRevert("unsupported asset");
-        providerNFT.createOffer(callStrikePercent, largeAmount, putPercent, duration);
+        providerNFT.createOffer(callStrikePercent, largeAmount, putPercent, duration, minLocked);
         configHub.setCashAssetSupport(address(cashAsset), true);
 
         configHub.setUnderlyingSupport(address(underlying), false);
         vm.expectRevert("unsupported asset");
-        providerNFT.createOffer(callStrikePercent, largeAmount, putPercent, duration);
+        providerNFT.createOffer(callStrikePercent, largeAmount, putPercent, duration, minLocked);
     }
 
     function test_revert_updateOfferAmount() public {
@@ -740,6 +741,31 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         vm.startPrank(address(takerContract));
         vm.expectRevert("amount too high");
         providerNFT.mintFromOffer(offerId, largeAmount + 1, 0);
+    }
+
+    function test_mintFromOffer_minLocked() public {
+        // 0 amount works when minLocked = 0
+        createAndCheckPosition(provider, largeAmount, 0);
+
+        // check non-zero minLocked effects (event)
+        minLocked = largeAmount / 2;
+        createAndCheckPosition(provider, largeAmount, largeAmount / 2);
+    }
+
+    function test_revert_mintFromOffer_amountTooLow() public {
+        minLocked = 1;
+        (uint offerId,) = createAndCheckOffer(provider, largeAmount);
+
+        vm.startPrank(address(takerContract));
+        vm.expectRevert("amount too low");
+        providerNFT.mintFromOffer(offerId, 0, 0);
+
+        minLocked = largeAmount / 2;
+        (offerId,) = createAndCheckOffer(provider, largeAmount);
+
+        vm.startPrank(address(takerContract));
+        vm.expectRevert("amount too low");
+        providerNFT.mintFromOffer(offerId, minLocked - 1, 0);
     }
 
     function test_revert_settlePosition() public {

@@ -339,7 +339,8 @@ contract Rolls is IRolls, BaseManaged {
             callStrikePercent: preview.takerPos.callStrikePercent,
             amount: offerAmount,
             putStrikePercent: preview.takerPos.putStrikePercent,
-            duration: preview.takerPos.duration
+            duration: preview.takerPos.duration,
+            minLocked: 0
         });
 
         // take the liquidity offer as taker

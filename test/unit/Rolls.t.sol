@@ -27,10 +27,10 @@ contract RollsTest is BaseAssetPairTestSetup {
     function createProviderOffers() internal returns (uint offerId, uint offerId2) {
         startHoax(provider);
         cashAsset.approve(address(providerNFT), largeAmount);
-        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration);
+        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration, 0);
         // another provider NFT
         cashAsset.approve(address(providerNFT2), largeAmount);
-        offerId2 = providerNFT2.createOffer(callStrikePercent, largeAmount, ltv, duration);
+        offerId2 = providerNFT2.createOffer(callStrikePercent, largeAmount, ltv, duration, 0);
     }
 
     function createTakerPositions() internal returns (uint takerId, uint providerId) {

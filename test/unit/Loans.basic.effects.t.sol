@@ -102,7 +102,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
     function createProviderOffer() internal returns (uint offerId) {
         startHoax(provider);
         cashAsset.approve(address(providerNFT), largeAmount);
-        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration);
+        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration, 0);
     }
 
     function maybeCreateEscrowOffer() internal {

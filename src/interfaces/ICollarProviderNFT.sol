@@ -12,6 +12,7 @@ interface ICollarProviderNFT {
         uint24 callStrikePercent; // supports up to 167,772 % (1677x)
         uint32 duration;
         // next slots
+        uint minLocked;
         uint available;
     }
 
@@ -22,6 +23,7 @@ interface ICollarProviderNFT {
         uint duration;
         uint putStrikePercent;
         uint callStrikePercent;
+        uint minLocked;
     }
 
     struct ProviderPositionStored {
@@ -59,7 +61,8 @@ interface ICollarProviderNFT {
         uint indexed duration,
         uint callStrikePercent,
         uint amount,
-        uint offerId
+        uint offerId,
+        uint minLocked
     );
     event OfferUpdated(uint indexed offerId, address indexed provider, uint previousAmount, uint newAmount);
     event PositionCreated(uint indexed positionId, uint indexed offerId, uint feeAmount, uint providerLocked);
