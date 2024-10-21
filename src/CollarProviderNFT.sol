@@ -91,7 +91,6 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// @notice Retrieves the details of a specific position (corresponds to the NFT token ID)
     function getPosition(uint positionId) public view returns (ProviderPosition memory) {
         ProviderPositionStored memory stored = positions[positionId];
-        require(stored.expiration != 0, "provider position does not exist");
         LiquidityOffer memory offer = getOffer(stored.offerId);
         return ProviderPosition({
             takerId: stored.takerId,

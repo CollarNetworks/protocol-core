@@ -98,6 +98,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     /// @notice Retrieves the details of a specific escrow (corresponds to the NFT token ID)
     function getEscrow(uint escrowId) public view returns (Escrow memory) {
         EscrowStored memory stored = escrows[escrowId];
+        // @dev this is checked because expiration is used in several places, and it's better to add
+        // this check here instead of in each such place
         require(stored.expiration != 0, "escrow position does not exist");
         Offer memory offer = getOffer(stored.offerId);
         return Escrow({

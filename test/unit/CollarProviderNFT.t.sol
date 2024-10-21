@@ -775,9 +775,6 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
     }
 
     function test_revert_nonExistentID() public {
-        vm.expectRevert("provider position does not exist");
-        providerNFT.getPosition(1000);
-
         vm.startPrank(takerContract);
         vm.expectRevert("provider position does not exist");
         providerNFT.settlePosition(1000, 0);
