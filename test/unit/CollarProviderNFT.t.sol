@@ -89,9 +89,11 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         uint takerId = 1000; // arbitrary
 
         CollarProviderNFT.ProviderPosition memory expectedPosition = ICollarProviderNFT.ProviderPosition({
+            offerId: offerId,
             takerId: takerId,
+            duration: duration,
             expiration: block.timestamp + duration,
-            principal: positionAmount,
+            providerLocked: positionAmount,
             putStrikePercent: putPercent,
             callStrikePercent: callStrikePercent,
             settled: false,
@@ -103,7 +105,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
             offerId, address(takerContract), offerAmount, offerAmount - positionAmount - fee
         );
         vm.expectEmit(address(providerNFT));
-        emit ICollarProviderNFT.PositionCreated(nextPosId, offerId, fee, expectedPosition);
+        emit ICollarProviderNFT.PositionCreated(nextPosId, offerId, fee, positionAmount);
         positionId = providerNFT.mintFromOffer(offerId, positionAmount, takerId);
         position = providerNFT.getPosition(positionId);
 
@@ -111,6 +113,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         assertEq(positionId, nextPosId);
         // check the position (from the view)
         assertEq(abi.encode(position), abi.encode(expectedPosition));
+        assertEq(providerNFT.expiration(positionId), expectedPosition.expiration);
 
         // Check updated offer
         CollarProviderNFT.LiquidityOffer memory updatedOffer = providerNFT.getOffer(offerId);
@@ -201,8 +204,8 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         uint contractBalance = cashAsset.balanceOf(address(providerNFT));
 
         vm.startPrank(provider);
-        // position must be owner by taker contract
-        providerNFT.transferFrom(provider, takerContract, positionId);
+        // position must be approved to taker contract
+        providerNFT.approve(takerContract, positionId);
         vm.startPrank(takerContract);
         vm.expectEmit(address(providerNFT));
         emit ICollarProviderNFT.PositionCanceled(
@@ -449,11 +452,34 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         skip(duration + 1);
 
         vm.startPrank(provider);
-        // position must be owner by taker contract
-        providerNFT.transferFrom(provider, takerContract, positionId);
+        // position must be approved to the taker contract
+        providerNFT.approve(takerContract, positionId);
         vm.startPrank(takerContract);
         vm.expectEmit(address(providerNFT));
         emit ICollarProviderNFT.PositionCanceled(positionId, amountToMint, position.expiration);
+        providerNFT.cancelAndWithdraw(positionId);
+    }
+
+    function test_cancelAndWithdraw_approvals() public {
+        (uint positionId,) = createAndCheckPosition(provider, largeAmount, largeAmount / 10);
+        // approve of ID works
+        vm.startPrank(provider);
+        providerNFT.approve(takerContract, positionId);
+        vm.startPrank(takerContract);
+        providerNFT.cancelAndWithdraw(positionId);
+
+        (positionId,) = createAndCheckPosition(provider, largeAmount, largeAmount / 10);
+        // ownership works
+        vm.startPrank(provider);
+        providerNFT.transferFrom(provider, takerContract, positionId);
+        vm.startPrank(takerContract);
+        providerNFT.cancelAndWithdraw(positionId);
+
+        (positionId,) = createAndCheckPosition(provider, largeAmount, largeAmount / 10);
+        // setApprovalForAll works
+        vm.startPrank(provider);
+        providerNFT.setApprovalForAll(takerContract, true);
+        vm.startPrank(takerContract);
         providerNFT.cancelAndWithdraw(positionId);
     }
 
@@ -496,6 +522,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         uint[] memory positionIds = new uint[](positionCount);
         uint fee = checkProtocolFeeView(largeAmount);
         uint offerAmount = (largeAmount + fee) * positionCount;
+        uint feeRecipientBalance = cashAsset.balanceOf(protocolFeeRecipient);
 
         (uint offerId,) = createAndCheckOffer(provider, offerAmount);
 
@@ -508,12 +535,13 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         CollarProviderNFT.LiquidityOffer memory updatedOffer = providerNFT.getOffer(offerId);
         assertEq(updatedOffer.available, 0);
 
-        assertEq(cashAsset.balanceOf(protocolFeeRecipient), fee * positionCount);
+        assertEq(cashAsset.balanceOf(protocolFeeRecipient), feeRecipientBalance + fee * positionCount);
 
         for (uint i = 0; i < positionCount; i++) {
             CollarProviderNFT.ProviderPosition memory position = providerNFT.getPosition(positionIds[i]);
+            assertEq(position.offerId, offerId);
             assertEq(position.takerId, i);
-            assertEq(position.principal, largeAmount);
+            assertEq(position.providerLocked, largeAmount);
             assertEq(position.putStrikePercent, putPercent);
             assertEq(position.callStrikePercent, callStrikePercent);
             assertEq(position.settled, false);
@@ -549,7 +577,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         // Check that the position is settled
         CollarProviderNFT.ProviderPosition memory settledPosition = providerNFT.getPosition(positionId);
         assertEq(settledPosition.settled, true);
-        assertEq(settledPosition.withdrawable, position.principal + uint(positionChange));
+        assertEq(settledPosition.withdrawable, position.providerLocked + uint(positionChange));
 
         // Withdraw from the settled position
         uint newOwnerBalance = cashAsset.balanceOf(newOwner);
@@ -557,8 +585,10 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         uint withdrwal = providerNFT.withdrawFromSettled(positionId);
 
         // Check that the withdrawal was successful
-        assertEq(withdrwal, position.principal + uint(positionChange));
-        assertEq(cashAsset.balanceOf(newOwner) - newOwnerBalance, position.principal + uint(positionChange));
+        assertEq(withdrwal, position.providerLocked + uint(positionChange));
+        assertEq(
+            cashAsset.balanceOf(newOwner) - newOwnerBalance, position.providerLocked + uint(positionChange)
+        );
 
         // Check that the position is burned after withdrawal
         expectRevertERC721Nonexistent(positionId);
@@ -723,7 +753,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         vm.startPrank(owner);
         configHub.setCanOpen(takerContract, true);
 
-        vm.startPrank(address(takerContract));
+        vm.startPrank(takerContract);
         vm.expectRevert("not expired");
         providerNFT.settlePosition(positionId, 0);
 
@@ -744,14 +774,23 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         providerNFT.settlePosition(positionId, 0);
     }
 
+    function test_revert_nonExistentID() public {
+        vm.startPrank(takerContract);
+        vm.expectRevert("provider position does not exist");
+        providerNFT.settlePosition(1000, 0);
+
+        vm.expectRevert("provider position does not exist");
+        providerNFT.cancelAndWithdraw(1000);
+    }
+
     function test_revert_settlePosition_afterCancel() public {
         (uint positionId,) = createAndCheckPosition(provider, largeAmount, largeAmount / 2);
 
         skip(duration);
 
-        // transfer the NFT to taker contract
+        // approve the NFT to taker contract
         vm.startPrank(provider);
-        providerNFT.transferFrom(provider, takerContract, positionId);
+        providerNFT.approve(takerContract, positionId);
         vm.startPrank(address(takerContract));
         providerNFT.cancelAndWithdraw(positionId);
 
@@ -784,19 +823,18 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         vm.startPrank(address(0xdead));
         vm.expectRevert("unauthorized taker contract");
         providerNFT.cancelAndWithdraw(positionId);
-
         vm.startPrank(owner);
         configHub.setCanOpen(takerContract, true);
         vm.startPrank(address(takerContract));
-        vm.expectRevert("caller does not own token");
+        vm.expectRevert("caller not approved for provider ID");
         providerNFT.cancelAndWithdraw(positionId);
 
         skip(duration);
         providerNFT.settlePosition(positionId, 0);
 
-        // transfer the NFT to taker contract
+        // approve the NFT to taker contract
         vm.startPrank(provider);
-        providerNFT.transferFrom(provider, takerContract, positionId);
+        providerNFT.approve(takerContract, positionId);
         vm.startPrank(address(takerContract));
         vm.expectRevert("already settled");
         providerNFT.cancelAndWithdraw(positionId);
