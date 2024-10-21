@@ -282,7 +282,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // set the new ID from new taker ID
         newLoanId = _newLoanIdCheck(newTakerId);
 
-        // switch escrows if escrow was used, @dev assumes interest fee approval
+        // switch escrows if escrow was used because collar expiration has changed
+        // @dev assumes interest fee approval
         uint newEscrowId = _conditionalSwitchEscrow(prevLoan, newEscrowOffer, newLoanId);
 
         // store the new loan data
@@ -843,6 +844,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         if (loanChange < 0) {
             uint repayment = uint(-loanChange); // will revert for type(int).min
             require(repayment <= prevLoanAmount, "repayment larger than loan");
+            // if the borrower manipulated (sandwiched) their open swap price to be very low, they
+            // may not be able to roll now. Rolling is optional, so this is not a problem.
             newLoanAmount = prevLoanAmount - repayment;
         } else {
             newLoanAmount = prevLoanAmount + uint(loanChange);

@@ -421,6 +421,8 @@ contract Rolls is IRolls, BaseManaged {
         // The reason this needs to be scaled with price, is that this can should fit the loans use-case
         // where the position should track the value of the initial amount of underlying asset
         // (price exposure), instead of (for example) initial cash amount.
+        // Note that this relationship is not really guaranteed, because initial underlying
+        // to cash conversion was at an unknown swap-price.
         newTakerLocked = takerPos.takerLocked * newPrice / takerPos.startPrice; // zero start price is invalid and will cause panic
         // use the method that CollarTakerNFT will use to calculate the provider part
         newProviderLocked = takerNFT.calculateProviderLocked(
