@@ -106,7 +106,8 @@ contract LoansRollTestBase is LoansTestBase {
         int minToUser = int(expected.newLoanAmount) - int(prevLoan.loanAmount) - rollFee;
         uint newLoanAmount;
         int toUser;
-        (newLoanId, newLoanAmount, toUser) = loans.rollLoan(loanId, rollId, minToUser, escrowOfferId);
+        (newLoanId, newLoanAmount, toUser) =
+            loans.rollLoan(loanId, rollId, minToUser, escrowOfferId, escrowFee);
         if (expected.isEscrowLoan) {
             // sanity checks for test values
             assertGt(escrowOfferId, 0);

@@ -23,8 +23,13 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         // not enough approval for fee
         vm.startPrank(user1);
         underlying.approve(address(loans), underlyingAmount + escrowFee - 1);
-        vm.expectRevert("insufficient allowance for escrow fee");
+        expectRevertERC20Allowance(
+            address(loans), underlyingAmount + escrowFee - 1, underlyingAmount + escrowFee
+        );
         openLoan(underlyingAmount, minLoanAmount, 0, 0);
+
+        // fix allowance
+        underlying.approve(address(loans), underlyingAmount + escrowFee);
 
         // unset escrow
         vm.startPrank(owner);
@@ -45,7 +50,6 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         vm.startPrank(owner);
         configHub.setCanOpen(address(escrowNFT), true);
         vm.startPrank(user1);
-        underlying.approve(address(loans), underlyingAmount + escrowFee);
         escrowOfferId = 999; // invalid escrow offer
         vm.expectRevert("invalid offer");
         openLoan(underlyingAmount, minLoanAmount, 0, 0);

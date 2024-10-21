@@ -66,7 +66,7 @@
 ###  Loans
 - [x] #med `escrowGracePeriodEnd` can overestimate grace period because uses historical price for both settlement and conversion. Should use current price for conversion.
 - [x] #med `escrowGracePeriodEnd` can overestimate grace period because doesn't check if position is settled already, so may estimate cash incorrectly. Should only estimate for settled to reduce complexity.
-- [ ] #low escrow fee or maxFee should be specified by user
+- [x] #low escrow fee should be explicitly specified by user
 - [ ] #low no open param for deadline / price increase (up) in case of congestion / sequencer outage
 - [ ] #low deadline / expected offer contract address for all offer-specifying methods (open, roll) to prevent abuse of stale txs with current* in case of congestion / outage coinciding with config updates.
 - [x] #low swap-twap check should use twap value from before the swap, since swap is influencing the twap (reducing price)

@@ -93,7 +93,7 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
         vm.startPrank(user);
         pair.cashAsset.approve(address(pair.loansContract), type(uint).max);
         (newLoanId, newLoanAmount, transferAmount) =
-            pair.loansContract.rollLoan(loanId, rollOfferId, minToUser, 0);
+            pair.loansContract.rollLoan(loanId, rollOfferId, minToUser, 0, 0);
         vm.stopPrank();
     }
 }

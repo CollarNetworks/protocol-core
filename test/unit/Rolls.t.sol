@@ -4,7 +4,6 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -724,11 +723,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         uint lowPrice = twapPrice * 9 / 10;
         updatePrice(lowPrice);
         int toTaker = rolls.previewRoll(rollId, lowPrice).toTaker;
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IERC20Errors.ERC20InsufficientAllowance.selector, address(rolls), 0, uint(-toTaker)
-            )
-        );
+        expectRevertERC20Allowance(address(rolls), 0, uint(-toTaker));
         rolls.executeRoll(rollId, type(int).min);
     }
 
@@ -748,14 +743,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         startHoax(user1);
         takerNFT.approve(address(rolls), takerId);
         cashAsset.approve(address(rolls), type(uint).max);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IERC20Errors.ERC20InsufficientAllowance.selector,
-                address(rolls),
-                uint(-toProvider) - 1,
-                uint(-toProvider)
-            )
-        );
+        expectRevertERC20Allowance(address(rolls), uint(-toProvider) - 1, uint(-toProvider));
         rolls.executeRoll(rollId, type(int).min);
     }
 

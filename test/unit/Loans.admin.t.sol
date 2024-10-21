@@ -4,7 +4,6 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -131,7 +130,7 @@ contract LoansAdminTest is LoansTestBase {
         loans.openLoan(0, 0, defaultSwapParams(0), 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.openEscrowLoan(0, 0, defaultSwapParams(0), 0, 0);
+        loans.openEscrowLoan(0, 0, defaultSwapParams(0), 0, 0, 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
         loans.setKeeperApproved(true);
@@ -143,7 +142,7 @@ contract LoansAdminTest is LoansTestBase {
         loans.forecloseLoan(loanId, defaultSwapParams(0));
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.rollLoan(loanId, 0, 0, 0);
+        loans.rollLoan(loanId, 0, 0, 0, 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
         loans.unwrapAndCancelLoan(loanId);
