@@ -9,11 +9,11 @@ import { ArbitrumMainnetDeployer } from "./deployer.sol";
 
 contract DeployContractsArbitrumMainnet is Script {
     function run() external {
-        (address deployer,,,) = WalletLoader.loadWalletsFromEnv(vm);
-        vm.startBroadcast(deployer);
+        (address deployerAddress,,,) = WalletLoader.loadWalletsFromEnv(vm);
+        vm.startBroadcast(deployerAddress);
 
         ArbitrumMainnetDeployer.DeploymentResult memory result =
-            ArbitrumMainnetDeployer.deployAndSetupProtocol(deployer);
+            ArbitrumMainnetDeployer.deployAndSetupProtocol(deployerAddress);
 
         vm.stopBroadcast();
 

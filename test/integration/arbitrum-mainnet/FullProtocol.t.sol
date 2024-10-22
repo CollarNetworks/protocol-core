@@ -27,7 +27,7 @@ contract ArbitrumMainnetFullProtocolForkTest is Test {
                 ArbitrumMainnetDeployer.deployAndSetupProtocol(owner);
             DeploymentUtils.exportDeployment(
                 vm,
-                "collar_protocol_deployment",
+                "collar_protocol_fork_deployment",
                 address(result.configHub),
                 ArbitrumMainnetDeployer.swapRouterAddress,
                 result.assetPairContracts

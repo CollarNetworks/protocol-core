@@ -11,8 +11,7 @@ library ArbitrumMainnetDeployer {
     address constant USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
     address constant USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
     address constant WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
-    address constant stETH = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84; // wsteth doesnt have any 0.3% fee with neither USDC nor USDT on arbitrum uniswap
-    address constant weETH = 0x35751007a407ca6FEFfE80b3cB397736D2cf4dbe; // Wrapped weETH on arbitrum doesnt have USDC pools on uniswap
+
     address constant WBTC = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
     address constant MATIC = 0x561877b6b3DD7651313794e5F2894B2F18bE0766;
     address constant swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
@@ -50,12 +49,10 @@ library ArbitrumMainnetDeployer {
 
         result.configHub = DeploymentHelper.deployConfigHub(owner);
 
-        address[] memory underlyings = new address[](5);
+        address[] memory underlyings = new address[](3);
         underlyings[0] = WETH;
         underlyings[1] = WBTC;
         underlyings[2] = MATIC;
-        underlyings[3] = weETH;
-        underlyings[4] = stETH;
         address[] memory cashAssets = new address[](3);
         cashAssets[0] = USDC;
         cashAssets[1] = USDT;
@@ -152,33 +149,5 @@ library ArbitrumMainnetDeployer {
         // });
 
         // assetPairContracts[3] = deployContractPair(configHub, USDCMATICPairConfig, owner);
-
-        // DeploymentHelper.PairConfig memory USDCstEthPairConfig = DeploymentHelper.PairConfig({
-        //     name: "USDC/stETH",
-        //     durations: singleDuration,
-        //     ltvs: singleLTV,
-        //     cashAsset: IERC20(USDC),
-        //     underlying: IERC20(stETH),
-        //     oracleFeeTier: oracleFeeTier,
-        //     swapFeeTier: swapFeeTier,
-        //     twapWindow: twapWindow,
-        //     swapRouter: swapRouterAddress
-        // });
-
-        // assetPairContracts[4] = deployContractPair(configHub, USDCstEthPairConfig, owner);
-
-        // DeploymentHelper.PairConfig memory WETHweEthPairConfig = DeploymentHelper.PairConfig({
-        //     name: "WETH/weETH",
-        //     durations: singleDuration,
-        //     ltvs: singleLTV,
-        //     cashAsset: IERC20(WETH),
-        //     underlying: IERC20(weETH),
-        //     oracleFeeTier: oracleFeeTier,
-        //     swapFeeTier: swapFeeTier,
-        //     twapWindow: twapWindow,
-        //     swapRouter: swapRouterAddress
-        // });
-
-        // assetPairContracts[5] = deployContractPair(configHub, WETHweEthPairConfig, owner);
     }
 }
