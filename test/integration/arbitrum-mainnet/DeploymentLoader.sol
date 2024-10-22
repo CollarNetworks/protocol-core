@@ -72,7 +72,7 @@ abstract contract DeploymentLoader is Test {
         returns (ConfigHub, DeploymentHelper.AssetPairContracts[] memory)
     {
         (address configHubAddress, DeploymentHelper.AssetPairContracts[] memory pairs) =
-            DeploymentUtils.getAll(vm);
+            DeploymentUtils.getAll(vm, "collar_protocol_fork_deployment");
 
         return (ConfigHub(configHubAddress), pairs);
     }

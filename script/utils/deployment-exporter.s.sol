@@ -144,10 +144,13 @@ library DeploymentUtils {
         return _parseAddress(vm, bytes(json), ".router");
     }
 
-    function getAll(Vm vm) internal view returns (address, DeploymentHelper.AssetPairContracts[] memory) {
-        string memory json = vm.readFile(
-            string(abi.encodePacked(_getExportPath(vm), "collar_protocol_deployment-latest.json"))
-        );
+    function getAll(Vm vm, string memory filename)
+        internal
+        view
+        returns (address, DeploymentHelper.AssetPairContracts[] memory)
+    {
+        string memory json =
+            vm.readFile(string(abi.encodePacked(_getExportPath(vm), filename, "-latest.json")));
         bytes memory parsedJson = bytes(json);
 
         address configHubAddress = _parseAddress(vm, parsedJson, ".configHub");
@@ -229,12 +232,12 @@ library DeploymentUtils {
         return (configHubAddress, result);
     }
 
-    function getByAssetPair(Vm vm, address cashAsset, address underlying)
+    function getByAssetPair(Vm vm, string memory filename, address cashAsset, address underlying)
         internal
         view
         returns (address hub, DeploymentHelper.AssetPairContracts memory)
     {
-        (address configHub, DeploymentHelper.AssetPairContracts[] memory allPairs) = getAll(vm);
+        (address configHub, DeploymentHelper.AssetPairContracts[] memory allPairs) = getAll(vm, filename);
         for (uint i = 0; i < allPairs.length; i++) {
             if (address(allPairs[i].cashAsset) == cashAsset && address(allPairs[i].underlying) == underlying)
             {
