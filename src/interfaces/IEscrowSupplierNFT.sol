@@ -5,6 +5,22 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ConfigHub } from "../ConfigHub.sol";
 
 interface IEscrowSupplierNFT {
+    struct OfferStored {
+        // packed first slot
+        uint32 duration;
+        uint32 maxGracePeriod;
+        uint24 interestAPR; // allows up to 167,772%, must allow MAX_INTEREST_APR_BIPS
+        uint24 lateFeeAPR; // allows up to 167,772%, must allow MAX_LATE_FEE_APR_BIPS
+        // Note that `maxGracePeriod` can also be u24 (194 days), and `interestAPR` can be u16 (650%) and
+        // they will all fit into one slot with provider, but the impact is minimal, so not worth the
+        // messiness (coupling, mental overhead).
+        // second slot
+        address supplier;
+        // next slots
+        uint minEscrow;
+        uint available;
+    }
+
     struct Offer {
         address supplier;
         uint available;
@@ -13,9 +29,25 @@ interface IEscrowSupplierNFT {
         uint interestAPR;
         uint maxGracePeriod;
         uint lateFeeAPR;
+        uint minEscrow;
+    }
+
+    struct EscrowStored {
+        // packed first slot
+        uint64 offerId; // assumes sequential IDs
+        uint64 loanId; // assumes sequential IDs
+        uint32 expiration;
+        bool released;
+        // second slot
+        address loans;
+        // rest of slots
+        uint escrowed;
+        uint interestHeld;
+        uint withdrawable;
     }
 
     struct Escrow {
+        uint offerId;
         // reference
         address loans;
         uint loanId;
@@ -40,7 +72,8 @@ interface IEscrowSupplierNFT {
         uint maxGracePeriod,
         uint lateFeeAPR,
         uint available,
-        uint offerId
+        uint offerId,
+        uint minEscrow
     );
     event OfferUpdated(uint indexed offerId, address indexed supplier, uint previousAmount, uint newAmount);
     event EscrowCreated(

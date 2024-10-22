@@ -9,6 +9,15 @@ import { Rolls } from "../Rolls.sol";
 import { EscrowSupplierNFT } from "../EscrowSupplierNFT.sol";
 
 interface ILoansNFT {
+    struct LoanStored {
+        uint underlyingAmount;
+        uint loanAmount;
+        // third slot
+        bool usesEscrow;
+        EscrowSupplierNFT escrowNFT;
+        uint64 escrowId; // assumes sequential IDs
+    }
+
     struct Loan {
         uint underlyingAmount;
         uint loanAmount;
@@ -37,7 +46,7 @@ interface ILoansNFT {
         address indexed borrower,
         uint repayment,
         uint cashAmount,
-        uint underlyingOut
+        uint underlyingFromSwap
     );
     event LoanRolled(
         address indexed sender,

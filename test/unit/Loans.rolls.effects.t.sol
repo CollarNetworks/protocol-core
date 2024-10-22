@@ -7,7 +7,7 @@ import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 import { LoansNFT, ILoansNFT } from "../../src/LoansNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
-import { Rolls } from "../../src/Rolls.sol";
+import { Rolls, IRolls } from "../../src/Rolls.sol";
 
 import { LoansTestBase } from "./Loans.basic.effects.t.sol";
 
@@ -30,7 +30,8 @@ contract LoansRollTestBase is LoansTestBase {
         returns (ExpectedRoll memory expected)
     {
         // roll transfers
-        (expected.toTaker,, expected.rollFee) = rolls.previewTransferAmounts(rollId, newPrice);
+        IRolls.PreviewResults memory preview = rolls.previewRoll(rollId, newPrice);
+        (expected.toTaker, expected.rollFee) = (preview.toTaker, preview.rollFee);
 
         uint takerId = rolls.getRollOffer(rollId).takerId;
         CollarTakerNFT.TakerPosition memory oldTakerPos = takerNFT.getPosition(takerId);

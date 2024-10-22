@@ -2,6 +2,7 @@
 pragma solidity 0.8.22;
 
 import { Ownable2Step, Ownable } from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { IConfigHub } from "./interfaces/IConfigHub.sol";
 
@@ -17,14 +18,17 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     uint public constant MAX_CONFIGURABLE_DURATION = 5 * 365 days; // 5 years
 
     // -- state variables ---
-    uint public minLTV;
-    uint public maxLTV;
-    uint public minDuration;
-    uint public maxDuration;
-    uint public protocolFeeAPR; // bips
+    // one slot (previous is owner)
+    uint16 public minLTV; // max 650%, but cannot be over 100%
+    uint16 public maxLTV; // max 650%, but cannot be over 100%
+    uint32 public minDuration;
+    uint32 public maxDuration;
+    // next slot
+    uint16 public protocolFeeAPR; // max 650%, but cannot be over 100%
+    address public feeRecipient;
+    // next slot
     // pause guardian for other contracts
     address public pauseGuardian;
-    address public feeRecipient;
 
     mapping(address unlderlyingAddress => bool isSupported) public isSupportedUnderlying;
     mapping(address cashAssetAddress => bool isSupported) public isSupportedCashAsset;
@@ -53,8 +57,8 @@ contract ConfigHub is Ownable2Step, IConfigHub {
         require(min >= MIN_CONFIGURABLE_LTV_BIPS, "min too low");
         require(max <= MAX_CONFIGURABLE_LTV_BIPS, "max too high");
         require(min <= max, "min > max");
-        minLTV = min;
-        maxLTV = max;
+        minLTV = SafeCast.toUint16(min);
+        maxLTV = SafeCast.toUint16(max);
         emit LTVRangeSet(min, max);
     }
 
@@ -65,8 +69,8 @@ contract ConfigHub is Ownable2Step, IConfigHub {
         require(min >= MIN_CONFIGURABLE_DURATION, "min too low");
         require(max <= MAX_CONFIGURABLE_DURATION, "max too high");
         require(min <= max, "min > max");
-        minDuration = min;
-        maxDuration = max;
+        minDuration = SafeCast.toUint32(min);
+        maxDuration = SafeCast.toUint32(max);
         emit CollarDurationRangeSet(min, max);
     }
 
@@ -105,7 +109,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
         require(apr <= BIPS_BASE, "invalid fee"); // 100% max APR
         require(recipient != address(0) || apr == 0, "must set recipient for non-zero APR");
         emit ProtocolFeeParamsUpdated(protocolFeeAPR, apr, feeRecipient, recipient);
-        protocolFeeAPR = apr;
+        protocolFeeAPR = SafeCast.toUint16(apr);
         feeRecipient = recipient;
     }
 
