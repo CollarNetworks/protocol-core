@@ -4,7 +4,6 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 import { LoansNFT, ILoansNFT } from "../../src/LoansNFT.sol";
@@ -18,7 +17,9 @@ contract LoansBasicRevertsTest is LoansTestBase {
     function openLoan(uint _col, uint _minLoan, uint _minSwap, uint _providerOffer) internal {
         if (openEscrowLoan) {
             // uses last set escrowOfferId
-            loans.openEscrowLoan(_col, _minLoan, defaultSwapParams(_minSwap), _providerOffer, escrowOfferId);
+            loans.openEscrowLoan(
+                _col, _minLoan, defaultSwapParams(_minSwap), _providerOffer, escrowOfferId, escrowFee
+            );
         } else {
             loans.openLoan(_col, _minLoan, defaultSwapParams(_minSwap), _providerOffer);
         }
@@ -78,14 +79,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         // not enough approval for underlying
         vm.startPrank(user1);
         underlying.approve(address(loans), underlyingAmount);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IERC20Errors.ERC20InsufficientAllowance.selector,
-                address(loans),
-                underlyingAmount,
-                underlyingAmount + 1
-            )
-        );
+        expectRevertERC20Allowance(address(loans), underlyingAmount, underlyingAmount + 1 + escrowFee);
         openLoan(underlyingAmount + 1, minLoanAmount, 0, offerId);
     }
 
@@ -215,11 +209,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         vm.startPrank(user1);
 
         cashAsset.approve(address(loans), loanAmount - 1);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IERC20Errors.ERC20InsufficientAllowance.selector, address(loans), loanAmount - 1, loanAmount
-            )
-        );
+        expectRevertERC20Allowance(address(loans), loanAmount - 1, loanAmount);
         loans.closeLoan(loanId, defaultSwapParams(0));
     }
 

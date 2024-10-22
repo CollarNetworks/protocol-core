@@ -376,11 +376,11 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         assertEq(fee, 0);
 
         // check calculation for specific hardcoded value
-        configHub.setProtocolFeeParams(1000, feeRecipient); // 10% per year
+        configHub.setProtocolFeeParams(50, feeRecipient); // 0.5% per year
         (fee,) = providerNFT.protocolFee(10 ether, 365 days);
-        assertEq(fee, 1 ether);
+        assertEq(fee, 0.05 ether);
         (fee,) = providerNFT.protocolFee(10 ether + 1, 365 days);
-        assertEq(fee, 1 ether + 1); // rounds up
+        assertEq(fee, 0.05 ether + 1); // rounds up
     }
 
     function test_settlePositionIncrease() public {

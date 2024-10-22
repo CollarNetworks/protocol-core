@@ -171,7 +171,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
         if (openEscrowLoan) {
             (loanId, providerId, loanAmount) = loans.openEscrowLoan(
-                underlyingAmount, minLoanAmount, swapParams, providerOfferId, escrowOfferId
+                underlyingAmount, minLoanAmount, swapParams, providerOfferId, escrowOfferId, escrowFee
             );
 
             // sanity checks for test values
@@ -523,7 +523,9 @@ contract LoansBasicEffectsTest is LoansTestBase {
         vm.expectRevert(new bytes(0)); // failure to decode extraData
         if (openEscrowLoan) {
             // escrow loan
-            loans.openEscrowLoan(underlyingAmount, 0, defaultSwapParams(0), providerOfferId, escrowOfferId);
+            loans.openEscrowLoan(
+                underlyingAmount, 0, defaultSwapParams(0), providerOfferId, escrowOfferId, escrowFee
+            );
         } else {
             // simple loan
             loans.openLoan(underlyingAmount, 0, defaultSwapParams(0), providerOfferId);

@@ -27,7 +27,7 @@
     - [x] ~~check if removing forceApprove helps~~ not too impactful
     - [x] pack confighub values to reduce cold sloads during opens
     - [x] ~~try solady ERC721~~ not enough difference suprisingly (between 1K-10K gas difference at most)
-    - [x] post deployment: keep non-zero erc20 and NFT balances in contracts (to avoid 0-non-zero-0 transfer chains)
+    - [x] post deployment: keep non-zero erc20 and NFT balances in contracts (to avoid 0-non-zero-0 transfer chains) 
 - [ ] #low erc20 tokens are trusted to be simple, but still contracts that hold balances may be safer with balance checks on transfers: taker open, create offers (2). Example compv3 uint max transfer which may not be obvious when whitelisting an asset.
   - mitigation: doc expected erc20 behaviors + consider balance checks
   - checklist for tokens (to add as docs), https://github.com/d-xo/weird-erc20:
@@ -47,7 +47,6 @@
 
 ###  Provider
 - [x] #med min take amount to prevent dusting / composability issues / griefing via protocol fee issues / griefing via 0 user locked pos, may be non-negligible in case of low decimals + low gas fees
-- [ ] #low max allowed protocol fee APR in provider offer
 - [x] #low ~~rethink whether `cancelAndWithdraw` flow is not needed since taker is trusted anyway with settlement, so just settle call can be used (with 0 delta) and expiry check should be removed on provider side.~~ withdrawal in "settlement vis cancel" case becomes problematic
 - [x] #low "ShortProviderNFT" is bad name, confusing and inaccurate. Should be "CollarProviderNFT"
 - [x] #low naming: collateralAsset should be "underlying", since collateral is ambiguous and is actually cash. Should be just address since not used as erc20.
@@ -67,8 +66,8 @@
 ###  Loans
 - [x] #med `escrowGracePeriodEnd` can overestimate grace period because uses historical price for both settlement and conversion. Should use current price for conversion.
 - [x] #med `escrowGracePeriodEnd` can overestimate grace period because doesn't check if position is settled already, so may estimate cash incorrectly. Should only estimate for settled to reduce complexity.
-- [ ] #low escrow fee or maxFee should be specified by user
-- [ ] #low no open param for deadline / price increase (up) in case of congestion / sequencer outage
+- [x] #low escrow fee should be explicitly specified by user
+- [x] ~~#low no open param for deadline / price increase (up) in case of congestion / sequencer outage~~ added to known issues
 - [ ] #low deadline / expected offer contract address for all offer-specifying methods (open, roll) to prevent abuse of stale txs with current* in case of congestion / outage coinciding with config updates.
 - [x] #low swap-twap check should use twap value from before the swap, since swap is influencing the twap (reducing price)
 - [x] #low MAX_SWAP_TWAP_DEVIATION_BIPS is too low, and is a DoS risk => raise to 50%, since only for opens and is only a sanity check. Consider removing completely since benefit is unclear, but adds complexity and dos vectors and scenarios (e.g., volatility)
@@ -100,6 +99,7 @@
 - [x] #note naming: EmergencyAdmin is role and not attribute. BaseHubControlled?
 
 ###  ConfigHub:
+- [x] #low max allowed protocol fee APR
 - [ ] #low isSupportedCash/Collateral redundant because canOpen is sufficient and the methods are always used together + assets are immutable in all using contracts. increases potential for config issues, gas, and admin dos.
 - [ ] #low ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different), override to `nominateOwner`
 - [ ] #low pause guardians should be a mapping / set to avoid having to share pauser pkey between team members / owner multi-sig signers and bot
@@ -120,6 +120,7 @@
 - [x] #note `_abs` can be replaced with OZ lib usage
 
 ### Oracle
+- [ ] #med sequencer liveness oracle should prevent usage of bad prices ( https://docs.chain.link/data-feeds/l2-sequencer-feeds )
 - [x] #low need more comprehensive warning, mitigation, and monitoring docs for TWAP issues
 - [ ] #note ITakerOracle interface needs docs
 - [ ] #note contract itself needs more docs
@@ -132,5 +133,6 @@
 ## Known design issues (for audits)
 - no refund of protocol fee for cancellations, e.g., in case of rolls. fee APR and roll frequency are assumed to be low, and rolls are assumed to be beneficial enough to users to be worth it. accepted as low risk economic issue.
 - loanNFT owner is pushed any collateral leftovers during foreclosure instead of pulling (so can be a contract that will not forward it to actual user, e.g., an NFT trading contract). accepted severity low: low likelihood, medium impact.
-- loans currentProviderNFT, currentEscrowNFT, and currentRolls are assumed to change infrequently, so a stale transaction in which an offer for a different contract was intended by user is expected to be unlikely: arbitrum is unlikely to keep pending stale transactions, admin is trusted not to abuse, offer is assumed to not coincide with another existing offer in case of mistake, and various slippage parameters are assumed to be sufficient to prevent malicious scenarios. accepted risk up to low severity.
+- loans currentProviderNFT, currentEscrowNFT, and currentRolls are assumed to change infrequently, so a stale transaction in which an offer for a different contract was intended by user is expected to be unlikely: arbitrum is unlikely to keep pending stale transactions, admin is trusted not to abuse, in case of mistake offer is assumed to not coincide with another existing offer, and slippage parameters are assumed to be sufficient to prevent malicious scenarios. accepted risk up to low severity.
 - because oracle uses the unlderying's decimals for base unit amount, underlying asset tokens with few decimals and/or very low prices in their "cash" token may have low precision prices. For example GUSD (2 decimals) as underlying, and WBTC as cash (doesn't make much sense), will result in just 4 decimals of price. Therefore, asset (underlying) tokens with sufficient decimals and price ranges should be used.
+- in case of congestion / sequencer outage, "stale" openPairedPosition (and openLoan that uses it) can be executed at higher price than the user intended (if price is lower, openLoan has slippage protection, and openPairedPosition has better upside). This is accepted because of combination of: 1) low likelihood (Arbitrum) and low impact ("loss" is small / intended), 2) because user can revoke asset permissions via force inclusion in some cases, 3) planned sequencer liveness check. Dealing with it using a deadline / maxPrice parameter would unnecessarily bloat the interface without significant safety benefit since parameter is likely be be unused if added.

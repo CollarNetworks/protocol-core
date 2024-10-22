@@ -12,6 +12,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     string public constant VERSION = "0.2.0";
 
     // configuration validation (validate on set)
+    uint public constant MAX_PROTOCOL_FEE_BIPS = BIPS_BASE / 100; // 1%
     uint public constant MIN_CONFIGURABLE_LTV_BIPS = BIPS_BASE / 10; // 10%
     uint public constant MAX_CONFIGURABLE_LTV_BIPS = BIPS_BASE - 1; // avoid 0 range edge cases
     uint public constant MIN_CONFIGURABLE_DURATION = 300; // 5 minutes
@@ -106,7 +107,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     /// @param apr The APR in BIPs
     /// @param recipient The recipient address. Can be zero if APR is 0, to allow disabling.
     function setProtocolFeeParams(uint apr, address recipient) external onlyOwner {
-        require(apr <= BIPS_BASE, "invalid fee"); // 100% max APR
+        require(apr <= MAX_PROTOCOL_FEE_BIPS, "fee APR too high");
         require(recipient != address(0) || apr == 0, "must set recipient for non-zero APR");
         emit ProtocolFeeParamsUpdated(protocolFeeAPR, apr, feeRecipient, recipient);
         protocolFeeAPR = SafeCast.toUint16(apr);
