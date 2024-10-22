@@ -15,7 +15,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
     function createProviderOffer(uint callStrikePercent, uint amount) internal returns (uint offerId) {
         startHoax(provider);
         pair.cashAsset.forceApprove(address(pair.providerNFT), amount);
-        offerId = pair.providerNFT.createOffer(callStrikePercent, amount, offerLTV, positionDuration);
+        offerId = pair.providerNFT.createOffer(callStrikePercent, amount, offerLTV, positionDuration, 0);
         vm.stopPrank();
     }
 
@@ -38,8 +38,8 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         assertEq(address(position.providerNFT), address(pair.providerNFT));
         assertEq(position.duration, positionDuration);
         assertEq(position.expiration, block.timestamp + positionDuration);
-        assertEq(position.putStrikePrice, position.startPrice * offerLTV / 10_000);
-        assert(position.callStrikePrice > position.startPrice);
+        assertEq(position.putStrikePercent, offerLTV);
+        assert(position.callStrikePercent > 10_000);
         assert(position.takerLocked > 0);
         assert(position.providerLocked > 0);
         assertEq(position.settled, false);
@@ -80,7 +80,8 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         returns (uint expectedUserWithdrawable, uint expectedProviderGain)
     {
         uint lpPart = position.startPrice - finalPrice;
-        uint putRange = position.startPrice - position.putStrikePrice;
+        uint putStrikePrice = position.putStrikePercent * position.startPrice / 10_000;
+        uint putRange = position.startPrice - putStrikePrice;
         expectedProviderGain = position.takerLocked * lpPart / putRange;
         expectedUserWithdrawable = position.takerLocked - expectedProviderGain;
     }
@@ -91,7 +92,8 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         returns (uint expectedUserWithdrawable, uint expectedProviderWithdrawable)
     {
         uint userPart = finalPrice - position.startPrice;
-        uint callRange = position.callStrikePrice - position.startPrice;
+        uint callStrikePrice = position.callStrikePercent * position.startPrice / 10_000;
+        uint callRange = callStrikePrice - position.startPrice;
         uint userGain = position.providerLocked * userPart / callRange;
         expectedUserWithdrawable = position.takerLocked + userGain;
         expectedProviderWithdrawable = position.providerLocked - userGain;
@@ -237,7 +239,7 @@ abstract contract PositionOperationsTest is CollarBaseIntegrationTestConfig {
         pair.cashAsset.forceApprove(address(pair.providerNFT), amountPerOffer * 4);
 
         for (uint i = 0; i < callStrikePercents.length; i++) {
-            pair.providerNFT.createOffer(callStrikePercents[i], amountPerOffer, offerLTV, positionDuration);
+            pair.providerNFT.createOffer(callStrikePercents[i], amountPerOffer, offerLTV, positionDuration, 0);
         }
 
         vm.stopPrank();

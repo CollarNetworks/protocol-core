@@ -66,6 +66,18 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         defaultSwapper = address(swapperUniV3);
         loans.setSwapperAllowed(defaultSwapper, true, true);
         vm.stopPrank();
+
+        // mint dust (as in mintDustToContracts)
+        cashAsset.mint(address(loans), 1);
+        cashAsset.mint(address(mockSwapperRouter), 1);
+        cashAsset.mint(defaultSwapper, 1);
+        underlying.mint(address(loans), 1);
+        underlying.mint(address(escrowNFT), 1);
+        underlying.mint(address(mockSwapperRouter), 1);
+        underlying.mint(defaultSwapper, 1);
+
+        // dust NFTs
+        dustPairedPositionNFTs(address(loans));
     }
 
     function prepareSwap(TestERC20 asset, uint amount) public {
@@ -90,7 +102,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
     function createProviderOffer() internal returns (uint offerId) {
         startHoax(provider);
         cashAsset.approve(address(providerNFT), largeAmount);
-        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration);
+        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration, 0);
     }
 
     function maybeCreateEscrowOffer() internal {
@@ -99,7 +111,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
             startHoax(supplier);
             underlying.approve(address(escrowNFT), largeAmount);
             escrowOfferId =
-                escrowNFT.createOffer(largeAmount, duration, interestAPR, maxGracePeriod, lateFeeAPR);
+                escrowNFT.createOffer(largeAmount, duration, interestAPR, maxGracePeriod, lateFeeAPR, 0);
             escrowFee = escrowNFT.interestFee(escrowOfferId, underlyingAmount);
         } else {
             // reset to 0
@@ -226,8 +238,9 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
         // Check provider position
         CollarProviderNFT.ProviderPosition memory providerPosition = providerNFT.getPosition(ids.providerId);
+        assertEq(providerPosition.duration, duration);
         assertEq(providerPosition.expiration, block.timestamp + duration);
-        assertEq(providerPosition.principal, expectedProviderLocked);
+        assertEq(providerPosition.providerLocked, expectedProviderLocked);
         assertEq(providerPosition.putStrikePercent, ltv);
         assertEq(providerPosition.callStrikePercent, callStrikePercent);
         assertFalse(providerPosition.settled);
@@ -238,6 +251,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(escrowNFT.ownerOf(escrowId), supplier);
 
         EscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(escrowId);
+        assertEq(escrow.offerId, escrowOfferId);
         assertEq(escrow.loans, address(loans));
         assertEq(escrow.loanId, loanId);
         assertEq(escrow.escrowed, underlyingAmount);
@@ -263,7 +277,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         returns (EscrowReleaseAmounts memory released)
     {
         uint owed;
-        (owed, released.lateFee) = escrowNFT.owedTo(escrowId);
+        (owed, released.lateFee) = escrowNFT.currentOwed(escrowId);
         released.toEscrow = swapOut < owed ? swapOut : owed;
         released.leftOver = swapOut - released.toEscrow;
         (, released.fromEscrow,) = escrowNFT.previewRelease(escrowId, released.toEscrow);
@@ -300,8 +314,6 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
         // caller closes the loan
         vm.startPrank(caller);
-        vm.expectEmit(address(loans));
-        emit ILoansNFT.LoanClosed(loanId, caller, user1, loanAmount, loanAmount + withdrawal, swapOut);
         if (loan.usesEscrow) {
             // expect this only if escrow is used
             vm.expectEmit(address(loans));
@@ -309,6 +321,8 @@ contract LoansTestBase is BaseAssetPairTestSetup {
                 loan.escrowId, released.lateFee, released.toEscrow, released.fromEscrow, released.leftOver
             );
         }
+        vm.expectEmit(address(loans));
+        emit ILoansNFT.LoanClosed(loanId, caller, user1, loanAmount, loanAmount + withdrawal, swapOut);
         uint underlyingOut = loans.closeLoan(loanId, defaultSwapParams(0));
 
         // Check balances and return value

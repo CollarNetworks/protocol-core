@@ -7,20 +7,27 @@
     - calculate prices for underlying's decimals instead of the BASE_TOKEN_AMOUNT, or set BASE_TOKEN_AMOUNT according to decimals. 
     - Refactor BASE_TOKEN_AMOUNT from oracle (possibly into taker), and expose "quote" methods that would convert between asset amounts in the oracle or taker (for use within Loans)
     - ~~Consider refactoring preview views (taker, rolls, etc) expecting prices to instead query them internally.~~  
-- [ ] #med/#low overall gas usage is high impacting composability (ability to batch several operations), and user gas costs with the highest call being at 1.7M gas. Some easy things can be done to reduce while minimally impacting safety / readability / usability
-  - Examples with `forge test --isolate --nmc "Fork" --gas-report --nmt revert | grep "rollLoan\|openLoan\|openEscrowLoan\|closeLoan\|executeRoll\|createOffer\|openPairedPosition\|startEscrow\|switchEscrow" | grep -v test`:
-    - Loans: roll 1.760M, openEscrowLoan 1.513M, openLoan 1.085K, close 599K
-    - Rolls: execute 1.022K, create 382K
-    - Taker: open 755K
-    - Escrow: start 404K, switch 469K
+- [x] #med/#low overall gas usage is high impacting composability (ability to batch several operations), and user gas costs with the highest call being at 1.7M gas. Some easy things can be done to reduce while minimally impacting safety / readability / usability
+  - Examples with `forge clean && forge test --isolate --nmc "Fork" --gas-report --nmt revert | grep "rollLoan\|openLoan\|openEscrowLoan\|closeLoan\|executeRoll\|createOffer\|openPairedPosition\|startEscrow\|switchEscrow" | grep -v test`:
+    - Loans before: roll 1.760M, openEscrowLoan 1.513M, openLoan 1.085K, close 599K
+    - Loans after : roll 979M, openEscrowLoan 812K, openLoan 593K, close 461K
+    - Rolls before: execute 1.022M, create 382K
+    - Rolls after : execute 545K, create 250K
+    - Taker before: open 755K
+    - Taker after : open 354K
+    - Escrow before: start 404K, switch 469K
+    - Escrow after : start 229K, switch 276K
   - Composability risk: a contract that needs to batch many actions may have issues fitting all of them into a single tx in an Arbitrum block (although it is up to 32M gas, average usage is between 1M-3M, https://arbiscan.io/blocks?ps=100&p=1)
   - mitigations:
     - [x] remove usage of ERC721Enumerable (since its added functionality is unused): rollLoan to 1.471M, openLoan 871K.
-    - [ ] remove fields that aren't needed / can be calculated from other fields (call-price, put-price, callLockedCash). E.g., DRY fields (don't copy from offer to position, just store offerId)
-    - [ ] reuse fields where it makes sense: principal & withdrawable
-    - [ ] pack fields in storage (time u32, bips uint16, nft-id u64 due to batching). Use packed only for storage, but use full size for internal and external interfaces everywhere else (StoredPos / MemPos).
-    - [ ] pack confighub values to reduce cold sloads during opens
-    - [ ] post deployment: keep non-zero erc20 balances in contracts (to avoid 0-non-zero-0 transfer chains)
+    - [x] remove fields that aren't needed / can be calculated from other fields (call-price, put-price, callLockedCash). E.g., DRY fields (don't copy from offer to position, just store offerId)
+    - [x] ~~reuse fields where it makes sense: principal & withdrawable~~ not impactful
+    - [x] pack fields in storage (time u32, bips uint16, nft-id u64 due to batching). Use packed only for storage, but use full size for internal and external interfaces everywhere else (StoredPos / MemPos).
+    - [x] reduce nft approvals and transfers in cancel
+    - [x] ~~check if removing forceApprove helps~~ not too impactful
+    - [x] pack confighub values to reduce cold sloads during opens
+    - [x] ~~try solady ERC721~~ not enough difference suprisingly (between 1K-10K gas difference at most)
+    - [x] post deployment: keep non-zero erc20 and NFT balances in contracts (to avoid 0-non-zero-0 transfer chains)
 - [ ] #low erc20 tokens are trusted to be simple, but still contracts that hold balances may be safer with balance checks on transfers: taker open, create offers (2). Example compv3 uint max transfer which may not be obvious when whitelisting an asset.
   - mitigation: doc expected erc20 behaviors + consider balance checks
   - checklist for tokens (to add as docs), https://github.com/d-xo/weird-erc20:
@@ -39,25 +46,21 @@
 - [x] #note memory structs should be preferred to storage when access is read-only (even though gas is slightly higher) for clarity
 
 ###  Provider
-- [ ] #med min take amount to prevent dusting / composability issues / griefing via protocol fee issues / griefing via 0 user locked pos, may be non-negligible in case of low decimals + low gas fees
+- [x] #med min take amount to prevent dusting / composability issues / griefing via protocol fee issues / griefing via 0 user locked pos, may be non-negligible in case of low decimals + low gas fees
 - [ ] #low max allowed protocol fee APR in provider offer
-- [ ] #low rethink whether `cancelAndWithdraw` flow is not needed since taker is trusted anyway with settlement, so just settle call can be used (with 0 delta) and expiry check should be removed on provider side.
-  - pros of separate flows: ensures ownership of NFT and concent, ensures expiry invariant
-  - cons of separate flows:
-    - added complexity by having different before / after expiry flows
-    - redundant checks in taker and maker
-    - cannot cancel with delta if needed
-    - more gas by having to approve and transfer provider NFT
+- [x] #low ~~rethink whether `cancelAndWithdraw` flow is not needed since taker is trusted anyway with settlement, so just settle call can be used (with 0 delta) and expiry check should be removed on provider side.~~ withdrawal in "settlement vis cancel" case becomes problematic
 - [x] #low "ShortProviderNFT" is bad name, confusing and inaccurate. Should be "CollarProviderNFT"
 - [x] #low naming: collateralAsset should be "underlying", since collateral is ambiguous and is actually cash. Should be just address since not used as erc20.
+- [x] #low settle position doesn't check that position exists (relies on taker)
 - [x] #note no good reason for recipient in withdrawal method
 - [x] #note "unexpected takerId" check is redundant since checked value is returned from call invocation
 
 ###  Escrow
-- [ ] #med min take amount to prevent dusting / composability issues
+- [x] #med min take amount to prevent dusting / composability issues
 - [x] #low switchEscrow should ensure not expired because is using 0 fromLoans
 - [x] #note naming: lateFee view should be `owedTo` because is used for total owed mainly
 - [x] #note naming: gracePeriod should be maxGracePeriod
+- [x] #note switchEscrow order of params (fee and loanId) is reverse from startEscrow, which is error prone
 - [x] #note no need to return the struct from start / switch escrow
 - [x] #note document why cancelling escrow loans immediately does not allow griefing escrow suppliers
 
@@ -106,7 +109,7 @@
 
 ### Rolls
 - [ ] #low taker has insufficient protection: needs deadline for congestion / stale transactions, max roll fee for direct fee control (since fee adjusts with price)
-- [ ] #note provider deadline protection may be excessive, since can cancel stale offers, and has price limits, and requires approvals
+- [x] #note ~~provider deadline protection may be excessive, since can cancel stale offers, and has price limits, and requires approvals~~ better to leave as is
 - [x] #note "active" state variable can be replaced by checking if contract owns provider NFT. Ack, won't fix.
 - [x] #note create offer balance and allowance checks seem redundant since for spoofing can easily be passed by providing positive amount, and for mistake prevention only helps with temporary issues. Consider removing to reduce complexity.
 - [x] #note naming: `rollFee*` stutter

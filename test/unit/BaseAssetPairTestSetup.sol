@@ -49,6 +49,7 @@ contract BaseAssetPairTestSetup is Test {
         configureContracts();
         updatePrice();
         mintAssets();
+        mintDustToProtocolAddresses();
     }
 
     function deployContracts() internal {
@@ -113,6 +114,32 @@ contract BaseAssetPairTestSetup is Test {
         cashAsset.mint(user1, swapCashAmount * 10);
         cashAsset.mint(provider, largeAmount * 10);
         underlying.mint(supplier, largeAmount * 10);
+    }
+
+    function mintDustToProtocolAddresses() public {
+        // this both ensures balances aren't assumed to be 0, and reduces gas usage
+        cashAsset.mint(address(takerNFT), 1);
+        cashAsset.mint(address(providerNFT), 1);
+        cashAsset.mint(address(providerNFT2), 1);
+        cashAsset.mint(address(rolls), 1);
+        cashAsset.mint(protocolFeeRecipient, 1);
+
+        // mint NFTs to rolls, reduces gas usage, trips up assumptions about IDs
+        dustPairedPositionNFTs(address(rolls));
+    }
+
+    // mint NFTs to reduce gas usage, and trip up assumptions about IDs
+    function dustPairedPositionNFTs(address to) internal {
+        startHoax(provider);
+        cashAsset.approve(address(providerNFT), 2);
+        // symmetric offer, offer is 2 because of protocol fee (rounded up)
+        uint offerId = providerNFT.createOffer(BIPS_100PCT + (BIPS_100PCT - ltv), 2, ltv, duration, 0);
+        cashAsset.approve(address(takerNFT), 1);
+        // open the two positions
+        (uint takerId, uint providerId) = takerNFT.openPairedPosition(1, providerNFT, offerId);
+        // transfer the NFTs to the destination
+        takerNFT.transferFrom(provider, to, takerId);
+        providerNFT.transferFrom(provider, to, providerId);
     }
 
     function expectRevertERC721Nonexistent(uint id) internal {

@@ -10,7 +10,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 import { BaseAssetPairTestSetup, CollarTakerNFT, CollarProviderNFT } from "./BaseAssetPairTestSetup.sol";
 
-import { Rolls, IRolls } from "../../src/Rolls.sol";
+import { Rolls, IRolls, ICollarTakerNFT } from "../../src/Rolls.sol";
 
 contract RollsTest is BaseAssetPairTestSetup {
     uint takerLocked = swapCashAmount * (BIPS_100PCT - ltv) / BIPS_100PCT; // 100
@@ -27,10 +27,10 @@ contract RollsTest is BaseAssetPairTestSetup {
     function createProviderOffers() internal returns (uint offerId, uint offerId2) {
         startHoax(provider);
         cashAsset.approve(address(providerNFT), largeAmount);
-        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration);
+        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration, 0);
         // another provider NFT
         cashAsset.approve(address(providerNFT2), largeAmount);
-        offerId2 = providerNFT2.createOffer(callStrikePercent, largeAmount, ltv, duration);
+        offerId2 = providerNFT2.createOffer(callStrikePercent, largeAmount, ltv, duration, 0);
     }
 
     function createTakerPositions() internal returns (uint takerId, uint providerId) {
@@ -116,7 +116,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         // protocol fee
         (expected.toProtocol,) = providerNFT.protocolFee(expected.newProviderLocked, duration);
         // _calculateTransferAmounts
-        (uint takerSettled, int providerChange) = takerNFT.previewSettlement(takerId, newPrice);
+        (uint takerSettled, int providerChange) = takerNFT.previewSettlement(oldTakerPos, newPrice);
         int providerSettled = int(oldTakerPos.providerLocked) + providerChange;
         expected.toTaker = int(takerSettled) - int(expected.newTakerLocked) - rollFee;
         expected.toProvider =
@@ -129,11 +129,13 @@ contract RollsTest is BaseAssetPairTestSetup {
         view
     {
         // compare to view
-        (int toTakerView, int toProviderView, int rollFeeView) =
-            rolls.previewTransferAmounts(rollId, newPrice);
-        assertEq(toTakerView, expected.toTaker);
-        assertEq(toProviderView, expected.toProvider);
-        assertEq(rollFeeView, expected.rollFee);
+        IRolls.PreviewResults memory preview = rolls.previewRoll(rollId, newPrice);
+        assertEq(preview.toTaker, expected.toTaker);
+        assertEq(preview.toProvider, expected.toProvider);
+        assertEq(preview.rollFee, expected.rollFee);
+        assertEq(preview.newTakerLocked, expected.newTakerLocked);
+        assertEq(preview.newProviderLocked, expected.newProviderLocked);
+        assertEq(preview.protocolFee, expected.toProtocol);
     }
 
     // stack too deep
@@ -223,8 +225,9 @@ contract RollsTest is BaseAssetPairTestSetup {
 
         // Check new provider position details
         CollarProviderNFT.ProviderPosition memory newProviderPos = providerNFT.getPosition(newProviderId);
+        assertEq(newProviderPos.duration, duration);
         assertEq(newProviderPos.expiration, block.timestamp + duration);
-        assertEq(newProviderPos.principal, expected.newProviderLocked);
+        assertEq(newProviderPos.providerLocked, expected.newProviderLocked);
         assertEq(newProviderPos.putStrikePercent, ltv);
         assertEq(newProviderPos.callStrikePercent, callStrikePercent);
         assertFalse(newProviderPos.settled);
@@ -524,7 +527,12 @@ contract RollsTest is BaseAssetPairTestSetup {
         cashAsset.approve(address(rolls), uint(-minToProvider));
 
         // Non-existent taker position
-        vm.expectRevert("taker position doesn't exist");
+        vm.mockCall(
+            address(takerNFT),
+            abi.encodeCall(takerNFT.getPosition, (999)),
+            abi.encode(ICollarTakerNFT.TakerPosition(providerNFT, 0, 0, 0, 0, 0, 0, 0, 0, false, 0))
+        );
+        vm.expectRevert("rolls: taker position does not exist");
         rolls.createOffer(999, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline);
 
         // expired taker position
@@ -681,7 +689,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         startHoax(user1);
         takerNFT.approve(address(rolls), takerId);
         cashAsset.approve(address(rolls), type(uint).max);
-        (int toTaker,,) = rolls.previewTransferAmounts(rollId, twapPrice);
+        int toTaker = rolls.previewRoll(rollId, twapPrice).toTaker;
         vm.expectRevert("taker transfer slippage");
         rolls.executeRoll(rollId, toTaker + 1);
 
@@ -715,7 +723,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         cashAsset.approve(address(rolls), 0);
         uint lowPrice = twapPrice * 9 / 10;
         updatePrice(lowPrice);
-        (int toTaker,,) = rolls.previewTransferAmounts(rollId, lowPrice);
+        int toTaker = rolls.previewRoll(rollId, lowPrice).toTaker;
         vm.expectRevert(
             abi.encodeWithSelector(
                 IERC20Errors.ERC20InsufficientAllowance.selector, address(rolls), 0, uint(-toTaker)
@@ -732,7 +740,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         // price is higher so that provider will need to pay
         uint highPrice = twapPrice * 11 / 10;
         updatePrice(highPrice);
-        (, int toProvider,) = rolls.previewTransferAmounts(rollId, highPrice);
+        int toProvider = rolls.previewRoll(rollId, highPrice).toProvider;
 
         // provider revoked approval
         cashAsset.approve(address(rolls), uint(-toProvider) - 1);
