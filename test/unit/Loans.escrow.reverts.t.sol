@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.22;
 
-import { LoansBasicRevertsTest, ILoansNFT } from "./Loans.basic.reverts.t.sol";
+import { LoansBasicRevertsTest, ILoansNFT, EscrowSupplierNFT } from "./Loans.basic.reverts.t.sol";
 
 contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
     function setUp() public virtual override {
@@ -45,6 +45,15 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         escrowOfferId = 999; // invalid escrow offer
         vm.expectRevert("invalid offer");
         openLoan(underlyingAmount, minLoanAmount, 0, 0);
+
+        // test escrow asset mismatch
+        EscrowSupplierNFT invalidEscrow = new EscrowSupplierNFT(owner, configHub, cashAsset, "", "");
+        vm.startPrank(owner);
+        configHub.setCanOpen(address(invalidEscrow), true);
+        vm.startPrank(user1);
+        escrowNFT = invalidEscrow;
+        vm.expectRevert("escrow asset mismatch");
+        openLoan(underlyingAmount, 0, 0, 0);
     }
 
     function test_revert_openEscrowLoan_escrowValidations() public {

@@ -11,7 +11,7 @@ import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { CollarProviderNFT } from "../../src/CollarProviderNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
-import { LoansTestBase } from "./Loans.basic.effects.t.sol";
+import { LoansTestBase, EscrowSupplierNFT } from "./Loans.basic.effects.t.sol";
 
 contract LoansBasicRevertsTest is LoansTestBase {
     function openLoan(uint _col, uint _minLoan, uint _minSwap, uint _providerOfferId) internal {

@@ -24,6 +24,13 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         vm.startPrank(user1);
         vm.expectRevert("unsupported loans contract");
         loans.rollLoan(loanId, rollOffer(rollId), MIN_INT, 0, 0);
+
+        vm.startPrank(owner);
+        configHub.setCanOpen(address(loans), true);
+        configHub.setCanOpen(address(rolls), false);
+        vm.startPrank(user1);
+        vm.expectRevert("unsupported rolls contract");
+        loans.rollLoan(loanId, rollOffer(rollId), MIN_INT, 0, 0);
     }
 
     function test_revert_rollLoan_basic_checks() public {
