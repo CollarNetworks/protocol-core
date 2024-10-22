@@ -2,25 +2,12 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import "../utils/DeploymentLoader.sol";
-import { DeployContractsArbitrumMainnet } from "../../../script/arbitrum-mainnet/deploy-contracts.s.sol";
+import "./DeploymentLoader.sol";
+import { ArbitrumMainnetDeployer } from "../../../script/arbitrum-mainnet/deployer.sol";
+import { DeploymentUtils } from "../../../script/utils/deployment-exporter.s.sol";
 
 contract DeploymentValidatorForkTest is Test, DeploymentLoader {
-    uint forkId;
-    bool forkSet;
-
     function setUp() public override {
-        if (!forkSet) {
-            // this test suite needs to run independently so we load a fork here
-            forkId = vm.createFork(vm.envString("ARBITRUM_MAINNET_RPC"));
-            vm.selectFork(forkId);
-            // Deploy contracts
-            DeployContractsArbitrumMainnet deployer = new DeployContractsArbitrumMainnet();
-            deployer.run();
-            forkSet = true;
-        } else {
-            vm.selectFork(forkId);
-        }
         super.setUp();
     }
 
