@@ -10,7 +10,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     uint internal constant BIPS_BASE = 10_000;
 
     string public constant VERSION = "0.2.0";
-    /// @notice sentinel value for using canOpenPair for auth when only one asset is specified
+    /// @notice placeholder value for using canOpenPair for auth when only one asset is specified
     IERC20 public constant ANY_ASSET = IERC20(address(type(uint160).max)); // 0xff..ff
 
     // configuration validation (validate on set)
@@ -110,7 +110,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
 
     // ----- Views -----
 
-    /// @notice equivalent to `canOpenPair` view when the second asset is ANY_ASSET sentinel value
+    /// @notice equivalent to `canOpenPair` view when the second asset is ANY_ASSET placeholder
     function canOpenSingle(IERC20 asset, address target) external view returns (bool) {
         return canOpenPair[asset][ANY_ASSET][target];
     }

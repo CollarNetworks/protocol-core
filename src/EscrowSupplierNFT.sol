@@ -274,7 +274,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         whenNotPaused
         returns (uint escrowId)
     {
-        // @dev msg.sender auth is checked vs. allowedLoans in _startEscrow
+        // @dev msg.sender auth is checked vs. loansCanOpen in _startEscrow
         escrowId = _startEscrow(offerId, escrowed, fee, loanId);
 
         // @dev despite the fact that they partially cancel out, so can be done as just fee transfer,
@@ -436,7 +436,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         Offer memory offer = getOffer(offerId);
         require(offer.supplier != address(0), "invalid offer"); // revert here for clarity
 
-        // check params are still supported
+        // check params are supported
         require(configHub.isValidCollarDuration(offer.duration), "unsupported duration");
 
         // we don't check equality to avoid revert due to minor inaccuracies to the upside,

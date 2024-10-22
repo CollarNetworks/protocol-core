@@ -57,6 +57,7 @@
 ###  Escrow
 - [x] #med min take amount to prevent dusting / composability issues
 - [x] #low switchEscrow should ensure not expired because is using 0 fromLoans
+- [x] #low close-only problematic for escrow, because loansAllowed is checked (in modifier) in endEscrow
 - [x] #note naming: lateFee view should be `owedTo` because is used for total owed mainly
 - [x] #note naming: gracePeriod should be maxGracePeriod
 - [x] #note switchEscrow order of params (fee and loanId) is reverse from startEscrow, which is error prone
