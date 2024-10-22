@@ -31,16 +31,8 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         // fix allowance
         underlying.approve(address(loans), underlyingAmount + escrowFee);
 
-        // unset escrow
-        vm.startPrank(owner);
-        loans.setContracts(rolls, providerNFT, NO_ESCROW);
-        vm.startPrank(user1);
-        vm.expectRevert("escrow contract unset");
-        openLoan(0, 0, 0, 0);
-
         // unsupported escrow
         vm.startPrank(owner);
-        loans.setContracts(rolls, providerNFT, escrowNFT);
         configHub.setCanOpen(address(escrowNFT), false);
         vm.startPrank(user1);
         vm.expectRevert("unsupported escrow contract");

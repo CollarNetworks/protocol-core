@@ -37,7 +37,7 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
             underlyingAmount,
             minLoanAmount,
             ILoansNFT.SwapParams(0, address(pair.loansContract.defaultSwapper()), ""),
-            offerId
+            ILoansNFT.ProviderOffer(pair.providerNFT, offerId)
         );
         vm.stopPrank();
     }
@@ -92,8 +92,9 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
     ) internal returns (uint newLoanId, uint newLoanAmount, int transferAmount) {
         vm.startPrank(user);
         pair.cashAsset.approve(address(pair.loansContract), type(uint).max);
-        (newLoanId, newLoanAmount, transferAmount) =
-            pair.loansContract.rollLoan(loanId, rollOfferId, minToUser, 0, 0);
+        (newLoanId, newLoanAmount, transferAmount) = pair.loansContract.rollLoan(
+            loanId, ILoansNFT.RollOffer(pair.rollsContract, rollOfferId), minToUser, 0, 0
+        );
         vm.stopPrank();
     }
 }

@@ -58,7 +58,6 @@ contract DeploymentValidatorForkTest is Test, DeploymentLoader {
                 assertEq(configHub.isValidLTV(pair.ltvs[j]), true);
             }
 
-            assertEq(address(pair.loansContract.currentRolls()) == address(pair.rollsContract), true);
             assertEq(address(pair.rollsContract.takerNFT()) == address(pair.takerNFT), true);
         }
     }
