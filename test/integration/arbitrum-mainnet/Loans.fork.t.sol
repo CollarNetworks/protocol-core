@@ -2,9 +2,10 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import "../utils/DeploymentLoader.sol";
+import "./DeploymentLoader.sol";
 import { ILoansNFT } from "../../../src/interfaces/ILoansNFT.sol";
-import { DeployContractsArbitrumMainnet } from "../../../script/arbitrum-mainnet/deploy-contracts.s.sol";
+import { ArbitrumMainnetDeployer } from "../../../script/arbitrum-mainnet/deployer.sol";
+import { DeploymentUtils } from "../../../script/utils/deployment-exporter.s.sol";
 
 abstract contract LoansTestBase is Test, DeploymentLoader {
     function setUp() public virtual override {
@@ -103,8 +104,6 @@ contract LoansForkTest is LoansTestBase {
     address cashAsset = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8; // USDC
     address underlying = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
     DeploymentHelper.AssetPairContracts internal pair;
-    uint public forkId;
-    bool public forkSet;
     uint callstrikeToUse = 12_000;
     uint offerAmount = 100_000e6;
     uint underlyingAmount = 1 ether;
@@ -115,20 +114,10 @@ contract LoansForkTest is LoansTestBase {
     uint slippage = 1; // 1%
 
     function setUp() public virtual override {
-        if (!forkSet) {
-            // this test suite needs to run independently so we load a fork here
-            forkId = vm.createFork(vm.envString("ARBITRUM_MAINNET_RPC"));
-            vm.selectFork(forkId);
-            // Deploy contracts
-            DeployContractsArbitrumMainnet deployer = new DeployContractsArbitrumMainnet();
-            deployer.run();
-            forkSet = true;
-        } else {
-            vm.selectFork(forkId);
-        }
         super.setUp();
         pair = getPairByAssets(address(cashAsset), address(underlying));
         fundWallets();
+        require(address(pair.loansContract) != address(0), "Loans contract not deployed");
     }
 
     function setForkId(uint _forkId) public {
