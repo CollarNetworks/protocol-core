@@ -202,15 +202,21 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         escrowNFT.switchEscrow(escrowId, newOfferId, 0, 0);
     }
 
-    function test_revert_endEscrow_switchEscrow() public {
+    function test_revert_loansCanOpen_only_switchEscrow() public {
         (uint escrowId,) = createAndCheckEscrow(supplier1, largeAmount, largeAmount / 2, 1 ether);
 
-        // removing loans access prevents switchEscrow, but not endEscrow
+        // removing loans canOpen prevents switchEscrow
         vm.startPrank(owner);
         escrowNFT.setLoansCanOpen(loans, false);
         vm.startPrank(loans);
         vm.expectRevert("unauthorized loans contract");
         escrowNFT.switchEscrow(escrowId, 0, 0, 0);
+        // but not endEscrow
+        escrowNFT.endEscrow(escrowId, 0);
+    }
+
+    function test_revert_endEscrow_switchEscrow() public {
+        (uint escrowId,) = createAndCheckEscrow(supplier1, largeAmount, largeAmount / 2, 1 ether);
 
         // not same loans that started
         vm.startPrank(owner);

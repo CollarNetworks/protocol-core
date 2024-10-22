@@ -420,7 +420,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     function setLoansCanOpen(address loans, bool allowed) external onlyOwner {
         // @dev no checks for Loans interface since calls are only from Loans to this contract
         loansCanOpen[loans] = allowed;
-        emit LoansAllowedSet(loans, allowed);
+        emit LoansCanOpenSet(loans, allowed);
     }
 
     // ----- INTERNAL MUTATIVE ----- //

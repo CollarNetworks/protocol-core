@@ -359,12 +359,24 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         startHoax(user1);
         vm.expectRevert("unsupported taker");
         takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
+        // allowed for different assets, still reverts
+        vm.startPrank(owner);
+        configHub.setCanOpenPair(cashAsset, underlying, address(takerNFT), true);
+        vm.startPrank(user1);
+        vm.expectRevert("unsupported taker");
+        takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
     }
 
     function test_openPairedPositionUnsupportedProviderContract() public {
         createOffer();
         setCanOpen(address(providerNFT), false);
         startHoax(user1);
+        vm.expectRevert("unsupported provider");
+        takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
+        // allowed for different assets, still reverts
+        vm.startPrank(owner);
+        configHub.setCanOpenPair(cashAsset, underlying, address(providerNFT), true);
+        vm.startPrank(user1);
         vm.expectRevert("unsupported provider");
         takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
     }
