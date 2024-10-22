@@ -12,6 +12,8 @@ import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 import { SwapperUniV3 } from "../../src/SwapperUniV3.sol";
 
 library DeploymentUtils {
+    uint8 constant ADDRESS_LENGTH = 42; // 20 raw bytes * 2 hex chars per byte + 2 for 0x prefix
+
     function exportDeployment(
         Vm vm,
         string memory name,
@@ -85,6 +87,7 @@ library DeploymentUtils {
                 )
             );
 
+            // durations and ltvs to json
             json = string(abi.encodePacked(json, '"', pairName, '_durations": ['));
             for (uint j = 0; j < pair.durations.length; j++) {
                 json = string(abi.encodePacked(json, vm.toString(pair.durations[j]), ","));
@@ -106,6 +109,7 @@ library DeploymentUtils {
             );
         }
 
+        // Remove the trailing comma and close the JSON object
         json = string(abi.encodePacked(substring(json, 0, bytes(json).length - 1), "}"));
 
         return json;
@@ -149,10 +153,14 @@ library DeploymentUtils {
         address configHubAddress = _parseAddress(vm, parsedJson, ".configHub");
 
         string[] memory allKeys = vm.parseJsonKeys(json, ".");
+
+        // Count valid asset pairs
         uint pairCount = 0;
         for (uint i = 0; i < allKeys.length; i++) {
+            // we check if the key is longer than two addresses,
+            // since a pair key is formed by two addresses joined by an underscore
             if (
-                bytes(allKeys[i]).length > 9
+                bytes(allKeys[i]).length > (ADDRESS_LENGTH * 2)
                     && compareStrings(
                         substring(allKeys[i], bytes(allKeys[i]).length - 9, bytes(allKeys[i]).length), "_takerNFT"
                     )
@@ -166,12 +174,16 @@ library DeploymentUtils {
         uint resultIndex = 0;
 
         for (uint i = 0; i < allKeys.length; i++) {
+            // we check if the key is longer than two addresses,
+            // since a pair key is formed by two addresses joined by an underscore
             if (
-                bytes(allKeys[i]).length > 9
+                bytes(allKeys[i]).length > (ADDRESS_LENGTH * 2)
                     && compareStrings(
                         substring(allKeys[i], bytes(allKeys[i]).length - 9, bytes(allKeys[i]).length), "_takerNFT"
                     )
             ) {
+                // for each unique takerNFT key (every asset pair), get the base key and create the asset pair
+                // using all other key suffixes
                 string memory baseKey = substring(allKeys[i], 0, bytes(allKeys[i]).length - 9);
 
                 result[resultIndex] = DeploymentHelper.AssetPairContracts({
