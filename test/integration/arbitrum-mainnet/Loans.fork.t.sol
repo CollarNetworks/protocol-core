@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import "../utils/DeploymentLoader.sol";
 import { ILoansNFT } from "../../../src/interfaces/ILoansNFT.sol";
-import { DeployContractsArbitrumMainnet } from "../../../script/arbitrum-mainnet/deploy-contracts.s.sol";
+import { ArbitrumMainnetDeployer } from "../../../script/arbitrum-mainnet/deployer.sol";
 
 abstract contract LoansTestBase is Test, DeploymentLoader {
     function setUp() public virtual override {
@@ -119,8 +119,8 @@ contract LoansForkTest is LoansTestBase {
             forkId = vm.createFork(vm.envString("ARBITRUM_MAINNET_RPC"));
             vm.selectFork(forkId);
             // Deploy contracts
-            DeployContractsArbitrumMainnet deployer = new DeployContractsArbitrumMainnet();
-            deployer.run();
+            ArbitrumMainnetDeployer.deployAndSetupProtocol(address(this));
+
             forkSet = true;
         } else {
             vm.selectFork(forkId);

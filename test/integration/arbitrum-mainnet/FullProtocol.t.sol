@@ -2,13 +2,13 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import "../../../script/arbitrum-mainnet/deploy-contracts.s.sol";
+import { ArbitrumMainnetDeployer } from "../../../script/arbitrum-mainnet/deployer.sol";
+
 import "./validation.t.sol";
 import "./Loans.fork.t.sol";
 
 contract ArbitrumMainnetFullProtocolForkTest is Test {
     uint forkId;
-    DeployContractsArbitrumMainnet deployer;
 
     function setUp() public {
         // Setup fork
@@ -18,8 +18,7 @@ contract ArbitrumMainnetFullProtocolForkTest is Test {
             forkId = vm.createFork(vm.envString("ARBITRUM_MAINNET_RPC"));
             vm.selectFork(forkId);
             // Deploy contracts
-            deployer = new DeployContractsArbitrumMainnet();
-            deployer.run();
+            ArbitrumMainnetDeployer.deployAndSetupProtocol(address(this));
         } else {
             vm.selectFork(forkId);
         }
