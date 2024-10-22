@@ -7,7 +7,7 @@ import { DeploymentUtils } from "../utils/deployment-exporter.s.sol";
 import { WalletLoader } from "../wallet-loader.s.sol";
 import { ArbitrumMainnetDeployer } from "./deployer.sol";
 
-contract DeployContractsArbitrumMainnet is Script, DeploymentUtils {
+contract DeployContractsArbitrumMainnet is Script {
     function run() external {
         (address deployer,,,) = WalletLoader.loadWalletsFromEnv(vm);
         vm.startBroadcast(deployer);
@@ -17,7 +17,8 @@ contract DeployContractsArbitrumMainnet is Script, DeploymentUtils {
 
         vm.stopBroadcast();
 
-        exportDeployment(
+        DeploymentUtils.exportDeployment(
+            vm,
             "collar_protocol_deployment",
             address(result.configHub),
             ArbitrumMainnetDeployer.swapRouterAddress,

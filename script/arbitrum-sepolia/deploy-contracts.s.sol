@@ -23,7 +23,7 @@ import { SetupHelper } from "../setup-helper.sol";
 import { WalletLoader } from "../wallet-loader.s.sol";
 import { UniswapNewPoolHelper } from "../../test/utils/UniswapNewPoolHelper.sol";
 
-contract DeployContractsArbitrumSepolia is Script, DeploymentUtils, UniswapNewPoolHelper {
+contract DeployContractsArbitrumSepolia is Script, UniswapNewPoolHelper {
     uint chainId = 421_614; // Arbitrum Sepolia chain ID
     IV3SwapRouter constant SWAP_ROUTER = IV3SwapRouter(0x101F443B4d1b059569D643917553c771E1b9663E);
     INonfungiblePositionManager constant POSITION_MANAGER =
@@ -95,7 +95,8 @@ contract DeployContractsArbitrumSepolia is Script, DeploymentUtils, UniswapNewPo
         DeploymentHelper.AssetPairContracts[] memory contractsArray =
             new DeploymentHelper.AssetPairContracts[](1);
         contractsArray[0] = contracts;
-        exportDeployment(
+        DeploymentUtils.exportDeployment(
+            vm,
             "arbitrum_sepolia_collar_protocol_deployment",
             address(configHub),
             address(SWAP_ROUTER),
