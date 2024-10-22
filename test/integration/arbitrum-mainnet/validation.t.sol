@@ -45,10 +45,10 @@ contract DeploymentValidatorForkTest is Test, DeploymentLoader {
             assertEq(address(pair.loansContract) != address(0), true);
             assertEq(address(pair.rollsContract) != address(0), true);
 
-            assertEq(configHub.canOpen(address(pair.takerNFT)), true);
-            assertEq(configHub.canOpen(address(pair.providerNFT)), true);
-            assertEq(configHub.isSupportedCashAsset(address(pair.cashAsset)), true);
-            assertEq(configHub.isSupportedUnderlying(address(pair.underlying)), true);
+            assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.takerNFT)));
+            assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.providerNFT)));
+            assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.loansContract)));
+            assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.rollsContract)));
 
             for (uint j = 0; j < pair.durations.length; j++) {
                 assertEq(configHub.isValidCollarDuration(pair.durations[j]), true);

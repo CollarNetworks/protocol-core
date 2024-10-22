@@ -52,8 +52,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     // @dev this is NOT the NFT id, this is a  separate non transferrable ID
     uint public nextOfferId = 1; // starts from 1 so that 0 ID is not used
 
-    // allowed loans contracts
-    mapping(address loans => bool allowed) public allowedLoans;
+    // loans contracts allowed to start or switch escrows
+    mapping(address loans => bool allowed) public loansCanOpen;
 
     mapping(uint offerId => OfferStored) internal offers;
 
@@ -68,11 +68,6 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     ) BaseNFT(initialOwner, _name, _symbol) {
         asset = _asset;
         _setConfigHub(_configHub);
-    }
-
-    modifier onlyLoans() {
-        require(allowedLoans[msg.sender], "unauthorized loans contract");
-        _;
     }
 
     // ----- VIEWS ----- //
@@ -215,8 +210,6 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         require(lateFeeAPR <= MAX_LATE_FEE_APR_BIPS, "late fee APR too high");
         require(maxGracePeriod >= MIN_GRACE_PERIOD, "grace period too short");
         require(maxGracePeriod <= MAX_GRACE_PERIOD, "grace period too long");
-        // config hub allows values
-        _configHubValidations(duration);
 
         offerId = nextOfferId++;
         offers[offerId] = OfferStored({
@@ -279,9 +272,9 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     function startEscrow(uint offerId, uint escrowed, uint fee, uint loanId)
         external
         whenNotPaused
-        onlyLoans
         returns (uint escrowId)
     {
+        // @dev msg.sender auth is checked vs. allowedLoans in _startEscrow
         escrowId = _startEscrow(offerId, escrowed, fee, loanId);
 
         // @dev despite the fact that they partially cancel out, so can be done as just fee transfer,
@@ -303,7 +296,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * supplier is guaranteed to withdraw at least the escrow amount regardless.
      * @return toLoans Amount to be returned to loans including potential refund and deducing shortfalls
      */
-    function endEscrow(uint escrowId, uint repaid) external whenNotPaused onlyLoans returns (uint toLoans) {
+    function endEscrow(uint escrowId, uint repaid) external whenNotPaused returns (uint toLoans) {
+        // @dev msg.sender auth is checked vs. stored loans in _endEscrow
         toLoans = _endEscrow(escrowId, getEscrow(escrowId), repaid);
 
         // transfer in the repaid assets in: original supplier's assets, plus any late fee
@@ -332,7 +326,6 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     function switchEscrow(uint releaseEscrowId, uint offerId, uint newFee, uint newLoanId)
         external
         whenNotPaused
-        onlyLoans
         returns (uint newEscrowId, uint feeRefund)
     {
         Escrow memory previousEscrow = getEscrow(releaseEscrowId);
@@ -424,9 +417,9 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     // ----- admin ----- //
 
     /// @notice Sets whether a Loans contract is allowed to interact with this contract
-    function setLoansAllowed(address loans, bool allowed) external onlyOwner {
+    function setLoansCanOpen(address loans, bool allowed) external onlyOwner {
         // @dev no checks for Loans interface since calls are only from Loans to this contract
-        allowedLoans[loans] = allowed;
+        loansCanOpen[loans] = allowed;
         emit LoansAllowedSet(loans, allowed);
     }
 
@@ -436,14 +429,15 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         internal
         returns (uint escrowId)
     {
-        require(configHub.canOpen(msg.sender), "unsupported loans contract");
-        require(configHub.canOpen(address(this)), "unsupported supplier contract");
+        require(loansCanOpen[msg.sender], "unauthorized loans contract");
+        // @dev loans is not checked since is directly authed in this contract via setLoansAllowed
+        require(configHub.canOpenSingle(asset, address(this)), "unsupported escrow");
 
         Offer memory offer = getOffer(offerId);
         require(offer.supplier != address(0), "invalid offer"); // revert here for clarity
 
         // check params are still supported
-        _configHubValidations(offer.duration);
+        require(configHub.isValidCollarDuration(offer.duration), "unsupported duration");
 
         // we don't check equality to avoid revert due to minor inaccuracies to the upside,
         // even though exact value should be used from the view.
@@ -482,9 +476,9 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         internal
         returns (uint toLoans)
     {
-        require(!escrow.released, "already released");
-        // only allow the same loans contract to release
+        // @dev only allow the same loans contract to release. Also ensures this is previously allowed Loans.
         require(msg.sender == escrow.loans, "loans address mismatch");
+        require(!escrow.released, "already released");
 
         uint withdrawable;
         (withdrawable, toLoans,) = _releaseCalculations(escrow, fromLoans);
@@ -569,10 +563,5 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
          2. avoidance of mismatch due to rounding issues
          3. actual fee held may be higher (it's checked to be >= APR calculated fee)
         */
-    }
-
-    function _configHubValidations(uint duration) internal view {
-        require(configHub.isSupportedUnderlying(address(asset)), "unsupported asset");
-        require(configHub.isValidCollarDuration(duration), "unsupported duration");
     }
 }

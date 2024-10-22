@@ -20,26 +20,26 @@ contract EscrowSupplierNFT_AdminTest is BaseEscrowSupplierNFTTest {
         escrowNFT.unpause();
 
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
-        escrowNFT.setLoansAllowed(loans, true);
+        escrowNFT.setLoansCanOpen(loans, true);
     }
 
     function test_setLoansAllowed() public {
-        assertEq(escrowNFT.allowedLoans(loans), true);
+        assertEq(escrowNFT.loansCanOpen(loans), true);
 
         address newLoansContract = makeAddr("newLoans");
 
         startHoax(owner);
         vm.expectEmit(address(escrowNFT));
         emit IEscrowSupplierNFT.LoansAllowedSet(newLoansContract, true);
-        escrowNFT.setLoansAllowed(newLoansContract, true);
+        escrowNFT.setLoansCanOpen(newLoansContract, true);
 
-        assertTrue(escrowNFT.allowedLoans(newLoansContract));
+        assertTrue(escrowNFT.loansCanOpen(newLoansContract));
 
         vm.expectEmit(address(escrowNFT));
         emit IEscrowSupplierNFT.LoansAllowedSet(newLoansContract, false);
-        escrowNFT.setLoansAllowed(newLoansContract, false);
+        escrowNFT.setLoansCanOpen(newLoansContract, false);
 
-        assertFalse(escrowNFT.allowedLoans(newLoansContract));
+        assertFalse(escrowNFT.loansCanOpen(newLoansContract));
     }
 
     function test_paused_methods() public {

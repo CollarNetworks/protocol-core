@@ -87,19 +87,28 @@ contract BaseAssetPairTestSetup is Test {
     function configureContracts() public {
         startHoax(owner);
 
-        // assets
-        configHub.setCashAssetSupport(address(cashAsset), true);
-        configHub.setUnderlyingSupport(address(underlying), true);
         // terms
         configHub.setLTVRange(ltv, ltv);
         configHub.setCollarDurationRange(duration, duration);
         // contracts auth
-        configHub.setCanOpen(address(takerNFT), true);
-        configHub.setCanOpen(address(providerNFT), true);
-        configHub.setCanOpen(address(providerNFT2), true);
+        configHub.setCanOpenPair(underlying, cashAsset, address(takerNFT), true);
+        configHub.setCanOpenPair(underlying, cashAsset, address(providerNFT), true);
+        configHub.setCanOpenPair(underlying, cashAsset, address(providerNFT2), true);
         // fees
         configHub.setProtocolFeeParams(protocolFeeAPR, protocolFeeRecipient);
 
+        vm.stopPrank();
+    }
+
+    function setCanOpen(address target, bool enabled) internal {
+        startHoax(owner);
+        configHub.setCanOpenPair(underlying, cashAsset, target, enabled);
+        vm.stopPrank();
+    }
+
+    function setCanOpenSingle(address target, bool enabled) internal {
+        startHoax(owner);
+        configHub.setCanOpenPair(underlying, configHub.ANY_ASSET(), target, enabled);
         vm.stopPrank();
     }
 
