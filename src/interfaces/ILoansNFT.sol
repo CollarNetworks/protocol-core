@@ -9,6 +9,7 @@ import { Rolls } from "../Rolls.sol";
 import { EscrowSupplierNFT } from "../EscrowSupplierNFT.sol";
 
 interface ILoansNFT {
+    // storage struct
     struct LoanStored {
         uint underlyingAmount;
         uint loanAmount;
@@ -18,6 +19,7 @@ interface ILoansNFT {
         uint64 escrowId; // assumes sequential IDs
     }
 
+    // view struct
     struct Loan {
         uint underlyingAmount;
         uint loanAmount;
@@ -26,20 +28,30 @@ interface ILoansNFT {
         uint escrowId;
     }
 
+    // input structs
     struct SwapParams {
-        uint minAmountOut; // can be cash or underlying, in correct token units
+        uint minAmountOut; // can be cash or underlying
         address swapper;
         bytes extraData;
     }
 
+    struct ProviderOffer {
+        CollarProviderNFT providerNFT;
+        uint id;
+    }
+
+    struct EscrowOffer {
+        EscrowSupplierNFT escrowNFT;
+        uint id;
+    }
+
+    struct RollOffer {
+        Rolls rolls;
+        uint id;
+    }
+
     // events
-    event LoanOpened(
-        uint indexed loanId,
-        address indexed sender,
-        uint indexed providerOfferId,
-        uint underlyingAmount,
-        uint loanAmount
-    );
+    event LoanOpened(uint indexed loanId, address indexed sender, uint underlyingAmount, uint loanAmount);
     event LoanClosed(
         uint indexed loanId,
         address indexed sender,
@@ -60,9 +72,6 @@ interface ILoansNFT {
     event LoanCancelled(uint indexed loanId, address indexed sender);
     event ClosingKeeperApproved(address indexed sender, bool indexed enabled);
     event ClosingKeeperUpdated(address indexed previousKeeper, address indexed newKeeper);
-    event ContractsUpdated(
-        Rolls indexed rolls, CollarProviderNFT indexed providerNFT, EscrowSupplierNFT indexed escrowNFT
-    );
     event SwapperSet(address indexed swapper, bool indexed allowed, bool indexed setDefault);
     event EscrowSettled(uint indexed escrowId, uint lateFee, uint toEscrow, uint fromEscrow, uint leftOver);
     event LoanForeclosed(uint indexed loanId, uint indexed escrowId, uint fromSwap, uint toBorrower);

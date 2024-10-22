@@ -11,17 +11,22 @@ import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { CollarProviderNFT } from "../../src/CollarProviderNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
-import { LoansTestBase } from "./Loans.basic.effects.t.sol";
+import { LoansTestBase, EscrowSupplierNFT } from "./Loans.basic.effects.t.sol";
 
 contract LoansBasicRevertsTest is LoansTestBase {
-    function openLoan(uint _col, uint _minLoan, uint _minSwap, uint _providerOffer) internal {
+    function openLoan(uint _col, uint _minLoan, uint _minSwap, uint _providerOfferId) internal {
         if (openEscrowLoan) {
             // uses last set escrowOfferId
             loans.openEscrowLoan(
-                _col, _minLoan, defaultSwapParams(_minSwap), _providerOffer, escrowOfferId, escrowFee
+                _col,
+                _minLoan,
+                defaultSwapParams(_minSwap),
+                providerOffer(_providerOfferId),
+                escrowOffer(escrowOfferId),
+                escrowFee
             );
         } else {
-            loans.openLoan(_col, _minLoan, defaultSwapParams(_minSwap), _providerOffer);
+            loans.openLoan(_col, _minLoan, defaultSwapParams(_minSwap), providerOffer(_providerOfferId));
         }
     }
 
@@ -51,17 +56,9 @@ contract LoansBasicRevertsTest is LoansTestBase {
         vm.expectRevert("unsupported taker contract");
         openLoan(0, 0, 0, 0);
 
-        // unset provider
-        vm.startPrank(owner);
-        configHub.setCanOpen(address(takerNFT), true);
-        loans.setContracts(rolls, CollarProviderNFT(address(0)), escrowNFT);
-        vm.startPrank(user1);
-        vm.expectRevert("provider contract unset");
-        openLoan(0, 0, 0, 0);
-
         // unsupported provider
         vm.startPrank(owner);
-        loans.setContracts(rolls, providerNFT, escrowNFT);
+        configHub.setCanOpen(address(takerNFT), true);
         configHub.setCanOpen(address(providerNFT), false);
         vm.startPrank(user1);
         vm.expectRevert("unsupported provider contract");

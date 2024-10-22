@@ -126,6 +126,8 @@ contract Rolls is IRolls, BaseManaged {
      */
     function previewRoll(uint rollId, uint price) external view returns (PreviewResults memory) {
         RollOffer memory offer = getRollOffer(rollId);
+        // do not divide by zero
+        require(offer.feeReferencePrice != 0, "invalid rollId");
         int rollFee = calculateRollFee(offer, price);
         return _previewRoll(takerNFT.getPosition(offer.takerId), price, rollFee);
     }

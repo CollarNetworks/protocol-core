@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.22;
 
-import { LoansBasicRevertsTest, ILoansNFT } from "./Loans.basic.reverts.t.sol";
+import { LoansBasicRevertsTest, ILoansNFT, EscrowSupplierNFT } from "./Loans.basic.reverts.t.sol";
 
 contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
     function setUp() public virtual override {
@@ -31,16 +31,8 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         // fix allowance
         underlying.approve(address(loans), underlyingAmount + escrowFee);
 
-        // unset escrow
-        vm.startPrank(owner);
-        loans.setContracts(rolls, providerNFT, NO_ESCROW);
-        vm.startPrank(user1);
-        vm.expectRevert("escrow contract unset");
-        openLoan(0, 0, 0, 0);
-
         // unsupported escrow
         vm.startPrank(owner);
-        loans.setContracts(rolls, providerNFT, escrowNFT);
         configHub.setCanOpen(address(escrowNFT), false);
         vm.startPrank(user1);
         vm.expectRevert("unsupported escrow contract");
@@ -53,6 +45,15 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         escrowOfferId = 999; // invalid escrow offer
         vm.expectRevert("invalid offer");
         openLoan(underlyingAmount, minLoanAmount, 0, 0);
+
+        // test escrow asset mismatch
+        EscrowSupplierNFT invalidEscrow = new EscrowSupplierNFT(owner, configHub, cashAsset, "", "");
+        vm.startPrank(owner);
+        configHub.setCanOpen(address(invalidEscrow), true);
+        vm.startPrank(user1);
+        escrowNFT = invalidEscrow;
+        vm.expectRevert("escrow asset mismatch");
+        openLoan(underlyingAmount, 0, 0, 0);
     }
 
     function test_revert_openEscrowLoan_escrowValidations() public {
