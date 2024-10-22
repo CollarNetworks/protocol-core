@@ -42,31 +42,27 @@ contract LoansBasicRevertsTest is LoansTestBase {
         openLoan(0, 0, 0, 0);
 
         // unsupported loans
-        vm.startPrank(owner);
-        configHub.setCanOpen(address(loans), false);
+        setCanOpen(address(loans), false);
         vm.startPrank(user1);
-        vm.expectRevert("unsupported loans contract");
+        vm.expectRevert("unsupported loans");
         openLoan(0, 0, 0, 0);
 
         // unsupported taker
-        vm.startPrank(owner);
-        configHub.setCanOpen(address(loans), true);
-        configHub.setCanOpen(address(takerNFT), false);
+        setCanOpen(address(loans), true);
+        setCanOpen(address(takerNFT), false);
         vm.startPrank(user1);
-        vm.expectRevert("unsupported taker contract");
+        vm.expectRevert("unsupported taker");
         openLoan(0, 0, 0, 0);
 
         // unsupported provider
-        vm.startPrank(owner);
-        configHub.setCanOpen(address(takerNFT), true);
-        configHub.setCanOpen(address(providerNFT), false);
+        setCanOpen(address(takerNFT), true);
+        setCanOpen(address(providerNFT), false);
         vm.startPrank(user1);
-        vm.expectRevert("unsupported provider contract");
+        vm.expectRevert("unsupported provider");
         openLoan(underlyingAmount, 0, 0, 0);
 
         // bad offer
-        vm.startPrank(owner);
-        configHub.setCanOpen(address(providerNFT), true);
+        setCanOpen(address(providerNFT), true);
         vm.startPrank(user1);
         uint invalidOfferId = 999;
         vm.expectRevert("invalid offer");

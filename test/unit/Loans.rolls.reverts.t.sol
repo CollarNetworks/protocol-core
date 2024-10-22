@@ -19,17 +19,15 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         uint rollId = createRollOffer(loanId);
 
         // unsupported loans
-        vm.startPrank(owner);
-        configHub.setCanOpen(address(loans), false);
+        setCanOpen(address(loans), false);
         vm.startPrank(user1);
-        vm.expectRevert("unsupported loans contract");
+        vm.expectRevert("unsupported loans");
         loans.rollLoan(loanId, rollOffer(rollId), MIN_INT, 0, 0);
 
-        vm.startPrank(owner);
-        configHub.setCanOpen(address(loans), true);
-        configHub.setCanOpen(address(rolls), false);
+        setCanOpen(address(loans), true);
+        setCanOpen(address(rolls), false);
         vm.startPrank(user1);
-        vm.expectRevert("unsupported rolls contract");
+        vm.expectRevert("unsupported rolls");
         loans.rollLoan(loanId, rollOffer(rollId), MIN_INT, 0, 0);
     }
 
@@ -252,10 +250,9 @@ contract LoansRollsEscrowRevertsTest is LoansRollsRevertsTest {
         loans.rollLoan(loanId, rollOffer(rollId), MIN_INT, escrowOfferId, escrowFee);
 
         // unsupported escrow
-        vm.startPrank(owner);
-        configHub.setCanOpen(address(escrowNFT), false);
+        setCanOpenSingle(address(escrowNFT), false);
         vm.startPrank(user1);
-        vm.expectRevert("unsupported escrow contract");
+        vm.expectRevert("unsupported escrow");
         loans.rollLoan(loanId, rollOffer(rollId), MIN_INT, escrowOfferId, escrowFee);
     }
 

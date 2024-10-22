@@ -28,10 +28,10 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         asset = underlying;
         escrowNFT = new EscrowSupplierNFT(owner, configHub, asset, "ES Test", "ES Test");
 
+        setCanOpenSingle(address(escrowNFT), true);
+        setCanOpen(loans, true);
         vm.startPrank(owner);
-        configHub.setCanOpen(address(escrowNFT), true);
-        configHub.setCanOpen(loans, true);
-        escrowNFT.setLoansAllowed(loans, true);
+        escrowNFT.setLoansCanOpen(loans, true);
         vm.stopPrank();
 
         asset.mint(loans, largeAmount * 10);

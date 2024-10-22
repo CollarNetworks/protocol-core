@@ -57,6 +57,7 @@
 ###  Escrow
 - [x] #med min take amount to prevent dusting / composability issues
 - [x] #low switchEscrow should ensure not expired because is using 0 fromLoans
+- [x] #low close-only problematic for escrow, because loansAllowed is checked (in modifier) in endEscrow
 - [x] #note naming: lateFee view should be `owedTo` because is used for total owed mainly
 - [x] #note naming: gracePeriod should be maxGracePeriod
 - [x] #note switchEscrow order of params (fee and loanId) is reverse from startEscrow, which is error prone
@@ -100,9 +101,10 @@
 
 ###  ConfigHub:
 - [x] #low max allowed protocol fee APR
-- [ ] #low isSupportedCash/Collateral redundant because canOpen is sufficient and the methods are always used together + assets are immutable in all using contracts. increases potential for config issues, gas, and admin dos.
+- [x] #low isSupportedCash/Collateral redundant because canOpen is sufficient and the methods are always used together. Increases potential for config issues, gas, and admin dos. Instead can use nested mappings to store both assets and canOpen together.
 - [ ] #low ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different), override to `nominateOwner`
 - [ ] #low pause guardians should be a mapping / set to avoid having to share pauser pkey between team members / owner multi-sig signers and bot
+- [x] #note canOpen is not pair / asset specific, so can allow cross asset misuse
 - [ ] #note docs are incomplete
 - [x] #note naming: BIPS / percent in LTV
 - [ ] #note MAX_CONFIGURABLE_DURATION 5 years seems excessive?

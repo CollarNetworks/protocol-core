@@ -139,11 +139,9 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
     }
 
     function _validateSetup(uint _duration, uint _offerLTV) internal view {
-        assertEq(configHub.isValidCollarDuration(_duration), true);
-        assertEq(configHub.isValidLTV(_offerLTV), true);
-        assertEq(configHub.isSupportedCashAsset(address(pair.cashAsset)), true);
-        assertEq(configHub.isSupportedUnderlying(address(pair.underlying)), true);
-        assertEq(configHub.canOpen(address(pair.takerNFT)), true);
-        assertEq(configHub.canOpen(address(pair.providerNFT)), true);
+        assertTrue(configHub.isValidCollarDuration(_duration));
+        assertTrue(configHub.isValidLTV(_offerLTV));
+        assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.takerNFT)));
+        assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.providerNFT)));
     }
 }

@@ -48,7 +48,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
 
     // ----- IMMUTABLES ----- //
     IERC20 public immutable cashAsset;
-    address public immutable underlying; // not used as ERC20 here
+    IERC20 public immutable underlying; // not used as ERC20 here
     // the trusted CollarTakerNFT contract. no interface is assumed because calls are only inbound
     address public immutable taker;
 
@@ -70,7 +70,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         string memory _symbol
     ) BaseNFT(initialOwner, _name, _symbol) {
         cashAsset = _cashAsset;
-        underlying = address(_underlying);
+        underlying = _underlying;
         taker = _taker;
         _setConfigHub(_configHub);
         emit CollarProviderNFTCreated(address(_cashAsset), address(_underlying), _taker);
@@ -159,8 +159,6 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         require(callStrikePercent >= MIN_CALL_STRIKE_BIPS, "strike percent too low");
         require(callStrikePercent <= MAX_CALL_STRIKE_BIPS, "strike percent too high");
         require(putStrikePercent <= MAX_PUT_STRIKE_BIPS, "invalid put strike percent");
-        // config hub allows values to avoid creating offers that can't be taken
-        _configHubValidations(putStrikePercent, duration);
 
         offerId = nextOfferId++;
         liquidityOffers[offerId] = LiquidityOfferStored({
@@ -222,14 +220,16 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         onlyTaker
         returns (uint positionId)
     {
-        // @dev only checked on open, not checked later on settle / cancel to allow withdraw-only mode
-        require(configHub.canOpen(msg.sender), "unsupported taker contract");
-        require(configHub.canOpen(address(this)), "unsupported provider contract");
+        // @dev only checked on open, not checked later on settle / cancel to allow withdraw-only mode.
+        // not checked on createOffer, so invalid offers can be created but not minted from
+        require(configHub.canOpenPair(underlying, cashAsset, msg.sender), "unsupported taker");
+        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "unsupported provider");
 
         LiquidityOffer memory offer = getOffer(offerId);
-
-        // check params are still supported
-        _configHubValidations(offer.putStrikePercent, offer.duration);
+        // check terms
+        uint ltv = offer.putStrikePercent; // assumed to be always equal
+        require(configHub.isValidLTV(ltv), "unsupported LTV");
+        require(configHub.isValidCollarDuration(offer.duration), "unsupported duration");
 
         // calc protocol fee to subtract from offer (on top of amount)
         (uint fee, address feeRecipient) = protocolFee(providerLocked, offer.duration);
@@ -368,19 +368,5 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         cashAsset.safeTransfer(msg.sender, withdrawal);
 
         emit WithdrawalFromSettled(positionId, withdrawal);
-    }
-
-    // ----- INTERNAL MUTATIVE ----- //
-
-    // ----- INTERNAL VIEWS ----- //
-
-    function _configHubValidations(uint putStrikePercent, uint duration) internal view {
-        // assets
-        require(configHub.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
-        require(configHub.isSupportedUnderlying(underlying), "unsupported asset");
-        // terms
-        uint ltv = putStrikePercent; // assumed to be always equal
-        require(configHub.isValidLTV(ltv), "unsupported LTV");
-        require(configHub.isValidCollarDuration(duration), "unsupported duration");
     }
 }

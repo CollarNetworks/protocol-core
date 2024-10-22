@@ -57,8 +57,9 @@ contract Rolls is IRolls, BaseManaged {
     mapping(uint rollId => RollOfferStored) internal rollOffers;
 
     /// @dev Rolls needs BaseManaged for pausing since is approved by users, and holds NFTs.
-    /// Does not need `canOpen` auth because its auth usage is set directly on Loans,
-    /// and it has no long-lived functionality so doesn't need a close-only migration mode.
+    /// Does not need `canOpen` auth here because its auth is checked in Loans, or requires no auth
+    /// if used directly.
+    /// Has no long-lived functionality so doesn't need a close-only migration mode.
     constructor(address initialOwner, CollarTakerNFT _takerNFT) BaseManaged(initialOwner) {
         takerNFT = _takerNFT;
         cashAsset = _takerNFT.cashAsset();

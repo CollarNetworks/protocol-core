@@ -32,15 +32,13 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         underlying.approve(address(loans), underlyingAmount + escrowFee);
 
         // unsupported escrow
-        vm.startPrank(owner);
-        configHub.setCanOpen(address(escrowNFT), false);
+        setCanOpenSingle(address(escrowNFT), false);
         vm.startPrank(user1);
-        vm.expectRevert("unsupported escrow contract");
+        vm.expectRevert("unsupported escrow");
         openLoan(underlyingAmount, 0, 0, 0);
 
         // bad escrow offer
-        vm.startPrank(owner);
-        configHub.setCanOpen(address(escrowNFT), true);
+        setCanOpenSingle(address(escrowNFT), true);
         vm.startPrank(user1);
         escrowOfferId = 999; // invalid escrow offer
         vm.expectRevert("invalid offer");
@@ -48,8 +46,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
 
         // test escrow asset mismatch
         EscrowSupplierNFT invalidEscrow = new EscrowSupplierNFT(owner, configHub, cashAsset, "", "");
-        vm.startPrank(owner);
-        configHub.setCanOpen(address(invalidEscrow), true);
+        setCanOpenSingle(address(invalidEscrow), true);
         vm.startPrank(user1);
         escrowNFT = invalidEscrow;
         vm.expectRevert("escrow asset mismatch");

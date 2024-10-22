@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
-import { ConfigHub, IConfigHub } from "../../src/ConfigHub.sol";
+import { ConfigHub, IConfigHub, IERC20 } from "../../src/ConfigHub.sol";
 import { ICollarTakerNFT } from "../../src/interfaces/ICollarTakerNFT.sol";
 import { ICollarProviderNFT } from "../../src/interfaces/ICollarProviderNFT.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
@@ -36,6 +36,7 @@ contract ConfigHubTest is Test {
         assertEq(configHub.owner(), owner);
         assertEq(configHub.pendingOwner(), address(0));
         assertEq(configHub.VERSION(), "0.2.0");
+        assertEq(address(configHub.ANY_ASSET()), address(type(uint160).max));
         assertEq(configHub.MIN_CONFIGURABLE_LTV_BIPS(), 1000);
         assertEq(configHub.MAX_CONFIGURABLE_LTV_BIPS(), 9999);
         assertEq(configHub.MIN_CONFIGURABLE_DURATION(), 300);
@@ -53,7 +54,7 @@ contract ConfigHubTest is Test {
         startHoax(user1);
 
         vm.expectRevert(user1NotAuthorized);
-        configHub.setCanOpen(address(0), true);
+        configHub.setCanOpenPair(token1, token2, address(0), true);
 
         vm.expectRevert(user1NotAuthorized);
         configHub.setLTVRange(0, 0);
@@ -62,63 +63,49 @@ contract ConfigHubTest is Test {
         configHub.setCollarDurationRange(0, 0);
 
         vm.expectRevert(user1NotAuthorized);
-        configHub.setUnderlyingSupport(address(0), true);
-
-        vm.expectRevert(user1NotAuthorized);
-        configHub.setCashAssetSupport(address(0), true);
-
-        vm.expectRevert(user1NotAuthorized);
         configHub.setPauseGuardian(guardian);
 
         vm.expectRevert(user1NotAuthorized);
         configHub.setProtocolFeeParams(0, address(0));
     }
 
-    function test_setCanOpen() public {
+    function test_setCanOpenPair() public {
         startHoax(owner);
-        address collarTakerContract = address(0x123);
-        assertFalse(configHub.canOpen(collarTakerContract));
+        address target = address(0x123);
+        assertFalse(configHub.canOpenPair(token1, token2, target));
+        assertFalse(configHub.canOpenSingle(token1, target));
 
         vm.expectEmit(address(configHub));
-        emit IConfigHub.ContractCanOpenSet(collarTakerContract, true);
-        configHub.setCanOpen(collarTakerContract, true);
+        emit IConfigHub.ContractCanOpenSet(token1, token2, target, true);
+        configHub.setCanOpenPair(token1, token2, target, true);
 
-        assertTrue(configHub.canOpen(collarTakerContract));
+        assertTrue(configHub.canOpenPair(token1, token2, target));
+        assertFalse(configHub.canOpenPair(token2, token1, target));
+        assertFalse(configHub.canOpenSingle(token1, target));
+        assertFalse(configHub.canOpenSingle(token2, target));
 
         // disabling
         vm.expectEmit(address(configHub));
-        emit IConfigHub.ContractCanOpenSet(collarTakerContract, false);
-        configHub.setCanOpen(collarTakerContract, false);
+        emit IConfigHub.ContractCanOpenSet(token1, token2, target, false);
+        configHub.setCanOpenPair(token1, token2, target, false);
 
-        assertFalse(configHub.canOpen(collarTakerContract));
-    }
+        assertFalse(configHub.canOpenPair(token1, token2, target));
+        assertFalse(configHub.canOpenPair(token2, token1, target));
+        assertFalse(configHub.canOpenSingle(token1, target));
+        assertFalse(configHub.canOpenSingle(token2, target));
 
-    function test_addSupportedCashAsset() public {
-        startHoax(owner);
-        assertFalse(configHub.isSupportedCashAsset(address(token1)));
-        configHub.setCashAssetSupport(address(token1), true);
-        assertTrue(configHub.isSupportedCashAsset(address(token1)));
-    }
+        // canOpenSingle
+        vm.expectEmit(address(configHub));
+        IERC20 anyAsset = configHub.ANY_ASSET();
+        emit IConfigHub.ContractCanOpenSet(token1, anyAsset, target, true);
+        configHub.setCanOpenPair(token1, anyAsset, target, true);
 
-    function test_removeSupportedCashAsset() public {
-        startHoax(owner);
-        configHub.setCashAssetSupport(address(token1), true);
-        configHub.setCashAssetSupport(address(token1), false);
-        assertFalse(configHub.isSupportedCashAsset(address(token1)));
-    }
-
-    function test_addSupportedUnderlying() public {
-        startHoax(owner);
-        assertFalse(configHub.isSupportedUnderlying(address(token1)));
-        configHub.setUnderlyingSupport(address(token1), true);
-        assertTrue(configHub.isSupportedUnderlying(address(token1)));
-    }
-
-    function test_removeSupportedUnderlying() public {
-        startHoax(owner);
-        configHub.setUnderlyingSupport(address(token1), true);
-        configHub.setUnderlyingSupport(address(token1), false);
-        assertFalse(configHub.isSupportedUnderlying(address(token1)));
+        // true
+        assertTrue(configHub.canOpenPair(token1, anyAsset, target));
+        assertTrue(configHub.canOpenSingle(token1, target));
+        // false
+        assertFalse(configHub.canOpenPair(token2, token1, target));
+        assertFalse(configHub.canOpenSingle(token2, target));
     }
 
     function test_isValidDuration() public {

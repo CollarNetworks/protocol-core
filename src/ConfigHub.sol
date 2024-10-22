@@ -4,12 +4,14 @@ pragma solidity 0.8.22;
 import { Ownable2Step, Ownable } from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
-import { IConfigHub } from "./interfaces/IConfigHub.sol";
+import { IConfigHub, IERC20 } from "./interfaces/IConfigHub.sol";
 
 contract ConfigHub is Ownable2Step, IConfigHub {
     uint internal constant BIPS_BASE = 10_000;
 
     string public constant VERSION = "0.2.0";
+    /// @notice placeholder value for using canOpenPair for auth when only one asset is specified
+    IERC20 public constant ANY_ASSET = IERC20(address(type(uint160).max)); // 0xff..ff
 
     // configuration validation (validate on set)
     uint public constant MAX_PROTOCOL_FEE_BIPS = BIPS_BASE / 100; // 1%
@@ -31,24 +33,32 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     // pause guardian for other contracts
     address public pauseGuardian;
 
-    mapping(address unlderlyingAddress => bool isSupported) public isSupportedUnderlying;
-    mapping(address cashAssetAddress => bool isSupported) public isSupportedCashAsset;
-    /// @notice internal contracts auth, "canOpen" means different things within different contracts.
-    /// "closing" already opened is allowed (unless paused).
-    mapping(address contractAddress => bool enabled) public canOpen;
+    /**
+     * @notice main auth for system contracts calling each other during opening of positions:
+     * Assets would typically be: 'underlying -> cash -> someContract -> enabled', but if the auth is
+     * for a single asset (not a pair), ANY_ASSET will be used as a placeholder for the second asset.
+     */
+    mapping(IERC20 => mapping(IERC20 => mapping(address target => bool enabled))) public canOpenPair;
 
     constructor(address _initialOwner) Ownable(_initialOwner) { }
 
     // ----- Setters (only owner) -----
 
-    /// @notice set the ability of an internal contract to "open" positions.
-    /// "canOpen" means different things within different contracts, and is used both for auth
-    /// and to allow a "close-only" migration route for contracts that are phased out.
-    /// This is a low resolution flag, and each using contract should validate that
-    /// the contract it is using matches its intention (e.g., assets, interface)
-    function setCanOpen(address contractAddress, bool enabled) external onlyOwner {
-        canOpen[contractAddress] = enabled;
-        emit ContractCanOpenSet(contractAddress, enabled);
+    /**
+     * @notice set the ability of an internal contract to "open" positions for a specific pair
+     * of assets. This view is checked for auth (allowlist) in interactions between contracts, and by
+     * contracts on themselves to check if opening positions is allowed.
+     * This enables a "close-only" migration route for contracts that are phased out.
+     * This is a low resolution flag, and each using contract should validate that
+     * the contract it is using matches its intention (e.g., assets, interface)
+     *  @param assetA First asset in the mapping
+     *  @param assetB Second asset in the mapping
+     *  @param target The contract in the system for which the flag is being set
+     *  @param enabled Whether opening position is enabled
+     */
+    function setCanOpenPair(IERC20 assetA, IERC20 assetB, address target, bool enabled) external onlyOwner {
+        canOpenPair[assetA][assetB][target] = enabled;
+        emit ContractCanOpenSet(assetA, assetB, target, enabled);
     }
 
     /// @notice Sets the LTV minimum and max values for the configHub
@@ -75,22 +85,6 @@ contract ConfigHub is Ownable2Step, IConfigHub {
         emit CollarDurationRangeSet(min, max);
     }
 
-    /// @notice Sets whether a particular underlying asset is supported
-    /// @param underlying The address of the underlying asset
-    /// @param enabled Whether the asset is supported
-    function setUnderlyingSupport(address underlying, bool enabled) external onlyOwner {
-        isSupportedUnderlying[underlying] = enabled;
-        emit UnderlyingSupportSet(underlying, enabled);
-    }
-
-    /// @notice Sets whether a particular cash asset is supported
-    /// @param cashAsset The address of the cash asset
-    /// @param enabled Whether the asset is supported
-    function setCashAssetSupport(address cashAsset, bool enabled) external onlyOwner {
-        isSupportedCashAsset[cashAsset] = enabled;
-        emit CashAssetSupportSet(cashAsset, enabled);
-    }
-
     // pausing
 
     /// @notice Sets an address that can pause (but not unpause) any of the contracts that
@@ -115,6 +109,11 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     }
 
     // ----- Views -----
+
+    /// @notice equivalent to `canOpenPair` view when the second asset is ANY_ASSET placeholder
+    function canOpenSingle(IERC20 asset, address target) external view returns (bool) {
+        return canOpenPair[asset][ANY_ASSET][target];
+    }
 
     /// @notice Checks to see if a particular collar duration is supported
     /// @param duration The duration to check

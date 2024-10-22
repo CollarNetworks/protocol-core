@@ -66,7 +66,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     {
         takerNFT = _takerNFT;
         cashAsset = _takerNFT.cashAsset();
-        underlying = IERC20(_takerNFT.underlying());
+        underlying = _takerNFT.underlying();
         _setConfigHub(_takerNFT.configHub());
     }
 
@@ -288,7 +288,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         returns (uint newLoanId, uint newLoanAmount, int toUser)
     {
         // check opening loans is still allowed (not in exit-only mode)
-        require(configHub.canOpen(address(this)), "unsupported loans contract");
+        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "unsupported loans");
 
         // @dev rolls contract is assumed to not allow rolling an expired or settled position,
         // but checking explicitly is safer and easier to review
@@ -468,9 +468,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         EscrowOffer memory escrowOffer,
         uint escrowFee
     ) internal returns (uint loanId, uint providerId, uint loanAmount) {
-        require(configHub.canOpen(address(this)), "unsupported loans contract");
-        // provider NFT canOpen is checked by taker contract
-        // taker NFT canOpen is checked in _swapAndMintPaired
+        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "unsupported loans");
+        // taker NFT and provider NFT canOpen is checked in _swapAndMintPaired
         // escrow NFT canOpen is checked in _conditionalOpenEscrow
 
         // sanitize escrowFee in case usesEscrow is false.
@@ -527,9 +526,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     ) internal returns (uint takerId, uint providerId, uint loanAmount) {
         (CollarProviderNFT providerNFT, uint offerId) = (offer.providerNFT, offer.id);
 
-        require(configHub.canOpen(address(takerNFT)), "unsupported taker contract");
+        require(configHub.canOpenPair(underlying, cashAsset, address(takerNFT)), "unsupported taker");
         // taker will check provider's canOpen as well, but we're using a view from it below so check too
-        require(configHub.canOpen(address(providerNFT)), "unsupported provider contract");
+        require(configHub.canOpenPair(underlying, cashAsset, address(providerNFT)), "unsupported provider");
         // taker is expected to check that providerNFT's assets match correctly
 
         // 0 underlying is later checked to mean non-existing loan, also prevents div-zero
@@ -618,7 +617,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     {
         (Rolls rolls, uint rollId) = (rollOffer.rolls, rollOffer.id);
         // check this rolls contract is allowed
-        require(configHub.canOpen(address(rolls)), "unsupported rolls contract");
+        require(configHub.canOpenPair(underlying, cashAsset, address(rolls)), "unsupported rolls");
         // taker matching roll's taker is not checked because if doesn't match, roll should check / fail
         // offer status (active) is not checked, also since rolls should check / fail
 
@@ -670,7 +669,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             // check asset matches
             require(escrowNFT.asset() == underlying, "escrow asset mismatch");
             // whitelisted only
-            require(configHub.canOpen(address(escrowNFT)), "unsupported escrow contract");
+            require(configHub.canOpenSingle(underlying, address(escrowNFT)), "unsupported escrow");
 
             // @dev underlyingAmount and fee were pulled already before calling this method
             underlying.forceApprove(address(escrowNFT), escrowed + fee);
@@ -692,13 +691,14 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         returns (uint newEscrowId)
     {
         if (prevLoan.usesEscrow) {
+            EscrowSupplierNFT escrowNFT = prevLoan.escrowNFT;
             // check this escrow is still allowed
-            require(configHub.canOpen(address(prevLoan.escrowNFT)), "unsupported escrow contract");
+            require(configHub.canOpenSingle(underlying, address(escrowNFT)), "unsupported escrow");
 
             underlying.safeTransferFrom(msg.sender, address(this), newFee);
-            underlying.forceApprove(address(prevLoan.escrowNFT), newFee);
+            underlying.forceApprove(address(escrowNFT), newFee);
             uint feeRefund;
-            (newEscrowId, feeRefund) = prevLoan.escrowNFT.switchEscrow({
+            (newEscrowId, feeRefund) = escrowNFT.switchEscrow({
                 releaseEscrowId: prevLoan.escrowId,
                 offerId: offerId,
                 newFee: newFee,
@@ -706,7 +706,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             });
 
             // check escrow and loan have matching fields
-            _escrowValidations(newLoanId, prevLoan.escrowNFT, newEscrowId);
+            _escrowValidations(newLoanId, escrowNFT, newEscrowId);
 
             // send potential interest fee refund
             underlying.safeTransfer(msg.sender, feeRefund);

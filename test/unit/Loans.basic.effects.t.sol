@@ -56,14 +56,15 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         vm.label(address(loans), "Loans");
 
         // config
-        vm.startPrank(owner);
         // escrow
-        configHub.setCanOpen(address(escrowNFT), true);
-        escrowNFT.setLoansAllowed(address(loans), true);
+        setCanOpenSingle(address(escrowNFT), true);
+        vm.startPrank(owner);
+        escrowNFT.setLoansCanOpen(address(loans), true);
         // loans
-        configHub.setCanOpen(address(loans), true);
-        configHub.setCanOpen(address(rolls), true);
+        setCanOpen(address(loans), true);
+        setCanOpen(address(rolls), true);
         defaultSwapper = address(swapperUniV3);
+        vm.startPrank(owner);
         loans.setSwapperAllowed(defaultSwapper, true, true);
         vm.stopPrank();
 

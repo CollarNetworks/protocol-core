@@ -18,7 +18,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
 
     // ----- IMMUTABLES ----- //
     IERC20 public immutable cashAsset;
-    address public immutable underlying; // not used as ERC20 here
+    IERC20 public immutable underlying; // not used as ERC20 here
 
     // ----- STATE VARIABLES ----- //
     ITakerOracle public oracle;
@@ -34,7 +34,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         string memory _symbol
     ) BaseNFT(initialOwner, _name, _symbol) {
         cashAsset = _cashAsset;
-        underlying = address(_underlying);
+        underlying = _underlying;
         _setConfigHub(_configHub);
         _setOracle(_oracle);
         emit CollarTakerNFTCreated(address(_cashAsset), address(_underlying), address(_oracle));
@@ -121,13 +121,10 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         CollarProviderNFT providerNFT,
         uint offerId // @dev implies specific provider, put & call percents, duration
     ) external whenNotPaused returns (uint takerId, uint providerId) {
-        // check assets allowed
-        require(configHub.isSupportedCashAsset(address(cashAsset)), "unsupported asset");
-        require(configHub.isSupportedUnderlying(underlying), "unsupported asset");
-        // check self allowed
-        require(configHub.canOpen(address(this)), "unsupported taker contract");
-        // check provider allowed
-        require(configHub.canOpen(address(providerNFT)), "unsupported provider contract");
+        // check asset & self allowed
+        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "unsupported taker");
+        // check assets & provider allowed
+        require(configHub.canOpenPair(underlying, cashAsset, address(providerNFT)), "unsupported provider");
         // check assets match
         require(providerNFT.underlying() == underlying, "asset mismatch");
         require(providerNFT.cashAsset() == cashAsset, "asset mismatch");
@@ -263,7 +260,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
 
     function _setOracle(ITakerOracle _oracle) internal {
         // assets match
-        require(_oracle.baseToken() == underlying, "oracle asset mismatch");
+        require(_oracle.baseToken() == address(underlying), "oracle asset mismatch");
         require(_oracle.quoteToken() == address(cashAsset), "oracle asset mismatch");
 
         // Ensure price calls don't revert and return a non-zero price at least right now.
