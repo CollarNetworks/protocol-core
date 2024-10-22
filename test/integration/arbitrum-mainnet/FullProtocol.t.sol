@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import { ArbitrumMainnetDeployer } from "../../../script/arbitrum-mainnet/deployer.sol";
 import { DeploymentUtils } from "../../../script/utils/deployment-exporter.s.sol";
-import { DeploymentLoader } from "../utils/DeploymentLoader.sol";
+import { DeploymentLoader } from "./DeploymentLoader.sol";
 import "./validation.t.sol";
 import "./Loans.fork.t.sol";
 
