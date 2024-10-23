@@ -16,6 +16,8 @@ library ArbitrumMainnetDeployer {
     address constant MATIC = 0x561877b6b3DD7651313794e5F2894B2F18bE0766;
     address constant swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
 
+    address constant sequencerUptimeFeed = address(0xFdB631F5EE196F0ed6FAa767959853A9F217697D);
+
     uint24 constant oracleFeeTier = 500;
     uint24 constant swapFeeTier = 500;
     uint32 constant twapWindow = 15 minutes;
@@ -104,7 +106,8 @@ library ArbitrumMainnetDeployer {
             oracleFeeTier: oracleFeeTier,
             swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
-            swapRouter: swapRouterAddress
+            swapRouter: swapRouterAddress,
+            sequencerUptimeFeed: sequencerUptimeFeed
         });
         assetPairContracts[0] = DeploymentHelper.deployContractPair(configHub, USDCWETHPairConfig, owner);
 
@@ -117,7 +120,8 @@ library ArbitrumMainnetDeployer {
             oracleFeeTier: oracleFeeTier,
             swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
-            swapRouter: swapRouterAddress
+            swapRouter: swapRouterAddress,
+            sequencerUptimeFeed: sequencerUptimeFeed
         });
 
         assetPairContracts[1] = DeploymentHelper.deployContractPair(configHub, USDTWETHPairConfig, owner);
@@ -131,7 +135,8 @@ library ArbitrumMainnetDeployer {
             oracleFeeTier: oracleFeeTier,
             swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
-            swapRouter: swapRouterAddress
+            swapRouter: swapRouterAddress,
+            sequencerUptimeFeed: sequencerUptimeFeed
         });
 
         assetPairContracts[2] = DeploymentHelper.deployContractPair(configHub, USDCWBTCPairConfig, owner);
