@@ -6,6 +6,7 @@ import "forge-std/Test.sol";
 
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
+import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockOracleUniV3TWAP } from "../utils/MockOracleUniV3TWAP.sol";
@@ -18,9 +19,18 @@ import { EscrowSupplierNFT } from "../../src/EscrowSupplierNFT.sol";
 import { LoansNFT } from "../../src/LoansNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
+contract TestERC721 is ERC721 {
+    constructor() ERC721("TestERC721", "TestERC721") { }
+
+    function mint(address to, uint id) external {
+        _mint(to, id);
+    }
+}
+
 // base contract for other tests that will check this functionality
 abstract contract BaseManagedTestBase is Test {
     TestERC20 erc20;
+    TestERC721 erc721;
     ConfigHub configHub;
 
     BaseManaged testedContract;
@@ -31,6 +41,7 @@ abstract contract BaseManagedTestBase is Test {
 
     function setUp() public virtual {
         erc20 = new TestERC20("TestERC20", "TestERC20");
+        erc721 = new TestERC721();
         configHub = new ConfigHub(owner);
 
         setupTestedContract();
@@ -105,14 +116,28 @@ abstract contract BaseManagedTestBase is Test {
     function test_rescueTokens_ERC20() public {
         uint amount = 1000;
         erc20.mint(address(testedContract), amount);
+        assertEq(erc20.balanceOf(address(testedContract)), amount);
 
         vm.prank(owner);
         vm.expectEmit(address(testedContract));
         emit BaseManaged.TokensRescued(address(erc20), amount);
-        testedContract.rescueTokens(address(erc20), amount);
+        testedContract.rescueTokens(address(erc20), amount, false);
 
         assertEq(erc20.balanceOf(owner), amount);
         assertEq(erc20.balanceOf(address(testedContract)), 0);
+    }
+
+    function test_rescueTokens_ERC721() public {
+        uint id = 1000;
+        erc721.mint(address(testedContract), id);
+        assertEq(erc721.ownerOf(id), address(testedContract));
+
+        vm.prank(owner);
+        vm.expectEmit(address(testedContract));
+        emit BaseManaged.TokensRescued(address(erc721), id);
+        testedContract.rescueTokens(address(erc721), id, true);
+
+        assertEq(erc721.ownerOf(id), owner);
     }
 
     // reverts
@@ -146,7 +171,7 @@ abstract contract BaseManagedTestBase is Test {
         testedContract.setConfigHub(configHub);
 
         vm.expectRevert(abi.encodeWithSelector(selector, user1));
-        testedContract.rescueTokens(address(0), 0);
+        testedContract.rescueTokens(address(0), 0, true);
     }
 
     function test_revert_pauseByGuardian_notGuardian() public {

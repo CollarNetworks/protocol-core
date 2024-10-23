@@ -94,7 +94,7 @@
 - [x] #note cei can be better in settle
 
 ### Base admin
-- [ ] #low rescuing nfts is not handled: use another arg / function to rescue nfts 
+- [x] #low rescuing nfts is not handled: use another arg / function to rescue nfts 
 - [ ] #low ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different). override to `nominateOwner`
 - [ ] #note docs for BaseEmergencyAdmin and BaseNFT + why they need config hub
 - [x] #note naming: EmergencyAdmin is role and not attribute. BaseHubControlled?
