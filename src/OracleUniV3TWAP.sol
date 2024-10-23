@@ -82,7 +82,6 @@ contract OracleUniV3TWAP is ITakerOracle {
         baseUnitAmount = 10 ** IERC20Metadata(_baseToken).decimals();
         // sanity check decimals for casting in _getQuote
         require(baseUnitAmount <= type(uint128).max, "invalid decimals");
-        // get pool
         pool = IUniswapV3Pool(_getPoolAddress(_uniV3SwapRouter));
         sequencerChainlinkFeed = IChainlinkFeedLike(_sequencerChainlinkFeed);
     }
@@ -90,7 +89,7 @@ contract OracleUniV3TWAP is ITakerOracle {
     // ----- Views ----- //
 
     /// @dev adapted from AAVE:
-    /// The extra time is needed to check that sequencer has been live long enough, to ensure some
+    /// @param `atLeast` time is needed to check that sequencer has been live long enough, to ensure some
     /// assumptions are valid, e.g., DEX arbitrage was possible for at least that time.
     /// https://github.com/aave-dao/aave-v3-origin/blob/077c99e8002514f1f487e3707824c21ac19cf12e/src/contracts/misc/PriceOracleSentinel.sol#L71-L74
     /// More on sequencer uptime chainlink feeds: https://docs.chain.link/data-feeds/l2-sequencer-feeds
@@ -127,9 +126,10 @@ contract OracleUniV3TWAP is ITakerOracle {
         uint32[] memory secondsAgos = new uint32[](2);
         secondsAgos[0] = secondsAgo + twapWindow;
         secondsAgos[1] = secondsAgo;
-        // @dev a false positive failure is possible if sequencer was up then, but was interrupted
-        // since. Because TWAP prices are not long living, this false positive is unlikely, and the
-        // fallback (current) price should be used if it is available.
+        // check that that sequencer was live for the duration of the twapWindow
+        // @dev for historical price, if sequencer was up then, but was interrupted
+        // since, this will revert ("false positive"). Because TWAP prices are not long living,
+        // this false positive is unlikely, and the fallback price should be used if available.
         require(sequencerLiveFor(secondsAgos[0]), "sequencer uptime interrupted");
         // get the price from the pool
         return _getQuote(secondsAgos);
