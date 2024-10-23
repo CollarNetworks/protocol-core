@@ -36,6 +36,7 @@ library DeploymentHelper {
         uint24 swapFeeTier;
         uint32 twapWindow;
         address swapRouter;
+        address sequencerUptimeFeed;
     }
 
     function deployConfigHub(address owner) internal returns (ConfigHub) {
@@ -51,7 +52,8 @@ library DeploymentHelper {
             address(pairConfig.cashAsset),
             pairConfig.oracleFeeTier,
             pairConfig.twapWindow,
-            pairConfig.swapRouter
+            pairConfig.swapRouter,
+            pairConfig.sequencerUptimeFeed
         );
 
         CollarTakerNFT takerNFT = new CollarTakerNFT(

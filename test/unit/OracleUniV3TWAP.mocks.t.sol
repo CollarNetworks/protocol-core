@@ -26,6 +26,7 @@ contract OracleUniV3TWAPTest is Test {
     address mockPool = address(0x30);
     address mockFactory = address(0x40);
     address mockRouter = address(0x50);
+    address mockSequencerFeed = address(0); // disabled
 
     error OLD(); // when price is not available
 
@@ -46,7 +47,8 @@ contract OracleUniV3TWAPTest is Test {
 
     function setUp() public {
         mockRouterAndFactoryCalls();
-        oracle = new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, mockRouter);
+        oracle =
+            new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, mockRouter, mockSequencerFeed);
         vm.clearMockedCalls();
         // roll into future to avoid underflow with timestamps
         skip(1000);
@@ -87,7 +89,8 @@ contract OracleUniV3TWAPTest is Test {
 
     function test_constructor() public {
         mockRouterAndFactoryCalls();
-        oracle = new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, mockRouter);
+        oracle =
+            new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, mockRouter, mockSequencerFeed);
         assertEq(oracle.VERSION(), "0.2.0");
         assertEq(oracle.MIN_TWAP_WINDOW(), 300);
         assertEq(oracle.baseToken(), baseToken);
@@ -100,7 +103,8 @@ contract OracleUniV3TWAPTest is Test {
         // test different decimals
         decimals = 2;
         mockRouterAndFactoryCalls();
-        oracle = new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, mockRouter);
+        oracle =
+            new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, mockRouter, mockSequencerFeed);
         assertEq(oracle.baseUnitAmount(), 10 ** decimals);
     }
 
@@ -183,7 +187,7 @@ contract OracleUniV3TWAPTest is Test {
         twapWindow = 600; // 10 minutes
         mockRouterAndFactoryCalls();
         OracleUniV3TWAP newOracle =
-            new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, mockRouter);
+            new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, mockRouter, mockSequencerFeed);
 
         int24 mockTick = tick1000;
         mockObserve(mockTick, 0);
@@ -249,18 +253,18 @@ contract OracleUniV3TWAPTest is Test {
     function test_revert_constructor_invalidPool() public {
         // reverting factory view
         vm.expectRevert(new bytes(0));
-        new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, address(0));
+        new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, address(0), mockSequencerFeed);
     }
 
     function test_revert_constructor_invalidTWAPWindow() public {
         vm.expectRevert("twap window too short");
-        new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow - 1, mockRouter);
+        new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow - 1, mockRouter, mockSequencerFeed);
     }
 
     function test_revert_constructor_invalidDecimals() public {
         // Mock the decimals call
         vm.mockCall(baseToken, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(39));
         vm.expectRevert("invalid decimals");
-        new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, mockRouter);
+        new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, mockRouter, mockSequencerFeed);
     }
 }

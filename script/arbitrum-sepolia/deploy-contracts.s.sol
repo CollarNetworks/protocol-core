@@ -82,7 +82,8 @@ contract DeployContractsArbitrumSepolia is Script, UniswapNewPoolHelper {
             oracleFeeTier: oracleFeeTier,
             swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
-            swapRouter: address(SWAP_ROUTER)
+            swapRouter: address(SWAP_ROUTER),
+            sequencerUptimeFeed: address(0) // no uptime feed for arbi-sepolia
         });
 
         DeploymentHelper.AssetPairContracts memory contracts =

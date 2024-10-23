@@ -19,6 +19,7 @@ contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
     address baseToken;
     address quoteToken;
     address pool;
+    address sequencerFeed;
 
     // test values
     uint expectedCurPrice;
@@ -33,7 +34,7 @@ contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
         _startFork();
         _config();
         _setUp();
-        oracle = new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, router);
+        oracle = new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, router, sequencerFeed);
     }
 
     function _startFork() internal virtual {
@@ -55,7 +56,7 @@ contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
     // effects tests
 
     function test_constructor() public {
-        oracle = new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, router);
+        oracle = new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, router, sequencerFeed);
         assertEq(oracle.VERSION(), "0.2.0");
         assertEq(oracle.MIN_TWAP_WINDOW(), 300);
         assertEq(oracle.baseToken(), baseToken);
