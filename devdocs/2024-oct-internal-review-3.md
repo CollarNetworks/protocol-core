@@ -103,7 +103,7 @@
 - [x] #low max allowed protocol fee APR
 - [x] #low isSupportedCash/Collateral redundant because canOpen is sufficient and the methods are always used together. Increases potential for config issues, gas, and admin dos. Instead can use nested mappings to store both assets and canOpen together.
 - [ ] #low ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different), override to `nominateOwner`
-- [ ] #low pause guardians should be a mapping / set to avoid having to share pauser pkey between team members / owner multi-sig signers and bot
+- [x] #low pause guardians should be a mapping / set to avoid having to share pauser pkey between team members / owner multi-sig signers and bot
 - [x] #note canOpen is not pair / asset specific, so can allow cross asset misuse
 - [ ] #note docs are incomplete
 - [x] #note naming: BIPS / percent in LTV

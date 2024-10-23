@@ -30,8 +30,8 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     uint16 public protocolFeeAPR; // max 650%, but cannot be over 100%
     address public feeRecipient;
     // next slot
-    // pause guardian for other contracts
-    address public pauseGuardian;
+    // pause guardians for other contracts
+    mapping(address sender => bool enabled) public isPauseGuardian;
 
     /**
      * @notice main auth for system contracts calling each other during opening of positions:
@@ -87,12 +87,13 @@ contract ConfigHub is Ownable2Step, IConfigHub {
 
     // pausing
 
-    /// @notice Sets an address that can pause (but not unpause) any of the contracts that
+    /// @notice Sets addresses that can pause (but not unpause) any of the contracts that
     /// use this ConfigHub.
-    /// @param newGuardian The address of the new guardian
-    function setPauseGuardian(address newGuardian) external onlyOwner {
-        emit PauseGuardianSet(pauseGuardian, newGuardian); // emit before for the prev-value
-        pauseGuardian = newGuardian;
+    /// @param sender The address of the a guardian
+    /// @param enabled Enabled or disabled status
+    function setPauseGuardian(address sender, bool enabled) external onlyOwner {
+        isPauseGuardian[sender] = enabled;
+        emit PauseGuardianSet(sender, enabled);
     }
 
     // protocol fee

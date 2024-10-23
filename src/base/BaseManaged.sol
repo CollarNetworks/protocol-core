@@ -26,7 +26,7 @@ abstract contract BaseManaged is Ownable2Step, Pausable {
     // @notice Pause method called from the guardian authorized by the ConfigHub
     // Reverts if sender is not guardian, or if owner is revoked (since unpausing would be impossible)
     function pauseByGuardian() external {
-        require(msg.sender == configHub.pauseGuardian(), "not guardian");
+        require(configHub.isPauseGuardian(msg.sender), "not guardian");
         // if owner is renounced, no one will be able to call unpause.
         // Using Ownable2Step ensures the owner can only be renounced to address(0).
         require(owner() != address(0), "owner renounced");

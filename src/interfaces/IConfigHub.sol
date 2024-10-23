@@ -11,7 +11,7 @@ interface IConfigHub {
     event ContractCanOpenSet(
         IERC20 indexed assetA, IERC20 indexed assetB, address indexed contractAddress, bool enabled
     );
-    event PauseGuardianSet(address prevGaurdian, address newGuardian);
+    event PauseGuardianSet(address sender, bool enabled);
     event ProtocolFeeParamsUpdated(
         uint prevFeeAPR, uint newFeeAPR, address prevRecipient, address newRecipient
     );

@@ -50,7 +50,7 @@ abstract contract BaseManagedTestBase is Test {
 
     function test_pauseByGuardian() public {
         vm.prank(owner);
-        configHub.setPauseGuardian(guardian);
+        configHub.setPauseGuardian(guardian, true);
 
         vm.prank(guardian);
         vm.expectEmit(address(testedContract));
@@ -60,6 +60,15 @@ abstract contract BaseManagedTestBase is Test {
         testedContract.pauseByGuardian();
 
         assertTrue(testedContract.paused());
+
+        // unset
+        vm.startPrank(owner);
+        testedContract.unpause();
+        configHub.setPauseGuardian(guardian, false);
+
+        vm.startPrank(guardian);
+        vm.expectRevert("not guardian");
+        testedContract.pauseByGuardian();
     }
 
     function test_pause() public {
@@ -146,7 +155,7 @@ abstract contract BaseManagedTestBase is Test {
         testedContract.pauseByGuardian();
 
         vm.prank(owner);
-        configHub.setPauseGuardian(user1);
+        configHub.setPauseGuardian(user1, true);
         vm.prank(user1);
         testedContract.pauseByGuardian();
         assertTrue(testedContract.paused());
@@ -154,7 +163,7 @@ abstract contract BaseManagedTestBase is Test {
 
     function test_revert_pauseByGuardian_ownerRenounced() public {
         vm.prank(owner);
-        configHub.setPauseGuardian(guardian);
+        configHub.setPauseGuardian(guardian, true);
 
         vm.prank(owner);
         testedContract.renounceOwnership();
@@ -166,7 +175,7 @@ abstract contract BaseManagedTestBase is Test {
 
     function test_revert_guardian_unpause() public {
         vm.prank(owner);
-        configHub.setPauseGuardian(guardian);
+        configHub.setPauseGuardian(guardian, true);
 
         vm.startPrank(guardian);
         // can pause

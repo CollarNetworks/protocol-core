@@ -41,7 +41,9 @@ contract ConfigHubTest is Test {
         assertEq(configHub.MAX_CONFIGURABLE_LTV_BIPS(), 9999);
         assertEq(configHub.MIN_CONFIGURABLE_DURATION(), 300);
         assertEq(configHub.MAX_CONFIGURABLE_DURATION(), 5 * 365 days);
-        assertEq(configHub.pauseGuardian(), address(0));
+        assertFalse(configHub.isPauseGuardian(guardian));
+        assertFalse(configHub.isPauseGuardian(owner));
+        assertFalse(configHub.isPauseGuardian(address(0)));
         assertEq(configHub.feeRecipient(), address(0));
         assertEq(configHub.minDuration(), 0);
         assertEq(configHub.maxDuration(), 0);
@@ -63,7 +65,7 @@ contract ConfigHubTest is Test {
         configHub.setCollarDurationRange(0, 0);
 
         vm.expectRevert(user1NotAuthorized);
-        configHub.setPauseGuardian(guardian);
+        configHub.setPauseGuardian(guardian, true);
 
         vm.expectRevert(user1NotAuthorized);
         configHub.setProtocolFeeParams(0, address(0));
@@ -171,14 +173,25 @@ contract ConfigHubTest is Test {
     function test_setPauseGuardian() public {
         startHoax(owner);
         vm.expectEmit(address(configHub));
-        emit IConfigHub.PauseGuardianSet(address(0), guardian);
-        configHub.setPauseGuardian(guardian);
-        assertEq(configHub.pauseGuardian(), guardian);
+        emit IConfigHub.PauseGuardianSet(guardian, true);
+        configHub.setPauseGuardian(guardian, true);
+        assertTrue(configHub.isPauseGuardian(guardian));
+
+        // set another
+        vm.expectEmit(address(configHub));
+        address anotherGuardian = makeAddr("anotherGuardian");
+        emit IConfigHub.PauseGuardianSet(anotherGuardian, true);
+        configHub.setPauseGuardian(anotherGuardian, true);
+        assertTrue(configHub.isPauseGuardian(anotherGuardian));
+        // previous is still set
+        assertTrue(configHub.isPauseGuardian(guardian));
 
         vm.expectEmit(address(configHub));
-        emit IConfigHub.PauseGuardianSet(guardian, address(0));
-        configHub.setPauseGuardian(address(0));
-        assertEq(configHub.pauseGuardian(), address(0));
+        emit IConfigHub.PauseGuardianSet(guardian, false);
+        configHub.setPauseGuardian(guardian, false);
+        assertFalse(configHub.isPauseGuardian(guardian));
+        // the other is still set
+        assertTrue(configHub.isPauseGuardian(anotherGuardian));
     }
 
     function test_setProtocolFeeParams() public {
