@@ -145,18 +145,13 @@ contract LoansForkTest is LoansTestBase {
         uint expectedFee = getProviderProtocolFeeByUnderlying();
         uint minLoanAmount = 0.3e6; // arbitrary
         (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
-
         // Verify fee taken and sent to recipient
         assertEq(pair.cashAsset.balanceOf(feeRecipient) - feeRecipientBalanceBefore, expectedFee);
         /// @dev offerAmount change (offerAmount-providerLocked-fee) could be checked
         /// but would require a lot of precision due to slippage from swap on final providerLocked value
         assertGt(loanAmount, 0);
         skip(pair.durations[0]);
-        // no price change so underlying out should be underlying in minus slippage
-        uint minUnderlyingOut = underlyingAmount;
-        uint minUnderlyingOutWithSlippage = minUnderlyingOut * (100 - slippage) / 100;
-        uint underlyingOut = closeLoan(pair, user, loanId, minUnderlyingOutWithSlippage);
-        assertGe(underlyingOut, minUnderlyingOutWithSlippage);
+        closeAndCheckLoan(loanId, loanAmount);
     }
 
     function testRollLoan() public {
@@ -171,6 +166,9 @@ contract LoansForkTest is LoansTestBase {
         uint newPositionPrice = pair.takerNFT.currentOraclePrice();
         IRolls.PreviewResults memory expectedResults =
             pair.rollsContract.previewRoll(rollOfferId, newPositionPrice);
+        assertGt(expectedResults.protocolFee, 0);
+        assertGt(expectedResults.toProvider, 0);
+
         uint providerBalanceBefore = pair.cashAsset.balanceOf(provider);
         uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
         int minToUser = -1000e6; // Allow up to 1000 tokens to be paid by the user
@@ -207,7 +205,7 @@ contract LoansForkTest is LoansTestBase {
         // Calculate roll protocol fee
         IRolls.PreviewResults memory expectedResults =
             pair.rollsContract.previewRoll(rollOfferId, pair.takerNFT.currentOraclePrice());
-
+        assertGt(expectedResults.protocolFee, 0);
         (uint newLoanId, uint newLoanAmount, int transferAmount) =
             rollLoan(pair, user, loanId, rollOfferId, -1000e6);
 
@@ -219,18 +217,15 @@ contract LoansForkTest is LoansTestBase {
         // Advance time again
         vm.warp(block.timestamp + pair.durations[0]);
 
-        uint minUnderlyingOut = underlyingAmount * (100 - slippage) / 100; // 5% slippage
-        uint underlyingOut = closeLoan(pair, user, newLoanId, minUnderlyingOut);
+        closeAndCheckLoan(newLoanId, newLoanAmount);
+        assertGt(initialLoanAmount, 0);
+        assertGe(int(newLoanAmount), int(initialLoanAmount) + transferAmount);
 
         // Verify total protocol fees collected
         assertEq(
             pair.cashAsset.balanceOf(feeRecipient) - feeRecipientBalanceBefore,
             initialFee + expectedResults.protocolFee
         );
-
-        assertGt(initialLoanAmount, 0);
-        assertGe(int(newLoanAmount), int(initialLoanAmount) + transferAmount);
-        assertGe(underlyingOut, minUnderlyingOut);
     }
 
     function getProviderProtocolFeeByUnderlying() internal view returns (uint protocolFee) {
@@ -238,6 +233,22 @@ contract LoansForkTest is LoansTestBase {
         uint swapOut = underlyingAmount * pair.takerNFT.currentOraclePrice() / pair.oracle.baseUnitAmount();
         uint initProviderLocked = swapOut * (callstrikeToUse - BIPS_BASE) / BIPS_BASE;
         (protocolFee,) = pair.providerNFT.protocolFee(initProviderLocked, pair.durations[0]);
+        assertGt(protocolFee, 0);
+    }
+
+    function closeAndCheckLoan(uint loanId, uint loanAmount) internal {
+        // Track balances before closing
+        uint userCashBefore = pair.cashAsset.balanceOf(user);
+        uint userUnderlyingBefore = pair.underlying.balanceOf(user);
+
+        // no price change so underlying out should be underlying in minus slippage
+        uint minUnderlyingOut = underlyingAmount;
+        uint minUnderlyingOutWithSlippage = minUnderlyingOut * (100 - slippage) / 100;
+        uint underlyingOut = closeLoan(pair, user, loanId, minUnderlyingOutWithSlippage);
+        assertGe(underlyingOut, minUnderlyingOutWithSlippage);
+        // Verify balance changes
+        assertEq(userCashBefore - pair.cashAsset.balanceOf(user), loanAmount);
+        assertEq(pair.underlying.balanceOf(user) - userUnderlyingBefore, underlyingOut);
     }
 
     function fundWallets() public {
