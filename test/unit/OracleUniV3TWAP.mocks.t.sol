@@ -13,7 +13,7 @@ import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswa
 import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 
-import { OracleUniV3TWAP, IERC20Metadata } from "../../src/OracleUniV3TWAP.sol";
+import { OracleUniV3TWAP, IERC20Metadata, IChainlinkFeedLike } from "../../src/OracleUniV3TWAP.sol";
 
 contract OracleUniV3TWAPTest is Test {
     OracleUniV3TWAP public oracle;
@@ -85,6 +85,14 @@ contract OracleUniV3TWAPTest is Test {
         );
     }
 
+    function setSequencer() internal {
+        // redeploy
+        mockSequencerFeed = makeAddr("feed");
+        setUp();
+        // check
+        assertEq(address(oracle.sequencerChainlinkFeed()), mockSequencerFeed);
+    }
+
     // effects tests
 
     function test_constructor() public {
@@ -99,6 +107,8 @@ contract OracleUniV3TWAPTest is Test {
         assertEq(oracle.feeTier(), feeTier);
         assertEq(oracle.twapWindow(), twapWindow);
         assertEq(address(oracle.pool()), mockPool);
+        assertEq(address(oracle.sequencerChainlinkFeed()), address(0));
+        assertTrue(oracle.sequencerLiveFor(twapWindow));
 
         // test different decimals
         decimals = 2;
@@ -117,6 +127,78 @@ contract OracleUniV3TWAPTest is Test {
         );
 
         assertEq(oracle.currentCardinality(), expectedCardinality);
+    }
+
+    function test_sequencer_notSet() public {
+        // sequencer address returns "down", but it's 0 address so not checked
+        vm.mockCall(
+            mockSequencerFeed, // address 0 here
+            abi.encodeCall(IChainlinkFeedLike.latestRoundData, ()),
+            abi.encode(0, 1, 0, 0, 0)
+        );
+        // view works
+        assertTrue(oracle.sequencerLiveFor(0));
+        assertTrue(oracle.sequencerLiveFor(1000));
+
+        // price works
+        mockObserve(tick1000, 0);
+        assertEq(oracle.currentPrice(), priceTick1000);
+    }
+
+    function test_sequencerViewAndReverts_sequencerUp() public {
+        setSequencer();
+
+        // sequencer up (answer = 0) for 1 hour
+        vm.mockCall(
+            mockSequencerFeed,
+            abi.encodeCall(IChainlinkFeedLike.latestRoundData, ()),
+            abi.encode(0, 0, block.timestamp - 1000, 0, 0)
+        );
+        int24 mockTick = tick1000;
+
+        // current works
+        assertTrue(oracle.sequencerLiveFor(500));
+        mockObserve(mockTick, 0);
+        assertEq(oracle.currentPrice(), priceTick1000);
+
+        // past price just after "outage" works
+        assertTrue(oracle.sequencerLiveFor(1000));
+        uint32 ago = 1000 - twapWindow;
+        mockObserve(mockTick, ago);
+        assertEq(oracle.pastPrice(uint32(block.timestamp - ago)), priceTick1000);
+
+        // past price overlapping "outage" doesn't work
+        assertFalse(oracle.sequencerLiveFor(1000 + 1));
+        vm.expectRevert("sequencer uptime interrupted");
+        oracle.pastPrice(uint32(block.timestamp - ago - 1));
+
+        // past price before "outage" doesn't work
+        assertFalse(oracle.sequencerLiveFor(1500));
+        vm.expectRevert("sequencer uptime interrupted");
+        oracle.pastPrice(uint32(block.timestamp - 1500));
+    }
+
+    function test_sequencerViewAndReverts_sequencerDown() public {
+        setSequencer();
+
+        // sequencer down (answer = 1) for 1 hour
+        vm.mockCall(
+            mockSequencerFeed,
+            abi.encodeCall(IChainlinkFeedLike.latestRoundData, ()),
+            abi.encode(0, 1, block.timestamp - 1000, 0, 0)
+        );
+
+        assertFalse(oracle.sequencerLiveFor(0));
+        assertFalse(oracle.sequencerLiveFor(1500));
+
+        vm.expectRevert("sequencer uptime interrupted");
+        oracle.currentPrice();
+
+        vm.expectRevert("sequencer uptime interrupted");
+        oracle.pastPrice(uint32(block.timestamp));
+
+        vm.expectRevert("sequencer uptime interrupted");
+        oracle.pastPrice(uint32(block.timestamp - 1000));
     }
 
     function test_currentPrice() public {

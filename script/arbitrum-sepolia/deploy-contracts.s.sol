@@ -84,7 +84,7 @@ contract DeployContractsArbitrumSepolia is Script, UniswapNewPoolHelper {
             twapWindow: twapWindow,
             swapRouter: address(SWAP_ROUTER),
             sequencerUptimeFeed: address(0) // no uptime feed for arbi-sepolia
-        });
+         });
 
         DeploymentHelper.AssetPairContracts memory contracts =
             DeploymentHelper.deployContractPair(configHub, pairConfig, deployer);

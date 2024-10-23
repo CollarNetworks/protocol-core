@@ -242,6 +242,20 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
         // check feed data
         (, int answer, uint startedAt,,) = pair.oracle.sequencerChainlinkFeed().latestRoundData();
         assertEq(answer, 0);
-        assertNotEq(startedAt, 0);
+        uint32 expectedStartedAt = 1_713_187_535;
+        assertEq(startedAt, expectedStartedAt);
+        // view
+        assertTrue(pair.oracle.sequencerLiveFor(block.timestamp - expectedStartedAt));
+        assertFalse(pair.oracle.sequencerLiveFor(block.timestamp - expectedStartedAt + 1));
+
+        // reverts
+        uint32 thresholdTime = expectedStartedAt + pair.oracle.twapWindow();
+        // check price reverts
+        // doesn't revert due to sequencer, but due to not having data
+        vm.expectRevert(bytes("OLD"));
+        pair.oracle.pastPrice(thresholdTime);
+        // reverts due to sequencer
+        vm.expectRevert("sequencer uptime interrupted");
+        pair.oracle.pastPrice(thresholdTime - 1);
     }
 }
