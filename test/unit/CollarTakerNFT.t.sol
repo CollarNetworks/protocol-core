@@ -203,7 +203,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         assertEq(takerNFT.pendingOwner(), address(0));
         assertEq(address(takerNFT.configHub()), address(configHub));
         assertEq(address(takerNFT.cashAsset()), address(cashAsset));
-        assertEq(takerNFT.underlying(), address(underlying));
+        assertEq(address(takerNFT.underlying()), address(underlying));
         assertEq(address(takerNFT.oracle()), address(mockOracle));
         assertEq(takerNFT.VERSION(), "0.2.0");
         assertEq(takerNFT.name(), "NewCollarTakerNFT");
@@ -353,39 +353,31 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         assertEq(cashAsset.balanceOf(user1), userBalanceBefore - takerLocked);
     }
 
-    function test_openPairedPositionUnsupportedCashAsset() public {
-        createOffer();
-        vm.startPrank(owner);
-        configHub.setCashAssetSupport(address(cashAsset), false);
-        startHoax(user1);
-        vm.expectRevert("unsupported asset");
-        takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
-    }
-
-    function test_openPairedPositionUnsupportedUnderlying() public {
-        createOffer();
-        vm.startPrank(owner);
-        configHub.setUnderlyingSupport(address(underlying), false);
-        startHoax(user1);
-        vm.expectRevert("unsupported asset");
-        takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
-    }
-
     function test_openPairedPositionUnsupportedTakerContract() public {
         createOffer();
-        vm.startPrank(owner);
-        configHub.setCanOpen(address(takerNFT), false);
+        setCanOpen(address(takerNFT), false);
         startHoax(user1);
-        vm.expectRevert("unsupported taker contract");
+        vm.expectRevert("unsupported taker");
+        takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
+        // allowed for different assets, still reverts
+        vm.startPrank(owner);
+        configHub.setCanOpenPair(cashAsset, underlying, address(takerNFT), true);
+        vm.startPrank(user1);
+        vm.expectRevert("unsupported taker");
         takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
     }
 
     function test_openPairedPositionUnsupportedProviderContract() public {
         createOffer();
-        vm.startPrank(owner);
-        configHub.setCanOpen(address(providerNFT), false);
+        setCanOpen(address(providerNFT), false);
         startHoax(user1);
-        vm.expectRevert("unsupported provider contract");
+        vm.expectRevert("unsupported provider");
+        takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
+        // allowed for different assets, still reverts
+        vm.startPrank(owner);
+        configHub.setCanOpenPair(cashAsset, underlying, address(providerNFT), true);
+        vm.startPrank(user1);
+        vm.expectRevert("unsupported provider");
         takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
     }
 
@@ -412,12 +404,10 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
     function test_openPairedPositionBadCashAssetMismatch() public {
         createOffer();
-        vm.startPrank(owner);
-        configHub.setCashAssetSupport(address(underlying), true);
         CollarProviderNFT providerNFTBad = new CollarProviderNFT(
             owner, configHub, underlying, underlying, address(takerNFT), "CollarTakerNFTBad", "BRWTSTBAD"
         );
-        configHub.setCanOpen(address(providerNFTBad), true);
+        setCanOpen(address(providerNFTBad), true);
         startHoax(user1);
         cashAsset.approve(address(takerNFT), takerLocked);
         vm.expectRevert("asset mismatch");
@@ -426,12 +416,10 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
     function test_openPairedPositionBadUnderlyingMismatch() public {
         createOffer();
-        vm.startPrank(owner);
-        configHub.setUnderlyingSupport(address(cashAsset), true);
         CollarProviderNFT providerNFTBad = new CollarProviderNFT(
             owner, configHub, cashAsset, cashAsset, address(takerNFT), "CollarTakerNFTBad", "BRWTSTBAD"
         );
-        configHub.setCanOpen(address(providerNFTBad), true);
+        setCanOpen(address(providerNFTBad), true);
         startHoax(user1);
         cashAsset.approve(address(takerNFT), takerLocked);
         vm.expectRevert("asset mismatch");

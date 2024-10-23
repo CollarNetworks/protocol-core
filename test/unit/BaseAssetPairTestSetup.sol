@@ -4,6 +4,8 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { MockOracleUniV3TWAP } from "../utils/MockOracleUniV3TWAP.sol";
 
@@ -85,19 +87,28 @@ contract BaseAssetPairTestSetup is Test {
     function configureContracts() public {
         startHoax(owner);
 
-        // assets
-        configHub.setCashAssetSupport(address(cashAsset), true);
-        configHub.setUnderlyingSupport(address(underlying), true);
         // terms
         configHub.setLTVRange(ltv, ltv);
         configHub.setCollarDurationRange(duration, duration);
         // contracts auth
-        configHub.setCanOpen(address(takerNFT), true);
-        configHub.setCanOpen(address(providerNFT), true);
-        configHub.setCanOpen(address(providerNFT2), true);
+        configHub.setCanOpenPair(underlying, cashAsset, address(takerNFT), true);
+        configHub.setCanOpenPair(underlying, cashAsset, address(providerNFT), true);
+        configHub.setCanOpenPair(underlying, cashAsset, address(providerNFT2), true);
         // fees
         configHub.setProtocolFeeParams(protocolFeeAPR, protocolFeeRecipient);
 
+        vm.stopPrank();
+    }
+
+    function setCanOpen(address target, bool enabled) internal {
+        startHoax(owner);
+        configHub.setCanOpenPair(underlying, cashAsset, target, enabled);
+        vm.stopPrank();
+    }
+
+    function setCanOpenSingle(address target, bool enabled) internal {
+        startHoax(owner);
+        configHub.setCanOpenPair(underlying, configHub.ANY_ASSET(), target, enabled);
         vm.stopPrank();
     }
 
@@ -144,5 +155,13 @@ contract BaseAssetPairTestSetup is Test {
 
     function expectRevertERC721Nonexistent(uint id) internal {
         vm.expectRevert(abi.encodeWithSelector(IERC721Errors.ERC721NonexistentToken.selector, id));
+    }
+
+    function expectRevertERC20Allowance(address spender, uint allowance, uint needed) internal {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IERC20Errors.ERC20InsufficientAllowance.selector, spender, allowance, needed
+            )
+        );
     }
 }

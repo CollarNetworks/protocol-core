@@ -4,7 +4,6 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
@@ -149,6 +148,7 @@ contract RollsTest is BaseAssetPairTestSetup {
     function checkExecuteRoll(uint rollId, uint newPrice, ExpectedRoll memory expected) internal {
         IRolls.RollOffer memory offer = rolls.getRollOffer(rollId);
         // ids
+        uint nextProviderOfferId = providerNFT.nextOfferId();
         uint nextTakerId = takerNFT.nextPositionId();
         uint nextProviderId = providerNFT.nextPositionId();
         uint newTakerId;
@@ -202,12 +202,13 @@ contract RollsTest is BaseAssetPairTestSetup {
         assertEq(providerNFT.ownerOf(newProviderId), provider);
 
         // check positions
-        checkNewPositions(newTakerId, newProviderId, newPrice, expected);
+        checkNewPositions(newTakerId, newProviderId, nextProviderOfferId, newPrice, expected);
     }
 
     function checkNewPositions(
         uint newTakerId,
         uint newProviderId,
+        uint nextProviderOfferId,
         uint newPrice,
         ExpectedRoll memory expected
     ) internal view {
@@ -225,6 +226,8 @@ contract RollsTest is BaseAssetPairTestSetup {
 
         // Check new provider position details
         CollarProviderNFT.ProviderPosition memory newProviderPos = providerNFT.getPosition(newProviderId);
+        assertEq(newProviderPos.offerId, nextProviderOfferId);
+        assertEq(newProviderPos.takerId, newTakerId);
         assertEq(newProviderPos.duration, duration);
         assertEq(newProviderPos.expiration, block.timestamp + duration);
         assertEq(newProviderPos.providerLocked, expected.newProviderLocked);
@@ -232,6 +235,9 @@ contract RollsTest is BaseAssetPairTestSetup {
         assertEq(newProviderPos.callStrikePercent, callStrikePercent);
         assertFalse(newProviderPos.settled);
         assertEq(newProviderPos.withdrawable, 0);
+
+        // check miLocked for offer was 0
+        assertEq(providerNFT.getOffer(nextProviderOfferId).minLocked, 0);
     }
 
     function checkExecuteRollForPriceChange(uint newPrice) internal returns (ExpectedRoll memory expected) {
@@ -724,11 +730,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         uint lowPrice = twapPrice * 9 / 10;
         updatePrice(lowPrice);
         int toTaker = rolls.previewRoll(rollId, lowPrice).toTaker;
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IERC20Errors.ERC20InsufficientAllowance.selector, address(rolls), 0, uint(-toTaker)
-            )
-        );
+        expectRevertERC20Allowance(address(rolls), 0, uint(-toTaker));
         rolls.executeRoll(rollId, type(int).min);
     }
 
@@ -748,14 +750,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         startHoax(user1);
         takerNFT.approve(address(rolls), takerId);
         cashAsset.approve(address(rolls), type(uint).max);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IERC20Errors.ERC20InsufficientAllowance.selector,
-                address(rolls),
-                uint(-toProvider) - 1,
-                uint(-toProvider)
-            )
-        );
+        expectRevertERC20Allowance(address(rolls), uint(-toProvider) - 1, uint(-toProvider));
         rolls.executeRoll(rollId, type(int).min);
     }
 

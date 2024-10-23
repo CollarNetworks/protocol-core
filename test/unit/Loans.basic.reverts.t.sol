@@ -4,7 +4,6 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 
 import { LoansNFT, ILoansNFT } from "../../src/LoansNFT.sol";
@@ -12,15 +11,22 @@ import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { CollarProviderNFT } from "../../src/CollarProviderNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
 
-import { LoansTestBase } from "./Loans.basic.effects.t.sol";
+import { LoansTestBase, EscrowSupplierNFT } from "./Loans.basic.effects.t.sol";
 
 contract LoansBasicRevertsTest is LoansTestBase {
-    function openLoan(uint _col, uint _minLoan, uint _minSwap, uint _providerOffer) internal {
+    function openLoan(uint _col, uint _minLoan, uint _minSwap, uint _providerOfferId) internal {
         if (openEscrowLoan) {
             // uses last set escrowOfferId
-            loans.openEscrowLoan(_col, _minLoan, defaultSwapParams(_minSwap), _providerOffer, escrowOfferId);
+            loans.openEscrowLoan(
+                _col,
+                _minLoan,
+                defaultSwapParams(_minSwap),
+                providerOffer(_providerOfferId),
+                escrowOffer(escrowOfferId),
+                escrowFee
+            );
         } else {
-            loans.openLoan(_col, _minLoan, defaultSwapParams(_minSwap), _providerOffer);
+            loans.openLoan(_col, _minLoan, defaultSwapParams(_minSwap), providerOffer(_providerOfferId));
         }
     }
 
@@ -36,39 +42,27 @@ contract LoansBasicRevertsTest is LoansTestBase {
         openLoan(0, 0, 0, 0);
 
         // unsupported loans
-        vm.startPrank(owner);
-        configHub.setCanOpen(address(loans), false);
+        setCanOpen(address(loans), false);
         vm.startPrank(user1);
-        vm.expectRevert("unsupported loans contract");
+        vm.expectRevert("unsupported loans");
         openLoan(0, 0, 0, 0);
 
         // unsupported taker
-        vm.startPrank(owner);
-        configHub.setCanOpen(address(loans), true);
-        configHub.setCanOpen(address(takerNFT), false);
+        setCanOpen(address(loans), true);
+        setCanOpen(address(takerNFT), false);
         vm.startPrank(user1);
-        vm.expectRevert("unsupported taker contract");
-        openLoan(0, 0, 0, 0);
-
-        // unset provider
-        vm.startPrank(owner);
-        configHub.setCanOpen(address(takerNFT), true);
-        loans.setContracts(rolls, CollarProviderNFT(address(0)), escrowNFT);
-        vm.startPrank(user1);
-        vm.expectRevert("provider contract unset");
+        vm.expectRevert("unsupported taker");
         openLoan(0, 0, 0, 0);
 
         // unsupported provider
-        vm.startPrank(owner);
-        loans.setContracts(rolls, providerNFT, escrowNFT);
-        configHub.setCanOpen(address(providerNFT), false);
+        setCanOpen(address(takerNFT), true);
+        setCanOpen(address(providerNFT), false);
         vm.startPrank(user1);
-        vm.expectRevert("unsupported provider contract");
+        vm.expectRevert("unsupported provider");
         openLoan(underlyingAmount, 0, 0, 0);
 
         // bad offer
-        vm.startPrank(owner);
-        configHub.setCanOpen(address(providerNFT), true);
+        setCanOpen(address(providerNFT), true);
         vm.startPrank(user1);
         uint invalidOfferId = 999;
         vm.expectRevert("invalid offer");
@@ -78,14 +72,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         // not enough approval for underlying
         vm.startPrank(user1);
         underlying.approve(address(loans), underlyingAmount);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IERC20Errors.ERC20InsufficientAllowance.selector,
-                address(loans),
-                underlyingAmount,
-                underlyingAmount + 1
-            )
-        );
+        expectRevertERC20Allowance(address(loans), underlyingAmount, underlyingAmount + 1 + escrowFee);
         openLoan(underlyingAmount + 1, minLoanAmount, 0, offerId);
     }
 
@@ -215,11 +202,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         vm.startPrank(user1);
 
         cashAsset.approve(address(loans), loanAmount - 1);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IERC20Errors.ERC20InsufficientAllowance.selector, address(loans), loanAmount - 1, loanAmount
-            )
-        );
+        expectRevertERC20Allowance(address(loans), loanAmount - 1, loanAmount);
         loans.closeLoan(loanId, defaultSwapParams(0));
     }
 

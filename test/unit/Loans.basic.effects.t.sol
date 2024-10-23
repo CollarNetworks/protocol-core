@@ -56,14 +56,15 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         vm.label(address(loans), "Loans");
 
         // config
-        vm.startPrank(owner);
         // escrow
-        configHub.setCanOpen(address(escrowNFT), true);
-        escrowNFT.setLoansAllowed(address(loans), true);
+        setCanOpenSingle(address(escrowNFT), true);
+        vm.startPrank(owner);
+        escrowNFT.setLoansCanOpen(address(loans), true);
         // loans
-        configHub.setCanOpen(address(loans), true);
-        loans.setContracts(rolls, providerNFT, escrowNFT);
+        setCanOpen(address(loans), true);
+        setCanOpen(address(rolls), true);
         defaultSwapper = address(swapperUniV3);
+        vm.startPrank(owner);
         loans.setSwapperAllowed(defaultSwapper, true, true);
         vm.stopPrank();
 
@@ -97,6 +98,18 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
     function defaultSwapParams(uint minOut) internal view returns (ILoansNFT.SwapParams memory) {
         return ILoansNFT.SwapParams({ minAmountOut: minOut, swapper: defaultSwapper, extraData: extraData });
+    }
+
+    function providerOffer(uint offerId) internal view returns (ILoansNFT.ProviderOffer memory) {
+        return ILoansNFT.ProviderOffer(providerNFT, offerId);
+    }
+
+    function escrowOffer(uint offerId) internal view returns (ILoansNFT.EscrowOffer memory) {
+        return ILoansNFT.EscrowOffer(escrowNFT, offerId);
+    }
+
+    function rollOffer(uint rollId) internal view returns (ILoansNFT.RollOffer memory) {
+        return ILoansNFT.RollOffer(rolls, rollId);
     }
 
     function createProviderOffer() internal returns (uint offerId) {
@@ -167,11 +180,16 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
         ILoansNFT.SwapParams memory swapParams = defaultSwapParams(swapCashAmount);
         vm.expectEmit(address(loans));
-        emit ILoansNFT.LoanOpened(ids.loanId, user1, providerOfferId, underlyingAmount, expectedLoanAmount);
+        emit ILoansNFT.LoanOpened(ids.loanId, user1, underlyingAmount, expectedLoanAmount);
 
         if (openEscrowLoan) {
             (loanId, providerId, loanAmount) = loans.openEscrowLoan(
-                underlyingAmount, minLoanAmount, swapParams, providerOfferId, escrowOfferId
+                underlyingAmount,
+                minLoanAmount,
+                swapParams,
+                providerOffer(providerOfferId),
+                escrowOffer(escrowOfferId),
+                escrowFee
             );
 
             // sanity checks for test values
@@ -181,7 +199,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
             _checkEscrowViews(ids.loanId, ids.nextEscrowId, escrowFee);
         } else {
             (loanId, providerId, loanAmount) =
-                loans.openLoan(underlyingAmount, minLoanAmount, swapParams, providerOfferId);
+                loans.openLoan(underlyingAmount, minLoanAmount, swapParams, providerOffer(providerOfferId));
 
             // sanity checks for test values
             assertEq(escrowOfferId, 0);
@@ -409,9 +427,6 @@ contract LoansBasicEffectsTest is LoansTestBase {
         assertEq(loans.VERSION(), "0.2.0");
         assertEq(loans.owner(), owner);
         assertEq(loans.closingKeeper(), address(0));
-        assertEq(address(loans.currentRolls()), address(0));
-        assertEq(address(loans.currentProviderNFT()), address(0));
-        assertEq(address(loans.currentEscrowNFT()), address(0));
         assertEq(address(loans.defaultSwapper()), address(0));
         assertEq(loans.name(), "");
         assertEq(loans.symbol(), "");
@@ -523,10 +538,17 @@ contract LoansBasicEffectsTest is LoansTestBase {
         vm.expectRevert(new bytes(0)); // failure to decode extraData
         if (openEscrowLoan) {
             // escrow loan
-            loans.openEscrowLoan(underlyingAmount, 0, defaultSwapParams(0), providerOfferId, escrowOfferId);
+            loans.openEscrowLoan(
+                underlyingAmount,
+                0,
+                defaultSwapParams(0),
+                providerOffer(providerOfferId),
+                escrowOffer(escrowOfferId),
+                escrowFee
+            );
         } else {
             // simple loan
-            loans.openLoan(underlyingAmount, 0, defaultSwapParams(0), providerOfferId);
+            loans.openLoan(underlyingAmount, 0, defaultSwapParams(0), providerOffer(providerOfferId));
         }
 
         // call chain: loans -> arbitrary-swapper -> newUniSwapper -> mock-router.

@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.22;
 
-import { LoansBasicRevertsTest, ILoansNFT } from "./Loans.basic.reverts.t.sol";
+import { LoansBasicRevertsTest, ILoansNFT, EscrowSupplierNFT } from "./Loans.basic.reverts.t.sol";
 
 contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
     function setUp() public virtual override {
@@ -23,32 +23,34 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         // not enough approval for fee
         vm.startPrank(user1);
         underlying.approve(address(loans), underlyingAmount + escrowFee - 1);
-        vm.expectRevert("insufficient allowance for escrow fee");
+        expectRevertERC20Allowance(
+            address(loans), underlyingAmount + escrowFee - 1, underlyingAmount + escrowFee
+        );
         openLoan(underlyingAmount, minLoanAmount, 0, 0);
 
-        // unset escrow
-        vm.startPrank(owner);
-        loans.setContracts(rolls, providerNFT, NO_ESCROW);
-        vm.startPrank(user1);
-        vm.expectRevert("escrow contract unset");
-        openLoan(0, 0, 0, 0);
+        // fix allowance
+        underlying.approve(address(loans), underlyingAmount + escrowFee);
 
         // unsupported escrow
-        vm.startPrank(owner);
-        loans.setContracts(rolls, providerNFT, escrowNFT);
-        configHub.setCanOpen(address(escrowNFT), false);
+        setCanOpenSingle(address(escrowNFT), false);
         vm.startPrank(user1);
-        vm.expectRevert("unsupported escrow contract");
+        vm.expectRevert("unsupported escrow");
         openLoan(underlyingAmount, 0, 0, 0);
 
         // bad escrow offer
-        vm.startPrank(owner);
-        configHub.setCanOpen(address(escrowNFT), true);
+        setCanOpenSingle(address(escrowNFT), true);
         vm.startPrank(user1);
-        underlying.approve(address(loans), underlyingAmount + escrowFee);
         escrowOfferId = 999; // invalid escrow offer
         vm.expectRevert("invalid offer");
         openLoan(underlyingAmount, minLoanAmount, 0, 0);
+
+        // test escrow asset mismatch
+        EscrowSupplierNFT invalidEscrow = new EscrowSupplierNFT(owner, configHub, cashAsset, "", "");
+        setCanOpenSingle(address(invalidEscrow), true);
+        vm.startPrank(user1);
+        escrowNFT = invalidEscrow;
+        vm.expectRevert("escrow asset mismatch");
+        openLoan(underlyingAmount, 0, 0, 0);
     }
 
     function test_revert_openEscrowLoan_escrowValidations() public {

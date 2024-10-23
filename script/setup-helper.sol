@@ -19,20 +19,14 @@ library SetupHelper {
     }
 
     function setupContractPair(ConfigHub hub, DeploymentHelper.AssetPairContracts memory pair) internal {
-        hub.setCanOpen(address(pair.takerNFT), true);
-        hub.setCanOpen(address(pair.providerNFT), true);
-        hub.setCanOpen(address(pair.loansContract), true);
-        pair.loansContract.setContracts(pair.rollsContract, pair.providerNFT, EscrowSupplierNFT(address(0)));
+        hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.takerNFT), true);
+        hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.providerNFT), true);
+        hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.loansContract), true);
+        hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.rollsContract), true);
         pair.loansContract.setSwapperAllowed(address(pair.swapperUniV3), true, true);
     }
 
     function setupConfigHub(ConfigHub configHub, HubParams memory hubParams) internal {
-        for (uint i = 0; i < hubParams.cashAssets.length; i++) {
-            configHub.setCashAssetSupport(hubParams.cashAssets[i], true);
-        }
-        for (uint i = 0; i < hubParams.underlyings.length; i++) {
-            configHub.setUnderlyingSupport(hubParams.underlyings[i], true);
-        }
         configHub.setLTVRange(hubParams.minLTV, hubParams.maxLTV);
         configHub.setCollarDurationRange(hubParams.minDuration, hubParams.maxDuration);
     }
