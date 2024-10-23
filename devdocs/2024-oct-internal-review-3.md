@@ -122,7 +122,7 @@
 - [x] #note `_abs` can be replaced with OZ lib usage
 
 ### Oracle
-- [ ] #med sequencer liveness oracle should prevent usage of bad prices ( https://docs.chain.link/data-feeds/l2-sequencer-feeds )
+- [x] #med sequencer liveness oracle should prevent usage of bad prices ( https://docs.chain.link/data-feeds/l2-sequencer-feeds )
 - [x] #low need more comprehensive warning, mitigation, and monitoring docs for TWAP issues
 - [ ] #note ITakerOracle interface needs docs
 - [ ] #note contract itself needs more docs

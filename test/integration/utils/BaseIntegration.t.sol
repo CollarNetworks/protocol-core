@@ -23,6 +23,7 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
     address provider;
     DeploymentHelper.AssetPairContracts pair;
     address swapRouterAddress;
+    address sequencerUptimeFeed;
     address uniV3Pool;
     address whale;
     uint BLOCK_NUMBER_TO_USE;
@@ -62,6 +63,7 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
 
     function _setupConfig(
         address _swapRouter,
+        address _sequencerUptimeFeed,
         address _cashAsset,
         address _underlying,
         address _uniV3Pool,
@@ -74,6 +76,7 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
         string memory pairName
     ) internal {
         swapRouterAddress = _swapRouter;
+        sequencerUptimeFeed = _sequencerUptimeFeed;
         uniV3Pool = _uniV3Pool;
         whale = whaleWallet;
         BLOCK_NUMBER_TO_USE = blockNumber;
@@ -121,7 +124,8 @@ abstract contract CollarBaseIntegrationTestConfig is Test {
             oracleFeeTier: 3000,
             swapFeeTier: 3000,
             twapWindow: 15 minutes,
-            swapRouter: swapRouterAddress
+            swapRouter: swapRouterAddress,
+            sequencerUptimeFeed: sequencerUptimeFeed
         });
         pair = DeploymentHelper.deployContractPair(configHub, pairConfig, owner);
         SetupHelper.setupContractPair(configHub, pair);

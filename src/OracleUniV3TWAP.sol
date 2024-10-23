@@ -9,6 +9,7 @@ import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 
 import { ITakerOracle } from "./interfaces/ITakerOracle.sol";
+import { IChainlinkFeedLike } from "./interfaces/IChainlinkFeedLike.sol";
 
 /*
 WARNING: READ THIS BEFORE DEPLOYING regarding using Uniswap v3 TWAP as an oracle.
@@ -62,13 +63,16 @@ contract OracleUniV3TWAP is ITakerOracle {
     uint24 public immutable feeTier;
     uint32 public immutable twapWindow;
     IUniswapV3Pool public immutable pool;
+    /// @dev can be zero-address, since only exists on arbi-mainnet, but not on arbi-sepolia
+    IChainlinkFeedLike public immutable sequencerChainlinkFeed;
 
     constructor(
         address _baseToken,
         address _quoteToken,
         uint24 _feeTier,
         uint32 _twapWindow,
-        address _uniV3SwapRouter
+        address _uniV3SwapRouter,
+        address _sequencerChainlinkFeed
     ) {
         require(_twapWindow >= MIN_TWAP_WINDOW, "twap window too short");
         baseToken = _baseToken;
@@ -76,11 +80,40 @@ contract OracleUniV3TWAP is ITakerOracle {
         feeTier = _feeTier;
         twapWindow = _twapWindow;
         baseUnitAmount = 10 ** IERC20Metadata(_baseToken).decimals();
+        // sanity check decimals for casting in _getQuote
         require(baseUnitAmount <= type(uint128).max, "invalid decimals");
         pool = IUniswapV3Pool(_getPoolAddress(_uniV3SwapRouter));
+        sequencerChainlinkFeed = IChainlinkFeedLike(_sequencerChainlinkFeed);
     }
 
     // ----- Views ----- //
+
+    /// @dev adapted from AAVE:
+    /// @param `atLeast` time is needed to check that sequencer has been live long enough, to ensure some
+    /// assumptions are valid, e.g., DEX arbitrage was possible for at least that time.
+    /// https://github.com/aave-dao/aave-v3-origin/blob/077c99e8002514f1f487e3707824c21ac19cf12e/src/contracts/misc/PriceOracleSentinel.sol#L71-L74
+    /// More on sequencer uptime chainlink feeds: https://docs.chain.link/data-feeds/l2-sequencer-feeds
+    function sequencerLiveFor(uint atLeast) public view virtual returns (bool) {
+        if (address(sequencerChainlinkFeed) == address(0)) {
+            // only arbi-mainnet has this oracle, for arbi-sepolia, 0 address is expected
+            return true;
+        } else {
+            (, int answer, uint startedAt,,) = sequencerChainlinkFeed.latestRoundData();
+            /* Explanation for the logic below:
+                1. answer: 0 means up, 1 down
+                2. startedAt is the latest change of status because this oracle is updated via L1->L2,
+                only on changes. This is different from usual feeds that are updated periodically.
+                E.g., in Oct 2024, startedAt of Arbitrum mainnet feed (0xFdB631F5EE196F0ed6FAa767959853A9F217697D)
+                was was 1713187535, or 15th Apr 2024 (190 days prior).
+                These are the latest triggers of updateStatus in the feed's aggregator:
+                    https://arbiscan.io/address/0xC1303BBBaf172C55848D3Cb91606d8E27FF38428
+
+                Using a longer `atLeast` value will result in longer wait time for "settling down",
+                and can result in DoS periods if feed starts to be updated frequently.
+            */
+            return answer == 0 && block.timestamp - startedAt >= atLeast;
+        }
+    }
 
     function currentPrice() public view returns (uint) {
         return pastPrice(uint32(block.timestamp));
@@ -93,6 +126,12 @@ contract OracleUniV3TWAP is ITakerOracle {
         uint32[] memory secondsAgos = new uint32[](2);
         secondsAgos[0] = secondsAgo + twapWindow;
         secondsAgos[1] = secondsAgo;
+        // check that that sequencer was live for the duration of the twapWindow
+        // @dev for historical price, if sequencer was up then, but was interrupted
+        // since, this will revert ("false positive"). Because TWAP prices are not long living,
+        // this false positive is unlikely, and the fallback price should be used if available.
+        require(sequencerLiveFor(secondsAgos[0]), "sequencer uptime interrupted");
+        // get the price from the pool
         return _getQuote(secondsAgos);
     }
 

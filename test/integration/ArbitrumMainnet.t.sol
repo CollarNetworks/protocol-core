@@ -24,6 +24,7 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
 
         _setupConfig({
             _swapRouter: 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45,
+            _sequencerUptimeFeed: 0xFdB631F5EE196F0ed6FAa767959853A9F217697D,
             _cashAsset: 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8, // USDC
             _underlying: 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1, // WETH
             _uniV3Pool: 0x17c14D2c404D167802b16C450d3c99F88F2c4F4d,
@@ -229,5 +230,32 @@ contract ForkTestCollarArbitrumMainnetIntegrationTest is
         checkPriceUpShortOfCallStrikeValues(
             borrowId, userCashBalanceAfterOpen, providerCashBalanceBeforeClose, finalPrice
         );
+    }
+
+    function test_sequencerFeed() public {
+        // taker oracle is the pair oracle we're going to query
+        assertEq(address(pair.oracle), address(pair.takerNFT.oracle()));
+        // is set
+        assertNotEq(address(pair.oracle.sequencerChainlinkFeed()), address(0));
+        // returns live
+        assertTrue(pair.oracle.sequencerLiveFor(pair.oracle.twapWindow()));
+        // check feed data
+        (, int answer, uint startedAt,,) = pair.oracle.sequencerChainlinkFeed().latestRoundData();
+        assertEq(answer, 0);
+        uint32 expectedStartedAt = 1_713_187_535;
+        assertEq(startedAt, expectedStartedAt);
+        // view
+        assertTrue(pair.oracle.sequencerLiveFor(block.timestamp - expectedStartedAt));
+        assertFalse(pair.oracle.sequencerLiveFor(block.timestamp - expectedStartedAt + 1));
+
+        // reverts
+        uint32 thresholdTime = expectedStartedAt + pair.oracle.twapWindow();
+        // check price reverts
+        // doesn't revert due to sequencer, but due to not having data
+        vm.expectRevert(bytes("OLD"));
+        pair.oracle.pastPrice(thresholdTime);
+        // reverts due to sequencer
+        vm.expectRevert("sequencer uptime interrupted");
+        pair.oracle.pastPrice(thresholdTime - 1);
     }
 }

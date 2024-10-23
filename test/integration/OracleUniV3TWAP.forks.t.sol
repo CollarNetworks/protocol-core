@@ -19,6 +19,8 @@ contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
     address baseToken;
     address quoteToken;
     address pool;
+    address sequencerFeed;
+    bool sequencerFeedExists;
 
     // test values
     uint expectedCurPrice;
@@ -33,7 +35,7 @@ contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
         _startFork();
         _config();
         _setUp();
-        oracle = new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, router);
+        oracle = new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, router, sequencerFeed);
     }
 
     function _startFork() internal virtual {
@@ -43,6 +45,9 @@ contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
     function _config() internal virtual {
         baseToken = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
         quoteToken = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // USDC
+
+        sequencerFeedExists = true;
+        sequencerFeed = 0xFdB631F5EE196F0ed6FAa767959853A9F217697D;
 
         pool = 0xC6962004f452bE9203591991D15f6b388e09E8D0;
         expectedCardinality = 8000;
@@ -55,7 +60,7 @@ contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
     // effects tests
 
     function test_constructor() public {
-        oracle = new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, router);
+        oracle = new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, router, sequencerFeed);
         assertEq(oracle.VERSION(), "0.2.0");
         assertEq(oracle.MIN_TWAP_WINDOW(), 300);
         assertEq(oracle.baseToken(), baseToken);
@@ -63,6 +68,40 @@ contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
         assertEq(oracle.feeTier(), feeTier);
         assertEq(oracle.twapWindow(), twapWindow);
         assertEq(address(oracle.pool()), pool);
+        assertEq(address(oracle.sequencerChainlinkFeed()), sequencerFeed);
+        assertTrue(oracle.sequencerLiveFor(twapWindow));
+    }
+
+    function test_sequencerFeed() public {
+        assertTrue(oracle.sequencerLiveFor(0));
+        assertTrue(oracle.sequencerLiveFor(twapWindow));
+        assertTrue(oracle.sequencerLiveFor(100 days));
+
+        if (sequencerFeedExists) {
+            assertNotEq(address(oracle.sequencerChainlinkFeed()), address(0));
+            // check feed
+            (, int answer, uint startedAt,,) = oracle.sequencerChainlinkFeed().latestRoundData();
+            assertEq(answer, 0);
+            uint32 expectedStartedAt = 1_713_187_535;
+            assertEq(startedAt, expectedStartedAt);
+
+            // check view
+            assertTrue(oracle.sequencerLiveFor(block.timestamp - expectedStartedAt));
+            assertFalse(oracle.sequencerLiveFor(block.timestamp - expectedStartedAt + 1));
+            assertFalse(oracle.sequencerLiveFor(block.timestamp - expectedStartedAt + 100 days));
+
+            // check price reverts
+            // doesn't revert due to sequencer, but due to not having data
+            vm.expectRevert(bytes("OLD"));
+            oracle.pastPrice(expectedStartedAt + twapWindow);
+            // reverts due to sequencer
+            vm.expectRevert("sequencer uptime interrupted");
+            oracle.pastPrice(expectedStartedAt + twapWindow - 1);
+            vm.expectRevert("sequencer uptime interrupted");
+            oracle.pastPrice(expectedStartedAt - 100 days);
+        } else {
+            assertEq(address(oracle.sequencerChainlinkFeed()), address(0));
+        }
     }
 
     function test_currentCardinality() public view {
@@ -132,6 +171,9 @@ contract OracleUniV3TWAP_ArbiSepolia_USDCWBTC_ForkTest is OracleUniV3TWAP_ArbiMa
         quoteToken = 0xbDCc1D2ADE76E4A02539674D6D03E4bf571Da712; // USDC arbi-sep
         pool = 0xa9933Deb1cEB37163f7F601eb69Dc923cAD3fcBc;
 
+        sequencerFeedExists = false;
+        sequencerFeed = address(0);
+
         expectedCardinality = 1000;
         // price is for 1e8 WBTC in USDC (because WBTC is 8 decimals)
         expectedCurPrice = 59_251_772_387; // 59000 * 1e6 (USDC decimals)
@@ -187,5 +229,8 @@ contract OracleUniV3TWAP_ArbiSepolia_NewPool_ForkTest is OracleUniV3TWAP_ArbiMai
         super._config();
         router = 0x101F443B4d1b059569D643917553c771E1b9663E; // arbi-sep
         positionManager = 0x6b2937Bde17889EDCf8fbD8dE31C3C2a70Bc4d65; // arbi-sep
+
+        sequencerFeedExists = false;
+        sequencerFeed = address(0);
     }
 }
