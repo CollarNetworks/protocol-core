@@ -4,6 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import "./DeploymentLoader.sol";
 import { ILoansNFT } from "../../../src/interfaces/ILoansNFT.sol";
+import { IRolls } from "../../../src/interfaces/IRolls.sol";
 import { ArbitrumMainnetDeployer } from "../../../script/arbitrum-mainnet/deployer.sol";
 import { DeploymentUtils } from "../../../script/utils/deployment-exporter.s.sol";
 
@@ -22,6 +23,7 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
         console.log("Provider cash balance: %d", cashBalance);
         pair.cashAsset.approve(address(pair.providerNFT), amount);
         offerId = pair.providerNFT.createOffer(callStrikePercent, amount, pair.ltvs[0], pair.durations[0], 0);
+
         vm.stopPrank();
     }
 
@@ -112,12 +114,22 @@ contract LoansForkTest is LoansTestBase {
     uint bigCashAmount = 1_000_000e6;
     uint bigUnderlyingAmount = 1000 ether;
     uint slippage = 1; // 1%
+    uint constant BIPS_BASE = 10_000;
+    // Protocol fee params
+    address feeRecipient;
+    uint feeAPR = 100; // 1% APR
 
     function setUp() public virtual override {
         super.setUp();
         pair = getPairByAssets(address(cashAsset), address(underlying));
         fundWallets();
         require(address(pair.loansContract) != address(0), "Loans contract not deployed");
+
+        // Setup protocol fee
+        feeRecipient = makeAddr("feeRecipient");
+        vm.startPrank(owner);
+        configHub.setProtocolFeeParams(feeAPR, feeRecipient);
+        vm.stopPrank();
     }
 
     function setForkId(uint _forkId) public {
@@ -126,62 +138,118 @@ contract LoansForkTest is LoansTestBase {
     }
 
     function testOpenAndCloseLoan() public {
+        uint providerBalanceBefore = pair.cashAsset.balanceOf(provider);
         uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
+        assertEq(pair.cashAsset.balanceOf(provider), providerBalanceBefore - offerAmount);
+        uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
 
-        uint minLoanAmount = 0.3e6;
+        uint expectedFee = getProviderProtocolFeeByUnderlying();
+        uint minLoanAmount = 0.3e6; // arbitrary
         (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
-
+        // Verify fee taken and sent to recipient
+        assertEq(pair.cashAsset.balanceOf(feeRecipient) - feeRecipientBalanceBefore, expectedFee);
+        /// @dev offerAmount change (offerAmount-providerLocked-fee) could be checked
+        /// but would require a lot of precision due to slippage from swap on final providerLocked value
         assertGt(loanAmount, 0);
         skip(pair.durations[0]);
-        // no price change so underlying out should be underlying in minus slippage
-        uint minUnderlyingOut = underlyingAmount;
-        uint minUnderlyingOutWithSlippage = minUnderlyingOut * (100 - slippage) / 100;
-        uint underlyingOut = closeLoan(pair, user, loanId, minUnderlyingOutWithSlippage);
-        assertGe(underlyingOut, minUnderlyingOutWithSlippage);
+        closeAndCheckLoan(loanId, loanAmount);
     }
 
     function testRollLoan() public {
         uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
-
         uint minLoanAmount = 0.3e6;
         (uint loanId, uint providerId, uint initialLoanAmount) =
             openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
 
         uint rollOfferId = createRollOffer(pair, provider, loanId, providerId, rollFee, rollDeltaFactor);
 
+        // Calculate and verify protocol fee based on new position's provider locked amount
+        uint newPositionPrice = pair.takerNFT.currentOraclePrice();
+        IRolls.PreviewResults memory expectedResults =
+            pair.rollsContract.previewRoll(rollOfferId, newPositionPrice);
+        assertGt(expectedResults.protocolFee, 0);
+        assertGt(expectedResults.toProvider, 0);
+
+        uint providerBalanceBefore = pair.cashAsset.balanceOf(provider);
+        uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
         int minToUser = -1000e6; // Allow up to 1000 tokens to be paid by the user
         (uint newLoanId, uint newLoanAmount, int transferAmount) =
             rollLoan(pair, user, loanId, rollOfferId, minToUser);
 
+        // Verify fee taken and sent to recipient
+        assertEq(
+            pair.cashAsset.balanceOf(feeRecipient) - feeRecipientBalanceBefore, expectedResults.protocolFee
+        );
+        assertEq(int(pair.cashAsset.balanceOf(provider) - providerBalanceBefore), expectedResults.toProvider);
         assertGt(newLoanId, loanId);
         assertGe(int(newLoanAmount), int(initialLoanAmount) + transferAmount);
     }
 
     function testFullLoanLifecycle() public {
-        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
-        uint minLoanAmount = 0.3e6;
-        (uint loanId, uint providerId, uint initialLoanAmount) =
-            openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
+        uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
 
-        // Advance time to simulate passage of time
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
+        uint initialFee = getProviderProtocolFeeByUnderlying();
+
+        (uint loanId, uint providerId, uint initialLoanAmount) =
+            openLoan(pair, user, underlyingAmount, 0.3e6, offerId);
+
+        // Verify fee taken and sent to recipient
+        assertEq(pair.cashAsset.balanceOf(feeRecipient) - feeRecipientBalanceBefore, initialFee);
+
+        // Advance time
         vm.warp(block.timestamp + pair.durations[0] - 20);
 
+        uint recipientBalanceAfterOpenLoan = pair.cashAsset.balanceOf(feeRecipient);
         uint rollOfferId = createRollOffer(pair, provider, loanId, providerId, rollFee, rollDeltaFactor);
 
-        int minToUser = -1000e6;
+        // Calculate roll protocol fee
+        IRolls.PreviewResults memory expectedResults =
+            pair.rollsContract.previewRoll(rollOfferId, pair.takerNFT.currentOraclePrice());
+        assertGt(expectedResults.protocolFee, 0);
         (uint newLoanId, uint newLoanAmount, int transferAmount) =
-            rollLoan(pair, user, loanId, rollOfferId, minToUser);
+            rollLoan(pair, user, loanId, rollOfferId, -1000e6);
+
+        assertEq(
+            pair.cashAsset.balanceOf(feeRecipient) - recipientBalanceAfterOpenLoan,
+            expectedResults.protocolFee
+        );
 
         // Advance time again
         vm.warp(block.timestamp + pair.durations[0]);
 
-        uint minUnderlyingOut = underlyingAmount * 95 / 100; // 5% slippage
-        uint underlyingOut = closeLoan(pair, user, newLoanId, minUnderlyingOut);
-
+        closeAndCheckLoan(newLoanId, newLoanAmount);
         assertGt(initialLoanAmount, 0);
-        assertGt(newLoanId, loanId);
         assertGe(int(newLoanAmount), int(initialLoanAmount) + transferAmount);
-        assertGe(underlyingOut, minUnderlyingOut);
+
+        // Verify total protocol fees collected
+        assertEq(
+            pair.cashAsset.balanceOf(feeRecipient) - feeRecipientBalanceBefore,
+            initialFee + expectedResults.protocolFee
+        );
+    }
+
+    function getProviderProtocolFeeByUnderlying() internal view returns (uint protocolFee) {
+        // Calculate protocol fee based on post-swap provider locked amount
+        uint swapOut = underlyingAmount * pair.takerNFT.currentOraclePrice() / pair.oracle.baseUnitAmount();
+        uint initProviderLocked = swapOut * (callstrikeToUse - BIPS_BASE) / BIPS_BASE;
+        (protocolFee,) = pair.providerNFT.protocolFee(initProviderLocked, pair.durations[0]);
+        assertGt(protocolFee, 0);
+    }
+
+    function closeAndCheckLoan(uint loanId, uint loanAmount) internal {
+        // Track balances before closing
+        uint userCashBefore = pair.cashAsset.balanceOf(user);
+        uint userUnderlyingBefore = pair.underlying.balanceOf(user);
+
+        // no price change so underlying out should be underlying in minus slippage
+        uint minUnderlyingOut = underlyingAmount;
+        uint minUnderlyingOutWithSlippage = minUnderlyingOut * (100 - slippage) / 100;
+        uint underlyingOut = closeLoan(pair, user, loanId, minUnderlyingOutWithSlippage);
+        assertGe(underlyingOut, minUnderlyingOutWithSlippage);
+        // Verify balance changes
+        assertEq(userCashBefore - pair.cashAsset.balanceOf(user), loanAmount);
+        assertEq(pair.underlying.balanceOf(user) - userUnderlyingBefore, underlyingOut);
     }
 
     function fundWallets() public {
