@@ -18,8 +18,6 @@ WARNING: READ THIS BEFORE DEPLOYING regarding using Uniswap v3 TWAP as an oracle
 Some warnings copied from Euler:
 https://github.com/euler-xyz/euler-price-oracle/blob/95e5d325cd9f4290d147821ff08add14ca99b136/src/adapter/uniswap/UniswapV3Oracle.sol#L14-L22
 > Do not use Uniswap V3 as an oracle unless you understand its security implications.
-> Instead, consider using another provider as a primary price source.
-> Under PoS a validator may be chosen to propose consecutive blocks, allowing risk-free multi-block manipulation.
 > The cardinality of the observation buffer must be grown sufficiently to accommodate for the chosen TWAP window.
 > The observation buffer must contain enough observations to accommodate for the chosen TWAP window.
 > The chosen pool must have enough total liquidity and some full-range liquidity to resist manipulation.
@@ -29,17 +27,17 @@ https://github.com/euler-xyz/euler-price-oracle/blob/95e5d325cd9f4290d147821ff08
 These mitigations should be in place when using this oracle:
 - First, read this https://medium.com/@chinmayf/so-you-want-to-use-twap-1f992f9d3819
 - Cardinality should be increased to cover the needed time window. If cardinality < time window, in extreme
-volatility, if every block has a pool action, time window will not be available. Contracts should be
-designed such that this risk (short infrequent DoS) should be acceptable (with low likelihood), or
+volatility, if every block (with new timestamp) has a pool action, time window will not be available. Contracts
+should be designed such that this risk (short infrequent DoS) should be acceptable (with low likelihood), or
 cardinality should be increased above twap window.
 - Pool liquidity should be deep and wide. Ideally, at least some full range liquidity should be in place.
 This means that stable pair pools are especially risky, since tend to have liquidity in a very narrow range.
-Arbitrage is expected only within good liquidity range (outside of it is not worth to the arbitrageurs).
+Arbitrage is expected only within deep liquidity range (outside of it is not worth to the arbitrageurs).
 - Lack of arbitrage or insufficiently responsive arbitrage (slower than twap window), means pool can be
 manipulated (while taking some risk). Example: https://x.com/mudit__gupta/status/1455627465678749696
-- L2 sequencer MEV, outages, or partial outages (e.g., preventing most arbitrage txs), need to be taken into
-account when setting the time window. A censoring sequencer, that can exclude arbitrage transactions for
-the duration of the window can manipulate the price.
+- L2 sequencer MEV, outages, congestion, partial outages (e.g., preventing most arbitrage txs), need to be
+taken into account when setting the time window. A censoring sequencer, that can exclude arbitrage transactions
+for the duration of the window can manipulate the price.
 - Liquidity can migrate between pools and dexes, so contracts should allow switching oracles.
 - Continuously monitor (see below) the pool (and its replacements) suitability and switch as needed.
 - Recommend large protocol LPs to maintain some full-range liquidity in pools they have significant
@@ -49,13 +47,22 @@ Suggested monitoring for pools and possible replacement pools (other fee tiers):
 - Liquidity amount.
 - Full range liquidity amount.
 - Liquidity depth (trade size required to move price by +-X%).
-- Age of oldest available observation (to detect when cardinality is insufficient).
-- Pool price delay during spikes behind external market price (Binance / Chainlink) prices
+- Age of oldest available observation (to detect when cardinality may become insufficient).
+- Price delay / delta during price spikes, as measured relative to external market price (Binance / Chainlink)
 to measure arbitrage responsiveness.
 */
 
 /**
+ * @title OracleUniV3TWAP
  * @custom:security-contact security@collarprotocol.xyz
+ * @notice Provides time-weighted average price (TWAP) oracle functionality using Uniswap v3 pools.
+ *
+ * @dev Read the WARNING at the top.
+ *
+ * Key Assumptions:
+ * - The Uniswap v3 pool used has adequate liquidity to provide meaningful TWAP data.
+ * - The pool's observation cardinality is adequate.
+ * - The sequencer (on L2 networks) is operating properly, and its uptime feed (if used) is reliable.
  */
 contract OracleUniV3TWAP is ITakerOracle {
     uint32 public constant MIN_TWAP_WINDOW = 300;
@@ -91,12 +98,17 @@ contract OracleUniV3TWAP is ITakerOracle {
     }
 
     // ----- Views ----- //
-
-    /// @dev adapted from AAVE:
-    /// @param `atLeast` time is needed to check that sequencer has been live long enough, to ensure some
-    /// assumptions are valid, e.g., DEX arbitrage was possible for at least that time.
-    /// https://github.com/aave-dao/aave-v3-origin/blob/077c99e8002514f1f487e3707824c21ac19cf12e/src/contracts/misc/PriceOracleSentinel.sol#L71-L74
-    /// More on sequencer uptime chainlink feeds: https://docs.chain.link/data-feeds/l2-sequencer-feeds
+    /**
+     * @notice Checks whether the sequencer Chainlink feed, if set, reports the sequencer to be live
+     * for at least the specified amount of time.
+     * @dev adapted from AAVE:
+     * `atLeast` time is needed to check that sequencer has been live long enough, to ensure some
+     * assumptions are valid, e.g., DEX arbitrage was possible for at least that time.
+     *  https://github.com/aave-dao/aave-v3-origin/blob/077c99e8002514f1f487e3707824c21ac19cf12e/src/contracts/misc/PriceOracleSentinel.sol#L71-L74
+     * More on sequencer uptime chainlink feeds: https://docs.chain.link/data-feeds/l2-sequencer-feeds
+     * @param atLeast The duration of time for which the sequencer should have been live for until now.
+     * @return true if sequencer is live now and was live for atLeast seconds up until now
+     */
     function sequencerLiveFor(uint atLeast) public view virtual returns (bool) {
         if (address(sequencerChainlinkFeed) == address(0)) {
             // only arbi-mainnet has this oracle, for arbi-sepolia, 0 address is expected
@@ -119,10 +131,17 @@ contract OracleUniV3TWAP is ITakerOracle {
         }
     }
 
+    /// @notice Current TWAP price. Uses `pastPrice` with current block timestamp.
+    /// @return Amount of quoteToken for a "unit" of baseToken (i.e. 10**baseToken.decimals())
     function currentPrice() public view returns (uint) {
         return pastPrice(uint32(block.timestamp));
     }
 
+    /// @notice TWAP price at some past points in time. Will revert if sequencer uptime check
+    /// fails (if sequencer uptime feed is used), or if the TWAP window is not available for
+    /// requested timestamp.
+    /// @param timestamp Timestamp of the end of the TWAP window for which the price is needed.
+    /// @return Amount of quoteToken for a "unit" of baseToken (i.e. 10**baseToken.decimals())
     function pastPrice(uint32 timestamp) public view returns (uint) {
         // _secondsAgos is in offsets format. e.g., [120, 60] means that observations 120 and 60
         // seconds ago will be used for the TWAP calculation
@@ -139,15 +158,22 @@ contract OracleUniV3TWAP is ITakerOracle {
         return _getQuote(secondsAgos);
     }
 
-    /// Tries to use a past price, but if that fails (because TWAP values for timestamp aren't available)
-    /// it uses the current price.
-    /// Current simple fallback means that there is a sharp difference in settlement
-    /// price once the historical price becomes unavailable (because the price jumps to latest).
-    /// @dev Use the oracle's `increaseCardinality` (or the pool's `increaseObservationCardinalityNext` directly)
-    /// to force the pool to store a longer history of prices to increase the time span during which settlement
-    /// uses the actual expiry price instead of the latest price.
-    /// A more sophisticated fallback is possible - that will try to use the oldest historical price available,
-    /// but that requires a more complex and tight integration with the pool.
+    /**
+     * @notice Returns the price at the specified timestamp if available, otherwise returns the
+     * current price.
+     * @dev Tries to use a past price, but if that fails (because TWAP values for timestamp aren't available)
+     * it uses the current price. Current simple fallback means that there is a sharp difference in settlement
+     * price once the historical price becomes unavailable (because the price jumps to latest).
+     * @dev Use the oracle's `increaseCardinality` (or the pool's `increaseObservationCardinalityNext` directly)
+     * to force the pool to store a longer history of prices to increase the time span during which historical
+     * prices are available.
+     * A more sophisticated fallback is possible - that will try to use the oldest historical price available,
+     * but that is more complex and brittle.
+     * @param timestamp The timestamp to get the price for
+     * @return price The price at the specified timestamp, or the current price if historical data
+     * is not available. Amount of quoteToken for a "unit" of baseToken (i.e. 10**baseToken.decimals())
+     * @return historical Whether the returned price is historical (true) or the current fallback price (false)
+     */
     function pastPriceWithFallback(uint32 timestamp) public view returns (uint price, bool historical) {
         // high level try/catch is error-prone and hides failure cases, low level try/catch is more
         // complex so also not ideal. If reviewing changes to this must read docs:
@@ -161,25 +187,40 @@ contract OracleUniV3TWAP is ITakerOracle {
         }
     }
 
-    /// logic helper to encapsulate the conversion and baseUnitAmount usage. Rounds down.
-    /// will panic for 0 price (invalid)
+    /**
+     * @notice Calculates the amount of quote tokens equivalent to the amount of base tokens at a given price
+     * @dev Logic helper to encapsulate the conversion and baseUnitAmount usage. Rounds down.
+     * Will panic for 0 price (invalid)
+     * @param quoteTokenAmount The amount of quote tokens
+     * @param atPrice The price to use for the conversion
+     * @return The equivalent amount of base tokens
+     */
     function convertToBaseAmount(uint quoteTokenAmount, uint atPrice) external view returns (uint) {
         // oracle price is for baseTokenAmount tokens
         return quoteTokenAmount * baseUnitAmount / atPrice;
     }
 
-    /// logic helper to encapsulate the conversion and baseUnitAmount usage. Rounds down.
+    /**
+     * @notice Calculates the amount of base tokens equivalent to the amount of quote tokens at a given price
+     * @dev Logic helper to encapsulate the conversion and baseUnitAmount usage. Rounds down.
+     * @param baseTokenAmount The amount of base tokens
+     * @param atPrice The price to use for the conversion
+     * @return The equivalent amount of quote tokens
+     */
     function convertToQuoteAmount(uint baseTokenAmount, uint atPrice) external view returns (uint) {
         // oracle price is for baseTokenAmount tokens
         return baseTokenAmount * atPrice / baseUnitAmount;
     }
 
+    /// @notice Returns the current observation cardinality of the pool
     function currentCardinality() public view returns (uint16 observationCardinalityNext) {
         (,,,, observationCardinalityNext,,) = pool.slot0();
     }
 
     // ----- Mutative ----- //
 
+    /// @notice Increases the observation cardinality of the pool
+    /// @param toAdd The number of observations to extend the currently configured cardinality by
     function increaseCardinality(uint16 toAdd) external {
         pool.increaseObservationCardinalityNext(currentCardinality() + toAdd);
     }

@@ -106,7 +106,7 @@
 - [x] #low ~~ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different). override to `nominateOwner`~~ decided against it because the common transferOwnership may be harder to phish
 - [x] #low pause guardians should be a mapping / set to avoid having to share pauser pkey between team members / owner multi-sig signers and bot
 - [x] #note canOpen is not pair / asset specific, so can allow cross asset misuse
-- [ ] #note docs are incomplete
+- [x] #note docs are incomplete
 - [x] #note naming: BIPS / percent in LTV
 - [x] #note ~~MAX_CONFIGURABLE_DURATION 5 years seems excessive?~~ always part of offer too 
 
@@ -126,7 +126,7 @@
 - [x] #med sequencer liveness oracle should prevent usage of bad prices ( https://docs.chain.link/data-feeds/l2-sequencer-feeds )
 - [x] #low need more comprehensive warning, mitigation, and monitoring docs for TWAP issues
 - [ ] #note ITakerOracle interface needs docs
-- [ ] #note contract itself needs more docs
+- [x] #note contract itself needs more docs
 - [x] #note use high level try/catch since it's more readable in this case
 
 ## Remaining from previous review:

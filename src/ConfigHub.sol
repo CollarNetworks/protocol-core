@@ -8,7 +8,15 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { IConfigHub, IERC20 } from "./interfaces/IConfigHub.sol";
 
 /**
+ * @title ConfigHub
  * @custom:security-contact security@collarprotocol.xyz
+ *
+ * Main Functionality:
+ * 1. Manages system-wide configuration and intern-contract authorization for the Collar Protocol.
+ * 2. Controls which contracts are allowed to open positions for specific asset pairs.
+ * 3. Sets valid ranges for key parameters like LTV and position duration.
+ * 4. Designates pause guardians who can pause contracts in an emergency.
+ * 5. Manages protocol fee parameters.
  */
 contract ConfigHub is Ownable2Step, IConfigHub {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -28,12 +36,12 @@ contract ConfigHub is Ownable2Step, IConfigHub {
 
     // -- state variables ---
     // one slot (previous is owner)
-    uint16 public minLTV; // max 650%, but cannot be over 100%
-    uint16 public maxLTV; // max 650%, but cannot be over 100%
+    uint16 public minLTV; // uint16 max 650%, but cannot be over 100%
+    uint16 public maxLTV; // uint16 max 650%, but cannot be over 100%
     uint32 public minDuration;
     uint32 public maxDuration;
     // next slot
-    uint16 public protocolFeeAPR; // max 650%, but cannot be over 100%
+    uint16 public protocolFeeAPR; // uint16 max 650%, but cannot be over MAX_PROTOCOL_FEE_BIPS
     address public feeRecipient;
     // next slots
     // pause guardians for other contracts
@@ -67,9 +75,9 @@ contract ConfigHub is Ownable2Step, IConfigHub {
         emit ContractCanOpenSet(assetA, assetB, target, enabled);
     }
 
-    /// @notice Sets the LTV minimum and max values for the configHub
-    /// @param min The new minimum LTV
-    /// @param max The new maximum LTV
+    /// @notice Sets the LTV minimum and max values
+    /// @param min The new minimum LTV in basis points
+    /// @param max The new maximum LTV in basis points
     function setLTVRange(uint min, uint max) external onlyOwner {
         require(min >= MIN_CONFIGURABLE_LTV_BIPS, "LTV min too low");
         require(max <= MAX_CONFIGURABLE_LTV_BIPS, "LTV max too high");
@@ -79,7 +87,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
         emit LTVRangeSet(min, max);
     }
 
-    /// @notice Sets the minimum and maximum collar durations for the configHub
+    /// @notice Sets the minimum and maximum collar durations
     /// @param min The new minimum collar duration
     /// @param max The new maximum collar duration
     function setCollarDurationRange(uint min, uint max) external onlyOwner {
