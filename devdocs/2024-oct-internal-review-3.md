@@ -97,7 +97,7 @@
 ### Base admin
 - [x] #low rescuing nfts is not handled: use another arg / function to rescue nfts 
 - [x] #low ~~ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different). override to `nominateOwner`~~ decided against it because the common transferOwnership may be harder to phish
-- [ ] #note docs for BaseManaged and BaseNFT + why they need config hub
+- [x] #note docs for BaseManaged and BaseNFT + why they need config hub
 - [x] #note naming: EmergencyAdmin is role and not attribute. BaseHubControlled?
 
 ###  ConfigHub:
@@ -125,7 +125,7 @@
 ### Oracle
 - [x] #med sequencer liveness oracle should prevent usage of bad prices ( https://docs.chain.link/data-feeds/l2-sequencer-feeds )
 - [x] #low need more comprehensive warning, mitigation, and monitoring docs for TWAP issues
-- [ ] #note ITakerOracle interface needs docs
+- [x] #note ITakerOracle interface needs docs
 - [x] #note contract itself needs more docs
 - [x] #note use high level try/catch since it's more readable in this case
 
