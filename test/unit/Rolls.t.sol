@@ -543,12 +543,12 @@ contract RollsTest is BaseAssetPairTestSetup {
 
         // expired taker position
         skip(duration + 1);
-        vm.expectRevert("taker position expired");
+        vm.expectRevert("rolls: taker position expired");
         rolls.createOffer(takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline);
 
         // Settled taker position
         takerNFT.settlePairedPosition(takerId);
-        vm.expectRevert("taker position settled");
+        vm.expectRevert("rolls: taker position settled");
         rolls.createOffer(takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline);
 
         // new taker position
@@ -559,23 +559,23 @@ contract RollsTest is BaseAssetPairTestSetup {
 
         // Caller is not the provider position owner
         startHoax(user1);
-        vm.expectRevert("not provider ID owner");
+        vm.expectRevert("rolls: not provider ID owner");
         rolls.createOffer(takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline);
 
         // Invalid price bounds
         startHoax(provider);
-        vm.expectRevert("max price lower than min price");
+        vm.expectRevert("rolls: max price lower than min price");
         rolls.createOffer(takerId, feeAmount, feeDeltaFactorBIPS, maxPrice, minPrice, minToProvider, deadline);
 
         // Invalid fee delta change
-        vm.expectRevert("invalid fee delta change");
+        vm.expectRevert("rolls: invalid fee delta change");
         rolls.createOffer(takerId, feeAmount, 10_001, minPrice, maxPrice, minToProvider, deadline);
 
-        vm.expectRevert("invalid fee delta change");
+        vm.expectRevert("rolls: invalid fee delta change");
         rolls.createOffer(takerId, feeAmount, -10_001, minPrice, maxPrice, minToProvider, deadline);
 
         // Deadline in the past
-        vm.expectRevert("deadline passed");
+        vm.expectRevert("rolls: deadline passed");
         rolls.createOffer(
             takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, block.timestamp - 1
         );
@@ -592,7 +592,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         // cannot create twice
         providerNFT.approve(address(rolls), providerId);
         rolls.createOffer(takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline);
-        vm.expectRevert("not provider ID owner");
+        vm.expectRevert("rolls: not provider ID owner");
         rolls.createOffer(takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline);
     }
 
@@ -601,12 +601,12 @@ contract RollsTest is BaseAssetPairTestSetup {
 
         // Non-existent offer
         uint nonExistentRollId = rollId + 1;
-        vm.expectRevert("not offer provider");
+        vm.expectRevert("rolls: not offer provider");
         rolls.cancelOffer(nonExistentRollId);
 
         // Caller is not the initial provider
         startHoax(user1);
-        vm.expectRevert("not offer provider");
+        vm.expectRevert("rolls: not offer provider");
         rolls.cancelOffer(rollId);
 
         // Offer already executed
@@ -616,7 +616,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         rolls.executeRoll(rollId, type(int).min);
 
         startHoax(provider);
-        vm.expectRevert("offer not active");
+        vm.expectRevert("rolls: offer not active");
         rolls.cancelOffer(rollId);
 
         // create a new offer
@@ -626,7 +626,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         startHoax(provider);
         rolls.cancelOffer(rollId);
 
-        vm.expectRevert("offer not active");
+        vm.expectRevert("rolls: offer not active");
         rolls.cancelOffer(rollId);
     }
 
@@ -635,19 +635,19 @@ contract RollsTest is BaseAssetPairTestSetup {
 
         // Non-existent offer
         startHoax(user1);
-        vm.expectRevert("invalid offer");
+        vm.expectRevert("rolls: invalid offer");
         rolls.executeRoll(rollId + 1, type(int).min);
 
         // Caller is not the taker NFT owner
         startHoax(provider);
-        vm.expectRevert("not taker ID owner");
+        vm.expectRevert("rolls: not taker ID owner");
         rolls.executeRoll(rollId, type(int).min);
 
         // Taker position expired
         startHoax(user1);
         skip(duration + 1);
         updatePrice();
-        vm.expectRevert("taker position expired");
+        vm.expectRevert("rolls: taker position expired");
         rolls.executeRoll(rollId, type(int).min);
 
         // new offer
@@ -657,7 +657,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         takerNFT.approve(address(rolls), takerId);
         cashAsset.approve(address(rolls), type(uint).max);
         rolls.executeRoll(rollId, type(int).min);
-        vm.expectRevert("invalid offer");
+        vm.expectRevert("rolls: invalid offer");
         rolls.executeRoll(rollId, type(int).min);
     }
 
@@ -668,13 +668,13 @@ contract RollsTest is BaseAssetPairTestSetup {
         uint highPrice = offer.maxPrice + 1;
         updatePrice(highPrice);
         startHoax(user1);
-        vm.expectRevert("price too high");
+        vm.expectRevert("rolls: price too high");
         rolls.executeRoll(rollId, type(int).min);
 
         // Price too low
         uint lowPrice = offer.minPrice - 1;
         updatePrice(lowPrice);
-        vm.expectRevert("price too low");
+        vm.expectRevert("rolls: price too low");
         rolls.executeRoll(rollId, type(int).min);
 
         // Deadline passed
@@ -684,7 +684,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         skip(deadline + 1);
         updatePrice(twapPrice);
         startHoax(user1);
-        vm.expectRevert("deadline passed");
+        vm.expectRevert("rolls: deadline passed");
         rolls.executeRoll(rollId, type(int).min);
     }
 
@@ -696,7 +696,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         takerNFT.approve(address(rolls), takerId);
         cashAsset.approve(address(rolls), type(uint).max);
         int toTaker = rolls.previewRoll(rollId, twapPrice).toTaker;
-        vm.expectRevert("taker transfer slippage");
+        vm.expectRevert("rolls: taker transfer slippage");
         rolls.executeRoll(rollId, toTaker + 1);
 
         minToProvider = minToProvider + 1;
@@ -709,7 +709,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         cashAsset.approve(address(rolls), type(uint).max);
         uint newPrice = twapPrice * 110 / 100;
         updatePrice(newPrice);
-        vm.expectRevert("provider transfer slippage");
+        vm.expectRevert("rolls: provider transfer slippage");
         rolls.executeRoll(rollId, type(int).min);
     }
 
@@ -769,7 +769,7 @@ contract RollsTest is BaseAssetPairTestSetup {
         );
 
         // Attempt to execute the roll
-        vm.expectRevert("unexpected withdrawal amount");
+        vm.expectRevert("rolls: unexpected withdrawal amount");
         rolls.executeRoll(rollId, type(int).min);
     }
 }

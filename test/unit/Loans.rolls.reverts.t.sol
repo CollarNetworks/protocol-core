@@ -37,7 +37,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
 
         // Non-existent roll offer
         vm.startPrank(user1);
-        vm.expectRevert("invalid rollId");
+        vm.expectRevert("rolls: invalid rollId");
         loans.rollLoan(loanId, rollOffer(rollId + 1), MIN_INT, 0, 0);
 
         // cancelled roll offer
@@ -45,7 +45,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         rolls.cancelOffer(rollId);
         vm.startPrank(user1);
         cashAsset.approve(address(loans), type(uint).max);
-        vm.expectRevert("invalid offer");
+        vm.expectRevert("rolls: invalid offer");
         loans.rollLoan(loanId, rollOffer(rollId), MIN_INT, 0, 0);
 
         rollId = createRollOffer(loanId);
@@ -101,7 +101,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         int loanChangePreview = rolls.previewRoll(rollId, twapPrice).toTaker;
 
         // this reverts in Rolls
-        vm.expectRevert("taker transfer slippage");
+        vm.expectRevert("rolls: taker transfer slippage");
         loans.rollLoan(loanId, rollOffer(rollId), loanChangePreview + 1, 0, 0); // expect more
 
         // this should revert in loan
