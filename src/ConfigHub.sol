@@ -2,11 +2,14 @@
 pragma solidity 0.8.22;
 
 import { Ownable2Step, Ownable } from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { IConfigHub, IERC20 } from "./interfaces/IConfigHub.sol";
 
 contract ConfigHub is Ownable2Step, IConfigHub {
+    using EnumerableSet for EnumerableSet.AddressSet;
+
     uint internal constant BIPS_BASE = 10_000;
 
     string public constant VERSION = "0.2.0";
@@ -29,9 +32,9 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     // next slot
     uint16 public protocolFeeAPR; // max 650%, but cannot be over 100%
     address public feeRecipient;
-    // next slot
-    // pause guardian for other contracts
-    address public pauseGuardian;
+    // next slots
+    // pause guardians for other contracts
+    EnumerableSet.AddressSet internal pauseGuardians;
 
     /**
      * @notice main auth for system contracts calling each other during opening of positions:
@@ -87,12 +90,14 @@ contract ConfigHub is Ownable2Step, IConfigHub {
 
     // pausing
 
-    /// @notice Sets an address that can pause (but not unpause) any of the contracts that
+    /// @notice Sets addresses that can pause (but not unpause) any of the contracts that
     /// use this ConfigHub.
-    /// @param newGuardian The address of the new guardian
-    function setPauseGuardian(address newGuardian) external onlyOwner {
-        emit PauseGuardianSet(pauseGuardian, newGuardian); // emit before for the prev-value
-        pauseGuardian = newGuardian;
+    /// @param sender The address of a guardian to enable or disable
+    /// @param enabled Enabled or disabled status
+    function setPauseGuardian(address sender, bool enabled) external onlyOwner {
+        // contains / return value is not checked
+        enabled ? pauseGuardians.add(sender) : pauseGuardians.remove(sender);
+        emit PauseGuardianSet(sender, enabled);
     }
 
     // protocol fee
@@ -125,5 +130,16 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     /// @param ltv The LTV to check
     function isValidLTV(uint ltv) external view returns (bool) {
         return ltv >= minLTV && ltv <= maxLTV;
+    }
+
+    /// @notice Checks if an address is a pause guardian: allowed to pause, but not unpause
+    /// contracts using ConfigHub via BaseManaged / BaseNFT
+    function isPauseGuardian(address sender) external view returns (bool) {
+        return pauseGuardians.contains(sender);
+    }
+
+    /// @notice Returns all the pause guardians currently enabled
+    function allPauseGuardians() external view returns (address[] memory) {
+        return pauseGuardians.values();
     }
 }

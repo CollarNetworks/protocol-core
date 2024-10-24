@@ -94,20 +94,20 @@
 - [x] #note cei can be better in settle
 
 ### Base admin
-- [ ] #low rescuing nfts is not handled: use another arg / function to rescue nfts 
-- [ ] #low ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different). override to `nominateOwner`
+- [x] #low rescuing nfts is not handled: use another arg / function to rescue nfts 
+- [x] #low ~~ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different). override to `nominateOwner`~~ decided against it because the common transferOwnership may be harder to phish
 - [ ] #note docs for BaseEmergencyAdmin and BaseNFT + why they need config hub
 - [x] #note naming: EmergencyAdmin is role and not attribute. BaseHubControlled?
 
 ###  ConfigHub:
 - [x] #low max allowed protocol fee APR
 - [x] #low isSupportedCash/Collateral redundant because canOpen is sufficient and the methods are always used together. Increases potential for config issues, gas, and admin dos. Instead can use nested mappings to store both assets and canOpen together.
-- [ ] #low ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different), override to `nominateOwner`
-- [ ] #low pause guardians should be a mapping / set to avoid having to share pauser pkey between team members / owner multi-sig signers and bot
+- [x] #low ~~ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different). override to `nominateOwner`~~ decided against it because the common transferOwnership may be harder to phish
+- [x] #low pause guardians should be a mapping / set to avoid having to share pauser pkey between team members / owner multi-sig signers and bot
 - [x] #note canOpen is not pair / asset specific, so can allow cross asset misuse
 - [ ] #note docs are incomplete
 - [x] #note naming: BIPS / percent in LTV
-- [ ] #note MAX_CONFIGURABLE_DURATION 5 years seems excessive?
+- [x] #note ~~MAX_CONFIGURABLE_DURATION 5 years seems excessive?~~ always part of offer too 
 
 ### Rolls
 - [x] #low ~~executeRoll has insufficient protection: needs deadline for congestion / stale transactions, max roll fee for direct fee control (since fee adjusts with price)~~ added to known
