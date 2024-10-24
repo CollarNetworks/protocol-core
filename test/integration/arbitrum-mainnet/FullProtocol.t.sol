@@ -60,6 +60,22 @@ contract ArbitrumMainnetFullProtocolForkTest is Test {
         loansTest.testOpenAndCloseLoan();
         loansTest.testRollLoan();
         loansTest.testFullLoanLifecycle();
+
         console.log("Full integration test complete");
+    }
+
+    function testEscrowLoans() public {
+        // need to select fork and fund wallets since loans test suite creates a fork (cause it should run independently) we
+        // need to make sure its running in the one from  this contract
+        vm.selectFork(forkId);
+        LoansForkTest loansTest = new LoansForkTest();
+        loansTest.setForkId(forkId);
+        loansTest.setUp();
+        loansTest.testOpenEscrowLoan();
+        loansTest.testOpenAndCloseEscrowLoan();
+        loansTest.testCloseEscrowLoanAfterGracePeriod();
+        loansTest.testCloseEscrowLoanWithPartialLateFees();
+        loansTest.setUp();
+        loansTest.testRollEscrowLoanBetweenSuppliers();
     }
 }
