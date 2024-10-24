@@ -99,8 +99,8 @@ contract OracleUniV3TWAP is ITakerOracle {
 
     // ----- Views ----- //
     /**
-     * @notice Checks whether the sequencer Chainlink feed, if set, reports the sequencer to be live
-     * for at least the specified amount of time.
+     * @notice Checks whether the sequencer uptime Chainlink feed reports the sequencer to be live
+     * for at least the specified amount of time. Reverts if feed was not set (is address zero).
      * @dev adapted from AAVE:
      * `atLeast` time is needed to check that sequencer has been live long enough, to ensure some
      * assumptions are valid, e.g., DEX arbitrage was possible for at least that time.
@@ -110,25 +110,22 @@ contract OracleUniV3TWAP is ITakerOracle {
      * @return true if sequencer is live now and was live for atLeast seconds up until now
      */
     function sequencerLiveFor(uint atLeast) public view virtual returns (bool) {
-        if (address(sequencerChainlinkFeed) == address(0)) {
-            // only arbi-mainnet has this oracle, for arbi-sepolia, 0 address is expected
-            return true;
-        } else {
-            (, int answer, uint startedAt,,) = sequencerChainlinkFeed.latestRoundData();
-            /* Explanation for the logic below:
-                1. answer: 0 means up, 1 down
-                2. startedAt is the latest change of status because this oracle is updated via L1->L2,
-                only on changes. This is different from usual feeds that are updated periodically.
-                E.g., in Oct 2024, startedAt of Arbitrum mainnet feed (0xFdB631F5EE196F0ed6FAa767959853A9F217697D)
-                was was 1713187535, or 15th Apr 2024 (190 days prior).
-                These are the latest triggers of updateStatus in the feed's aggregator:
-                    https://arbiscan.io/address/0xC1303BBBaf172C55848D3Cb91606d8E27FF38428
+        require(address(sequencerChainlinkFeed) != address(0), "sequencer uptime feed unset");
 
-                Using a longer `atLeast` value will result in longer wait time for "settling down",
-                and can result in DoS periods if feed starts to be updated frequently.
-            */
-            return answer == 0 && block.timestamp - startedAt >= atLeast;
-        }
+        (, int answer, uint startedAt,,) = sequencerChainlinkFeed.latestRoundData();
+        /* Explanation for the logic below:
+            1. answer: 0 means up, 1 down
+            2. startedAt is the latest change of status because this oracle is updated via L1->L2,
+            only on changes. This is different from usual feeds that are updated periodically.
+            E.g., in Oct 2024, startedAt of Arbitrum mainnet feed (0xFdB631F5EE196F0ed6FAa767959853A9F217697D)
+            was was 1713187535, or 15th Apr 2024 (190 days prior).
+            These are the latest triggers of updateStatus in the feed's aggregator:
+                https://arbiscan.io/address/0xC1303BBBaf172C55848D3Cb91606d8E27FF38428
+
+            Using a longer `atLeast` value will result in longer wait time for "settling down",
+            and can result in DoS periods if feed starts to be updated frequently.
+        */
+        return answer == 0 && block.timestamp - startedAt >= atLeast;
     }
 
     /// @notice Current TWAP price. Uses `pastPrice` with current block timestamp.
@@ -138,7 +135,7 @@ contract OracleUniV3TWAP is ITakerOracle {
     }
 
     /// @notice TWAP price at some past points in time. Will revert if sequencer uptime check
-    /// fails (if sequencer uptime feed is used), or if the TWAP window is not available for
+    /// fails (if sequencer uptime feed is set), or if the TWAP window is not available for
     /// requested timestamp.
     /// @param timestamp Timestamp of the end of the TWAP window for which the price is needed.
     /// @return Amount of quoteToken for a "unit" of baseToken (i.e. 10**baseToken.decimals())
@@ -149,11 +146,14 @@ contract OracleUniV3TWAP is ITakerOracle {
         uint32[] memory secondsAgos = new uint32[](2);
         secondsAgos[0] = secondsAgo + twapWindow;
         secondsAgos[1] = secondsAgo;
-        // check that that sequencer was live for the duration of the twapWindow
-        // @dev for historical price, if sequencer was up then, but was interrupted
-        // since, this will revert ("false positive"). Because TWAP prices are not long living,
-        // this false positive is unlikely, and the fallback price should be used if available.
-        require(sequencerLiveFor(secondsAgos[0]), "sequencer uptime interrupted");
+        // 0 address is expected for arbi-sepolia since only arbi-mainnet has the sequencer uptime oracle.
+        if (address(sequencerChainlinkFeed) != address(0)) {
+            // check that that sequencer was live for the duration of the twapWindow
+            // @dev for historical price, if sequencer was up then, but was interrupted
+            // since, this will revert ("false positive"). Because TWAP prices are not long living,
+            // this false positive is unlikely, and the fallback price should be used if available.
+            require(sequencerLiveFor(secondsAgos[0]), "sequencer uptime interrupted");
+        }
         // get the price from the pool
         return _getQuote(secondsAgos);
     }
