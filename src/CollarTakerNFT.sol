@@ -51,7 +51,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     function getPosition(uint takerId) public view returns (TakerPosition memory) {
         TakerPositionStored memory stored = positions[takerId];
         // do not try to call non-existent provider
-        require(address(stored.providerNFT) != address(0), "taker position does not exist");
+        require(address(stored.providerNFT) != address(0), "taker: position does not exist");
         // @dev the provider position fields that are used are assumed to be immutable (set once)
         ICollarProviderNFT.ProviderPosition memory providerPos =
             stored.providerNFT.getPosition(stored.providerId);
@@ -122,15 +122,17 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         uint offerId // @dev implies specific provider, put & call percents, duration
     ) external whenNotPaused returns (uint takerId, uint providerId) {
         // check asset & self allowed
-        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "unsupported taker");
+        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "taker: unsupported taker");
         // check assets & provider allowed
-        require(configHub.canOpenPair(underlying, cashAsset, address(providerNFT)), "unsupported provider");
+        require(
+            configHub.canOpenPair(underlying, cashAsset, address(providerNFT)), "taker: unsupported provider"
+        );
         // check assets match
-        require(providerNFT.underlying() == underlying, "asset mismatch");
-        require(providerNFT.cashAsset() == cashAsset, "asset mismatch");
+        require(providerNFT.underlying() == underlying, "taker: underlying mismatch");
+        require(providerNFT.cashAsset() == cashAsset, "taker: cashAsset mismatch");
 
         CollarProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
-        require(offer.duration != 0, "invalid offer");
+        require(offer.duration != 0, "taker: invalid offer");
         uint providerLocked =
             calculateProviderLocked(takerLocked, offer.putStrikePercent, offer.callStrikePercent);
 
@@ -139,7 +141,9 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         (uint putStrikePrice, uint callStrikePrice) =
             _strikePrices(offer.putStrikePercent, offer.callStrikePercent, startPrice);
         // avoid boolean edge cases and division by zero when settling
-        require(putStrikePrice < startPrice && callStrikePrice > startPrice, "strike prices not different");
+        require(
+            putStrikePrice < startPrice && callStrikePrice > startPrice, "taker: strike prices not different"
+        );
 
         // open the provider position for providerLocked amount (reverts if can't).
         // sends the provider NFT to the provider
@@ -147,7 +151,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
 
         // check expiration matches expected
         uint expiration = block.timestamp + offer.duration;
-        require(expiration == providerNFT.expiration(providerId), "expiration mismatch");
+        require(expiration == providerNFT.expiration(providerId), "taker: expiration mismatch");
 
         // increment ID
         takerId = nextTokenId++;
@@ -180,8 +184,8 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         // @dev this checks position exists
         TakerPosition memory position = getPosition(takerId);
 
-        require(block.timestamp >= position.expiration, "not expired");
-        require(!position.settled, "already settled");
+        require(block.timestamp >= position.expiration, "taker: not expired");
+        require(!position.settled, "taker: already settled");
 
         // settlement price
         (uint endPrice, bool historical) = historicalOraclePrice(position.expiration);
@@ -203,10 +207,10 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     }
 
     function withdrawFromSettled(uint takerId) external whenNotPaused returns (uint withdrawal) {
-        require(msg.sender == ownerOf(takerId), "not position owner");
+        require(msg.sender == ownerOf(takerId), "taker: not position owner");
 
         TakerPosition memory position = getPosition(takerId);
-        require(position.settled, "not settled");
+        require(position.settled, "taker: not settled");
 
         withdrawal = position.withdrawable;
         // store zeroed out withdrawable
@@ -224,12 +228,12 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         (CollarProviderNFT providerNFT, uint providerId) = (position.providerNFT, position.providerId);
 
         // must be taker NFT owner
-        require(msg.sender == ownerOf(takerId), "not owner of taker ID");
+        require(msg.sender == ownerOf(takerId), "taker: not owner of ID");
         // must be provider NFT owner as well
-        require(msg.sender == providerNFT.ownerOf(providerId), "not owner of provider ID");
+        require(msg.sender == providerNFT.ownerOf(providerId), "taker: not owner of provider ID");
 
         // must not be settled yet
-        require(!position.settled, "already settled");
+        require(!position.settled, "taker: already settled");
 
         // storage changes. withdrawable is 0 before settlement, so needs no update
         positions[takerId].settled = true;
@@ -260,22 +264,22 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
 
     function _setOracle(ITakerOracle _oracle) internal {
         // assets match
-        require(_oracle.baseToken() == address(underlying), "oracle asset mismatch");
-        require(_oracle.quoteToken() == address(cashAsset), "oracle asset mismatch");
+        require(_oracle.baseToken() == address(underlying), "taker: oracle underlying mismatch");
+        require(_oracle.quoteToken() == address(cashAsset), "taker: oracle cashAsset mismatch");
 
         // Ensure price calls don't revert and return a non-zero price at least right now.
         // Only a sanity check, since this doesn't ensure that it will work in the future,
         // since the observations buffer can be filled such that the required time window is not available.
         // @dev this means this contract can be temporarily DoSed unless the cardinality is set
         // to at least twap-window. For 5 minutes TWAP on Arbitrum this is 300 (obs. are set by timestamps)
-        require(_oracle.currentPrice() != 0, "invalid current price");
+        require(_oracle.currentPrice() != 0, "taker: invalid current price");
         (uint price,) = _oracle.pastPriceWithFallback(uint32(block.timestamp));
-        require(price != 0, "invalid past price");
+        require(price != 0, "taker: invalid past price");
 
         // check these views don't revert (part of the interface used in Loans)
         // note: .convertToBaseAmount(price, price) should equal .baseUnitAmount(), but checking this
         // may be too strict for more complex oracles, and .baseUnitAmount() is not used internally now
-        require(_oracle.convertToBaseAmount(price, price) != 0, "invalid convertToBaseAmount");
+        require(_oracle.convertToBaseAmount(price, price) != 0, "taker: invalid convertToBaseAmount");
 
         emit OracleSet(oracle, _oracle); // emit before for the prev value
         oracle = _oracle;

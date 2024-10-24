@@ -72,7 +72,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
     modifier onlyNFTOwner(uint loanId) {
         /// @dev will also revert on non-existent (unminted / burned) taker ID
-        require(msg.sender == ownerOf(loanId), "not NFT owner");
+        require(msg.sender == ownerOf(loanId), "loans: not NFT owner");
         _;
     }
 
@@ -100,7 +100,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // @dev avoid settlement estimation complexity: if position is not settled, estimating
         // withdrawable funds is unnecessarily complex.
         // Instead, since positions can and should be settled soon after expiry - require that it is.
-        require(takerPosition.settled, "taker position not settled");
+        require(takerPosition.settled, "loans: taker position not settled");
         uint cashAvailable = takerPosition.withdrawable;
 
         // use current price for estimation of swap output.
@@ -223,7 +223,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // - keeper sets the SwapParams and its slippage parameter
         /// @dev ownerOf will revert on non-existent (unminted / burned) loan ID
         address borrower = ownerOf(loanId);
-        require(_isSenderOrKeeperFor(borrower), "not NFT owner or allowed keeper");
+        require(_isSenderOrKeeperFor(borrower), "loans: not NFT owner or allowed keeper");
 
         // burn token. This prevents any other (or reentrant) calls for this loan
         _burn(loanId);
@@ -288,11 +288,11 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         returns (uint newLoanId, uint newLoanAmount, int toUser)
     {
         // check opening loans is still allowed (not in exit-only mode)
-        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "unsupported loans");
+        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "loans: unsupported loans");
 
         // @dev rolls contract is assumed to not allow rolling an expired or settled position,
         // but checking explicitly is safer and easier to review
-        require(block.timestamp <= _expiration(loanId), "loan expired");
+        require(block.timestamp <= _expiration(loanId), "loans: loan expired");
 
         // burn token. This prevents any further calls for this loan
         _burn(loanId);
@@ -363,7 +363,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         address borrower = ownerOf(loanId);
 
         Loan memory loan = getLoan(loanId);
-        require(loan.usesEscrow, "not an escrowed loan");
+        require(loan.usesEscrow, "loans: not an escrowed loan");
 
         (EscrowSupplierNFT escrowNFT, uint escrowId) = (loan.escrowNFT, loan.escrowId);
         // Funds beneficiary (escrow owner) should ideally set the swapParams.
@@ -371,7 +371,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // impacting the amount of funds available for late-fee repayment.
         // @dev will also revert on non-existent (unminted / burned) escrow ID
         address escrowOwner = escrowNFT.ownerOf(escrowId);
-        require(_isSenderOrKeeperFor(escrowOwner), "not escrow owner or allowed keeper");
+        require(_isSenderOrKeeperFor(escrowOwner), "loans: not escrow owner or allowed keeper");
 
         // @dev escrowGracePeriod uses twap-price, while actual foreclosing swap is using spot price.
         // This has several implications:
@@ -387,7 +387,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         //    result in "leftovers" that will go to the borrower, so makes no sense for them to do (since
         //    manipulation costs money).
         uint gracePeriodEnd = _expiration(loanId) + escrowGracePeriod(loanId);
-        require(block.timestamp > gracePeriodEnd, "cannot foreclose yet");
+        require(block.timestamp > gracePeriodEnd, "loans: cannot foreclose yet");
 
         // burn NFT from the user. Prevents any further actions for this loan.
         // Although they are not the caller, altering their assets is fine here because
@@ -446,7 +446,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     /// and to make sure the default one is allowed.
     /// @dev only owner
     function setSwapperAllowed(address swapper, bool allowed, bool setDefault) external onlyOwner {
-        if (allowed) require(bytes(ISwapper(swapper).VERSION()).length > 0, "invalid swapper");
+        if (allowed) require(bytes(ISwapper(swapper).VERSION()).length > 0, "loans: invalid swapper");
         allowedSwappers[swapper] = allowed;
 
         // it is possible to disallow and set as default at the same time. E.g., to unset the default
@@ -468,7 +468,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         EscrowOffer memory escrowOffer,
         uint escrowFee
     ) internal returns (uint loanId, uint providerId, uint loanAmount) {
-        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "unsupported loans");
+        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "loans: unsupported loans");
         // taker NFT and provider NFT canOpen is checked in _swapAndMintPaired
         // escrow NFT canOpen is checked in _conditionalOpenEscrow
 
@@ -490,7 +490,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             // is why escrow's loanId is later validated in _escrowValidations.
             (takerId, providerId, loanAmount) =
                 _swapAndMintCollar(underlyingAmount, providerOffer, swapParams);
-            require(loanAmount >= minLoanAmount, "loan amount too low");
+            require(loanAmount >= minLoanAmount, "loans: loan amount too low");
 
             // validate loanId
             loanId = _newLoanIdCheck(takerId);
@@ -526,13 +526,15 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     ) internal returns (uint takerId, uint providerId, uint loanAmount) {
         (CollarProviderNFT providerNFT, uint offerId) = (offer.providerNFT, offer.id);
 
-        require(configHub.canOpenPair(underlying, cashAsset, address(takerNFT)), "unsupported taker");
+        require(configHub.canOpenPair(underlying, cashAsset, address(takerNFT)), "loans: unsupported taker");
         // taker will check provider's canOpen as well, but we're using a view from it below so check too
-        require(configHub.canOpenPair(underlying, cashAsset, address(providerNFT)), "unsupported provider");
+        require(
+            configHub.canOpenPair(underlying, cashAsset, address(providerNFT)), "loans: unsupported provider"
+        );
         // taker is expected to check that providerNFT's assets match correctly
 
         // 0 underlying is later checked to mean non-existing loan, also prevents div-zero
-        require(underlyingAmount != 0, "invalid underlying amount");
+        require(underlyingAmount != 0, "loans: invalid underlying amount");
 
         // swap underlying
         // @dev Reentrancy assumption: no user state writes or reads BEFORE the swapper call in _swap.
@@ -568,7 +570,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         returns (uint amountOut)
     {
         // check swapper allowed
-        require(allowedSwappers[swapParams.swapper], "swapper not allowed");
+        require(allowedSwappers[swapParams.swapper], "loans: swapper not allowed");
 
         uint balanceBefore = assetOut.balanceOf(address(this));
         // approve the swapper
@@ -592,9 +594,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // Calculate the actual amount received
         amountOut = assetOut.balanceOf(address(this)) - balanceBefore;
         // check balance is updated as expected and as reported by swapper (no other balance changes)
-        require(amountOut == amountOutSwapper, "balance update mismatch");
+        require(amountOut == amountOutSwapper, "loans: balance update mismatch");
         // check amount is as expected by user
-        require(amountOut >= swapParams.minAmountOut, "slippage exceeded");
+        require(amountOut >= swapParams.minAmountOut, "loans: slippage exceeded");
     }
 
     function _settleAndWithdrawTaker(uint loanId) internal returns (uint withdrawnAmount) {
@@ -617,7 +619,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     {
         (Rolls rolls, uint rollId) = (rollOffer.rolls, rollOffer.id);
         // check this rolls contract is allowed
-        require(configHub.canOpenPair(underlying, cashAsset, address(rolls)), "unsupported rolls");
+        require(configHub.canOpenPair(underlying, cashAsset, address(rolls)), "loans: unsupported rolls");
         // taker matching roll's taker is not checked because if doesn't match, roll should check / fail
         // offer status (active) is not checked, also since rolls should check / fail
 
@@ -643,9 +645,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // execute roll
         (newTakerId,, toTaker,) = rolls.executeRoll(rollId, minToUser);
         // check return value matches preview, which is used for updating the loan and pulling cash
-        require(toTaker == preview.toTaker, "unexpected transfer amount");
+        require(toTaker == preview.toTaker, "loans: unexpected transfer amount");
         // check slippage (would have been checked in Rolls as well)
-        require(toTaker >= minToUser, "roll transfer < minToUser");
+        require(toTaker >= minToUser, "loans: roll transfer < minToUser");
 
         // transfer cash if should have received any
         if (toTaker > 0) {
@@ -655,7 +657,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
         // there should be no balance change for the contract (which might happen e.g., if rolls contract
         // overestimated amount to pull from user and under-reported return value)
-        require(cashAsset.balanceOf(address(this)) == initialBalance, "contract balance changed");
+        require(cashAsset.balanceOf(address(this)) == initialBalance, "loans: contract balance changed");
     }
 
     // ----- Conditional escrow mutative methods ----- //
@@ -667,9 +669,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         if (usesEscrow) {
             escrowNFT = offer.escrowNFT;
             // check asset matches
-            require(escrowNFT.asset() == underlying, "escrow asset mismatch");
+            require(escrowNFT.asset() == underlying, "loans: escrow asset mismatch");
             // whitelisted only
-            require(configHub.canOpenSingle(underlying, address(escrowNFT)), "unsupported escrow");
+            require(configHub.canOpenSingle(underlying, address(escrowNFT)), "loans: unsupported escrow");
 
             // @dev underlyingAmount and fee were pulled already before calling this method
             underlying.forceApprove(address(escrowNFT), escrowed + fee);
@@ -693,7 +695,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         if (prevLoan.usesEscrow) {
             EscrowSupplierNFT escrowNFT = prevLoan.escrowNFT;
             // check this escrow is still allowed
-            require(configHub.canOpenSingle(underlying, address(escrowNFT)), "unsupported escrow");
+            require(configHub.canOpenSingle(underlying, address(escrowNFT)), "loans: unsupported escrow");
 
             underlying.safeTransferFrom(msg.sender, address(this), newFee);
             underlying.forceApprove(address(escrowNFT), newFee);
@@ -774,7 +776,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             to justify repaying (due to slippage on full amount). In such a case user should unwrap
             before expiry, or allow the dust to go to the escrow supplier.
             */
-            require(escrowReleased || block.timestamp <= _expiration(loanId), "loan expired");
+            require(escrowReleased || block.timestamp <= _expiration(loanId), "loans: loan expired");
 
             if (!escrowReleased) {
                 // if not released, release the user funds to the supplier since the user will not repay
@@ -810,7 +812,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // check that the ID is not yet taken. This should not be possible, since takerId should mint
         // new IDs correctly, but can be checked for completeness.
         // @dev non-zero should be ensured when opening loan
-        require(loans[loanId].underlyingAmount == 0, "loanId taken");
+        require(loans[loanId].underlyingAmount == 0, "loans: loanId taken");
     }
 
     function _takerId(uint loanId) internal pure returns (uint takerId) {
@@ -836,7 +838,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         int loanChange = fromRollsToUser + rollFee;
         if (loanChange < 0) {
             uint repayment = uint(-loanChange); // will revert for type(int).min
-            require(repayment <= prevLoanAmount, "repayment larger than loan");
+            require(repayment <= prevLoanAmount, "loans: repayment larger than loan");
             // if the borrower manipulated (sandwiched) their open swap price to be very low, they
             // may not be able to roll now. Rolling is optional, so this is not a problem.
             newLoanAmount = prevLoanAmount - repayment;
@@ -854,8 +856,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // external calls, so we need to ensure it matches still (was not skipped by reentrancy).
         // For rolls this check is not really needed since no untrusted calls are made between
         // switching escrow and this code.
-        require(escrow.loanId == loanId, "unexpected loanId");
+        require(escrow.loanId == loanId, "loans: unexpected loanId");
         // check expirations are equal to ensure no duration mismatch between escrow and collar
-        require(escrow.expiration == _expiration(loanId), "duration mismatch");
+        require(escrow.expiration == _expiration(loanId), "loans: duration mismatch");
     }
 }

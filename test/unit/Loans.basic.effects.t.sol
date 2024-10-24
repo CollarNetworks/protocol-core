@@ -660,7 +660,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
             loans.ownerOf(loanId);
         } else {
             // also tested in reverts
-            vm.expectRevert("loan expired");
+            vm.expectRevert("loans: loan expired");
             loans.unwrapAndCancelLoan(loanId);
         }
     }

@@ -87,9 +87,9 @@ contract SwapperUniV3 is ISwapper {
 
         // check balance is updated as expected and as reported by router (no other balance changes)
         // asset cannot be fee-on-transfer or rebasing (e.g., internal shares accounting)
-        require(amountOut == amountOutRouter, "balance update mismatch");
+        require(amountOut == amountOutRouter, "SwapperUniV3: balance update mismatch");
         // check amount is as expected by caller
-        require(amountOut >= minAmountOut, "slippage exceeded");
+        require(amountOut >= minAmountOut, "SwapperUniV3: slippage exceeded");
 
         assetOut.safeTransfer(msg.sender, amountOut);
     }

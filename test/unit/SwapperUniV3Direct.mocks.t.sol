@@ -84,7 +84,7 @@ contract SwapperUniV3Test is Test {
 
     function test_revert_swap_slippageExceeded() public {
         setupSwap(amountIn, minAmountOut);
-        vm.expectRevert("slippage exceeded");
+        vm.expectRevert("SwapperUniV3: slippage exceeded");
         swapper.swap(tokenIn, tokenOut, amountIn, minAmountOut + 1, "");
     }
 
@@ -92,7 +92,7 @@ contract SwapperUniV3Test is Test {
         setupSwap(amountIn, amountOut);
         mockRouter.setupSwap(amountOut, amountOut - 1); // Simulate a balance mismatch
 
-        vm.expectRevert("balance update mismatch");
+        vm.expectRevert("SwapperUniV3: balance update mismatch");
         swapper.swap(tokenIn, tokenOut, amountIn, minAmountOut, "");
     }
 }

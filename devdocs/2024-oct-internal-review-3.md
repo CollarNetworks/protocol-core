@@ -40,6 +40,7 @@
 - [ ] #low incorrect email + missing security contact
 - [x] #low remove all unused interface methods
 - [x] #low refactor all simple math (min / max / etc) with OZ library
+- [x] #note repeated revert reasons shadow each other (unspecific) making debugging difficult, testing error prone, and causing mutation testing false positives
 - [x] #note copyright header
 - [x] #note unused imports in a few places
 - [x] #note several notes and nits from lightchaser https://gist.github.com/ChaseTheLight01/a66ec6b0599e1760f8512c42ec5f96ea
