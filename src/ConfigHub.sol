@@ -92,7 +92,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
 
     /// @notice Sets addresses that can pause (but not unpause) any of the contracts that
     /// use this ConfigHub.
-    /// @param sender The address of the a guardian
+    /// @param sender The address of a guardian to enable or disable
     /// @param enabled Enabled or disabled status
     function setPauseGuardian(address sender, bool enabled) external onlyOwner {
         // contains / return value is not checked
