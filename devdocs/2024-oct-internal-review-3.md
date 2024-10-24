@@ -37,7 +37,7 @@
     - approval of 0 works
     - transfer of 0 works
 - [ ] #low document for each contract what post-deployment setup is needed (in that contract and others)
-- [ ] #low incorrect email + missing security contact
+- [x] #low incorrect email + missing security contact
 - [x] #low remove all unused interface methods
 - [x] #low refactor all simple math (min / max / etc) with OZ library
 - [x] #note repeated revert reasons shadow each other (unspecific) making debugging difficult, testing error prone, and causing mutation testing false positives
@@ -85,7 +85,7 @@
 - [x] #low naming: collateralAsset should be "underlying", since collateral is ambiguous and is actually cash. Should be just address since not used as erc20.
 - [x] #low expiration should be calculated and checked vs. provider position because is key parameter (to reduce coupling)
 - [x] #low not all oracle views are checked in _setOracle, use interface instead of contract, check all used views
-- [ ] #note docs are mostly missing
+- [x] #note docs are mostly missing
 - [x] #note add `historicalOraclePrice` view so that Loans can use that instead of oracle directly
 - [x] #note timestamp casting is not necessarily safe (if duration is not checked by provider)
 - [x] #note previewSettlement arg position struct is awkward, should expect id
@@ -97,7 +97,7 @@
 ### Base admin
 - [x] #low rescuing nfts is not handled: use another arg / function to rescue nfts 
 - [x] #low ~~ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different). override to `nominateOwner`~~ decided against it because the common transferOwnership may be harder to phish
-- [ ] #note docs for BaseEmergencyAdmin and BaseNFT + why they need config hub
+- [x] #note docs for BaseManaged and BaseNFT + why they need config hub
 - [x] #note naming: EmergencyAdmin is role and not attribute. BaseHubControlled?
 
 ###  ConfigHub:
@@ -106,7 +106,7 @@
 - [x] #low ~~ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different). override to `nominateOwner`~~ decided against it because the common transferOwnership may be harder to phish
 - [x] #low pause guardians should be a mapping / set to avoid having to share pauser pkey between team members / owner multi-sig signers and bot
 - [x] #note canOpen is not pair / asset specific, so can allow cross asset misuse
-- [ ] #note docs are incomplete
+- [x] #note docs are incomplete
 - [x] #note naming: BIPS / percent in LTV
 - [x] #note ~~MAX_CONFIGURABLE_DURATION 5 years seems excessive?~~ always part of offer too 
 
@@ -125,8 +125,8 @@
 ### Oracle
 - [x] #med sequencer liveness oracle should prevent usage of bad prices ( https://docs.chain.link/data-feeds/l2-sequencer-feeds )
 - [x] #low need more comprehensive warning, mitigation, and monitoring docs for TWAP issues
-- [ ] #note ITakerOracle interface needs docs
-- [ ] #note contract itself needs more docs
+- [x] #note ITakerOracle interface needs docs
+- [x] #note contract itself needs more docs
 - [x] #note use high level try/catch since it's more readable in this case
 
 ## Remaining from previous review:

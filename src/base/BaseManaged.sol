@@ -8,6 +8,16 @@ import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import { ConfigHub } from "../ConfigHub.sol";
 
+/**
+ * @title BaseManaged
+ * @notice Base contract for managed contracts in the Collar Protocol
+ * @dev This contract provides common functionality for contracts that are owned and managed
+ * via the Collar Protocol's ConfigHub. It includes 2 step ownership, pause/unpause functionality,
+ * pause guardian pausing, and an emergency function to rescue stuck tokens.
+ *
+ * @dev All contracts that inherit from BaseManaged must call `_setConfigHub` to set the
+ * ConfigHub address.
+ */
 abstract contract BaseManaged is Ownable2Step, Pausable {
     // ----- State ----- //
     ConfigHub public configHub;
@@ -24,7 +34,7 @@ abstract contract BaseManaged is Ownable2Step, Pausable {
 
     // ----- Non-owner ----- //
 
-    // @notice Pause method called from the guardian authorized by the ConfigHub
+    // @notice Pause method called from a guardian authorized by the ConfigHub
     // Reverts if sender is not guardian, or if owner is revoked (since unpausing would be impossible)
     function pauseByGuardian() external {
         require(configHub.isPauseGuardian(msg.sender), "not guardian");
@@ -38,20 +48,29 @@ abstract contract BaseManaged is Ownable2Step, Pausable {
 
     // ----- owner ----- //
 
+    /// @notice Pauses the contract when called by the contract owner
     function pause() external onlyOwner {
         _pause();
     }
 
+    /// @notice Unpauses the contract when called by the contract owner
     function unpause() external onlyOwner {
         _unpause();
     }
 
+    /// @notice Updates the address of the ConfigHub contract when called by the contract owner
     function setConfigHub(ConfigHub _newConfigHub) external onlyOwner {
         _setConfigHub(_newConfigHub);
     }
 
-    /// @notice sends an amount of ERC-20 or an ID of ERC-721 to owner's address,
-    /// required for funds recovery in case of emergency, user mistakes, or irrecoverable bugs
+    /**
+     * @notice Sends an amount of ERC-20, or an ID of ERC-721, to owner's address.
+     * To be used in case of emergency, user mistakes, or irrecoverable bugs.
+     * @dev Only callable by the contract owner
+     * @param token The address of the token contract
+     * @param amountOrId The amount of tokens to rescue (or token ID for NFTs)
+     * @param isNFT Whether the token is an NFT (true) or an ERC-20 (false)
+     */
     function rescueTokens(address token, uint amountOrId, bool isNFT) external onlyOwner {
         /// The transfer is to the owner so that only full owner compromise can steal tokens
         /// and not a single rescue transaction with bad params
