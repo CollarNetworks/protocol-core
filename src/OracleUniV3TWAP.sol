@@ -174,7 +174,7 @@ contract OracleUniV3TWAP is ITakerOracle {
      * is not available. Amount of quoteToken for a "unit" of baseToken (i.e. 10**baseToken.decimals())
      * @return historical Whether the returned price is historical (true) or the current fallback price (false)
      */
-    function pastPriceWithFallback(uint32 timestamp) public view returns (uint price, bool historical) {
+    function pastPriceWithFallback(uint32 timestamp) external view returns (uint price, bool historical) {
         // high level try/catch is error-prone and hides failure cases, low level try/catch is more
         // complex so also not ideal. If reviewing changes to this must read docs:
         //    https://docs.soliditylang.org/en/v0.8.22/control-structures.html#try-catch
