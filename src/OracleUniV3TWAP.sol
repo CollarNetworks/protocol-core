@@ -53,6 +53,10 @@ Suggested monitoring for pools and possible replacement pools (other fee tiers):
 - Pool price delay during spikes behind external market price (Binance / Chainlink) prices
 to measure arbitrage responsiveness.
 */
+
+/**
+ * @custom:security-contact security@collarprotocol.xyz
+ */
 contract OracleUniV3TWAP is ITakerOracle {
     uint32 public constant MIN_TWAP_WINDOW = 300;
     string public constant VERSION = "0.2.0";

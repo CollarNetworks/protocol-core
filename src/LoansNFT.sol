@@ -13,6 +13,7 @@ import { ILoansNFT } from "./interfaces/ILoansNFT.sol";
 
 /**
  * @title LoansNFT
+ * @custom:security-contact security@collarprotocol.xyz
  * @dev This contract manages opening, closing, and rolling of loans via Collar positions,
  * with optional escrow support.
  *

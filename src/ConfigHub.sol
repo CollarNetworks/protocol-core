@@ -7,6 +7,9 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { IConfigHub, IERC20 } from "./interfaces/IConfigHub.sol";
 
+/**
+ * @custom:security-contact security@collarprotocol.xyz
+ */
 contract ConfigHub is Ownable2Step, IConfigHub {
     using EnumerableSet for EnumerableSet.AddressSet;
 

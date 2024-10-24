@@ -5,6 +5,9 @@ import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 import { BaseManaged, ConfigHub } from "./BaseManaged.sol";
 
+/**
+ * @custom:security-contact security@collarprotocol.xyz
+ */
 abstract contract BaseNFT is BaseManaged, ERC721 {
     // ----- State ----- //
     uint internal nextTokenId = 1; // NFT token ID, starts from 1 so that 0 ID is not used

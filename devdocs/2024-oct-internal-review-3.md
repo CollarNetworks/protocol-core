@@ -37,7 +37,7 @@
     - approval of 0 works
     - transfer of 0 works
 - [ ] #low document for each contract what post-deployment setup is needed (in that contract and others)
-- [ ] #low incorrect email + missing security contact
+- [x] #low incorrect email + missing security contact
 - [x] #low remove all unused interface methods
 - [x] #low refactor all simple math (min / max / etc) with OZ library
 - [x] #note repeated revert reasons shadow each other (unspecific) making debugging difficult, testing error prone, and causing mutation testing false positives

@@ -8,6 +8,9 @@ import { IERC721 } from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 import { ConfigHub } from "../ConfigHub.sol";
 
+/**
+ * @custom:security-contact security@collarprotocol.xyz
+ */
 abstract contract BaseManaged is Ownable2Step, Pausable {
     // ----- State ----- //
     ConfigHub public configHub;

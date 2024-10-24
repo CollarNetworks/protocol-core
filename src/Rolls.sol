@@ -12,6 +12,7 @@ import { IRolls } from "./interfaces/IRolls.sol";
 
 /**
  * @title Rolls
+ * @custom:security-contact security@collarprotocol.xyz
  * @dev This contract manages the "rolling" of existing collar positions before expiry to new strikes and
  * expiry.
  *

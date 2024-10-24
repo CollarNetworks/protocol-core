@@ -10,6 +10,7 @@ import { ICollarProviderNFT } from "./interfaces/ICollarProviderNFT.sol";
 
 /**
  * @title CollarProviderNFT
+ * @custom:security-contact security@collarprotocol.xyz
  *
  * Main Functionality:
  * 1. Allows liquidity providers to create and manage offers for a specific Taker contract.

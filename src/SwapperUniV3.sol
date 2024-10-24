@@ -9,6 +9,7 @@ import { ISwapper } from "./interfaces/ISwapper.sol";
 
 /**
  * @notice Unowned simple contract that swaps tokens in a direct route via UniswapV3.
+ * @custom:security-contact security@collarprotocol.xyz
  */
 contract SwapperUniV3 is ISwapper {
     using SafeERC20 for IERC20;

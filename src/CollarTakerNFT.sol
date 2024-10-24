@@ -8,6 +8,9 @@ import { ITakerOracle } from "./interfaces/ITakerOracle.sol";
 import { ICollarTakerNFT } from "./interfaces/ICollarTakerNFT.sol";
 import { ICollarProviderNFT } from "./interfaces/ICollarProviderNFT.sol";
 
+/**
+ * @custom:security-contact security@collarprotocol.xyz
+ */
 contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     using SafeERC20 for IERC20;
     using SafeCast for uint;

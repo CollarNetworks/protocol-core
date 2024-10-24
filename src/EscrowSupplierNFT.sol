@@ -11,6 +11,7 @@ import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
 /**
  * @title EscrowSupplierNFT
  * @notice Manages escrows and escrow offers for LoansNFT.
+ * @custom:security-contact security@collarprotocol.xyz
  *
  * Main Functionality:
  * 1. Allows suppliers to create and manage escrow offers for multiple loans contracts.
