@@ -77,7 +77,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     }
 
     modifier onlyTaker() {
-        require(msg.sender == taker, "unauthorized taker contract");
+        require(msg.sender == taker, "provider: unauthorized taker contract");
         _;
     }
 
@@ -156,9 +156,9 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         uint minLocked
     ) external whenNotPaused returns (uint offerId) {
         // sanity checks
-        require(callStrikePercent >= MIN_CALL_STRIKE_BIPS, "strike percent too low");
-        require(callStrikePercent <= MAX_CALL_STRIKE_BIPS, "strike percent too high");
-        require(putStrikePercent <= MAX_PUT_STRIKE_BIPS, "invalid put strike percent");
+        require(callStrikePercent >= MIN_CALL_STRIKE_BIPS, "provider: strike percent too low");
+        require(callStrikePercent <= MAX_CALL_STRIKE_BIPS, "provider: strike percent too high");
+        require(putStrikePercent <= MAX_PUT_STRIKE_BIPS, "provider: invalid put strike percent");
 
         offerId = nextOfferId++;
         liquidityOffers[offerId] = LiquidityOfferStored({
@@ -183,7 +183,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// @param newAmount The new amount of cash asset for the offer
     function updateOfferAmount(uint offerId, uint newAmount) external whenNotPaused {
         LiquidityOfferStored storage offer = liquidityOffers[offerId];
-        require(msg.sender == offer.provider, "not offer provider");
+        require(msg.sender == offer.provider, "provider: not offer provider");
 
         uint previousAmount = offer.available;
         if (newAmount > previousAmount) {
@@ -222,22 +222,22 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     {
         // @dev only checked on open, not checked later on settle / cancel to allow withdraw-only mode.
         // not checked on createOffer, so invalid offers can be created but not minted from
-        require(configHub.canOpenPair(underlying, cashAsset, msg.sender), "unsupported taker");
-        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "unsupported provider");
+        require(configHub.canOpenPair(underlying, cashAsset, msg.sender), "provider: unsupported taker");
+        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "provider: unsupported provider");
 
         LiquidityOffer memory offer = getOffer(offerId);
         // check terms
         uint ltv = offer.putStrikePercent; // assumed to be always equal
-        require(configHub.isValidLTV(ltv), "unsupported LTV");
-        require(configHub.isValidCollarDuration(offer.duration), "unsupported duration");
+        require(configHub.isValidLTV(ltv), "provider: unsupported LTV");
+        require(configHub.isValidCollarDuration(offer.duration), "provider: unsupported duration");
 
         // calc protocol fee to subtract from offer (on top of amount)
         (uint fee, address feeRecipient) = protocolFee(providerLocked, offer.duration);
 
         // check amount
-        require(providerLocked >= offer.minLocked, "amount too low");
+        require(providerLocked >= offer.minLocked, "provider: amount too low");
         uint prevOfferAmount = offer.available;
-        require(providerLocked + fee <= prevOfferAmount, "amount too high");
+        require(providerLocked + fee <= prevOfferAmount, "provider: amount too high");
         uint newAvailable = prevOfferAmount - providerLocked - fee;
 
         // storage updates
@@ -286,11 +286,11 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     function settlePosition(uint positionId, int cashDelta) external whenNotPaused onlyTaker {
         ProviderPositionStored storage position = positions[positionId];
 
-        require(position.expiration != 0, "provider position does not exist");
+        require(position.expiration != 0, "provider: position does not exist");
         // taker will check expiry, but this ensures an invariant and guards against taker bugs
-        require(block.timestamp >= position.expiration, "not expired");
+        require(block.timestamp >= position.expiration, "provider: not expired");
 
-        require(!position.settled, "already settled");
+        require(!position.settled, "provider: already settled");
         position.settled = true; // done here as CEI
 
         uint initial = position.providerLocked;
@@ -302,7 +302,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         } else {
             // handles no-change as well (zero-value-transfer ok)
             uint toRemove = uint(-cashDelta); // will revert for type(int).min
-            require(toRemove <= initial, "loss is too high");
+            require(toRemove <= initial, "provider: loss is too high");
             position.withdrawable = initial - toRemove;
             // we owe the taker some tokens
             cashAsset.safeTransfer(taker, toRemove);
@@ -321,8 +321,8 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// @param positionId The ID of the position to cancel (NFT token ID)
     function cancelAndWithdraw(uint positionId) external whenNotPaused onlyTaker returns (uint withdrawal) {
         ProviderPositionStored storage position = positions[positionId];
-        require(position.expiration != 0, "provider position does not exist");
-        require(!position.settled, "already settled");
+        require(position.expiration != 0, "provider: position does not exist");
+        require(!position.settled, "provider: already settled");
 
         /* @dev Ensure caller is BOTH taker contract (`onlyTaker`), and was approved by NFT owner
         While taker contract is trusted here, and must check ownership of BOTH tokens, its this contract's
@@ -334,7 +334,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
             3) was approved for the specific ID (getApproved for positionId).
         */
         bool callerApprovedForId = _isAuthorized(ownerOf(positionId), msg.sender, positionId);
-        require(callerApprovedForId, "caller not approved for provider ID");
+        require(callerApprovedForId, "provider: caller not approved for ID");
 
         // store changes
         position.settled = true; // done here as CEI
@@ -354,10 +354,10 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// (and not a cancelled one), and checks the ownership of the NFT. Burns the NFT.
     /// @param positionId The ID of the settled position to withdraw from (NFT token ID).
     function withdrawFromSettled(uint positionId) external whenNotPaused returns (uint withdrawal) {
-        require(msg.sender == ownerOf(positionId), "not position owner");
+        require(msg.sender == ownerOf(positionId), "provider: not position owner");
 
         ProviderPositionStored storage position = positions[positionId];
-        require(position.settled, "not settled");
+        require(position.settled, "provider: not settled");
 
         withdrawal = position.withdrawable;
         // zero out withdrawable

@@ -645,15 +645,15 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
 
     function test_revert_createOffer_invalidParams() public {
         uint minStrike = providerNFT.MIN_CALL_STRIKE_BIPS();
-        vm.expectRevert("strike percent too low");
+        vm.expectRevert("provider: strike percent too low");
         providerNFT.createOffer(minStrike - 1, largeAmount, putPercent, duration, minLocked);
 
         uint maxStrike = providerNFT.MAX_CALL_STRIKE_BIPS();
-        vm.expectRevert("strike percent too high");
+        vm.expectRevert("provider: strike percent too high");
         providerNFT.createOffer(maxStrike + 1, largeAmount, putPercent, duration, minLocked);
 
         uint maxPutStrike = providerNFT.MAX_PUT_STRIKE_BIPS();
-        vm.expectRevert("invalid put strike percent");
+        vm.expectRevert("provider: invalid put strike percent");
         providerNFT.createOffer(callStrikePercent, largeAmount, maxPutStrike + 1, duration, minLocked);
     }
 
@@ -661,7 +661,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         (uint offerId,) = createAndCheckOffer(provider, largeAmount);
 
         vm.startPrank(address(0xdead));
-        vm.expectRevert("not offer provider");
+        vm.expectRevert("provider: not offer provider");
         providerNFT.updateOfferAmount(offerId, largeAmount * 2);
     }
 
@@ -669,30 +669,30 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         (uint offerId,) = createAndCheckOffer(provider, largeAmount);
 
         vm.startPrank(address(0xdead));
-        vm.expectRevert("unauthorized taker contract");
+        vm.expectRevert("provider: unauthorized taker contract");
         providerNFT.mintFromOffer(offerId, 0, 0);
 
         setCanOpen(takerContract, false);
         vm.startPrank(takerContract);
-        vm.expectRevert("unsupported taker");
+        vm.expectRevert("provider: unsupported taker");
         providerNFT.mintFromOffer(offerId, 0, 0);
         // allowed for different assets, still reverts
         vm.startPrank(owner);
         configHub.setCanOpenPair(cashAsset, underlying, takerContract, true);
         vm.startPrank(takerContract);
-        vm.expectRevert("unsupported taker");
+        vm.expectRevert("provider: unsupported taker");
         providerNFT.mintFromOffer(offerId, 0, 0);
 
         setCanOpen(takerContract, true);
         setCanOpen(address(providerNFT), false);
         vm.startPrank(takerContract);
-        vm.expectRevert("unsupported provider");
+        vm.expectRevert("provider: unsupported provider");
         providerNFT.mintFromOffer(offerId, 0, 0);
         // allowed for different assets, still reverts
         vm.startPrank(owner);
         configHub.setCanOpenPair(cashAsset, underlying, address(providerNFT), true);
         vm.startPrank(takerContract);
-        vm.expectRevert("unsupported provider");
+        vm.expectRevert("provider: unsupported provider");
         providerNFT.mintFromOffer(offerId, 0, 0);
     }
 
@@ -703,7 +703,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         putPercent = putPercent + 100;
         configHub.setLTVRange(putPercent, putPercent);
         vm.startPrank(address(takerContract));
-        vm.expectRevert("unsupported LTV");
+        vm.expectRevert("provider: unsupported LTV");
         providerNFT.mintFromOffer(offerId, largeAmount / 2, 0);
         vm.startPrank(owner);
         putPercent = 9000;
@@ -715,7 +715,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         duration = duration + 100;
         configHub.setCollarDurationRange(duration, duration);
         vm.startPrank(address(takerContract));
-        vm.expectRevert("unsupported duration");
+        vm.expectRevert("provider: unsupported duration");
         providerNFT.mintFromOffer(offerId, largeAmount / 2, 0);
     }
 
@@ -723,7 +723,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         (uint offerId,) = createAndCheckOffer(provider, largeAmount);
 
         vm.startPrank(address(takerContract));
-        vm.expectRevert("amount too high");
+        vm.expectRevert("provider: amount too high");
         providerNFT.mintFromOffer(offerId, largeAmount + 1, 0);
     }
 
@@ -732,14 +732,14 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         (uint offerId,) = createAndCheckOffer(provider, largeAmount);
 
         vm.startPrank(address(takerContract));
-        vm.expectRevert("amount too low");
+        vm.expectRevert("provider: amount too low");
         providerNFT.mintFromOffer(offerId, 0, 0);
 
         minLocked = largeAmount / 2;
         (offerId,) = createAndCheckOffer(provider, largeAmount);
 
         vm.startPrank(address(takerContract));
-        vm.expectRevert("amount too low");
+        vm.expectRevert("provider: amount too low");
         providerNFT.mintFromOffer(offerId, minLocked - 1, 0);
     }
 
@@ -747,19 +747,19 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         (uint positionId,) = createAndCheckPosition(provider, largeAmount, largeAmount / 2);
 
         vm.startPrank(address(0xdead));
-        vm.expectRevert("unauthorized taker contract");
+        vm.expectRevert("provider: unauthorized taker contract");
         providerNFT.settlePosition(positionId, 0);
 
         // allow taker contract
         setCanOpen(takerContract, true);
 
         vm.startPrank(takerContract);
-        vm.expectRevert("not expired");
+        vm.expectRevert("provider: not expired");
         providerNFT.settlePosition(positionId, 0);
 
         skip(duration);
 
-        vm.expectRevert("loss is too high");
+        vm.expectRevert("provider: loss is too high");
         providerNFT.settlePosition(positionId, -int(largeAmount / 2 + 1));
 
         vm.expectRevert(stdError.arithmeticError);
@@ -770,16 +770,16 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         providerNFT.settlePosition(positionId, 0);
 
         // can't settle twice
-        vm.expectRevert("already settled");
+        vm.expectRevert("provider: already settled");
         providerNFT.settlePosition(positionId, 0);
     }
 
     function test_revert_nonExistentID() public {
         vm.startPrank(takerContract);
-        vm.expectRevert("provider position does not exist");
+        vm.expectRevert("provider: position does not exist");
         providerNFT.settlePosition(1000, 0);
 
-        vm.expectRevert("provider position does not exist");
+        vm.expectRevert("provider: position does not exist");
         providerNFT.cancelAndWithdraw(1000);
     }
 
@@ -795,7 +795,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         providerNFT.cancelAndWithdraw(positionId);
 
         // can't settle twice
-        vm.expectRevert("already settled");
+        vm.expectRevert("provider: already settled");
         providerNFT.settlePosition(positionId, 0);
     }
 
@@ -808,12 +808,12 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
 
         // not owner
         vm.startPrank(address(0xdead));
-        vm.expectRevert("not position owner");
+        vm.expectRevert("provider: not position owner");
         providerNFT.withdrawFromSettled(positionId);
 
         // not settled
         vm.startPrank(provider);
-        vm.expectRevert("not settled");
+        vm.expectRevert("provider: not settled");
         providerNFT.withdrawFromSettled(positionId);
     }
 
@@ -821,11 +821,11 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         (uint positionId,) = createAndCheckPosition(provider, largeAmount, largeAmount / 2);
 
         vm.startPrank(address(0xdead));
-        vm.expectRevert("unauthorized taker contract");
+        vm.expectRevert("provider: unauthorized taker contract");
         providerNFT.cancelAndWithdraw(positionId);
         setCanOpen(takerContract, true);
         vm.startPrank(address(takerContract));
-        vm.expectRevert("caller not approved for provider ID");
+        vm.expectRevert("provider: caller not approved for ID");
         providerNFT.cancelAndWithdraw(positionId);
 
         skip(duration);
@@ -835,7 +835,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         vm.startPrank(provider);
         providerNFT.approve(takerContract, positionId);
         vm.startPrank(address(takerContract));
-        vm.expectRevert("already settled");
+        vm.expectRevert("provider: already settled");
         providerNFT.cancelAndWithdraw(positionId);
     }
 }
