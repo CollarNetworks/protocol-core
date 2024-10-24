@@ -34,7 +34,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         // unsupported escrow
         setCanOpenSingle(address(escrowNFT), false);
         vm.startPrank(user1);
-        vm.expectRevert("unsupported escrow");
+        vm.expectRevert("loans: unsupported escrow");
         openLoan(underlyingAmount, 0, 0, 0);
 
         // bad escrow offer
@@ -49,7 +49,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         setCanOpenSingle(address(invalidEscrow), true);
         vm.startPrank(user1);
         escrowNFT = invalidEscrow;
-        vm.expectRevert("escrow asset mismatch");
+        vm.expectRevert("loans: escrow asset mismatch");
         openLoan(underlyingAmount, 0, 0, 0);
     }
 
@@ -67,7 +67,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         vm.startPrank(user1);
         prepareSwapToCashAtTWAPPrice();
         underlying.approve(address(loans), underlyingAmount + escrowFee);
-        vm.expectRevert("duration mismatch");
+        vm.expectRevert("loans: duration mismatch");
         openLoan(underlyingAmount, minLoanAmount, 0, providerOffer);
 
         // loanId mismatch escrow
@@ -76,7 +76,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
             abi.encodeCall(takerNFT.nextPositionId, ()),
             abi.encode(takerNFT.nextPositionId() - 1)
         );
-        vm.expectRevert("unexpected loanId");
+        vm.expectRevert("loans: unexpected loanId");
         openLoan(underlyingAmount, minLoanAmount, 0, providerOffer);
     }
 
@@ -85,7 +85,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         // after expiry
         skip(duration + 1);
         // cannot unwrap
-        vm.expectRevert("loan expired");
+        vm.expectRevert("loans: loan expired");
         loans.unwrapAndCancelLoan(loanId);
     }
 
@@ -93,12 +93,12 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         (uint loanId,,) = createAndCheckLoan();
 
         // view reverts too escrowGracePeriod
-        vm.expectRevert("taker position not settled");
+        vm.expectRevert("loans: taker position not settled");
         loans.escrowGracePeriod(loanId);
 
         // foreclose before settlement
         vm.startPrank(supplier);
-        vm.expectRevert("taker position not settled");
+        vm.expectRevert("loans: taker position not settled");
         loans.forecloseLoan(loanId, defaultSwapParams(0));
 
         // settle
@@ -112,12 +112,12 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         updatePrice();
         prepareSwapToUnderlyingAtTWAPPrice();
         mockOracle.setCheckPrice(true);
-        vm.expectRevert("cannot foreclose yet");
+        vm.expectRevert("loans: cannot foreclose yet");
         loans.forecloseLoan(loanId, defaultSwapParams(0));
 
         // foreclose from an unauthorized address
         vm.startPrank(user1);
-        vm.expectRevert("not escrow owner or allowed keeper");
+        vm.expectRevert("loans: not escrow owner or allowed keeper");
         loans.forecloseLoan(loanId, defaultSwapParams(0));
 
         // set the keeper
@@ -126,14 +126,14 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
 
         // keeper not authorized by supplier
         vm.startPrank(keeper);
-        vm.expectRevert("not escrow owner or allowed keeper");
+        vm.expectRevert("loans: not escrow owner or allowed keeper");
         loans.forecloseLoan(loanId, defaultSwapParams(0));
 
         // keeper authorized by user but not supplier
         vm.startPrank(user1);
         loans.setKeeperApproved(true);
         vm.startPrank(keeper);
-        vm.expectRevert("not escrow owner or allowed keeper");
+        vm.expectRevert("loans: not escrow owner or allowed keeper");
         loans.forecloseLoan(loanId, defaultSwapParams(0));
 
         // allow keeper
@@ -168,7 +168,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         openEscrowLoan = false;
         (uint nonEscrowLoanId,,) = createAndCheckLoan();
         vm.startPrank(supplier);
-        vm.expectRevert("not an escrowed loan");
+        vm.expectRevert("loans: not an escrowed loan");
         loans.forecloseLoan(nonEscrowLoanId, defaultSwapParams(0));
     }
 
@@ -184,7 +184,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
 
         // foreclose with an invalid swapper
         vm.startPrank(supplier);
-        vm.expectRevert("swapper not allowed");
+        vm.expectRevert("loans: swapper not allowed");
         loans.forecloseLoan(loanId, ILoansNFT.SwapParams(0, address(0x123), ""));
 
         // slippage
