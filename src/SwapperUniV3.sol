@@ -10,6 +10,9 @@ import { ISwapper } from "./interfaces/ISwapper.sol";
 /**
  * @notice Unowned simple contract that swaps tokens in a direct route via UniswapV3.
  * @custom:security-contact security@collarprotocol.xyz
+ *
+ * Post-Deployment Configuration:
+ * - LoansNFT: Add to allowed swappers if asset pair's liquidity for this fee tier is adequate
  */
 contract SwapperUniV3 is ISwapper {
     using SafeERC20 for IERC20;

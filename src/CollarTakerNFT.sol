@@ -30,6 +30,12 @@ import { ICollarProviderNFT } from "./interfaces/ICollarProviderNFT.sol";
  * 3. The ConfigHub contract correctly manages protocol parameters and authorization.
  * 4. Asset (ERC-20) contracts are simple, non rebasing, do not allow reentrancy, balance changes
  *    correspond to transfer arguments.
+ *
+ * Post-Deployment Configuration:
+ * - Oracle: Ensure adequate observation cardinality
+ * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset pair
+ * - ConfigHub: Set setCanOpenPair() to authorize the provider contract
+ * - CollarProviderNFT: Ensure properly configured
  */
 contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     using SafeERC20 for IERC20;

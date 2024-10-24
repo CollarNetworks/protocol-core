@@ -63,6 +63,9 @@ to measure arbitrage responsiveness.
  * - The Uniswap v3 pool used has adequate liquidity to provide meaningful TWAP data.
  * - The pool's observation cardinality is adequate.
  * - The sequencer (on L2 networks) is operating properly, and its uptime feed (if used) is reliable.
+ *
+ * Post-Deployment Configuration:
+ * - Uniswap pool: increase cardinality to adequate level
  */
 contract OracleUniV3TWAP is ITakerOracle {
     uint32 public constant MIN_TWAP_WINDOW = 300;
