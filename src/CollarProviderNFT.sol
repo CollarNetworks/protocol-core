@@ -32,10 +32,6 @@ import { ICollarProviderNFT } from "./interfaces/ICollarProviderNFT.sol";
  * 4. Put strike percent is assumed to always equal the Loan-to-Value (LTV) ratio.
  * 5. Asset (ERC-20) contracts are simple, non rebasing, do not allow reentrancy, balance changes
  *    correspond to transfer arguments.
- *
- * Security Notes:
- * 1. Critical functions are only callable by the trusted taker contract.
- * 2. Offer and position parameters are validated against the configHub's configurations.
  */
 contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     using SafeERC20 for IERC20;

@@ -85,7 +85,7 @@
 - [x] #low naming: collateralAsset should be "underlying", since collateral is ambiguous and is actually cash. Should be just address since not used as erc20.
 - [x] #low expiration should be calculated and checked vs. provider position because is key parameter (to reduce coupling)
 - [x] #low not all oracle views are checked in _setOracle, use interface instead of contract, check all used views
-- [ ] #note docs are mostly missing
+- [x] #note docs are mostly missing
 - [x] #note add `historicalOraclePrice` view so that Loans can use that instead of oracle directly
 - [x] #note timestamp casting is not necessarily safe (if duration is not checked by provider)
 - [x] #note previewSettlement arg position struct is awkward, should expect id
@@ -97,7 +97,7 @@
 ### Base admin
 - [x] #low rescuing nfts is not handled: use another arg / function to rescue nfts 
 - [x] #low ~~ownable2step has error prone transfer method (since `transferOwnership` is overridden but functionality is different). override to `nominateOwner`~~ decided against it because the common transferOwnership may be harder to phish
-- [ ] #note docs for BaseEmergencyAdmin and BaseNFT + why they need config hub
+- [ ] #note docs for BaseManaged and BaseNFT + why they need config hub
 - [x] #note naming: EmergencyAdmin is role and not attribute. BaseHubControlled?
 
 ###  ConfigHub:
