@@ -188,7 +188,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         loans.forecloseLoan(loanId, ILoansNFT.SwapParams(0, address(0x123), ""));
 
         // slippage
-        vm.expectRevert("slippage exceeded");
+        vm.expectRevert("SwapperUniV3: slippage exceeded");
         loans.forecloseLoan(loanId, ILoansNFT.SwapParams(swapOut + 1, defaultSwapper, ""));
     }
 }

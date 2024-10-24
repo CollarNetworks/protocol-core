@@ -86,12 +86,12 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
         // balance mismatch
         mockSwapperRouter.setupSwap(swapCashAmount - 1, swapCashAmount);
-        vm.expectRevert("balance update mismatch");
+        vm.expectRevert("SwapperUniV3: balance update mismatch");
         openLoan(underlyingAmount, minLoanAmount, swapCashAmount, offerId);
 
         // slippage params
         mockSwapperRouter.setupSwap(swapCashAmount, swapCashAmount);
-        vm.expectRevert("slippage exceeded");
+        vm.expectRevert("SwapperUniV3: slippage exceeded");
         openLoan(underlyingAmount, minLoanAmount, swapCashAmount + 1, offerId);
     }
 
@@ -238,11 +238,11 @@ contract LoansBasicRevertsTest is LoansTestBase {
         cashAsset.approve(address(loans), loanAmount);
         prepareSwap(underlying, underlyingAmount);
 
-        vm.expectRevert("slippage exceeded");
+        vm.expectRevert("SwapperUniV3: slippage exceeded");
         loans.closeLoan(loanId, defaultSwapParams(underlyingAmount + 1));
 
         mockSwapperRouter.setupSwap(underlyingAmount - 1, underlyingAmount);
-        vm.expectRevert("balance update mismatch");
+        vm.expectRevert("SwapperUniV3: balance update mismatch");
         loans.closeLoan(loanId, defaultSwapParams(underlyingAmount));
     }
 
