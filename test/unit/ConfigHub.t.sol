@@ -139,13 +139,13 @@ contract ConfigHubTest is Test {
 
     function test_revert_setLTVRange() public {
         startHoax(owner);
-        vm.expectRevert("min > max");
+        vm.expectRevert("LTV min > max");
         configHub.setLTVRange(maxLTVToUse, minLTVToUse);
 
-        vm.expectRevert("min too low");
+        vm.expectRevert("LTV min too low");
         configHub.setLTVRange(0, maxLTVToUse);
 
-        vm.expectRevert("max too high");
+        vm.expectRevert("LTV max too high");
         configHub.setLTVRange(minLTVToUse, 10_000);
     }
 
@@ -160,13 +160,13 @@ contract ConfigHubTest is Test {
 
     function test_revert_setCollarDurationRange() public {
         startHoax(owner);
-        vm.expectRevert("min > max");
+        vm.expectRevert("duration min > max");
         configHub.setCollarDurationRange(maxDurationToUse, minDurationToUse);
 
-        vm.expectRevert("min too low");
+        vm.expectRevert("duration min too low");
         configHub.setCollarDurationRange(0, maxDurationToUse);
 
-        vm.expectRevert("max too high");
+        vm.expectRevert("duration max too high");
         configHub.setCollarDurationRange(minDurationToUse, 10 * 365 days);
     }
 
@@ -214,7 +214,7 @@ contract ConfigHubTest is Test {
         startHoax(owner);
 
         // reverts
-        vm.expectRevert("fee APR too high");
+        vm.expectRevert("protocol fee APR too high");
         configHub.setProtocolFeeParams(100 + 1, address(0)); // more than 1%
 
         vm.expectRevert("must set recipient for non-zero APR");

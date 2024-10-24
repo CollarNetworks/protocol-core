@@ -68,9 +68,9 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     /// @param min The new minimum LTV
     /// @param max The new maximum LTV
     function setLTVRange(uint min, uint max) external onlyOwner {
-        require(min >= MIN_CONFIGURABLE_LTV_BIPS, "min too low");
-        require(max <= MAX_CONFIGURABLE_LTV_BIPS, "max too high");
-        require(min <= max, "min > max");
+        require(min >= MIN_CONFIGURABLE_LTV_BIPS, "LTV min too low");
+        require(max <= MAX_CONFIGURABLE_LTV_BIPS, "LTV max too high");
+        require(min <= max, "LTV min > max");
         minLTV = SafeCast.toUint16(min);
         maxLTV = SafeCast.toUint16(max);
         emit LTVRangeSet(min, max);
@@ -80,9 +80,9 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     /// @param min The new minimum collar duration
     /// @param max The new maximum collar duration
     function setCollarDurationRange(uint min, uint max) external onlyOwner {
-        require(min >= MIN_CONFIGURABLE_DURATION, "min too low");
-        require(max <= MAX_CONFIGURABLE_DURATION, "max too high");
-        require(min <= max, "min > max");
+        require(min >= MIN_CONFIGURABLE_DURATION, "duration min too low");
+        require(max <= MAX_CONFIGURABLE_DURATION, "duration max too high");
+        require(min <= max, "duration min > max");
         minDuration = SafeCast.toUint32(min);
         maxDuration = SafeCast.toUint32(max);
         emit CollarDurationRangeSet(min, max);
@@ -106,7 +106,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     /// @param apr The APR in BIPs
     /// @param recipient The recipient address. Can be zero if APR is 0, to allow disabling.
     function setProtocolFeeParams(uint apr, address recipient) external onlyOwner {
-        require(apr <= MAX_PROTOCOL_FEE_BIPS, "fee APR too high");
+        require(apr <= MAX_PROTOCOL_FEE_BIPS, "protocol fee APR too high");
         require(recipient != address(0) || apr == 0, "must set recipient for non-zero APR");
         emit ProtocolFeeParamsUpdated(protocolFeeAPR, apr, feeRecipient, recipient);
         protocolFeeAPR = SafeCast.toUint16(apr);
