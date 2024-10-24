@@ -69,15 +69,15 @@ contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
         assertEq(oracle.twapWindow(), twapWindow);
         assertEq(address(oracle.pool()), pool);
         assertEq(address(oracle.sequencerChainlinkFeed()), sequencerFeed);
-        assertTrue(oracle.sequencerLiveFor(twapWindow));
+        if (sequencerFeedExists) assertTrue(oracle.sequencerLiveFor(twapWindow));
     }
 
     function test_sequencerFeed() public {
-        assertTrue(oracle.sequencerLiveFor(0));
-        assertTrue(oracle.sequencerLiveFor(twapWindow));
-        assertTrue(oracle.sequencerLiveFor(100 days));
-
         if (sequencerFeedExists) {
+            assertTrue(oracle.sequencerLiveFor(0));
+            assertTrue(oracle.sequencerLiveFor(twapWindow));
+            assertTrue(oracle.sequencerLiveFor(100 days));
+
             assertNotEq(address(oracle.sequencerChainlinkFeed()), address(0));
             // check feed
             (, int answer, uint startedAt,,) = oracle.sequencerChainlinkFeed().latestRoundData();
@@ -101,6 +101,9 @@ contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
             oracle.pastPrice(expectedStartedAt - 100 days);
         } else {
             assertEq(address(oracle.sequencerChainlinkFeed()), address(0));
+
+            vm.expectRevert("sequencer uptime feed unset");
+            oracle.sequencerLiveFor(0);
         }
     }
 
