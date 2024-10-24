@@ -65,7 +65,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         setCanOpen(address(providerNFT), true);
         vm.startPrank(user1);
         uint invalidOfferId = 999;
-        vm.expectRevert("invalid offer");
+        vm.expectRevert("taker: invalid offer");
         openLoan(underlyingAmount, minLoanAmount, 0, invalidOfferId);
 
         uint offerId = createProviderOffer();
@@ -213,7 +213,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         vm.startPrank(user1);
         cashAsset.approve(address(loans), loanAmount);
 
-        vm.expectRevert("not expired");
+        vm.expectRevert("taker: not expired");
         loans.closeLoan(loanId, defaultSwapParams(0));
     }
 
