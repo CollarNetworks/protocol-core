@@ -171,11 +171,18 @@ contract ConfigHubTest is Test {
     }
 
     function test_setPauseGuardian() public {
+        address[] memory expectedGuardians = new address[](0);
+        assertEq(configHub.allPauseGuardians(), expectedGuardians);
+
         startHoax(owner);
         vm.expectEmit(address(configHub));
         emit IConfigHub.PauseGuardianSet(guardian, true);
         configHub.setPauseGuardian(guardian, true);
         assertTrue(configHub.isPauseGuardian(guardian));
+
+        expectedGuardians = new address[](1);
+        expectedGuardians[0] = guardian;
+        assertEq(configHub.allPauseGuardians(), expectedGuardians);
 
         // set another
         vm.expectEmit(address(configHub));
@@ -186,12 +193,21 @@ contract ConfigHubTest is Test {
         // previous is still set
         assertTrue(configHub.isPauseGuardian(guardian));
 
+        expectedGuardians = new address[](2);
+        expectedGuardians[0] = guardian;
+        expectedGuardians[1] = anotherGuardian;
+        assertEq(configHub.allPauseGuardians(), expectedGuardians);
+
         vm.expectEmit(address(configHub));
         emit IConfigHub.PauseGuardianSet(guardian, false);
         configHub.setPauseGuardian(guardian, false);
         assertFalse(configHub.isPauseGuardian(guardian));
         // the other is still set
         assertTrue(configHub.isPauseGuardian(anotherGuardian));
+
+        expectedGuardians = new address[](1);
+        expectedGuardians[0] = anotherGuardian;
+        assertEq(configHub.allPauseGuardians(), expectedGuardians);
     }
 
     function test_setProtocolFeeParams() public {
