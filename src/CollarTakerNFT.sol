@@ -124,7 +124,9 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         // check asset & self allowed
         require(configHub.canOpenPair(underlying, cashAsset, address(this)), "taker: unsupported taker");
         // check assets & provider allowed
-        require(configHub.canOpenPair(underlying, cashAsset, address(providerNFT)), "taker: unsupported provider");
+        require(
+            configHub.canOpenPair(underlying, cashAsset, address(providerNFT)), "taker: unsupported provider"
+        );
         // check assets match
         require(providerNFT.underlying() == underlying, "taker: underlying mismatch");
         require(providerNFT.cashAsset() == cashAsset, "taker: cashAsset mismatch");
@@ -139,7 +141,9 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         (uint putStrikePrice, uint callStrikePrice) =
             _strikePrices(offer.putStrikePercent, offer.callStrikePercent, startPrice);
         // avoid boolean edge cases and division by zero when settling
-        require(putStrikePrice < startPrice && callStrikePrice > startPrice, "taker: strike prices not different");
+        require(
+            putStrikePrice < startPrice && callStrikePrice > startPrice, "taker: strike prices not different"
+        );
 
         // open the provider position for providerLocked amount (reverts if can't).
         // sends the provider NFT to the provider

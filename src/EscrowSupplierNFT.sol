@@ -96,7 +96,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         EscrowStored memory stored = escrows[escrowId];
         // @dev this is checked because expiration is used in several places, and it's better to add
         // this check here instead of in each such place
-        require(stored.expiration != 0, "escrow position does not exist");
+        require(stored.expiration != 0, "escrow: position does not exist");
         Offer memory offer = getOffer(stored.offerId);
         return Escrow({
             offerId: stored.offerId,
@@ -206,10 +206,10 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         uint minEscrow
     ) external whenNotPaused returns (uint offerId) {
         // sanity checks
-        require(interestAPR <= MAX_INTEREST_APR_BIPS, "interest APR too high");
-        require(lateFeeAPR <= MAX_LATE_FEE_APR_BIPS, "late fee APR too high");
-        require(maxGracePeriod >= MIN_GRACE_PERIOD, "grace period too short");
-        require(maxGracePeriod <= MAX_GRACE_PERIOD, "grace period too long");
+        require(interestAPR <= MAX_INTEREST_APR_BIPS, "escrow: interest APR too high");
+        require(lateFeeAPR <= MAX_LATE_FEE_APR_BIPS, "escrow: late fee APR too high");
+        require(maxGracePeriod >= MIN_GRACE_PERIOD, "escrow: grace period too short");
+        require(maxGracePeriod <= MAX_GRACE_PERIOD, "escrow: grace period too long");
 
         offerId = nextOfferId++;
         offers[offerId] = OfferStored({
@@ -235,7 +235,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      */
     function updateOfferAmount(uint offerId, uint newAmount) external whenNotPaused {
         OfferStored storage offer = offers[offerId];
-        require(msg.sender == offer.supplier, "not offer supplier");
+        require(msg.sender == offer.supplier, "escrow: not offer supplier");
 
         uint previousAmount = offer.available;
         if (newAmount > previousAmount) {
@@ -330,7 +330,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     {
         Escrow memory previousEscrow = getEscrow(releaseEscrowId);
         // do not allow expired escrow to be switched since 0 fromLoans is used for _endEscrow
-        require(block.timestamp <= previousEscrow.expiration, "expired escrow");
+        require(block.timestamp <= previousEscrow.expiration, "escrow: expired");
 
         /*
         1. initially user's escrow "E" secures old ID, "O". O's supplier's funds are away.
@@ -365,10 +365,10 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     /// @notice Withdraws funds from a released escrow. Burns the NFT.
     /// @param escrowId The ID of the escrow to withdraw from
     function withdrawReleased(uint escrowId) external whenNotPaused {
-        require(msg.sender == ownerOf(escrowId), "not escrow owner"); // will revert for burned
+        require(msg.sender == ownerOf(escrowId), "escrow: not escrow owner"); // will revert for burned
 
         Escrow memory escrow = getEscrow(escrowId);
-        require(escrow.released, "not released");
+        require(escrow.released, "escrow: not released");
 
         uint withdrawable = escrow.withdrawable;
         // store zeroed out withdrawable
@@ -394,11 +394,12 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @param escrowId The ID of the escrow to seize
      */
     function lastResortSeizeEscrow(uint escrowId) external whenNotPaused {
-        require(msg.sender == ownerOf(escrowId), "not escrow owner"); // will revert for burned
+        require(msg.sender == ownerOf(escrowId), "escrow: not escrow owner"); // will revert for burned
 
         Escrow memory escrow = getEscrow(escrowId);
-        require(!escrow.released, "already released");
-        require(block.timestamp > escrow.expiration + escrow.maxGracePeriod, "grace period not elapsed");
+        require(!escrow.released, "escrow: already released");
+        uint gracePeriodEnd = escrow.expiration + escrow.maxGracePeriod;
+        require(block.timestamp > gracePeriodEnd, "escrow: grace period not elapsed");
 
         // update storage
         escrows[escrowId].released = true;
@@ -429,25 +430,25 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         internal
         returns (uint escrowId)
     {
-        require(loansCanOpen[msg.sender], "unauthorized loans contract");
+        require(loansCanOpen[msg.sender], "escrow: unauthorized loans contract");
         // @dev loans is not checked since is directly authed in this contract via setLoansAllowed
-        require(configHub.canOpenSingle(asset, address(this)), "unsupported escrow");
+        require(configHub.canOpenSingle(asset, address(this)), "escrow: unsupported escrow");
 
         Offer memory offer = getOffer(offerId);
-        require(offer.supplier != address(0), "invalid offer"); // revert here for clarity
+        require(offer.supplier != address(0), "escrow: invalid offer"); // revert here for clarity
 
         // check params are supported
-        require(configHub.isValidCollarDuration(offer.duration), "unsupported duration");
+        require(configHub.isValidCollarDuration(offer.duration), "escrow: unsupported duration");
 
         // we don't check equality to avoid revert due to minor inaccuracies to the upside,
         // even though exact value should be used from the view.
-        require(fee >= interestFee(offerId, escrowed), "insufficient fee");
+        require(fee >= interestFee(offerId, escrowed), "escrow: insufficient fee");
 
         // check amount
-        require(escrowed >= offer.minEscrow, "amount too low");
+        require(escrowed >= offer.minEscrow, "escrow: amount too low");
         // @dev fee is not taken from offer, because it is transferred in from loans
         uint prevOfferAmount = offer.available;
-        require(escrowed <= prevOfferAmount, "amount too high");
+        require(escrowed <= prevOfferAmount, "escrow: amount too high");
 
         // storage updates
         offers[offerId].available -= escrowed;
@@ -477,8 +478,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         returns (uint toLoans)
     {
         // @dev only allow the same loans contract to release. Also ensures this is previously allowed Loans.
-        require(msg.sender == escrow.loans, "loans address mismatch");
-        require(!escrow.released, "already released");
+        require(msg.sender == escrow.loans, "escrow: loans address mismatch");
+        require(!escrow.released, "escrow: already released");
 
         uint withdrawable;
         (withdrawable, toLoans,) = _releaseCalculations(escrow, fromLoans);

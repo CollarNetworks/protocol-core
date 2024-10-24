@@ -41,7 +41,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         setCanOpenSingle(address(escrowNFT), true);
         vm.startPrank(user1);
         escrowOfferId = 999; // invalid escrow offer
-        vm.expectRevert("invalid offer");
+        vm.expectRevert("escrow: invalid offer");
         openLoan(underlyingAmount, minLoanAmount, 0, 0);
 
         // test escrow asset mismatch
