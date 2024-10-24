@@ -7,6 +7,7 @@ import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { LoansNFT } from "../../src/LoansNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../../src/Rolls.sol";
+import { EscrowSupplierNFT } from "../../src/EscrowSupplierNFT.sol";
 import { DeploymentHelper } from "../deployment-helper.sol";
 import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 import { SwapperUniV3 } from "../../src/SwapperUniV3.sol";
@@ -59,6 +60,13 @@ library DeploymentUtils {
                     json, '"', pairName, '_loansContract": "', vm.toString(address(pair.loansContract)), '",'
                 )
             );
+
+            json = string(
+                abi.encodePacked(
+                    json, '"', pairName, '_escrowSupplierNFT": "', vm.toString(address(pair.escrowNFT)), '",'
+                )
+            );
+
             json = string(
                 abi.encodePacked(
                     json, '"', pairName, '_rollsContract": "', vm.toString(address(pair.rollsContract)), '",'
@@ -198,6 +206,11 @@ library DeploymentUtils {
                     ),
                     loansContract: LoansNFT(
                         _parseAddress(vm, parsedJson, string(abi.encodePacked(".", baseKey, "_loansContract")))
+                    ),
+                    escrowNFT: EscrowSupplierNFT(
+                        _parseAddress(
+                            vm, parsedJson, string(abi.encodePacked(".", baseKey, "_escrowSupplierNFT"))
+                        )
                     ),
                     rollsContract: Rolls(
                         _parseAddress(vm, parsedJson, string(abi.encodePacked(".", baseKey, "_rollsContract")))

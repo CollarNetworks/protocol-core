@@ -24,6 +24,8 @@ library SetupHelper {
         hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.loansContract), true);
         hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.rollsContract), true);
         pair.loansContract.setSwapperAllowed(address(pair.swapperUniV3), true, true);
+        hub.setCanOpenPair(pair.underlying, hub.ANY_ASSET(), address(pair.escrowNFT), true);
+        pair.escrowNFT.setLoansCanOpen(address(pair.loansContract), true);
     }
 
     function setupConfigHub(ConfigHub configHub, HubParams memory hubParams) internal {

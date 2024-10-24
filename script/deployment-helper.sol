@@ -7,6 +7,7 @@ import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
 import { LoansNFT } from "../src/LoansNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../src/Rolls.sol";
+import { EscrowSupplierNFT } from "../src/EscrowSupplierNFT.sol";
 import { OracleUniV3TWAP } from "../src/OracleUniV3TWAP.sol";
 import { SwapperUniV3 } from "../src/SwapperUniV3.sol";
 
@@ -20,6 +21,7 @@ library DeploymentHelper {
         IERC20 underlying;
         OracleUniV3TWAP oracle;
         SwapperUniV3 swapperUniV3;
+        EscrowSupplierNFT escrowNFT;
         uint24 oracleFeeTier;
         uint24 swapFeeTier;
         uint[] durations;
@@ -82,7 +84,13 @@ library DeploymentHelper {
         );
         Rolls rollsContract = new Rolls(owner, takerNFT);
         SwapperUniV3 swapperUniV3 = new SwapperUniV3(pairConfig.swapRouter, pairConfig.swapFeeTier);
-
+        EscrowSupplierNFT escrowNFT = new EscrowSupplierNFT(
+            owner,
+            configHub,
+            pairConfig.underlying,
+            string(abi.encodePacked("Escrow ", pairConfig.name)),
+            string(abi.encodePacked("E", pairConfig.name))
+        );
         contracts = AssetPairContracts({
             providerNFT: providerNFT,
             takerNFT: takerNFT,
@@ -95,7 +103,8 @@ library DeploymentHelper {
             oracleFeeTier: pairConfig.oracleFeeTier,
             swapFeeTier: pairConfig.swapFeeTier,
             durations: pairConfig.durations,
-            ltvs: pairConfig.ltvs
+            ltvs: pairConfig.ltvs,
+            escrowNFT: escrowNFT
         });
     }
 }
