@@ -28,7 +28,7 @@ SUM:                                       435           1430           1455
 - (for checklist use: check changes to https://github.com/d-xo/weird-erc20)
 
 ## Deployment Destinations
-Only Arbitrum.
+Arbitrum only initially. OP stack rollups (Optimism, Base) in the future.
 
 ## Other Documentation
 - Solidity files have the most up to date docs
