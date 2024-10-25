@@ -20,7 +20,7 @@ SUM:                                       435           1430           1455
 ```
 
 ## ERC-20 assumptions / integration checklist: 
-- No hooks or reentracy vectors
+- No hooks or reentrancy vectors
 - Balance changes only due to transfers. E.g., no rebasing / internal shares
 - Balance changes always and exactly with transfer arguments. E.g, no FoT, no max(uint) args overrides like cUSDCv3
 - Approval of 0 amount works
@@ -28,12 +28,12 @@ SUM:                                       435           1430           1455
 - (for checklist use: check changes to https://github.com/d-xo/weird-erc20)
 
 ## Deployment Destinations
-Only Arbitrum One.
+Only Arbitrum.
 
 ## Other Documentation
 - Solidity files have the most up to date docs
 - Some diagrams for high level overview: [diagrams.md](diagrams.md) 
-- General conceptual and mechanism docs: https://docs.collarprotocol.xyz/
+- General protocol / mechanism docs: https://docs.collarprotocol.xyz/
 
 ## Known Design Issues
 - Providers offers do not limit execution price (only strike prices), so are expected to actively manage for large price changes.
