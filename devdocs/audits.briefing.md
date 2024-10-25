@@ -41,3 +41,10 @@ Only Arbitrum One.
 - During escrow loan foreclosure, any remaining underlying is pushed to the borrower (loan NFT ID owner) instead of being stored to be pulled. So it can be sent to a contract that will not credit it to actual user. Accepted as low: low likelihood, medium impact, user mistake due to being foreclosed.
 - Because oracle uses the unlderying's decimals for base unit amount, underlying asset tokens with few decimals and/or very low prices in cashAsset token may have low precision prices. As a unrealistic example, GUSD (2 decimals on mainnet) as underlying, and WBTC as cash, would result in 4 decimals of price. Asset combinations w.r.t to decimals and price ranges are assumed to be checked to allow sufficient precision.
 - In case of congestion, "stale" `openPairedPosition` (and `openLoan` that uses it) and rolls `executeRoll` can be executed at higher price than the user intended (if price is lower, `openLoan` and `executeRoll` have slippage protection, and `openPairedPosition` has better upside for the caller). This is accepted because of combination of: 1) sequencer uptime check in oracle, 2) low likelihood: Arbitrum not having a public mempool, and low impact: loss is small since short congestion will result in small price change vs. original intent. Dealing with it using a deadline / maxPrice parameter would unnecessarily bloat the interfaces without significant safety benefit. 
+
+## Potentially interesting leads:
+- Arbitrum timeboost implications
+- Reentrancy via swapper (assuming using more advanced multi-hop swaps / aggregators etc)
+- Misconfigurations that don't break
+- Mechanism and economic issues (incentives)
+- Any implications of "Known Issues" / design decisions we may be overlooking / underestimating  
