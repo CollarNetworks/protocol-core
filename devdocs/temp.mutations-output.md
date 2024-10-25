@@ -1,4 +1,4 @@
-# Remove after full triage
+# Remove after triage
 
 ### Mutators reference [from source](https://github.com/crytic/slither/tree/3befc968bcda024b9952aeff8b3a17fd427426de/slither/tools/mutator/mutators): 
 - aor - arithmetic op replacement
@@ -19,7 +19,7 @@
 
 ### Unfiltered output:
 
-> `... slither-mutate src/ --test-cmd 'forge test --nmc Fork'
+> `... slither-mutate src/ --test-cmd 'forge test --nmc Fork'`
 
 ```
 Mutating contract CollarTakerNFT
