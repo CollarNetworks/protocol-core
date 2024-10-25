@@ -142,11 +142,10 @@ contract LoansForkTest is LoansTestBase {
         uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
         assertEq(pair.cashAsset.balanceOf(provider), providerBalanceBefore - offerAmount);
         uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
-
-        uint expectedFee = getProviderProtocolFeeByUnderlying();
         uint minLoanAmount = 0.3e6; // arbitrary
         (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
         // Verify fee taken and sent to recipient
+        uint expectedFee = getProviderProtocolFeeByLoanAmount(loanAmount);
         assertEq(pair.cashAsset.balanceOf(feeRecipient) - feeRecipientBalanceBefore, expectedFee);
         /// @dev offerAmount change (offerAmount-providerLocked-fee) could be checked
         /// but would require a lot of precision due to slippage from swap on final providerLocked value
@@ -189,11 +188,10 @@ contract LoansForkTest is LoansTestBase {
         uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
 
         uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
-        uint initialFee = getProviderProtocolFeeByUnderlying();
 
         (uint loanId, uint providerId, uint initialLoanAmount) =
             openLoan(pair, user, underlyingAmount, 0.3e6, offerId);
-
+        uint initialFee = getProviderProtocolFeeByLoanAmount(initialLoanAmount);
         // Verify fee taken and sent to recipient
         assertEq(pair.cashAsset.balanceOf(feeRecipient) - feeRecipientBalanceBefore, initialFee);
 
@@ -229,9 +227,9 @@ contract LoansForkTest is LoansTestBase {
         );
     }
 
-    function getProviderProtocolFeeByUnderlying() internal view returns (uint protocolFee) {
+    function getProviderProtocolFeeByLoanAmount(uint loanAmount) internal view returns (uint protocolFee) {
         // Calculate protocol fee based on post-swap provider locked amount
-        uint swapOut = underlyingAmount * pair.takerNFT.currentOraclePrice() / pair.oracle.baseUnitAmount();
+        uint swapOut = loanAmount * BIPS_BASE / pair.ltvs[0];
         uint initProviderLocked = swapOut * (callstrikeToUse - BIPS_BASE) / BIPS_BASE;
         (protocolFee,) = pair.providerNFT.protocolFee(initProviderLocked, pair.durations[0]);
         assertGt(protocolFee, 0);
