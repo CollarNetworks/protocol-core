@@ -61,7 +61,9 @@ contract SwapperUniV3 is ISwapper {
         returns (uint amountOut)
     {
         // unused in this swapper
-        // extraData should be used in swappers which expect more off-chain input, such as routes
+        // extraData should be used in swappers which expect more off-chain input, such as routes.
+        // While `extraData` can be used to pass swapFeeTier, this implementation is intended to be
+        // maximally constrained, to reduce the surface area for user and keeper mistakes
         extraData;
 
         // pull funds (assumes approval from caller)

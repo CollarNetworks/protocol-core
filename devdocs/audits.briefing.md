@@ -25,7 +25,7 @@ SUM:                                       435           1430           1455
 - Balance changes always and exactly with transfer arguments. E.g, no FoT, no max(uint) args overrides like cUSDCv3
 - Approval of 0 amount works
 - Transfers of 0 amount works
-- Check if anything interesting added to https://github.com/d-xo/weird-erc20
+- (for checklist use: check changes to https://github.com/d-xo/weird-erc20)
 
 ## Deployment Destinations
 Only Arbitrum One.
@@ -36,8 +36,8 @@ Only Arbitrum One.
 - General conceptual and mechanism docs: https://docs.collarprotocol.xyz/
 
 ## Known Design Issues
-- Providers cannot limit offer execution price, and must manage offers with price changes.
+- Providers offers do not limit execution price (only strike prices), so are expected to actively manage for large price changes.
 - No refund of protocol fee for position cancellations / rolls. Fee APR and roll frequency are assumed to be low, and rolls are assumed to be beneficial enough to users to be worth it. Accepted as low risk economic issue.
-- During escrow loan foreclosure, any remaining underlying is pushed to the borrower (loan NFT ID owner) instead of being pulled. So it can be a contract that will not forward it to actual user. Accepted as low: low likelihood, medium impact, user mistake due to being foreclosed.
-- Because oracle uses the unlderying's decimals for base unit amount, underlying asset tokens with few decimals and/or very low prices in cashAsset token may have low precision prices. For example GUSD (2 decimals) as underlying, and WBTC as cash (doesn't make much sense), will result in just 4 decimals of price. Asset combinations w.r.t to decimals and price ranges are assumed to be checked for sufficient precision.
-- In case of congestion, "stale" `openPairedPosition` (and `openLoan` that uses it) and rolls `executeRoll` can be executed at higher price than the user intended (if price is lower, `openLoan` and `executeRoll` have slippage protection, and `openPairedPosition` has better upside for the caller). This is accepted because of combination of: 1)  sequencer uptime check in oracle, 2) low likelihood (Arbitrum) not having a public mempool, low impact ("loss" is small / intended). Dealing with it using a deadline / maxPrice parameter would unnecessarily bloat the interfaces without significant safety benefit.
+- During escrow loan foreclosure, any remaining underlying is pushed to the borrower (loan NFT ID owner) instead of being stored to be pulled. So it can be sent to a contract that will not credit it to actual user. Accepted as low: low likelihood, medium impact, user mistake due to being foreclosed.
+- Because oracle uses the unlderying's decimals for base unit amount, underlying asset tokens with few decimals and/or very low prices in cashAsset token may have low precision prices. As a unrealistic example, GUSD (2 decimals on mainnet) as underlying, and WBTC as cash, would result in 4 decimals of price. Asset combinations w.r.t to decimals and price ranges are assumed to be checked to allow sufficient precision.
+- In case of congestion, "stale" `openPairedPosition` (and `openLoan` that uses it) and rolls `executeRoll` can be executed at higher price than the user intended (if price is lower, `openLoan` and `executeRoll` have slippage protection, and `openPairedPosition` has better upside for the caller). This is accepted because of combination of: 1) sequencer uptime check in oracle, 2) low likelihood: Arbitrum not having a public mempool, and low impact: loss is small since short congestion will result in small price change vs. original intent. Dealing with it using a deadline / maxPrice parameter would unnecessarily bloat the interfaces without significant safety benefit. 
