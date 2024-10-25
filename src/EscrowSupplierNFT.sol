@@ -32,6 +32,12 @@ import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
  * 3. ConfigHub contract correctly manages protocol parameters and authorization.
  * 4. Asset (ERC-20) contracts are simple (non rebasing), do not allow reentrancy. Balance
  *    changes corresponds to transfer arguments.
+ *
+ * Post-Deployment Configuration:
+ * - ConfigHub: Set valid collar duration range
+ * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset
+ * - ConfigHub: Set setCanOpenPair() to authorize its loans contracts
+ * - This Contract: Set loans that can open escrows
  */
 contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     using SafeERC20 for IERC20;

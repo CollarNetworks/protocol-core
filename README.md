@@ -1,5 +1,9 @@
 # Collar Protocol Core
 
+# For Auditors
+
+[Audit briefing notes](./devdocs/audits.briefing.md)
+
 ## Setup
 
 This repo primarily uses forge for development. See [foundry specific commands here](./devdocs/FOUNDRY.md).
