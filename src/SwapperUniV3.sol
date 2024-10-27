@@ -10,6 +10,9 @@ import { ISwapper } from "./interfaces/ISwapper.sol";
 /**
  * @notice Unowned simple contract that swaps tokens in a direct route via UniswapV3.
  * @custom:security-contact security@collarprotocol.xyz
+ *
+ * Post-Deployment Configuration:
+ * - LoansNFT: Add to allowed swappers if asset pair's liquidity for this fee tier is adequate
  */
 contract SwapperUniV3 is ISwapper {
     using SafeERC20 for IERC20;
@@ -58,7 +61,9 @@ contract SwapperUniV3 is ISwapper {
         returns (uint amountOut)
     {
         // unused in this swapper
-        // extraData should be used in swappers which expect more off-chain input, such as routes
+        // extraData should be used in swappers which expect more off-chain input, such as routes.
+        // While `extraData` can be used to pass swapFeeTier, this implementation is intended to be
+        // maximally constrained, to reduce the surface area for user and keeper mistakes
         extraData;
 
         // pull funds (assumes approval from caller)

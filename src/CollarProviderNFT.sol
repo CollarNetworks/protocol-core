@@ -32,6 +32,11 @@ import { ICollarProviderNFT } from "./interfaces/ICollarProviderNFT.sol";
  * 4. Put strike percent is assumed to always equal the Loan-to-Value (LTV) ratio.
  * 5. Asset (ERC-20) contracts are simple, non rebasing, do not allow reentrancy, balance changes
  *    correspond to transfer arguments.
+ *
+ * Post-Deployment Configuration:
+ * - ConfigHub: Properly configured LTV, duration, and protocol fee parameters
+ * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset pair
+ * - ConfigHub: Set setCanOpenPair() to authorize its paired taker contract
  */
 contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     using SafeERC20 for IERC20;

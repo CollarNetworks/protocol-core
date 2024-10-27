@@ -32,6 +32,15 @@ import { ILoansNFT } from "./interfaces/ILoansNFT.sol";
  * dependencies (Oracle).
  * 3. Assets (ERC-20) used are simple: no hooks, balance updates only and exactly
  * according to transfer arguments (no rebasing, no FoT), 0 value approvals and transfers work.
+ *
+ * Post-Deployment Configuration:
+ * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset pair
+ * - ConfigHub: Set setCanOpenPair() to authorize: taker, provider, rolls contracts for the asset pair.
+ * - ConfigHub: If allowing escrow, set setCanOpenPair() to authorize escrow for underlying and ANY_ASSET.
+ * - CollarTakerNFT and CollarProviderNFT: Ensure properly configured
+ * - EscrowSupplierNFT: If allowing escrow, ensure properly configured
+ * - This Contract: Set an allowed default swapper
+ * - This Contract: Set allowed closing keeper if using keeper functionality
  */
 contract LoansNFT is ILoansNFT, BaseNFT {
     using SafeERC20 for IERC20;

@@ -38,6 +38,11 @@ import { IRolls } from "./interfaces/IRolls.sol";
  * 1. Does not hold cash (only during execution), but will have approvals to spend cash.
  * 2. Signed integers are used for many input and output values, and proper care should be
  * taken in understanding the semantics of the positive and negative values.
+ *
+ * Post-Deployment Configuration:
+ * - CollarTakerNFT and CollarProviderNFT: Ensure properly configured
+ * - ConfigHub: If this contract is used through Loans, set setCanOpenPair() to authorize this
+ * contract for its asset pair
  */
 contract Rolls is IRolls, BaseManaged {
     using SafeERC20 for IERC20;
