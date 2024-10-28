@@ -175,8 +175,8 @@ contract LoansForkTest is LoansTestBase {
         uint escrowSupplierUnderlyingBefore = pair.underlying.balanceOf(escrowSupplier);
         (uint offerId, uint escrowOfferId) = createEscrowOffers();
         uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
-        uint expectedProtocolFee = getProviderProtocolFeeByUnderlying();
         (uint loanId,, uint loanAmount) = executeEscrowLoan(offerId, escrowOfferId);
+        uint expectedProtocolFee = getProviderProtocolFeeByLoanAmount(loanAmount);
         verifyEscrowLoan(
             loanId,
             loanAmount,
@@ -452,14 +452,6 @@ contract LoansForkTest is LoansTestBase {
     function getProviderProtocolFeeByLoanAmount(uint loanAmount) internal view returns (uint protocolFee) {
         // Calculate protocol fee based on post-swap provider locked amount
         uint swapOut = loanAmount * BIPS_BASE / pair.ltvs[0];
-        uint initProviderLocked = swapOut * (callstrikeToUse - BIPS_BASE) / BIPS_BASE;
-        (protocolFee,) = pair.providerNFT.protocolFee(initProviderLocked, pair.durations[0]);
-        assertGt(protocolFee, 0);
-    }
-
-    function getProviderProtocolFeeByUnderlying() internal view returns (uint protocolFee) {
-        // Calculate protocol fee based on post-swap provider locked amount
-        uint swapOut = underlyingAmount * pair.takerNFT.currentOraclePrice() / pair.oracle.baseUnitAmount();
         uint initProviderLocked = swapOut * (callstrikeToUse - BIPS_BASE) / BIPS_BASE;
         (protocolFee,) = pair.providerNFT.protocolFee(initProviderLocked, pair.durations[0]);
         assertGt(protocolFee, 0);
