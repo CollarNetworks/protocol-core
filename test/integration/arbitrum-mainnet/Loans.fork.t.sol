@@ -325,7 +325,9 @@ contract LoansForkTest is LoansTestBase {
         uint userUnderlyingBeforeRoll = pair.underlying.balanceOf(user);
 
         vm.startPrank(user);
-        pair.cashAsset.approve(address(pair.loansContract), uint(rollFee));
+        if (rollFee > 0) {
+            pair.cashAsset.approve(address(pair.loansContract), uint(rollFee));
+        }
         pair.underlying.approve(address(pair.loansContract), newEscrowFee);
         (uint newLoanId, uint newLoanAmount,) = pair.loansContract.rollLoan(
             loanId,
