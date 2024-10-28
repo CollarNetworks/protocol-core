@@ -166,20 +166,24 @@ contract LoansForkTest is LoansTestBase {
         // Verify fee taken and sent to recipient
         uint expectedFee = getProviderProtocolFeeByLoanAmount(loanAmount);
         assertEq(pair.cashAsset.balanceOf(feeRecipient) - feeRecipientBalanceBefore, expectedFee);
-        /// @dev offerAmount change (offerAmount-providerLocked-fee) could be checked
-        /// but would require a lot of precision due to slippage from swap on final providerLocked value
-        assertGt(loanAmount, 0);
+        checkLoanAmount(loanAmount);
         skip(pair.durations[0]);
         closeAndCheckLoan(loanId, loanAmount, 0);
     }
 
     function testOpenEscrowLoan() public {
+        uint escrowSupplierUnderlyingBefore = pair.underlying.balanceOf(escrowSupplier);
         (uint offerId, uint escrowOfferId) = createEscrowOffers();
         uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
         uint expectedProtocolFee = getProviderProtocolFeeByUnderlying();
-        (uint loanId, uint providerId, uint loanAmount) = executeEscrowLoan(offerId, escrowOfferId);
+        (uint loanId,, uint loanAmount) = executeEscrowLoan(offerId, escrowOfferId);
         verifyEscrowLoan(
-            loanId, providerId, loanAmount, escrowOfferId, feeRecipientBalanceBefore, expectedProtocolFee
+            loanId,
+            loanAmount,
+            escrowOfferId,
+            feeRecipientBalanceBefore,
+            escrowSupplierUnderlyingBefore,
+            expectedProtocolFee
         );
     }
 
@@ -284,7 +288,7 @@ contract LoansForkTest is LoansTestBase {
         uint interestFee1 = pair.escrowNFT.interestFee(escrowOfferId1, underlyingAmount);
 
         uint userUnderlyingBefore = pair.underlying.balanceOf(user);
-        (uint loanId, uint providerId, uint loanAmount) = executeEscrowLoan(offerId1, escrowOfferId1);
+        (uint loanId, uint providerId,) = executeEscrowLoan(offerId1, escrowOfferId1);
         ILoansNFT.Loan memory loan = pair.loansContract.getLoan(loanId);
         // User has paid underlyingAmount + interestFee1 at this point
         assertEq(userUnderlyingBefore - pair.underlying.balanceOf(user), underlyingAmount + interestFee1);
@@ -535,20 +539,17 @@ contract LoansForkTest is LoansTestBase {
 
     function verifyEscrowLoan(
         uint loanId,
-        uint providerId,
         uint loanAmount,
         uint escrowOfferId,
         uint feeRecipientBalanceBefore,
+        uint escrowSupplierUnderlyingBefore,
         uint expectedProtocolFee
     ) internal view {
         uint expectedEscrowFee = pair.escrowNFT.interestFee(escrowOfferId, underlyingAmount);
 
         uint userUnderlyingBefore = pair.underlying.balanceOf(user) + underlyingAmount + expectedEscrowFee;
-        uint escrowSupplierUnderlyingBefore = pair.underlying.balanceOf(escrowSupplier);
 
-        assertGt(loanAmount, 0);
-        assertGt(loanId, 0);
-        assertGt(providerId, 0);
+        checkLoanAmount(loanAmount);
 
         // Verify protocol fee
         assertEq(pair.cashAsset.balanceOf(feeRecipient) - feeRecipientBalanceBefore, expectedProtocolFee);
@@ -561,7 +562,18 @@ contract LoansForkTest is LoansTestBase {
 
         // Verify balances
         assertEq(pair.underlying.balanceOf(user), userUnderlyingBefore - underlyingAmount - expectedEscrowFee);
-        assertEq(pair.underlying.balanceOf(escrowSupplier), escrowSupplierUnderlyingBefore);
+        assertEq(escrowSupplierUnderlyingBefore - pair.underlying.balanceOf(escrowSupplier), underlyingAmount);
+    }
+
+    function checkLoanAmount(uint actualLoanAmount) internal view {
+        uint oraclePrice = pair.takerNFT.currentOraclePrice();
+        uint expectedCashFromSwap = underlyingAmount * oraclePrice / pair.oracle.baseUnitAmount();
+        // Calculate minimum expected loan amount (expectedCash * LTV)
+        // Apply slippage tolerance for swaps and rounding
+        uint minExpectedLoan = expectedCashFromSwap * pair.ltvs[0] * (100 - slippage) / (BIPS_BASE * 100);
+
+        // Check actual loan amount is at least the minimum expected
+        assertGe(actualLoanAmount, minExpectedLoan);
     }
 
     function fundWallets() public {
