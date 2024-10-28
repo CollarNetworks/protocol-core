@@ -12,7 +12,7 @@ library PriceManipulationLib {
 
     // Price movement configuration
     uint constant STEPS = 5;
-    uint constant STEP_DELAY = 3 minutes;
+    uint constant STEP_DELAY = 60 seconds;
     uint constant MAX_ATTEMPTS = 5;
     uint constant BIPS_BASE = 10_000;
 
@@ -34,7 +34,7 @@ library PriceManipulationLib {
         uint currentPrice = oracle.currentPrice();
         uint targetPrice = (currentPrice * callStrikePercent / BIPS_BASE) + 1;
 
-        return moveToTargetPrice(
+        finalPrice = moveToTargetPrice(
             vm,
             swapRouter,
             whale,
@@ -46,6 +46,8 @@ library PriceManipulationLib {
             AMOUNT_FOR_CALL_STRIKE,
             poolFee
         );
+
+        require(finalPrice > targetPrice, "Price did not move past call strike");
     }
 
     function movePriceDownPastPutStrike(
@@ -61,7 +63,7 @@ library PriceManipulationLib {
         uint currentPrice = oracle.currentPrice();
         uint targetPrice = (currentPrice * putStrikePercent / BIPS_BASE) - 1;
 
-        return moveToTargetPrice(
+        finalPrice = moveToTargetPrice(
             vm,
             swapRouter,
             whale,
@@ -73,6 +75,7 @@ library PriceManipulationLib {
             AMOUNT_FOR_PUT_STRIKE,
             poolFee
         );
+        require(finalPrice < targetPrice, "Price did not move past put strike");
     }
 
     function movePriceUpPartially(

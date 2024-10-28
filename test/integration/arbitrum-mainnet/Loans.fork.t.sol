@@ -5,8 +5,11 @@ import "forge-std/Test.sol";
 import "./DeploymentLoader.sol";
 import { ILoansNFT } from "../../../src/interfaces/ILoansNFT.sol";
 import { IRolls } from "../../../src/interfaces/IRolls.sol";
+import { ICollarTakerNFT } from "../../../src/interfaces/ICollarTakerNFT.sol";
+import { ICollarProviderNFT } from "../../../src/interfaces/ICollarProviderNFT.sol";
 import { ArbitrumMainnetDeployer } from "../../../script/arbitrum-mainnet/deployer.sol";
 import { DeploymentUtils } from "../../../script/utils/deployment-exporter.s.sol";
+import { PriceManipulationLib } from "../utils/PriceManipulation.sol";
 
 abstract contract LoansTestBase is Test, DeploymentLoader {
     function setUp() public virtual override {
@@ -105,7 +108,7 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
 contract LoansForkTest is LoansTestBase {
     address cashAsset = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8; // USDC
     address underlying = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
-    DeploymentHelper.AssetPairContracts internal pair;
+    uint24 POOL_FEE_TIER = 500;
     uint callstrikeToUse = 12_000;
     uint offerAmount = 100_000e6;
     uint underlyingAmount = 1 ether;
@@ -119,11 +122,22 @@ contract LoansForkTest is LoansTestBase {
     address feeRecipient;
     uint feeAPR = 100; // 1% APR
 
+    // whale address
+    address whale;
+
+    DeploymentHelper.AssetPairContracts internal pair;
+
     function setUp() public virtual override {
         super.setUp();
         pair = getPairByAssets(address(cashAsset), address(underlying));
         fundWallets();
         require(address(pair.loansContract) != address(0), "Loans contract not deployed");
+
+        // create whale address
+        whale = makeAddr("whale");
+        // Fund whale for price manipulation
+        deal(address(pair.cashAsset), whale, 100 * bigCashAmount);
+        deal(address(pair.underlying), whale, 100 * bigUnderlyingAmount);
 
         // Setup protocol fee
         feeRecipient = makeAddr("feeRecipient");
@@ -241,15 +255,73 @@ contract LoansForkTest is LoansTestBase {
         // Track balances before closing
         uint userCashBefore = pair.cashAsset.balanceOf(user);
         uint userUnderlyingBefore = pair.underlying.balanceOf(user);
+        uint expiration = pair.takerNFT.getPosition(loanId).expiration;
+        // Scale expected underlying based on current oracle price vs start price
+        // Get current price from oracle
+        uint currentPrice = pair.oracle.pastPrice(uint32(expiration));
+        // Convert cash amount to expected underlying amount using oracle's conversion
+        uint expectedUnderlying = pair.oracle.convertToBaseAmount(loanAmount, currentPrice);
 
-        // no price change so underlying out should be underlying in minus slippage
-        uint minUnderlyingOut = underlyingAmount;
-        uint minUnderlyingOutWithSlippage = minUnderlyingOut * (100 - slippage) / 100;
+        uint minUnderlyingOutWithSlippage = expectedUnderlying * (100 - slippage) / 100;
+        console.log("Expected underlying out: %d", expectedUnderlying);
+        console.log("currentPrice %d", currentPrice);
+        console.log("minUnderlyingOutWithSlippage %d", minUnderlyingOutWithSlippage);
         uint underlyingOut = closeLoan(pair, user, loanId, minUnderlyingOutWithSlippage);
         assertGe(underlyingOut, minUnderlyingOutWithSlippage);
         // Verify balance changes
         assertEq(userCashBefore - pair.cashAsset.balanceOf(user), loanAmount);
         assertEq(pair.underlying.balanceOf(user) - userUnderlyingBefore, underlyingOut);
+    }
+
+    // price movement settlement tests
+
+    function testSettlementPriceAboveCallStrike() public {
+        // Create provider offer & open loan
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
+        (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, 0.3e6, offerId);
+
+        ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
+        // Move price above call strike using lib
+        PriceManipulationLib.movePriceUpPastCallStrike(
+            vm,
+            address(pair.swapperUniV3.uniV3SwapRouter()),
+            whale,
+            pair.cashAsset,
+            pair.underlying,
+            pair.oracle,
+            position.callStrikePercent,
+            POOL_FEE_TIER
+        );
+        // Preview settlement at above call strike
+
+        // Skip to expiry
+        skip(pair.durations[0]);
+        uint expiration = position.providerNFT.expiration(position.providerId);
+        (uint expectedTakerWithdrawal,) =
+            pair.takerNFT.previewSettlement(position, pair.oracle.pastPrice(uint32(expiration)));
+
+        // Total cash = taker withdrawal + loan repayment
+        // Convert expected total cash to underlying at current price
+        uint expectedUnderlyingOut = pair.oracle.convertToBaseAmount(
+            expectedTakerWithdrawal + loanAmount, pair.oracle.pastPrice(uint32(expiration))
+        );
+
+        // Record user's underlying balance before close
+        uint userUnderlyingBefore = pair.underlying.balanceOf(user);
+
+        // Close loan and settle
+        closeAndCheckLoan(loanId, loanAmount + expectedTakerWithdrawal);
+
+        // Check provider's withdrawable amount
+        uint providerWithdrawable = position.providerNFT.getPosition(position.providerId).withdrawable;
+        assertEq(providerWithdrawable, 0, "provider withdrawable should be 0"); // everything to user
+
+        // Check user's underlying balance change against calculated expected amount
+        assertEq(
+            pair.underlying.balanceOf(user) - userUnderlyingBefore,
+            expectedUnderlyingOut,
+            "Underlying out should match preview"
+        );
     }
 
     function fundWallets() public {
