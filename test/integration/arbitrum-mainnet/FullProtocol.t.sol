@@ -75,7 +75,6 @@ contract ArbitrumMainnetFullProtocolForkTest is Test {
         loansTest.testOpenAndCloseEscrowLoan();
         loansTest.testCloseEscrowLoanAfterGracePeriod();
         loansTest.testCloseEscrowLoanWithPartialLateFees();
-        loansTest.setUp();
         loansTest.testRollEscrowLoanBetweenSuppliers();
     }
 }

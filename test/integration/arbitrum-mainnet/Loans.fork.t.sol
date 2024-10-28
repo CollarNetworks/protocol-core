@@ -105,7 +105,6 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
 contract LoansForkTest is LoansTestBase {
     address constant cashAsset = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8; // USDC
     address constant underlying = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
-    DeploymentHelper.AssetPairContracts internal pair;
     uint constant callstrikeToUse = 12_000;
     uint constant offerAmount = 100_000e6;
     uint constant underlyingAmount = 1 ether;
@@ -115,15 +114,22 @@ contract LoansForkTest is LoansTestBase {
     uint constant bigUnderlyingAmount = 1000 ether;
     uint constant slippage = 1; // 1%
     uint constant BIPS_BASE = 10_000;
-    // Protocol fee params
-    address feeRecipient;
-    uint constant feeAPR = 100; // 1% APR
 
-    // escrow related values
-    address escrowSupplier;
+    //escrow related constants
     uint constant interestAPR = 500; // 5% APR
     uint constant maxGracePeriod = 7 days;
     uint constant lateFeeAPR = 10_000; // 100% APR
+
+    // Protocol fee params
+    uint constant feeAPR = 100; // 1% APR
+
+    DeploymentHelper.AssetPairContracts internal pair;
+
+    // Protocol fee values
+    address feeRecipient;
+
+    // escrow related values
+    address escrowSupplier;
 
     function setUp() public virtual override {
         super.setUp();
@@ -168,19 +174,19 @@ contract LoansForkTest is LoansTestBase {
     }
 
     function testOpenEscrowLoan() public {
-        (uint offerId, uint escrowOfferId) = _createEscrowOffers();
+        (uint offerId, uint escrowOfferId) = createEscrowOffers();
         uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
         uint expectedProtocolFee = getProviderProtocolFeeByUnderlying();
-        (uint loanId, uint providerId, uint loanAmount) = _executeEscrowLoan(offerId, escrowOfferId);
-        _verifyEscrowLoan(
+        (uint loanId, uint providerId, uint loanAmount) = executeEscrowLoan(offerId, escrowOfferId);
+        verifyEscrowLoan(
             loanId, providerId, loanAmount, escrowOfferId, feeRecipientBalanceBefore, expectedProtocolFee
         );
     }
 
     function testOpenAndCloseEscrowLoan() public {
         //  create provider and escrow offers
-        (uint offerId, uint escrowOfferId) = _createEscrowOffers();
-        (uint loanId,, uint loanAmount) = _executeEscrowLoan(offerId, escrowOfferId);
+        (uint offerId, uint escrowOfferId) = createEscrowOffers();
+        (uint loanId,, uint loanAmount) = executeEscrowLoan(offerId, escrowOfferId);
         ILoansNFT.Loan memory loanBefore = pair.loansContract.getLoan(loanId);
 
         uint escrowSupplierBefore = pair.underlying.balanceOf(escrowSupplier);
@@ -207,8 +213,8 @@ contract LoansForkTest is LoansTestBase {
 
     function testCloseEscrowLoanAfterGracePeriod() public {
         //  create provider and escrow offers
-        (uint offerId, uint escrowOfferId) = _createEscrowOffers();
-        (uint loanId,, uint loanAmount) = _executeEscrowLoan(offerId, escrowOfferId);
+        (uint offerId, uint escrowOfferId) = createEscrowOffers();
+        (uint loanId,, uint loanAmount) = executeEscrowLoan(offerId, escrowOfferId);
 
         ILoansNFT.Loan memory loanBefore = pair.loansContract.getLoan(loanId);
         uint escrowSupplierBefore = pair.underlying.balanceOf(escrowSupplier);
@@ -240,8 +246,8 @@ contract LoansForkTest is LoansTestBase {
 
     function testCloseEscrowLoanWithPartialLateFees() public {
         //  create provider and escrow offers
-        (uint offerId, uint escrowOfferId) = _createEscrowOffers();
-        (uint loanId,, uint loanAmount) = _executeEscrowLoan(offerId, escrowOfferId);
+        (uint offerId, uint escrowOfferId) = createEscrowOffers();
+        (uint loanId,, uint loanAmount) = executeEscrowLoan(offerId, escrowOfferId);
 
         ILoansNFT.Loan memory loanBefore = pair.loansContract.getLoan(loanId);
         uint escrowSupplierBefore = pair.underlying.balanceOf(escrowSupplier);
@@ -274,12 +280,12 @@ contract LoansForkTest is LoansTestBase {
 
     function testRollEscrowLoanBetweenSuppliers() public {
         // Create first provider and escrow offers
-        (uint offerId1, uint escrowOfferId1) = _createEscrowOffers();
+        (uint offerId1, uint escrowOfferId1) = createEscrowOffers();
         uint interestFee1 = pair.escrowNFT.interestFee(escrowOfferId1, underlyingAmount);
 
         uint userUnderlyingBefore = pair.underlying.balanceOf(user);
-        (uint loanId, uint providerId, uint loanAmount) = _executeEscrowLoan(offerId1, escrowOfferId1);
-
+        (uint loanId, uint providerId, uint loanAmount) = executeEscrowLoan(offerId1, escrowOfferId1);
+        ILoansNFT.Loan memory loan = pair.loansContract.getLoan(loanId);
         // User has paid underlyingAmount + interestFee1 at this point
         assertEq(userUnderlyingBefore - pair.underlying.balanceOf(user), underlyingAmount + interestFee1);
 
@@ -293,7 +299,7 @@ contract LoansForkTest is LoansTestBase {
         skip(pair.durations[0] / 2);
 
         // Get exact refund amount from contract
-        (, uint toLoans,) = pair.escrowNFT.previewRelease(loanId, 0);
+        (uint withdrawal, uint toLoans,) = pair.escrowNFT.previewRelease(loan.escrowId, 0);
 
         // Create second escrow supplier's offer
         vm.startPrank(escrowSupplier2);
@@ -315,7 +321,7 @@ contract LoansForkTest is LoansTestBase {
         uint userUnderlyingBeforeRoll = pair.underlying.balanceOf(user);
 
         vm.startPrank(user);
-        pair.cashAsset.approve(address(pair.loansContract), loanAmount);
+        pair.cashAsset.approve(address(pair.loansContract), uint(rollFee));
         pair.underlying.approve(address(pair.loansContract), newEscrowFee);
         (uint newLoanId, uint newLoanAmount,) = pair.loansContract.rollLoan(
             loanId,
@@ -333,7 +339,7 @@ contract LoansForkTest is LoansTestBase {
 
         // Verify first supplier got partial fees using exact toLoans amount
         // we use Ge because of rounding (seeing 1 wei difference 237823439879 != 237823439878)
-        assertGe(pair.underlying.balanceOf(escrowSupplier) - escrowSupplier1Before, toLoans);
+        assertGe(pair.underlying.balanceOf(escrowSupplier) - escrowSupplier1Before, withdrawal);
 
         // Verify user paid new escrow fee and got refund from old escrow
         assertEq(userUnderlyingBeforeRoll - pair.underlying.balanceOf(user) + toLoans, newEscrowFee);
@@ -503,7 +509,7 @@ contract LoansForkTest is LoansTestBase {
         vm.stopPrank();
     }
 
-    function _createEscrowOffers() internal returns (uint offerId, uint escrowOfferId) {
+    function createEscrowOffers() internal returns (uint offerId, uint escrowOfferId) {
         uint providerBalanceBefore = pair.cashAsset.balanceOf(provider);
         offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
         assertEq(pair.cashAsset.balanceOf(provider), providerBalanceBefore - offerAmount);
@@ -512,7 +518,7 @@ contract LoansForkTest is LoansTestBase {
         escrowOfferId = createEscrowOffer(pair.durations[0]);
     }
 
-    function _executeEscrowLoan(uint offerId, uint escrowOfferId)
+    function executeEscrowLoan(uint offerId, uint escrowOfferId)
         internal
         returns (uint loanId, uint providerId, uint loanAmount)
     {
@@ -527,7 +533,7 @@ contract LoansForkTest is LoansTestBase {
         );
     }
 
-    function _verifyEscrowLoan(
+    function verifyEscrowLoan(
         uint loanId,
         uint providerId,
         uint loanAmount,
