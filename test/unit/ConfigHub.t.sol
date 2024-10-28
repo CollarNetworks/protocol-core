@@ -41,7 +41,9 @@ contract ConfigHubTest is Test {
         assertEq(configHub.MAX_CONFIGURABLE_LTV_BIPS(), 9999);
         assertEq(configHub.MIN_CONFIGURABLE_DURATION(), 300);
         assertEq(configHub.MAX_CONFIGURABLE_DURATION(), 5 * 365 days);
-        assertEq(configHub.pauseGuardian(), address(0));
+        assertFalse(configHub.isPauseGuardian(guardian));
+        assertFalse(configHub.isPauseGuardian(owner));
+        assertFalse(configHub.isPauseGuardian(address(0)));
         assertEq(configHub.feeRecipient(), address(0));
         assertEq(configHub.minDuration(), 0);
         assertEq(configHub.maxDuration(), 0);
@@ -63,7 +65,7 @@ contract ConfigHubTest is Test {
         configHub.setCollarDurationRange(0, 0);
 
         vm.expectRevert(user1NotAuthorized);
-        configHub.setPauseGuardian(guardian);
+        configHub.setPauseGuardian(guardian, true);
 
         vm.expectRevert(user1NotAuthorized);
         configHub.setProtocolFeeParams(0, address(0));
@@ -137,13 +139,13 @@ contract ConfigHubTest is Test {
 
     function test_revert_setLTVRange() public {
         startHoax(owner);
-        vm.expectRevert("min > max");
+        vm.expectRevert("LTV min > max");
         configHub.setLTVRange(maxLTVToUse, minLTVToUse);
 
-        vm.expectRevert("min too low");
+        vm.expectRevert("LTV min too low");
         configHub.setLTVRange(0, maxLTVToUse);
 
-        vm.expectRevert("max too high");
+        vm.expectRevert("LTV max too high");
         configHub.setLTVRange(minLTVToUse, 10_000);
     }
 
@@ -158,34 +160,61 @@ contract ConfigHubTest is Test {
 
     function test_revert_setCollarDurationRange() public {
         startHoax(owner);
-        vm.expectRevert("min > max");
+        vm.expectRevert("duration min > max");
         configHub.setCollarDurationRange(maxDurationToUse, minDurationToUse);
 
-        vm.expectRevert("min too low");
+        vm.expectRevert("duration min too low");
         configHub.setCollarDurationRange(0, maxDurationToUse);
 
-        vm.expectRevert("max too high");
+        vm.expectRevert("duration max too high");
         configHub.setCollarDurationRange(minDurationToUse, 10 * 365 days);
     }
 
     function test_setPauseGuardian() public {
+        address[] memory expectedGuardians = new address[](0);
+        assertEq(configHub.allPauseGuardians(), expectedGuardians);
+
         startHoax(owner);
         vm.expectEmit(address(configHub));
-        emit IConfigHub.PauseGuardianSet(address(0), guardian);
-        configHub.setPauseGuardian(guardian);
-        assertEq(configHub.pauseGuardian(), guardian);
+        emit IConfigHub.PauseGuardianSet(guardian, true);
+        configHub.setPauseGuardian(guardian, true);
+        assertTrue(configHub.isPauseGuardian(guardian));
+
+        expectedGuardians = new address[](1);
+        expectedGuardians[0] = guardian;
+        assertEq(configHub.allPauseGuardians(), expectedGuardians);
+
+        // set another
+        vm.expectEmit(address(configHub));
+        address anotherGuardian = makeAddr("anotherGuardian");
+        emit IConfigHub.PauseGuardianSet(anotherGuardian, true);
+        configHub.setPauseGuardian(anotherGuardian, true);
+        assertTrue(configHub.isPauseGuardian(anotherGuardian));
+        // previous is still set
+        assertTrue(configHub.isPauseGuardian(guardian));
+
+        expectedGuardians = new address[](2);
+        expectedGuardians[0] = guardian;
+        expectedGuardians[1] = anotherGuardian;
+        assertEq(configHub.allPauseGuardians(), expectedGuardians);
 
         vm.expectEmit(address(configHub));
-        emit IConfigHub.PauseGuardianSet(guardian, address(0));
-        configHub.setPauseGuardian(address(0));
-        assertEq(configHub.pauseGuardian(), address(0));
+        emit IConfigHub.PauseGuardianSet(guardian, false);
+        configHub.setPauseGuardian(guardian, false);
+        assertFalse(configHub.isPauseGuardian(guardian));
+        // the other is still set
+        assertTrue(configHub.isPauseGuardian(anotherGuardian));
+
+        expectedGuardians = new address[](1);
+        expectedGuardians[0] = anotherGuardian;
+        assertEq(configHub.allPauseGuardians(), expectedGuardians);
     }
 
     function test_setProtocolFeeParams() public {
         startHoax(owner);
 
         // reverts
-        vm.expectRevert("fee APR too high");
+        vm.expectRevert("protocol fee APR too high");
         configHub.setProtocolFeeParams(100 + 1, address(0)); // more than 1%
 
         vm.expectRevert("must set recipient for non-zero APR");

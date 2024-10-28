@@ -108,7 +108,6 @@ contract OracleUniV3TWAPTest is Test {
         assertEq(oracle.twapWindow(), twapWindow);
         assertEq(address(oracle.pool()), mockPool);
         assertEq(address(oracle.sequencerChainlinkFeed()), address(0));
-        assertTrue(oracle.sequencerLiveFor(twapWindow));
 
         // test different decimals
         decimals = 2;
@@ -129,18 +128,20 @@ contract OracleUniV3TWAPTest is Test {
         assertEq(oracle.currentCardinality(), expectedCardinality);
     }
 
-    function test_sequencer_notSet() public {
+    function test_revert_sequencer_notSet() public {
         // sequencer address returns "down", but it's 0 address so not checked
         vm.mockCall(
             mockSequencerFeed, // address 0 here
             abi.encodeCall(IChainlinkFeedLike.latestRoundData, ()),
             abi.encode(0, 1, 0, 0, 0)
         );
-        // view works
-        assertTrue(oracle.sequencerLiveFor(0));
-        assertTrue(oracle.sequencerLiveFor(1000));
+        // view reverts
+        vm.expectRevert("sequencer uptime feed unset");
+        oracle.sequencerLiveFor(0);
+        vm.expectRevert("sequencer uptime feed unset");
+        oracle.sequencerLiveFor(1000);
 
-        // price works
+        // price works (oracle feed not called)
         mockObserve(tick1000, 0);
         assertEq(oracle.currentPrice(), priceTick1000);
     }
