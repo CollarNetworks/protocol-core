@@ -46,7 +46,6 @@ library PriceManipulationLib {
             AMOUNT_FOR_CALL_STRIKE,
             poolFee
         );
-
         require(finalPrice > targetPrice, "Price did not move past call strike");
     }
 
@@ -131,8 +130,6 @@ library PriceManipulationLib {
             if ((_swapCash && currentPrice >= targetPrice) || (!_swapCash && currentPrice <= targetPrice)) {
                 break;
             }
-
-            swapAmount = swapAmount * 2;
         }
 
         return oracle.currentPrice();

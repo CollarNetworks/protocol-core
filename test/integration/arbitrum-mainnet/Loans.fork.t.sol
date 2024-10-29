@@ -19,14 +19,14 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
     function createProviderOffer(
         DeploymentHelper.AssetPairContracts memory pair,
         uint callStrikePercent,
-        uint amount
+        uint amount,
+        uint duration
     ) internal returns (uint offerId) {
         vm.startPrank(provider);
         uint cashBalance = pair.cashAsset.balanceOf(provider);
         console.log("Provider cash balance: %d", cashBalance);
         pair.cashAsset.approve(address(pair.providerNFT), amount);
-        offerId = pair.providerNFT.createOffer(callStrikePercent, amount, pair.ltvs[0], pair.durations[0], 0);
-
+        offerId = pair.providerNFT.createOffer(callStrikePercent, amount, pair.ltvs[0], duration, 0);
         vm.stopPrank();
     }
 
@@ -153,7 +153,7 @@ contract LoansForkTest is LoansTestBase {
 
     function testOpenAndCloseLoan() public {
         uint providerBalanceBefore = pair.cashAsset.balanceOf(provider);
-        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, pair.durations[0]);
         assertEq(pair.cashAsset.balanceOf(provider), providerBalanceBefore - offerAmount);
         uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
 
@@ -166,11 +166,11 @@ contract LoansForkTest is LoansTestBase {
         /// but would require a lot of precision due to slippage from swap on final providerLocked value
         assertGt(loanAmount, 0);
         skip(pair.durations[0]);
-        closeAndCheckLoan(loanId, loanAmount);
+        closeAndCheckLoan(loanId, loanAmount, loanAmount);
     }
 
     function testRollLoan() public {
-        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, pair.durations[0]);
         uint minLoanAmount = 0.3e6;
         (uint loanId, uint providerId, uint initialLoanAmount) =
             openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
@@ -202,7 +202,7 @@ contract LoansForkTest is LoansTestBase {
     function testFullLoanLifecycle() public {
         uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
 
-        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, pair.durations[0]);
         uint initialFee = getProviderProtocolFeeByUnderlying();
 
         (uint loanId, uint providerId, uint initialLoanAmount) =
@@ -232,7 +232,7 @@ contract LoansForkTest is LoansTestBase {
         // Advance time again
         vm.warp(block.timestamp + pair.durations[0]);
 
-        closeAndCheckLoan(newLoanId, newLoanAmount);
+        closeAndCheckLoan(newLoanId, newLoanAmount, newLoanAmount);
         assertGt(initialLoanAmount, 0);
         assertGe(int(newLoanAmount), int(initialLoanAmount) + transferAmount);
 
@@ -251,22 +251,19 @@ contract LoansForkTest is LoansTestBase {
         assertGt(protocolFee, 0);
     }
 
-    function closeAndCheckLoan(uint loanId, uint loanAmount) internal {
+    function closeAndCheckLoan(uint loanId, uint loanAmount, uint totalAmountToSwap) internal {
         // Track balances before closing
         uint userCashBefore = pair.cashAsset.balanceOf(user);
         uint userUnderlyingBefore = pair.underlying.balanceOf(user);
         uint expiration = pair.takerNFT.getPosition(loanId).expiration;
-        // Scale expected underlying based on current oracle price vs start price
         // Get current price from oracle
-        uint currentPrice = pair.oracle.pastPrice(uint32(expiration));
+        (uint currentPrice,) = pair.oracle.pastPriceWithFallback(uint32(expiration));
         // Convert cash amount to expected underlying amount using oracle's conversion
-        uint expectedUnderlying = pair.oracle.convertToBaseAmount(loanAmount, currentPrice);
+        uint expectedUnderlying = pair.oracle.convertToBaseAmount(totalAmountToSwap, currentPrice);
 
         uint minUnderlyingOutWithSlippage = expectedUnderlying * (100 - slippage) / 100;
-        console.log("Expected underlying out: %d", expectedUnderlying);
-        console.log("currentPrice %d", currentPrice);
-        console.log("minUnderlyingOutWithSlippage %d", minUnderlyingOutWithSlippage);
         uint underlyingOut = closeLoan(pair, user, loanId, minUnderlyingOutWithSlippage);
+
         assertGe(underlyingOut, minUnderlyingOutWithSlippage);
         // Verify balance changes
         assertEq(userCashBefore - pair.cashAsset.balanceOf(user), loanAmount);
@@ -277,10 +274,11 @@ contract LoansForkTest is LoansTestBase {
 
     function testSettlementPriceAboveCallStrike() public {
         // Create provider offer & open loan
-        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, pair.durations[1]);
         (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, 0.3e6, offerId);
 
         ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
+        skip(pair.durations[1] / 2);
         // Move price above call strike using lib
         PriceManipulationLib.movePriceUpPastCallStrike(
             vm,
@@ -292,36 +290,116 @@ contract LoansForkTest is LoansTestBase {
             position.callStrikePercent,
             POOL_FEE_TIER
         );
-        // Preview settlement at above call strike
 
-        // Skip to expiry
-        skip(pair.durations[0]);
-        uint expiration = position.providerNFT.expiration(position.providerId);
+        skip(pair.durations[1] / 2);
+
         (uint expectedTakerWithdrawal,) =
-            pair.takerNFT.previewSettlement(position, pair.oracle.pastPrice(uint32(expiration)));
+            pair.takerNFT.previewSettlement(position, pair.oracle.currentPrice());
 
         // Total cash = taker withdrawal + loan repayment
         // Convert expected total cash to underlying at current price
-        uint expectedUnderlyingOut = pair.oracle.convertToBaseAmount(
-            expectedTakerWithdrawal + loanAmount, pair.oracle.pastPrice(uint32(expiration))
-        );
+        uint expectedUnderlyingOut =
+            pair.oracle.convertToBaseAmount(expectedTakerWithdrawal + loanAmount, pair.oracle.currentPrice());
 
-        // Record user's underlying balance before close
         uint userUnderlyingBefore = pair.underlying.balanceOf(user);
 
         // Close loan and settle
-        closeAndCheckLoan(loanId, loanAmount + expectedTakerWithdrawal);
+        closeAndCheckLoan(loanId, loanAmount, loanAmount + expectedTakerWithdrawal);
 
         // Check provider's withdrawable amount
         uint providerWithdrawable = position.providerNFT.getPosition(position.providerId).withdrawable;
-        assertEq(providerWithdrawable, 0, "provider withdrawable should be 0"); // everything to user
+        assertEq(providerWithdrawable, 0); // everything to user
 
         // Check user's underlying balance change against calculated expected amount
-        assertEq(
+        assertApproxEqAbs(
             pair.underlying.balanceOf(user) - userUnderlyingBefore,
             expectedUnderlyingOut,
-            "Underlying out should match preview"
+            expectedUnderlyingOut * slippage / 100 // within slippage% of expected
         );
+    }
+
+    function testSettlementPriceBelowPutStrike() public {
+        // Create provider offer & open loan
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, pair.durations[1]);
+        (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, 0.3e6, offerId);
+
+        ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
+
+        skip(pair.durations[1] / 2);
+
+        // Move price below put strike
+        PriceManipulationLib.movePriceDownPastPutStrike(
+            vm,
+            address(pair.swapperUniV3.uniV3SwapRouter()),
+            whale,
+            pair.cashAsset,
+            pair.underlying,
+            pair.oracle,
+            position.putStrikePercent,
+            POOL_FEE_TIER
+        );
+
+        skip(pair.durations[1] / 2);
+        uint userUnderlyingBefore = pair.underlying.balanceOf(user);
+        // Close loan
+        closeAndCheckLoan(loanId, loanAmount, loanAmount);
+        uint expectedUnderlying = pair.oracle.convertToBaseAmount(loanAmount, pair.oracle.currentPrice());
+        assertApproxEqAbs(
+            pair.underlying.balanceOf(user) - userUnderlyingBefore,
+            expectedUnderlying,
+            expectedUnderlying * slippage / 100
+        );
+        // check provider gets all value
+        uint providerWithdrawable = position.providerNFT.getPosition(position.providerId).withdrawable;
+        uint expectedProviderWithdrawable = position.providerLocked + position.takerLocked;
+        assertEq(providerWithdrawable, expectedProviderWithdrawable);
+    }
+
+    function testSettlementPriceBetweenStrikes() public {
+        // Create provider offer & open loan with longer duration
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, pair.durations[1]);
+        (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, 0.3e6, offerId);
+
+        ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
+
+        skip(pair.durations[1] / 2);
+
+        // Move price up partially (but below call strike)
+        PriceManipulationLib.movePriceUpPartially(
+            vm,
+            address(pair.swapperUniV3.uniV3SwapRouter()),
+            whale,
+            pair.cashAsset,
+            pair.underlying,
+            pair.oracle,
+            POOL_FEE_TIER
+        );
+
+        skip(pair.durations[1] / 2);
+
+        // Calculate expected settlement amounts
+        uint currentPrice = pair.oracle.currentPrice();
+        (uint expectedTakerWithdrawal, int expectedProviderDelta) =
+            pair.takerNFT.previewSettlement(position, currentPrice);
+
+        uint userUnderlyingBefore = pair.underlying.balanceOf(user);
+
+        // Close loan with total cash needed
+        closeAndCheckLoan(loanId, loanAmount, loanAmount + expectedTakerWithdrawal);
+
+        // User should get underlying equivalent to loanAmount + their settlement gains
+        uint expectedUnderlying =
+            pair.oracle.convertToBaseAmount(loanAmount + expectedTakerWithdrawal, currentPrice);
+        assertApproxEqAbs(
+            pair.underlying.balanceOf(user) - userUnderlyingBefore,
+            expectedUnderlying,
+            expectedUnderlying * slippage / 100
+        );
+
+        // Provider should get their locked amount adjusted by settlement delta
+        uint providerWithdrawable = position.providerNFT.getPosition(position.providerId).withdrawable;
+        uint expectedProviderWithdrawable = uint(int(position.providerLocked) + expectedProviderDelta);
+        assertEq(providerWithdrawable, expectedProviderWithdrawable);
     }
 
     function fundWallets() public {
