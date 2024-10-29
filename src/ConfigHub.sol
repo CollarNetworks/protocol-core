@@ -2,11 +2,31 @@
 pragma solidity 0.8.22;
 
 import { Ownable2Step, Ownable } from "@openzeppelin/contracts/access/Ownable2Step.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import { IConfigHub, IERC20 } from "./interfaces/IConfigHub.sol";
 
+/**
+ * @title ConfigHub
+ * @custom:security-contact security@collarprotocol.xyz
+ *
+ * Main Functionality:
+ * 1. Manages system-wide configuration and intern-contract authorization for the Collar Protocol.
+ * 2. Controls which contracts are allowed to open positions for specific asset pairs.
+ * 3. Sets valid ranges for key parameters like LTV and position duration.
+ * 4. Designates pause guardians who can pause contracts in an emergency.
+ * 5. Manages protocol fee parameters.
+ *
+ * Post-Deployment Configuration:
+ * - This Contract: Set valid LTV range for protocol
+ * - This Contract: Set valid collar duration range for protocol
+ * - This Contract: Set protocol fee parameters if fees are used
+ * - This Contract: Set pause guardians if using guardian functionality
+ */
 contract ConfigHub is Ownable2Step, IConfigHub {
+    using EnumerableSet for EnumerableSet.AddressSet;
+
     uint internal constant BIPS_BASE = 10_000;
 
     string public constant VERSION = "0.2.0";
@@ -22,16 +42,16 @@ contract ConfigHub is Ownable2Step, IConfigHub {
 
     // -- state variables ---
     // one slot (previous is owner)
-    uint16 public minLTV; // max 650%, but cannot be over 100%
-    uint16 public maxLTV; // max 650%, but cannot be over 100%
+    uint16 public minLTV; // uint16 max 650%, but cannot be over 100%
+    uint16 public maxLTV; // uint16 max 650%, but cannot be over 100%
     uint32 public minDuration;
     uint32 public maxDuration;
     // next slot
-    uint16 public protocolFeeAPR; // max 650%, but cannot be over 100%
+    uint16 public protocolFeeAPR; // uint16 max 650%, but cannot be over MAX_PROTOCOL_FEE_BIPS
     address public feeRecipient;
-    // next slot
-    // pause guardian for other contracts
-    address public pauseGuardian;
+    // next slots
+    // pause guardians for other contracts
+    EnumerableSet.AddressSet internal pauseGuardians;
 
     /**
      * @notice main auth for system contracts calling each other during opening of positions:
@@ -61,25 +81,25 @@ contract ConfigHub is Ownable2Step, IConfigHub {
         emit ContractCanOpenSet(assetA, assetB, target, enabled);
     }
 
-    /// @notice Sets the LTV minimum and max values for the configHub
-    /// @param min The new minimum LTV
-    /// @param max The new maximum LTV
+    /// @notice Sets the LTV minimum and max values
+    /// @param min The new minimum LTV in basis points
+    /// @param max The new maximum LTV in basis points
     function setLTVRange(uint min, uint max) external onlyOwner {
-        require(min >= MIN_CONFIGURABLE_LTV_BIPS, "min too low");
-        require(max <= MAX_CONFIGURABLE_LTV_BIPS, "max too high");
-        require(min <= max, "min > max");
+        require(min >= MIN_CONFIGURABLE_LTV_BIPS, "LTV min too low");
+        require(max <= MAX_CONFIGURABLE_LTV_BIPS, "LTV max too high");
+        require(min <= max, "LTV min > max");
         minLTV = SafeCast.toUint16(min);
         maxLTV = SafeCast.toUint16(max);
         emit LTVRangeSet(min, max);
     }
 
-    /// @notice Sets the minimum and maximum collar durations for the configHub
+    /// @notice Sets the minimum and maximum collar durations
     /// @param min The new minimum collar duration
     /// @param max The new maximum collar duration
     function setCollarDurationRange(uint min, uint max) external onlyOwner {
-        require(min >= MIN_CONFIGURABLE_DURATION, "min too low");
-        require(max <= MAX_CONFIGURABLE_DURATION, "max too high");
-        require(min <= max, "min > max");
+        require(min >= MIN_CONFIGURABLE_DURATION, "duration min too low");
+        require(max <= MAX_CONFIGURABLE_DURATION, "duration max too high");
+        require(min <= max, "duration min > max");
         minDuration = SafeCast.toUint32(min);
         maxDuration = SafeCast.toUint32(max);
         emit CollarDurationRangeSet(min, max);
@@ -87,12 +107,14 @@ contract ConfigHub is Ownable2Step, IConfigHub {
 
     // pausing
 
-    /// @notice Sets an address that can pause (but not unpause) any of the contracts that
+    /// @notice Sets addresses that can pause (but not unpause) any of the contracts that
     /// use this ConfigHub.
-    /// @param newGuardian The address of the new guardian
-    function setPauseGuardian(address newGuardian) external onlyOwner {
-        emit PauseGuardianSet(pauseGuardian, newGuardian); // emit before for the prev-value
-        pauseGuardian = newGuardian;
+    /// @param sender The address of a guardian to enable or disable
+    /// @param enabled Enabled or disabled status
+    function setPauseGuardian(address sender, bool enabled) external onlyOwner {
+        // contains / return value is not checked
+        enabled ? pauseGuardians.add(sender) : pauseGuardians.remove(sender);
+        emit PauseGuardianSet(sender, enabled);
     }
 
     // protocol fee
@@ -101,7 +123,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     /// @param apr The APR in BIPs
     /// @param recipient The recipient address. Can be zero if APR is 0, to allow disabling.
     function setProtocolFeeParams(uint apr, address recipient) external onlyOwner {
-        require(apr <= MAX_PROTOCOL_FEE_BIPS, "fee APR too high");
+        require(apr <= MAX_PROTOCOL_FEE_BIPS, "protocol fee APR too high");
         require(recipient != address(0) || apr == 0, "must set recipient for non-zero APR");
         emit ProtocolFeeParamsUpdated(protocolFeeAPR, apr, feeRecipient, recipient);
         protocolFeeAPR = SafeCast.toUint16(apr);
@@ -125,5 +147,16 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     /// @param ltv The LTV to check
     function isValidLTV(uint ltv) external view returns (bool) {
         return ltv >= minLTV && ltv <= maxLTV;
+    }
+
+    /// @notice Checks if an address is a pause guardian: allowed to pause, but not unpause
+    /// contracts using ConfigHub via BaseManaged / BaseNFT
+    function isPauseGuardian(address sender) external view returns (bool) {
+        return pauseGuardians.contains(sender);
+    }
+
+    /// @notice Returns all the pause guardians currently enabled
+    function allPauseGuardians() external view returns (address[] memory) {
+        return pauseGuardians.values();
     }
 }

@@ -94,7 +94,7 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         skip(duration + 1);
 
         // cannot release
-        vm.expectRevert("loan expired");
+        vm.expectRevert("loans: loan expired");
         loans.unwrapAndCancelLoan(loanId);
 
         // user balance

@@ -12,6 +12,7 @@ import { IRolls } from "./interfaces/IRolls.sol";
 
 /**
  * @title Rolls
+ * @custom:security-contact security@collarprotocol.xyz
  * @dev This contract manages the "rolling" of existing collar positions before expiry to new strikes and
  * expiry.
  *
@@ -37,6 +38,11 @@ import { IRolls } from "./interfaces/IRolls.sol";
  * 1. Does not hold cash (only during execution), but will have approvals to spend cash.
  * 2. Signed integers are used for many input and output values, and proper care should be
  * taken in understanding the semantics of the positive and negative values.
+ *
+ * Post-Deployment Configuration:
+ * - CollarTakerNFT and CollarProviderNFT: Ensure properly configured
+ * - ConfigHub: If this contract is used through Loans, set setCanOpenPair() to authorize this
+ * contract for its asset pair
  */
 contract Rolls is IRolls, BaseManaged {
     using SafeERC20 for IERC20;
@@ -128,7 +134,7 @@ contract Rolls is IRolls, BaseManaged {
     function previewRoll(uint rollId, uint price) external view returns (PreviewResults memory) {
         RollOffer memory offer = getRollOffer(rollId);
         // do not divide by zero
-        require(offer.feeReferencePrice != 0, "invalid rollId");
+        require(offer.feeReferencePrice != 0, "rolls: invalid rollId");
         int rollFee = calculateRollFee(offer, price);
         return _previewRoll(takerNFT.getPosition(offer.takerId), price, rollFee);
     }
@@ -168,18 +174,18 @@ contract Rolls is IRolls, BaseManaged {
         // taker position is valid
         ICollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
         require(takerPos.expiration != 0, "rolls: taker position does not exist");
-        require(!takerPos.settled, "taker position settled");
-        require(block.timestamp <= takerPos.expiration, "taker position expired");
+        require(!takerPos.settled, "rolls: taker position settled");
+        require(block.timestamp <= takerPos.expiration, "rolls: taker position expired");
 
         CollarProviderNFT providerNFT = takerPos.providerNFT;
         uint providerId = takerPos.providerId;
         // caller is owner
-        require(msg.sender == providerNFT.ownerOf(providerId), "not provider ID owner");
+        require(msg.sender == providerNFT.ownerOf(providerId), "rolls: not provider ID owner");
 
         // sanity check bounds
-        require(minPrice <= maxPrice, "max price lower than min price");
-        require(SignedMath.abs(feeDeltaFactorBIPS) <= BIPS_BASE, "invalid fee delta change");
-        require(block.timestamp <= deadline, "deadline passed");
+        require(minPrice <= maxPrice, "rolls: max price lower than min price");
+        require(SignedMath.abs(feeDeltaFactorBIPS) <= BIPS_BASE, "rolls: invalid fee delta change");
+        require(block.timestamp <= deadline, "rolls: deadline passed");
 
         // pull the NFT
         providerNFT.transferFrom(msg.sender, address(this), providerId);
@@ -215,8 +221,8 @@ contract Rolls is IRolls, BaseManaged {
      */
     function cancelOffer(uint rollId) external whenNotPaused {
         RollOffer memory offer = getRollOffer(rollId);
-        require(msg.sender == offer.provider, "not offer provider");
-        require(offer.active, "offer not active");
+        require(msg.sender == offer.provider, "rolls: not offer provider");
+        require(offer.active, "rolls: offer not active");
         // store cancelled state
         rollOffers[rollId].active = false;
         // return the NFT
@@ -245,21 +251,21 @@ contract Rolls is IRolls, BaseManaged {
         RollOffer memory offer = getRollOffer(rollId);
 
         // offer doesn't exist, was cancelled, or executed
-        require(offer.active, "invalid offer");
+        require(offer.active, "rolls: invalid offer");
         // auth, will revert if takerId was burned already
-        require(msg.sender == takerNFT.ownerOf(offer.takerId), "not taker ID owner");
+        require(msg.sender == takerNFT.ownerOf(offer.takerId), "rolls: not taker ID owner");
 
         // @dev an expired position should settle at some past price, so if rolling after expiry is allowed,
         // a different price may be used in settlement calculations instead of current price.
         // This is prevented by this check, since supporting the complexity of such scenarios is not needed.
         ICollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offer.takerId);
-        require(block.timestamp <= takerPos.expiration, "taker position expired");
+        require(block.timestamp <= takerPos.expiration, "rolls: taker position expired");
 
         // offer is within its terms
         uint newPrice = takerNFT.currentOraclePrice();
-        require(newPrice <= offer.maxPrice, "price too high");
-        require(newPrice >= offer.minPrice, "price too low");
-        require(block.timestamp <= offer.deadline, "deadline passed");
+        require(newPrice <= offer.maxPrice, "rolls: price too high");
+        require(newPrice >= offer.minPrice, "rolls: price too low");
+        require(block.timestamp <= offer.deadline, "rolls: deadline passed");
 
         // @dev only this line writes to storage. Update storage here for CEI
         rollOffers[rollId].active = false;
@@ -273,8 +279,8 @@ contract Rolls is IRolls, BaseManaged {
         // them is correct. If preview amounts do not match actual amounts, _executeRoll would revert,
         // since this contract does not hold any resting balance (no other assets are available).
         (toTaker, toProvider) = (preview.toTaker, preview.toProvider);
-        require(toTaker >= minToTaker, "taker transfer slippage");
-        require(toProvider >= offer.minToProvider, "provider transfer slippage");
+        require(toTaker >= minToTaker, "rolls: taker transfer slippage");
+        require(toProvider >= offer.minToProvider, "rolls: provider transfer slippage");
 
         (newTakerId, newProviderId) = _executeRoll(offer, preview);
 
@@ -324,7 +330,7 @@ contract Rolls is IRolls, BaseManaged {
         uint withdrawn = takerNFT.cancelPairedPosition(takerId);
         uint expectedAmount = takerPos.takerLocked + takerPos.providerLocked;
         // @dev this invariant is assumed by the transfer calculations
-        require(withdrawn == expectedAmount, "unexpected withdrawal amount");
+        require(withdrawn == expectedAmount, "rolls: unexpected withdrawal amount");
     }
 
     function _openNewPairedPosition(PreviewResults memory preview)
