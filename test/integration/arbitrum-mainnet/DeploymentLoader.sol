@@ -39,7 +39,14 @@ abstract contract DeploymentLoader is Test {
         if (!forkSet) {
             console.log("Setting up fork and deploying contracts");
             // this test suite needs to run independently so we load a fork here
-            vm.createSelectFork(vm.envString("ARBITRUM_MAINNET_RPC"), blockNumber);
+            // if we are in development we want to fix the block to reduce the time it takes to run the tests
+            bool shouldFixBlock = vm.envBool("FIX_BLOCK");
+            if (shouldFixBlock) {
+                vm.createSelectFork(vm.envString("ARBITRUM_MAINNET_RPC"), blockNumber);
+            } else {
+                forkId = vm.createFork(vm.envString("ARBITRUM_MAINNET_RPC"));
+                vm.selectFork(forkId);
+            }
 
             // Deploy contracts
             vm.startPrank(owner);
