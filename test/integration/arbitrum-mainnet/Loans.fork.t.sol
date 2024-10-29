@@ -327,10 +327,10 @@ contract LoansForkTest is LoansTestBase {
         vm.startPrank(user);
         IRolls.PreviewResults memory results =
             pair.rollsContract.previewRoll(rollOfferId, pair.takerNFT.currentOraclePrice());
-        if (results.rollFee > 0) {
-            // make sure preview roll fee is within 10% of actual roll fee
-            assertApproxEqAbs(uint(results.rollFee), uint(rollFee), uint(rollFee) * 1000 / 10_000);
-            pair.cashAsset.approve(address(pair.loansContract), uint(results.rollFee));
+        // make sure preview roll fee is within 10% of actual roll fee
+        assertApproxEqAbs(-results.toTaker, rollFee, uint(rollFee) * 1000 / 10_000);
+        if (results.toTaker < 0) {
+            pair.cashAsset.approve(address(pair.loansContract), uint(-results.toTaker));
         }
         pair.underlying.approve(address(pair.loansContract), newEscrowFee);
         (uint newLoanId, uint newLoanAmount,) = pair.loansContract.rollLoan(
