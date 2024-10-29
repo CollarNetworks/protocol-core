@@ -118,6 +118,12 @@ contract LoansForkTest is LoansTestBase {
     uint bigUnderlyingAmount = 1000 ether;
     uint slippage = 1; // 1%
     uint constant BIPS_BASE = 10_000;
+
+    // Initial swap amounts (from proven fork tests)
+    uint constant AMOUNT_FOR_CALL_STRIKE = 1_000_000e6; // Amount in USDC to move past call strike
+    uint constant AMOUNT_FOR_PUT_STRIKE = 250 ether; // Amount in WETH to move past put strike
+    uint constant AMOUNT_FOR_PARTIAL_MOVE = 600_000e6; // Amount in USDC to move partially up
+
     // Protocol fee params
     address feeRecipient;
     uint feeAPR = 100; // 1% APR
@@ -288,7 +294,8 @@ contract LoansForkTest is LoansTestBase {
             pair.underlying,
             pair.oracle,
             position.callStrikePercent,
-            POOL_FEE_TIER
+            POOL_FEE_TIER,
+            AMOUNT_FOR_CALL_STRIKE
         );
 
         skip(pair.durations[1] / 2);
@@ -336,7 +343,8 @@ contract LoansForkTest is LoansTestBase {
             pair.underlying,
             pair.oracle,
             position.putStrikePercent,
-            POOL_FEE_TIER
+            POOL_FEE_TIER,
+            AMOUNT_FOR_PUT_STRIKE
         );
 
         skip(pair.durations[1] / 2);
@@ -372,7 +380,8 @@ contract LoansForkTest is LoansTestBase {
             pair.cashAsset,
             pair.underlying,
             pair.oracle,
-            POOL_FEE_TIER
+            POOL_FEE_TIER,
+            AMOUNT_FOR_PARTIAL_MOVE
         );
 
         skip(pair.durations[1] / 2);

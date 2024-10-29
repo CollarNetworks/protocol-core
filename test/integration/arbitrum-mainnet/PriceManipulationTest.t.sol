@@ -16,6 +16,11 @@ contract PriceManipulationTest is Test, DeploymentLoader {
 
     address whale = makeAddr("whale");
 
+    // Initial swap amounts (from proven fork tests)
+    uint constant AMOUNT_FOR_CALL_STRIKE = 1_000_000e6; // Amount in USDC to move past call strike
+    uint constant AMOUNT_FOR_PUT_STRIKE = 250 ether; // Amount in WETH to move past put strike
+    uint constant AMOUNT_FOR_PARTIAL_MOVE = 600_000e6; // Amount in USDC to move partially up
+
     DeploymentHelper.AssetPairContracts internal pair;
 
     function setUp() public override {
@@ -45,7 +50,8 @@ contract PriceManipulationTest is Test, DeploymentLoader {
             pair.underlying,
             pair.oracle,
             callStrikePercent,
-            POOL_FEE
+            POOL_FEE,
+            AMOUNT_FOR_CALL_STRIKE
         );
 
         console.log("Price after move:", priceAfterMove);
@@ -65,7 +71,8 @@ contract PriceManipulationTest is Test, DeploymentLoader {
             pair.underlying,
             pair.oracle,
             putStrikePercent,
-            POOL_FEE
+            POOL_FEE,
+            AMOUNT_FOR_PUT_STRIKE
         );
 
         console.log("Price after move:", priceAfterMove);
@@ -81,7 +88,14 @@ contract PriceManipulationTest is Test, DeploymentLoader {
         uint callStrikePrice = (initialPrice * callStrikePercent) / 10_000;
 
         uint priceAfterMove = PriceManipulationLib.movePriceUpPartially(
-            vm, swapRouterAddress, whale, pair.cashAsset, pair.underlying, pair.oracle, POOL_FEE
+            vm,
+            swapRouterAddress,
+            whale,
+            pair.cashAsset,
+            pair.underlying,
+            pair.oracle,
+            POOL_FEE,
+            AMOUNT_FOR_PARTIAL_MOVE
         );
         console.log("Price after move:", priceAfterMove);
 

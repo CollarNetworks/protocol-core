@@ -16,11 +16,6 @@ library PriceManipulationLib {
     uint constant MAX_ATTEMPTS = 5;
     uint constant BIPS_BASE = 10_000;
 
-    // Initial swap amounts (from proven fork tests) (this should ptentially move outside this lib since its pair dependant)
-    uint constant AMOUNT_FOR_CALL_STRIKE = 1_000_000e6; // Amount in USDC to move past call strike
-    uint constant AMOUNT_FOR_PUT_STRIKE = 250 ether; // Amount in WETH to move past put strike
-    uint constant AMOUNT_FOR_PARTIAL_MOVE = 600_000e6; // Amount in USDC to move partially up
-
     function movePriceUpPastCallStrike(
         Vm vm,
         address swapRouter,
@@ -29,7 +24,8 @@ library PriceManipulationLib {
         IERC20 underlying,
         ITakerOracle oracle,
         uint callStrikePercent,
-        uint24 poolFee
+        uint24 poolFee,
+        uint amountForCallStrike
     ) external returns (uint finalPrice) {
         uint currentPrice = oracle.currentPrice();
         uint targetPrice = (currentPrice * callStrikePercent / BIPS_BASE) + 1;
@@ -43,7 +39,7 @@ library PriceManipulationLib {
             oracle,
             targetPrice,
             true,
-            AMOUNT_FOR_CALL_STRIKE,
+            amountForCallStrike,
             poolFee
         );
         require(finalPrice > targetPrice, "Price did not move past call strike");
@@ -57,7 +53,8 @@ library PriceManipulationLib {
         IERC20 underlying,
         ITakerOracle oracle,
         uint putStrikePercent,
-        uint24 poolFee
+        uint24 poolFee,
+        uint amountForPutStrike
     ) external returns (uint finalPrice) {
         uint currentPrice = oracle.currentPrice();
         uint targetPrice = (currentPrice * putStrikePercent / BIPS_BASE) - 1;
@@ -71,7 +68,7 @@ library PriceManipulationLib {
             oracle,
             targetPrice,
             false,
-            AMOUNT_FOR_PUT_STRIKE,
+            amountForPutStrike,
             poolFee
         );
         require(finalPrice < targetPrice, "Price did not move past put strike");
@@ -84,10 +81,11 @@ library PriceManipulationLib {
         IERC20 cashAsset,
         IERC20 underlying,
         ITakerOracle oracle,
-        uint24 poolFee
+        uint24 poolFee,
+        uint amountForPartialMove
     ) external returns (uint finalPrice) {
         vm.startPrank(whale);
-        cashAsset.forceApprove(swapRouter, AMOUNT_FOR_PARTIAL_MOVE);
+        cashAsset.forceApprove(swapRouter, amountForPartialMove);
 
         IV3SwapRouter(payable(swapRouter)).exactInputSingle(
             IV3SwapRouter.ExactInputSingleParams({
@@ -95,7 +93,7 @@ library PriceManipulationLib {
                 tokenOut: address(underlying),
                 fee: poolFee,
                 recipient: whale,
-                amountIn: AMOUNT_FOR_PARTIAL_MOVE,
+                amountIn: amountForPartialMove,
                 amountOutMinimum: 0,
                 sqrtPriceLimitX96: 0
             })
