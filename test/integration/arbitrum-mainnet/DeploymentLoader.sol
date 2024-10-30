@@ -25,7 +25,7 @@ abstract contract DeploymentLoader is Test {
         uint user1PrivKey = vm.envUint("PRIVKEY_DEV_TEST1");
         uint user2PrivKey = vm.envUint("PRIVKEY_DEV_TEST2");
         uint liquidityProviderPrivKey = vm.envUint("LIQUIDITY_PROVIDER_KEY");
-        uint blockNumber = vm.envUint("BLOCK_NUMBER");
+        uint blockNumber = vm.envUint("BLOCK_NUMBER_ARBITRUM_MAINNET");
 
         owner = vm.addr(deployerPrivKey);
         user = vm.addr(user1PrivKey);
@@ -40,7 +40,7 @@ abstract contract DeploymentLoader is Test {
             console.log("Setting up fork and deploying contracts");
             // this test suite needs to run independently so we load a fork here
             // if we are in development we want to fix the block to reduce the time it takes to run the tests
-            bool shouldFixBlock = vm.envBool("FIX_BLOCK");
+            bool shouldFixBlock = vm.envBool("FIX_BLOCK_ARBITRUM_MAINNET");
             if (shouldFixBlock) {
                 vm.createSelectFork(vm.envString("ARBITRUM_MAINNET_RPC"), blockNumber);
             } else {
