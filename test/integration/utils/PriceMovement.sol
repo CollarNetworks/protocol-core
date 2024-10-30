@@ -84,24 +84,11 @@ library PriceMovementHelper {
         uint24 poolFee,
         uint amountForPartialMove
     ) external returns (uint finalPrice) {
-        vm.startPrank(whale);
-        cashAsset.forceApprove(swapRouter, amountForPartialMove);
-
-        IV3SwapRouter(payable(swapRouter)).exactInputSingle(
-            IV3SwapRouter.ExactInputSingleParams({
-                tokenIn: address(cashAsset),
-                tokenOut: address(underlying),
-                fee: poolFee,
-                recipient: whale,
-                amountIn: amountForPartialMove,
-                amountOutMinimum: 0,
-                sqrtPriceLimitX96: 0
-            })
-        );
-        vm.stopPrank();
-
+        uint currentPrice = oracle.currentPrice();
+        swapCash(vm, swapRouter, whale, cashAsset, underlying, amountForPartialMove, poolFee);
         vm.warp(block.timestamp + 3 minutes);
-        return oracle.currentPrice();
+        finalPrice = oracle.currentPrice();
+        require(finalPrice > currentPrice, "Price did not move up");
     }
 
     function moveToTargetPrice(
