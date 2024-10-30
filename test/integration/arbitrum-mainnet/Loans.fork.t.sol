@@ -116,7 +116,7 @@ contract LoansForkTest is LoansTestBase {
     uint constant slippage = 100; // 1%
     uint constant BIPS_BASE = 10_000;
 
-    uint24 constant POOL_FEE_TIER = 500;
+    uint24 constant SWAP_POOL_FEE_TIER = 500;
 
     //escrow related constants
     uint constant interestAPR = 500; // 5% APR
@@ -518,7 +518,7 @@ contract LoansForkTest is LoansTestBase {
             pair.underlying,
             pair.oracle,
             position.callStrikePercent,
-            POOL_FEE_TIER,
+            SWAP_POOL_FEE_TIER,
             AMOUNT_FOR_CALL_STRIKE
         );
 
@@ -567,7 +567,7 @@ contract LoansForkTest is LoansTestBase {
             pair.underlying,
             pair.oracle,
             position.putStrikePercent,
-            POOL_FEE_TIER,
+            SWAP_POOL_FEE_TIER,
             AMOUNT_FOR_PUT_STRIKE
         );
 
@@ -604,7 +604,7 @@ contract LoansForkTest is LoansTestBase {
             pair.cashAsset,
             pair.underlying,
             pair.oracle,
-            POOL_FEE_TIER,
+            SWAP_POOL_FEE_TIER,
             AMOUNT_FOR_PARTIAL_MOVE
         );
 
