@@ -7,7 +7,7 @@ import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.s
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 import { ITakerOracle } from "../../../src/interfaces/ITakerOracle.sol";
 
-library PriceManipulationLib {
+library PriceMovementHelper {
     using SafeERC20 for IERC20;
 
     // Price movement configuration

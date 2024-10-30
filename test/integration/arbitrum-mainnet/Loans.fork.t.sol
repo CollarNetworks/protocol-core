@@ -9,7 +9,7 @@ import { ICollarTakerNFT } from "../../../src/interfaces/ICollarTakerNFT.sol";
 import { ICollarProviderNFT } from "../../../src/interfaces/ICollarProviderNFT.sol";
 import { ArbitrumMainnetDeployer } from "../../../script/arbitrum-mainnet/deployer.sol";
 import { DeploymentUtils } from "../../../script/utils/deployment-exporter.s.sol";
-import { PriceManipulationLib } from "../utils/PriceManipulation.sol";
+import { PriceMovementHelper } from "../utils/PriceMovement.sol";
 
 abstract contract LoansTestBase is Test, DeploymentLoader {
     function setUp() public virtual override {
@@ -23,8 +23,6 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
         uint duration
     ) internal returns (uint offerId) {
         vm.startPrank(provider);
-        uint cashBalance = pair.cashAsset.balanceOf(provider);
-        console.log("Provider cash balance: %d", cashBalance);
         pair.cashAsset.approve(address(pair.providerNFT), amount);
         offerId = pair.providerNFT.createOffer(callStrikePercent, amount, pair.ltvs[0], duration, 0);
         vm.stopPrank();
@@ -115,7 +113,7 @@ contract LoansForkTest is LoansTestBase {
     int constant rollDeltaFactor = 10_000;
     uint constant bigCashAmount = 1_000_000e6;
     uint constant bigUnderlyingAmount = 1000 ether;
-    uint constant slippage = 1; // 1%
+    uint constant slippage = 100; // 1%
     uint constant BIPS_BASE = 10_000;
 
     uint24 constant POOL_FEE_TIER = 500;
@@ -492,7 +490,8 @@ contract LoansForkTest is LoansTestBase {
         // Convert cash amount to expected underlying amount using oracle's conversion
         uint expectedUnderlying = pair.oracle.convertToBaseAmount(totalAmountToSwap, currentPrice);
 
-        uint minUnderlyingOutWithSlippage = expectedUnderlying * (100 - slippage) / 100 - lateFee;
+        uint minUnderlyingOutWithSlippage =
+            (expectedUnderlying * (BIPS_BASE - slippage) / BIPS_BASE) - lateFee;
         uint underlyingOut = closeLoan(pair, user, loanId, minUnderlyingOutWithSlippage);
 
         assertGe(underlyingOut, minUnderlyingOutWithSlippage);
@@ -511,7 +510,7 @@ contract LoansForkTest is LoansTestBase {
         ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
         skip(pair.durations[1] / 2);
         // Move price above call strike using lib
-        PriceManipulationLib.movePriceUpPastCallStrike(
+        PriceMovementHelper.movePriceUpPastCallStrike(
             vm,
             address(pair.swapperUniV3.uniV3SwapRouter()),
             whale,
@@ -546,7 +545,7 @@ contract LoansForkTest is LoansTestBase {
         assertApproxEqAbs(
             pair.underlying.balanceOf(user) - userUnderlyingBefore,
             expectedUnderlyingOut,
-            expectedUnderlyingOut * slippage / 100 // within slippage% of expected
+            expectedUnderlyingOut * slippage / BIPS_BASE // within slippage% of expected
         );
     }
 
@@ -560,7 +559,7 @@ contract LoansForkTest is LoansTestBase {
         skip(pair.durations[1] / 2);
 
         // Move price below put strike
-        PriceManipulationLib.movePriceDownPastPutStrike(
+        PriceMovementHelper.movePriceDownPastPutStrike(
             vm,
             address(pair.swapperUniV3.uniV3SwapRouter()),
             whale,
@@ -580,7 +579,7 @@ contract LoansForkTest is LoansTestBase {
         assertApproxEqAbs(
             pair.underlying.balanceOf(user) - userUnderlyingBefore,
             expectedUnderlying,
-            expectedUnderlying * slippage / 100
+            expectedUnderlying * slippage / BIPS_BASE
         );
         // check provider gets all value
         uint providerWithdrawable = position.providerNFT.getPosition(position.providerId).withdrawable;
@@ -598,7 +597,7 @@ contract LoansForkTest is LoansTestBase {
         skip(pair.durations[1] / 2);
 
         // Move price up partially (but below call strike)
-        PriceManipulationLib.movePriceUpPartially(
+        PriceMovementHelper.movePriceUpPartially(
             vm,
             address(pair.swapperUniV3.uniV3SwapRouter()),
             whale,
@@ -627,7 +626,7 @@ contract LoansForkTest is LoansTestBase {
         assertApproxEqAbs(
             pair.underlying.balanceOf(user) - userUnderlyingBefore,
             expectedUnderlying,
-            expectedUnderlying * slippage / 100
+            expectedUnderlying * slippage / BIPS_BASE
         );
 
         // Provider should get their locked amount adjusted by settlement delta
@@ -726,7 +725,8 @@ contract LoansForkTest is LoansTestBase {
         uint expectedCashFromSwap = underlyingAmount * oraclePrice / pair.oracle.baseUnitAmount();
         // Calculate minimum expected loan amount (expectedCash * LTV)
         // Apply slippage tolerance for swaps and rounding
-        uint minExpectedLoan = expectedCashFromSwap * pair.ltvs[0] * (100 - slippage) / (BIPS_BASE * 100);
+        uint minExpectedLoan =
+            expectedCashFromSwap * pair.ltvs[0] * (BIPS_BASE - slippage) / (BIPS_BASE * BIPS_BASE);
 
         // Check actual loan amount is at least the minimum expected
         assertGe(actualLoanAmount, minExpectedLoan);
