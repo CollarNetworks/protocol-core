@@ -5,8 +5,11 @@ import "forge-std/Test.sol";
 import "./DeploymentLoader.sol";
 import { ILoansNFT } from "../../../src/interfaces/ILoansNFT.sol";
 import { IRolls } from "../../../src/interfaces/IRolls.sol";
+import { ICollarTakerNFT } from "../../../src/interfaces/ICollarTakerNFT.sol";
+import { ICollarProviderNFT } from "../../../src/interfaces/ICollarProviderNFT.sol";
 import { ArbitrumMainnetDeployer } from "../../../script/arbitrum-mainnet/deployer.sol";
 import { DeploymentUtils } from "../../../script/utils/deployment-exporter.s.sol";
+import { PriceMovementHelper } from "../utils/PriceMovement.sol";
 
 abstract contract LoansTestBase is Test, DeploymentLoader {
     function setUp() public virtual override {
@@ -16,14 +19,12 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
     function createProviderOffer(
         DeploymentHelper.AssetPairContracts memory pair,
         uint callStrikePercent,
-        uint amount
+        uint amount,
+        uint duration
     ) internal returns (uint offerId) {
         vm.startPrank(provider);
-        uint cashBalance = pair.cashAsset.balanceOf(provider);
-        console.log("Provider cash balance: %d", cashBalance);
         pair.cashAsset.approve(address(pair.providerNFT), amount);
-        offerId = pair.providerNFT.createOffer(callStrikePercent, amount, pair.ltvs[0], pair.durations[0], 0);
-
+        offerId = pair.providerNFT.createOffer(callStrikePercent, amount, pair.ltvs[0], duration, 0);
         vm.stopPrank();
     }
 
@@ -78,8 +79,8 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
             takerId,
             rollFee,
             rollDeltaFactor,
-            currentPrice * 90 / 100,
-            currentPrice * 110 / 100,
+            currentPrice * 90 / 100, // minPrice 90% of current
+            currentPrice * 110 / 100, // maxPrice 110% of current
             0,
             block.timestamp + 1 hours
         );
@@ -108,22 +109,28 @@ contract LoansForkTest is LoansTestBase {
     uint constant callstrikeToUse = 12_000;
     uint constant offerAmount = 100_000e6;
     uint constant underlyingAmount = 1 ether;
+    uint constant minLoanAmount = 0.3e6; // arbitrary low value
     int constant rollFee = 100e6;
     int constant rollDeltaFactor = 10_000;
     uint constant bigCashAmount = 1_000_000e6;
     uint constant bigUnderlyingAmount = 1000 ether;
-    uint constant slippage = 1; // 1%
+    uint constant slippage = 100; // 1%
     uint constant BIPS_BASE = 10_000;
+
+    uint24 constant SWAP_POOL_FEE_TIER = 500;
 
     //escrow related constants
     uint constant interestAPR = 500; // 5% APR
     uint constant maxGracePeriod = 7 days;
     uint constant lateFeeAPR = 10_000; // 100% APR
 
+    // Initial swap amounts (from proven fork tests)
+    uint constant AMOUNT_FOR_CALL_STRIKE = 1_000_000e6; // Amount in USDC to move past call strike
+    uint constant AMOUNT_FOR_PUT_STRIKE = 250 ether; // Amount in WETH to move past put strike
+    uint constant AMOUNT_FOR_PARTIAL_MOVE = 600_000e6; // Amount in USDC to move partially up
+
     // Protocol fee params
     uint constant feeAPR = 100; // 1% APR
-
-    DeploymentHelper.AssetPairContracts internal pair;
 
     // Protocol fee values
     address feeRecipient;
@@ -131,10 +138,25 @@ contract LoansForkTest is LoansTestBase {
     // escrow related values
     address escrowSupplier;
 
+    // whale address
+    address whale;
+
+    // durations to use
+    uint duration;
+    uint durationPriceMovement;
+
+    DeploymentHelper.AssetPairContracts internal pair;
+
     function setUp() public virtual override {
         super.setUp();
         pair = getPairByAssets(address(cashAsset), address(underlying));
         require(address(pair.loansContract) != address(0), "Loans contract not deployed");
+
+        // create whale address
+        whale = makeAddr("whale");
+        // Fund whale for price manipulation
+        deal(address(pair.cashAsset), whale, 100 * bigCashAmount);
+        deal(address(pair.underlying), whale, 100 * bigUnderlyingAmount);
 
         // Setup protocol fee
         feeRecipient = makeAddr("feeRecipient");
@@ -143,6 +165,9 @@ contract LoansForkTest is LoansTestBase {
         vm.stopPrank();
         escrowSupplier = makeAddr("escrowSupplier");
         fundWallets();
+
+        duration = pair.durations[0];
+        durationPriceMovement = pair.durations[1];
     }
 
     function setForkId(uint _forkId) public {
@@ -152,7 +177,7 @@ contract LoansForkTest is LoansTestBase {
 
     function testOpenAndCloseLoan() public {
         uint providerBalanceBefore = pair.cashAsset.balanceOf(provider);
-        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration);
         assertEq(pair.cashAsset.balanceOf(provider), providerBalanceBefore - offerAmount);
         uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
 
@@ -160,15 +185,18 @@ contract LoansForkTest is LoansTestBase {
             pair,
             user,
             underlyingAmount,
-            0.3e6, // minLoanAmount
+            minLoanAmount, // minLoanAmount
             offerId
         );
         // Verify fee taken and sent to recipient
         uint expectedFee = getProviderProtocolFeeByLoanAmount(loanAmount);
         assertEq(pair.cashAsset.balanceOf(feeRecipient) - feeRecipientBalanceBefore, expectedFee);
         checkLoanAmount(loanAmount);
-        skip(pair.durations[0]);
-        closeAndCheckLoan(loanId, loanAmount, 0);
+        skip(duration);
+        ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
+        (uint takerWithdrawal,) = pair.takerNFT.previewSettlement(position, pair.oracle.currentPrice());
+
+        closeAndCheckLoan(loanId, loanAmount, loanAmount + takerWithdrawal, 0);
     }
 
     function testOpenEscrowLoan() public {
@@ -197,9 +225,12 @@ contract LoansForkTest is LoansTestBase {
         uint interestFee = pair.escrowNFT.interestFee(escrowOfferId, underlyingAmount);
 
         // Skip to expiry
-        skip(pair.durations[0]);
+        skip(duration);
 
-        closeAndCheckLoan(loanId, loanAmount, 0);
+        ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
+        (uint takerWithdrawal,) = pair.takerNFT.previewSettlement(position, pair.oracle.currentPrice());
+
+        closeAndCheckLoan(loanId, loanAmount, loanAmount + takerWithdrawal, 0);
 
         // Check escrow position's withdrawable amount (underlying + interest)
         uint withdrawable = pair.escrowNFT.getEscrow(loanBefore.escrowId).withdrawable;
@@ -225,13 +256,18 @@ contract LoansForkTest is LoansTestBase {
         uint interestFee = pair.escrowNFT.interestFee(escrowOfferId, underlyingAmount);
 
         // Skip past expiry AND grace period
-        skip(pair.durations[0] + maxGracePeriod + 1);
+        skip(duration + maxGracePeriod + 1);
 
         // Calculate expected late fee
         (, uint lateFee) = pair.escrowNFT.currentOwed(loanBefore.escrowId);
         assertGt(lateFee, 0);
+        // Get expiry price from oracle
+        ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
+        (uint expiryPrice,) = pair.oracle.pastPriceWithFallback(uint32(position.expiration));
+        (uint takerWithdrawal,) = pair.takerNFT.previewSettlement(position, expiryPrice);
+        uint totalAmountToSwap = loanAmount + takerWithdrawal;
 
-        closeAndCheckLoan(loanId, loanAmount, lateFee);
+        closeAndCheckLoan(loanId, loanAmount, totalAmountToSwap, lateFee);
 
         // Check escrow position's withdrawable (underlying + interest + late fee)
         uint withdrawable = pair.escrowNFT.getEscrow(loanBefore.escrowId).withdrawable;
@@ -258,14 +294,16 @@ contract LoansForkTest is LoansTestBase {
         uint interestFee = pair.escrowNFT.interestFee(escrowOfferId, underlyingAmount);
 
         // Skip past expiry but only halfway through grace period
-        skip(pair.durations[0] + maxGracePeriod / 2);
+        skip(duration + maxGracePeriod / 2);
 
         // Calculate expected partial late fee
         (, uint lateFee) = pair.escrowNFT.currentOwed(loanBefore.escrowId);
         assertGt(lateFee, 0);
         assertLt(lateFee, underlyingAmount * lateFeeAPR * maxGracePeriod / (BIPS_BASE * 365 days));
+        ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
+        (uint takerWithdrawal,) = pair.takerNFT.previewSettlement(position, pair.oracle.currentPrice());
 
-        closeAndCheckLoan(loanId, loanAmount, lateFee);
+        closeAndCheckLoan(loanId, loanAmount, loanAmount + takerWithdrawal, lateFee);
 
         // Check escrow position's withdrawable (underlying + interest + partial late fee)
         uint withdrawable = pair.escrowNFT.getEscrow(loanBefore.escrowId).withdrawable;
@@ -300,7 +338,7 @@ contract LoansForkTest is LoansTestBase {
         deal(address(underlying), escrowSupplier2, bigUnderlyingAmount);
 
         // Skip half the duration to test partial fees
-        skip(pair.durations[0] / 2);
+        skip(duration / 2);
 
         // Get exact refund amount from contract
         (uint withdrawal, uint toLoans,) = pair.escrowNFT.previewRelease(loan.escrowId, 0);
@@ -310,7 +348,7 @@ contract LoansForkTest is LoansTestBase {
         pair.underlying.approve(address(pair.escrowNFT), underlyingAmount);
         uint escrowOfferId2 = pair.escrowNFT.createOffer(
             underlyingAmount,
-            pair.durations[0],
+            duration,
             interestAPR,
             maxGracePeriod,
             lateFeeAPR,
@@ -355,12 +393,15 @@ contract LoansForkTest is LoansTestBase {
         assertEq(userUnderlyingBeforeRoll - pair.underlying.balanceOf(user) + toLoans, newEscrowFee);
 
         // Skip to end of new loan term
-        skip(pair.durations[0]);
+        skip(duration);
 
         // Track second supplier balance before closing
         uint escrowSupplier2Before = pair.underlying.balanceOf(escrowSupplier2);
 
-        closeAndCheckLoan(newLoanId, newLoanAmount, 0);
+        (uint takerWithdrawal,) =
+            pair.takerNFT.previewSettlement(pair.takerNFT.getPosition(newLoanId), pair.oracle.currentPrice());
+
+        closeAndCheckLoan(newLoanId, newLoanAmount, newLoanAmount + takerWithdrawal, 0);
 
         // Execute withdrawal for second supplier
         vm.startPrank(escrowSupplier2);
@@ -375,12 +416,12 @@ contract LoansForkTest is LoansTestBase {
     }
 
     function testRollLoan() public {
-        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration);
         (uint loanId, uint providerId, uint initialLoanAmount) = openLoan(
             pair,
             user,
             underlyingAmount,
-            0.3e6, // minLoanAmount
+            minLoanAmount, // minLoanAmount
             offerId
         );
 
@@ -415,16 +456,16 @@ contract LoansForkTest is LoansTestBase {
     function testFullLoanLifecycle() public {
         uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
 
-        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration);
 
         (uint loanId, uint providerId, uint initialLoanAmount) =
-            openLoan(pair, user, underlyingAmount, 0.3e6, offerId);
+            openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
         uint initialFee = getProviderProtocolFeeByLoanAmount(initialLoanAmount);
         // Verify fee taken and sent to recipient
         assertEq(pair.cashAsset.balanceOf(feeRecipient) - feeRecipientBalanceBefore, initialFee);
 
         // Advance time
-        skip(pair.durations[0] - 20);
+        skip(duration - 20);
 
         uint recipientBalanceAfterOpenLoan = pair.cashAsset.balanceOf(feeRecipient);
         uint rollOfferId = createRollOffer(pair, provider, loanId, providerId, rollFee, rollDeltaFactor);
@@ -442,9 +483,12 @@ contract LoansForkTest is LoansTestBase {
         );
 
         // Advance time again
-        skip(pair.durations[0]);
+        skip(duration);
 
-        closeAndCheckLoan(newLoanId, newLoanAmount, 0);
+        ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(newLoanId);
+        (uint takerWithdrawal,) = pair.takerNFT.previewSettlement(position, pair.oracle.currentPrice());
+
+        closeAndCheckLoan(newLoanId, newLoanAmount, newLoanAmount + takerWithdrawal, 0);
         assertGt(initialLoanAmount, 0);
         assertGe(int(newLoanAmount), int(initialLoanAmount) + transferAmount);
 
@@ -459,23 +503,162 @@ contract LoansForkTest is LoansTestBase {
         // Calculate protocol fee based on post-swap provider locked amount
         uint swapOut = loanAmount * BIPS_BASE / pair.ltvs[0];
         uint initProviderLocked = swapOut * (callstrikeToUse - BIPS_BASE) / BIPS_BASE;
-        (protocolFee,) = pair.providerNFT.protocolFee(initProviderLocked, pair.durations[0]);
+        (protocolFee,) = pair.providerNFT.protocolFee(initProviderLocked, duration);
         assertGt(protocolFee, 0);
     }
 
-    function closeAndCheckLoan(uint loanId, uint loanAmount, uint lateFee) internal {
+    function closeAndCheckLoan(uint loanId, uint loanAmount, uint totalAmountToSwap, uint lateFee) internal {
         // Track balances before closing
         uint userCashBefore = pair.cashAsset.balanceOf(user);
         uint userUnderlyingBefore = pair.underlying.balanceOf(user);
+        uint expiration = pair.takerNFT.getPosition(loanId).expiration;
+        // Get current price from oracle
+        (uint currentPrice,) = pair.oracle.pastPriceWithFallback(uint32(expiration));
+        // Convert cash amount to expected underlying amount using oracle's conversion
+        uint expectedUnderlying = (pair.oracle.convertToBaseAmount(totalAmountToSwap, currentPrice) - lateFee);
 
-        // no price change so underlying out should be underlying in minus slippage and minus late fees
-        uint minUnderlyingOut = underlyingAmount;
-        uint minUnderlyingOutWithSlippage = (minUnderlyingOut * (100 - slippage) / 100) - lateFee;
+        uint minUnderlyingOutWithSlippage = (expectedUnderlying * (BIPS_BASE - slippage) / BIPS_BASE);
         uint underlyingOut = closeLoan(pair, user, loanId, minUnderlyingOutWithSlippage);
-        assertGe(underlyingOut, minUnderlyingOutWithSlippage);
+
+        assertApproxEqAbs(underlyingOut, expectedUnderlying, expectedUnderlying * slippage / BIPS_BASE);
         // Verify balance changes
         assertEq(userCashBefore - pair.cashAsset.balanceOf(user), loanAmount);
         assertEq(pair.underlying.balanceOf(user) - userUnderlyingBefore, underlyingOut);
+    }
+
+    // price movement settlement tests
+
+    function testSettlementPriceAboveCallStrike() public {
+        // Create provider offer & open loan
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, pair.durations[1]);
+        (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
+
+        ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
+        skip(pair.durations[1] / 2);
+        // Move price above call strike using lib
+        PriceMovementHelper.movePriceUpPastCallStrike(
+            vm,
+            address(pair.swapperUniV3.uniV3SwapRouter()),
+            whale,
+            pair.cashAsset,
+            pair.underlying,
+            pair.oracle,
+            position.callStrikePercent,
+            SWAP_POOL_FEE_TIER,
+            AMOUNT_FOR_CALL_STRIKE
+        );
+
+        skip(pair.durations[1] / 2);
+
+        (uint expectedTakerWithdrawal,) =
+            pair.takerNFT.previewSettlement(position, pair.oracle.currentPrice());
+
+        // Total cash = taker withdrawal + loan repayment
+        // Convert expected total cash to underlying at current price
+        uint expectedUnderlyingOut =
+            pair.oracle.convertToBaseAmount(expectedTakerWithdrawal + loanAmount, pair.oracle.currentPrice());
+
+        uint userUnderlyingBefore = pair.underlying.balanceOf(user);
+
+        // Close loan and settle
+        closeAndCheckLoan(loanId, loanAmount, loanAmount + expectedTakerWithdrawal, 0);
+
+        // Check provider's withdrawable amount
+        uint providerWithdrawable = position.providerNFT.getPosition(position.providerId).withdrawable;
+        assertEq(providerWithdrawable, 0); // everything to user
+
+        // Check user's underlying balance change against calculated expected amount
+        assertApproxEqAbs(
+            pair.underlying.balanceOf(user) - userUnderlyingBefore,
+            expectedUnderlyingOut,
+            expectedUnderlyingOut * slippage / BIPS_BASE // within slippage% of expected
+        );
+    }
+
+    function testSettlementPriceBelowPutStrike() public {
+        // Create provider offer & open loan
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, pair.durations[1]);
+        (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
+
+        ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
+
+        skip(pair.durations[1] / 2);
+
+        // Move price below put strike
+        PriceMovementHelper.movePriceDownPastPutStrike(
+            vm,
+            address(pair.swapperUniV3.uniV3SwapRouter()),
+            whale,
+            pair.cashAsset,
+            pair.underlying,
+            pair.oracle,
+            position.putStrikePercent,
+            SWAP_POOL_FEE_TIER,
+            AMOUNT_FOR_PUT_STRIKE
+        );
+
+        skip(pair.durations[1] / 2);
+        uint userUnderlyingBefore = pair.underlying.balanceOf(user);
+        // Close loan
+        closeAndCheckLoan(loanId, loanAmount, loanAmount, 0);
+        uint expectedUnderlying = pair.oracle.convertToBaseAmount(loanAmount, pair.oracle.currentPrice());
+        assertApproxEqAbs(
+            pair.underlying.balanceOf(user) - userUnderlyingBefore,
+            expectedUnderlying,
+            expectedUnderlying * slippage / BIPS_BASE
+        );
+        // check provider gets all value
+        uint providerWithdrawable = position.providerNFT.getPosition(position.providerId).withdrawable;
+        uint expectedProviderWithdrawable = position.providerLocked + position.takerLocked;
+        assertEq(providerWithdrawable, expectedProviderWithdrawable);
+    }
+
+    function testSettlementPriceBetweenStrikes() public {
+        // Create provider offer & open loan with longer duration
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, durationPriceMovement);
+        (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
+
+        ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
+
+        skip(durationPriceMovement / 2);
+
+        // Move price up partially (but below call strike)
+        PriceMovementHelper.movePriceUpPartially(
+            vm,
+            address(pair.swapperUniV3.uniV3SwapRouter()),
+            whale,
+            pair.cashAsset,
+            pair.underlying,
+            pair.oracle,
+            SWAP_POOL_FEE_TIER,
+            AMOUNT_FOR_PARTIAL_MOVE
+        );
+
+        skip(durationPriceMovement / 2);
+
+        // Calculate expected settlement amounts
+        uint currentPrice = pair.oracle.currentPrice();
+        (uint expectedTakerWithdrawal, int expectedProviderDelta) =
+            pair.takerNFT.previewSettlement(position, currentPrice);
+
+        uint userUnderlyingBefore = pair.underlying.balanceOf(user);
+
+        // Close loan with total cash needed
+        closeAndCheckLoan(loanId, loanAmount, loanAmount + expectedTakerWithdrawal, 0);
+
+        // User should get underlying equivalent to loanAmount + their settlement gains
+        uint expectedUnderlying =
+            pair.oracle.convertToBaseAmount(loanAmount + expectedTakerWithdrawal, currentPrice);
+        assertApproxEqAbs(
+            pair.underlying.balanceOf(user) - userUnderlyingBefore,
+            expectedUnderlying,
+            expectedUnderlying * slippage / BIPS_BASE
+        );
+
+        // Provider should get their locked amount adjusted by settlement delta
+        uint providerWithdrawable = position.providerNFT.getPosition(position.providerId).withdrawable;
+        uint expectedProviderWithdrawable = uint(int(position.providerLocked) + expectedProviderDelta);
+        assertEq(providerWithdrawable, expectedProviderWithdrawable);
     }
 
     function createEscrowOffer(uint duration) internal returns (uint offerId) {
@@ -492,7 +675,7 @@ contract LoansForkTest is LoansTestBase {
         vm.stopPrank();
     }
 
-    function openEscrowLoan(uint minLoanAmount, uint providerOfferId, uint escrowOfferId, uint escrowFee)
+    function openEscrowLoan(uint _minLoanAmount, uint providerOfferId, uint escrowOfferId, uint escrowFee)
         internal
         returns (uint loanId, uint providerId, uint loanAmount)
     {
@@ -502,7 +685,7 @@ contract LoansForkTest is LoansTestBase {
 
         (loanId, providerId, loanAmount) = pair.loansContract.openEscrowLoan(
             underlyingAmount,
-            minLoanAmount,
+            _minLoanAmount,
             ILoansNFT.SwapParams(0, address(pair.loansContract.defaultSwapper()), ""),
             ILoansNFT.ProviderOffer(pair.providerNFT, providerOfferId),
             ILoansNFT.EscrowOffer(pair.escrowNFT, escrowOfferId),
@@ -513,11 +696,11 @@ contract LoansForkTest is LoansTestBase {
 
     function createEscrowOffers() internal returns (uint offerId, uint escrowOfferId) {
         uint providerBalanceBefore = pair.cashAsset.balanceOf(provider);
-        offerId = createProviderOffer(pair, callstrikeToUse, offerAmount);
+        offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration);
         assertEq(pair.cashAsset.balanceOf(provider), providerBalanceBefore - offerAmount);
 
         // Create escrow offer
-        escrowOfferId = createEscrowOffer(pair.durations[0]);
+        escrowOfferId = createEscrowOffer(duration);
     }
 
     function executeEscrowLoan(uint offerId, uint escrowOfferId)
@@ -528,7 +711,7 @@ contract LoansForkTest is LoansTestBase {
 
         // Open escrow loan using base function
         (loanId, providerId, loanAmount) = openEscrowLoan(
-            0.3e6, // minLoanAmount
+            minLoanAmount, // minLoanAmount
             offerId,
             escrowOfferId,
             expectedEscrowFee
@@ -568,7 +751,8 @@ contract LoansForkTest is LoansTestBase {
         uint expectedCashFromSwap = underlyingAmount * oraclePrice / pair.oracle.baseUnitAmount();
         // Calculate minimum expected loan amount (expectedCash * LTV)
         // Apply slippage tolerance for swaps and rounding
-        uint minExpectedLoan = expectedCashFromSwap * pair.ltvs[0] * (100 - slippage) / (BIPS_BASE * 100);
+        uint minExpectedLoan =
+            expectedCashFromSwap * pair.ltvs[0] * (BIPS_BASE - slippage) / (BIPS_BASE * BIPS_BASE);
 
         // Check actual loan amount is at least the minimum expected
         assertGe(actualLoanAmount, minExpectedLoan);
