@@ -2,6 +2,7 @@
 pragma solidity 0.8.22;
 
 import { ConfigHub } from "../../src/ConfigHub.sol";
+import { EscrowSupplierNFT } from "../../src/EscrowSupplierNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SetupHelper } from "../setup-helper.sol";
 import { DeploymentHelper } from "../deployment-helper.sol";
@@ -97,6 +98,11 @@ library ArbitrumMainnetDeployer {
 
         uint[] memory singleLTV = new uint[](1);
         singleLTV[0] = allLTVs[0];
+
+        // if any escrowNFT contracts will be reused for multiple pairs, they should be deployed first
+        EscrowSupplierNFT wethEscrow =
+            DeploymentHelper.deployEscrowNFT(configHub, owner, IERC20(WETH), "WETH");
+
         DeploymentHelper.PairConfig memory USDCWETHPairConfig = DeploymentHelper.PairConfig({
             name: "USDC/WETH",
             durations: allDurations,
@@ -107,7 +113,8 @@ library ArbitrumMainnetDeployer {
             swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
             swapRouter: swapRouterAddress,
-            sequencerUptimeFeed: sequencerUptimeFeed
+            sequencerUptimeFeed: sequencerUptimeFeed,
+            existingEscrowNFT: address(wethEscrow)
         });
         assetPairContracts[0] = DeploymentHelper.deployContractPair(configHub, USDCWETHPairConfig, owner);
 
@@ -121,7 +128,8 @@ library ArbitrumMainnetDeployer {
             swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
             swapRouter: swapRouterAddress,
-            sequencerUptimeFeed: sequencerUptimeFeed
+            sequencerUptimeFeed: sequencerUptimeFeed,
+            existingEscrowNFT: address(wethEscrow)
         });
 
         assetPairContracts[1] = DeploymentHelper.deployContractPair(configHub, USDTWETHPairConfig, owner);
@@ -136,7 +144,8 @@ library ArbitrumMainnetDeployer {
             swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
             swapRouter: swapRouterAddress,
-            sequencerUptimeFeed: sequencerUptimeFeed
+            sequencerUptimeFeed: sequencerUptimeFeed,
+            existingEscrowNFT: address(0)
         });
 
         assetPairContracts[2] = DeploymentHelper.deployContractPair(configHub, USDCWBTCPairConfig, owner);

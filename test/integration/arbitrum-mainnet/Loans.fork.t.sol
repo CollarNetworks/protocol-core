@@ -661,12 +661,12 @@ contract LoansForkTest is LoansTestBase {
         assertEq(providerWithdrawable, expectedProviderWithdrawable);
     }
 
-    function createEscrowOffer(uint duration) internal returns (uint offerId) {
+    function createEscrowOffer(uint _duration) internal returns (uint offerId) {
         vm.startPrank(escrowSupplier);
         pair.underlying.approve(address(pair.escrowNFT), underlyingAmount);
         offerId = pair.escrowNFT.createOffer(
             underlyingAmount,
-            duration,
+            _duration,
             interestAPR,
             maxGracePeriod,
             lateFeeAPR,

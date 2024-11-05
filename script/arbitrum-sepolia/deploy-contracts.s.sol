@@ -83,7 +83,8 @@ contract DeployContractsArbitrumSepolia is Script, UniswapNewPoolHelper {
             swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
             swapRouter: address(SWAP_ROUTER),
-            sequencerUptimeFeed: address(0) // no uptime feed for arbi-sepolia
+            sequencerUptimeFeed: address(0), // no uptime feed for arbi-sepolia
+            existingEscrowNFT: address(0) // no reusable escrow for this pair
          });
 
         DeploymentHelper.AssetPairContracts memory contracts =
