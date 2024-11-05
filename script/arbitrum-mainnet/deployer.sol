@@ -113,8 +113,8 @@ library ArbitrumMainnetDeployer {
 
         DeploymentHelper.PairConfig memory USDTWETHPairConfig = DeploymentHelper.PairConfig({
             name: "USDT/WETH",
-            durations: singleDuration,
-            ltvs: singleLTV,
+            durations: allDurations,
+            ltvs: allLTVs,
             cashAsset: IERC20(USDT),
             underlying: IERC20(WETH),
             oracleFeeTier: oracleFeeTier,

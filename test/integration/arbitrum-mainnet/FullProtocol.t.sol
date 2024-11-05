@@ -50,7 +50,7 @@ contract ArbitrumMainnetFullProtocolForkTest is Test {
 
     function testPriceMovementFlows() public {
         vm.selectFork(forkId);
-        LoansForkTest loansTest = new LoansForkTest();
+        USDCWETHForkTest loansTest = new USDCWETHForkTest();
         loansTest.setForkId(forkId);
         loansTest.setUp();
         loansTest.testSettlementPriceAboveCallStrike();
@@ -62,7 +62,7 @@ contract ArbitrumMainnetFullProtocolForkTest is Test {
         // need to select fork and fund wallets since loans test suite creates a fork (cause it should run independently) we
         // need to make sure its running in the one from  this contract
         vm.selectFork(forkId);
-        LoansForkTest loansTest = new LoansForkTest();
+        USDCWETHForkTest loansTest = new USDCWETHForkTest();
         loansTest.setForkId(forkId);
         loansTest.setUp();
         console.log("Running full integration test...");
@@ -78,7 +78,7 @@ contract ArbitrumMainnetFullProtocolForkTest is Test {
         // need to select fork and fund wallets since loans test suite creates a fork (cause it should run independently) we
         // need to make sure its running in the one from  this contract
         vm.selectFork(forkId);
-        LoansForkTest loansTest = new LoansForkTest();
+        USDCWETHForkTest loansTest = new USDCWETHForkTest();
         loansTest.setForkId(forkId);
         loansTest.setUp();
         loansTest.testOpenEscrowLoan();
