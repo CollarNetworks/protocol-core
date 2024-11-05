@@ -6,6 +6,7 @@ import { CollarProviderNFT } from "../src/CollarProviderNFT.sol";
 import { CollarTakerNFT } from "../src/CollarTakerNFT.sol";
 import { LoansNFT } from "../src/LoansNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { Rolls } from "../src/Rolls.sol";
 import { EscrowSupplierNFT } from "../src/EscrowSupplierNFT.sol";
 import { OracleUniV3TWAP } from "../src/OracleUniV3TWAP.sol";
@@ -39,10 +40,26 @@ library DeploymentHelper {
         uint32 twapWindow;
         address swapRouter;
         address sequencerUptimeFeed;
+        address existingEscrowNFT; // New field for existing escrow contract
     }
 
     function deployConfigHub(address owner) internal returns (ConfigHub) {
         return new ConfigHub(owner);
+    }
+
+    function deployEscrowNFT(
+        ConfigHub configHub,
+        address owner,
+        IERC20 underlying,
+        string memory underlyingSymbol
+    ) internal returns (EscrowSupplierNFT) {
+        return new EscrowSupplierNFT(
+            owner,
+            configHub,
+            underlying,
+            string(abi.encodePacked("Escrow ", underlyingSymbol)),
+            string(abi.encodePacked("E", underlyingSymbol))
+        );
     }
 
     function deployContractPair(ConfigHub configHub, PairConfig memory pairConfig, address owner)
@@ -84,13 +101,18 @@ library DeploymentHelper {
         );
         Rolls rollsContract = new Rolls(owner, takerNFT);
         SwapperUniV3 swapperUniV3 = new SwapperUniV3(pairConfig.swapRouter, pairConfig.swapFeeTier);
-        EscrowSupplierNFT escrowNFT = new EscrowSupplierNFT(
-            owner,
-            configHub,
-            pairConfig.underlying,
-            string(abi.encodePacked("Escrow ", pairConfig.name)),
-            string(abi.encodePacked("E", pairConfig.name))
-        );
+        // Use existing escrow if provided, otherwise create new
+        EscrowSupplierNFT escrowNFT;
+        if (pairConfig.existingEscrowNFT != address(0)) {
+            escrowNFT = EscrowSupplierNFT(pairConfig.existingEscrowNFT);
+        } else {
+            escrowNFT = deployEscrowNFT(
+                configHub,
+                owner,
+                pairConfig.underlying,
+                IERC20Metadata(address(pairConfig.underlying)).symbol()
+            );
+        }
         contracts = AssetPairContracts({
             providerNFT: providerNFT,
             takerNFT: takerNFT,
