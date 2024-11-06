@@ -136,8 +136,8 @@ library ArbitrumMainnetDeployer {
 
         DeploymentHelper.PairConfig memory USDCWBTCPairConfig = DeploymentHelper.PairConfig({
             name: "USDC/WBTC",
-            durations: singleDuration,
-            ltvs: singleLTV,
+            durations: allDurations,
+            ltvs: allLTVs,
             cashAsset: IERC20(USDC),
             underlying: IERC20(WBTC),
             oracleFeeTier: oracleFeeTier,
