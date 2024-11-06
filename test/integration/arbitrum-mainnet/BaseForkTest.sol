@@ -115,7 +115,7 @@ abstract contract BaseLoansForkTest is LoansTestBase {
 
     // Protocol fee params
     uint constant feeAPR = 100; // 1% APR
-    uint constant callstrikeToUse = 12_000;
+    uint callstrikeToUse = 12_000;
 
     // values to be set by pair
     address cashAsset;
@@ -129,12 +129,12 @@ abstract contract BaseLoansForkTest is LoansTestBase {
     uint bigUnderlyingAmount;
 
     // Swap amounts
-    uint AMOUNT_FOR_CALL_STRIKE;
-    uint AMOUNT_FOR_PUT_STRIKE;
-    uint AMOUNT_FOR_PARTIAL_MOVE;
+    uint amountForCallstrike;
+    uint amountForPutstrike;
+    uint amountForPartialMove;
 
     // Pool fee tier
-    uint24 SWAP_POOL_FEE_TIER;
+    uint24 swapPoolFeeTier;
 
     // Protocol fee values
     address feeRecipient;
@@ -534,8 +534,8 @@ abstract contract BaseLoansForkTest is LoansTestBase {
             pair.underlying,
             pair.oracle,
             position.callStrikePercent,
-            SWAP_POOL_FEE_TIER,
-            AMOUNT_FOR_CALL_STRIKE
+            swapPoolFeeTier,
+            amountForCallstrike
         );
 
         skip(pair.durations[1] / 2);
@@ -583,8 +583,8 @@ abstract contract BaseLoansForkTest is LoansTestBase {
             pair.underlying,
             pair.oracle,
             position.putStrikePercent,
-            SWAP_POOL_FEE_TIER,
-            AMOUNT_FOR_PUT_STRIKE
+            swapPoolFeeTier,
+            amountForPutstrike
         );
 
         skip(pair.durations[1] / 2);
@@ -620,8 +620,8 @@ abstract contract BaseLoansForkTest is LoansTestBase {
             pair.cashAsset,
             pair.underlying,
             pair.oracle,
-            SWAP_POOL_FEE_TIER,
-            AMOUNT_FOR_PARTIAL_MOVE
+            swapPoolFeeTier,
+            amountForPartialMove
         );
 
         skip(durationPriceMovement / 2);
