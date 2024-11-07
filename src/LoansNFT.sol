@@ -502,6 +502,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             // is why escrow's loanId is later validated in _escrowValidations.
             (takerId, providerId, loanAmount) =
                 _swapAndMintCollar(underlyingAmount, providerOffer, swapParams);
+            // despite the swap slippage check, explicitly check loanAmount, to avoid coupling and assumptions
             require(loanAmount >= minLoanAmount, "loans: loan amount too low");
 
             // validate loanId
