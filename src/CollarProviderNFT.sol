@@ -178,12 +178,18 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         );
     }
 
-    /// @notice Updates the amount of an existing offer by either transferring from the offer
-    /// owner into the contract (when the new amount is higher), or transferring to the owner from the
-    /// contract when the new amount is lower. Only available to the original owner of the offer.
-    /// @dev An offer is never deleted, so can always be reused if more cash is deposited into it.
-    /// @param offerId The ID of the offer to update
-    /// @param newAmount The new amount of cash asset for the offer
+    /**
+     * @notice Updates the amount of an existing offer by either transferring from the offer
+     * owner into the contract (when the new amount is higher), or transferring to the owner from the
+     * contract when the new amount is lower. Only available to the original owner of the offer.
+     * @dev An offer is never deleted, so can always be reused if more cash is deposited into it.
+     * @param offerId The ID of the offer to update
+     * @param newAmount The new amount of cash asset for the offer
+     *
+     * A "non-zero update frontrunning attack" (similar to the never-exploited ERC-20 approval issue),
+     * can be a low likelihood concern on a network that exposes a public mempool.
+     * Avoid it by not granting excessive ERC-20 approvals.
+     */
     function updateOfferAmount(uint offerId, uint newAmount) external whenNotPaused {
         LiquidityOfferStored storage offer = liquidityOffers[offerId];
         require(msg.sender == offer.provider, "provider: not offer provider");

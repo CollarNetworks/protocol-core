@@ -239,6 +239,10 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @dev Can increase or decrease the offer amount. Must be from original offer supplier
      * @param offerId The ID of the offer to update
      * @param newAmount The new offer amount
+     *
+     * A "non-zero update frontrunning attack" (similar to the never-exploited ERC-20 approval issue),
+     * can be a low likelihood concern on a network that exposes a public mempool.
+     * Avoid it by not granting excessive ERC-20 approvals.
      */
     function updateOfferAmount(uint offerId, uint newAmount) external whenNotPaused {
         OfferStored storage offer = offers[offerId];
