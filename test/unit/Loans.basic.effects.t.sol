@@ -3,6 +3,8 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
+import { Strings } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { BaseAssetPairTestSetup } from "./BaseAssetPairTestSetup.sol";
 import { MockSwapperRouter } from "../utils/MockSwapRouter.sol";
@@ -434,6 +436,19 @@ contract LoansBasicEffectsTest is LoansTestBase {
 
     function test_openLoan() public {
         createAndCheckLoan();
+    }
+
+    function test_tokenURI() public {
+        (uint loanId,,) = createAndCheckLoan();
+        string memory expected = string.concat(
+            "https://services.collarprotocol.xyz/metadata/",
+            Strings.toString(block.chainid),
+            "/",
+            Strings.toHexString(address(loans)),
+            "/",
+            Strings.toString(loanId)
+        );
+        assertEq(loans.tokenURI(loanId), expected);
     }
 
     function test_allowsClosingKeeper() public {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.22;
 
-import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import { ERC721, Strings } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 import { BaseManaged, ConfigHub } from "./BaseManaged.sol";
 
@@ -32,5 +32,12 @@ abstract contract BaseNFT is BaseManaged, ERC721 {
         returns (address)
     {
         return super._update(to, tokenId, auth);
+    }
+
+    // @dev used by ERC721.tokenURI to create tokenID specific metadata URIs
+    function _baseURI() internal view virtual override returns (string memory) {
+        string memory base = "https://services.collarprotocol.xyz/metadata/";
+        return
+            string.concat(base, Strings.toString(block.chainid), "/", Strings.toHexString(address(this)), "/");
     }
 }

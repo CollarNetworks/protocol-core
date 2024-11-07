@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { Strings } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 import { TestERC20 } from "../utils/TestERC20.sol";
 
@@ -351,6 +352,19 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         assertEq(takerId, nextTakertId);
         assertEq(providerNFTId, nextProviderId);
         assertEq(cashAsset.balanceOf(user1), userBalanceBefore - takerLocked);
+    }
+
+    function test_tokenURI() public {
+        (uint takerId, ) = checkOpenPairedPosition();
+        string memory expected = string.concat(
+            "https://services.collarprotocol.xyz/metadata/",
+            Strings.toString(block.chainid),
+            "/",
+            Strings.toHexString(address(takerNFT)),
+            "/",
+            Strings.toString(takerId)
+        );
+        assertEq(takerNFT.tokenURI(takerId), expected);
     }
 
     function test_openPairedPositionUnsupportedTakerContract() public {
