@@ -357,6 +357,8 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// (and not a cancelled one), and checks the ownership of the NFT. Burns the NFT.
     /// @param positionId The ID of the settled position to withdraw from (NFT token ID).
     function withdrawFromSettled(uint positionId) external whenNotPaused returns (uint withdrawal) {
+        // Note: _isAuthorized not used here to reduce surface area / KISS. Can be used if needed,
+        // since an approved account can pull and withdraw.
         require(msg.sender == ownerOf(positionId), "provider: not position owner");
 
         ProviderPositionStored storage position = positions[positionId];
