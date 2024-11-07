@@ -255,7 +255,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
             withdrawable: 0 // unset until settlement
          });
 
-        emit OfferUpdated(offerId, msg.sender, prevOfferAmount, newAvailable);
+        emit OfferUpdated(offerId, offer.provider, prevOfferAmount, newAvailable);
 
         // emit creation before transfer. No need to emit takerId, because it's emitted by the taker event
         emit PositionCreated(positionId, offerId, fee, providerLocked);

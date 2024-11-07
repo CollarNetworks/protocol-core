@@ -103,7 +103,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         startHoax(address(takerContract));
         vm.expectEmit(address(providerNFT));
         emit ICollarProviderNFT.OfferUpdated(
-            offerId, address(takerContract), offerAmount, offerAmount - positionAmount - fee
+            offerId, provider, offerAmount, offerAmount - positionAmount - fee
         );
         vm.expectEmit(address(providerNFT));
         emit ICollarProviderNFT.PositionCreated(nextPosId, offerId, fee, positionAmount);

@@ -355,7 +355,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     }
 
     function test_tokenURI() public {
-        (uint takerId, ) = checkOpenPairedPosition();
+        (uint takerId,) = checkOpenPairedPosition();
         string memory expected = string.concat(
             "https://services.collarprotocol.xyz/metadata/",
             Strings.toString(block.chainid),
