@@ -77,6 +77,8 @@ contract SwapperUniV3 is ISwapper {
         // However, in general a multi-hop swap route (via more flexible routers) can allow reentrancy via
         // malicious tokens in the route path. Therefore, this direct router is safer to allow-list than
         // more flexible routers.
+        // Note: recipient is address(this) for the balance update checks, if checks are removed (due
+        // to being redundant), recipient can be set to msg.sender to save gas.
         uint amountOutRouter = uniV3SwapRouter.exactInputSingle(
             IV3SwapRouter.ExactInputSingleParams({
                 tokenIn: address(assetIn),
