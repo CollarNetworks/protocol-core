@@ -250,7 +250,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
             offerId: SafeCast.toUint64(offerId),
             takerId: SafeCast.toUint64(takerId),
             expiration: SafeCast.toUint32(block.timestamp + offer.duration),
-            settled: false, // unset until settlement
+            settled: false, // unset until settlement / cancellation
             providerLocked: providerLocked,
             withdrawable: 0 // unset until settlement
          });
