@@ -19,12 +19,12 @@ contract USDCWETHForkTest is BaseLoansForkTest {
         rollDeltaFactor = 10_000;
         bigCashAmount = 1_000_000e6;
         bigUnderlyingAmount = 1000 ether;
-        SWAP_POOL_FEE_TIER = 500;
+        swapPoolFeeTier = 500;
 
         // Initial swap amounts (from proven fork tests)
-        AMOUNT_FOR_CALL_STRIKE = 1_000_000e6; // Amount in USDC to move past call strike
-        AMOUNT_FOR_PUT_STRIKE = 250 ether; // Amount in WETH to move past put strike
-        AMOUNT_FOR_PARTIAL_MOVE = 600_000e6; // Amount in USDC to move partially up
+        amountForCallstrike = 1_000_000e6; // Amount in USDC to move past call strike
+        amountForPutstrike = 250 ether; // Amount in WETH to move past put strike
+        amountForPartialMove = 600_000e6; // Amount in USDC to move partially up
 
         pair = getPairByAssets(address(cashAsset), address(underlying));
         require(address(pair.loansContract) != address(0), "Loans contract not deployed");
@@ -58,12 +58,12 @@ contract USDTWETHForkTest is BaseLoansForkTest {
         rollDeltaFactor = 10_000;
         bigCashAmount = 1_000_000e6;
         bigUnderlyingAmount = 1000 ether;
-        SWAP_POOL_FEE_TIER = 500;
+        swapPoolFeeTier = 500;
 
         // Initial swap amounts (from proven fork tests)
-        AMOUNT_FOR_CALL_STRIKE = 2_000_000e6; // Amount in USDC to move past call strike
-        AMOUNT_FOR_PUT_STRIKE = 250 ether; // Amount in WETH to move past put strike
-        AMOUNT_FOR_PARTIAL_MOVE = 600_000e6; // Amount in USDC to move partially up
+        amountForCallstrike = 2_000_000e6; // Amount in USDC to move past call strike
+        amountForPutstrike = 250 ether; // Amount in WETH to move past put strike
+        amountForPartialMove = 600_000e6; // Amount in USDC to move partially up
 
         pair = getPairByAssets(address(cashAsset), address(underlying));
         require(address(pair.loansContract) != address(0), "Loans contract not deployed");
