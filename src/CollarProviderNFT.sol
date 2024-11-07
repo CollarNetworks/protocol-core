@@ -42,6 +42,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
+    uint internal constant YEAR = 365 days;
     uint public constant MIN_CALL_STRIKE_BIPS = BIPS_BASE + 1; // 1 more than 1x
     uint public constant MAX_CALL_STRIKE_BIPS = 10 * BIPS_BASE; // 10x or 1000%
     uint public constant MAX_PUT_STRIKE_BIPS = BIPS_BASE - 1; // 1 less than 1x
@@ -134,7 +135,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         fee = to == address(0)
             ? 0
             // rounds up to prevent avoiding fee using many small positions.
-            : Math.ceilDiv(providerLocked * configHub.protocolFeeAPR() * duration, BIPS_BASE * 365 days);
+            : Math.ceilDiv(providerLocked * configHub.protocolFeeAPR() * duration, BIPS_BASE * YEAR);
     }
 
     // ----- MUTATIVE ----- //
