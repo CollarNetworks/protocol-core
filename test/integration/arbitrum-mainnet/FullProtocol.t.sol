@@ -39,6 +39,15 @@ contract ArbitrumMainnetFullProtocolForkTest is Test {
         }
     }
 
+    function setupLoansForkTest() internal returns (LoansForkTest loansTest) {
+        // need to select fork and fund wallets since loans test suite creates a fork
+        // (cause it should run independently) we need to make sure its running in the one from this contract
+        vm.selectFork(forkId);
+        loansTest = new LoansForkTest();
+        loansTest.setForkId(forkId);
+        loansTest.setUp();
+    }
+
     function testDeploymentValidation() public {
         vm.selectFork(forkId);
         DeploymentValidatorForkTest validator = new DeploymentValidatorForkTest();
@@ -48,23 +57,20 @@ contract ArbitrumMainnetFullProtocolForkTest is Test {
         validator.test_validatePairDeployments();
     }
 
-    function testPriceMovementFlows() public {
-        vm.selectFork(forkId);
-        LoansForkTest loansTest = new LoansForkTest();
-        loansTest.setForkId(forkId);
-        loansTest.setUp();
-        loansTest.testSettlementPriceAboveCallStrike();
-        loansTest.testSettlementPriceBelowPutStrike();
-        loansTest.testSettlementPriceBetweenStrikes();
+    function testPriceMovementFlow_aboveCallStrike() public {
+        setupLoansForkTest().testSettlementPriceAboveCallStrike();
+    }
+
+    function testPriceMovementFlow_belowPutStrike() public {
+        setupLoansForkTest().testSettlementPriceBelowPutStrike();
+    }
+
+    function testPriceMovementFlow_upBetweenStrikes() public {
+        setupLoansForkTest().testSettlementPriceUpBetweenStrikes();
     }
 
     function testFullIntegration() public {
-        // need to select fork and fund wallets since loans test suite creates a fork (cause it should run independently) we
-        // need to make sure its running in the one from  this contract
-        vm.selectFork(forkId);
-        LoansForkTest loansTest = new LoansForkTest();
-        loansTest.setForkId(forkId);
-        loansTest.setUp();
+        LoansForkTest loansTest = setupLoansForkTest();
         console.log("Running full integration test...");
         // Run all integration tests
         loansTest.testOpenAndCloseLoan();
@@ -75,12 +81,7 @@ contract ArbitrumMainnetFullProtocolForkTest is Test {
     }
 
     function testEscrowLoans() public {
-        // need to select fork and fund wallets since loans test suite creates a fork (cause it should run independently) we
-        // need to make sure its running in the one from  this contract
-        vm.selectFork(forkId);
-        LoansForkTest loansTest = new LoansForkTest();
-        loansTest.setForkId(forkId);
-        loansTest.setUp();
+        LoansForkTest loansTest = setupLoansForkTest();
         loansTest.testOpenEscrowLoan();
         loansTest.testOpenAndCloseEscrowLoan();
         loansTest.testCloseEscrowLoanAfterGracePeriod();
