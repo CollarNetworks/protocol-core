@@ -613,7 +613,7 @@ contract LoansForkTest is LoansTestBase {
         assertEq(providerWithdrawable, expectedProviderWithdrawable);
     }
 
-    function testSettlementPriceBetweenStrikes() public {
+    function testSettlementPriceUpBetweenStrikes() public {
         // Create provider offer & open loan with longer duration
         uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, durationPriceMovement);
         (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
