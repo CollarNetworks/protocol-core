@@ -115,7 +115,6 @@ abstract contract BaseLoansForkTest is LoansTestBase {
 
     // Protocol fee params
     uint constant feeAPR = 100; // 1% APR
-    uint constant callstrikeToUse = 12_000;
 
     // values to be set by pair
     address cashAsset;
@@ -144,6 +143,7 @@ abstract contract BaseLoansForkTest is LoansTestBase {
     address whale;
 
     // durations to use
+    uint callstrikeToUse = 12_000;
     uint duration;
     uint durationPriceMovement;
 

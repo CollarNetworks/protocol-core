@@ -83,6 +83,8 @@ contract USDTWBTCForkTest is BaseLoansForkTest {
     function setUp() public override {
         super.setUp();
 
+        callstrikeToUse = 11_000; // not enough liquidity at 120%
+
         // set up all the variables for this pair
         cashAsset = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9; // USDT
         underlying = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f; // WBTC
@@ -96,7 +98,7 @@ contract USDTWBTCForkTest is BaseLoansForkTest {
         swapPoolFeeTier = 500;
 
         // price movement swap amounts
-        swapStepCashAmount = 1_000_000e6;
+        swapStepCashAmount = 500_000e6;
 
         // change callstrike cause price impact is harder to manage on this pool
 
