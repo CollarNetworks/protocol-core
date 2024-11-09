@@ -79,12 +79,12 @@ contract USDTWETHForkTest is BaseLoansForkTest {
     }
 }
 
-contract USDCWBTCForkTest is BaseLoansForkTest {
+contract USDTWBTCForkTest is BaseLoansForkTest {
     function setUp() public override {
         super.setUp();
 
         // set up all the variables for this pair
-        cashAsset = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8; // USDT
+        cashAsset = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9; // USDT
         underlying = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f; // WBTC
         offerAmount = 100_000e6;
         underlyingAmount = 0.1e8;
