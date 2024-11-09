@@ -11,85 +11,9 @@ library PriceMovementHelper {
     using SafeERC20 for IERC20;
 
     // Price movement configuration
-    uint constant STEPS = 5;
-    uint constant STEP_DELAY = 60 seconds;
-    uint constant MAX_ATTEMPTS = 5;
+    uint constant STEPS = 10;
+    uint constant STEP_DELAY = 300 seconds;
     uint constant BIPS_BASE = 10_000;
-
-    function movePriceUpPastCallStrike(
-        Vm vm,
-        address swapRouter,
-        address whale,
-        IERC20 cashAsset,
-        IERC20 underlying,
-        ITakerOracle oracle,
-        uint callStrikePercent,
-        uint24 poolFee,
-        uint amountForCallStrike
-    ) external returns (uint finalPrice) {
-        uint currentPrice = oracle.currentPrice();
-        uint targetPrice = (currentPrice * callStrikePercent / BIPS_BASE) + 1;
-
-        finalPrice = moveToTargetPrice(
-            vm,
-            swapRouter,
-            whale,
-            cashAsset,
-            underlying,
-            oracle,
-            targetPrice,
-            true,
-            amountForCallStrike,
-            poolFee
-        );
-        require(finalPrice > targetPrice, "Price did not move past call strike");
-    }
-
-    function movePriceDownPastPutStrike(
-        Vm vm,
-        address swapRouter,
-        address whale,
-        IERC20 cashAsset,
-        IERC20 underlying,
-        ITakerOracle oracle,
-        uint putStrikePercent,
-        uint24 poolFee,
-        uint amountForPutStrike
-    ) external returns (uint finalPrice) {
-        uint currentPrice = oracle.currentPrice();
-        uint targetPrice = (currentPrice * putStrikePercent / BIPS_BASE) - 1;
-
-        finalPrice = moveToTargetPrice(
-            vm,
-            swapRouter,
-            whale,
-            cashAsset,
-            underlying,
-            oracle,
-            targetPrice,
-            false,
-            amountForPutStrike,
-            poolFee
-        );
-        require(finalPrice < targetPrice, "Price did not move past put strike");
-    }
-
-    function movePriceUpPartially(
-        Vm vm,
-        address swapRouter,
-        address whale,
-        IERC20 cashAsset,
-        IERC20 underlying,
-        ITakerOracle oracle,
-        uint24 poolFee,
-        uint amountForPartialMove
-    ) external returns (uint finalPrice) {
-        uint currentPrice = oracle.currentPrice();
-        swapCash(vm, swapRouter, whale, cashAsset, underlying, amountForPartialMove, poolFee);
-        vm.warp(block.timestamp + 3 minutes);
-        finalPrice = oracle.currentPrice();
-        require(finalPrice > currentPrice, "Price did not move up");
-    }
 
     function moveToTargetPrice(
         Vm vm,
@@ -99,47 +23,31 @@ library PriceMovementHelper {
         IERC20 underlying,
         ITakerOracle oracle,
         uint targetPrice,
-        bool _swapCash,
-        uint initialAmount,
+        uint cashPerStep,
         uint24 poolFee
-    ) private returns (uint finalPrice) {
-        uint swapAmount = initialAmount;
+    ) internal {
         uint currentPrice = oracle.currentPrice();
+        bool increasePrice = targetPrice > currentPrice;
 
-        for (uint i = 0; i < MAX_ATTEMPTS; i++) {
-            manipulatePriceInSteps(
-                vm, swapRouter, whale, cashAsset, underlying, swapAmount, _swapCash, STEPS, poolFee
-            );
+        for (uint i = 0; i < STEPS; i++) {
+            if (increasePrice) {
+                swapCash(vm, swapRouter, whale, cashAsset, underlying, cashPerStep, poolFee);
+            } else {
+                uint underlyingStepAmount = oracle.convertToBaseAmount(cashPerStep, currentPrice);
+                swapUnderlying(vm, swapRouter, whale, cashAsset, underlying, underlyingStepAmount, poolFee);
+            }
+            vm.warp(block.timestamp + STEP_DELAY);
+
             currentPrice = oracle.currentPrice();
 
-            if ((_swapCash && currentPrice >= targetPrice) || (!_swapCash && currentPrice <= targetPrice)) {
+            if (increasePrice ? currentPrice >= targetPrice : currentPrice <= targetPrice) {
                 break;
             }
         }
-
-        return oracle.currentPrice();
-    }
-
-    function manipulatePriceInSteps(
-        Vm vm,
-        address swapRouter,
-        address whale,
-        IERC20 cashAsset,
-        IERC20 underlying,
-        uint totalAmount,
-        bool _swapCash,
-        uint steps,
-        uint24 poolFee
-    ) private {
-        uint amountPerStep = totalAmount / steps;
-        for (uint i = 0; i < steps; i++) {
-            if (_swapCash) {
-                swapCash(vm, swapRouter, whale, cashAsset, underlying, amountPerStep, poolFee);
-            } else {
-                swapUnderlying(vm, swapRouter, whale, cashAsset, underlying, amountPerStep, poolFee);
-            }
-            vm.warp(block.timestamp + STEP_DELAY);
-        }
+        require(
+            increasePrice ? currentPrice >= targetPrice : currentPrice <= targetPrice,
+            "target price not reached"
+        );
     }
 
     function swapCash(

@@ -129,9 +129,7 @@ abstract contract BaseLoansForkTest is LoansTestBase {
     uint bigUnderlyingAmount;
 
     // Swap amounts
-    uint amountForCallstrike;
-    uint amountForPutstrike;
-    uint amountForPartialMove;
+    uint swapStepCashAmount;
 
     // Pool fee tier
     uint24 swapPoolFeeTier;
@@ -525,17 +523,18 @@ abstract contract BaseLoansForkTest is LoansTestBase {
 
         ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
         skip(pair.durations[1] / 2);
+
         // Move price above call strike using lib
-        PriceMovementHelper.movePriceUpPastCallStrike(
+        PriceMovementHelper.moveToTargetPrice(
             vm,
             address(pair.swapperUniV3.uniV3SwapRouter()),
             whale,
             pair.cashAsset,
             pair.underlying,
             pair.oracle,
-            position.callStrikePercent,
-            swapPoolFeeTier,
-            amountForCallstrike
+            (pair.oracle.currentPrice() * position.callStrikePercent / BIPS_BASE),
+            swapStepCashAmount,
+            swapPoolFeeTier
         );
 
         skip(pair.durations[1] / 2);
@@ -575,16 +574,16 @@ abstract contract BaseLoansForkTest is LoansTestBase {
         skip(pair.durations[1] / 2);
 
         // Move price below put strike
-        PriceMovementHelper.movePriceDownPastPutStrike(
+        PriceMovementHelper.moveToTargetPrice(
             vm,
             address(pair.swapperUniV3.uniV3SwapRouter()),
             whale,
             pair.cashAsset,
             pair.underlying,
             pair.oracle,
-            position.putStrikePercent,
-            swapPoolFeeTier,
-            amountForPutstrike
+            (pair.oracle.currentPrice() * position.putStrikePercent / BIPS_BASE),
+            swapStepCashAmount,
+            swapPoolFeeTier
         );
 
         skip(pair.durations[1] / 2);
@@ -612,16 +611,18 @@ abstract contract BaseLoansForkTest is LoansTestBase {
 
         skip(durationPriceMovement / 2);
 
-        // Move price up partially (but below call strike)
-        PriceMovementHelper.movePriceUpPartially(
+        // Move price half way to call strike using lib
+        uint halfDeviation = (BIPS_BASE + position.callStrikePercent) / 2;
+        PriceMovementHelper.moveToTargetPrice(
             vm,
             address(pair.swapperUniV3.uniV3SwapRouter()),
             whale,
             pair.cashAsset,
             pair.underlying,
             pair.oracle,
-            swapPoolFeeTier,
-            amountForPartialMove
+            (pair.oracle.currentPrice() * halfDeviation / BIPS_BASE),
+            swapStepCashAmount,
+            swapPoolFeeTier
         );
 
         skip(durationPriceMovement / 2);
