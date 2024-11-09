@@ -28,12 +28,12 @@ library PriceMovementHelper {
     ) internal {
         uint currentPrice = oracle.currentPrice();
         bool increasePrice = targetPrice > currentPrice;
+        uint underlyingStepAmount = oracle.convertToBaseAmount(cashPerStep, currentPrice);
 
         for (uint i = 0; i < STEPS; i++) {
             if (increasePrice) {
                 swapCash(vm, swapRouter, whale, cashAsset, underlying, cashPerStep, poolFee);
             } else {
-                uint underlyingStepAmount = oracle.convertToBaseAmount(cashPerStep, currentPrice);
                 swapUnderlying(vm, swapRouter, whale, cashAsset, underlying, underlyingStepAmount, poolFee);
             }
             vm.warp(block.timestamp + STEP_DELAY);
