@@ -97,12 +97,12 @@ contract USDCWBTCForkTest is BaseLoansForkTest {
         rollDeltaFactor = 10_000;
         bigCashAmount = 1_000_000e6;
         bigUnderlyingAmount = 100e8;
-        SWAP_POOL_FEE_TIER = 500;
+        swapPoolFeeTier = 500;
 
         // Initial swap amounts (from proven fork tests)
-        AMOUNT_FOR_CALL_STRIKE = 70_000e6; // Amount in USDC to move past call strike
-        AMOUNT_FOR_PUT_STRIKE = 1e8; // Amount in WBTC to move past put strike
-        AMOUNT_FOR_PARTIAL_MOVE = 15_000e6; // Amount in USDC to move partially up
+        amountForCallstrike = 70_000e6; // Amount in USDC to move past call strike
+        amountForPutstrike = 1e8; // Amount in WBTC to move past put strike
+        amountForPartialMove = 15_000e6; // Amount in USDC to move partially up
 
         // change callstrike cause price impact is harder to manage on this pool
 

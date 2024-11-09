@@ -519,8 +519,6 @@ abstract contract BaseLoansForkTest is LoansTestBase {
     // price movement settlement tests
 
     function testSettlementPriceAboveCallStrike() public {
-        vm.skip(true); //Price movement is having issues when block is not fixed
-
         // Create provider offer & open loan
         uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, pair.durations[1]);
         (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
@@ -568,8 +566,6 @@ abstract contract BaseLoansForkTest is LoansTestBase {
     }
 
     function testSettlementPriceBelowPutStrike() public {
-        vm.skip(true); //Price movement is having issues when block is not fixed
-
         // Create provider offer & open loan
         uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, pair.durations[1]);
         (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
@@ -607,7 +603,7 @@ abstract contract BaseLoansForkTest is LoansTestBase {
         assertEq(providerWithdrawable, expectedProviderWithdrawable);
     }
 
-    function testSettlementPriceBetweenStrikes() public {
+    function testSettlementPriceUpBetweenStrikes() public {
         // Create provider offer & open loan with longer duration
         uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, durationPriceMovement);
         (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
