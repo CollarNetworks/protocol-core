@@ -11,7 +11,7 @@ library PriceMovementHelper {
     using SafeERC20 for IERC20;
 
     // Price movement configuration
-    uint constant STEPS = 10;
+    uint constant STEPS = 20;
     // 15 minutes, to allow for longer TWAP windows
     uint constant STEP_DELAY = 900 seconds;
     uint constant BIPS_BASE = 10_000;
