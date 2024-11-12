@@ -105,7 +105,6 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
 
 abstract contract BaseLoansForkTest is LoansTestBase {
     // constants for all pairs
-    uint constant slippage = 100; // 1%
     uint constant BIPS_BASE = 10_000;
 
     //escrow related constants
@@ -142,8 +141,8 @@ abstract contract BaseLoansForkTest is LoansTestBase {
     // whale address
     address whale;
 
-    // durations to use
-    uint callstrikeToUse = 12_000;
+    uint slippage;
+    uint callstrikeToUse;
     uint duration;
     uint durationPriceMovement;
 
@@ -522,7 +521,7 @@ abstract contract BaseLoansForkTest is LoansTestBase {
         (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
 
         ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
-        skip(durationPriceMovement);
+        skip(durationPriceMovement / 2);
 
         // Move price above call strike using lib
         PriceMovementHelper.moveToTargetPrice(
@@ -536,6 +535,9 @@ abstract contract BaseLoansForkTest is LoansTestBase {
             swapStepCashAmount,
             swapPoolFeeTier
         );
+
+        // moving price takes time, but we need settlement price to be moved
+        skip(durationPriceMovement / 2);
 
         (uint expectedTakerWithdrawal,) =
             pair.takerNFT.previewSettlement(position, pair.oracle.currentPrice());
@@ -569,7 +571,7 @@ abstract contract BaseLoansForkTest is LoansTestBase {
 
         ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
 
-        skip(durationPriceMovement);
+        skip(durationPriceMovement / 2);
 
         // Move price below put strike
         PriceMovementHelper.moveToTargetPrice(
@@ -583,6 +585,9 @@ abstract contract BaseLoansForkTest is LoansTestBase {
             swapStepCashAmount,
             swapPoolFeeTier
         );
+
+        // moving price takes time, but we need settlement price to be moved
+        skip(durationPriceMovement / 2);
 
         uint userUnderlyingBefore = pair.underlying.balanceOf(user);
         // Close loan
@@ -606,7 +611,7 @@ abstract contract BaseLoansForkTest is LoansTestBase {
 
         ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
 
-        skip(durationPriceMovement);
+        skip(durationPriceMovement / 2);
 
         // Move price half way to call strike using lib
         uint halfDeviation = (BIPS_BASE + position.callStrikePercent) / 2;
@@ -621,6 +626,9 @@ abstract contract BaseLoansForkTest is LoansTestBase {
             swapStepCashAmount,
             swapPoolFeeTier
         );
+
+        // moving price takes time, but we need settlement price to be moved
+        skip(durationPriceMovement / 2);
 
         // Calculate expected settlement amounts
         uint currentPrice = pair.oracle.currentPrice();
