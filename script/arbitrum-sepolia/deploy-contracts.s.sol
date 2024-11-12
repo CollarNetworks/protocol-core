@@ -34,8 +34,8 @@ contract DeployContractsArbitrumSepolia is Script, UniswapNewPoolHelper {
     uint amountToProvideToPool = 10_000_000 ether;
 
     // Set these to non-zero addresses if you want to use existing tokens
-    address public cashAssetAddress = address(0x5D01F1E59C188a2A9Afc376cF6627dd5F28DC28F);
-    address public underlyingAddress = address(0x9A6E1a5f94De0aD8ca15b55eA0d39bEaEc579434);
+    address public cashAssetAddress = address(0x69fC9D4d59843C6E55f00b5F66b263C963214C53);
+    address public underlyingAddress = address(0x19d87c960265C229D4b1429DF6F0C7d18F0611F3);
 
     function run() external {
         require(chainId == block.chainid, "chainId does not match the chainId in config");
@@ -43,7 +43,8 @@ contract DeployContractsArbitrumSepolia is Script, UniswapNewPoolHelper {
 
         vm.startBroadcast(deployer);
 
-        ConfigHub configHub = DeploymentHelper.deployConfigHub(deployer);
+        // ConfigHub configHub = DeploymentHelper.deployConfigHub(deployer);
+        ConfigHub configHub = ConfigHub(0x75D7c42089F4dB53cAFBCae0E966A30167401aF4);
 
         (cashAssetAddress, underlyingAddress) = _setupAssets();
 
@@ -74,7 +75,7 @@ contract DeployContractsArbitrumSepolia is Script, UniswapNewPoolHelper {
         uint24 swapFeeTier = 3000;
 
         DeploymentHelper.PairConfig memory pairConfig = DeploymentHelper.PairConfig({
-            name: "COLLATERAL/CASH",
+            name: "WETH/USDC",
             durations: durations,
             ltvs: ltvs,
             cashAsset: IERC20(cashAssetAddress),
@@ -148,4 +149,4 @@ contract DeployContractsArbitrumSepolia is Script, UniswapNewPoolHelper {
 
         console.log("Uniswap V3 Pool: ", poolAddress);
     }
-}
+
