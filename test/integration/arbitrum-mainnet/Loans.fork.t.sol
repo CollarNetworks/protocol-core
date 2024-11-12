@@ -10,7 +10,7 @@ contract USDCWETHForkTest is BaseLoansForkTest {
         super.setUp();
 
         // set up all the variables for this pair
-        cashAsset = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8; // USDC
+        cashAsset = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // USDC
         underlying = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
         offerAmount = 100_000e6;
         underlyingAmount = 1 ether;
@@ -22,7 +22,7 @@ contract USDCWETHForkTest is BaseLoansForkTest {
         swapPoolFeeTier = 500;
 
         // price movement swap amounts
-        swapStepCashAmount = 1_000_000e6;
+        swapStepCashAmount = 250_000e6;
 
         pair = getPairByAssets(address(cashAsset), address(underlying));
         require(address(pair.loansContract) != address(0), "Loans contract not deployed");
