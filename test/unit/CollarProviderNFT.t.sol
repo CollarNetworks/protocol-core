@@ -3,7 +3,7 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import { IERC721Errors, Strings } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 
@@ -103,7 +103,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         startHoax(address(takerContract));
         vm.expectEmit(address(providerNFT));
         emit ICollarProviderNFT.OfferUpdated(
-            offerId, address(takerContract), offerAmount, offerAmount - positionAmount - fee
+            offerId, provider, offerAmount, offerAmount - positionAmount - fee
         );
         vm.expectEmit(address(providerNFT));
         emit ICollarProviderNFT.PositionCreated(nextPosId, offerId, fee, positionAmount);
@@ -306,20 +306,27 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         assertEq(providerNFT.getOffer(offerId).available, 0);
     }
 
-    function test_mintPositionFromOffer()
-        public
-        returns (uint positionId, CollarProviderNFT.ProviderPosition memory position)
-    {
-        (positionId, position) = createAndCheckPosition(provider, largeAmount, largeAmount / 2);
+    function test_mintPositionFromOffer() public {
+        createAndCheckPosition(provider, largeAmount, largeAmount / 2);
     }
 
-    function test_mintPositionFromOffer_fullAmount()
-        public
-        returns (uint positionId, CollarProviderNFT.ProviderPosition memory position)
-    {
+    function test_tokenURI() public {
+        (uint positionId,) = createAndCheckPosition(provider, largeAmount, largeAmount / 2);
+        string memory expected = string.concat(
+            "https://services.collarprotocol.xyz/metadata/",
+            Strings.toString(block.chainid),
+            "/",
+            Strings.toHexString(address(providerNFT)),
+            "/",
+            Strings.toString(positionId)
+        );
+        assertEq(providerNFT.tokenURI(positionId), expected);
+    }
+
+    function test_mintPositionFromOffer_fullAmount() public {
         uint fee = checkProtocolFeeView(largeAmount);
         cashAsset.mint(provider, fee);
-        (positionId, position) = createAndCheckPosition(provider, largeAmount + fee, largeAmount);
+        createAndCheckPosition(provider, largeAmount + fee, largeAmount);
     }
 
     function test_mintFromOffer_minLocked() public {

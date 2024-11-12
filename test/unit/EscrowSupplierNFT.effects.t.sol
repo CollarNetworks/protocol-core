@@ -3,9 +3,10 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Strings } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 import { TestERC20 } from "../utils/TestERC20.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { BaseAssetPairTestSetup } from "./BaseAssetPairTestSetup.sol";
 
 import { EscrowSupplierNFT, IEscrowSupplierNFT } from "../../src/EscrowSupplierNFT.sol";
@@ -322,6 +323,20 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
     function test_startEscrow_simple() public {
         uint fee = 1 ether; // arbitrary
         createAndCheckEscrow(supplier1, largeAmount, largeAmount / 2, fee);
+    }
+
+    function test_tokenURI() public {
+        (uint escrowId,) = createAndCheckEscrow(supplier1, largeAmount, largeAmount / 2, 1 ether);
+        string memory expected = string.concat(
+            "https://services.collarprotocol.xyz/metadata/",
+            Strings.toString(block.chainid),
+            "/",
+            Strings.toHexString(address(escrowNFT)),
+            "/",
+            Strings.toString(escrowId)
+        );
+        console.log(expected);
+        assertEq(escrowNFT.tokenURI(escrowId), expected);
     }
 
     function test_multipleEscrowsFromSameOffer() public {

@@ -24,7 +24,7 @@ contract MockSwapperRouter {
     {
         IERC20(params.tokenIn).transferFrom(msg.sender, address(this), params.amountIn);
         amountOut = toReturn;
-        IERC20(params.tokenOut).transfer(msg.sender, toTransfer);
+        IERC20(params.tokenOut).transfer(params.recipient, toTransfer);
     }
 
     // mock swapper

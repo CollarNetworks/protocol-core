@@ -77,7 +77,8 @@ contract OracleUniV3TWAP is ITakerOracle {
     uint24 public immutable feeTier;
     uint32 public immutable twapWindow;
     IUniswapV3Pool public immutable pool;
-    /// @dev can be zero-address, since only exists on arbi-mainnet, but not on arbi-sepolia
+    /// @dev can be zero-address if unset. Can be unset if it's unreliable, or because doesn't exist
+    /// on a network (like arbi-sepolia)
     IChainlinkFeedLike public immutable sequencerChainlinkFeed;
 
     constructor(

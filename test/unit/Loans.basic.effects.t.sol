@@ -3,6 +3,8 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
+import { Strings } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+
 import { TestERC20 } from "../utils/TestERC20.sol";
 import { BaseAssetPairTestSetup } from "./BaseAssetPairTestSetup.sol";
 import { MockSwapperRouter } from "../utils/MockSwapRouter.sol";
@@ -436,6 +438,19 @@ contract LoansBasicEffectsTest is LoansTestBase {
         createAndCheckLoan();
     }
 
+    function test_tokenURI() public {
+        (uint loanId,,) = createAndCheckLoan();
+        string memory expected = string.concat(
+            "https://services.collarprotocol.xyz/metadata/",
+            Strings.toString(block.chainid),
+            "/",
+            Strings.toHexString(address(loans)),
+            "/",
+            Strings.toString(loanId)
+        );
+        assertEq(loans.tokenURI(loanId), expected);
+    }
+
     function test_allowsClosingKeeper() public {
         startHoax(user1);
         assertFalse(loans.keeperApproved(user1));
@@ -663,5 +678,30 @@ contract LoansBasicEffectsTest is LoansTestBase {
             vm.expectRevert("loans: loan expired");
             loans.unwrapAndCancelLoan(loanId);
         }
+    }
+
+    function test_exitIfBrokenOracle() public {
+        // exit cases when the oracle is broken or if it reverts due to sequencer checks
+        (uint loanId,,) = createAndCheckLoan();
+
+        // disable oracle
+        vm.startPrank(owner);
+        mockOracle.setReverts(true);
+        vm.expectRevert("oracle reverts");
+        takerNFT.currentOraclePrice();
+
+        // can still unwrap
+        vm.startPrank(user1);
+        loans.unwrapAndCancelLoan(loanId);
+
+        // taker NFT unwrapped
+        uint takerId = loanId;
+        assertEq(takerNFT.ownerOf(takerId), user1);
+        takerNFT.transferFrom(user1, provider, takerId);
+
+        // cancel position also works
+        vm.startPrank(provider);
+        providerNFT.approve(address(takerNFT), takerNFT.getPosition(takerId).providerId);
+        takerNFT.cancelPairedPosition(takerId);
     }
 }

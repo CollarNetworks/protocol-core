@@ -218,7 +218,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         positions[takerId] = TakerPositionStored({
             providerNFT: providerNFT,
             providerId: SafeCast.toUint64(providerId),
-            settled: false, // unset until settlement
+            settled: false, // unset until settlement / cancellation
             startPrice: startPrice,
             takerLocked: takerLocked,
             withdrawable: 0 // unset until settlement

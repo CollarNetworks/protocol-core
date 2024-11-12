@@ -28,6 +28,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     uint internal constant BIPS_BASE = 10_000;
+    uint internal constant YEAR = 365 days;
 
     string public constant VERSION = "0.2.0";
     /// @notice placeholder value for using canOpenPair for auth when only one asset is specified
@@ -38,7 +39,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     uint public constant MIN_CONFIGURABLE_LTV_BIPS = BIPS_BASE / 10; // 10%
     uint public constant MAX_CONFIGURABLE_LTV_BIPS = BIPS_BASE - 1; // avoid 0 range edge cases
     uint public constant MIN_CONFIGURABLE_DURATION = 300; // 5 minutes
-    uint public constant MAX_CONFIGURABLE_DURATION = 5 * 365 days; // 5 years
+    uint public constant MAX_CONFIGURABLE_DURATION = 5 * YEAR;
 
     // -- state variables ---
     // one slot (previous is owner)
@@ -55,10 +56,10 @@ contract ConfigHub is Ownable2Step, IConfigHub {
 
     /**
      * @notice main auth for system contracts calling each other during opening of positions:
-     * Assets would typically be: 'underlying -> cash -> someContract -> enabled', but if the auth is
+     * Assets would typically be: 'underlying -> cash -> Set<address>', but if the auth is
      * for a single asset (not a pair), ANY_ASSET will be used as a placeholder for the second asset.
      */
-    mapping(IERC20 => mapping(IERC20 => mapping(address target => bool enabled))) public canOpenPair;
+    mapping(IERC20 => mapping(IERC20 => EnumerableSet.AddressSet)) internal canOpenSets;
 
     constructor(address _initialOwner) Ownable(_initialOwner) { }
 
@@ -77,7 +78,9 @@ contract ConfigHub is Ownable2Step, IConfigHub {
      *  @param enabled Whether opening position is enabled
      */
     function setCanOpenPair(IERC20 assetA, IERC20 assetB, address target, bool enabled) external onlyOwner {
-        canOpenPair[assetA][assetB][target] = enabled;
+        EnumerableSet.AddressSet storage pairSet = canOpenSets[assetA][assetB];
+        // contains / return value is not checked
+        enabled ? pairSet.add(target) : pairSet.remove(target);
         emit ContractCanOpenSet(assetA, assetB, target, enabled);
     }
 
@@ -132,9 +135,21 @@ contract ConfigHub is Ownable2Step, IConfigHub {
 
     // ----- Views -----
 
+    /// @notice main auth for system contracts calling each other during opening of positions for a pair.
+    function canOpenPair(IERC20 underlying, IERC20 cashAsset, address target) external view returns (bool) {
+        return canOpenSets[underlying][cashAsset].contains(target);
+    }
+
     /// @notice equivalent to `canOpenPair` view when the second asset is ANY_ASSET placeholder
     function canOpenSingle(IERC20 asset, address target) external view returns (bool) {
-        return canOpenPair[asset][ANY_ASSET][target];
+        return canOpenSets[asset][ANY_ASSET].contains(target);
+    }
+
+    /// @notice Returns all the addresses that are allowed for a pair of assets.
+    /// @dev should be used to validate that only expected contracts are in the Set.
+    /// assetB can be ANY_ASSET placeholder for "single asset" authorization type.
+    function allCanOpenPair(IERC20 assetA, IERC20 assetB) external view returns (address[] memory) {
+        return canOpenSets[assetA][assetB].values();
     }
 
     /// @notice Checks to see if a particular collar duration is supported

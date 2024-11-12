@@ -76,6 +76,8 @@ contract ConfigHubTest is Test {
         address target = address(0x123);
         assertFalse(configHub.canOpenPair(token1, token2, target));
         assertFalse(configHub.canOpenSingle(token1, target));
+        // empty
+        assertEq(configHub.allCanOpenPair(token1, token2), new address[](0));
 
         vm.expectEmit(address(configHub));
         emit IConfigHub.ContractCanOpenSet(token1, token2, target, true);
@@ -86,6 +88,17 @@ contract ConfigHubTest is Test {
         assertFalse(configHub.canOpenSingle(token1, target));
         assertFalse(configHub.canOpenSingle(token2, target));
 
+        // check array view
+        address[] memory targetOnly = new address[](1);
+        targetOnly[0] = target;
+        // has target
+        assertEq(configHub.allCanOpenPair(token1, token2), targetOnly);
+        // others are empty
+        assertEq(configHub.allCanOpenPair(token1, token1), new address[](0));
+        assertEq(configHub.allCanOpenPair(token2, token1), new address[](0));
+        assertEq(configHub.allCanOpenPair(token1, configHub.ANY_ASSET()), new address[](0));
+        assertEq(configHub.allCanOpenPair(token2, configHub.ANY_ASSET()), new address[](0));
+
         // disabling
         vm.expectEmit(address(configHub));
         emit IConfigHub.ContractCanOpenSet(token1, token2, target, false);
@@ -95,6 +108,8 @@ contract ConfigHubTest is Test {
         assertFalse(configHub.canOpenPair(token2, token1, target));
         assertFalse(configHub.canOpenSingle(token1, target));
         assertFalse(configHub.canOpenSingle(token2, target));
+        // array view
+        assertEq(configHub.allCanOpenPair(token1, token2), new address[](0));
 
         // canOpenSingle
         vm.expectEmit(address(configHub));
@@ -108,6 +123,9 @@ contract ConfigHubTest is Test {
         // false
         assertFalse(configHub.canOpenPair(token2, token1, target));
         assertFalse(configHub.canOpenSingle(token2, target));
+        // array view
+        assertEq(configHub.allCanOpenPair(token1, token2), new address[](0));
+        assertEq(configHub.allCanOpenPair(token1, configHub.ANY_ASSET()), targetOnly);
     }
 
     function test_isValidDuration() public {

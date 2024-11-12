@@ -42,6 +42,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     using SafeERC20 for IERC20;
 
     uint internal constant BIPS_BASE = 10_000;
+    uint internal constant YEAR = 365 days;
     uint public constant MIN_CALL_STRIKE_BIPS = BIPS_BASE + 1; // 1 more than 1x
     uint public constant MAX_CALL_STRIKE_BIPS = 10 * BIPS_BASE; // 10x or 1000%
     uint public constant MAX_PUT_STRIKE_BIPS = BIPS_BASE - 1; // 1 less than 1x
@@ -134,7 +135,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         fee = to == address(0)
             ? 0
             // rounds up to prevent avoiding fee using many small positions.
-            : Math.ceilDiv(providerLocked * configHub.protocolFeeAPR() * duration, BIPS_BASE * 365 days);
+            : Math.ceilDiv(providerLocked * configHub.protocolFeeAPR() * duration, BIPS_BASE * YEAR);
     }
 
     // ----- MUTATIVE ----- //
@@ -177,12 +178,18 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         );
     }
 
-    /// @notice Updates the amount of an existing offer by either transferring from the offer
-    /// owner into the contract (when the new amount is higher), or transferring to the owner from the
-    /// contract when the new amount is lower. Only available to the original owner of the offer.
-    /// @dev An offer is never deleted, so can always be reused if more cash is deposited into it.
-    /// @param offerId The ID of the offer to update
-    /// @param newAmount The new amount of cash asset for the offer
+    /**
+     * @notice Updates the amount of an existing offer by either transferring from the offer
+     * owner into the contract (when the new amount is higher), or transferring to the owner from the
+     * contract when the new amount is lower. Only available to the original owner of the offer.
+     * @dev An offer is never deleted, so can always be reused if more cash is deposited into it.
+     * @param offerId The ID of the offer to update
+     * @param newAmount The new amount of cash asset for the offer
+     *
+     * A "non-zero update frontrunning attack" (similar to the never-exploited ERC-20 approval issue),
+     * can be a low likelihood concern on a network that exposes a public mempool.
+     * Avoid it by not granting excessive ERC-20 approvals.
+     */
     function updateOfferAmount(uint offerId, uint newAmount) external whenNotPaused {
         LiquidityOfferStored storage offer = liquidityOffers[offerId];
         require(msg.sender == offer.provider, "provider: not offer provider");
@@ -249,12 +256,12 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
             offerId: SafeCast.toUint64(offerId),
             takerId: SafeCast.toUint64(takerId),
             expiration: SafeCast.toUint32(block.timestamp + offer.duration),
-            settled: false, // unset until settlement
+            settled: false, // unset until settlement / cancellation
             providerLocked: providerLocked,
             withdrawable: 0 // unset until settlement
          });
 
-        emit OfferUpdated(offerId, msg.sender, prevOfferAmount, newAvailable);
+        emit OfferUpdated(offerId, offer.provider, prevOfferAmount, newAvailable);
 
         // emit creation before transfer. No need to emit takerId, because it's emitted by the taker event
         emit PositionCreated(positionId, offerId, fee, providerLocked);
@@ -356,6 +363,8 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// (and not a cancelled one), and checks the ownership of the NFT. Burns the NFT.
     /// @param positionId The ID of the settled position to withdraw from (NFT token ID).
     function withdrawFromSettled(uint positionId) external whenNotPaused returns (uint withdrawal) {
+        // Note: _isAuthorized not used here to reduce surface area / KISS. Can be used if needed,
+        // since an approved account can pull and withdraw.
         require(msg.sender == ownerOf(positionId), "provider: not position owner");
 
         ProviderPositionStored storage position = positions[positionId];
