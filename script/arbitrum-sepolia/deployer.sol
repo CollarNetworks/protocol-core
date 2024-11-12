@@ -7,22 +7,19 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { SetupHelper } from "../setup-helper.sol";
 import { DeploymentHelper } from "../deployment-helper.sol";
 
-library ArbitrumMainnetDeployer {
-    uint constant chainId = 42_161; // id for arbitrum mainnet
-    address constant USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
-    address constant USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
-    address constant WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
+library ArbitrumSepoliaDeployer {
+    uint constant chainId = 421_614; // id for arbitrum sepolia
+    address constant USDC = 0x69fC9D4d59843C6E55f00b5F66b263C963214C53; // CollarOwnedERC20 deployed on 12/11/2024
+    address constant WETH = 0xF17eb654885Afece15039a9Aa26F91063cC693E0; // CollarOwnedERC20 deployed on 12/11/2024
+    address constant WBTC = 0x19d87c960265C229D4b1429DF6F0C7d18F0611F3; // CollarOwnedERC20 deployed on 12/11/2024
+    address constant swapRouterAddress = address(0x101F443B4d1b059569D643917553c771E1b9663E);
 
-    address constant WBTC = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
-    address constant MATIC = 0x561877b6b3DD7651313794e5F2894B2F18bE0766;
-    address constant swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
+    address constant sequencerUptimeFeed = address(0);
 
-    address constant sequencerUptimeFeed = address(0xFdB631F5EE196F0ed6FAa767959853A9F217697D);
-
-    uint24 constant oracleFeeTier = 500;
-    uint24 constant swapFeeTier = 500;
+    uint24 constant oracleFeeTier = 3000;
+    uint24 constant swapFeeTier = 3000;
     uint32 constant twapWindow = 15 minutes;
-    uint8 constant pairsToDeploy = 3; // change for the number of pairs to be deployed by the _createContractPairs function
+    uint8 constant pairsToDeploy = 2; // change for the number of pairs to be deployed by the _createContractPairs function
 
     /**
      * these are not a constant but a function instead cause cannot initialize array constants and cant have state in library
@@ -55,11 +52,8 @@ library ArbitrumMainnetDeployer {
         address[] memory underlyings = new address[](3);
         underlyings[0] = WETH;
         underlyings[1] = WBTC;
-        underlyings[2] = MATIC;
         address[] memory cashAssets = new address[](3);
         cashAssets[0] = USDC;
-        cashAssets[1] = USDT;
-        cashAssets[2] = WETH;
         uint[] memory allLTVs = getAllLTVs();
         uint[] memory allDurations = getAllDurations();
         uint minLTV = allLTVs[0];
@@ -93,15 +87,8 @@ library ArbitrumMainnetDeployer {
         assetPairContracts = new DeploymentHelper.AssetPairContracts[](pairsToDeploy);
         uint[] memory allDurations = getAllDurations();
         uint[] memory allLTVs = getAllLTVs();
-        uint[] memory singleDuration = new uint[](1);
-        singleDuration[0] = allDurations[0];
-
-        uint[] memory singleLTV = new uint[](1);
-        singleLTV[0] = allLTVs[0];
 
         // if any escrowNFT contracts will be reused for multiple pairs, they should be deployed first
-        EscrowSupplierNFT wethEscrow =
-            DeploymentHelper.deployEscrowNFT(configHub, owner, IERC20(WETH), "WETH");
 
         DeploymentHelper.PairConfig memory USDCWETHPairConfig = DeploymentHelper.PairConfig({
             name: "USDC/WETH",
@@ -114,30 +101,14 @@ library ArbitrumMainnetDeployer {
             twapWindow: twapWindow,
             swapRouter: swapRouterAddress,
             sequencerUptimeFeed: sequencerUptimeFeed,
-            existingEscrowNFT: address(wethEscrow)
+            existingEscrowNFT: address(0)
         });
         assetPairContracts[0] = DeploymentHelper.deployContractPair(configHub, USDCWETHPairConfig, owner);
 
-        DeploymentHelper.PairConfig memory USDTWETHPairConfig = DeploymentHelper.PairConfig({
-            name: "USDT/WETH",
-            durations: singleDuration,
-            ltvs: singleLTV,
-            cashAsset: IERC20(USDT),
-            underlying: IERC20(WETH),
-            oracleFeeTier: oracleFeeTier,
-            swapFeeTier: swapFeeTier,
-            twapWindow: twapWindow,
-            swapRouter: swapRouterAddress,
-            sequencerUptimeFeed: sequencerUptimeFeed,
-            existingEscrowNFT: address(wethEscrow)
-        });
-
-        assetPairContracts[1] = DeploymentHelper.deployContractPair(configHub, USDTWETHPairConfig, owner);
-
         DeploymentHelper.PairConfig memory USDCWBTCPairConfig = DeploymentHelper.PairConfig({
             name: "USDC/WBTC",
-            durations: singleDuration,
-            ltvs: singleLTV,
+            durations: allDurations,
+            ltvs: allLTVs,
             cashAsset: IERC20(USDC),
             underlying: IERC20(WBTC),
             oracleFeeTier: oracleFeeTier,
@@ -148,20 +119,6 @@ library ArbitrumMainnetDeployer {
             existingEscrowNFT: address(0)
         });
 
-        assetPairContracts[2] = DeploymentHelper.deployContractPair(configHub, USDCWBTCPairConfig, owner);
-
-        // DeploymentHelper.PairConfig memory USDCMATICPairConfig = DeploymentHelper.PairConfig({
-        //     name: "USDC/MATIC",
-        //     durations: singleDuration,
-        //     ltvs: singleLTV,
-        //     cashAsset: IERC20(USDC),
-        //     underlying: IERC20(MATIC),
-        //     oracleFeeTier: oracleFeeTier,
-        //     swapFeeTier: swapFeeTier,
-        //     twapWindow: twapWindow,
-        //     swapRouter: swapRouterAddress
-        // });
-
-        // assetPairContracts[3] = deployContractPair(configHub, USDCMATICPairConfig, owner);
+        assetPairContracts[1] = DeploymentHelper.deployContractPair(configHub, USDCWBTCPairConfig, owner);
     }
 }
