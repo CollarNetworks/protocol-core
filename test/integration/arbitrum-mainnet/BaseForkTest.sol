@@ -105,7 +105,6 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
 
 abstract contract BaseLoansForkTest is LoansTestBase {
     // constants for all pairs
-    uint constant slippage = 100; // 1%
     uint constant BIPS_BASE = 10_000;
 
     //escrow related constants
@@ -115,7 +114,6 @@ abstract contract BaseLoansForkTest is LoansTestBase {
 
     // Protocol fee params
     uint constant feeAPR = 100; // 1% APR
-    uint constant callstrikeToUse = 12_000;
 
     // values to be set by pair
     address cashAsset;
@@ -129,9 +127,7 @@ abstract contract BaseLoansForkTest is LoansTestBase {
     uint bigUnderlyingAmount;
 
     // Swap amounts
-    uint amountForCallstrike;
-    uint amountForPutstrike;
-    uint amountForPartialMove;
+    uint swapStepCashAmount;
 
     // Pool fee tier
     uint24 swapPoolFeeTier;
@@ -145,7 +141,8 @@ abstract contract BaseLoansForkTest is LoansTestBase {
     // whale address
     address whale;
 
-    // durations to use
+    uint slippage;
+    uint callstrikeToUse;
     uint duration;
     uint durationPriceMovement;
 
@@ -520,25 +517,27 @@ abstract contract BaseLoansForkTest is LoansTestBase {
 
     function testSettlementPriceAboveCallStrike() public {
         // Create provider offer & open loan
-        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, pair.durations[1]);
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, durationPriceMovement);
         (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
 
         ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
-        skip(pair.durations[1] / 2);
+        skip(durationPriceMovement / 2);
+
         // Move price above call strike using lib
-        PriceMovementHelper.movePriceUpPastCallStrike(
+        PriceMovementHelper.moveToTargetPrice(
             vm,
             address(pair.swapperUniV3.uniV3SwapRouter()),
             whale,
             pair.cashAsset,
             pair.underlying,
             pair.oracle,
-            position.callStrikePercent,
-            swapPoolFeeTier,
-            amountForCallstrike
+            (pair.oracle.currentPrice() * position.callStrikePercent / BIPS_BASE),
+            swapStepCashAmount,
+            swapPoolFeeTier
         );
 
-        skip(pair.durations[1] / 2);
+        // moving price takes time, but we need settlement price to be moved
+        skip(durationPriceMovement / 2);
 
         (uint expectedTakerWithdrawal,) =
             pair.takerNFT.previewSettlement(position, pair.oracle.currentPrice());
@@ -567,27 +566,29 @@ abstract contract BaseLoansForkTest is LoansTestBase {
 
     function testSettlementPriceBelowPutStrike() public {
         // Create provider offer & open loan
-        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, pair.durations[1]);
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, durationPriceMovement);
         (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
 
         ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
 
-        skip(pair.durations[1] / 2);
+        skip(durationPriceMovement / 2);
 
         // Move price below put strike
-        PriceMovementHelper.movePriceDownPastPutStrike(
+        PriceMovementHelper.moveToTargetPrice(
             vm,
             address(pair.swapperUniV3.uniV3SwapRouter()),
             whale,
             pair.cashAsset,
             pair.underlying,
             pair.oracle,
-            position.putStrikePercent,
-            swapPoolFeeTier,
-            amountForPutstrike
+            (pair.oracle.currentPrice() * position.putStrikePercent / BIPS_BASE),
+            swapStepCashAmount,
+            swapPoolFeeTier
         );
 
-        skip(pair.durations[1] / 2);
+        // moving price takes time, but we need settlement price to be moved
+        skip(durationPriceMovement / 2);
+
         uint userUnderlyingBefore = pair.underlying.balanceOf(user);
         // Close loan
         closeAndCheckLoan(loanId, loanAmount, loanAmount, 0);
@@ -612,18 +613,21 @@ abstract contract BaseLoansForkTest is LoansTestBase {
 
         skip(durationPriceMovement / 2);
 
-        // Move price up partially (but below call strike)
-        PriceMovementHelper.movePriceUpPartially(
+        // Move price half way to call strike using lib
+        uint halfDeviation = (BIPS_BASE + position.callStrikePercent) / 2;
+        PriceMovementHelper.moveToTargetPrice(
             vm,
             address(pair.swapperUniV3.uniV3SwapRouter()),
             whale,
             pair.cashAsset,
             pair.underlying,
             pair.oracle,
-            swapPoolFeeTier,
-            amountForPartialMove
+            (pair.oracle.currentPrice() * halfDeviation / BIPS_BASE),
+            swapStepCashAmount,
+            swapPoolFeeTier
         );
 
+        // moving price takes time, but we need settlement price to be moved
         skip(durationPriceMovement / 2);
 
         // Calculate expected settlement amounts

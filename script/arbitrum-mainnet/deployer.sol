@@ -9,7 +9,7 @@ import { DeploymentHelper } from "../deployment-helper.sol";
 
 library ArbitrumMainnetDeployer {
     uint constant chainId = 42_161; // id for arbitrum mainnet
-    address constant USDC = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
+    address constant USDC = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
     address constant USDT = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9;
     address constant WETH = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1;
 
@@ -134,11 +134,11 @@ library ArbitrumMainnetDeployer {
 
         assetPairContracts[1] = DeploymentHelper.deployContractPair(configHub, USDTWETHPairConfig, owner);
 
-        DeploymentHelper.PairConfig memory USDCWBTCPairConfig = DeploymentHelper.PairConfig({
-            name: "USDC/WBTC",
+        DeploymentHelper.PairConfig memory USDTWBTCPairConfig = DeploymentHelper.PairConfig({
+            name: "USDT/WBTC",
             durations: allDurations,
             ltvs: allLTVs,
-            cashAsset: IERC20(USDC),
+            cashAsset: IERC20(USDT),
             underlying: IERC20(WBTC),
             oracleFeeTier: oracleFeeTier,
             swapFeeTier: swapFeeTier,
@@ -148,20 +148,6 @@ library ArbitrumMainnetDeployer {
             existingEscrowNFT: address(0)
         });
 
-        assetPairContracts[2] = DeploymentHelper.deployContractPair(configHub, USDCWBTCPairConfig, owner);
-
-        // DeploymentHelper.PairConfig memory USDCMATICPairConfig = DeploymentHelper.PairConfig({
-        //     name: "USDC/MATIC",
-        //     durations: singleDuration,
-        //     ltvs: singleLTV,
-        //     cashAsset: IERC20(USDC),
-        //     underlying: IERC20(MATIC),
-        //     oracleFeeTier: oracleFeeTier,
-        //     swapFeeTier: swapFeeTier,
-        //     twapWindow: twapWindow,
-        //     swapRouter: swapRouterAddress
-        // });
-
-        // assetPairContracts[3] = deployContractPair(configHub, USDCMATICPairConfig, owner);
+        assetPairContracts[2] = DeploymentHelper.deployContractPair(configHub, USDTWBTCPairConfig, owner);
     }
 }
