@@ -623,6 +623,24 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         assertEq(cashAsset.balanceOf(provider), providerCashBefore + expectedWithdrawal);
     }
 
+    function test_cancelIfBrokenOracle() public {
+        // exit cases when the oracle is broken or if it reverts due to sequencer checks
+        (uint takerId, uint providerNFTId) = checkOpenPairedPosition();
+
+        // disable oracle
+        vm.startPrank(owner);
+        mockOracle.setReverts(true);
+        vm.expectRevert("oracle reverts");
+        takerNFT.currentOraclePrice();
+
+        // cancel works
+        vm.startPrank(provider);
+        providerNFT.transferFrom(provider, user1, providerNFTId);
+        vm.startPrank(user1);
+        providerNFT.approve(address(takerNFT), providerNFTId);
+        takerNFT.cancelPairedPosition(takerId);
+    }
+
     function test_cancelPairedPosition_NotOwnerOfTakerID() public {
         (uint takerId,) = checkOpenPairedPosition();
 

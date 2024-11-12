@@ -679,4 +679,29 @@ contract LoansBasicEffectsTest is LoansTestBase {
             loans.unwrapAndCancelLoan(loanId);
         }
     }
+
+    function test_exitIfBrokenOracle() public {
+        // exit cases when the oracle is broken or if it reverts due to sequencer checks
+        (uint loanId,,) = createAndCheckLoan();
+
+        // disable oracle
+        vm.startPrank(owner);
+        mockOracle.setReverts(true);
+        vm.expectRevert("oracle reverts");
+        takerNFT.currentOraclePrice();
+
+        // can still unwrap
+        vm.startPrank(user1);
+        loans.unwrapAndCancelLoan(loanId);
+
+        // taker NFT unwrapped
+        uint takerId = loanId;
+        assertEq(takerNFT.ownerOf(takerId), user1);
+        takerNFT.transferFrom(user1, provider, takerId);
+
+        // cancel position also works
+        vm.startPrank(provider);
+        providerNFT.approve(address(takerNFT), takerNFT.getPosition(takerId).providerId);
+        takerNFT.cancelPairedPosition(takerId);
+    }
 }

@@ -7,6 +7,9 @@ contract MockOracleUniV3TWAP is OracleUniV3TWAP {
     // 0 prices can happen, but also sometimes unset price needs to revert to tigger fallback logic
     bool public checkPrice = false;
 
+    // always reverts price views
+    bool public reverts = false;
+
     mapping(uint timestamp => uint value) historicalPrices;
 
     constructor(address _baseToken, address _quoteToken)
@@ -24,6 +27,10 @@ contract MockOracleUniV3TWAP is OracleUniV3TWAP {
         checkPrice = enabled;
     }
 
+    function setReverts(bool _reverts) public {
+        reverts = _reverts;
+    }
+
     // ----- Internal Views ----- //
 
     function _getPoolAddress(address _uniV3SwapRouter) internal pure override returns (address) {
@@ -32,6 +39,7 @@ contract MockOracleUniV3TWAP is OracleUniV3TWAP {
     }
 
     function _getQuote(uint32[] memory secondsAgos) internal view override returns (uint price) {
+        require(!reverts, "oracle reverts");
         price = historicalPrices[block.timestamp - secondsAgos[1]];
         if (checkPrice) require(price != 0, "MockOracleUniV3TWAP: price unset for time");
     }
