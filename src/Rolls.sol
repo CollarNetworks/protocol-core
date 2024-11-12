@@ -160,6 +160,10 @@ contract Rolls is IRolls, BaseManaged {
      * cash when submitting the offer (and have those funds available), so that it is executable.
      * If offer becomes unexecutable due to insufficient provider cash approval or balance it should ideally be
      * filtered out by the FE as not executable (and provider be made aware).
+     * Cash is not pulled due to the high capital inefficiency imposed by this on providers. This is
+     * because each roll offer is specific to a taker position, so if the provider wants to make multiple
+     * offers, that may not all be taken, having to lock cash for each will disincentivize roll offers or make
+     * them more expensive. The fact that the provider NFT is pulled adds protection from spoofing.
      */
     function createOffer(
         uint takerId,

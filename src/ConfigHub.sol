@@ -28,6 +28,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     uint internal constant BIPS_BASE = 10_000;
+    uint internal constant YEAR = 365 days;
 
     string public constant VERSION = "0.2.0";
     /// @notice placeholder value for using canOpenPair for auth when only one asset is specified
@@ -38,7 +39,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     uint public constant MIN_CONFIGURABLE_LTV_BIPS = BIPS_BASE / 10; // 10%
     uint public constant MAX_CONFIGURABLE_LTV_BIPS = BIPS_BASE - 1; // avoid 0 range edge cases
     uint public constant MIN_CONFIGURABLE_DURATION = 300; // 5 minutes
-    uint public constant MAX_CONFIGURABLE_DURATION = 5 * 365 days; // 5 years
+    uint public constant MAX_CONFIGURABLE_DURATION = 5 * YEAR;
 
     // -- state variables ---
     // one slot (previous is owner)

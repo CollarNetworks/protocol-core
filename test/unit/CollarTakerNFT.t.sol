@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { Strings } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 import { TestERC20 } from "../utils/TestERC20.sol";
 
@@ -353,6 +354,19 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         assertEq(cashAsset.balanceOf(user1), userBalanceBefore - takerLocked);
     }
 
+    function test_tokenURI() public {
+        (uint takerId,) = checkOpenPairedPosition();
+        string memory expected = string.concat(
+            "https://services.collarprotocol.xyz/metadata/",
+            Strings.toString(block.chainid),
+            "/",
+            Strings.toHexString(address(takerNFT)),
+            "/",
+            Strings.toString(takerId)
+        );
+        assertEq(takerNFT.tokenURI(takerId), expected);
+    }
+
     function test_openPairedPositionUnsupportedTakerContract() public {
         createOffer();
         setCanOpen(address(takerNFT), false);
@@ -607,6 +621,24 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         // balances
         assertEq(cashAsset.balanceOf(user1), userCashBefore);
         assertEq(cashAsset.balanceOf(provider), providerCashBefore + expectedWithdrawal);
+    }
+
+    function test_cancelIfBrokenOracle() public {
+        // exit cases when the oracle is broken or if it reverts due to sequencer checks
+        (uint takerId, uint providerNFTId) = checkOpenPairedPosition();
+
+        // disable oracle
+        vm.startPrank(owner);
+        mockOracle.setReverts(true);
+        vm.expectRevert("oracle reverts");
+        takerNFT.currentOraclePrice();
+
+        // cancel works
+        vm.startPrank(provider);
+        providerNFT.transferFrom(provider, user1, providerNFTId);
+        vm.startPrank(user1);
+        providerNFT.approve(address(takerNFT), providerNFTId);
+        takerNFT.cancelPairedPosition(takerId);
     }
 
     function test_cancelPairedPosition_NotOwnerOfTakerID() public {

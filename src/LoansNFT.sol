@@ -379,6 +379,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // Funds beneficiary (escrow owner) should ideally set the swapParams.
         // A keeper can be useful because foreclosing can be time-sensitive, due to swap timing
         // impacting the amount of funds available for late-fee repayment.
+        // Note that if the keeper is authorized by escrow owner, it is authorized also for
+        // closing any loans they themselves hold.
         // @dev will also revert on non-existent (unminted / burned) escrow ID
         address escrowOwner = escrowNFT.ownerOf(escrowId);
         require(_isSenderOrKeeperFor(escrowOwner), "loans: not escrow owner or allowed keeper");
@@ -500,6 +502,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             // is why escrow's loanId is later validated in _escrowValidations.
             (takerId, providerId, loanAmount) =
                 _swapAndMintCollar(underlyingAmount, providerOffer, swapParams);
+            // despite the swap slippage check, explicitly check loanAmount, to avoid coupling and assumptions
             require(loanAmount >= minLoanAmount, "loans: loan amount too low");
 
             // validate loanId
@@ -604,6 +607,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // Calculate the actual amount received
         amountOut = assetOut.balanceOf(address(this)) - balanceBefore;
         // check balance is updated as expected and as reported by swapper (no other balance changes)
+        // @dev important check for preventing swapper reentrancy (if using e.g., arbitrary call swapper)
         require(amountOut == amountOutSwapper, "loans: balance update mismatch");
         // check amount is as expected by user
         require(amountOut >= swapParams.minAmountOut, "loans: slippage exceeded");
@@ -806,6 +810,13 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
     // ----- INTERNAL VIEWS ----- //
 
+    /* @dev note that ERC721 approval system should NOT be used instead of this limited system because:
+    1. It cannot serve the forceclosure use-case, in which escrow owner is the authorizedSender
+    for foreclosing the borrower's NFT.
+    2. It would grant the keeper much more powers than needed, since in case of compromise it
+    would be able to pull all NFTs from exposed users, instead of currently being able to exploit only
+    their loans that are about to be closed, and only via a more complex "slippage" attack.
+    */
     function _isSenderOrKeeperFor(address authorizedSender) internal view returns (bool) {
         bool isSender = msg.sender == authorizedSender; // is the auth target
         bool isKeeper = msg.sender == closingKeeper;

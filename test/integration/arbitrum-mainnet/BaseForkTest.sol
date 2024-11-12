@@ -521,6 +521,7 @@ abstract contract BaseLoansForkTest is LoansTestBase {
         (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
 
         ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
+        
         skip(durationPriceMovement / 2);
 
         // Move price above call strike using lib

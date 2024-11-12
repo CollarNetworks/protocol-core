@@ -11,7 +11,7 @@ import { EscrowSupplierNFT } from "../EscrowSupplierNFT.sol";
 interface ILoansNFT {
     // storage struct
     struct LoanStored {
-        uint underlyingAmount;
+        uint underlyingAmount; // initial amount used, may not correspond to loan value due to swaps
         uint loanAmount;
         // third slot
         bool usesEscrow;
@@ -21,7 +21,7 @@ interface ILoansNFT {
 
     // view struct
     struct Loan {
-        uint underlyingAmount;
+        uint underlyingAmount; // initial amount used, may not correspond to loan value due to swaps
         uint loanAmount;
         bool usesEscrow;
         EscrowSupplierNFT escrowNFT; // optional, 0 address for non-escrow loans (`usesEscrow` == false)

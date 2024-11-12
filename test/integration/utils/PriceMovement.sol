@@ -10,7 +10,7 @@ import { ITakerOracle } from "../../../src/interfaces/ITakerOracle.sol";
 library PriceMovementHelper {
     using SafeERC20 for IERC20;
 
-    // Price movement configuration
+    // Price movement 
     uint constant STEPS = 20;
     // 15 minutes, to allow for longer TWAP windows
     uint constant STEP_DELAY = 900 seconds;
