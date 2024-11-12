@@ -71,34 +71,31 @@ contract SwapperUniV3 is ISwapper {
         // approve router to pull
         assetIn.forceApprove(address(uniV3SwapRouter), amountIn);
 
-        uint balanceBefore = assetOut.balanceOf(address(this));
+        // swap `recipient` is msg.sender, so its balance update is checked
+        uint senderBalanceBefore = assetOut.balanceOf(msg.sender);
         // reentrancy assumptions: router is trusted + swap path is direct (not through multiple pools).
         // @dev This swapper is safe from reentrancy under the assumption of trusted router and tokens.
         // However, in general a multi-hop swap route (via more flexible routers) can allow reentrancy via
         // malicious tokens in the route path. Therefore, this direct router is safer to allow-list than
         // more flexible routers.
-        // Note: recipient is address(this) for the balance update checks, if checks are removed (due
-        // to being redundant), recipient can be set to msg.sender to save gas.
         uint amountOutRouter = uniV3SwapRouter.exactInputSingle(
             IV3SwapRouter.ExactInputSingleParams({
                 tokenIn: address(assetIn),
                 tokenOut: address(assetOut),
                 fee: swapFeeTier,
-                recipient: address(this),
+                recipient: msg.sender,
                 amountIn: amountIn,
                 amountOutMinimum: minAmountOut,
                 sqrtPriceLimitX96: 0
             })
         );
-        // actual amount received
-        amountOut = assetOut.balanceOf(address(this)) - balanceBefore;
+        // actual amount received by the sender (`recipient` in the swap params above)
+        amountOut = assetOut.balanceOf(msg.sender) - senderBalanceBefore;
 
         // check balance is updated as expected and as reported by router (no other balance changes)
         // asset cannot be fee-on-transfer or rebasing (e.g., internal shares accounting)
         require(amountOut == amountOutRouter, "SwapperUniV3: balance update mismatch");
         // check amount is as expected by caller
         require(amountOut >= minAmountOut, "SwapperUniV3: slippage exceeded");
-
-        assetOut.safeTransfer(msg.sender, amountOut);
     }
 }
