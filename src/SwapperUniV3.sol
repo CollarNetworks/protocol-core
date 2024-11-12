@@ -92,8 +92,10 @@ contract SwapperUniV3 is ISwapper {
         // actual amount received by the sender (`recipient` in the swap params above)
         amountOut = assetOut.balanceOf(msg.sender) - senderBalanceBefore;
 
-        // check balance is updated as expected and as reported by router (no other balance changes)
-        // asset cannot be fee-on-transfer or rebasing (e.g., internal shares accounting)
+        // Check balance is updated as expected and as reported by router (no other balance changes)
+        // asset cannot be fee-on-transfer or rebasing (e.g., internal shares accounting).
+        // This also checks that router behaves as we expect, to prevent misconfiguration or
+        // incorrect assumptions about its implementation
         require(amountOut == amountOutRouter, "SwapperUniV3: balance update mismatch");
         // check amount is as expected by caller
         require(amountOut >= minAmountOut, "SwapperUniV3: slippage exceeded");
