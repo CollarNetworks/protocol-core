@@ -607,6 +607,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // Calculate the actual amount received
         amountOut = assetOut.balanceOf(address(this)) - balanceBefore;
         // check balance is updated as expected and as reported by swapper (no other balance changes)
+        // @dev important check for preventing swapper reentrancy (if using e.g., arbitrary call swapper)
         require(amountOut == amountOutSwapper, "loans: balance update mismatch");
         // check amount is as expected by user
         require(amountOut >= swapParams.minAmountOut, "loans: slippage exceeded");
