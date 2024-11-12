@@ -120,8 +120,8 @@ library ArbitrumMainnetDeployer {
 
         DeploymentHelper.PairConfig memory USDTWETHPairConfig = DeploymentHelper.PairConfig({
             name: "USDT/WETH",
-            durations: singleDuration,
-            ltvs: singleLTV,
+            durations: allDurations,
+            ltvs: allLTVs,
             cashAsset: IERC20(USDT),
             underlying: IERC20(WETH),
             oracleFeeTier: oracleFeeTier,
@@ -134,11 +134,11 @@ library ArbitrumMainnetDeployer {
 
         assetPairContracts[1] = DeploymentHelper.deployContractPair(configHub, USDTWETHPairConfig, owner);
 
-        DeploymentHelper.PairConfig memory USDCWBTCPairConfig = DeploymentHelper.PairConfig({
-            name: "USDC/WBTC",
-            durations: singleDuration,
-            ltvs: singleLTV,
-            cashAsset: IERC20(USDC),
+        DeploymentHelper.PairConfig memory USDTWBTCPairConfig = DeploymentHelper.PairConfig({
+            name: "USDT/WBTC",
+            durations: allDurations,
+            ltvs: allLTVs,
+            cashAsset: IERC20(USDT),
             underlying: IERC20(WBTC),
             oracleFeeTier: oracleFeeTier,
             swapFeeTier: swapFeeTier,
@@ -148,20 +148,6 @@ library ArbitrumMainnetDeployer {
             existingEscrowNFT: address(0)
         });
 
-        assetPairContracts[2] = DeploymentHelper.deployContractPair(configHub, USDCWBTCPairConfig, owner);
-
-        // DeploymentHelper.PairConfig memory USDCMATICPairConfig = DeploymentHelper.PairConfig({
-        //     name: "USDC/MATIC",
-        //     durations: singleDuration,
-        //     ltvs: singleLTV,
-        //     cashAsset: IERC20(USDC),
-        //     underlying: IERC20(MATIC),
-        //     oracleFeeTier: oracleFeeTier,
-        //     swapFeeTier: swapFeeTier,
-        //     twapWindow: twapWindow,
-        //     swapRouter: swapRouterAddress
-        // });
-
-        // assetPairContracts[3] = deployContractPair(configHub, USDCMATICPairConfig, owner);
+        assetPairContracts[2] = DeploymentHelper.deployContractPair(configHub, USDTWBTCPairConfig, owner);
     }
 }
