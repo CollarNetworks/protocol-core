@@ -311,8 +311,9 @@ contract LoansRollsEscrowEffectsTest is LoansRollsEffectsTest {
         (uint loanId,,) = createAndCheckLoan();
         uint prevFee = escrowFee;
         (, ExpectedRoll memory expected) = checkRollLoan(loanId, twapPrice);
-        // full refund
-        assertEq(expected.escrowFeeRefund, prevFee);
+        // max refund
+        uint maxRefund = escrowNFT.MAX_FEE_REFUND_BIPS() * prevFee / BIPS_100PCT;
+        assertEq(expected.escrowFeeRefund, maxRefund);
 
         (loanId,,) = createAndCheckLoan();
         skip(duration / 2);

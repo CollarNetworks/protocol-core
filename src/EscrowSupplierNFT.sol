@@ -49,6 +49,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     uint public constant MAX_LATE_FEE_APR_BIPS = BIPS_BASE * 12; // 1200% APR (100% for a max period of 30 days)
     uint public constant MIN_GRACE_PERIOD = 1 days;
     uint public constant MAX_GRACE_PERIOD = 30 days;
+    // @notice max percentage of refunded interest fee, prevents free cancellation issues
+    uint public constant MAX_FEE_REFUND_BIPS = 9500; // 95%
 
     string public constant VERSION = "0.2.0";
 
@@ -560,7 +562,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         return Math.ceilDiv(escrow.escrowed * escrow.lateFeeAPR * overdue, BIPS_BASE * YEAR);
     }
 
-    function _interestFeeRefund(Escrow memory escrow) internal view returns (uint refund) {
+    function _interestFeeRefund(Escrow memory escrow) internal view returns (uint) {
         uint duration = escrow.duration;
         // elapsed = now - startTime; startTime = expiration - duration
         uint elapsed = block.timestamp + duration - escrow.expiration;
@@ -568,12 +570,16 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         elapsed = Math.min(elapsed, duration);
         // refund is for time remaining. round down against user.
         // no div-zero due to range checks in ConfigHub
-        refund = escrow.interestHeld * (duration - elapsed) / duration;
+        uint refund = escrow.interestHeld * (duration - elapsed) / duration;
 
         /* @dev there is no APR calculation here (APR calc used only on open) because:
          1. simpler
          2. avoidance of mismatch due to rounding issues
          3. actual fee held may be higher (it's checked to be >= APR calculated fee)
         */
+
+        // ensure refund is not full, to prevent fee cancellation (griefing, DoS)
+        uint maxRefund = escrow.interestHeld * MAX_FEE_REFUND_BIPS / BIPS_BASE;
+        return Math.min(refund, maxRefund);
     }
 }

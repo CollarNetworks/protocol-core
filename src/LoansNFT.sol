@@ -814,11 +814,10 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
             if (!escrowReleased) {
                 // if not released, release the user funds to the supplier since the user will not repay
-                // the loan. There's no late fees - loan hsa not expired, but also no repayment - there was
+                // the loan. There's no late fees - loan has not expired, but also no repayment - there was
                 // no swap. There may be an interest fee refund for the borrower.
-                // @dev For an open + immediate cancel all fees are refunded, however, this is unlikely to
-                // be used to grief supplier offers, since it would both costs swap fees and lock
-                // funds in the taker position.
+                // @dev In immediate cancellation: NOT all escrow fee is refunded. A minimal fee is ensured
+                // to prevent DoS of escrow offers by cycling them into withdrawals.
                 uint feeRefund = escrowNFT.endEscrow(escrowId, 0);
                 // @dev no balance checks because contract holds no funds, mismatch will cause reverts
 
