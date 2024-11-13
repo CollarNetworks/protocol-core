@@ -24,23 +24,10 @@ library ArbitrumMainnetDeployer {
     uint32 constant twapWindow = 15 minutes;
     uint8 constant pairsToDeploy = 3; // change for the number of pairs to be deployed by the _createContractPairs function
 
-    /**
-     * these are not a constant but a function instead cause cannot initialize array constants and cant have state in library
-     */
-    function getAllDurations() internal pure returns (uint[] memory) {
-        uint[] memory durations = new uint[](3);
-        durations[0] = 5 minutes;
-        durations[1] = 30 days;
-        durations[2] = 365 * 24 * 60 * 60;
-        return durations;
-    }
-
-    function getAllLTVs() internal pure returns (uint[] memory) {
-        uint[] memory ltvs = new uint[](2);
-        ltvs[0] = 2500;
-        ltvs[1] = 9900;
-        return ltvs;
-    }
+    uint constant minDuration = 5 minutes;
+    uint constant maxDuration = 365 days;
+    uint constant minLTV = 2500;
+    uint constant maxLTV = 9900;
 
     struct DeploymentResult {
         ConfigHub configHub;
@@ -60,12 +47,6 @@ library ArbitrumMainnetDeployer {
         cashAssets[0] = USDC;
         cashAssets[1] = USDT;
         cashAssets[2] = WETH;
-        uint[] memory allLTVs = getAllLTVs();
-        uint[] memory allDurations = getAllDurations();
-        uint minLTV = allLTVs[0];
-        uint maxLTV = allLTVs[1];
-        uint minDuration = allDurations[0];
-        uint maxDuration = allDurations[2];
 
         SetupHelper.setupConfigHub(
             result.configHub,
@@ -91,13 +72,7 @@ library ArbitrumMainnetDeployer {
         returns (DeploymentHelper.AssetPairContracts[] memory assetPairContracts)
     {
         assetPairContracts = new DeploymentHelper.AssetPairContracts[](pairsToDeploy);
-        uint[] memory allDurations = getAllDurations();
-        uint[] memory allLTVs = getAllLTVs();
-        uint[] memory singleDuration = new uint[](1);
-        singleDuration[0] = allDurations[0];
 
-        uint[] memory singleLTV = new uint[](1);
-        singleLTV[0] = allLTVs[0];
 
         // if any escrowNFT contracts will be reused for multiple pairs, they should be deployed first
         EscrowSupplierNFT wethEscrow =
@@ -105,8 +80,6 @@ library ArbitrumMainnetDeployer {
 
         DeploymentHelper.PairConfig memory USDCWETHPairConfig = DeploymentHelper.PairConfig({
             name: "USDC/WETH",
-            durations: allDurations,
-            ltvs: allLTVs,
             cashAsset: IERC20(USDC),
             underlying: IERC20(WETH),
             oracleFeeTier: oracleFeeTier,
@@ -120,8 +93,6 @@ library ArbitrumMainnetDeployer {
 
         DeploymentHelper.PairConfig memory USDTWETHPairConfig = DeploymentHelper.PairConfig({
             name: "USDT/WETH",
-            durations: allDurations,
-            ltvs: allLTVs,
             cashAsset: IERC20(USDT),
             underlying: IERC20(WETH),
             oracleFeeTier: oracleFeeTier,
@@ -136,8 +107,6 @@ library ArbitrumMainnetDeployer {
 
         DeploymentHelper.PairConfig memory USDTWBTCPairConfig = DeploymentHelper.PairConfig({
             name: "USDT/WBTC",
-            durations: allDurations,
-            ltvs: allLTVs,
             cashAsset: IERC20(USDT),
             underlying: IERC20(WBTC),
             oracleFeeTier: oracleFeeTier,

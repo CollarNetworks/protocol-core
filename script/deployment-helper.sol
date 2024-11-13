@@ -25,16 +25,12 @@ library DeploymentHelper {
         EscrowSupplierNFT escrowNFT;
         uint24 oracleFeeTier;
         uint24 swapFeeTier;
-        uint[] durations;
-        uint[] ltvs;
     }
 
     struct PairConfig {
         string name;
         IERC20 cashAsset;
         IERC20 underlying;
-        uint[] durations;
-        uint[] ltvs;
         uint24 oracleFeeTier;
         uint24 swapFeeTier;
         uint32 twapWindow;
@@ -124,9 +120,8 @@ library DeploymentHelper {
             swapperUniV3: swapperUniV3,
             oracleFeeTier: pairConfig.oracleFeeTier,
             swapFeeTier: pairConfig.swapFeeTier,
-            durations: pairConfig.durations,
-            ltvs: pairConfig.ltvs,
             escrowNFT: escrowNFT
         });
     }
 }
+
