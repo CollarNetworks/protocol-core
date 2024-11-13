@@ -1,5 +1,7 @@
 # Collar Protocol Core
 
+Collar Protocol is a lending protocol that enables liquidation-free and high LTV borrowing against crypto assets by combining dex swaps and options-like payoff structures.
+
 # For Auditors
 
 [Audit briefing notes](./devdocs/audits.briefing.md)
