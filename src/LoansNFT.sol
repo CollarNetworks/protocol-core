@@ -48,6 +48,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     uint internal constant BIPS_BASE = 10_000;
 
     string public constant VERSION = "0.2.0";
+    uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 1000; // 10%, allows 10% self-sandwich slippage
 
     // ----- IMMUTABLES ----- //
     CollarTakerNFT public immutable takerNFT;
@@ -553,12 +554,16 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // @dev Reentrancy assumption: no user state writes or reads BEFORE the swapper call in _swap.
         // The only state reads before are owner-set state (e.g., pause and swapper allowlist).
         uint cashFromSwap = _swap(underlying, cashAsset, underlyingAmount, swapParams);
+
         /* @dev note on swap price manipulation:
         The swap price is only used for "pot sizing", but not for payouts division on expiry.
         Due to this, price manipulation *should* NOT leak value from provider / escrow / protocol,
         only from sender. But sender (borrower) is protected via a slippage parameter, and should
         use it to avoid MEV (if present).
-        */
+        However, allowing extreme manipulation (self-sandwich) can introduce edge-cases, for example
+        by taking a large escrow amount, but only a small collar position, which can violate some
+        implicit integration assumptions. */
+        _checkSwapPrice(cashFromSwap, underlyingAmount);
 
         // split the cash to loanAmount and takerLocked
         // this uses LTV === put strike price, so the loan is the pre-exercised put (sent to user)
@@ -572,6 +577,21 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // open the paired taker and provider positions
         cashAsset.forceApprove(address(takerNFT), takerLocked);
         (takerId, providerId) = takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
+    }
+
+    /// @dev should be used for opening only. If used for close will prevent closing if slippage is too high.
+    /// The swap price is only used for "pot sizing", but not for payouts division on expiry.
+    /// The caller (user) is protected via a slippage parameter, and SHOULD use it to avoid MEV (if present).
+    /// So, this check is just extra precaution and avoidance of extreme edge-cases.
+    function _checkSwapPrice(uint cashFromSwap, uint underlyingAmount) internal view {
+        ITakerOracle oracle = takerNFT.oracle();
+        // get the equivalent amount of underlying the cash from swap is worth at oracle price
+        uint underlyingFromCash = oracle.convertToBaseAmount(cashFromSwap, oracle.currentPrice());
+        // calculate difference
+        (uint a, uint b) = (underlyingAmount, underlyingFromCash);
+        uint absDiff = a > b ? a - b : b - a;
+        uint deviation = absDiff * BIPS_BASE / underlyingAmount; // checked on open to not be 0
+        require(deviation <= MAX_SWAP_TWAP_DEVIATION_BIPS, "swap and twap price too different");
     }
 
     /// @dev swap logic with balance and slippage checks
