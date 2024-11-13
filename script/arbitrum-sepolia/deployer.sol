@@ -9,9 +9,9 @@ import { DeploymentHelper } from "../deployment-helper.sol";
 
 library ArbitrumSepoliaDeployer {
     uint constant chainId = 421_614; // id for arbitrum sepolia
-    address constant USDC = 0x69fC9D4d59843C6E55f00b5F66b263C963214C53; // CollarOwnedERC20 deployed on 12/11/2024
-    address constant WETH = 0xF17eb654885Afece15039a9Aa26F91063cC693E0; // CollarOwnedERC20 deployed on 12/11/2024
-    address constant WBTC = 0x19d87c960265C229D4b1429DF6F0C7d18F0611F3; // CollarOwnedERC20 deployed on 12/11/2024
+    address constant tUSDC = 0x69fC9D4d59843C6E55f00b5F66b263C963214C53; // CollarOwnedERC20 deployed on 12/11/2024
+    address constant tWETH = 0xF17eb654885Afece15039a9Aa26F91063cC693E0; // CollarOwnedERC20 deployed on 12/11/2024
+    address constant tWBTC = 0x19d87c960265C229D4b1429DF6F0C7d18F0611F3; // CollarOwnedERC20 deployed on 12/11/2024
     address constant swapRouterAddress = address(0x101F443B4d1b059569D643917553c771E1b9663E);
 
     address constant sequencerUptimeFeed = address(0);
@@ -38,10 +38,10 @@ library ArbitrumSepoliaDeployer {
         result.configHub = DeploymentHelper.deployConfigHub(owner);
 
         address[] memory underlyings = new address[](3);
-        underlyings[0] = WETH;
-        underlyings[1] = WBTC;
+        underlyings[0] = tWETH;
+        underlyings[1] = tWBTC;
         address[] memory cashAssets = new address[](3);
-        cashAssets[0] = USDC;
+        cashAssets[0] = tUSDC;
 
         SetupHelper.setupConfigHub(
             result.configHub,
@@ -72,8 +72,8 @@ library ArbitrumSepoliaDeployer {
 
         DeploymentHelper.PairConfig memory USDCWETHPairConfig = DeploymentHelper.PairConfig({
             name: "USDC/WETH",
-            cashAsset: IERC20(USDC),
-            underlying: IERC20(WETH),
+            cashAsset: IERC20(tUSDC),
+            underlying: IERC20(tWETH),
             oracleFeeTier: oracleFeeTier,
             swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
@@ -85,8 +85,8 @@ library ArbitrumSepoliaDeployer {
 
         DeploymentHelper.PairConfig memory USDCWBTCPairConfig = DeploymentHelper.PairConfig({
             name: "USDC/WBTC",
-            cashAsset: IERC20(USDC),
-            underlying: IERC20(WBTC),
+            cashAsset: IERC20(tUSDC),
+            underlying: IERC20(tWBTC),
             oracleFeeTier: oracleFeeTier,
             swapFeeTier: swapFeeTier,
             twapWindow: twapWindow,
