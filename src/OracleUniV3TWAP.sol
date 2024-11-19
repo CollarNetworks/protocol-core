@@ -69,6 +69,7 @@ to measure arbitrage responsiveness.
  */
 contract OracleUniV3TWAP is ITakerOracle {
     uint32 public constant MIN_TWAP_WINDOW = 300;
+
     string public constant VERSION = "0.2.0";
 
     address public immutable baseToken;
@@ -132,63 +133,22 @@ contract OracleUniV3TWAP is ITakerOracle {
         return answer == 0 && block.timestamp - startedAt >= atLeast;
     }
 
-    /// @notice Current TWAP price. Uses `pastPrice` with current block timestamp.
+    /// @notice Current TWAP price. Will revert if sequencer uptime check
+    /// fails (if sequencer uptime feed is set), or if the TWAP window is not available for
+    /// the twapWindow.
     /// @return Amount of quoteToken for a "unit" of baseToken (i.e. 10**baseToken.decimals())
     function currentPrice() public view returns (uint) {
-        return pastPrice(uint32(block.timestamp));
-    }
-
-    /// @notice TWAP price at some past points in time. Will revert if sequencer uptime check
-    /// fails (if sequencer uptime feed is set), or if the TWAP window is not available for
-    /// requested timestamp.
-    /// @param timestamp Timestamp of the end of the TWAP window for which the price is needed.
-    /// @return Amount of quoteToken for a "unit" of baseToken (i.e. 10**baseToken.decimals())
-    function pastPrice(uint32 timestamp) public view returns (uint) {
+        uint32[] memory secondsAgos = new uint32[](2);
         // _secondsAgos is in offsets format. e.g., [120, 60] means that observations 120 and 60
         // seconds ago will be used for the TWAP calculation
-        uint32 secondsAgo = uint32(block.timestamp) - timestamp; // will revert for future timestamp
-        uint32[] memory secondsAgos = new uint32[](2);
-        secondsAgos[0] = secondsAgo + twapWindow;
-        secondsAgos[1] = secondsAgo;
+        (secondsAgos[0], secondsAgos[1]) = (twapWindow, 0);
         // 0 address is expected for arbi-sepolia since only arbi-mainnet has the sequencer uptime oracle.
         if (address(sequencerChainlinkFeed) != address(0)) {
             // check that that sequencer was live for the duration of the twapWindow
-            // @dev for historical price, if sequencer was up then, but was interrupted
-            // since, this will revert ("false positive"). Because TWAP prices are not long living,
-            // this false positive is unlikely, and the fallback price should be used if available.
-            require(sequencerLiveFor(secondsAgos[0]), "sequencer uptime interrupted");
+            require(sequencerLiveFor(twapWindow), "sequencer uptime interrupted");
         }
         // get the price from the pool
         return _getQuote(secondsAgos);
-    }
-
-    /**
-     * @notice Returns the price at the specified timestamp if available, otherwise returns the
-     * current price.
-     * @dev Tries to use a past price, but if that fails (because TWAP values for timestamp aren't available)
-     * it uses the current price. Current simple fallback means that there is a sharp difference in settlement
-     * price once the historical price becomes unavailable (because the price jumps to latest).
-     * @dev Use the oracle's `increaseCardinality` (or the pool's `increaseObservationCardinalityNext` directly)
-     * to force the pool to store a longer history of prices to increase the time span during which historical
-     * prices are available.
-     * A more sophisticated fallback is possible - that will try to use the oldest historical price available,
-     * but that is more complex and brittle.
-     * @param timestamp The timestamp to get the price for
-     * @return price The price at the specified timestamp, or the current price if historical data
-     * is not available. Amount of quoteToken for a "unit" of baseToken (i.e. 10**baseToken.decimals())
-     * @return historical Whether the returned price is historical (true) or the current fallback price (false)
-     */
-    function pastPriceWithFallback(uint32 timestamp) external view returns (uint price, bool historical) {
-        // high level try/catch is error-prone and hides failure cases, low level try/catch is more
-        // complex so also not ideal. If reviewing changes to this must read docs:
-        //    https://docs.soliditylang.org/en/v0.8.22/control-structures.html#try-catch
-        // The "try" can revert on decode error, but it's impossible since this is calling self.
-        try this.pastPrice(timestamp) returns (uint _price) {
-            return (_price, true);
-        } catch {
-            // fallback to current price in case it is available, do not check error reason
-            return (currentPrice(), false);
-        }
     }
 
     /**

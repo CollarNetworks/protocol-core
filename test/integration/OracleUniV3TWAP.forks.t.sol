@@ -90,15 +90,7 @@ contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
             assertFalse(oracle.sequencerLiveFor(block.timestamp - expectedStartedAt + 1));
             assertFalse(oracle.sequencerLiveFor(block.timestamp - expectedStartedAt + 100 days));
 
-            // check price reverts
-            // doesn't revert due to sequencer, but due to not having data
-            vm.expectRevert(bytes("OLD"));
-            oracle.pastPrice(expectedStartedAt + twapWindow);
-            // reverts due to sequencer
-            vm.expectRevert("sequencer uptime interrupted");
-            oracle.pastPrice(expectedStartedAt + twapWindow - 1);
-            vm.expectRevert("sequencer uptime interrupted");
-            oracle.pastPrice(expectedStartedAt - 100 days);
+            // test price check TODO
         } else {
             assertEq(address(oracle.sequencerChainlinkFeed()), address(0));
 
@@ -113,33 +105,6 @@ contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
 
     function test_currentPrice() public view {
         assertEq(oracle.currentPrice(), expectedCurPrice);
-    }
-
-    function test_pastPrice() public view {
-        uint32 pastTimestamp = uint32(block.timestamp) - twapWindow;
-        assertEq(oracle.pastPrice(pastTimestamp), expectedPriceTwapWindowAgo);
-    }
-
-    function test_pastPriceWithFallback() public view {
-        uint32 pastTimestamp = uint32(block.timestamp) - twapWindow;
-        (uint price, bool pastPriceOk) = oracle.pastPriceWithFallback(pastTimestamp);
-        assertEq(price, expectedPriceTwapWindowAgo);
-        assertTrue(pastPriceOk);
-    }
-
-    function test_pastPriceWithFallback_unavailableHistorical() public {
-        uint32 ago = 30 * 86_400; // 30 days, adjust up if flaky
-        uint32 pastTimestamp = uint32(block.timestamp) - ago;
-
-        // past price should revert
-        vm.expectRevert(revertBytesOLD);
-        oracle.pastPrice(pastTimestamp);
-
-        // fallback should succeed
-        (uint price, bool pastPriceOk) = oracle.pastPriceWithFallback(pastTimestamp);
-
-        assertEq(price, expectedCurPrice);
-        assertFalse(pastPriceOk);
     }
 
     function test_increaseCardinality() public {

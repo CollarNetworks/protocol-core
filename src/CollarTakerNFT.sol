@@ -129,21 +129,11 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         return takerLocked * callRange / putRange;
     }
 
-    /// @notice Returns the price used for opening positions, which is current price from
+    /// @notice Returns the price used for opening and settling positions, which is current price from
     /// the oracle.
     /// @return Amount of cashAsset for a unit of underlying (i.e. 10**underlying.decimals())
     function currentOraclePrice() public view returns (uint) {
         return oracle.currentPrice();
-    }
-
-    /// @notice Returns the price that's used in this contract for settling positions. If the
-    /// historical price is unavailable, it falls back to the current price. This allows
-    /// settlement to occur any time after expiry, but at a potentially different price than if
-    /// called soon after expiry.
-    /// @return price Amount of cashAsset for a unit of underlying (i.e. 10**underlying.decimals())
-    /// @return historical Whether the returned price is historical (true) or the current price (false)
-    function historicalOraclePrice(uint timestamp) public view returns (uint price, bool historical) {
-        return oracle.pastPriceWithFallback(timestamp.toUint32());
     }
 
     /**
@@ -253,7 +243,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         require(!position.settled, "taker: already settled");
 
         // settlement price
-        (uint endPrice, bool historical) = historicalOraclePrice(position.expiration);
+        uint endPrice = currentOraclePrice();
         // settlement amounts
         (uint takerBalance, int providerDelta) = _settlementCalculations(position, endPrice);
 
@@ -267,7 +257,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         providerNFT.settlePosition(providerId, providerDelta);
 
         emit PairedPositionSettled(
-            takerId, address(providerNFT), providerId, endPrice, historical, takerBalance, providerDelta
+            takerId, address(providerNFT), providerId, endPrice, takerBalance, providerDelta
         );
     }
 
@@ -348,9 +338,8 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         // since the observations buffer can be filled such that the required time window is not available.
         // @dev this means this contract can be temporarily DoSed unless the cardinality is set
         // to at least twap-window. For 5 minutes TWAP on Arbitrum this is 300 (obs. are set by timestamps)
-        require(_oracle.currentPrice() != 0, "taker: invalid current price");
-        (uint price,) = _oracle.pastPriceWithFallback(uint32(block.timestamp));
-        require(price != 0, "taker: invalid past price");
+        uint price = _oracle.currentPrice();
+        require(price != 0, "taker: invalid current price");
 
         // check these views don't revert (part of the interface used in Loans)
         // note: .convertToBaseAmount(price, price) should equal .baseUnitAmount(), but checking this

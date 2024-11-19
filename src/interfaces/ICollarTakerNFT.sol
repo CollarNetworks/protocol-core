@@ -52,7 +52,6 @@ interface ICollarTakerNFT {
         address indexed providerNFT,
         uint indexed providerId,
         uint endPrice,
-        bool historicalPriceUsed,
         uint withdrawable,
         int toProvider
     );

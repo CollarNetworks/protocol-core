@@ -162,21 +162,7 @@ contract OracleUniV3TWAPTest is Test {
         mockObserve(mockTick, 0);
         assertEq(oracle.currentPrice(), priceTick1000);
 
-        // past price just after "outage" works
-        assertTrue(oracle.sequencerLiveFor(1000));
-        uint32 ago = 1000 - twapWindow;
-        mockObserve(mockTick, ago);
-        assertEq(oracle.pastPrice(uint32(block.timestamp - ago)), priceTick1000);
-
-        // past price overlapping "outage" doesn't work
-        assertFalse(oracle.sequencerLiveFor(1000 + 1));
-        vm.expectRevert("sequencer uptime interrupted");
-        oracle.pastPrice(uint32(block.timestamp - ago - 1));
-
-        // past price before "outage" doesn't work
-        assertFalse(oracle.sequencerLiveFor(1500));
-        vm.expectRevert("sequencer uptime interrupted");
-        oracle.pastPrice(uint32(block.timestamp - 1500));
+        // TODO check grace period
     }
 
     function test_sequencerViewAndReverts_sequencerDown() public {
@@ -195,11 +181,7 @@ contract OracleUniV3TWAPTest is Test {
         vm.expectRevert("sequencer uptime interrupted");
         oracle.currentPrice();
 
-        vm.expectRevert("sequencer uptime interrupted");
-        oracle.pastPrice(uint32(block.timestamp));
-
-        vm.expectRevert("sequencer uptime interrupted");
-        oracle.pastPrice(uint32(block.timestamp - 1000));
+        // TODO check grace period
     }
 
     function test_currentPrice() public {
@@ -216,54 +198,6 @@ contract OracleUniV3TWAPTest is Test {
 
         uint price = oracle.currentPrice();
         assertEq(price, priceTickInverse1000);
-    }
-
-    function test_pastPrice() public {
-        int24 mockTick = tick1000;
-        mockObserve(mockTick, 60);
-
-        uint32 pastTimestamp = uint32(block.timestamp) - 60;
-        uint price = oracle.pastPrice(pastTimestamp);
-        assertEq(price, priceTick1000);
-    }
-
-    function test_pastPriceWithFallback() public {
-        int24 mockTick = tick1000;
-        mockObserve(mockTick, 60);
-
-        uint32 pastTimestamp = uint32(block.timestamp) - 60;
-        (uint price, bool pastPriceOk) = oracle.pastPriceWithFallback(pastTimestamp);
-        assertEq(price, priceTick1000);
-        assertTrue(pastPriceOk);
-    }
-
-    function test_pastPriceWithFallback_unavailableHistorical() public {
-        // Mock observe to revert for historical data
-        uint32 ago = 60;
-        uint32[] memory secondsAgos = new uint32[](2);
-        secondsAgos[0] = ago + twapWindow;
-        secondsAgos[1] = ago;
-        vm.mockCallRevert(
-            mockPool,
-            abi.encodeCall(IUniswapV3PoolDerivedState.observe, (secondsAgos)),
-            abi.encodeWithSelector(OLD.selector)
-        );
-
-        // Mock current price
-        int24 currentTick = tick1000;
-        mockObserve(currentTick, 0);
-
-        uint32 pastTimestamp = uint32(block.timestamp) - ago;
-
-        // past price should revert
-        vm.expectRevert(abi.encodeWithSelector(OLD.selector));
-        oracle.pastPrice(pastTimestamp);
-
-        // fallback should succeed
-        (uint price, bool pastPriceOk) = oracle.pastPriceWithFallback(pastTimestamp);
-
-        assertEq(price, priceTick1000);
-        assertFalse(pastPriceOk);
     }
 
     function test_differentTWAPWindow() public {

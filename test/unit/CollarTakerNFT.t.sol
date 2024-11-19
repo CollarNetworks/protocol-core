@@ -115,15 +115,12 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         skip(duration);
         // set settlement price
         mockOracle.setHistoricalAssetPrice(block.timestamp, priceToSettleAt);
-        checkSettlePosition(takerId, priceToSettleAt, expectedProviderChange, true);
+        checkSettlePosition(takerId, priceToSettleAt, expectedProviderChange);
     }
 
-    function checkSettlePosition(
-        uint takerId,
-        uint expectedSettlePrice,
-        int expectedProviderChange,
-        bool historicalUsed
-    ) internal {
+    function checkSettlePosition(uint takerId, uint expectedSettlePrice, int expectedProviderChange)
+        internal
+    {
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
         uint providerNFTId = takerPos.providerId;
         uint expectedTakerOut = uint(int(takerLocked) - expectedProviderChange);
@@ -149,7 +146,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
             address(providerNFT),
             providerNFTId,
             expectedSettlePrice,
-            historicalUsed,
             expectedTakerOut,
             expectedProviderChange
         );
@@ -244,26 +240,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
 
         newOracle.setHistoricalAssetPrice(block.timestamp, 1);
-        vm.mockCallRevert(
-            address(newOracle),
-            abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))),
-            "mocked"
-        );
-        vm.expectRevert("mocked");
-        new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
-
-        newOracle.setHistoricalAssetPrice(block.timestamp, 1);
-        // 1 current price, but 0 historical price
-        vm.mockCall(address(newOracle), abi.encodeCall(newOracle.currentPrice, ()), abi.encode(1));
-        vm.mockCall(
-            address(newOracle),
-            abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))),
-            abi.encode(0, false)
-        );
-        vm.expectRevert("taker: invalid past price");
-        new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
-        vm.clearMockedCalls();
-
         // 0 conversion view
         vm.mockCall(address(newOracle), abi.encodeCall(newOracle.convertToBaseAmount, (1, 1)), abi.encode(0));
         vm.expectRevert("taker: invalid convertToBaseAmount");
@@ -274,16 +250,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         vm.mockCallRevert(address(newOracle), abi.encodeCall(newOracle.convertToBaseAmount, (1, 1)), "mocked");
         vm.expectRevert("mocked");
         new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
-
-        // reverting historical price
-        vm.mockCallRevert(
-            address(newOracle),
-            abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))),
-            "mocked"
-        );
-        vm.expectRevert("mocked");
-        new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
-        vm.clearMockedCalls();
     }
 
     function test_pausableMethods() public {
@@ -482,7 +448,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         checkWithdrawFromSettled(takerId, takerLocked / 2);
     }
 
-    function test_settleAndWIthdrawHistoricalPrice() public {
+    function test_settleAndWIthdrawLate_usesCurrentPrice() public {
         uint expiryPice = twapPrice * 110 / 100;
         uint currentPrice = twapPrice * 120 / 100;
 
@@ -493,55 +459,8 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         (uint takerId,) = checkOpenPairedPosition();
         skip(11 * duration);
         assertEq(takerNFT.currentOraclePrice(), currentPrice);
-        (uint historicalPrice, bool historical) = takerNFT.historicalOraclePrice(expiration);
-        assertEq(historicalPrice, expiryPice);
-        assertTrue(historical);
-        // settled at historical price and got 50% of providerLocked
-        checkSettlePosition(takerId, expiryPice, -int(providerLocked / 2), true);
-        checkWithdrawFromSettled(takerId, takerLocked + providerLocked / 2);
-    }
-
-    function test_settleAndWIthdrawFallbackToCurrent_MockOracle() public {
-        uint currentPrice = twapPrice * 120 / 100;
-
-        (uint takerId,) = checkOpenPairedPosition();
-        uint expiration = block.timestamp + duration;
-
-        // nock the pastPriceWithFallback view used by TakerNFT
-        vm.mockCall(
-            address(mockOracle),
-            abi.encodeCall(mockOracle.pastPriceWithFallback, (uint32(expiration))),
-            abi.encode(currentPrice, false)
-        );
-        mockOracle.setHistoricalAssetPrice(expiration + 10 * duration, currentPrice);
-
-        skip(11 * duration);
-        assertEq(takerNFT.currentOraclePrice(), currentPrice);
-        (uint historicalPrice, bool historical) = takerNFT.historicalOraclePrice(expiration);
-        assertEq(historicalPrice, currentPrice);
-        assertFalse(historical);
-        // settled at historical price and got 100% of providerLocked
-        checkSettlePosition(takerId, currentPrice, -int(providerLocked), false);
-        checkWithdrawFromSettled(takerId, takerLocked + providerLocked);
-    }
-
-    function test_settleAndWIthdrawFallbackToCurrent_MockInternalRevert() public {
-        uint currentPrice = twapPrice * 120 / 100;
-
-        (uint takerId,) = checkOpenPairedPosition();
-        uint expiration = block.timestamp + duration;
-
-        // nock revert the pastPrice view used by Oracle internally
-        vm.mockCallRevert(address(mockOracle), abi.encodeCall(mockOracle.pastPrice, (uint32(expiration))), "");
-        mockOracle.setHistoricalAssetPrice(expiration + 10 * duration, currentPrice);
-
-        skip(11 * duration);
-        assertEq(takerNFT.currentOraclePrice(), currentPrice);
-        (uint historicalPrice, bool historical) = takerNFT.historicalOraclePrice(expiration);
-        assertEq(historicalPrice, currentPrice);
-        assertFalse(historical);
-        // settled at historical price and got 100% of providerLocked
-        checkSettlePosition(takerId, currentPrice, -int(providerLocked), false);
+        // settled at current price and got 100% of providerLocked
+        checkSettlePosition(takerId, currentPrice, -int(providerLocked));
         checkWithdrawFromSettled(takerId, takerLocked + providerLocked);
     }
 
@@ -723,17 +642,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         takerNFT.setOracle(newOracle);
 
         newOracle.setHistoricalAssetPrice(block.timestamp, 1);
-        // 1 current price, but 0 historical price
-        vm.mockCall(address(newOracle), abi.encodeCall(newOracle.currentPrice, ()), abi.encode(1));
-        vm.mockCall(
-            address(newOracle),
-            abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))),
-            abi.encode(0, false)
-        );
-        vm.expectRevert("taker: invalid past price");
-        takerNFT.setOracle(newOracle);
-        vm.clearMockedCalls();
-
         // 0 conversion view
         vm.mockCall(address(newOracle), abi.encodeCall(newOracle.convertToBaseAmount, (1, 1)), abi.encode(0));
         vm.expectRevert("taker: invalid convertToBaseAmount");
@@ -745,22 +653,5 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         vm.expectRevert("mocked");
         takerNFT.setOracle(newOracle);
         vm.clearMockedCalls();
-
-        // reverting historical price
-        vm.mockCallRevert(
-            address(newOracle),
-            abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))),
-            "mocked"
-        );
-        vm.expectRevert("mocked");
-        takerNFT.setOracle(newOracle);
-    }
-
-    function test_revert_historicalOraclePrice_overflow() public {
-        uint overflow32 = uint(type(uint32).max) + 1;
-        vm.expectRevert(
-            abi.encodeWithSelector(SafeCast.SafeCastOverflowedUintDowncast.selector, 32, overflow32)
-        );
-        takerNFT.historicalOraclePrice(overflow32);
     }
 }

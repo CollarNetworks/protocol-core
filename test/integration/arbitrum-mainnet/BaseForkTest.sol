@@ -11,7 +11,7 @@ import { PriceMovementHelper } from "../utils/PriceMovement.sol";
 import { ArbitrumMainnetDeployer } from "../../../script/arbitrum-mainnet/deployer.sol";
 import { DeploymentUtils } from "../../../script/utils/deployment-exporter.s.sol";
 
-abstract contract LoansTestBase is Test, DeploymentLoader {
+abstract contract LoansForkTestBase is Test, DeploymentLoader {
     function setUp() public virtual override {
         super.setUp();
     }
@@ -103,7 +103,7 @@ abstract contract LoansTestBase is Test, DeploymentLoader {
     }
 }
 
-abstract contract BaseLoansForkTest is LoansTestBase {
+abstract contract BaseLoansForkTest is LoansForkTestBase {
     // constants for all pairs
     uint constant BIPS_BASE = 10_000;
 
@@ -242,18 +242,23 @@ abstract contract BaseLoansForkTest is LoansTestBase {
         uint escrowSupplierBefore = pair.underlying.balanceOf(escrowSupplier);
         uint interestFee = pair.escrowNFT.interestFee(escrowOfferId, underlyingAmount);
 
-        // Skip past expiry AND grace period
-        skip(duration + maxGracePeriod + 1);
+        // Skip past expiry
+        skip(duration);
+        uint expiryPrice = pair.oracle.currentPrice();
+        // Get expiry price from oracle
+        ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
+        (uint takerWithdrawal,) = pair.takerNFT.previewSettlement(position, expiryPrice);
+        // bot settles the position
+        pair.takerNFT.settlePairedPosition(loanId);
+
+        // skip past grace period
+        skip(maxGracePeriod + 1);
 
         // Calculate expected late fee
         (, uint lateFee) = pair.escrowNFT.currentOwed(loanBefore.escrowId);
         assertGt(lateFee, 0);
-        // Get expiry price from oracle
-        ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
-        (uint expiryPrice,) = pair.oracle.pastPriceWithFallback(uint32(position.expiration));
-        (uint takerWithdrawal,) = pair.takerNFT.previewSettlement(position, expiryPrice);
-        uint totalAmountToSwap = loanAmount + takerWithdrawal;
 
+        uint totalAmountToSwap = loanAmount + takerWithdrawal;
         closeAndCheckLoan(loanId, loanAmount, totalAmountToSwap, lateFee);
 
         // Check escrow position's withdrawable (underlying + interest + late fee)
@@ -498,9 +503,8 @@ abstract contract BaseLoansForkTest is LoansTestBase {
         // Track balances before closing
         uint userCashBefore = pair.cashAsset.balanceOf(user);
         uint userUnderlyingBefore = pair.underlying.balanceOf(user);
-        uint expiration = pair.takerNFT.getPosition(loanId).expiration;
         // Get current price from oracle
-        (uint currentPrice,) = pair.oracle.pastPriceWithFallback(uint32(expiration));
+        uint currentPrice = pair.oracle.currentPrice();
         // Convert cash amount to expected underlying amount using oracle's conversion
         uint expectedUnderlying = (pair.oracle.convertToBaseAmount(totalAmountToSwap, currentPrice) - lateFee);
 
@@ -689,13 +693,13 @@ abstract contract BaseLoansForkTest is LoansTestBase {
         vm.stopPrank();
     }
 
-    function createEscrowOffers() internal returns (uint offerId, uint escrowOfferId) {
+    function createEscrowOffers() internal returns (uint offerId, uint _escrowOfferId) {
         uint providerBalanceBefore = pair.cashAsset.balanceOf(provider);
         offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration);
         assertEq(pair.cashAsset.balanceOf(provider), providerBalanceBefore - offerAmount);
 
         // Create escrow offer
-        escrowOfferId = createEscrowOffer(duration);
+        _escrowOfferId = createEscrowOffer(duration);
     }
 
     function executeEscrowLoan(uint offerId, uint escrowOfferId)
