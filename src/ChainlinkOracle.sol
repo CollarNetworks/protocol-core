@@ -2,6 +2,7 @@
 pragma solidity 0.8.22;
 
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import { Strings } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 import { BaseTakerOracle } from "./base/BaseTakerOracle.sol";
 import { IChainlinkFeedLike } from "./interfaces/IChainlinkFeedLike.sol";
@@ -10,6 +11,7 @@ import { IChainlinkFeedLike } from "./interfaces/IChainlinkFeedLike.sol";
  * @title ChainlinkOracle
  * @custom:security-contact security@collarprotocol.xyz
  * @notice Provides price from a Chainlink feed.
+ * @dev Check feed address and params vs. https://docs.chain.link/data-feeds/price-feeds/addresses
  *
  * Key Assumptions:
  * - Chainlink price feed configuration matches expectation.
@@ -31,7 +33,6 @@ contract ChainlinkOracle is BaseTakerOracle {
     uint internal constant MAX_STALENESS_MAX = 72 hours;
 
     /// @notice The Chainlink price feed.
-    /// @dev https://docs.chain.link/data-feeds/price-feeds/addresses
     IChainlinkFeedLike public immutable priceFeed;
     /// @notice The maximum allowed age of the price (updatedAt) relative to block.timestamp
     /// @dev Consider setting `_maxStaleness` to slightly more than the feed's heartbeat
@@ -46,17 +47,19 @@ contract ChainlinkOracle is BaseTakerOracle {
         address _baseToken,
         address _quoteToken,
         address _priceFeed,
+        string memory _feedDescription,
         uint _maxStaleness,
         address _sequencerChainlinkFeed
     ) BaseTakerOracle(_baseToken, _quoteToken, _sequencerChainlinkFeed) {
         require(
-            _maxStaleness >= MAX_STALENESS_MIN || _maxStaleness <= MAX_STALENESS_MAX,
+            _maxStaleness >= MAX_STALENESS_MIN && _maxStaleness <= MAX_STALENESS_MAX,
             "ChainlinkOracle: staleness out of range"
         );
         maxStaleness = _maxStaleness;
         priceFeed = IChainlinkFeedLike(_priceFeed);
+        require(Strings.equal(priceFeed.description(), _feedDescription), "ChainlinkOracle: description mismatch");
 
-        // set quote unit amounts
+        // set unit amounts for price conversion
         quoteUnitAmount = 10 ** IERC20Metadata(_quoteToken).decimals();
         feedUnitAmount = 10 ** priceFeed.decimals();
     }

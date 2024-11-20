@@ -8,6 +8,9 @@ interface IChainlinkFeedLike {
     /// @return The decimals of the feed.
     function decimals() external view returns (uint8);
 
+    /// @notice returns the description of the aggregator the proxy points to.
+    function description() external view returns (string memory);
+
     /// @notice Get data about the latest round.
     /// @return roundId The round ID from the aggregator for which the data was retrieved.
     /// @return answer The answer for the given round.
