@@ -695,13 +695,13 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         vm.stopPrank();
     }
 
-    function createEscrowOffers() internal returns (uint offerId, uint _escrowOfferId) {
+    function createEscrowOffers() internal returns (uint offerId, uint escrowOfferId) {
         uint providerBalanceBefore = pair.cashAsset.balanceOf(provider);
         offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration, ltv);
         assertEq(pair.cashAsset.balanceOf(provider), providerBalanceBefore - offerAmount);
 
         // Create escrow offer
-        _escrowOfferId = createEscrowOffer(duration);
+        escrowOfferId = createEscrowOffer(duration);
     }
 
     function executeEscrowLoan(uint offerId, uint escrowOfferId)
