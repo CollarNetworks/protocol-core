@@ -90,7 +90,9 @@ contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
             assertFalse(oracle.sequencerLiveFor(block.timestamp - expectedStartedAt + 1));
             assertFalse(oracle.sequencerLiveFor(block.timestamp - expectedStartedAt + 100 days));
 
-            // test price check TODO
+            // price works
+            uint price = oracle.currentPrice();
+            assertNotEq(price, 0);
         } else {
             assertEq(address(oracle.sequencerChainlinkFeed()), address(0));
 

@@ -153,16 +153,21 @@ contract OracleUniV3TWAPTest is Test {
         vm.mockCall(
             mockSequencerFeed,
             abi.encodeCall(IChainlinkFeedLike.latestRoundData, ()),
-            abi.encode(0, 0, block.timestamp - 1000, 0, 0)
+            abi.encode(0, 0, block.timestamp - twapWindow + 1, 0, 0)
         );
         int24 mockTick = tick1000;
 
         // current works
-        assertTrue(oracle.sequencerLiveFor(500));
+        assertFalse(oracle.sequencerLiveFor(twapWindow));
+        vm.expectRevert("sequencer uptime interrupted");
+        oracle.currentPrice();
+
+        skip(1);
+        assertTrue(oracle.sequencerLiveFor(twapWindow));
         mockObserve(mockTick, 0);
         assertEq(oracle.currentPrice(), priceTick1000);
 
-        // TODO check grace period
+        assertFalse(oracle.sequencerLiveFor(twapWindow + 1));
     }
 
     function test_sequencerViewAndReverts_sequencerDown() public {
@@ -172,7 +177,7 @@ contract OracleUniV3TWAPTest is Test {
         vm.mockCall(
             mockSequencerFeed,
             abi.encodeCall(IChainlinkFeedLike.latestRoundData, ()),
-            abi.encode(0, 1, block.timestamp - 1000, 0, 0)
+            abi.encode(0, 1, block.timestamp - twapWindow, 0, 0)
         );
 
         assertFalse(oracle.sequencerLiveFor(0));
@@ -181,7 +186,12 @@ contract OracleUniV3TWAPTest is Test {
         vm.expectRevert("sequencer uptime interrupted");
         oracle.currentPrice();
 
-        // TODO check grace period
+        skip(1000);
+
+        vm.expectRevert("sequencer uptime interrupted");
+        oracle.currentPrice();
+        assertFalse(oracle.sequencerLiveFor(0));
+        assertFalse(oracle.sequencerLiveFor(1500));
     }
 
     function test_currentPrice() public {
