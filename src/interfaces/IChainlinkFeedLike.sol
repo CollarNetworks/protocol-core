@@ -1,9 +1,20 @@
 // SPDX-License-Identifier: GPL 2.0
 pragma solidity 0.8.22;
 
-/// Partial chainlink AggregatorV2V3Interface used in AAVE in for its sequencer uptime checks:
-/// https://github.com/aave-dao/aave-v3-origin/blob/077c99e8002514f1f487e3707824c21ac19cf12e/src/contracts/interfaces/ISequencerOracle.sol
+/// Partial chainlink AggregatorV2V3Interface used in Euler:
+/// https://github.com/euler-xyz/euler-price-oracle/blob/0572b45f6096f42f290b7cf7df584226815bfa52/src/adapter/chainlink/AggregatorV3Interface.sol
 interface IChainlinkFeedLike {
+    /// @notice Returns the feed's decimals.
+    /// @return The decimals of the feed.
+    function decimals() external view returns (uint8);
+
+    /// @notice Get data about the latest round.
+    /// @return roundId The round ID from the aggregator for which the data was retrieved.
+    /// @return answer The answer for the given round.
+    /// @return startedAt The timestamp when the round was started.
+    /// (Only some AggregatorV3Interface implementations return meaningful values)
+    /// @return updatedAt The timestamp when the round last was updated (i.e. answer was last computed).
+    /// @return answeredInRound is the round ID of the round in which the answer was computed.
     function latestRoundData()
         external
         view
