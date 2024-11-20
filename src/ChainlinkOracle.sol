@@ -62,7 +62,9 @@ contract ChainlinkOracle is BaseTakerOracle {
         );
         maxStaleness = _maxStaleness;
         priceFeed = IChainlinkFeedLike(_priceFeed);
-        require(Strings.equal(priceFeed.description(), _feedDescription), "ChainlinkOracle: description mismatch");
+        require(
+            Strings.equal(priceFeed.description(), _feedDescription), "ChainlinkOracle: description mismatch"
+        );
 
         // set unit amounts for price conversion
         quoteUnitAmount = 10 ** IERC20Metadata(_quoteToken).decimals();

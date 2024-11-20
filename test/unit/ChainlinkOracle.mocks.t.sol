@@ -155,7 +155,7 @@ contract ChainlinkOracleTest is Test {
         assertEq(oracle.currentPrice(), expectedPrice);
 
         mockFeed.setLatestAnswer(feedPrice * 100, block.timestamp - maxStaleness);
-        assertEq(oracle.currentPrice(), expectedPrice  * 100);
+        assertEq(oracle.currentPrice(), expectedPrice * 100);
     }
 
     function test_currentPrice_decimals() public {
@@ -175,7 +175,7 @@ contract ChainlinkOracleTest is Test {
         assertEq(oracle.currentPrice(), expectedPrice);
 
         mockFeed.setLatestAnswer(feedPrice * 100, block.timestamp - maxStaleness);
-        assertEq(oracle.currentPrice(), expectedPrice  * 100);
+        assertEq(oracle.currentPrice(), expectedPrice * 100);
     }
 
     function test_conversions() public view {
