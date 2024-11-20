@@ -23,9 +23,14 @@ import { IChainlinkFeedLike } from "./interfaces/IChainlinkFeedLike.sol";
 contract ChainlinkOracle is BaseTakerOracle {
     string public constant VERSION = "0.2.0";
 
-    // @notice time sequencer needs to have been up to expect chainlink feeds to have been updated if
-    // needed (moved by more than deviation, or heartbeat time reached)
-    uint public constant MIN_SEQUENCER_UPTIME = 30 * 60; // 30 minutes
+    // @notice time sequencer needs to have been up for, to expect that chainlink feeds
+    // have been updated if needed (moved by more than deviation, or heartbeat time reached)
+    // Chainlink use 1 hours in their example code:
+    //  https://docs.chain.link/data-feeds/l2-sequencer-feeds#example-code
+    // But this time is in mind with users to be able to update their positions (e.g., health)
+    // and they don't mention how quickly their own feeds will start working.
+    // We'll use 1 hour too to be conservative.
+    uint public constant MIN_SEQUENCER_UPTIME = 1 hours;
 
     /// @notice The minimum permitted value for `maxStaleness`.
     uint internal constant MAX_STALENESS_MIN = 1 minutes;

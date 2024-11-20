@@ -22,7 +22,7 @@ contract ChainlinkOracleTest is Test {
     uint8 baseDecimals = 18;
     uint8 quoteDecimals = 6;
 
-    uint sequencerGracePeriod = 30 * 60;
+    uint sequencerGracePeriod = 3600;
 
     uint maxStaleness = 100;
     uint unitPrice = 1000;
@@ -37,7 +37,7 @@ contract ChainlinkOracleTest is Test {
         );
         vm.clearMockedCalls();
         // roll into future to avoid underflow with timestamps
-        skip(1000);
+        skip(sequencerGracePeriod * 2);
     }
 
     function mockDependencyCalls() internal {
@@ -62,7 +62,6 @@ contract ChainlinkOracleTest is Test {
             baseToken, quoteToken, address(mockFeed), feedDescription, maxStaleness, mockSequencerFeed
         );
         assertEq(oracle.VERSION(), "0.2.0");
-        assertEq(oracle.MIN_SEQUENCER_UPTIME(), 1800);
         assertEq(oracle.baseToken(), baseToken);
         assertEq(oracle.quoteToken(), quoteToken);
         assertEq(oracle.baseUnitAmount(), 10 ** baseDecimals);
