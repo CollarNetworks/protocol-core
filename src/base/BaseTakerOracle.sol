@@ -18,8 +18,6 @@ abstract contract BaseTakerOracle is ITakerOracle {
         baseToken = _baseToken;
         quoteToken = _quoteToken;
         baseUnitAmount = 10 ** IERC20Metadata(_baseToken).decimals();
-        // sanity check decimals for casting in _getQuote
-        require(baseUnitAmount <= type(uint128).max, "invalid decimals");
         sequencerChainlinkFeed = IChainlinkFeedLike(_sequencerChainlinkFeed);
     }
 
