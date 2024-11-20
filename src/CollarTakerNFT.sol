@@ -32,7 +32,7 @@ import { ICollarProviderNFT } from "./interfaces/ICollarProviderNFT.sol";
  *    correspond to transfer arguments.
  *
  * Post-Deployment Configuration:
- * - Oracle: Ensure adequate observation cardinality
+ * - Oracle: If using Uniswap ensure adequate observation cardinality, if using Chainlink ensure correct config.
  * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset pair
  * - ConfigHub: Set setCanOpenPair() to authorize the provider contract
  * - CollarProviderNFT: Ensure properly configured
@@ -223,17 +223,14 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     }
 
     /**
-     * @notice Settles a paired position after expiry. Tries to use historical price, if unavailable
-     * falls back to current.
+     * @notice Settles a paired position after expiry. Uses current oracle price at time of call.
      * @param takerId The ID of the taker position to settle
      *
-     * @dev this should be called as soon after expiry as possible, because if the expiry TWAP
-     * price becomes unavailable in the UniV3 oracle, the current price will be used instead of it.
+     * @dev this should be called as soon after expiry as possible to minimize the difference between
+     * price at expiry time and price at call time (which is used for payouts).
      * Both taker and provider are incentivised to call this method, however it's possible that
      * one side is not (e.g., due to being at max loss). For this reason a keeper should be run to
      * prevent users with gains from not settling their positions on time.
-     * @dev To increase the timespan during which the historical price is available use
-     * `oracle.increaseCardinality` (or the pool's `increaseObservationCardinalityNext`).
      */
     function settlePairedPosition(uint takerId) external whenNotPaused {
         // @dev this checks position exists
@@ -334,10 +331,9 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         require(_oracle.quoteToken() == address(cashAsset), "taker: oracle cashAsset mismatch");
 
         // Ensure price calls don't revert and return a non-zero price at least right now.
-        // Only a sanity check, since this doesn't ensure that it will work in the future,
-        // since the observations buffer can be filled such that the required time window is not available.
-        // @dev this means this contract can be temporarily DoSed unless the cardinality is set
-        // to at least twap-window. For 5 minutes TWAP on Arbitrum this is 300 (obs. are set by timestamps)
+        // Only a sanity check, and the protocol should work even if the oracle is temporarily unavailable
+        // in the future. For example, if a TWAP oracle is used, the observations buffer can be filled such that
+        // the required time window is not available. If Chainlink oracle is used, the prices can be stale.
         uint price = _oracle.currentPrice();
         require(price != 0, "taker: invalid current price");
 

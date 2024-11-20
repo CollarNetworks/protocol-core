@@ -96,7 +96,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
         // deviation vs.TWAP
         prepareSwap(cashAsset, swapCashAmount / 2);
-        vm.expectRevert("swap and twap price too different");
+        vm.expectRevert("swap and oracle price too different");
         openLoan(underlyingAmount, minLoanAmount, 0, offerId);
     }
 

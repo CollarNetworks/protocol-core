@@ -48,7 +48,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     uint internal constant BIPS_BASE = 10_000;
 
     string public constant VERSION = "0.2.0";
-    uint public constant MAX_SWAP_TWAP_DEVIATION_BIPS = 1000; // 10%, allows 10% self-sandwich slippage
+    uint public constant MAX_SWAP_PRICE_DEVIATION_BIPS = 1000; // 10%, allows 10% self-sandwich slippage
 
     // ----- IMMUTABLES ----- //
     CollarTakerNFT public immutable takerNFT;
@@ -102,7 +102,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     }
 
     /// @notice The available grace period using position cash value available for late fees.
-    /// @dev Uses TWAP price for calculations, reverts if position not settled (and therefore before expiry).
+    /// @dev Uses oracle price for calculations, reverts if position not settled (and therefore before expiry).
     /// No validation of loan existing or being active, so can return nonsense values for invalid loans.
     /// @param loanId The ID of the loan to calculate for
     /// @return The length of the grace period
@@ -386,15 +386,15 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         address escrowOwner = escrowNFT.ownerOf(escrowId);
         require(_isSenderOrKeeperFor(escrowOwner), "loans: not escrow owner or allowed keeper");
 
-        // @dev escrowGracePeriod uses twap-price, while actual foreclosing swap is using spot price.
+        // @dev escrowGracePeriod uses oracle-price, while actual foreclosing swap is using spot price.
         // This has several implications:
         // 1. This protects foreclosing from price manipulation edge-cases.
         // 2. The final swap can be manipulated against the supplier, so either they or a trusted keeper
         //    should do it.
         // 3. This also means that swap amount may be different from the estimation in escrowGracePeriod
         //    if near the end of a grace-period that was capped.
-        //    In this case, if swap price is less than twap, the late fees may be slightly underpaid
-        //    because of the swap-twap difference and slippage.
+        //    In this case, if swap price is less than oracle, the late fees may be slightly underpaid
+        //    because of the spot-oracle difference and slippage.
         // 4. Because the supplier (escrow owner) is controlling this call, they can manipulate the price
         //    to their benefit, but it still can't pay more than the lateFees calculated by time, and can only
         //    result in "leftovers" that will go to the borrower, so makes no sense for them to do (since
@@ -591,7 +591,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         (uint a, uint b) = (underlyingAmount, underlyingFromCash);
         uint absDiff = a > b ? a - b : b - a;
         uint deviation = absDiff * BIPS_BASE / underlyingAmount; // checked on open to not be 0
-        require(deviation <= MAX_SWAP_TWAP_DEVIATION_BIPS, "swap and twap price too different");
+        require(deviation <= MAX_SWAP_PRICE_DEVIATION_BIPS, "swap and oracle price too different");
     }
 
     /// @dev swap logic with balance and slippage checks
