@@ -93,6 +93,20 @@ contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
             // price works
             uint price = oracle.currentPrice();
             assertNotEq(price, 0);
+
+            // very long twap window to check sequencer check causes reverts
+            twapWindow = uint32(block.timestamp) - expectedStartedAt + 1;
+            oracle = new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, router, sequencerFeed);
+
+            // reverts due to sequencer
+            vm.expectRevert("sequencer uptime interrupted");
+            oracle.currentPrice();
+
+            skip(1);
+            // doesn't revert due to sequencer, but due to not having data
+            vm.expectRevert(bytes("OLD"));
+            oracle.currentPrice();
+
         } else {
             assertEq(address(oracle.sequencerChainlinkFeed()), address(0));
 
