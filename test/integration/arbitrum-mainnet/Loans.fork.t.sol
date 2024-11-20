@@ -45,7 +45,7 @@ contract USDCWETHForkTest is BaseLoansForkTest {
         callstrikeToUse = 11_000;
 
         // price movement swap amounts
-        swapStepCashAmount = 1_000_000e6;
+        swapStepCashAmount = 2_000_000e6;
     }
 }
 
