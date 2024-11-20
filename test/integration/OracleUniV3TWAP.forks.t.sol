@@ -106,7 +106,6 @@ contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
             // doesn't revert due to sequencer, but due to not having data
             vm.expectRevert(bytes("OLD"));
             oracle.currentPrice();
-
         } else {
             assertEq(address(oracle.sequencerChainlinkFeed()), address(0));
 

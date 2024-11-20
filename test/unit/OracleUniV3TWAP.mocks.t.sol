@@ -13,7 +13,8 @@ import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswa
 import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 
-import { OracleUniV3TWAP, IERC20Metadata, IChainlinkFeedLike } from "../../src/OracleUniV3TWAP.sol";
+import { IERC20Metadata, IChainlinkFeedLike } from "../../src/base/BaseTakerOracle.sol";
+import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 
 contract OracleUniV3TWAPTest is Test {
     OracleUniV3TWAP public oracle;
@@ -278,12 +279,14 @@ contract OracleUniV3TWAPTest is Test {
     // revert tests
 
     function test_revert_constructor_invalidPool() public {
+        vm.mockCall(baseToken, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(18));
         // reverting factory view
         vm.expectRevert(new bytes(0));
         new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, address(0), mockSequencerFeed);
     }
 
     function test_revert_constructor_invalidTWAPWindow() public {
+        vm.mockCall(baseToken, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(18));
         vm.expectRevert("twap window too short");
         new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow - 1, mockRouter, mockSequencerFeed);
     }
