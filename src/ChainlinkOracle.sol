@@ -32,9 +32,9 @@ contract ChainlinkOracle is BaseTakerOracle {
     // We'll use 1 hour too to be conservative.
     uint public constant MIN_SEQUENCER_UPTIME = 1 hours;
 
-    /// @notice The minimum permitted value for `maxStaleness`.
+    // The minimum permitted value for `maxStaleness`.
     uint internal constant MAX_STALENESS_MIN = 1 minutes;
-    /// @notice The maximum permitted value for `maxStaleness`.
+    // The maximum permitted value for `maxStaleness`.
     uint internal constant MAX_STALENESS_MAX = 72 hours;
 
     /// @notice The Chainlink price feed.

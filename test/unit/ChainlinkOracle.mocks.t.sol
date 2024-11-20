@@ -5,7 +5,7 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 
 import { ChainlinkOracle, IERC20Metadata, IChainlinkFeedLike } from "../../src/ChainlinkOracle.sol";
-import { MockChainlinkFeed } from "../utils/MockChainlinkOracle.sol";
+import { MockChainlinkFeed } from "../utils/MockChainlinkFeed.sol";
 
 contract ChainlinkOracleTest is Test {
     ChainlinkOracle public oracle;

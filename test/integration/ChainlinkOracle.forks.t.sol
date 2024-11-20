@@ -143,7 +143,7 @@ contract ChainlinkOracle_ArbiMain_NewTokens_ForkTest is ChainlinkOracle_ArbiMain
     }
 }
 
-contract ChainlinkOracle_ArbiSepolia_NewPool_ForkTest is ChainlinkOracle_ArbiMain_NewTokens_ForkTest {
+contract ChainlinkOracle_ArbiSepolia_NewTokens_ForkTest is ChainlinkOracle_ArbiMain_NewTokens_ForkTest {
     function _startFork() internal override {
         vm.createSelectFork(vm.envString("ARBITRUM_SEPOLIA_RPC"), 72_779_252);
     }
@@ -165,7 +165,7 @@ contract ChainlinkOracle_ArbiSepolia_NewPool_ForkTest is ChainlinkOracle_ArbiMai
         sequencerFeedExists = false;
         sequencerFeed = address(0);
 
-        // price is for 1e8 WBTC in 1e18 USDC (because WBTC is 8 decimals)
+        // price is for 1e8 WBTC in 1e18 testUSD (because WBTC is 8 decimals)
         expectedCurPrice = 59_399_990_000_000_000_000_000; // 59000 * 1e18
     }
 }
