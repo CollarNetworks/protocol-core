@@ -294,7 +294,7 @@ contract OracleUniV3TWAPTest is Test {
     function test_revert_constructor_invalidDecimals() public {
         // Mock the decimals call
         vm.mockCall(baseToken, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(39));
-        vm.expectRevert("invalid decimals");
+        vm.expectRevert("invalid base decimals");
         new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, mockRouter, mockSequencerFeed);
     }
 }

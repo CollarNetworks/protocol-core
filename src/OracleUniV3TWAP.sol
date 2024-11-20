@@ -81,6 +81,9 @@ contract OracleUniV3TWAP is BaseTakerOracle {
         address _uniV3SwapRouter,
         address _sequencerChainlinkFeed
     ) BaseTakerOracle(_baseToken, _quoteToken, _sequencerChainlinkFeed) {
+        // sanity check base decimals for casting in _getQuote
+        require(baseUnitAmount <= type(uint128).max, "invalid base decimals");
+        // check twap window not too short
         require(_twapWindow >= MIN_TWAP_WINDOW, "twap window too short");
         feeTier = _feeTier;
         twapWindow = _twapWindow;
