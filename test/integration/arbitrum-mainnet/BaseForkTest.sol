@@ -747,7 +747,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
 
     function checkLoanAmount(uint actualLoanAmount) internal view {
         uint oraclePrice = pair.takerNFT.currentOraclePrice();
-        uint expectedCashFromSwap = underlyingAmount * oraclePrice / pair.oracle.baseUnitAmount();
+        uint expectedCashFromSwap = pair.oracle.convertToQuoteAmount(underlyingAmount, oraclePrice);
         // Calculate minimum expected loan amount (expectedCash * LTV)
         // Apply slippage tolerance for swaps and rounding
         uint minExpectedLoan =

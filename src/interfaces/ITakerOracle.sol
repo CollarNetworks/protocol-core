@@ -12,8 +12,6 @@ interface ITakerOracle {
 
     function quoteToken() external view returns (address);
 
-    function baseUnitAmount() external view returns (uint);
-
     /// @notice Current price.
     /// @return Amount of quoteToken for a "unit" of baseToken (i.e. 10**baseToken.decimals())
     function currentPrice() external view returns (uint);
