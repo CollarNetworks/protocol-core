@@ -18,7 +18,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         maybeCreateEscrowOffer();
 
         vm.startPrank(user1);
-        prepareSwapToCashAtTWAPPrice();
+        prepareSwapToCashAtOraclePrice();
 
         // not enough approval for fee
         vm.startPrank(user1);
@@ -65,7 +65,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         uint providerOffer = createProviderOffer();
 
         vm.startPrank(user1);
-        prepareSwapToCashAtTWAPPrice();
+        prepareSwapToCashAtOraclePrice();
         underlying.approve(address(loans), underlyingAmount + escrowFee);
         vm.expectRevert("loans: duration mismatch");
         openLoan(underlyingAmount, minLoanAmount, 0, providerOffer);
@@ -110,8 +110,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         // at the end of grace period
         skip(gracePeriod);
         updatePrice();
-        prepareSwapToUnderlyingAtTWAPPrice();
-        mockOracle.setCheckPrice(true);
+        prepareSwapToUnderlyingAtOraclePrice();
         vm.expectRevert("loans: cannot foreclose yet");
         loans.forecloseLoan(loanId, defaultSwapParams(0));
 
@@ -143,7 +142,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         // foreclosable now
         skip(1);
         updatePrice();
-        prepareSwapToUnderlyingAtTWAPPrice();
+        prepareSwapToUnderlyingAtOraclePrice();
 
         // Keeper can now foreclose
         vm.startPrank(keeper);
@@ -179,8 +178,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         skip(duration + maxGracePeriod + 1);
         updatePrice();
         takerNFT.settlePairedPosition(loanId);
-        mockOracle.setCheckPrice(true);
-        uint swapOut = prepareSwapToUnderlyingAtTWAPPrice();
+        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
 
         // foreclose with an invalid swapper
         vm.startPrank(supplier);

@@ -13,7 +13,7 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
 
     function expectedGracePeriod(uint loanId, uint swapPrice) internal view returns (uint) {
         uint cashAvailable = takerNFT.getPosition({ takerId: loanId }).withdrawable;
-        uint underlyingAmt = mockOracle.convertToBaseAmount(cashAvailable, swapPrice);
+        uint underlyingAmt = chainlinkOracle.convertToBaseAmount(cashAvailable, swapPrice);
         return escrowNFT.cappedGracePeriod(loans.getLoan(loanId).escrowId, underlyingAmt);
     }
 
@@ -37,7 +37,7 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         skip(estimatedGracePeriod + skipAfterGrace);
         updatePrice(currentPrice);
 
-        uint swapOut = prepareSwapToUnderlyingAtTWAPPrice();
+        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
 
         // calculate expected escrow release values
         uint escrowId = loans.getLoan(loanId).escrowId;
@@ -132,9 +132,9 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         updatePrice();
         takerNFT.settlePairedPosition(loanId);
         // current price is different from settlement
-        twapPrice = twapPrice * 11 / 10;
+        oraclePrice = oraclePrice * 11 / 10;
         updatePrice();
-        uint expected = expectedGracePeriod(loanId, twapPrice);
+        uint expected = expectedGracePeriod(loanId, oraclePrice);
 
         // after expiry, keeps using correct price
         skip(1);
@@ -160,17 +160,17 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         takerNFT.settlePairedPosition(loanId);
 
         // Price increase
-        uint highPrice = twapPrice * 2;
+        uint highPrice = oraclePrice * 2;
         updatePrice(highPrice);
         assertEq(loans.escrowGracePeriod(loanId), expectedGracePeriod(loanId, highPrice));
 
         // Price decrease
-        uint lowPrice = twapPrice / 2;
+        uint lowPrice = oraclePrice / 2;
         updatePrice(lowPrice);
         assertEq(loans.escrowGracePeriod(loanId), expectedGracePeriod(loanId, lowPrice));
 
         // min grace period (for very high price), very high price means cash is worth 0 underlying
-        updatePrice(type(uint).max);
+        updatePrice(type(uint128).max);
         assertEq(loans.escrowGracePeriod(loanId), escrowNFT.MIN_GRACE_PERIOD());
 
         // max grace period (for very low price), because user swap will return a lot of underlying
@@ -189,13 +189,13 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
 
     function test_forecloseLoan_prices() public {
         // just after grace period end
-        checkForecloseLoan(twapPrice, twapPrice, 1, supplier);
+        checkForecloseLoan(oraclePrice, oraclePrice, 1, supplier);
 
         // long after max gracePeriod
-        checkForecloseLoan(twapPrice, twapPrice, maxGracePeriod, supplier);
+        checkForecloseLoan(oraclePrice, oraclePrice, maxGracePeriod, supplier);
 
         // price increase
-        checkForecloseLoan(type(uint).max, type(uint).max, maxGracePeriod, supplier);
+        checkForecloseLoan(type(uint128).max, type(uint128).max, maxGracePeriod, supplier);
 
         // price decrease
         checkForecloseLoan(1, 1, maxGracePeriod, supplier);
@@ -217,6 +217,6 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         loans.setKeeperApproved(true);
 
         // by keeper
-        checkForecloseLoan(twapPrice, twapPrice, 1, keeper);
+        checkForecloseLoan(oraclePrice, oraclePrice, 1, keeper);
     }
 }

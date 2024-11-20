@@ -16,6 +16,7 @@ contract MockChainlinkFeed {
     }
 
     function latestRoundData() external view returns (uint80, int, uint, uint, uint80) {
+        require(!reverts, "oracle reverts");
         return (0, answer, 0, updatedAt, 0);
     }
 

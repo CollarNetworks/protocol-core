@@ -98,7 +98,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         cashAsset.approve(address(loans), type(uint).max);
 
         // Calculate expected loan change
-        int loanChangePreview = rolls.previewRoll(rollId, twapPrice).toTaker;
+        int loanChangePreview = rolls.previewRoll(rollId, oraclePrice).toTaker;
 
         // this reverts in Rolls
         vm.expectRevert("rolls: taker transfer slippage");
@@ -142,7 +142,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         cashAsset.approve(address(loans), type(uint).max);
         // cash approval (when taker needs to pay)
         // Set price to ensure taker needs to pay
-        uint lowPrice = twapPrice * 95 / 100;
+        uint lowPrice = oraclePrice * 95 / 100;
         updatePrice(lowPrice);
 
         // Calculate expected loan change
@@ -202,7 +202,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         int largeRepayment = -int(loanAmount + 1);
         vm.mockCall(
             address(rolls),
-            abi.encodeWithSelector(rolls.previewRoll.selector, rollId, twapPrice),
+            abi.encodeWithSelector(rolls.previewRoll.selector, rollId, oraclePrice),
             abi.encode(IRolls.PreviewResults(largeRepayment, 0, 0, emptyTakerPos, 0, 0, 0))
         );
         vm.mockCall(
@@ -268,7 +268,7 @@ contract LoansRollsEscrowRevertsTest is LoansRollsRevertsTest {
         maybeCreateEscrowOffer();
 
         vm.startPrank(user1);
-        prepareSwapToCashAtTWAPPrice();
+        prepareSwapToCashAtOraclePrice();
         cashAsset.approve(address(loans), type(uint).max);
         underlying.approve(address(loans), underlyingAmount + escrowFee);
         vm.expectRevert("loans: duration mismatch");
