@@ -31,8 +31,8 @@ contract USDCWETHForkTest is BaseLoansForkTest {
 
     function _setParams() internal virtual {
         // set up all the variables for this pair
-        cashAsset = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // USDC
         underlying = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
+        cashAsset = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // USDC
         offerAmount = 100_000e6;
         underlyingAmount = 1 ether;
         minLoanAmount = 0.3e6; // arbitrary low value
@@ -47,14 +47,16 @@ contract USDCWETHForkTest is BaseLoansForkTest {
 
         // price movement swap amounts
         swapStepCashAmount = 2_000_000e6;
+
+        expectedOraclePrice = 3_000_000_000;
     }
 }
 
 contract USDTWETHForkTest is USDCWETHForkTest {
     function _setParams() internal virtual override {
         super._setParams();
-        cashAsset = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9; // USDT
         underlying = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
+        cashAsset = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9; // USDT
     }
 }
 
@@ -62,12 +64,14 @@ contract USDTWBTCForkTest is USDCWETHForkTest {
     function _setParams() internal virtual override {
         super._setParams();
 
-        cashAsset = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9; // USDT
         underlying = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f; // WBTC
+        cashAsset = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9; // USDT
         underlyingAmount = 0.1e8;
         bigUnderlyingAmount = 100e8;
 
         callstrikeToUse = 10_500;
         swapStepCashAmount = 500_000e6;
+
+        expectedOraclePrice = 90_000_000_000;
     }
 }

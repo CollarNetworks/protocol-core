@@ -116,6 +116,8 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
     // Protocol fee params
     uint constant feeAPR = 100; // 1% APR
 
+    uint expectedOraclePrice;
+
     // values to be set by pair
     address cashAsset;
     address underlying;
@@ -266,6 +268,20 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         deal(address(underlying), user, bigUnderlyingAmount);
         deal(address(underlying), provider, bigUnderlyingAmount);
         deal(address(underlying), escrowSupplier, bigUnderlyingAmount);
+    }
+
+    // tests
+
+    function testOraclePrice() public view {
+        uint oraclePrice = pair.oracle.currentPrice();
+        (uint a, uint b) = (oraclePrice, expectedOraclePrice);
+        uint absDiffRatio = a > b ? (a - b) * BIPS_BASE / b : (b - a) * BIPS_BASE / a;
+        // if bigger price is less than 2x the smaller price, we're still in the same range
+        // otherwise, either the expected price needs to be updated (hopefully up), or the
+        // oracle is misconfigured
+        assertLt(absDiffRatio, BIPS_BASE, "prices differ by more than 2x");
+
+        assertEq(oraclePrice, pair.takerNFT.currentOraclePrice());
     }
 
     function testOpenAndCloseLoan() public {
