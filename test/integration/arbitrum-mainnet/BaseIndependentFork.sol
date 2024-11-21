@@ -2,13 +2,13 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
-import { ArbitrumMainnetDeployer } from "../../../script/arbitrum-mainnet/deployer.sol";
+import { ArbitrumMainnetDeployer } from "../../../script/ArbitrumMainnetDeployer.sol";
 import { DeploymentUtils } from "../../../script/utils/deployment-exporter.s.sol";
 /**
  * this is a base contract for fork test contracts to inherit in order to be able to be ran independently as well as through another contract that sets up the fork
  */
 
-contract ArbitrumMainnetBaseIndependentForkTestContract is Test {
+contract ArbitrumMainnetBaseIndependentForkTestContract is Test, ArbitrumMainnetDeployer {
     uint private forkId;
     bool private forkSet;
 
@@ -19,13 +19,12 @@ contract ArbitrumMainnetBaseIndependentForkTestContract is Test {
             vm.selectFork(forkId);
 
             // Deploy contracts
-            ArbitrumMainnetDeployer.DeploymentResult memory result =
-                ArbitrumMainnetDeployer.deployAndSetupProtocol(address(this));
+            DeploymentResult memory result = deployAndSetupProtocol(address(this));
             DeploymentUtils.exportDeployment(
                 vm,
                 "collar_protocol_deployment",
                 address(result.configHub),
-                ArbitrumMainnetDeployer.swapRouterAddress,
+                swapRouterAddress,
                 result.assetPairContracts
             );
             forkSet = true;

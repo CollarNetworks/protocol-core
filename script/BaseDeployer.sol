@@ -9,10 +9,17 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import { Rolls } from "../src/Rolls.sol";
 import { EscrowSupplierNFT } from "../src/EscrowSupplierNFT.sol";
-import { OracleUniV3TWAP } from "../src/OracleUniV3TWAP.sol";
+import { ChainlinkOracle, BaseTakerOracle } from "../src/ChainlinkOracle.sol";
 import { SwapperUniV3 } from "../src/SwapperUniV3.sol";
 
-library DeploymentHelper {
+abstract contract BaseDeployer {
+    uint immutable chainId;
+
+    uint immutable minDuration;
+    uint immutable maxDuration;
+    uint immutable minLTV;
+    uint immutable maxLTV;
+
     struct AssetPairContracts {
         CollarProviderNFT providerNFT;
         CollarTakerNFT takerNFT;
@@ -20,24 +27,73 @@ library DeploymentHelper {
         Rolls rollsContract;
         IERC20 cashAsset;
         IERC20 underlying;
-        OracleUniV3TWAP oracle;
+        BaseTakerOracle oracle;
         SwapperUniV3 swapperUniV3;
         EscrowSupplierNFT escrowNFT;
-        uint24 oracleFeeTier;
         uint24 swapFeeTier;
+    }
+
+    struct ChainlinkFeed {
+        address feedAddress;
+        string description;
+        uint heartbeat;
+        uint decimals;
+        uint deviationBIPS;
     }
 
     struct PairConfig {
         string name;
-        IERC20 cashAsset;
         IERC20 underlying;
-        uint24 oracleFeeTier;
+        IERC20 cashAsset;
+        BaseTakerOracle oracle;
         uint24 swapFeeTier;
-        uint32 twapWindow;
         address swapRouter;
-        address sequencerUptimeFeed;
         address existingEscrowNFT; // New field for existing escrow contract
     }
+
+    struct HubParams {
+        uint minLTV;
+        uint maxLTV;
+        uint minDuration;
+        uint maxDuration;
+    }
+
+    struct DeploymentResult {
+        ConfigHub configHub;
+        AssetPairContracts[] assetPairContracts;
+    }
+
+    mapping(bytes32 description => ChainlinkFeed feedConfig) internal priceFeeds;
+
+    function _configureFeed(ChainlinkFeed memory feedConfig) internal {
+        priceFeeds[bytes32(bytes(feedConfig.description))] = feedConfig;
+    }
+
+    function _getFeed(string memory description) internal view returns (ChainlinkFeed memory) {
+        return priceFeeds[bytes32(bytes(description))];
+    }
+
+    function deployAndSetupProtocol(address owner) internal returns (DeploymentResult memory result) {
+        require(chainId == block.chainid, "chainId does not match the chainId in config");
+
+        result.configHub = deployConfigHub(owner);
+
+        setupConfigHub(
+            result.configHub,
+            HubParams({ minLTV: minLTV, maxLTV: maxLTV, minDuration: minDuration, maxDuration: maxDuration })
+        );
+
+        result.assetPairContracts = _createContractPairs(result.configHub, owner);
+
+        for (uint i = 0; i < result.assetPairContracts.length; i++) {
+            setupContractPair(result.configHub, result.assetPairContracts[i]);
+        }
+    }
+
+    function _createContractPairs(ConfigHub configHub, address owner)
+        internal
+        virtual
+        returns (AssetPairContracts[] memory assetPairContracts);
 
     function deployConfigHub(address owner) internal returns (ConfigHub) {
         return new ConfigHub(owner);
@@ -58,25 +114,32 @@ library DeploymentHelper {
         );
     }
 
+    function deployDirectFeedOracle(
+        address underlying,
+        address cashAsset,
+        ChainlinkFeed memory chainlinkFeed,
+        address sequencerUptimeFeed
+    ) internal returns (BaseTakerOracle oracle) {
+        oracle = new ChainlinkOracle(
+            underlying,
+            cashAsset,
+            chainlinkFeed.feedAddress,
+            chainlinkFeed.description,
+            chainlinkFeed.heartbeat + 60, // a bit higher than heartbeat
+            sequencerUptimeFeed
+        );
+    }
+
     function deployContractPair(ConfigHub configHub, PairConfig memory pairConfig, address owner)
         internal
         returns (AssetPairContracts memory contracts)
     {
-        OracleUniV3TWAP oracle = new OracleUniV3TWAP(
-            address(pairConfig.underlying),
-            address(pairConfig.cashAsset),
-            pairConfig.oracleFeeTier,
-            pairConfig.twapWindow,
-            pairConfig.swapRouter,
-            pairConfig.sequencerUptimeFeed
-        );
-
         CollarTakerNFT takerNFT = new CollarTakerNFT(
             owner,
             configHub,
             pairConfig.cashAsset,
             pairConfig.underlying,
-            oracle,
+            pairConfig.oracle,
             string(abi.encodePacked("Taker ", pairConfig.name)),
             string(abi.encodePacked("T", pairConfig.name))
         );
@@ -116,11 +179,25 @@ library DeploymentHelper {
             rollsContract: rollsContract,
             cashAsset: pairConfig.cashAsset,
             underlying: pairConfig.underlying,
-            oracle: oracle,
+            oracle: pairConfig.oracle,
             swapperUniV3: swapperUniV3,
-            oracleFeeTier: pairConfig.oracleFeeTier,
             swapFeeTier: pairConfig.swapFeeTier,
             escrowNFT: escrowNFT
         });
+    }
+
+    function setupContractPair(ConfigHub hub, AssetPairContracts memory pair) internal {
+        hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.takerNFT), true);
+        hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.providerNFT), true);
+        hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.loansContract), true);
+        hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.rollsContract), true);
+        pair.loansContract.setSwapperAllowed(address(pair.swapperUniV3), true, true);
+        hub.setCanOpenPair(pair.underlying, hub.ANY_ASSET(), address(pair.escrowNFT), true);
+        pair.escrowNFT.setLoansCanOpen(address(pair.loansContract), true);
+    }
+
+    function setupConfigHub(ConfigHub configHub, HubParams memory hubParams) internal {
+        configHub.setLTVRange(hubParams.minLTV, hubParams.maxLTV);
+        configHub.setCollarDurationRange(hubParams.minDuration, hubParams.maxDuration);
     }
 }

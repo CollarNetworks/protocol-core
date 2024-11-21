@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import "./DeploymentLoader.sol";
-import { ArbitrumMainnetDeployer } from "../../../script/arbitrum-mainnet/deployer.sol";
+import { BaseDeployer } from "../../../script/BaseDeployer.sol";
 import { DeploymentUtils } from "../../../script/utils/deployment-exporter.s.sol";
 
 contract DeploymentValidatorForkTest is Test, DeploymentLoader {
@@ -25,7 +25,7 @@ contract DeploymentValidatorForkTest is Test, DeploymentLoader {
 
     function test_validatePairDeployments() public view {
         for (uint i = 0; i < deployedPairs.length; i++) {
-            DeploymentHelper.AssetPairContracts memory pair = deployedPairs[i];
+            BaseDeployer.AssetPairContracts memory pair = deployedPairs[i];
 
             assertEq(address(pair.providerNFT) != address(0), true);
             assertEq(address(pair.takerNFT) != address(0), true);

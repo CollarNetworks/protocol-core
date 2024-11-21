@@ -8,7 +8,7 @@ import { IRolls } from "../../../src/interfaces/IRolls.sol";
 import { ICollarTakerNFT } from "../../../src/interfaces/ICollarTakerNFT.sol";
 import { ICollarProviderNFT } from "../../../src/interfaces/ICollarProviderNFT.sol";
 import { PriceMovementHelper } from "../utils/PriceMovement.sol";
-import { ArbitrumMainnetDeployer } from "../../../script/arbitrum-mainnet/deployer.sol";
+import { ArbitrumMainnetDeployer, BaseDeployer } from "../../../script/ArbitrumMainnetDeployer.sol";
 import { DeploymentUtils } from "../../../script/utils/deployment-exporter.s.sol";
 
 abstract contract LoansForkTestBase is Test, DeploymentLoader {
@@ -17,7 +17,7 @@ abstract contract LoansForkTestBase is Test, DeploymentLoader {
     }
 
     function createProviderOffer(
-        DeploymentHelper.AssetPairContracts memory pair,
+        BaseDeployer.AssetPairContracts memory pair,
         uint callStrikePercent,
         uint amount,
         uint duration,
@@ -30,7 +30,7 @@ abstract contract LoansForkTestBase is Test, DeploymentLoader {
     }
 
     function openLoan(
-        DeploymentHelper.AssetPairContracts memory pair,
+        BaseDeployer.AssetPairContracts memory pair,
         address user,
         uint underlyingAmount,
         uint minLoanAmount,
@@ -48,7 +48,7 @@ abstract contract LoansForkTestBase is Test, DeploymentLoader {
     }
 
     function closeLoan(
-        DeploymentHelper.AssetPairContracts memory pair,
+        BaseDeployer.AssetPairContracts memory pair,
         address user,
         uint loanId,
         uint minUnderlyingOut
@@ -64,7 +64,7 @@ abstract contract LoansForkTestBase is Test, DeploymentLoader {
     }
 
     function createRollOffer(
-        DeploymentHelper.AssetPairContracts memory pair,
+        BaseDeployer.AssetPairContracts memory pair,
         address provider,
         uint loanId,
         uint providerId,
@@ -89,7 +89,7 @@ abstract contract LoansForkTestBase is Test, DeploymentLoader {
     }
 
     function rollLoan(
-        DeploymentHelper.AssetPairContracts memory pair,
+        BaseDeployer.AssetPairContracts memory pair,
         address user,
         uint loanId,
         uint rollOfferId,
@@ -148,7 +148,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
     uint durationPriceMovement;
     uint ltv;
 
-    DeploymentHelper.AssetPairContracts internal pair;
+    BaseDeployer.AssetPairContracts internal pair;
 
     function setUp() public virtual override {
         super.setUp();

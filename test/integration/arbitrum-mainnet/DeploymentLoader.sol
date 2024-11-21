@@ -5,13 +5,12 @@ import "forge-std/Test.sol";
 
 import { DeploymentUtils } from "../../../script/utils/deployment-exporter.s.sol";
 import { ConfigHub } from "../../../src/ConfigHub.sol";
-import { DeploymentHelper } from "../../../script/deployment-helper.sol";
-import { ArbitrumMainnetDeployer } from "../../../script/arbitrum-mainnet/deployer.sol";
+import { ArbitrumMainnetDeployer, BaseDeployer } from "../../../script/ArbitrumMainnetDeployer.sol";
 
-abstract contract DeploymentLoader is Test {
+abstract contract DeploymentLoader is Test, ArbitrumMainnetDeployer {
     ConfigHub public configHub;
     address public router;
-    DeploymentHelper.AssetPairContracts[] public deployedPairs;
+    BaseDeployer.AssetPairContracts[] public deployedPairs;
     address owner;
     address user;
     address user2;
@@ -50,13 +49,12 @@ abstract contract DeploymentLoader is Test {
 
             // Deploy contracts
             vm.startPrank(owner);
-            ArbitrumMainnetDeployer.DeploymentResult memory result =
-                ArbitrumMainnetDeployer.deployAndSetupProtocol(owner);
+            DeploymentResult memory result = deployAndSetupProtocol(owner);
             DeploymentUtils.exportDeployment(
                 vm,
                 "collar_protocol_fork_deployment",
                 address(result.configHub),
-                ArbitrumMainnetDeployer.swapRouterAddress,
+                swapRouterAddress,
                 result.assetPairContracts
             );
             vm.stopPrank();
@@ -65,7 +63,7 @@ abstract contract DeploymentLoader is Test {
             console.log("Fork already set, selecting fork");
             vm.selectFork(forkId);
         }
-        (ConfigHub hub, DeploymentHelper.AssetPairContracts[] memory pairs) = loadDeployment();
+        (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs) = loadDeployment();
         configHub = hub;
         for (uint i = 0; i < pairs.length; i++) {
             deployedPairs.push(pairs[i]);
@@ -74,12 +72,8 @@ abstract contract DeploymentLoader is Test {
         require(deployedPairs.length > 0, "No pairs deployed");
     }
 
-    function loadDeployment()
-        internal
-        view
-        returns (ConfigHub, DeploymentHelper.AssetPairContracts[] memory)
-    {
-        (address configHubAddress, DeploymentHelper.AssetPairContracts[] memory pairs) =
+    function loadDeployment() internal view returns (ConfigHub, BaseDeployer.AssetPairContracts[] memory) {
+        (address configHubAddress, BaseDeployer.AssetPairContracts[] memory pairs) =
             DeploymentUtils.getAll(vm, "collar_protocol_fork_deployment");
 
         return (ConfigHub(configHubAddress), pairs);
@@ -88,7 +82,7 @@ abstract contract DeploymentLoader is Test {
     function getPairByAssets(address cashAsset, address underlying)
         internal
         view
-        returns (DeploymentHelper.AssetPairContracts memory pair)
+        returns (BaseDeployer.AssetPairContracts memory pair)
     {
         for (uint i = 0; i < deployedPairs.length; i++) {
             if (
