@@ -7,9 +7,11 @@ import { IChainlinkFeedLike } from "../interfaces/IChainlinkFeedLike.sol";
 import { ITakerOracle } from "../interfaces/ITakerOracle.sol";
 
 abstract contract BaseTakerOracle is ITakerOracle {
-    // @notice address of a virtual "asset" that doesn't have an ERC-20, e.g., USD as used in
-    // some CL feeds (ETH / USD). If this address is supplied as an asset, the ERC-20 decimals calls
-    // is not done, and 1e18 virtual precision is used.
+    /// @notice address of a virtual "asset" that doesn't have an ERC-20, e.g., USD as used in
+    /// some CL feeds (ETH / USD). If this address is supplied as an asset, the ERC-20 decimals call
+    /// is not done, and 1e18 virtual precision is used.
+    /// @dev If both assets are supplied as virtual, the views baseToken and quoteToken lose
+    /// their ability to help onchain validations.
     address public constant VIRTUAL_ASSET = address(type(uint160).max); // 0xff..ff
 
     address public immutable baseToken;

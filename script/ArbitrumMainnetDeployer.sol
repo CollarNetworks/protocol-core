@@ -47,13 +47,13 @@ abstract contract ArbitrumMainnetDeployer is BaseDeployer {
 
         // deploy direct oracles
         BaseTakerOracle oracleETH_USD =
-            deployDirectFeedOracle(WETH, VIRTUAL_ASSET, _getFeed("ETH / USD"), sequencerFeed);
+            deployChainlinkOracle(WETH, VIRTUAL_ASSET, _getFeed("ETH / USD"), sequencerFeed);
         BaseTakerOracle oracleWBTC_USD =
-            deployDirectFeedOracle(WBTC, VIRTUAL_ASSET, _getFeed("WBTC / USD"), sequencerFeed);
+            deployChainlinkOracle(WBTC, VIRTUAL_ASSET, _getFeed("WBTC / USD"), sequencerFeed);
         BaseTakerOracle oracleUSDC_USD =
-            deployDirectFeedOracle(USDC, VIRTUAL_ASSET, _getFeed("USDC / USD"), sequencerFeed);
+            deployChainlinkOracle(USDC, VIRTUAL_ASSET, _getFeed("USDC / USD"), sequencerFeed);
         BaseTakerOracle oracleUSDT_USD =
-            deployDirectFeedOracle(USDT, VIRTUAL_ASSET, _getFeed("USDT / USD"), sequencerFeed);
+            deployChainlinkOracle(USDT, VIRTUAL_ASSET, _getFeed("USDT / USD"), sequencerFeed);
 
         // deploy pairs
         assetPairContracts[0] = deployContractPair(

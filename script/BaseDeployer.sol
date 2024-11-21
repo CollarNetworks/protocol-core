@@ -11,7 +11,7 @@ import { Rolls } from "../src/Rolls.sol";
 import { EscrowSupplierNFT } from "../src/EscrowSupplierNFT.sol";
 import { ChainlinkOracle, BaseTakerOracle } from "../src/ChainlinkOracle.sol";
 import { SwapperUniV3 } from "../src/SwapperUniV3.sol";
-import { CombinedOracle } from "../src/CombinedChainlinkOracle.sol";
+import { CombinedOracle } from "../src/CombinedOracle.sol";
 
 abstract contract BaseDeployer {
     address constant VIRTUAL_ASSET = address(type(uint160).max); // 0xff..ff
@@ -117,7 +117,7 @@ abstract contract BaseDeployer {
         );
     }
 
-    function deployDirectFeedOracle(
+    function deployChainlinkOracle(
         address base,
         address quote,
         ChainlinkFeed memory chainlinkFeed,

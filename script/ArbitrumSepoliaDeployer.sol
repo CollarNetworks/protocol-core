@@ -41,11 +41,11 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
         _configureFeeds();
         // deploy direct oracles
         BaseTakerOracle oracletETH_USD =
-            deployDirectFeedOracle(tWETH, VIRTUAL_ASSET, _getFeed("ETH / USD"), sequencerFeed);
+            deployChainlinkOracle(tWETH, VIRTUAL_ASSET, _getFeed("ETH / USD"), sequencerFeed);
         BaseTakerOracle oracletWBTC_USD =
-            deployDirectFeedOracle(tWBTC, VIRTUAL_ASSET, _getFeed("BTC / USD"), sequencerFeed);
+            deployChainlinkOracle(tWBTC, VIRTUAL_ASSET, _getFeed("BTC / USD"), sequencerFeed);
         BaseTakerOracle oracletUSDC_USD =
-            deployDirectFeedOracle(tUSDC, VIRTUAL_ASSET, _getFeed("USDC / USD"), sequencerFeed);
+            deployChainlinkOracle(tUSDC, VIRTUAL_ASSET, _getFeed("USDC / USD"), sequencerFeed);
 
         // if any escrowNFT contracts will be reused for multiple pairs, they should be deployed first
         assetPairContracts[0] = deployContractPair(
