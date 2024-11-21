@@ -23,8 +23,8 @@ contract UniswapNewPoolHelper {
 
     function deployTokens() internal returns (address, address) {
         return (
-            address(new CollarOwnedERC20(address(this), "Token1", "Token1")),
-            address(new CollarOwnedERC20(address(this), "Token2", "Token2"))
+            address(new CollarOwnedERC20(address(this), "Token1", "Token1", 18)),
+            address(new CollarOwnedERC20(address(this), "Token2", "Token2", 18))
         );
     }
 

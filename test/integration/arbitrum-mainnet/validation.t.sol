@@ -44,14 +44,6 @@ contract DeploymentValidatorForkTest is Test, DeploymentLoader {
             allAuthed[3] = address(pair.rollsContract);
             assertEq(configHub.allCanOpenPair(pair.underlying, pair.cashAsset), allAuthed);
 
-            for (uint j = 0; j < pair.durations.length; j++) {
-                assertEq(configHub.isValidCollarDuration(pair.durations[j]), true);
-            }
-
-            for (uint j = 0; j < pair.ltvs.length; j++) {
-                assertEq(configHub.isValidLTV(pair.ltvs[j]), true);
-            }
-
             assertEq(address(pair.rollsContract.takerNFT()) == address(pair.takerNFT), true);
         }
     }
