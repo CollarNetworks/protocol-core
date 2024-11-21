@@ -24,8 +24,9 @@ contract USDCWETHForkTest is BaseLoansForkTest {
         vm.stopPrank();
         fundWallets();
 
-        duration = pair.durations[0];
-        durationPriceMovement = pair.durations[1];
+        duration = 5 minutes;
+        durationPriceMovement = 30 days;
+        ltv = 9000;
     }
 
     function _setParams() internal virtual {
@@ -45,7 +46,7 @@ contract USDCWETHForkTest is BaseLoansForkTest {
         callstrikeToUse = 11_000;
 
         // price movement swap amounts
-        swapStepCashAmount = 1_000_000e6;
+        swapStepCashAmount = 2_000_000e6;
     }
 }
 
