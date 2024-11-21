@@ -43,8 +43,6 @@ contract ChainlinkOracle is BaseTakerOracle {
     /// @dev Consider setting `_maxStaleness` to slightly more than the feed's heartbeat
     /// to account for possible network delays when the heartbeat is triggered.
     uint public immutable maxStaleness;
-    /// @notice unit amount of quote asset (10 ** quote-decimals)
-    uint public immutable quoteUnitAmount;
     /// @notice unit amount of feed answer (10 ** feed-decimals). Assumed to not change for a feed.
     uint public immutable feedUnitAmount;
 
@@ -67,25 +65,47 @@ contract ChainlinkOracle is BaseTakerOracle {
         );
 
         // set unit amounts for price conversion
-        quoteUnitAmount = 10 ** IERC20Metadata(_quoteToken).decimals();
         feedUnitAmount = 10 ** priceFeed.decimals();
     }
 
     /// @notice Current price of a unit of base tokens (i.e. 10**baseToken.decimals()) in quote tokens.
     /// @dev checks sequencer uptime feed if it was set
-    function currentPrice() public view override returns (uint) {
+    function currentPrice() external view override returns (uint) {
+        _checkSequencer();
+        // feed answer is for base unit (baseUnitAmount), but at feed precision (of feedUnitAmount).
+        // to translate it to quote precision, we divide by feedUnitAmount and multiply by quoteUnitAmount
+        // e.g, ETH & USDC using ETH/USD feed (8 decimals): 3000e8 * 1e6 / 1e8 -> 3000e6
+        return _latestAnswer() * quoteUnitAmount / feedUnitAmount;
+    }
+
+    /// @notice Current price of a unit of quote tokens (i.e. 10**quoteToken.decimals()) in base tokens.
+    /// @dev checks sequencer uptime feed if it was set
+    /// @dev required for the ability to combine oracles
+    function inversePrice() external view returns (uint) {
+        _checkSequencer();
+        // feed answer is for base unit (baseUnitAmount), but at feed precision (of feedUnitAmount).
+        // the inverse is in (1 / feedUnitAmount) precision, so to translate it to baseUnitAmount,
+        // we multiply by feedUnitAmount and baseUnitAmount
+        // e.g, ETH & USDC using ETH/USD feed (8 decimals): 1e18 * 1e8 / 3000e8 -> (1/3000)e18
+        return baseUnitAmount * feedUnitAmount / _latestAnswer();
+    }
+
+    // ------ internal views --------
+
+    function _checkSequencer() internal view {
         // check sequencer feed
         if (address(sequencerChainlinkFeed) != address(0)) {
             require(sequencerLiveFor(MIN_SEQUENCER_UPTIME), "ChainlinkOracle: sequencer uptime interrupted");
         }
+    }
+
+    function _latestAnswer() internal view returns (uint) {
         // get the price oracle answer
         (, int answer,, uint updatedAt,) = priceFeed.latestRoundData();
         // check staleness
         require(block.timestamp - updatedAt <= maxStaleness, "ChainlinkOracle: stale price");
         // check answer in range
         require(answer > 0, "ChainlinkOracle: invalid price");
-        // feed answer is already for unit (baseUnitAmount), but at feed precision (of feedUnitAmount).
-        // to translate it to quote precision, we divide by feedUnitAmount and multiply by quoteUnitAmount
-        return uint(answer) * quoteUnitAmount / feedUnitAmount;
+        return uint(answer);
     }
 }

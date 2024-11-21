@@ -9,12 +9,18 @@ pragma solidity 0.8.22;
  */
 interface ITakerOracle {
     function baseToken() external view returns (address);
-
     function quoteToken() external view returns (address);
+
+    function baseUnitAmount() external view returns (uint);
+    function quoteUnitAmount() external view returns (uint);
 
     /// @notice Current price.
     /// @return Amount of quoteToken for a "unit" of baseToken (i.e. 10**baseToken.decimals())
     function currentPrice() external view returns (uint);
+
+    /// @notice Current inverse price.
+    /// @return Amount of baseToken for a "unit" of quoteToken (i.e. 10**quoteToken.decimals())
+    function inversePrice() external view returns (uint);
 
     /**
      * @notice Calculates the amount of quote tokens equivalent to the amount of base tokens at a given price

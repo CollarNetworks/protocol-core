@@ -108,6 +108,10 @@ contract OracleUniV3TWAP is BaseTakerOracle {
         return _getQuote(secondsAgos);
     }
 
+    function inversePrice() external pure override returns (uint) {
+        revert("not implemented");
+    }
+
     /// @notice Returns the current observation cardinality of the pool
     function currentCardinality() public view returns (uint16 observationCardinalityNext) {
         (,,,, observationCardinalityNext,,) = pool.slot0();
