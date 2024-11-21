@@ -8,8 +8,7 @@ import { LoansNFT } from "../../src/LoansNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../../src/Rolls.sol";
 import { EscrowSupplierNFT } from "../../src/EscrowSupplierNFT.sol";
-import { BaseDeployer } from "../BaseDeployer.sol";
-import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
+import { BaseDeployer, BaseTakerOracle } from "../BaseDeployer.sol";
 import { SwapperUniV3 } from "../../src/SwapperUniV3.sol";
 
 library DeploymentUtils {
@@ -203,7 +202,7 @@ library DeploymentUtils {
                     underlying: IERC20(
                         _parseAddress(vm, parsedJson, string(abi.encodePacked(".", baseKey, "_underlying")))
                     ),
-                    oracle: OracleUniV3TWAP(
+                    oracle: BaseTakerOracle(
                         _parseAddress(vm, parsedJson, string(abi.encodePacked(".", baseKey, "_oracle")))
                     ),
                     swapperUniV3: SwapperUniV3(

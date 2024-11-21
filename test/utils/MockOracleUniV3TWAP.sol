@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
+import { OracleUniV3TWAP } from "./OracleUniV3TWAP.sol";
 
 contract MockOracleUniV3TWAP is OracleUniV3TWAP {
     // 0 prices can happen, but also sometimes unset price needs to revert to tigger fallback logic

@@ -6,7 +6,7 @@ import { OracleLibrary, IUniswapV3Pool } from "@uniswap/v3-periphery/contracts/l
 import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 
-import { BaseTakerOracle } from "./base/BaseTakerOracle.sol";
+import { BaseTakerOracle } from "../../src/base/BaseTakerOracle.sol";
 
 /*
 WARNING: READ THIS BEFORE DEPLOYING regarding using Uniswap v3 TWAP as an oracle.

@@ -14,7 +14,7 @@ import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 
 import { IERC20Metadata, IChainlinkFeedLike } from "../../src/base/BaseTakerOracle.sol";
-import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
+import { OracleUniV3TWAP } from "../utils/OracleUniV3TWAP.sol";
 
 contract OracleUniV3TWAPTest is Test {
     OracleUniV3TWAP public oracle;
