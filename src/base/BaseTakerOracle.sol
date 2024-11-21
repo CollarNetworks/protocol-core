@@ -32,9 +32,6 @@ abstract contract BaseTakerOracle is ITakerOracle {
 
     // ----- Views ----- //
 
-    /// @return Amount of quoteToken for a "unit" of baseToken (i.e. 10**baseToken.decimals())
-    function currentPrice() external view virtual returns (uint);
-
     /**
      * @notice Checks whether the sequencer uptime Chainlink feed reports the sequencer to be live
      * for at least the specified amount of time. Reverts if feed was not set (is address zero).
