@@ -10,7 +10,7 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
 
     address constant swapRouterAddress = address(0x101F443B4d1b059569D643917553c771E1b9663E);
 
-    address constant sequencerUptimeFeed = address(0);
+    address constant sequencerFeed = address(0);
     uint24 constant swapFeeTier = 3000;
 
     constructor() {
@@ -22,10 +22,11 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
     }
 
     function _configureFeeds() internal {
+        /// https://docs.chain.link/data-feeds/price-feeds/addresses?network=arbitrum&page=1#sepolia-testnet
         // define feeds to be used in oracles
         _configureFeed(ChainlinkFeed(0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165, "ETH / USD", 120, 8, 5));
+        // no WBTC, only virtual-BTC
         _configureFeed(ChainlinkFeed(0x56a43EB56Da12C0dc1D972ACb089c06a5dEF8e69, "BTC / USD", 120, 8, 30));
-        // TODO use these for cross-feed oracles
         _configureFeed(ChainlinkFeed(0x0153002d20B96532C639313c2d54c3dA09109309, "USDC / USD", 86_400, 8, 30));
         _configureFeed(ChainlinkFeed(0x80EDee6f667eCc9f63a0a6f55578F870651f06A4, "USDT / USD", 3600, 8, 30));
     }
@@ -38,6 +39,13 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
         assetPairContracts = new AssetPairContracts[](2);
 
         _configureFeeds();
+        // deploy direct oracles
+        BaseTakerOracle oracletETH_USD =
+            deployDirectFeedOracle(tWETH, VIRTUAL_ASSET, _getFeed("ETH / USD"), sequencerFeed);
+        BaseTakerOracle oracletWBTC_USD =
+            deployDirectFeedOracle(tWBTC, VIRTUAL_ASSET, _getFeed("BTC / USD"), sequencerFeed);
+        BaseTakerOracle oracletUSDC_USD =
+            deployDirectFeedOracle(tUSDC, VIRTUAL_ASSET, _getFeed("USDC / USD"), sequencerFeed);
 
         // if any escrowNFT contracts will be reused for multiple pairs, they should be deployed first
         assetPairContracts[0] = deployContractPair(
@@ -46,8 +54,8 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
                 name: "tWETH/tUSDC",
                 underlying: IERC20(tWETH),
                 cashAsset: IERC20(tUSDC),
-                // TODO: use cross-feed oracle instead of this direct-feed oracle
-                oracle: deployDirectFeedOracle(tWETH, tUSDC, _getFeed("ETH / USD"), sequencerUptimeFeed),
+                // ETH/USD -> invert(USDC/USD)
+                oracle: deployCombinedOracle(tWETH, tUSDC, oracletETH_USD, oracletUSDC_USD, true),
                 swapFeeTier: swapFeeTier,
                 swapRouter: swapRouterAddress,
                 existingEscrowNFT: address(0)
@@ -61,8 +69,8 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
                 name: "tWBTC/tUSDC",
                 underlying: IERC20(tWBTC),
                 cashAsset: IERC20(tUSDC),
-                // TODO: use cross-feed oracle instead of this direct-feed oracle
-                oracle: deployDirectFeedOracle(tWBTC, tUSDC, _getFeed("BTC / USD"), sequencerUptimeFeed),
+                // BTC/USD -> invert(USDC/USD)
+                oracle: deployCombinedOracle(tWBTC, tUSDC, oracletWBTC_USD, oracletUSDC_USD, true),
                 swapFeeTier: swapFeeTier,
                 swapRouter: swapRouterAddress,
                 existingEscrowNFT: address(0)

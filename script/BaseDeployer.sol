@@ -11,8 +11,11 @@ import { Rolls } from "../src/Rolls.sol";
 import { EscrowSupplierNFT } from "../src/EscrowSupplierNFT.sol";
 import { ChainlinkOracle, BaseTakerOracle } from "../src/ChainlinkOracle.sol";
 import { SwapperUniV3 } from "../src/SwapperUniV3.sol";
+import { CombinedOracle } from "../src/CombinedChainlinkOracle.sol";
 
 abstract contract BaseDeployer {
+    address constant VIRTUAL_ASSET = address(type(uint160).max); // 0xff..ff
+
     uint immutable chainId;
 
     uint immutable minDuration;
@@ -115,18 +118,35 @@ abstract contract BaseDeployer {
     }
 
     function deployDirectFeedOracle(
-        address underlying,
-        address cashAsset,
+        address base,
+        address quote,
         ChainlinkFeed memory chainlinkFeed,
         address sequencerUptimeFeed
     ) internal returns (BaseTakerOracle oracle) {
         oracle = new ChainlinkOracle(
-            underlying,
-            cashAsset,
+            base,
+            quote,
             chainlinkFeed.feedAddress,
             chainlinkFeed.description,
             chainlinkFeed.heartbeat + 60, // a bit higher than heartbeat
             sequencerUptimeFeed
+        );
+    }
+
+    function deployCombinedOracle(
+        address base,
+        address quote,
+        BaseTakerOracle oracle1,
+        BaseTakerOracle oracle2,
+        bool invert2
+    ) internal returns (BaseTakerOracle oracle) {
+        oracle = new CombinedOracle(
+            base,
+            quote,
+            address(oracle1),
+            false, // this is false for all needed cases
+            address(oracle2),
+            invert2
         );
     }
 
