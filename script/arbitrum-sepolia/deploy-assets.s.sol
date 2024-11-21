@@ -119,23 +119,44 @@ contract DeployArbitrumSepoliaAssets is Script {
         for (uint i = 0; i < assetPairs.length; i++) {
             AssetPair memory pair = assetPairs[i];
             address cashAsset = address(0x69fC9D4d59843C6E55f00b5F66b263C963214C53);
-            address collateralAsset = deployedAssets[pair.collateralSymbol];
+            address underlying = deployedAssets[pair.collateralSymbol];
 
-            require(cashAsset != address(0) && collateralAsset != address(0), "Assets not deployed");
+            require(cashAsset != address(0) && underlying != address(0), "Assets not deployed");
 
-            address poolAddress = createPool(cashAsset, collateralAsset);
+            address poolAddress = createPool(cashAsset, underlying);
             console.log("Created pool at", poolAddress);
             initializePool(poolAddress, pair, deployer);
 
             deployedPools[pair.collateralSymbol][pair.cashSymbol] = poolAddress;
 
             uint poolCashAssetBalance = IERC20(cashAsset).balanceOf(poolAddress);
-            uint poolCollateralAssetBalance = IERC20(collateralAsset).balanceOf(poolAddress);
+            uint poolCollateralAssetBalance = IERC20(underlying).balanceOf(poolAddress);
             (uint160 sqrtPriceX96,,,,,,) = IUniswapV3Pool(poolAddress).slot0();
             console.log("pool cash balance ", poolCashAssetBalance);
             console.log("pool collateral balance ", poolCollateralAssetBalance);
             console.log("pool sqrtPriceX96 ", sqrtPriceX96);
-            verifySwapAmount(pair, deployer);
+
+            // make a small swap to check amounts
+            CollarOwnedERC20 underlyingToken = CollarOwnedERC20(deployedAssets[pair.collateralSymbol]);
+            uint amountIn = 10 ** underlyingToken.decimals();
+            // Approve the router to spend tokens
+            underlyingToken.approve(address(SWAP_ROUTER), amountIn);
+
+            // Prepare the parameters for the swap
+            IV3SwapRouter.ExactInputSingleParams memory params = IV3SwapRouter.ExactInputSingleParams({
+                tokenIn: underlying,
+                tokenOut: cashAsset,
+                fee: FEE_TIER,
+                recipient: deployer,
+                amountIn: amountIn,
+                amountOutMinimum: 0,
+                sqrtPriceLimitX96: 0
+            });
+
+            // Execute the swap
+            uint amountOut = SWAP_ROUTER.exactInputSingle(params);
+            console.log("amount in ", amountIn);
+            console.log("Amount out", amountOut);
         }
     }
 
@@ -263,29 +284,5 @@ contract DeployArbitrumSepoliaAssets is Script {
 
     function encodePriceToSqrtPriceX96(uint price) private pure returns (uint160) {
         return uint160(Math.sqrt((price << 192) / 1e16)); // this value to be adjusted depending on the pair and arbitrary testing
-    }
-
-    function verifySwapAmount(AssetPair memory pair, address deployer) internal {
-        CollarOwnedERC20 cashAsset = CollarOwnedERC20(address(0x69fC9D4d59843C6E55f00b5F66b263C963214C53));
-        CollarOwnedERC20 collateralAsset = CollarOwnedERC20(deployedAssets[pair.collateralSymbol]);
-        uint amountIn = 10 ** collateralAsset.decimals();
-        // Approve the router to spend tokens
-        collateralAsset.approve(address(SWAP_ROUTER), amountIn);
-
-        // Prepare the parameters for the swap
-        IV3SwapRouter.ExactInputSingleParams memory params = IV3SwapRouter.ExactInputSingleParams({
-            tokenIn: address(collateralAsset),
-            tokenOut: address(cashAsset),
-            fee: FEE_TIER,
-            recipient: deployer,
-            amountIn: amountIn,
-            amountOutMinimum: 0,
-            sqrtPriceLimitX96: 0
-        });
-
-        // Execute the swap
-        uint amountOut = SWAP_ROUTER.exactInputSingle(params);
-        console.log("amount in ", amountIn);
-        console.log("Amount out", amountOut);
     }
 }

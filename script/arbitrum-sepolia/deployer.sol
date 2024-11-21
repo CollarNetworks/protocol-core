@@ -26,7 +26,6 @@ library ArbitrumSepoliaDeployer {
     uint constant minLTV = 2500;
     uint constant maxLTV = 9900;
 
-
     struct DeploymentResult {
         ConfigHub configHub;
         DeploymentHelper.AssetPairContracts[] assetPairContracts;

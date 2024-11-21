@@ -73,7 +73,6 @@ library ArbitrumMainnetDeployer {
     {
         assetPairContracts = new DeploymentHelper.AssetPairContracts[](pairsToDeploy);
 
-
         // if any escrowNFT contracts will be reused for multiple pairs, they should be deployed first
         EscrowSupplierNFT wethEscrow =
             DeploymentHelper.deployEscrowNFT(configHub, owner, IERC20(WETH), "WETH");
