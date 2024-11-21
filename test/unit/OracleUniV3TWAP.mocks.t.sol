@@ -13,7 +13,8 @@ import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswa
 import { IPeripheryImmutableState } from
     "@uniswap/v3-periphery/contracts/interfaces/IPeripheryImmutableState.sol";
 
-import { OracleUniV3TWAP, IERC20Metadata, IChainlinkFeedLike } from "../../src/OracleUniV3TWAP.sol";
+import { IERC20Metadata, IChainlinkFeedLike } from "../../src/base/BaseTakerOracle.sol";
+import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 
 contract OracleUniV3TWAPTest is Test {
     OracleUniV3TWAP public oracle;
@@ -153,30 +154,21 @@ contract OracleUniV3TWAPTest is Test {
         vm.mockCall(
             mockSequencerFeed,
             abi.encodeCall(IChainlinkFeedLike.latestRoundData, ()),
-            abi.encode(0, 0, block.timestamp - 1000, 0, 0)
+            abi.encode(0, 0, block.timestamp - twapWindow + 1, 0, 0)
         );
         int24 mockTick = tick1000;
 
         // current works
-        assertTrue(oracle.sequencerLiveFor(500));
+        assertFalse(oracle.sequencerLiveFor(twapWindow));
+        vm.expectRevert("sequencer uptime interrupted");
+        oracle.currentPrice();
+
+        skip(1);
+        assertTrue(oracle.sequencerLiveFor(twapWindow));
         mockObserve(mockTick, 0);
         assertEq(oracle.currentPrice(), priceTick1000);
 
-        // past price just after "outage" works
-        assertTrue(oracle.sequencerLiveFor(1000));
-        uint32 ago = 1000 - twapWindow;
-        mockObserve(mockTick, ago);
-        assertEq(oracle.pastPrice(uint32(block.timestamp - ago)), priceTick1000);
-
-        // past price overlapping "outage" doesn't work
-        assertFalse(oracle.sequencerLiveFor(1000 + 1));
-        vm.expectRevert("sequencer uptime interrupted");
-        oracle.pastPrice(uint32(block.timestamp - ago - 1));
-
-        // past price before "outage" doesn't work
-        assertFalse(oracle.sequencerLiveFor(1500));
-        vm.expectRevert("sequencer uptime interrupted");
-        oracle.pastPrice(uint32(block.timestamp - 1500));
+        assertFalse(oracle.sequencerLiveFor(twapWindow + 1));
     }
 
     function test_sequencerViewAndReverts_sequencerDown() public {
@@ -186,7 +178,7 @@ contract OracleUniV3TWAPTest is Test {
         vm.mockCall(
             mockSequencerFeed,
             abi.encodeCall(IChainlinkFeedLike.latestRoundData, ()),
-            abi.encode(0, 1, block.timestamp - 1000, 0, 0)
+            abi.encode(0, 1, block.timestamp - twapWindow, 0, 0)
         );
 
         assertFalse(oracle.sequencerLiveFor(0));
@@ -195,11 +187,12 @@ contract OracleUniV3TWAPTest is Test {
         vm.expectRevert("sequencer uptime interrupted");
         oracle.currentPrice();
 
-        vm.expectRevert("sequencer uptime interrupted");
-        oracle.pastPrice(uint32(block.timestamp));
+        skip(1000);
 
         vm.expectRevert("sequencer uptime interrupted");
-        oracle.pastPrice(uint32(block.timestamp - 1000));
+        oracle.currentPrice();
+        assertFalse(oracle.sequencerLiveFor(0));
+        assertFalse(oracle.sequencerLiveFor(1500));
     }
 
     function test_currentPrice() public {
@@ -216,54 +209,6 @@ contract OracleUniV3TWAPTest is Test {
 
         uint price = oracle.currentPrice();
         assertEq(price, priceTickInverse1000);
-    }
-
-    function test_pastPrice() public {
-        int24 mockTick = tick1000;
-        mockObserve(mockTick, 60);
-
-        uint32 pastTimestamp = uint32(block.timestamp) - 60;
-        uint price = oracle.pastPrice(pastTimestamp);
-        assertEq(price, priceTick1000);
-    }
-
-    function test_pastPriceWithFallback() public {
-        int24 mockTick = tick1000;
-        mockObserve(mockTick, 60);
-
-        uint32 pastTimestamp = uint32(block.timestamp) - 60;
-        (uint price, bool pastPriceOk) = oracle.pastPriceWithFallback(pastTimestamp);
-        assertEq(price, priceTick1000);
-        assertTrue(pastPriceOk);
-    }
-
-    function test_pastPriceWithFallback_unavailableHistorical() public {
-        // Mock observe to revert for historical data
-        uint32 ago = 60;
-        uint32[] memory secondsAgos = new uint32[](2);
-        secondsAgos[0] = ago + twapWindow;
-        secondsAgos[1] = ago;
-        vm.mockCallRevert(
-            mockPool,
-            abi.encodeCall(IUniswapV3PoolDerivedState.observe, (secondsAgos)),
-            abi.encodeWithSelector(OLD.selector)
-        );
-
-        // Mock current price
-        int24 currentTick = tick1000;
-        mockObserve(currentTick, 0);
-
-        uint32 pastTimestamp = uint32(block.timestamp) - ago;
-
-        // past price should revert
-        vm.expectRevert(abi.encodeWithSelector(OLD.selector));
-        oracle.pastPrice(pastTimestamp);
-
-        // fallback should succeed
-        (uint price, bool pastPriceOk) = oracle.pastPriceWithFallback(pastTimestamp);
-
-        assertEq(price, priceTick1000);
-        assertFalse(pastPriceOk);
     }
 
     function test_differentTWAPWindow() public {
@@ -334,12 +279,14 @@ contract OracleUniV3TWAPTest is Test {
     // revert tests
 
     function test_revert_constructor_invalidPool() public {
+        vm.mockCall(baseToken, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(18));
         // reverting factory view
         vm.expectRevert(new bytes(0));
         new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, address(0), mockSequencerFeed);
     }
 
     function test_revert_constructor_invalidTWAPWindow() public {
+        vm.mockCall(baseToken, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(18));
         vm.expectRevert("twap window too short");
         new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow - 1, mockRouter, mockSequencerFeed);
     }
@@ -347,7 +294,7 @@ contract OracleUniV3TWAPTest is Test {
     function test_revert_constructor_invalidDecimals() public {
         // Mock the decimals call
         vm.mockCall(baseToken, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(39));
-        vm.expectRevert("invalid decimals");
+        vm.expectRevert("invalid base decimals");
         new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, mockRouter, mockSequencerFeed);
     }
 }

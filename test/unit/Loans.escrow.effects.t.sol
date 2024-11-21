@@ -13,7 +13,7 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
 
     function expectedGracePeriod(uint loanId, uint swapPrice) internal view returns (uint) {
         uint cashAvailable = takerNFT.getPosition({ takerId: loanId }).withdrawable;
-        uint underlyingAmt = cashAvailable * mockOracle.baseUnitAmount() / swapPrice;
+        uint underlyingAmt = mockOracle.convertToBaseAmount(cashAvailable, swapPrice);
         return escrowNFT.cappedGracePeriod(loans.getLoan(loanId).escrowId, underlyingAmt);
     }
 
