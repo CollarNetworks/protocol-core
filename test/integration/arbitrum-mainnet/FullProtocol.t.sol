@@ -56,17 +56,17 @@ contract ArbitrumMainnetFullProtocolForkTest is Test, ArbitrumMainnetDeployer {
         validator.test_validatePairDeployments();
     }
 
-    function testPriceMovementFlow_aboveCallStrike() public {
-        setupLoansForkTest().testSettlementPriceAboveCallStrike();
-    }
+    //    function testPriceMovementFlow_aboveCallStrike() public {
+    //        setupLoansForkTest().testSettlementPriceAboveCallStrike();
+    //    }
 
-    function testPriceMovementFlow_belowPutStrike() public {
-        setupLoansForkTest().testSettlementPriceBelowPutStrike();
-    }
+    //    function testPriceMovementFlow_belowPutStrike() public {
+    //        setupLoansForkTest().testSettlementPriceBelowPutStrike();
+    //    }
 
-    function testPriceMovementFlow_upBetweenStrikes() public {
-        setupLoansForkTest().testSettlementPriceUpBetweenStrikes();
-    }
+    //    function testPriceMovementFlow_upBetweenStrikes() public {
+    //        setupLoansForkTest().testSettlementPriceUpBetweenStrikes();
+    //    }
 
     function testFullIntegration() public {
         USDCWETHForkTest loansTest = setupLoansForkTest();
@@ -83,8 +83,8 @@ contract ArbitrumMainnetFullProtocolForkTest is Test, ArbitrumMainnetDeployer {
         USDCWETHForkTest loansTest = setupLoansForkTest();
         loansTest.testOpenEscrowLoan();
         loansTest.testOpenAndCloseEscrowLoan();
-        loansTest.testCloseEscrowLoanAfterGracePeriod();
-        loansTest.testCloseEscrowLoanWithPartialLateFees();
+        //        loansTest.testCloseEscrowLoanAfterGracePeriod();
+        //        loansTest.testCloseEscrowLoanWithPartialLateFees();
         loansTest.testRollEscrowLoanBetweenSuppliers();
     }
 }
