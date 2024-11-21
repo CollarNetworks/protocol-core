@@ -20,11 +20,12 @@ abstract contract LoansForkTestBase is Test, DeploymentLoader {
         DeploymentHelper.AssetPairContracts memory pair,
         uint callStrikePercent,
         uint amount,
-        uint duration
+        uint duration,
+        uint ltv
     ) internal returns (uint offerId) {
         vm.startPrank(provider);
         pair.cashAsset.approve(address(pair.providerNFT), amount);
-        offerId = pair.providerNFT.createOffer(callStrikePercent, amount, pair.ltvs[0], duration, 0);
+        offerId = pair.providerNFT.createOffer(callStrikePercent, amount, ltv, duration, 0);
         vm.stopPrank();
     }
 
@@ -145,6 +146,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
     uint callstrikeToUse;
     uint duration;
     uint durationPriceMovement;
+    uint ltv;
 
     DeploymentHelper.AssetPairContracts internal pair;
 
@@ -164,7 +166,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
 
     function testOpenAndCloseLoan() public {
         uint providerBalanceBefore = pair.cashAsset.balanceOf(provider);
-        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration);
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration, ltv);
         assertEq(pair.cashAsset.balanceOf(provider), providerBalanceBefore - offerAmount);
         uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
 
@@ -408,7 +410,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
     }
 
     function testRollLoan() public {
-        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration);
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration, ltv);
         (uint loanId, uint providerId, uint initialLoanAmount) = openLoan(
             pair,
             user,
@@ -448,7 +450,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
     function testFullLoanLifecycle() public {
         uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
 
-        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration);
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration, ltv);
 
         (uint loanId, uint providerId, uint initialLoanAmount) =
             openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
@@ -493,7 +495,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
 
     function getProviderProtocolFeeByLoanAmount(uint loanAmount) internal view returns (uint protocolFee) {
         // Calculate protocol fee based on post-swap provider locked amount
-        uint swapOut = loanAmount * BIPS_BASE / pair.ltvs[0];
+        uint swapOut = loanAmount * BIPS_BASE / ltv;
         uint initProviderLocked = swapOut * (callstrikeToUse - BIPS_BASE) / BIPS_BASE;
         (protocolFee,) = pair.providerNFT.protocolFee(initProviderLocked, duration);
         assertGt(protocolFee, 0);
@@ -521,7 +523,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
 
     function testSettlementPriceAboveCallStrike() public {
         // Create provider offer & open loan
-        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, durationPriceMovement);
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, durationPriceMovement, ltv);
         (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
 
         ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
@@ -571,7 +573,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
 
     function testSettlementPriceBelowPutStrike() public {
         // Create provider offer & open loan
-        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, durationPriceMovement);
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, durationPriceMovement, ltv);
         (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
 
         ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
@@ -611,7 +613,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
 
     function testSettlementPriceUpBetweenStrikes() public {
         // Create provider offer & open loan with longer duration
-        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, durationPriceMovement);
+        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, durationPriceMovement, ltv);
         (uint loanId,, uint loanAmount) = openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
 
         ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
@@ -695,7 +697,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
 
     function createEscrowOffers() internal returns (uint offerId, uint escrowOfferId) {
         uint providerBalanceBefore = pair.cashAsset.balanceOf(provider);
-        offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration);
+        offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration, ltv);
         assertEq(pair.cashAsset.balanceOf(provider), providerBalanceBefore - offerAmount);
 
         // Create escrow offer
@@ -750,8 +752,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         uint expectedCashFromSwap = pair.oracle.convertToQuoteAmount(underlyingAmount, oraclePrice);
         // Calculate minimum expected loan amount (expectedCash * LTV)
         // Apply slippage tolerance for swaps and rounding
-        uint minExpectedLoan =
-            expectedCashFromSwap * pair.ltvs[0] * (BIPS_BASE - slippage) / (BIPS_BASE * BIPS_BASE);
+        uint minExpectedLoan = expectedCashFromSwap * ltv * (BIPS_BASE - slippage) / (BIPS_BASE * BIPS_BASE);
 
         // Check actual loan amount is at least the minimum expected
         assertGe(actualLoanAmount, minExpectedLoan);

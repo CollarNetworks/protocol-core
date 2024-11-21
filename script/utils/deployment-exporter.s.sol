@@ -95,18 +95,6 @@ library DeploymentUtils {
                 )
             );
 
-            // durations and ltvs to json
-            json = string(abi.encodePacked(json, '"', pairName, '_durations": ['));
-            for (uint j = 0; j < pair.durations.length; j++) {
-                json = string(abi.encodePacked(json, vm.toString(pair.durations[j]), ","));
-            }
-            json = string(abi.encodePacked(substring(json, 0, bytes(json).length - 1), "],"));
-
-            json = string(abi.encodePacked(json, '"', pairName, '_ltvs": ['));
-            for (uint j = 0; j < pair.ltvs.length; j++) {
-                json = string(abi.encodePacked(json, vm.toString(pair.ltvs[j]), ","));
-            }
-            json = string(abi.encodePacked(substring(json, 0, bytes(json).length - 1), "],"));
             json = string(
                 abi.encodePacked(
                     json, '"', pairName, '_oracleFeeTier":', vm.toString(pair.oracleFeeTier), ","
@@ -227,10 +215,6 @@ library DeploymentUtils {
                     swapperUniV3: SwapperUniV3(
                         _parseAddress(vm, parsedJson, string(abi.encodePacked(".", baseKey, "_swapperUniV3")))
                     ),
-                    durations: _parseUintArray(
-                        vm, parsedJson, string(abi.encodePacked(".", baseKey, "_durations"))
-                    ),
-                    ltvs: _parseUintArray(vm, parsedJson, string(abi.encodePacked(".", baseKey, "_ltvs"))),
                     oracleFeeTier: uint24(
                         vm.parseJsonUint(json, string(abi.encodePacked(".", baseKey, "_oracleFeeTier")))
                     ),
