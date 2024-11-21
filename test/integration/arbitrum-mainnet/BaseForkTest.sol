@@ -508,7 +508,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         // Get current price from oracle
         uint currentPrice = pair.oracle.currentPrice();
         // Convert cash amount to expected underlying amount using oracle's conversion
-        uint expectedUnderlying = (pair.oracle.convertToBaseAmount(totalAmountToSwap, currentPrice) - lateFee);
+        uint expectedUnderlying = pair.oracle.convertToBaseAmount(totalAmountToSwap, currentPrice) - lateFee;
 
         uint minUnderlyingOutWithSlippage = (expectedUnderlying * (BIPS_BASE - slippage) / BIPS_BASE);
         uint underlyingOut = closeLoan(pair, user, loanId, minUnderlyingOutWithSlippage);
@@ -528,6 +528,9 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
 
         ICollarTakerNFT.TakerPosition memory position = pair.takerNFT.getPosition(loanId);
 
+        // a bit over call strike due to time effects on TWAP
+        uint priceTarget = (pair.oracle.currentPrice() * (position.callStrikePercent + 100) / BIPS_BASE);
+
         skip(durationPriceMovement / 2);
 
         // Move price above call strike using lib
@@ -538,7 +541,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
             pair.cashAsset,
             pair.underlying,
             pair.oracle,
-            (pair.oracle.currentPrice() * position.callStrikePercent / BIPS_BASE),
+            priceTarget,
             swapStepCashAmount,
             swapPoolFeeTier
         );
