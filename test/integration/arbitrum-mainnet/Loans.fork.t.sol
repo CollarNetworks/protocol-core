@@ -61,7 +61,7 @@ contract USDTWETHForkTest is USDCWETHForkTest {
 contract USDTWBTCForkTest is USDCWETHForkTest {
     function _setParams() internal virtual override {
         super._setParams();
-        
+
         cashAsset = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9; // USDT
         underlying = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f; // WBTC
         underlyingAmount = 0.1e8;

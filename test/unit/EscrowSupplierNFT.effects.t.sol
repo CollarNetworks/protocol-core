@@ -290,6 +290,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         assertEq(newEscrowSupplierNFT.MIN_GRACE_PERIOD(), 1 days);
         assertEq(newEscrowSupplierNFT.MAX_GRACE_PERIOD(), 30 days);
         assertEq(newEscrowSupplierNFT.MAX_LATE_FEE_APR_BIPS(), 12 * BIPS_100PCT);
+        assertEq(newEscrowSupplierNFT.MAX_FEE_REFUND_BIPS(), 9500);
         assertEq(newEscrowSupplierNFT.VERSION(), "0.2.0");
         assertEq(newEscrowSupplierNFT.name(), "NewEscrowSupplierNFT");
         assertEq(newEscrowSupplierNFT.symbol(), "NESNFT");
@@ -388,6 +389,20 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
     function test_endEscrow_withdrawReleased_underRepay() public {
         uint escrowed = largeAmount / 2;
         uint fee = 1 ether;
+
+        // 0 repayment immediate release (cancellation)
+        uint maxRefund = escrowNFT.MAX_FEE_REFUND_BIPS() * fee / BIPS_100PCT;
+        check_preview_end_withdraw(
+            escrowed, 0, fee, 0, ExpectedRelease(escrowed + fee - maxRefund, maxRefund, maxRefund)
+        );
+
+        // 0 repayment a bit after max refund time
+        // 95% is max refund, so after 6% of duration, 94% should be refunded
+        uint refund = fee * 94 / 100;
+        check_preview_end_withdraw(
+            escrowed, 0, fee, duration * 6 / 100, ExpectedRelease(escrowed + fee - refund, refund, refund)
+        );
+
         // 0 repayment full duration
         check_preview_end_withdraw(escrowed, 0, fee, duration, ExpectedRelease(escrowed + fee, 0, 0));
 
