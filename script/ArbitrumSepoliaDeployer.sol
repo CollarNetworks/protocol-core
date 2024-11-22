@@ -27,6 +27,7 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
         _configureFeed(ChainlinkFeed(0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165, "ETH / USD", 120, 8, 5));
         // no WBTC, only virtual-BTC
         _configureFeed(ChainlinkFeed(0x56a43EB56Da12C0dc1D972ACb089c06a5dEF8e69, "BTC / USD", 120, 8, 30));
+        // TODO use these for cross-feed oracles
         _configureFeed(ChainlinkFeed(0x0153002d20B96532C639313c2d54c3dA09109309, "USDC / USD", 86_400, 8, 30));
         _configureFeed(ChainlinkFeed(0x80EDee6f667eCc9f63a0a6f55578F870651f06A4, "USDT / USD", 3600, 8, 30));
     }
