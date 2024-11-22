@@ -45,7 +45,7 @@ Arbitrum only initially. OP stack rollups (Optimism, Base) in the future.
 - Issues and considerations explained in the Solidity comments and audit report.
 
 ## Prior Audits
-- [Cantina solo review Oct-2024 report](../audits/audits/2024-oct-cantinacode-solo-1.pdf)
+- [Cantina solo review Oct-2024 report](../audits/2024-oct-cantinacode-solo-1.pdf)
 
 ## Non obvious parameter ranges
 - `minDuration` is at least 1 month.
