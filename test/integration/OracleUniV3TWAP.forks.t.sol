@@ -5,7 +5,7 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 
 import { UniswapNewPoolHelper } from "../utils/UniswapNewPoolHelper.sol";
-import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
+import { OracleUniV3TWAP } from "../utils/OracleUniV3TWAP.sol";
 
 contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
     OracleUniV3TWAP public oracle;
@@ -90,15 +90,22 @@ contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
             assertFalse(oracle.sequencerLiveFor(block.timestamp - expectedStartedAt + 1));
             assertFalse(oracle.sequencerLiveFor(block.timestamp - expectedStartedAt + 100 days));
 
-            // check price reverts
-            // doesn't revert due to sequencer, but due to not having data
-            vm.expectRevert(bytes("OLD"));
-            oracle.pastPrice(expectedStartedAt + twapWindow);
+            // price works
+            uint price = oracle.currentPrice();
+            assertNotEq(price, 0);
+
+            // very long twap window to check sequencer check causes reverts
+            twapWindow = uint32(block.timestamp) - expectedStartedAt + 1;
+            oracle = new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, router, sequencerFeed);
+
             // reverts due to sequencer
             vm.expectRevert("sequencer uptime interrupted");
-            oracle.pastPrice(expectedStartedAt + twapWindow - 1);
-            vm.expectRevert("sequencer uptime interrupted");
-            oracle.pastPrice(expectedStartedAt - 100 days);
+            oracle.currentPrice();
+
+            skip(1);
+            // doesn't revert due to sequencer, but due to not having data
+            vm.expectRevert(bytes("OLD"));
+            oracle.currentPrice();
         } else {
             assertEq(address(oracle.sequencerChainlinkFeed()), address(0));
 
@@ -113,33 +120,6 @@ contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
 
     function test_currentPrice() public view {
         assertEq(oracle.currentPrice(), expectedCurPrice);
-    }
-
-    function test_pastPrice() public view {
-        uint32 pastTimestamp = uint32(block.timestamp) - twapWindow;
-        assertEq(oracle.pastPrice(pastTimestamp), expectedPriceTwapWindowAgo);
-    }
-
-    function test_pastPriceWithFallback() public view {
-        uint32 pastTimestamp = uint32(block.timestamp) - twapWindow;
-        (uint price, bool pastPriceOk) = oracle.pastPriceWithFallback(pastTimestamp);
-        assertEq(price, expectedPriceTwapWindowAgo);
-        assertTrue(pastPriceOk);
-    }
-
-    function test_pastPriceWithFallback_unavailableHistorical() public {
-        uint32 ago = 30 * 86_400; // 30 days, adjust up if flaky
-        uint32 pastTimestamp = uint32(block.timestamp) - ago;
-
-        // past price should revert
-        vm.expectRevert(revertBytesOLD);
-        oracle.pastPrice(pastTimestamp);
-
-        // fallback should succeed
-        (uint price, bool pastPriceOk) = oracle.pastPriceWithFallback(pastTimestamp);
-
-        assertEq(price, expectedCurPrice);
-        assertFalse(pastPriceOk);
     }
 
     function test_increaseCardinality() public {

@@ -8,8 +8,7 @@ import { LoansNFT } from "../../src/LoansNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../../src/Rolls.sol";
 import { EscrowSupplierNFT } from "../../src/EscrowSupplierNFT.sol";
-import { DeploymentHelper } from "../deployment-helper.sol";
-import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
+import { BaseDeployer, BaseTakerOracle } from "../BaseDeployer.sol";
 import { SwapperUniV3 } from "../../src/SwapperUniV3.sol";
 
 library DeploymentUtils {
@@ -20,7 +19,7 @@ library DeploymentUtils {
         string memory name,
         address configHub,
         address router,
-        DeploymentHelper.AssetPairContracts[] memory assetPairs
+        BaseDeployer.AssetPairContracts[] memory assetPairs
     ) internal {
         string memory json = constructJson(vm, configHub, router, assetPairs);
         writeJsonToFile(vm, name, json);
@@ -30,7 +29,7 @@ library DeploymentUtils {
         Vm vm,
         address configHub,
         address router,
-        DeploymentHelper.AssetPairContracts[] memory assetPairs
+        BaseDeployer.AssetPairContracts[] memory assetPairs
     ) internal pure returns (string memory) {
         string memory json = "{";
 
@@ -38,7 +37,7 @@ library DeploymentUtils {
         json = string(abi.encodePacked(json, '"router": "', vm.toString(router), '",'));
 
         for (uint i = 0; i < assetPairs.length; i++) {
-            DeploymentHelper.AssetPairContracts memory pair = assetPairs[i];
+            BaseDeployer.AssetPairContracts memory pair = assetPairs[i];
             string memory pairName = string(
                 abi.encodePacked(
                     vm.toString(address(pair.underlying)), "_", vm.toString(address(pair.cashAsset))
@@ -95,23 +94,6 @@ library DeploymentUtils {
                 )
             );
 
-            // durations and ltvs to json
-            json = string(abi.encodePacked(json, '"', pairName, '_durations": ['));
-            for (uint j = 0; j < pair.durations.length; j++) {
-                json = string(abi.encodePacked(json, vm.toString(pair.durations[j]), ","));
-            }
-            json = string(abi.encodePacked(substring(json, 0, bytes(json).length - 1), "],"));
-
-            json = string(abi.encodePacked(json, '"', pairName, '_ltvs": ['));
-            for (uint j = 0; j < pair.ltvs.length; j++) {
-                json = string(abi.encodePacked(json, vm.toString(pair.ltvs[j]), ","));
-            }
-            json = string(abi.encodePacked(substring(json, 0, bytes(json).length - 1), "],"));
-            json = string(
-                abi.encodePacked(
-                    json, '"', pairName, '_oracleFeeTier":', vm.toString(pair.oracleFeeTier), ","
-                )
-            );
             json = string(
                 abi.encodePacked(json, '"', pairName, '_swapFeeTier":', vm.toString(pair.swapFeeTier), ",")
             );
@@ -155,7 +137,7 @@ library DeploymentUtils {
     function getAll(Vm vm, string memory filename)
         internal
         view
-        returns (address, DeploymentHelper.AssetPairContracts[] memory)
+        returns (address, BaseDeployer.AssetPairContracts[] memory)
     {
         string memory json =
             vm.readFile(string(abi.encodePacked(_getExportPath(vm), filename, "-latest.json")));
@@ -180,8 +162,7 @@ library DeploymentUtils {
             }
         }
 
-        DeploymentHelper.AssetPairContracts[] memory result =
-            new DeploymentHelper.AssetPairContracts[](pairCount);
+        BaseDeployer.AssetPairContracts[] memory result = new BaseDeployer.AssetPairContracts[](pairCount);
         uint resultIndex = 0;
 
         for (uint i = 0; i < allKeys.length; i++) {
@@ -197,7 +178,7 @@ library DeploymentUtils {
                 // using all other key suffixes
                 string memory baseKey = substring(allKeys[i], 0, bytes(allKeys[i]).length - 9);
 
-                result[resultIndex] = DeploymentHelper.AssetPairContracts({
+                result[resultIndex] = BaseDeployer.AssetPairContracts({
                     providerNFT: CollarProviderNFT(
                         _parseAddress(vm, parsedJson, string(abi.encodePacked(".", baseKey, "_providerNFT")))
                     ),
@@ -221,18 +202,11 @@ library DeploymentUtils {
                     underlying: IERC20(
                         _parseAddress(vm, parsedJson, string(abi.encodePacked(".", baseKey, "_underlying")))
                     ),
-                    oracle: OracleUniV3TWAP(
+                    oracle: BaseTakerOracle(
                         _parseAddress(vm, parsedJson, string(abi.encodePacked(".", baseKey, "_oracle")))
                     ),
                     swapperUniV3: SwapperUniV3(
                         _parseAddress(vm, parsedJson, string(abi.encodePacked(".", baseKey, "_swapperUniV3")))
-                    ),
-                    durations: _parseUintArray(
-                        vm, parsedJson, string(abi.encodePacked(".", baseKey, "_durations"))
-                    ),
-                    ltvs: _parseUintArray(vm, parsedJson, string(abi.encodePacked(".", baseKey, "_ltvs"))),
-                    oracleFeeTier: uint24(
-                        vm.parseJsonUint(json, string(abi.encodePacked(".", baseKey, "_oracleFeeTier")))
                     ),
                     swapFeeTier: uint24(
                         vm.parseJsonUint(json, string(abi.encodePacked(".", baseKey, "_swapFeeTier")))
@@ -248,9 +222,9 @@ library DeploymentUtils {
     function getByAssetPair(Vm vm, string memory filename, address cashAsset, address underlying)
         internal
         view
-        returns (address hub, DeploymentHelper.AssetPairContracts memory)
+        returns (address hub, BaseDeployer.AssetPairContracts memory)
     {
-        (address configHub, DeploymentHelper.AssetPairContracts[] memory allPairs) = getAll(vm, filename);
+        (address configHub, BaseDeployer.AssetPairContracts[] memory allPairs) = getAll(vm, filename);
         for (uint i = 0; i < allPairs.length; i++) {
             if (address(allPairs[i].cashAsset) == cashAsset && address(allPairs[i].underlying) == underlying)
             {

@@ -88,13 +88,13 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         mockSwapperRouter.setupSwap(amount, amount);
     }
 
-    function prepareSwapToUnderlyingAtTWAPPrice() public returns (uint swapOut) {
-        swapOut = underlyingAmount * 1e18 / twapPrice;
+    function prepareSwapToUnderlyingAtOraclePrice() public returns (uint swapOut) {
+        swapOut = underlyingAmount * 1e18 / oraclePrice;
         prepareSwap(underlying, swapOut);
     }
 
-    function prepareSwapToCashAtTWAPPrice() public returns (uint swapOut) {
-        swapOut = underlyingAmount * twapPrice / 1e18;
+    function prepareSwapToCashAtOraclePrice() public returns (uint swapOut) {
+        swapOut = underlyingAmount * oraclePrice / 1e18;
         prepareSwap(cashAsset, swapOut);
     }
 
@@ -152,11 +152,11 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         uint providerOfferId = createProviderOffer();
         maybeCreateEscrowOffer();
 
-        // TWAP price must be set for every block
+        // price must be set for every block
         updatePrice();
 
-        // convert at twap price
-        uint swapOut = underlyingAmount * twapPrice / 1e18;
+        // convert at oracle price
+        uint swapOut = underlyingAmount * oraclePrice / 1e18;
         prepareSwap(cashAsset, swapOut);
 
         startHoax(user1);
@@ -248,7 +248,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(ids.loanId);
         assertEq(address(takerPosition.providerNFT), address(providerNFT));
         assertEq(takerPosition.providerId, ids.providerId);
-        assertEq(takerPosition.startPrice, twapPrice);
+        assertEq(takerPosition.startPrice, oraclePrice);
         assertEq(takerPosition.takerLocked, swapOut - loanAmount);
         assertEq(takerPosition.providerLocked, expectedProviderLocked);
         assertEq(takerPosition.duration, duration);
@@ -312,7 +312,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
     function closeAndCheckLoan(uint loanId, address caller, uint loanAmount, uint withdrawal, uint swapOut)
         internal
     {
-        // TWAP price must be set for every block
+        // price must be set for every block
         updatePrice();
 
         vm.startPrank(user1);
@@ -379,14 +379,14 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         skip(duration);
 
         // update price
-        twapPrice = newPrice;
+        oraclePrice = newPrice;
 
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition({ takerId: loanId });
         // calculate withdrawal amounts according to expected ratios
         uint withdrawal = takerPosition.takerLocked * putRatio / BIPS_100PCT
             + takerPosition.providerLocked * callRatio / BIPS_100PCT;
         // setup router output
-        uint swapOut = prepareSwapToUnderlyingAtTWAPPrice();
+        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
         closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
         return loanId;
     }
@@ -422,7 +422,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
 
     function test_constructor() public {
         loans = new LoansNFT(owner, takerNFT, "", "");
-        assertEq(loans.MAX_SWAP_TWAP_DEVIATION_BIPS(), 1000);
+        assertEq(loans.MAX_SWAP_PRICE_DEVIATION_BIPS(), 1000);
         assertEq(address(loans.configHub()), address(configHub));
         assertEq(address(loans.takerNFT()), address(takerNFT));
         assertEq(address(loans.cashAsset()), address(cashAsset));
@@ -475,7 +475,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         // withdrawal: no price change so only user locked (put locked)
         uint withdrawal = takerPosition.takerLocked;
         // setup router output
-        uint swapOut = prepareSwapToUnderlyingAtTWAPPrice();
+        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
         closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
     }
 
@@ -495,32 +495,32 @@ contract LoansBasicEffectsTest is LoansTestBase {
         // withdrawal: no price change so only user locked (put locked)
         uint withdrawal = takerPosition.takerLocked;
         // setup router output
-        uint swapOut = prepareSwapToUnderlyingAtTWAPPrice();
+        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
         closeAndCheckLoan(loanId, keeper, loanAmount, withdrawal, swapOut);
     }
 
     function test_closeLoan_priceUpToCall() public {
-        uint newPrice = twapPrice * callStrikePercent / BIPS_100PCT;
+        uint newPrice = oraclePrice * callStrikePercent / BIPS_100PCT;
         // price goes to call strike, withdrawal is 100% of pot (100% put + 100% call locked parts)
         checkOpenCloseWithPriceChange(newPrice, BIPS_100PCT, BIPS_100PCT);
     }
 
     function test_closeLoan_priceHalfUpToCall() public {
         uint delta = (callStrikePercent - BIPS_100PCT) / 2;
-        uint newPrice = twapPrice * (BIPS_100PCT + delta) / BIPS_100PCT;
+        uint newPrice = oraclePrice * (BIPS_100PCT + delta) / BIPS_100PCT;
         // price goes to half way to call, withdrawal is 100% takerLocked + 50% of providerLocked
         checkOpenCloseWithPriceChange(newPrice, BIPS_100PCT, BIPS_100PCT / 2);
     }
 
     function test_closeLoan_priceOverCall() public {
-        uint newPrice = twapPrice * (callStrikePercent + BIPS_100PCT) / BIPS_100PCT;
+        uint newPrice = oraclePrice * (callStrikePercent + BIPS_100PCT) / BIPS_100PCT;
         // price goes over call, withdrawal is 100% takerLocked + 100% providerLocked
         checkOpenCloseWithPriceChange(newPrice, BIPS_100PCT, BIPS_100PCT);
     }
 
     function test_closeLoan_priceDownToPut() public {
         uint putStrikePercent = ltv;
-        uint newPrice = twapPrice * putStrikePercent / BIPS_100PCT;
+        uint newPrice = oraclePrice * putStrikePercent / BIPS_100PCT;
         // price goes to put strike, withdrawal is 0 (all gone to provider)
         checkOpenCloseWithPriceChange(newPrice, 0, 0);
     }
@@ -528,14 +528,14 @@ contract LoansBasicEffectsTest is LoansTestBase {
     function test_closeLoan_priceHalfDownToPut() public {
         uint putStrikePercent = ltv;
         uint delta = (BIPS_100PCT - putStrikePercent) / 2;
-        uint newPrice = twapPrice * (BIPS_100PCT - delta) / BIPS_100PCT;
+        uint newPrice = oraclePrice * (BIPS_100PCT - delta) / BIPS_100PCT;
         // price goes half way to put strike, withdrawal is 50% of takerLocked and 0% of providerLocked
         checkOpenCloseWithPriceChange(newPrice, BIPS_100PCT / 2, 0);
     }
 
     function test_closeLoan_priceBelowPut() public {
         uint putStrikePercent = ltv;
-        uint newPrice = twapPrice * (putStrikePercent - BIPS_100PCT / 10) / BIPS_100PCT;
+        uint newPrice = oraclePrice * (putStrikePercent - BIPS_100PCT / 10) / BIPS_100PCT;
         // price goes below put strike, withdrawal is 0% (all gone to provider)
         checkOpenCloseWithPriceChange(newPrice, 0, 0);
     }
@@ -585,7 +585,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         // create a closable loan
         (uint loanId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
-        uint swapOut = prepareSwapToUnderlyingAtTWAPPrice();
+        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
 
         // switch swappers
         (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) = switchToArbitrarySwapper();
@@ -687,7 +687,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
 
         // disable oracle
         vm.startPrank(owner);
-        mockOracle.setReverts(true);
+        mockCLFeed.setReverts(true);
         vm.expectRevert("oracle reverts");
         takerNFT.currentOraclePrice();
 

@@ -8,13 +8,15 @@ import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import { Strings } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 import { TestERC20 } from "../utils/TestERC20.sol";
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-import { BaseAssetPairTestSetup, MockOracleUniV3TWAP } from "./BaseAssetPairTestSetup.sol";
+import { BaseAssetPairTestSetup, BaseTakerOracle } from "./BaseAssetPairTestSetup.sol";
 
 import { CollarTakerNFT, ICollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ICollarTakerNFT } from "../../src/interfaces/ICollarTakerNFT.sol";
 import { CollarProviderNFT } from "../../src/CollarProviderNFT.sol";
 import { ICollarProviderNFT } from "../../src/interfaces/ICollarProviderNFT.sol";
+import { ITakerOracle } from "../../src/interfaces/ITakerOracle.sol";
 
 contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     uint takerLocked = 1000 ether;
@@ -59,7 +61,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
             providerId: expectedProviderId,
             duration: duration,
             expiration: block.timestamp + duration,
-            startPrice: twapPrice,
+            startPrice: oraclePrice,
             putStrikePercent: ltv,
             callStrikePercent: callStrikePercent,
             takerLocked: takerLocked,
@@ -69,7 +71,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         });
         vm.expectEmit(address(takerNFT));
         emit ICollarTakerNFT.PairedPositionOpened(
-            expectedTakerId, address(providerNFT), expectedProviderId, offerId, takerLocked, twapPrice
+            expectedTakerId, address(providerNFT), expectedProviderId, offerId, takerLocked, oraclePrice
         );
         (takerId, providerNFTId) = takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
         // return values
@@ -114,16 +116,13 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         (takerId,) = checkOpenPairedPosition();
         skip(duration);
         // set settlement price
-        mockOracle.setHistoricalAssetPrice(block.timestamp, priceToSettleAt);
-        checkSettlePosition(takerId, priceToSettleAt, expectedProviderChange, true);
+        updatePrice(priceToSettleAt);
+        checkSettlePosition(takerId, priceToSettleAt, expectedProviderChange);
     }
 
-    function checkSettlePosition(
-        uint takerId,
-        uint expectedSettlePrice,
-        int expectedProviderChange,
-        bool historicalUsed
-    ) internal {
+    function checkSettlePosition(uint takerId, uint expectedSettlePrice, int expectedProviderChange)
+        internal
+    {
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
         uint providerNFTId = takerPos.providerId;
         uint expectedTakerOut = uint(int(takerLocked) - expectedProviderChange);
@@ -149,7 +148,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
             address(providerNFT),
             providerNFTId,
             expectedSettlePrice,
-            historicalUsed,
             expectedTakerOut,
             expectedProviderChange
         );
@@ -191,13 +189,13 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
     function test_constructor() public {
         vm.expectEmit();
-        emit ICollarTakerNFT.OracleSet(MockOracleUniV3TWAP(address(0)), mockOracle);
+        emit ICollarTakerNFT.OracleSet(BaseTakerOracle(address(0)), chainlinkOracle);
         vm.expectEmit();
         emit ICollarTakerNFT.CollarTakerNFTCreated(
-            address(cashAsset), address(underlying), address(mockOracle)
+            address(cashAsset), address(underlying), address(chainlinkOracle)
         );
         CollarTakerNFT takerNFT = new CollarTakerNFT(
-            owner, configHub, cashAsset, underlying, mockOracle, "NewCollarTakerNFT", "NBPNFT"
+            owner, configHub, cashAsset, underlying, chainlinkOracle, "NewCollarTakerNFT", "NBPNFT"
         );
 
         assertEq(takerNFT.owner(), owner);
@@ -205,7 +203,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         assertEq(address(takerNFT.configHub()), address(configHub));
         assertEq(address(takerNFT.cashAsset()), address(cashAsset));
         assertEq(address(takerNFT.underlying()), address(underlying));
-        assertEq(address(takerNFT.oracle()), address(mockOracle));
+        assertEq(address(takerNFT.oracle()), address(chainlinkOracle));
         assertEq(takerNFT.VERSION(), "0.2.0");
         assertEq(takerNFT.name(), "NewCollarTakerNFT");
         assertEq(takerNFT.symbol(), "NBPNFT");
@@ -214,56 +212,38 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
     function test_revert_constructor() public {
         // Create an oracle with mismatched assets
-        MockOracleUniV3TWAP invalidOracle = new MockOracleUniV3TWAP(address(cashAsset), address(underlying));
+        BaseTakerOracle invalidOracle = createMockFeedOracle(address(cashAsset), address(underlying));
         vm.expectRevert("taker: oracle underlying mismatch");
         new CollarTakerNFT(
             owner, configHub, cashAsset, underlying, invalidOracle, "NewCollarTakerNFT", "NBPNFT"
         );
 
-        invalidOracle = new MockOracleUniV3TWAP(address(cashAsset), address(cashAsset));
+        invalidOracle = createMockFeedOracle(address(cashAsset), address(cashAsset));
         vm.expectRevert("taker: oracle underlying mismatch");
         new CollarTakerNFT(
             owner, configHub, cashAsset, underlying, invalidOracle, "NewCollarTakerNFT", "NBPNFT"
         );
 
-        invalidOracle = new MockOracleUniV3TWAP(address(underlying), address(underlying));
+        invalidOracle = createMockFeedOracle(address(underlying), address(underlying));
         vm.expectRevert("taker: oracle cashAsset mismatch");
         new CollarTakerNFT(
             owner, configHub, cashAsset, underlying, invalidOracle, "NewCollarTakerNFT", "NBPNFT"
         );
 
-        invalidOracle = new MockOracleUniV3TWAP(address(underlying), address(0));
+        vm.mockCall(address(100), abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(18));
+        invalidOracle = createMockFeedOracle(address(underlying), address(100));
         vm.expectRevert("taker: oracle cashAsset mismatch");
         new CollarTakerNFT(
             owner, configHub, cashAsset, underlying, invalidOracle, "NewCollarTakerNFT", "NBPNFT"
         );
 
-        MockOracleUniV3TWAP newOracle = new MockOracleUniV3TWAP(address(underlying), address(cashAsset));
-        newOracle.setHistoricalAssetPrice(block.timestamp, 0);
+        BaseTakerOracle newOracle = createMockFeedOracle(address(underlying), address(cashAsset));
+        vm.mockCall(address(newOracle), abi.encodeCall(ITakerOracle.currentPrice, ()), abi.encode(0));
         vm.expectRevert("taker: invalid current price");
-        new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
-
-        newOracle.setHistoricalAssetPrice(block.timestamp, 1);
-        vm.mockCallRevert(
-            address(newOracle),
-            abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))),
-            "mocked"
-        );
-        vm.expectRevert("mocked");
-        new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
-
-        newOracle.setHistoricalAssetPrice(block.timestamp, 1);
-        // 1 current price, but 0 historical price
-        vm.mockCall(address(newOracle), abi.encodeCall(newOracle.currentPrice, ()), abi.encode(1));
-        vm.mockCall(
-            address(newOracle),
-            abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))),
-            abi.encode(0, false)
-        );
-        vm.expectRevert("taker: invalid past price");
         new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
         vm.clearMockedCalls();
 
+        updatePrice(1);
         // 0 conversion view
         vm.mockCall(address(newOracle), abi.encodeCall(newOracle.convertToBaseAmount, (1, 1)), abi.encode(0));
         vm.expectRevert("taker: invalid convertToBaseAmount");
@@ -274,16 +254,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         vm.mockCallRevert(address(newOracle), abi.encodeCall(newOracle.convertToBaseAmount, (1, 1)), "mocked");
         vm.expectRevert("mocked");
         new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
-
-        // reverting historical price
-        vm.mockCallRevert(
-            address(newOracle),
-            abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))),
-            "mocked"
-        );
-        vm.expectRevert("mocked");
-        new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
-        vm.clearMockedCalls();
     }
 
     function test_pausableMethods() public {
@@ -454,7 +424,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     }
 
     function test_settleAndWIthdrawNoChange() public {
-        uint takerId = createAndSettlePosition(twapPrice, 0);
+        uint takerId = createAndSettlePosition(oraclePrice, 0);
         checkWithdrawFromSettled(takerId, takerLocked);
     }
 
@@ -465,7 +435,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     }
 
     function test_settleAndWIthdrawPriceUp() public {
-        uint newPrice = twapPrice * 110 / 100;
+        uint newPrice = oraclePrice * 110 / 100;
         uint takerId = createAndSettlePosition(newPrice, -int(providerLocked / 2));
         checkWithdrawFromSettled(takerId, takerLocked + providerLocked / 2);
     }
@@ -477,71 +447,20 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     }
 
     function test_settleAndWIthdrawPriceDown() public {
-        uint newPrice = twapPrice * 95 / 100;
+        uint newPrice = oraclePrice * 95 / 100;
         uint takerId = createAndSettlePosition(newPrice, int(takerLocked / 2));
         checkWithdrawFromSettled(takerId, takerLocked / 2);
     }
 
-    function test_settleAndWIthdrawHistoricalPrice() public {
-        uint expiryPice = twapPrice * 110 / 100;
-        uint currentPrice = twapPrice * 120 / 100;
-
-        uint expiration = block.timestamp + duration;
-        mockOracle.setHistoricalAssetPrice(expiration, expiryPice);
-        mockOracle.setHistoricalAssetPrice(expiration + 10 * duration, currentPrice);
+    function test_settleAndWIthdrawLate_usesCurrentPrice() public {
+        uint currentPrice = oraclePrice * 120 / 100;
 
         (uint takerId,) = checkOpenPairedPosition();
-        skip(11 * duration);
+        skip(10 * duration);
+        updatePrice(currentPrice);
         assertEq(takerNFT.currentOraclePrice(), currentPrice);
-        (uint historicalPrice, bool historical) = takerNFT.historicalOraclePrice(expiration);
-        assertEq(historicalPrice, expiryPice);
-        assertTrue(historical);
-        // settled at historical price and got 50% of providerLocked
-        checkSettlePosition(takerId, expiryPice, -int(providerLocked / 2), true);
-        checkWithdrawFromSettled(takerId, takerLocked + providerLocked / 2);
-    }
-
-    function test_settleAndWIthdrawFallbackToCurrent_MockOracle() public {
-        uint currentPrice = twapPrice * 120 / 100;
-
-        (uint takerId,) = checkOpenPairedPosition();
-        uint expiration = block.timestamp + duration;
-
-        // nock the pastPriceWithFallback view used by TakerNFT
-        vm.mockCall(
-            address(mockOracle),
-            abi.encodeCall(mockOracle.pastPriceWithFallback, (uint32(expiration))),
-            abi.encode(currentPrice, false)
-        );
-        mockOracle.setHistoricalAssetPrice(expiration + 10 * duration, currentPrice);
-
-        skip(11 * duration);
-        assertEq(takerNFT.currentOraclePrice(), currentPrice);
-        (uint historicalPrice, bool historical) = takerNFT.historicalOraclePrice(expiration);
-        assertEq(historicalPrice, currentPrice);
-        assertFalse(historical);
-        // settled at historical price and got 100% of providerLocked
-        checkSettlePosition(takerId, currentPrice, -int(providerLocked), false);
-        checkWithdrawFromSettled(takerId, takerLocked + providerLocked);
-    }
-
-    function test_settleAndWIthdrawFallbackToCurrent_MockInternalRevert() public {
-        uint currentPrice = twapPrice * 120 / 100;
-
-        (uint takerId,) = checkOpenPairedPosition();
-        uint expiration = block.timestamp + duration;
-
-        // nock revert the pastPrice view used by Oracle internally
-        vm.mockCallRevert(address(mockOracle), abi.encodeCall(mockOracle.pastPrice, (uint32(expiration))), "");
-        mockOracle.setHistoricalAssetPrice(expiration + 10 * duration, currentPrice);
-
-        skip(11 * duration);
-        assertEq(takerNFT.currentOraclePrice(), currentPrice);
-        (uint historicalPrice, bool historical) = takerNFT.historicalOraclePrice(expiration);
-        assertEq(historicalPrice, currentPrice);
-        assertFalse(historical);
-        // settled at historical price and got 100% of providerLocked
-        checkSettlePosition(takerId, currentPrice, -int(providerLocked), false);
+        // settled at current price and got 100% of providerLocked
+        checkSettlePosition(takerId, currentPrice, -int(providerLocked));
         checkWithdrawFromSettled(takerId, takerLocked + providerLocked);
     }
 
@@ -629,7 +548,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
         // disable oracle
         vm.startPrank(owner);
-        mockOracle.setReverts(true);
+        mockCLFeed.setReverts(true);
         vm.expectRevert("oracle reverts");
         takerNFT.currentOraclePrice();
 
@@ -679,14 +598,14 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
     function test_setOracle() public {
         // new oracle
-        MockOracleUniV3TWAP newOracle = new MockOracleUniV3TWAP(address(underlying), address(cashAsset));
+        BaseTakerOracle newOracle = createMockFeedOracle(address(underlying), address(cashAsset));
 
         uint newPrice = 1500 ether;
-        newOracle.setHistoricalAssetPrice(block.timestamp, newPrice);
+        updatePrice(newPrice);
 
         startHoax(owner);
         vm.expectEmit(address(takerNFT));
-        emit ICollarTakerNFT.OracleSet(mockOracle, newOracle);
+        emit ICollarTakerNFT.OracleSet(chainlinkOracle, newOracle);
         takerNFT.setOracle(newOracle);
 
         assertEq(address(takerNFT.oracle()), address(newOracle));
@@ -696,44 +615,35 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     function test_revert_setOracle() public {
         startHoax(user1);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user1));
-        takerNFT.setOracle(mockOracle);
+        takerNFT.setOracle(chainlinkOracle);
 
         startHoax(owner);
 
         // Create an oracle with mismatched assets
-        MockOracleUniV3TWAP invalidOracle = new MockOracleUniV3TWAP(address(cashAsset), address(underlying));
+        BaseTakerOracle invalidOracle = createMockFeedOracle(address(cashAsset), address(underlying));
         vm.expectRevert("taker: oracle underlying mismatch");
         takerNFT.setOracle(invalidOracle);
 
-        invalidOracle = new MockOracleUniV3TWAP(address(cashAsset), address(cashAsset));
+        invalidOracle = createMockFeedOracle(address(cashAsset), address(cashAsset));
         vm.expectRevert("taker: oracle underlying mismatch");
         takerNFT.setOracle(invalidOracle);
 
-        invalidOracle = new MockOracleUniV3TWAP(address(underlying), address(underlying));
+        invalidOracle = createMockFeedOracle(address(underlying), address(underlying));
         vm.expectRevert("taker: oracle cashAsset mismatch");
         takerNFT.setOracle(invalidOracle);
 
-        invalidOracle = new MockOracleUniV3TWAP(address(underlying), address(0));
+        vm.mockCall(address(100), abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(18));
+        invalidOracle = createMockFeedOracle(address(underlying), address(100));
         vm.expectRevert("taker: oracle cashAsset mismatch");
         takerNFT.setOracle(invalidOracle);
 
-        MockOracleUniV3TWAP newOracle = new MockOracleUniV3TWAP(address(underlying), address(cashAsset));
-        newOracle.setHistoricalAssetPrice(block.timestamp, 0);
+        BaseTakerOracle newOracle = createMockFeedOracle(address(underlying), address(cashAsset));
+        vm.mockCall(address(newOracle), abi.encodeCall(ITakerOracle.currentPrice, ()), abi.encode(0));
         vm.expectRevert("taker: invalid current price");
-        takerNFT.setOracle(newOracle);
-
-        newOracle.setHistoricalAssetPrice(block.timestamp, 1);
-        // 1 current price, but 0 historical price
-        vm.mockCall(address(newOracle), abi.encodeCall(newOracle.currentPrice, ()), abi.encode(1));
-        vm.mockCall(
-            address(newOracle),
-            abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))),
-            abi.encode(0, false)
-        );
-        vm.expectRevert("taker: invalid past price");
         takerNFT.setOracle(newOracle);
         vm.clearMockedCalls();
 
+        updatePrice(1);
         // 0 conversion view
         vm.mockCall(address(newOracle), abi.encodeCall(newOracle.convertToBaseAmount, (1, 1)), abi.encode(0));
         vm.expectRevert("taker: invalid convertToBaseAmount");
@@ -745,22 +655,5 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         vm.expectRevert("mocked");
         takerNFT.setOracle(newOracle);
         vm.clearMockedCalls();
-
-        // reverting historical price
-        vm.mockCallRevert(
-            address(newOracle),
-            abi.encodeCall(newOracle.pastPriceWithFallback, (uint32(block.timestamp))),
-            "mocked"
-        );
-        vm.expectRevert("mocked");
-        takerNFT.setOracle(newOracle);
-    }
-
-    function test_revert_historicalOraclePrice_overflow() public {
-        uint overflow32 = uint(type(uint32).max) + 1;
-        vm.expectRevert(
-            abi.encodeWithSelector(SafeCast.SafeCastOverflowedUintDowncast.selector, 32, overflow32)
-        );
-        takerNFT.historicalOraclePrice(overflow32);
     }
 }

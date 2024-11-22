@@ -37,7 +37,7 @@ contract LoansRollTestBase is LoansTestBase {
         CollarTakerNFT.TakerPosition memory oldTakerPos = takerNFT.getPosition(takerId);
 
         // new position
-        expected.newTakerLocked = oldTakerPos.takerLocked * newPrice / twapPrice;
+        expected.newTakerLocked = oldTakerPos.takerLocked * newPrice / oraclePrice;
         expected.newProviderLocked =
             expected.newTakerLocked * (callStrikePercent - BIPS_100PCT) / (BIPS_100PCT - ltv);
 
@@ -176,7 +176,7 @@ contract LoansRollTestBase is LoansTestBase {
 
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition({ takerId: loanId });
         uint withdrawal = takerPosition.takerLocked;
-        uint swapOut = prepareSwapToUnderlyingAtTWAPPrice();
+        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
         closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
         return loanId;
     }
@@ -186,7 +186,7 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
     function test_rollLoan_no_change() public {
         (uint loanId,,) = createAndCheckLoan();
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition({ takerId: loanId });
-        (uint newTakerId, ExpectedRoll memory expected) = checkRollLoan(loanId, twapPrice);
+        (uint newTakerId, ExpectedRoll memory expected) = checkRollLoan(loanId, oraclePrice);
 
         // no change in locked amounts
         assertEq(expected.newTakerLocked, takerPosition.takerLocked);
@@ -208,7 +208,7 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         uint balanceBefore = cashAsset.balanceOf(user1);
         // roll 10 times
         for (uint i; i < 5; ++i) {
-            (newLoanId, expected) = checkRollLoan(newLoanId, twapPrice);
+            (newLoanId, expected) = checkRollLoan(newLoanId, oraclePrice);
         }
         // no change in locked amounts
         assertEq(expected.newTakerLocked, takerPosition.takerLocked);
@@ -227,13 +227,13 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         (uint loanId,,) = createAndCheckLoan();
         loans.setKeeperApproved(true);
         // checked to correspond to previous value in checkRollLoan
-        checkRollLoan(loanId, twapPrice);
+        checkRollLoan(loanId, oraclePrice);
     }
 
     function test_rollLoan_price_increase() public {
         (uint loanId,,) = createAndCheckLoan();
         // +5%
-        uint newPrice = twapPrice * 105 / 100;
+        uint newPrice = oraclePrice * 105 / 100;
         (uint newLoanId, ExpectedRoll memory expected) = checkRollLoan(loanId, newPrice);
 
         assertEq(expected.newTakerLocked, 105 ether); // scaled by price
@@ -243,14 +243,14 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         // LTV & underlying relationship maintained (because within collar bounds)
         assertEq(underlyingAmount * newPrice * ltv / 1e18 / BIPS_100PCT, expected.newLoanAmount);
 
-        twapPrice = newPrice;
+        oraclePrice = newPrice;
         checkCloseRolledLoan(newLoanId, expected.newLoanAmount);
     }
 
     function test_rollLoan_price_decrease() public {
         (uint loanId,,) = createAndCheckLoan();
         // -5%
-        uint newPrice = twapPrice * 95 / 100;
+        uint newPrice = oraclePrice * 95 / 100;
         (uint newLoanId, ExpectedRoll memory expected) = checkRollLoan(loanId, newPrice);
 
         assertEq(expected.newTakerLocked, 95 ether); // scaled by price
@@ -260,14 +260,14 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         // LTV & underlying relationship maintained (because within collar bounds)
         assertEq(underlyingAmount * newPrice * ltv / 1e18 / BIPS_100PCT, expected.newLoanAmount);
 
-        twapPrice = newPrice;
+        oraclePrice = newPrice;
         checkCloseRolledLoan(newLoanId, expected.newLoanAmount);
     }
 
     function test_rollLoan_price_increase_large() public {
         (uint loanId,,) = createAndCheckLoan();
         // +50%
-        uint newPrice = twapPrice * 150 / 100;
+        uint newPrice = oraclePrice * 150 / 100;
         (uint newLoanId, ExpectedRoll memory expected) = checkRollLoan(loanId, newPrice);
 
         assertEq(expected.newTakerLocked, 150 ether); // scaled by price
@@ -277,14 +277,14 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         // LTV & underlying relationship NOT maintained because outside of collar bounds
         assertTrue(expected.newLoanAmount < underlyingAmount * newPrice * ltv / 1e18 / BIPS_100PCT);
 
-        twapPrice = newPrice;
+        oraclePrice = newPrice;
         checkCloseRolledLoan(newLoanId, expected.newLoanAmount);
     }
 
     function test_rollLoan_price_decrease_large() public {
         (uint loanId,,) = createAndCheckLoan();
         // -50%
-        uint newPrice = twapPrice * 50 / 100;
+        uint newPrice = oraclePrice * 50 / 100;
         (uint newLoanId, ExpectedRoll memory expected) = checkRollLoan(loanId, newPrice);
 
         assertEq(expected.newTakerLocked, 50 ether); // scaled by price
@@ -294,7 +294,7 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         // LTV & underlying relationship NOT maintained because outside of collar bounds
         assertTrue(expected.newLoanAmount > underlyingAmount * newPrice * ltv / 1e18 / BIPS_100PCT);
 
-        twapPrice = newPrice;
+        oraclePrice = newPrice;
         checkCloseRolledLoan(newLoanId, expected.newLoanAmount);
     }
 }
@@ -310,7 +310,7 @@ contract LoansRollsEscrowEffectsTest is LoansRollsEffectsTest {
     function test_rollLoan_escrowRefund() public {
         (uint loanId,,) = createAndCheckLoan();
         uint prevFee = escrowFee;
-        (, ExpectedRoll memory expected) = checkRollLoan(loanId, twapPrice);
+        (, ExpectedRoll memory expected) = checkRollLoan(loanId, oraclePrice);
         // max refund
         uint maxRefund = escrowNFT.MAX_FEE_REFUND_BIPS() * prevFee / BIPS_100PCT;
         assertEq(expected.escrowFeeRefund, maxRefund);
@@ -318,14 +318,14 @@ contract LoansRollsEscrowEffectsTest is LoansRollsEffectsTest {
         (loanId,,) = createAndCheckLoan();
         skip(duration / 2);
         prevFee = escrowFee;
-        (, expected) = checkRollLoan(loanId, twapPrice);
+        (, expected) = checkRollLoan(loanId, oraclePrice);
         // half refund for half duration
         assertEq(expected.escrowFeeRefund, prevFee / 2);
 
         (loanId,,) = createAndCheckLoan();
         skip(duration);
         prevFee = escrowFee;
-        (, expected) = checkRollLoan(loanId, twapPrice);
+        (, expected) = checkRollLoan(loanId, oraclePrice);
         // no refund for full duraion
         assertEq(expected.escrowFeeRefund, 0);
     }

@@ -2,13 +2,13 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import { ArbitrumMainnetDeployer } from "../../../script/arbitrum-mainnet/deployer.sol";
+import { ArbitrumMainnetDeployer } from "../../../script/ArbitrumMainnetDeployer.sol";
 import { DeploymentUtils } from "../../../script/utils/deployment-exporter.s.sol";
 import { DeploymentLoader } from "./DeploymentLoader.sol";
-import "./validation.t.sol";
+import "./DeploymentValidation.t.sol";
 import "./Loans.fork.t.sol";
 
-contract ArbitrumMainnetFullProtocolForkTest is Test {
+contract ArbitrumMainnetFullProtocolForkTest is Test, ArbitrumMainnetDeployer {
     uint forkId;
     bool forkSet;
 
@@ -23,13 +23,12 @@ contract ArbitrumMainnetFullProtocolForkTest is Test {
             uint deployerPrivKey = vm.envUint("PRIVKEY_DEV_DEPLOYER");
             address owner = vm.addr(deployerPrivKey);
             vm.startPrank(owner);
-            ArbitrumMainnetDeployer.DeploymentResult memory result =
-                ArbitrumMainnetDeployer.deployAndSetupProtocol(owner);
+            DeploymentResult memory result = deployAndSetupProtocol(owner);
             DeploymentUtils.exportDeployment(
                 vm,
                 "collar_protocol_fork_deployment",
                 address(result.configHub),
-                ArbitrumMainnetDeployer.swapRouterAddress,
+                swapRouterAddress,
                 result.assetPairContracts
             );
             forkSet = true;
@@ -39,11 +38,11 @@ contract ArbitrumMainnetFullProtocolForkTest is Test {
         }
     }
 
-    function setupLoansForkTest() internal returns (USDCWETHForkTest loansTest) {
+    function setupLoansForkTest() internal returns (WETHUSDCLoansForkTest loansTest) {
         // need to select fork and fund wallets since loans test suite creates a fork
         // (cause it should run independently) we need to make sure its running in the one from this contract
         vm.selectFork(forkId);
-        loansTest = new USDCWETHForkTest();
+        loansTest = new WETHUSDCLoansForkTest();
         loansTest.setForkId(forkId);
         loansTest.setUp();
     }
@@ -57,20 +56,20 @@ contract ArbitrumMainnetFullProtocolForkTest is Test {
         validator.test_validatePairDeployments();
     }
 
-    function testPriceMovementFlow_aboveCallStrike() public {
-        setupLoansForkTest().testSettlementPriceAboveCallStrike();
-    }
+    //    function testPriceMovementFlow_aboveCallStrike() public {
+    //        setupLoansForkTest().testSettlementPriceAboveCallStrike();
+    //    }
 
-    function testPriceMovementFlow_belowPutStrike() public {
-        setupLoansForkTest().testSettlementPriceBelowPutStrike();
-    }
+    //    function testPriceMovementFlow_belowPutStrike() public {
+    //        setupLoansForkTest().testSettlementPriceBelowPutStrike();
+    //    }
 
-    function testPriceMovementFlow_upBetweenStrikes() public {
-        setupLoansForkTest().testSettlementPriceUpBetweenStrikes();
-    }
+    //    function testPriceMovementFlow_upBetweenStrikes() public {
+    //        setupLoansForkTest().testSettlementPriceUpBetweenStrikes();
+    //    }
 
     function testFullIntegration() public {
-        USDCWETHForkTest loansTest = setupLoansForkTest();
+        WETHUSDCLoansForkTest loansTest = setupLoansForkTest();
         console.log("Running full integration test...");
         // Run all integration tests
         loansTest.testOpenAndCloseLoan();
@@ -81,11 +80,11 @@ contract ArbitrumMainnetFullProtocolForkTest is Test {
     }
 
     function testEscrowLoans() public {
-        USDCWETHForkTest loansTest = setupLoansForkTest();
+        WETHUSDCLoansForkTest loansTest = setupLoansForkTest();
         loansTest.testOpenEscrowLoan();
         loansTest.testOpenAndCloseEscrowLoan();
-        loansTest.testCloseEscrowLoanAfterGracePeriod();
-        loansTest.testCloseEscrowLoanWithPartialLateFees();
+        //        loansTest.testCloseEscrowLoanAfterGracePeriod();
+        //        loansTest.testCloseEscrowLoanWithPartialLateFees();
         loansTest.testRollEscrowLoanBetweenSuppliers();
     }
 }

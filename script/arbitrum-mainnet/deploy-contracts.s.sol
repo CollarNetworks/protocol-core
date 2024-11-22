@@ -5,15 +5,14 @@ import "forge-std/Script.sol";
 import "forge-std/console.sol";
 import { DeploymentUtils } from "../utils/deployment-exporter.s.sol";
 import { WalletLoader } from "../wallet-loader.s.sol";
-import { ArbitrumMainnetDeployer } from "./deployer.sol";
+import { ArbitrumMainnetDeployer } from "../ArbitrumMainnetDeployer.sol";
 
-contract DeployContractsArbitrumMainnet is Script {
+contract DeployContractsArbitrumMainnet is Script, ArbitrumMainnetDeployer {
     function run() external {
         (address deployerAddress,,,) = WalletLoader.loadWalletsFromEnv(vm);
         vm.startBroadcast(deployerAddress);
 
-        ArbitrumMainnetDeployer.DeploymentResult memory result =
-            ArbitrumMainnetDeployer.deployAndSetupProtocol(deployerAddress);
+        DeploymentResult memory result = deployAndSetupProtocol(deployerAddress);
 
         vm.stopBroadcast();
 
@@ -21,7 +20,7 @@ contract DeployContractsArbitrumMainnet is Script {
             vm,
             "collar_protocol_deployment",
             address(result.configHub),
-            ArbitrumMainnetDeployer.swapRouterAddress,
+            swapRouterAddress,
             result.assetPairContracts
         );
         console.log("\nDeployment completed successfully");

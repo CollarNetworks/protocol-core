@@ -35,7 +35,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
         vm.startPrank(user1);
         underlying.approve(address(loans), underlyingAmount + escrowFee);
-        prepareSwapToCashAtTWAPPrice();
+        prepareSwapToCashAtOraclePrice();
 
         // 0 underlying
         vm.expectRevert("loans: invalid underlying amount");
@@ -94,9 +94,9 @@ contract LoansBasicRevertsTest is LoansTestBase {
         vm.expectRevert("SwapperUniV3: slippage exceeded");
         openLoan(underlyingAmount, minLoanAmount, swapCashAmount + 1, offerId);
 
-        // deviation vs.TWAP
+        // deviation vs. oracle
         prepareSwap(cashAsset, swapCashAmount / 2);
-        vm.expectRevert("swap and twap price too different");
+        vm.expectRevert("swap and oracle price too different");
         openLoan(underlyingAmount, minLoanAmount, 0, offerId);
     }
 
@@ -143,7 +143,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
     function test_revert_openLoan_insufficientLoanAmount() public {
         uint offerId = createProviderOffer();
         maybeCreateEscrowOffer();
-        uint swapOut = prepareSwapToCashAtTWAPPrice();
+        uint swapOut = prepareSwapToCashAtOraclePrice();
 
         vm.startPrank(user1);
         underlying.approve(address(loans), underlyingAmount + escrowFee);
@@ -159,7 +159,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         uint takerLocked = swapCashAmount - loanAmount;
 
         // prep again
-        prepareSwapToCashAtTWAPPrice();
+        prepareSwapToCashAtOraclePrice();
         underlying.approve(address(loans), underlyingAmount + escrowFee);
 
         vm.mockCall(
@@ -210,7 +210,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
     }
 
     function test_revert_closeLoan_alreadyClosed() public {
-        uint loanId = checkOpenCloseWithPriceChange(twapPrice, BIPS_100PCT, 0);
+        uint loanId = checkOpenCloseWithPriceChange(oraclePrice, BIPS_100PCT, 0);
         expectRevertERC721Nonexistent(loanId);
         loans.closeLoan(loanId, defaultSwapParams(0));
     }
@@ -337,7 +337,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         vm.startPrank(user1);
         // Close the loan normally
         skip(duration);
-        uint swapOut = prepareSwapToUnderlyingAtTWAPPrice();
+        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
         closeAndCheckLoan(
             loanId, user1, loans.getLoan(loanId).loanAmount, takerNFT.getPosition(loanId).takerLocked, swapOut
         );
