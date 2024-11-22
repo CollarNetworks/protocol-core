@@ -41,7 +41,7 @@ graph TB
     %% External Systems
     subgraph External[External Dependencies]
         Sequencer[Sequencer Uptime]
-        Pool[Uniswap Pool]
+        Chainlink[Chainlink Feeds]
         Router[Uniswap Router]
     end
 
@@ -55,7 +55,7 @@ graph TB
     Oracle --> Sequencer
     RollsContract --> Positions
     Swap --> Router
-    Oracle --> Pool
+    Oracle --> Chainlink
     AssetPair --> Hub
     SingleAsset --> Hub
 
@@ -70,7 +70,7 @@ graph TB
     class RollsContract managed
     class Oracle,Swap unowned
     class Hub,Admin config
-    class Sequencer chainlink
+    class Sequencer,Chainlink chainlink
 ```
 
 ### Example Call Flows
@@ -83,32 +83,31 @@ graph TB
 sequenceDiagram
     participant User
     participant TakerNFT
-    participant OracleUniV3
+    participant Oracle
     participant SequencerFeed
-    participant UniswapPool
+    participant Chainlink
     participant ProviderNFT
 
     User->>TakerNFT: openPairedPosition(takerLocked, providerNFT, offerId)
     activate TakerNFT
 
-    TakerNFT->>OracleUniV3: currentPrice()
-    activate OracleUniV3
+    TakerNFT->>Oracle: currentPrice()
+    activate Oracle
 
-    OracleUniV3->>SequencerFeed: latestRoundData()
+    Oracle->>SequencerFeed: latestRoundData()
     activate SequencerFeed
-    SequencerFeed-->>OracleUniV3: status, startedAt, updatedAt
+    SequencerFeed-->>Oracle: status, startedAt, updatedAt
     deactivate SequencerFeed
     
-    Note right of OracleUniV3: Check if sequencer is live:<br/>status == 0 && <br/>uptime >= required
+    Note right of Oracle: Check if sequencer is live:<br/>status == 0 && <br/>uptime >= required
 
-    OracleUniV3->>UniswapPool: observe(secondsAgos)
-    activate UniswapPool
-    Note right of UniswapPool: Calculate TWAP from<br/>tickCumulatives
-    UniswapPool-->>OracleUniV3: tickCumulatives
-    deactivate UniswapPool
+    Oracle->>Chainlink: prices
+    activate Chainlink
+    Chainlink-->>Oracle: prices
+    deactivate Chainlink
 
-    OracleUniV3-->>TakerNFT: startPrice
-    deactivate OracleUniV3
+    Oracle-->>TakerNFT: startPrice
+    deactivate Oracle
 
     TakerNFT->>TakerNFT: calculateProviderLocked()
     Note right of TakerNFT: Calculate locked amounts<br/>based on LTV and strikes
@@ -136,7 +135,7 @@ sequenceDiagram
     participant LoansNFT
     participant Rolls
     participant TakerNFT
-    participant OracleUniV3
+    participant Oracle
     participant SequencerFeed
     participant ProviderNFT
 
@@ -160,15 +159,15 @@ sequenceDiagram
     User->>LoansNFT: rollLoan(loanId, rollOffer, minToUser, newEscrowId, newFee)
     activate LoansNFT
 
-    LoansNFT->>OracleUniV3: currentPrice()
-    activate OracleUniV3
-    OracleUniV3->>SequencerFeed: latestRoundData()
-    SequencerFeed-->>OracleUniV3: status, timestamp
-    Note right of OracleUniV3: Check sequencer uptime
-    OracleUniV3->>UniswapPool: observe()
-    UniswapPool-->>OracleUniV3: tickCumulatives
-    OracleUniV3-->>LoansNFT: price
-    deactivate OracleUniV3
+    LoansNFT->>Oracle: currentPrice()
+    activate Oracle
+    Oracle->>SequencerFeed: latestRoundData()
+    SequencerFeed-->>Oracle: status, timestamp
+    Note right of Oracle: Check sequencer uptime
+    Oracle->>Chainlink: prices
+    Chainlink-->>Oracle: prices
+    Oracle-->>LoansNFT: price
+    deactivate Oracle
 
     LoansNFT->>Rolls: executeRoll(rollId, minToUser)
     activate Rolls
