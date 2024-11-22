@@ -101,7 +101,7 @@ contract CombinedOracleTest is Test {
         return 10 ** (baseDecimalsCurrent + quoteDecimalsCurrent) / currentPrice;
     }
 
-    function simplePriceCheck(uint expectedPrice, uint expectedInverse) internal {
+    function basicPriceCheck(uint expectedPrice, uint expectedInverse) internal {
         mockFeed1.setLatestAnswer(feed1Answer, block.timestamp);
         assertEq(oracle_1.currentPrice(), expectedOraclePrice1);
         mockFeed2.setLatestAnswer(feed2Answer, block.timestamp);
@@ -176,7 +176,7 @@ contract CombinedOracleTest is Test {
         // default starting values
         // from base1 to base2: ( 1000 / 2 ) * 1e6 -> 500e6
         // from base2 to base1: ( 2 / 1000 ) * 1e18 -> 0.002e18
-        simplePriceCheck(500e6, 0.002e18);
+        basicPriceCheck(500e6, 0.002e18);
     }
 
     function testPrices_decimals() public {
@@ -187,7 +187,7 @@ contract CombinedOracleTest is Test {
         setUp();
         // from base1 to base2: ( 1000 / 2 ) * 1e8 -> 500e8
         // from base2 to base1: ( 2 / 1000 ) * 1e4 -> 0.002e4
-        simplePriceCheck(500e8, 0.002e4);
+        basicPriceCheck(500e8, 0.002e4);
     }
 
     function testPrices_inverts_false_false() public {
@@ -207,7 +207,7 @@ contract CombinedOracleTest is Test {
 
         // from base1 to base2: ( 1000 / 2 ) * 1e6 -> 500e6
         // from base2 to base1: ( 2 / 1000 ) * 1e18 -> 0.002e18
-        simplePriceCheck(500e6, 0.002e18);
+        basicPriceCheck(500e6, 0.002e18);
     }
 
     function testPrices_inverts_true_false() public {
@@ -234,7 +234,7 @@ contract CombinedOracleTest is Test {
 
         // from base1 to base2: ( 1000 / 2 ) * 1e6 -> 500e6
         // from base2 to base1: ( 2 / 1000 ) * 1e18 -> 0.002e18
-        simplePriceCheck(500e6, 0.002e18);
+        basicPriceCheck(500e6, 0.002e18);
     }
 
     function testPrices_inverts_true_true() public {
@@ -253,7 +253,7 @@ contract CombinedOracleTest is Test {
 
         // from base1 to base2: ( 1000 / 2 ) * 1e6 -> 500e6
         // from base2 to base1: ( 2 / 1000 ) * 1e18 -> 0.002e18
-        simplePriceCheck(500e6, 0.002e18);
+        basicPriceCheck(500e6, 0.002e18);
     }
 
     function test_revert_sequencer_notSet() public {
