@@ -9,7 +9,7 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 import { TestERC20 } from "../utils/TestERC20.sol";
-import { MockOracleUniV3TWAP } from "../utils/MockOracleUniV3TWAP.sol";
+import { MockChainlinkFeed } from "../utils/MockChainlinkFeed.sol";
 
 import { BaseManaged } from "../../src/base/BaseManaged.sol";
 import { ConfigHub } from "../../src/ConfigHub.sol";
@@ -18,6 +18,7 @@ import { CollarProviderNFT } from "../../src/CollarProviderNFT.sol";
 import { EscrowSupplierNFT } from "../../src/EscrowSupplierNFT.sol";
 import { LoansNFT } from "../../src/LoansNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
+import { ChainlinkOracle } from "../../src/ChainlinkOracle.sol";
 
 contract TestERC721 is ERC721 {
     constructor() ERC721("TestERC721", "TestERC721") { }
@@ -261,8 +262,12 @@ contract EscrowSupplierNFTManagedTest is BaseManagedTestBase {
 
 contract TakerNFTManagedTest is BaseManagedTestBase {
     function setupTestedContract() internal virtual override {
-        MockOracleUniV3TWAP oracle = new MockOracleUniV3TWAP(address(erc20), address(erc20));
-
+        MockChainlinkFeed mockCLFeed = new MockChainlinkFeed(18, "TestFeed");
+        ChainlinkOracle oracle = new ChainlinkOracle(
+            address(erc20), address(erc20), address(mockCLFeed), "TestFeed", 60, address(0)
+        );
+        // taker checks price on construction
+        mockCLFeed.setLatestAnswer(1, 0);
         testedContract =
             new CollarTakerNFT(owner, configHub, erc20, erc20, oracle, "CollarTakerNFT", "BRWTST");
     }

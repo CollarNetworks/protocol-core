@@ -131,8 +131,8 @@ contract ChainlinkOracle_ArbiMain_NewTokens_ForkTest is ChainlinkOracle_ArbiMain
     function _setUp() internal virtual override {
         super._setUp();
         /// the new tokens are using the existing feed
-        baseToken = address(new CollarOwnedERC20(address(this), "testETH", "testETH"));
-        quoteToken = address(new CollarOwnedERC20(address(this), "testUSD", "testUSD"));
+        baseToken = address(new CollarOwnedERC20(address(this), "testETH", "testETH", 18));
+        quoteToken = address(new CollarOwnedERC20(address(this), "testUSD", "testUSD", 18));
     }
 
     function _config() internal virtual override {
@@ -151,8 +151,8 @@ contract ChainlinkOracle_ArbiSepolia_NewTokens_ForkTest is ChainlinkOracle_ArbiM
     function _setUp() internal virtual override {
         super._setUp();
         /// the new tokens are using the existing feed
-        baseToken = address(new CollarOwnedERC20(address(this), "testBTC", "testBTC"));
-        quoteToken = address(new CollarOwnedERC20(address(this), "testUSD", "testUSD"));
+        baseToken = address(new CollarOwnedERC20(address(this), "testBTC", "testBTC", 18));
+        quoteToken = address(new CollarOwnedERC20(address(this), "testUSD", "testUSD", 18));
     }
 
     function _config() internal override {

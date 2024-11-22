@@ -7,19 +7,20 @@ import { IERC721Errors } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import { IERC20Errors } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import { TestERC20 } from "../utils/TestERC20.sol";
-import { MockOracleUniV3TWAP } from "../utils/MockOracleUniV3TWAP.sol";
+import { MockChainlinkFeed } from "../utils/MockChainlinkFeed.sol";
 
-import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
 import { ConfigHub } from "../../src/ConfigHub.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { CollarProviderNFT } from "../../src/CollarProviderNFT.sol";
 import { Rolls } from "../../src/Rolls.sol";
+import { ChainlinkOracle, BaseTakerOracle } from "../../src/ChainlinkOracle.sol";
 
 contract BaseAssetPairTestSetup is Test {
     TestERC20 cashAsset;
     TestERC20 underlying;
     ConfigHub configHub;
-    MockOracleUniV3TWAP mockOracle;
+    MockChainlinkFeed mockCLFeed;
+    ChainlinkOracle chainlinkOracle;
     CollarTakerNFT takerNFT;
     CollarProviderNFT providerNFT;
     CollarProviderNFT providerNFT2;
@@ -33,6 +34,7 @@ contract BaseAssetPairTestSetup is Test {
     address protocolFeeRecipient = makeAddr("feeRecipient");
 
     uint constant BIPS_100PCT = 10_000;
+    uint constant FEED_STALENESS = 1000;
 
     uint ltv = 9000;
     uint duration = 300;
@@ -41,8 +43,8 @@ contract BaseAssetPairTestSetup is Test {
 
     uint underlyingAmount = 1 ether;
     uint largeAmount = 100_000 ether;
-    uint twapPrice = 1000 ether;
-    uint swapCashAmount = (underlyingAmount * twapPrice / 1e18);
+    uint oraclePrice = 1000 ether;
+    uint swapCashAmount = (underlyingAmount * oraclePrice / 1e18);
 
     int rollFee = 1 ether;
 
@@ -64,9 +66,13 @@ contract BaseAssetPairTestSetup is Test {
         vm.label(address(configHub), "ConfigHub");
 
         // asset pair contracts
-        mockOracle = new MockOracleUniV3TWAP(address(underlying), address(cashAsset));
+        mockCLFeed = new MockChainlinkFeed(18, "TestFeed");
+        chainlinkOracle = createMockFeedOracle(address(underlying), address(cashAsset));
+
+        // taker checks oracle price on construction
+        updatePrice();
         takerNFT = new CollarTakerNFT(
-            owner, configHub, cashAsset, underlying, mockOracle, "CollarTakerNFT", "TKRNFT"
+            owner, configHub, cashAsset, underlying, chainlinkOracle, "CollarTakerNFT", "TKRNFT"
         );
         providerNFT = new CollarProviderNFT(
             owner, configHub, cashAsset, underlying, address(takerNFT), "ProviderNFT", "PRVNFT"
@@ -75,13 +81,17 @@ contract BaseAssetPairTestSetup is Test {
         providerNFT2 = new CollarProviderNFT(
             owner, configHub, cashAsset, underlying, address(takerNFT), "ProviderNFT-2", "PRVNFT-2"
         );
-        vm.label(address(mockOracle), "MockOracleUniV3TWAP");
+        vm.label(address(chainlinkOracle), "MockChainlinkOracle");
         vm.label(address(takerNFT), "CollarTakerNFT");
         vm.label(address(providerNFT), "CollarProviderNFT");
 
         // asset pair periphery
         rolls = new Rolls(owner, takerNFT);
         vm.label(address(rolls), "Rolls");
+    }
+
+    function createMockFeedOracle(address base, address quote) public returns (ChainlinkOracle) {
+        return new ChainlinkOracle(base, quote, address(mockCLFeed), "TestFeed", FEED_STALENESS, address(0));
     }
 
     function configureContracts() public {
@@ -113,11 +123,13 @@ contract BaseAssetPairTestSetup is Test {
     }
 
     function updatePrice() public {
-        mockOracle.setHistoricalAssetPrice(block.timestamp, twapPrice);
+        require(int(oraclePrice) > 0, "bad price");
+        mockCLFeed.setLatestAnswer(int(oraclePrice), block.timestamp);
     }
 
     function updatePrice(uint price) public {
-        mockOracle.setHistoricalAssetPrice(block.timestamp, price);
+        require(int(price) > 0, "bad price");
+        mockCLFeed.setLatestAnswer(int(price), block.timestamp);
     }
 
     function mintAssets() public {

@@ -5,7 +5,7 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 
 import { UniswapNewPoolHelper } from "../utils/UniswapNewPoolHelper.sol";
-import { OracleUniV3TWAP } from "../../src/OracleUniV3TWAP.sol";
+import { OracleUniV3TWAP } from "../utils/OracleUniV3TWAP.sol";
 
 contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
     OracleUniV3TWAP public oracle;

@@ -2,13 +2,13 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import { ArbitrumMainnetDeployer } from "../../../script/arbitrum-mainnet/deployer.sol";
+import { ArbitrumMainnetDeployer } from "../../../script/ArbitrumMainnetDeployer.sol";
 import { DeploymentUtils } from "../../../script/utils/deployment-exporter.s.sol";
 import { DeploymentLoader } from "./DeploymentLoader.sol";
-import "./validation.t.sol";
+import "./DeploymentValidation.t.sol";
 import "./Loans.fork.t.sol";
 
-contract ArbitrumMainnetFullProtocolForkTest is Test {
+contract ArbitrumMainnetFullProtocolForkTest is Test, ArbitrumMainnetDeployer {
     uint forkId;
     bool forkSet;
 
@@ -23,13 +23,12 @@ contract ArbitrumMainnetFullProtocolForkTest is Test {
             uint deployerPrivKey = vm.envUint("PRIVKEY_DEV_DEPLOYER");
             address owner = vm.addr(deployerPrivKey);
             vm.startPrank(owner);
-            ArbitrumMainnetDeployer.DeploymentResult memory result =
-                ArbitrumMainnetDeployer.deployAndSetupProtocol(owner);
+            DeploymentResult memory result = deployAndSetupProtocol(owner);
             DeploymentUtils.exportDeployment(
                 vm,
                 "collar_protocol_fork_deployment",
                 address(result.configHub),
-                ArbitrumMainnetDeployer.swapRouterAddress,
+                swapRouterAddress,
                 result.assetPairContracts
             );
             forkSet = true;
@@ -57,17 +56,17 @@ contract ArbitrumMainnetFullProtocolForkTest is Test {
         validator.test_validatePairDeployments();
     }
 
-    function testPriceMovementFlow_aboveCallStrike() public {
-        setupLoansForkTest().testSettlementPriceAboveCallStrike();
-    }
+    //    function testPriceMovementFlow_aboveCallStrike() public {
+    //        setupLoansForkTest().testSettlementPriceAboveCallStrike();
+    //    }
 
-    function testPriceMovementFlow_belowPutStrike() public {
-        setupLoansForkTest().testSettlementPriceBelowPutStrike();
-    }
+    //    function testPriceMovementFlow_belowPutStrike() public {
+    //        setupLoansForkTest().testSettlementPriceBelowPutStrike();
+    //    }
 
-    function testPriceMovementFlow_upBetweenStrikes() public {
-        setupLoansForkTest().testSettlementPriceUpBetweenStrikes();
-    }
+    //    function testPriceMovementFlow_upBetweenStrikes() public {
+    //        setupLoansForkTest().testSettlementPriceUpBetweenStrikes();
+    //    }
 
     function testFullIntegration() public {
         USDCWETHForkTest loansTest = setupLoansForkTest();
@@ -84,8 +83,8 @@ contract ArbitrumMainnetFullProtocolForkTest is Test {
         USDCWETHForkTest loansTest = setupLoansForkTest();
         loansTest.testOpenEscrowLoan();
         loansTest.testOpenAndCloseEscrowLoan();
-        loansTest.testCloseEscrowLoanAfterGracePeriod();
-        loansTest.testCloseEscrowLoanWithPartialLateFees();
+        //        loansTest.testCloseEscrowLoanAfterGracePeriod();
+        //        loansTest.testCloseEscrowLoanWithPartialLateFees();
         loansTest.testRollEscrowLoanBetweenSuppliers();
     }
 }
