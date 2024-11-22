@@ -37,11 +37,11 @@ Arbitrum only initially. OP stack rollups (Optimism, Base) in the future.
 - General protocol / mechanism docs: https://docs.collarprotocol.xyz/
 
 ## Known Issues
-- Providers offers do not limit execution price (only strike percentages), nor have deadlines, so are expected to be actively managed.
+- Providers offers do not limit execution price (only strike percentages), nor have deadlines, and are expected to be actively managed.
 - No refund of protocol fee for position cancellations / rolls. Fee APR and roll frequency are assumed to be low, and rolls are assumed to be beneficial enough to users to be worth it. Accepted as low risk economic issue.
-- During escrow loan foreclosure, any remaining underlying is pushed to the borrower (loan NFT ID owner) instead of being stored to be pulled. So it can be sent to a contract that will not credit it to actual user. Accepted as low: low likelihood, medium impact, user mistake due to being foreclosed.
+- During escrow loan foreclosure, any remaining underlying is sent to the borrower instead of being stored to be pulled. So it can be sent to a contract that will not credit it to actual user.
 - Because oracle prices undergo multiple conversions (feeds, tokens units), asset and price feed combinations w.r.t to decimals and price ranges are assumed to be checked to allow sufficient precision.
-- In case of congestion, "stale" `openPairedPosition` (and `openLoan` that uses it) and rolls `executeRoll` can be executed at higher price than the user intended (if price is lower, `openLoan` and `executeRoll` have slippage protection, and `openPairedPosition` has better upside for the caller). This is accepted because of combination of: 1) sequencer uptime check in oracle, 2) low likelihood: Arbitrum not having a public mempool, and low impact: loss is small since short congestion will result in small price change vs. original intent.
+- In case of congestion, calls for `openPairedPosition` (`openLoan` that uses it), and rolls `executeRoll` can be executed at higher price than the user intended (if price is lower, `openLoan` and `executeRoll` have slippage protection, and `openPairedPosition` has better upside for the caller). This is accepted as low likelihood, and low impact: loss is small since short congestion will result in small price change vs. original intent, and long downtime may fail the oracle sequencer uptime check.
 - Issues and considerations explained in the Solidity comments and audit report.
 
 ## Prior Audits
@@ -50,9 +50,9 @@ Arbitrum only initially. OP stack rollups (Optimism, Base) in the future.
 ## Non obvious parameter ranges
 - `minDuration` is at least 1 month.
 
-## Potentially useful topics that may be accepted for low / info findings, despite OOS assumptions:
+## Potentially useful topics that may be accepted for low / info findings, despite inherent OOS assumptions:
 - Arbitrum timeboost implications.
-- Reentrancy or concerns for using `SwapperArbitraryCall` (not in scope), with more advanced multi-hop swaps or dex aggregators instead of the currently in scope swapper.
+- Reentrancy or concerns for using `SwapperArbitraryCall` with more advanced multi-hop swaps or dex aggregators instead of the currently in-scope swapper.
 - Any implications of "Known Issues" or design decisions we may be overlooking or underestimating, including any mechanism and economic issues (incentives). 
 
 ## Testing and POC
