@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 
 import { BaseLoansForkTest } from "./BaseForkTest.sol";
 
-contract USDCWETHForkTest is BaseLoansForkTest {
+contract WETHUSDCLoansForkTest is BaseLoansForkTest {
     function setUp() public override {
         super.setUp();
 
@@ -52,7 +52,7 @@ contract USDCWETHForkTest is BaseLoansForkTest {
     }
 }
 
-contract USDTWETHForkTest is USDCWETHForkTest {
+contract WETHUSDTLoansForkTest is WETHUSDCLoansForkTest {
     function _setParams() internal virtual override {
         super._setParams();
         underlying = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
@@ -60,7 +60,7 @@ contract USDTWETHForkTest is USDCWETHForkTest {
     }
 }
 
-contract USDTWBTCForkTest is USDCWETHForkTest {
+contract WBTCUSDTLoansForkTest is WETHUSDCLoansForkTest {
     function _setParams() internal virtual override {
         super._setParams();
 

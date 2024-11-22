@@ -68,6 +68,7 @@ contract OracleUniV3TWAPTest is Test {
 
         // Mock the decimals call
         vm.mockCall(baseToken, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(decimals));
+        vm.mockCall(quoteToken, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(decimals));
     }
 
     function mockObserve(int24 tick, uint32 ago) internal {
@@ -279,6 +280,7 @@ contract OracleUniV3TWAPTest is Test {
     // revert tests
 
     function test_revert_constructor_invalidPool() public {
+        vm.mockCall(quoteToken, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(decimals));
         vm.mockCall(baseToken, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(18));
         // reverting factory view
         vm.expectRevert(new bytes(0));
@@ -286,6 +288,7 @@ contract OracleUniV3TWAPTest is Test {
     }
 
     function test_revert_constructor_invalidTWAPWindow() public {
+        vm.mockCall(quoteToken, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(decimals));
         vm.mockCall(baseToken, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(18));
         vm.expectRevert("twap window too short");
         new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow - 1, mockRouter, mockSequencerFeed);
@@ -293,6 +296,7 @@ contract OracleUniV3TWAPTest is Test {
 
     function test_revert_constructor_invalidDecimals() public {
         // Mock the decimals call
+        vm.mockCall(quoteToken, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(decimals));
         vm.mockCall(baseToken, abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(39));
         vm.expectRevert("invalid base decimals");
         new OracleUniV3TWAP(baseToken, quoteToken, feeTier, twapWindow, mockRouter, mockSequencerFeed);
