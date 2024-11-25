@@ -55,7 +55,20 @@ contract RollsTest is BaseAssetPairTestSetup {
 
         uint nextRollId = rolls.nextRollId();
         vm.expectEmit(address(rolls));
-        emit IRolls.OfferCreated(takerId, provider, providerNFT, providerId, feeAmount, nextRollId);
+        emit IRolls.OfferCreated(
+            takerId,
+            provider,
+            providerNFT,
+            providerId,
+            feeAmount,
+            nextRollId,
+            deadline,
+            int24(feeDeltaFactorBIPS),
+            oraclePrice,
+            minPrice,
+            maxPrice,
+            minToProvider
+        );
         rollId = rolls.createOffer(
             takerId, feeAmount, feeDeltaFactorBIPS, minPrice, maxPrice, minToProvider, deadline
         );

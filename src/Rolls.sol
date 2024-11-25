@@ -208,6 +208,7 @@ contract Rolls is IRolls, BaseManaged {
             maxPrice: maxPrice,
             minToProvider: minToProvider
         });
+        // stack too deep
         RollOfferStored memory offer = rollOffers[rollId];
         _emitCreated(rollId, offer);
     }
