@@ -70,7 +70,13 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         });
         vm.expectEmit(address(takerNFT));
         emit ICollarTakerNFT.PairedPositionOpened(
-            expectedTakerId, address(providerNFT), expectedProviderId, offerId, takerLocked, oraclePrice
+            expectedTakerId,
+            address(providerNFT),
+            expectedProviderId,
+            offerId,
+            takerLocked,
+            oraclePrice,
+            block.timestamp + duration
         );
         (takerId, providerNFTId) = takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
         // return values
@@ -189,10 +195,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     function test_constructor() public {
         vm.expectEmit();
         emit ICollarTakerNFT.OracleSet(BaseTakerOracle(address(0)), chainlinkOracle);
-        vm.expectEmit();
-        emit ICollarTakerNFT.CollarTakerNFTCreated(
-            address(cashAsset), address(underlying), address(chainlinkOracle)
-        );
         CollarTakerNFT takerNFT = new CollarTakerNFT(
             owner, configHub, cashAsset, underlying, chainlinkOracle, "NewCollarTakerNFT", "NBPNFT"
         );

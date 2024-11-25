@@ -129,10 +129,6 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
     }
 
     function test_constructor() public {
-        vm.expectEmit();
-        emit ICollarProviderNFT.CollarProviderNFTCreated(
-            address(cashAsset), address(underlying), address(takerContract)
-        );
         CollarProviderNFT newProviderNFT = new CollarProviderNFT(
             owner, configHub, cashAsset, underlying, address(takerContract), "NewCollarProviderNFT", "NPRVNFT"
         );

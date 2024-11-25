@@ -51,7 +51,15 @@ interface ILoansNFT {
     }
 
     // events
-    event LoanOpened(uint indexed loanId, address indexed sender, uint underlyingAmount, uint loanAmount);
+    event LoanOpened(
+        uint indexed loanId,
+        address indexed sender,
+        uint underlyingAmount,
+        uint loanAmount,
+        bool usesEscrow,
+        uint escrowId,
+        address escrowNFT
+    );
     event LoanClosed(
         uint indexed loanId,
         address indexed sender,

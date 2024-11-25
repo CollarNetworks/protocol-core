@@ -60,7 +60,13 @@ interface IRolls {
         CollarProviderNFT indexed providerNFT,
         uint providerId,
         int rollFeeAmount,
-        uint rollId
+        uint rollId,
+        uint deadline,
+        int24 feeDeltaFactorBIPS,
+        uint feeReferencePrice,
+        uint minPrice,
+        uint maxPrice,
+        int minToProvider
     );
     event OfferCancelled(uint indexed rollId, uint indexed takerId, address indexed provider);
     event OfferExecuted(

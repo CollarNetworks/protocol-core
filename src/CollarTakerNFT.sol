@@ -216,7 +216,9 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         // mint the NFT to the sender, @dev does not use _safeMint to avoid reentrancy
         _mint(msg.sender, takerId);
 
-        emit PairedPositionOpened(takerId, address(providerNFT), providerId, offerId, takerLocked, startPrice);
+        emit PairedPositionOpened(
+            takerId, address(providerNFT), providerId, offerId, takerLocked, startPrice, expiration
+        );
 
         // pull the user side of the locked cash
         cashAsset.safeTransferFrom(msg.sender, address(this), takerLocked);

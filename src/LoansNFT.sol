@@ -529,7 +529,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // transfer the full loan amount on open
         cashAsset.safeTransfer(msg.sender, loanAmount);
 
-        emit LoanOpened(loanId, msg.sender, underlyingAmount, loanAmount);
+        emit LoanOpened(
+            loanId, msg.sender, underlyingAmount, loanAmount, usesEscrow, escrowId, address(escrowNFT)
+        );
     }
 
     /// @dev swaps underlying to cash and mints collar position

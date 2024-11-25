@@ -193,8 +193,6 @@ contract Rolls is IRolls, BaseManaged {
 
         // pull the NFT
         providerNFT.transferFrom(msg.sender, address(this), providerId);
-
-        // store the offer
         rollId = nextRollId++;
         rollOffers[rollId] = RollOfferStored({
             providerNFT: providerNFT,
@@ -210,8 +208,8 @@ contract Rolls is IRolls, BaseManaged {
             maxPrice: maxPrice,
             minToProvider: minToProvider
         });
-
-        emit OfferCreated(takerId, msg.sender, providerNFT, providerId, feeAmount, rollId);
+        RollOfferStored memory offer = rollOffers[rollId];
+        _emitCreated(rollId, offer);
     }
 
     /**
@@ -441,6 +439,23 @@ contract Rolls is IRolls, BaseManaged {
         // use the method that CollarTakerNFT will use to calculate the provider part
         newProviderLocked = takerNFT.calculateProviderLocked(
             newTakerLocked, takerPos.putStrikePercent, takerPos.callStrikePercent
+        );
+    }
+
+    function _emitCreated(uint rollId, RollOfferStored memory offer) internal {
+        emit OfferCreated(
+            offer.takerId,
+            msg.sender,
+            offer.providerNFT,
+            offer.providerId,
+            offer.feeAmount,
+            rollId,
+            offer.deadline,
+            SafeCast.toInt24(offer.feeDeltaFactorBIPS),
+            offer.feeReferencePrice,
+            offer.minPrice,
+            offer.maxPrice,
+            offer.minToProvider
         );
     }
 }

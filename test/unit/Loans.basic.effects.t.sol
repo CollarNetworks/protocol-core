@@ -182,7 +182,16 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
         ILoansNFT.SwapParams memory swapParams = defaultSwapParams(swapCashAmount);
         vm.expectEmit(address(loans));
-        emit ILoansNFT.LoanOpened(ids.loanId, user1, underlyingAmount, expectedLoanAmount);
+
+        emit ILoansNFT.LoanOpened(
+            ids.loanId,
+            user1,
+            underlyingAmount,
+            expectedLoanAmount,
+            openEscrowLoan,
+            openEscrowLoan ? ids.nextEscrowId : 0,
+            openEscrowLoan ? address(escrowNFT) : address(NO_ESCROW)
+        );
 
         if (openEscrowLoan) {
             (loanId, providerId, loanAmount) = loans.openEscrowLoan(
