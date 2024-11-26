@@ -13,7 +13,7 @@ abstract contract ArbitrumMainnetDeployer is BaseDeployer {
     address constant swapRouterAddress = address(0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45);
     uint24 constant swapFeeTier = 500;
 
-    address constant sequencerUptimeFeed = address(0xFdB631F5EE196F0ed6FAa767959853A9F217697D);
+    address constant sequencerFeed = address(0xFdB631F5EE196F0ed6FAa767959853A9F217697D);
 
     constructor() {
         chainId = 42_161;
@@ -24,6 +24,7 @@ abstract contract ArbitrumMainnetDeployer is BaseDeployer {
     }
 
     function _configureFeeds() internal {
+        // https://docs.chain.link/data-feeds/price-feeds/addresses?network=arbitrum&page=1#ethereum-mainnet
         // define feeds to be used in oracles
         _configureFeed(ChainlinkFeed(0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612, "ETH / USD", 86_400, 8, 5));
         _configureFeed(ChainlinkFeed(0xd0C7101eACbB49F3deCcCc166d238410D6D46d57, "WBTC / USD", 86_400, 8, 5));
@@ -45,6 +46,16 @@ abstract contract ArbitrumMainnetDeployer is BaseDeployer {
         // if any escrowNFT contracts will be reused for multiple pairs, they should be deployed first
         EscrowSupplierNFT wethEscrow = deployEscrowNFT(configHub, owner, IERC20(WETH), "WETH");
 
+        // deploy direct oracles
+        BaseTakerOracle oracleETH_USD =
+            deployChainlinkOracle(WETH, VIRTUAL_ASSET, _getFeed("ETH / USD"), sequencerFeed);
+        BaseTakerOracle oracleWBTC_USD =
+            deployChainlinkOracle(WBTC, VIRTUAL_ASSET, _getFeed("WBTC / USD"), sequencerFeed);
+        BaseTakerOracle oracleUSDC_USD =
+            deployChainlinkOracle(USDC, VIRTUAL_ASSET, _getFeed("USDC / USD"), sequencerFeed);
+        BaseTakerOracle oracleUSDT_USD =
+            deployChainlinkOracle(USDT, VIRTUAL_ASSET, _getFeed("USDT / USD"), sequencerFeed);
+
         // deploy pairs
         assetPairContracts[0] = deployContractPair(
             configHub,
@@ -52,8 +63,8 @@ abstract contract ArbitrumMainnetDeployer is BaseDeployer {
                 name: "WETH/USDC",
                 underlying: IERC20(WETH),
                 cashAsset: IERC20(USDC),
-                // TODO: use cross-feed oracle instead of this direct-feed oracle
-                oracle: deployDirectFeedOracle(WETH, USDC, _getFeed("ETH / USD"), sequencerUptimeFeed),
+                // ETH/USD -> invert(USDC/USD)
+                oracle: deployCombinedOracle(WETH, USDC, oracleETH_USD, oracleUSDC_USD, true),
                 swapFeeTier: swapFeeTier,
                 swapRouter: swapRouterAddress,
                 existingEscrowNFT: address(wethEscrow)
@@ -67,8 +78,8 @@ abstract contract ArbitrumMainnetDeployer is BaseDeployer {
                 name: "WETH/USDT",
                 underlying: IERC20(WETH),
                 cashAsset: IERC20(USDT),
-                // TODO: use cross-feed oracle instead of this direct-feed oracle
-                oracle: deployDirectFeedOracle(WETH, USDT, _getFeed("ETH / USD"), sequencerUptimeFeed),
+                // ETH/USD -> invert(USDT/USD)
+                oracle: deployCombinedOracle(WETH, USDT, oracleETH_USD, oracleUSDT_USD, true),
                 swapFeeTier: swapFeeTier,
                 swapRouter: swapRouterAddress,
                 existingEscrowNFT: address(wethEscrow)
@@ -82,8 +93,8 @@ abstract contract ArbitrumMainnetDeployer is BaseDeployer {
                 name: "WBTC/USDT",
                 underlying: IERC20(WBTC),
                 cashAsset: IERC20(USDT),
-                // TODO: use cross-feed oracle instead of this direct-feed oracle
-                oracle: deployDirectFeedOracle(WBTC, USDT, _getFeed("WBTC / USD"), sequencerUptimeFeed),
+                // WBTC/USD -> invert(USDT/USD)
+                oracle: deployCombinedOracle(WBTC, USDT, oracleWBTC_USD, oracleUSDT_USD, true),
                 swapFeeTier: swapFeeTier,
                 swapRouter: swapRouterAddress,
                 existingEscrowNFT: address(0)

@@ -3,13 +3,21 @@ pragma solidity 0.8.22;
 
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-import { ITakerOracle } from "../interfaces/ITakerOracle.sol";
 import { IChainlinkFeedLike } from "../interfaces/IChainlinkFeedLike.sol";
+import { ITakerOracle } from "../interfaces/ITakerOracle.sol";
 
 abstract contract BaseTakerOracle is ITakerOracle {
+    /// @notice address of a virtual "asset" that doesn't have an ERC-20, e.g., USD as used in
+    /// some CL feeds (ETH / USD). If this address is supplied as an asset, the ERC-20 decimals call
+    /// is not done, and 1e18 virtual precision is used.
+    /// @dev If both assets are supplied as virtual, the views baseToken and quoteToken lose
+    /// their ability to help onchain validations.
+    address public constant VIRTUAL_ASSET = address(type(uint160).max); // 0xff..ff
+
     address public immutable baseToken;
     address public immutable quoteToken;
     uint public immutable baseUnitAmount;
+    uint public immutable quoteUnitAmount;
     /// @dev can be zero-address if unset. Can be unset if it's unreliable, or because doesn't exist
     /// on a network (like arbi-sepolia)
     IChainlinkFeedLike public immutable sequencerChainlinkFeed;
@@ -17,14 +25,12 @@ abstract contract BaseTakerOracle is ITakerOracle {
     constructor(address _baseToken, address _quoteToken, address _sequencerChainlinkFeed) {
         baseToken = _baseToken;
         quoteToken = _quoteToken;
-        baseUnitAmount = 10 ** IERC20Metadata(_baseToken).decimals();
+        baseUnitAmount = _unitAmount(baseToken);
+        quoteUnitAmount = _unitAmount(quoteToken);
         sequencerChainlinkFeed = IChainlinkFeedLike(_sequencerChainlinkFeed);
     }
 
     // ----- Views ----- //
-
-    /// @return Amount of quoteToken for a "unit" of baseToken (i.e. 10**baseToken.decimals())
-    function currentPrice() external view virtual returns (uint);
 
     /**
      * @notice Checks whether the sequencer uptime Chainlink feed reports the sequencer to be live
@@ -79,5 +85,11 @@ abstract contract BaseTakerOracle is ITakerOracle {
     function convertToQuoteAmount(uint baseTokenAmount, uint atPrice) external view returns (uint) {
         // oracle price is for baseTokenAmount tokens
         return baseTokenAmount * atPrice / baseUnitAmount;
+    }
+
+    // ------ internal views --------
+
+    function _unitAmount(address asset) internal view returns (uint) {
+        return 10 ** ((asset == VIRTUAL_ASSET) ? 18 : IERC20Metadata(asset).decimals());
     }
 }

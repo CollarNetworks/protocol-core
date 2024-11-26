@@ -193,6 +193,10 @@ contract DeployArbitrumSepoliaAssets is Script {
         (uint amount0Desired, uint amount1Desired) = token0 == address(collateralAsset)
             ? (pair.amountCollDesired, pair.amountCashDesired)
             : (pair.amountCashDesired, pair.amountCollDesired);
+        console.log("is cash token0 ", token0 == address(cashAsset));
+        console.log("amount0 desired ", amount0Desired);
+        console.log("amount1 desired ", amount1Desired);
+
         // uint160 sqrtPriceX96 = 79_228_162_514_264_337_593_543_950_336; // 1:1 price
         uint160 sqrtPriceX96 = getSqrtPriceX96ByAmounts(token0, token1, amount0Desired, amount1Desired);
         IUniswapV3Pool(poolAddress).initialize(sqrtPriceX96);
@@ -200,24 +204,34 @@ contract DeployArbitrumSepoliaAssets is Script {
         int24 tickSpacing = IUniswapV3Pool(poolAddress).tickSpacing();
         console.log("current tick");
         console.logInt(currentTick);
-        // doesnt seem like changing this multiplier (50) does anything regarding price range
-        int24 tickLower = (currentTick - tickSpacing * 50) / tickSpacing * tickSpacing;
-        int24 tickUpper = (currentTick + tickSpacing * 50) / tickSpacing * tickSpacing;
-        INonfungiblePositionManager.MintParams memory params = INonfungiblePositionManager.MintParams({
-            token0: token0,
-            token1: token1,
-            fee: FEE_TIER,
-            tickLower: tickLower,
-            tickUpper: tickUpper,
-            amount0Desired: amount0Desired,
-            amount1Desired: amount1Desired,
-            amount0Min: 0,
-            amount1Min: 0,
-            recipient: deployer,
-            deadline: block.timestamp + 15 minutes
-        });
 
-        (, uint128 liquidity, uint amount0, uint amount1) = POSITION_MANAGER.mint(params);
+        {
+            // doesnt seem like changing this multiplier (50) does anything regarding price range
+            int24 tickLower = (currentTick - tickSpacing * 50) / tickSpacing * tickSpacing;
+            int24 tickUpper = (currentTick + tickSpacing * 50) / tickSpacing * tickSpacing;
+            console.log("tick lower ");
+            console.logInt(tickLower);
+            console.log("tick upper ");
+            console.logInt(tickUpper);
+            INonfungiblePositionManager.MintParams memory params = INonfungiblePositionManager.MintParams({
+                token0: token0,
+                token1: token1,
+                fee: FEE_TIER,
+                tickLower: tickLower,
+                tickUpper: tickUpper,
+                amount0Desired: amount0Desired,
+                amount1Desired: amount1Desired,
+                amount0Min: 0,
+                amount1Min: 0,
+                recipient: deployer,
+                deadline: block.timestamp + 15 minutes
+            });
+
+            (, uint128 liquidity, uint amount0, uint amount1) = POSITION_MANAGER.mint(params);
+            console.log("Minted liquidity", liquidity);
+            console.log("Minted amount0", amount0);
+            console.log("Minted amount1", amount1);
+        }
         // Add more liquidity
         // for (uint i = 0; i < 1; i++) {
         //     params.amount0Desired = amount0Desired * 10;
@@ -234,16 +248,6 @@ contract DeployArbitrumSepoliaAssets is Script {
         console.log("current tick after mint");
         console.logInt(currentTick);
         console.log("sqrtPriceX96 after mint", sqrtPriceX96);
-        console.log("tick lower ");
-        console.logInt(tickLower);
-        console.log("tick upper ");
-        console.logInt(tickUpper);
-        console.log("is cash token0 ", token0 == address(cashAsset));
-        console.log("amount0 desired ", amount0Desired);
-        console.log("amount1 desired ", amount1Desired);
-        console.log("Minted liquidity", liquidity);
-        console.log("Minted amount0", amount0);
-        console.log("Minted amount1", amount1);
     }
 
     function logDeployedAssets() internal view {

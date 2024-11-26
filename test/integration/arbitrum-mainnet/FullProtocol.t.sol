@@ -38,11 +38,11 @@ contract ArbitrumMainnetFullProtocolForkTest is Test, ArbitrumMainnetDeployer {
         }
     }
 
-    function setupLoansForkTest() internal returns (USDCWETHForkTest loansTest) {
+    function setupLoansForkTest() internal returns (WETHUSDCLoansForkTest loansTest) {
         // need to select fork and fund wallets since loans test suite creates a fork
         // (cause it should run independently) we need to make sure its running in the one from this contract
         vm.selectFork(forkId);
-        loansTest = new USDCWETHForkTest();
+        loansTest = new WETHUSDCLoansForkTest();
         loansTest.setForkId(forkId);
         loansTest.setUp();
     }
@@ -69,7 +69,7 @@ contract ArbitrumMainnetFullProtocolForkTest is Test, ArbitrumMainnetDeployer {
     //    }
 
     function testFullIntegration() public {
-        USDCWETHForkTest loansTest = setupLoansForkTest();
+        WETHUSDCLoansForkTest loansTest = setupLoansForkTest();
         console.log("Running full integration test...");
         // Run all integration tests
         loansTest.testOpenAndCloseLoan();
@@ -80,7 +80,7 @@ contract ArbitrumMainnetFullProtocolForkTest is Test, ArbitrumMainnetDeployer {
     }
 
     function testEscrowLoans() public {
-        USDCWETHForkTest loansTest = setupLoansForkTest();
+        WETHUSDCLoansForkTest loansTest = setupLoansForkTest();
         loansTest.testOpenEscrowLoan();
         loansTest.testOpenAndCloseEscrowLoan();
         //        loansTest.testCloseEscrowLoanAfterGracePeriod();

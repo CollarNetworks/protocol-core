@@ -10,6 +10,8 @@ import { MockChainlinkFeed } from "../utils/MockChainlinkFeed.sol";
 contract ChainlinkOracleTest is Test {
     ChainlinkOracle public oracle;
 
+    address constant VIRTUAL_ASSET = address(type(uint160).max); // 0xff..ff
+
     address baseToken = address(0x10);
     address quoteToken = address(0x20);
 
@@ -54,6 +56,10 @@ contract ChainlinkOracleTest is Test {
         assertEq(address(oracle.sequencerChainlinkFeed()), mockSequencerFeed);
     }
 
+    function invert(uint price) internal view returns (uint) {
+        return 10 ** (baseDecimals + quoteDecimals) / price;
+    }
+
     // effects tests
 
     function test_constructor() public {
@@ -62,6 +68,7 @@ contract ChainlinkOracleTest is Test {
             baseToken, quoteToken, address(mockFeed), feedDescription, maxStaleness, mockSequencerFeed
         );
         assertEq(oracle.VERSION(), "0.2.0");
+        assertEq(oracle.VIRTUAL_ASSET(), VIRTUAL_ASSET);
         assertEq(oracle.baseToken(), baseToken);
         assertEq(oracle.quoteToken(), quoteToken);
         assertEq(oracle.baseUnitAmount(), 10 ** baseDecimals);
@@ -86,6 +93,21 @@ contract ChainlinkOracleTest is Test {
         assertEq(oracle.feedUnitAmount(), 10 ** feedDecimals);
     }
 
+    function test_virtual_assets() public {
+        mockDependencyCalls();
+        oracle = new ChainlinkOracle(
+            VIRTUAL_ASSET, quoteToken, address(mockFeed), feedDescription, maxStaleness, mockSequencerFeed
+        );
+        assertEq(oracle.baseUnitAmount(), 1 ether);
+        assertEq(oracle.quoteUnitAmount(), 10 ** quoteDecimals);
+
+        oracle = new ChainlinkOracle(
+            baseToken, VIRTUAL_ASSET, address(mockFeed), feedDescription, maxStaleness, mockSequencerFeed
+        );
+        assertEq(oracle.baseUnitAmount(), 10 ** baseDecimals);
+        assertEq(oracle.quoteUnitAmount(), 1 ether);
+    }
+
     function test_revert_sequencer_notSet() public {
         // sequencer address returns "down", but it's 0 address so not checked
         vm.mockCall(
@@ -102,6 +124,7 @@ contract ChainlinkOracleTest is Test {
         // price works (oracle feed not called)
         mockFeed.setLatestAnswer(feedPrice, block.timestamp - maxStaleness);
         assertEq(oracle.currentPrice(), expectedPrice);
+        assertEq(oracle.inversePrice(), invert(expectedPrice));
     }
 
     function test_sequencerViewAndReverts_sequencerUp() public {
@@ -117,11 +140,14 @@ contract ChainlinkOracleTest is Test {
         assertFalse(oracle.sequencerLiveFor(sequencerGracePeriod));
         vm.expectRevert("ChainlinkOracle: sequencer uptime interrupted");
         oracle.currentPrice();
+        vm.expectRevert("ChainlinkOracle: sequencer uptime interrupted");
+        oracle.inversePrice();
 
         skip(1);
         assertTrue(oracle.sequencerLiveFor(sequencerGracePeriod));
         mockFeed.setLatestAnswer(feedPrice, block.timestamp - maxStaleness);
         assertEq(oracle.currentPrice(), expectedPrice);
+        assertEq(oracle.inversePrice(), invert(expectedPrice));
 
         assertFalse(oracle.sequencerLiveFor(sequencerGracePeriod + 1));
     }
@@ -141,24 +167,30 @@ contract ChainlinkOracleTest is Test {
 
         vm.expectRevert("ChainlinkOracle: sequencer uptime interrupted");
         oracle.currentPrice();
+        vm.expectRevert("ChainlinkOracle: sequencer uptime interrupted");
+        oracle.inversePrice();
 
         skip(1000);
 
         vm.expectRevert("ChainlinkOracle: sequencer uptime interrupted");
         oracle.currentPrice();
+        vm.expectRevert("ChainlinkOracle: sequencer uptime interrupted");
+        oracle.inversePrice();
         assertFalse(oracle.sequencerLiveFor(0));
         assertFalse(oracle.sequencerLiveFor(1500));
     }
 
-    function test_currentPrice_simple() public {
+    function testPrices_simple() public {
         mockFeed.setLatestAnswer(feedPrice, block.timestamp - maxStaleness);
         assertEq(oracle.currentPrice(), expectedPrice);
+        assertEq(oracle.inversePrice(), invert(expectedPrice));
 
         mockFeed.setLatestAnswer(feedPrice * 100, block.timestamp - maxStaleness);
         assertEq(oracle.currentPrice(), expectedPrice * 100);
+        assertEq(oracle.inversePrice(), invert(expectedPrice) / 100);
     }
 
-    function test_currentPrice_decimals() public {
+    function testPrices_decimals() public {
         baseDecimals = 2;
         quoteDecimals = 3;
         feedDecimals = 4;
@@ -173,9 +205,11 @@ contract ChainlinkOracleTest is Test {
 
         mockFeed.setLatestAnswer(feedPrice, block.timestamp - maxStaleness);
         assertEq(oracle.currentPrice(), expectedPrice);
+        assertEq(oracle.inversePrice(), invert(expectedPrice));
 
         mockFeed.setLatestAnswer(feedPrice * 100, block.timestamp - maxStaleness);
         assertEq(oracle.currentPrice(), expectedPrice * 100);
+        assertEq(oracle.inversePrice(), invert(expectedPrice) / 100);
     }
 
     function test_conversions() public view {
@@ -210,26 +244,35 @@ contract ChainlinkOracleTest is Test {
         );
     }
 
-    function test_revert_currentPrice() public {
+    function test_revert_prices() public {
         mockFeed.setLatestAnswer(feedPrice, block.timestamp - maxStaleness - 1);
         vm.expectRevert("ChainlinkOracle: stale price");
         oracle.currentPrice();
+        vm.expectRevert("ChainlinkOracle: stale price");
+        oracle.inversePrice();
 
         // set to not stale
         mockFeed.setLatestAnswer(feedPrice, block.timestamp - maxStaleness);
         assertEq(oracle.currentPrice(), expectedPrice);
+        assertEq(oracle.inversePrice(), invert(expectedPrice));
 
         skip(1);
         vm.expectRevert("ChainlinkOracle: stale price");
         oracle.currentPrice();
+        vm.expectRevert("ChainlinkOracle: stale price");
+        oracle.inversePrice();
 
         // set to invalid
         mockFeed.setLatestAnswer(0, block.timestamp);
         vm.expectRevert("ChainlinkOracle: invalid price");
         oracle.currentPrice();
+        vm.expectRevert("ChainlinkOracle: invalid price");
+        oracle.inversePrice();
 
         mockFeed.setLatestAnswer(-1, block.timestamp);
         vm.expectRevert("ChainlinkOracle: invalid price");
         oracle.currentPrice();
+        vm.expectRevert("ChainlinkOracle: invalid price");
+        oracle.inversePrice();
     }
 }

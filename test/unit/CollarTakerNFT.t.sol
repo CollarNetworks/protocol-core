@@ -16,6 +16,7 @@ import { CollarTakerNFT, ICollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { ICollarTakerNFT } from "../../src/interfaces/ICollarTakerNFT.sol";
 import { CollarProviderNFT } from "../../src/CollarProviderNFT.sol";
 import { ICollarProviderNFT } from "../../src/interfaces/ICollarProviderNFT.sol";
+import { ITakerOracle } from "../../src/interfaces/ITakerOracle.sol";
 
 contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     uint takerLocked = 1000 ether;
@@ -239,7 +240,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         );
 
         BaseTakerOracle newOracle = createMockFeedOracle(address(underlying), address(cashAsset));
-        vm.mockCall(address(newOracle), abi.encodeCall(BaseTakerOracle.currentPrice, ()), abi.encode(0));
+        vm.mockCall(address(newOracle), abi.encodeCall(ITakerOracle.currentPrice, ()), abi.encode(0));
         vm.expectRevert("taker: invalid current price");
         new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
         vm.clearMockedCalls();
@@ -639,7 +640,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         takerNFT.setOracle(invalidOracle);
 
         BaseTakerOracle newOracle = createMockFeedOracle(address(underlying), address(cashAsset));
-        vm.mockCall(address(newOracle), abi.encodeCall(BaseTakerOracle.currentPrice, ()), abi.encode(0));
+        vm.mockCall(address(newOracle), abi.encodeCall(ITakerOracle.currentPrice, ()), abi.encode(0));
         vm.expectRevert("taker: invalid current price");
         takerNFT.setOracle(newOracle);
         vm.clearMockedCalls();
