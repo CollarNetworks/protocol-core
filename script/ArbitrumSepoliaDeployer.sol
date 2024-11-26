@@ -51,7 +51,7 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
         assetPairContracts[0] = deployContractPair(
             configHub,
             PairConfig({
-                name: "tWETH/tUSDC",
+                name: "WETH/USDC",
                 underlying: IERC20(tWETH),
                 cashAsset: IERC20(tUSDC),
                 // ETH/USD -> invert(USDC/USD)
@@ -66,7 +66,7 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
         assetPairContracts[1] = deployContractPair(
             configHub,
             PairConfig({
-                name: "tWBTC/tUSDC",
+                name: "WBTC/USDC",
                 underlying: IERC20(tWBTC),
                 cashAsset: IERC20(tUSDC),
                 // BTC/USD -> invert(USDC/USD)
