@@ -478,16 +478,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
          });
 
         // emit before token transfer event in mint for easier indexing
-        emit EscrowCreated(
-            escrowId,
-            escrowed,
-            offer.duration,
-            fee,
-            offer.maxGracePeriod,
-            offerId,
-            escrows[escrowId].expiration,
-            offer.lateFeeAPR
-        );
+        emit EscrowCreated(escrowId, escrowed, fee, offerId);
         // mint the NFT to the supplier
         // @dev does not use _safeMint to avoid reentrancy
         _mint(offer.supplier, escrowId);

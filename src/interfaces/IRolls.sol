@@ -54,20 +54,7 @@ interface IRolls {
     }
 
     // events
-    event OfferCreated(
-        uint indexed takerId,
-        address indexed provider,
-        CollarProviderNFT indexed providerNFT,
-        uint providerId,
-        int rollFeeAmount,
-        uint rollId,
-        uint deadline,
-        int24 feeDeltaFactorBIPS,
-        uint feeReferencePrice,
-        uint minPrice,
-        uint maxPrice,
-        int minToProvider
-    );
+    event OfferCreated(address indexed provider, uint rollId, RollOfferStored offer);
     event OfferCancelled(uint indexed rollId, uint indexed takerId, address indexed provider);
     event OfferExecuted(
         uint indexed rollId, int toTaker, int toProvider, int rollFee, uint newTakerId, uint newProviderId

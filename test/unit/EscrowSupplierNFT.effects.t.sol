@@ -125,16 +125,7 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         asset.approve(address(escrowNFT), escrowAmount + fee);
 
         vm.expectEmit(address(escrowNFT));
-        emit IEscrowSupplierNFT.EscrowCreated(
-            expectedId,
-            escrowAmount,
-            duration,
-            fee,
-            maxGracePeriod,
-            offerId,
-            block.timestamp + duration,
-            lateFeeAPR
-        );
+        emit IEscrowSupplierNFT.EscrowCreated(expectedId, escrowAmount, fee, offerId);
         vm.expectEmit(address(escrowNFT));
         emit IEscrowSupplierNFT.OfferUpdated(offerId, supplier, offerAmount, offerAmount - escrowAmount);
         vm.expectEmit(address(asset));

@@ -76,16 +76,7 @@ interface IEscrowSupplierNFT {
         uint minEscrow
     );
     event OfferUpdated(uint indexed offerId, address indexed supplier, uint previousAmount, uint newAmount);
-    event EscrowCreated(
-        uint indexed escrowId,
-        uint indexed amount,
-        uint indexed duration,
-        uint interestFee,
-        uint maxGracePeriod,
-        uint offerId,
-        uint expiration,
-        uint lateFeeAPR
-    );
+    event EscrowCreated(uint indexed escrowId, uint indexed amount, uint interestFee, uint offerId);
     event EscrowReleased(uint indexed escrowId, uint fromLoans, uint withdrawable, uint toLoans);
     event EscrowsSwitched(uint indexed oldEscrowId, uint indexed newEscrowId);
     event WithdrawalFromReleased(uint indexed escrowId, address indexed recipient, uint withdrawn);

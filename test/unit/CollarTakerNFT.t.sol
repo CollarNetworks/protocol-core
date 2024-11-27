@@ -71,13 +71,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         });
         vm.expectEmit(address(takerNFT));
         emit ICollarTakerNFT.PairedPositionOpened(
-            expectedTakerId,
-            address(providerNFT),
-            expectedProviderId,
-            offerId,
-            takerLocked,
-            oraclePrice,
-            block.timestamp + duration
+            expectedTakerId, address(providerNFT), expectedProviderId, offerId, takerLocked, oraclePrice
         );
         (takerId, providerNFTId) = takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
         // return values

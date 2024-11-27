@@ -42,8 +42,7 @@ interface ICollarTakerNFT {
         uint indexed providerId,
         uint offerId,
         uint takerLocked,
-        uint startPrice,
-        uint expiration
+        uint startPrice
     );
     event PairedPositionSettled(
         uint indexed takerId,
