@@ -208,7 +208,7 @@ contract Rolls is IRolls, BaseManaged {
             minToProvider: minToProvider
         });
         rollId = nextRollId++;
-        // store the offer
+        // storage updates
         rollOffers[rollId] = offer;
         emit OfferCreated(msg.sender, rollId, offer);
     }
