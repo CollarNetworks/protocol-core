@@ -67,7 +67,6 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         underlying = _underlying;
         _setConfigHub(_configHub);
         _setOracle(_oracle);
-        emit CollarTakerNFTCreated(address(_cashAsset), address(_underlying), address(_oracle));
     }
 
     // ----- VIEW FUNCTIONS ----- //

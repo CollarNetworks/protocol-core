@@ -193,10 +193,7 @@ contract Rolls is IRolls, BaseManaged {
 
         // pull the NFT
         providerNFT.transferFrom(msg.sender, address(this), providerId);
-
-        // store the offer
-        rollId = nextRollId++;
-        rollOffers[rollId] = RollOfferStored({
+        RollOfferStored memory offer = RollOfferStored({
             providerNFT: providerNFT,
             providerId: SafeCast.toUint64(providerId),
             deadline: SafeCast.toUint32(deadline),
@@ -210,8 +207,10 @@ contract Rolls is IRolls, BaseManaged {
             maxPrice: maxPrice,
             minToProvider: minToProvider
         });
-
-        emit OfferCreated(takerId, msg.sender, providerNFT, providerId, feeAmount, rollId);
+        rollId = nextRollId++;
+        // storage updates
+        rollOffers[rollId] = offer;
+        emit OfferCreated(msg.sender, rollId, offer);
     }
 
     /**

@@ -190,10 +190,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     function test_constructor() public {
         vm.expectEmit();
         emit ICollarTakerNFT.OracleSet(BaseTakerOracle(address(0)), chainlinkOracle);
-        vm.expectEmit();
-        emit ICollarTakerNFT.CollarTakerNFTCreated(
-            address(cashAsset), address(underlying), address(chainlinkOracle)
-        );
         CollarTakerNFT takerNFT = new CollarTakerNFT(
             owner, configHub, cashAsset, underlying, chainlinkOracle, "NewCollarTakerNFT", "NBPNFT"
         );

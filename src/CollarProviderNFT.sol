@@ -76,7 +76,6 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         underlying = _underlying;
         taker = _taker;
         _setConfigHub(_configHub);
-        emit CollarProviderNFTCreated(address(_cashAsset), address(_underlying), _taker);
     }
 
     modifier onlyTaker() {
