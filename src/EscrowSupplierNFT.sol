@@ -551,7 +551,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     }
 
     function _lateFee(Escrow memory escrow) internal view returns (uint) {
-        if (block.timestamp < escrow.expiration + MIN_GRACE_PERIOD) {
+        if (block.timestamp <= escrow.expiration + MIN_GRACE_PERIOD) {
             // grace period cliff
             return 0;
         }

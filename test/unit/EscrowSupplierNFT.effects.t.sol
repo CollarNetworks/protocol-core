@@ -528,7 +528,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         assertGt(escrowNFT.getEscrow(escrowId).lateFeeAPR, 0);
 
         // No late fee during min grace period
-        skip(duration + escrowNFT.MIN_GRACE_PERIOD() - 1);
+        skip(duration + escrowNFT.MIN_GRACE_PERIOD());
         (uint owed, uint lateFee) = escrowNFT.currentOwed(escrowId);
         assertEq(lateFee, 0);
         assertEq(owed, escrowAmount);
@@ -541,7 +541,8 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         assertEq(lateFee, expectedFee);
         assertEq(owed, escrowAmount + expectedFee);
 
-        skip(escrow.maxGracePeriod - escrowNFT.MIN_GRACE_PERIOD()); // we skipped min-grace already
+        // skip to last second of max-grace
+        skip(escrow.maxGracePeriod - escrowNFT.MIN_GRACE_PERIOD() - 1); // we skipped min-grace already
         uint cappedLateFee;
         (owed, cappedLateFee) = escrowNFT.currentOwed(escrowId);
         expectedFee = expectedLateFees(escrow);
