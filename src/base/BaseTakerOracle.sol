@@ -43,7 +43,7 @@ abstract contract BaseTakerOracle is ITakerOracle {
      * @param atLeast The duration of time for which the sequencer should have been live for until now.
      * @return true if sequencer is live now and was live for atLeast seconds up until now
      */
-    function sequencerLiveFor(uint atLeast) public view virtual returns (bool) {
+    function sequencerLiveFor(uint atLeast) public view returns (bool) {
         require(address(sequencerChainlinkFeed) != address(0), "sequencer uptime feed unset");
 
         (, int answer, uint startedAt,,) = sequencerChainlinkFeed.latestRoundData();
