@@ -60,6 +60,15 @@ abstract contract BaseTakerOracle is ITakerOracle {
             and can result in DoS periods if feed starts to be updated frequently.
         */
         return answer == 0 && block.timestamp - startedAt >= atLeast;
+
+        /* For auditors: there's a common invalid contest finding regarding startedAt being 0
+        for "invalid rounds". It appears to have always been invalid:
+        - On L2 side: this is not possible as the update is ignored if timestamp if lower than previous:
+        https://arbiscan.io/address/0xC1303BBBaf172C55848D3Cb91606d8E27FF38428#code#F1#L216
+        - On L1 side: the contract also cannot send such an update, as it sends block.timestamp:
+        https://etherscan.io/address/0x7399C5e6437269B9ff338251b2E88FB363703910#code#F1#L264
+        - Chainlink in their updated docs doesn't use it, neither does AAVE in their oracle code above.
+        */
     }
 
     /**
