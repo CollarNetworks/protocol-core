@@ -13,6 +13,7 @@ abstract contract BaseTakerOracle is ITakerOracle {
     /// @dev If both assets are supplied as virtual, the views baseToken and quoteToken lose
     /// their ability to help onchain validations.
     address public constant VIRTUAL_ASSET = address(type(uint160).max); // 0xff..ff
+    uint8 internal constant VIRTUAL_ASSET_DECIMALS = 18;
 
     address public immutable baseToken;
     address public immutable quoteToken;
@@ -99,6 +100,6 @@ abstract contract BaseTakerOracle is ITakerOracle {
     // ------ internal views --------
 
     function _unitAmount(address asset) internal view returns (uint) {
-        return 10 ** ((asset == VIRTUAL_ASSET) ? 18 : IERC20Metadata(asset).decimals());
+        return 10 ** ((asset == VIRTUAL_ASSET) ? VIRTUAL_ASSET_DECIMALS : IERC20Metadata(asset).decimals());
     }
 }
