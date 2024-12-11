@@ -605,30 +605,37 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // check swapper allowed
         require(allowedSwappers[swapParams.swapper], "loans: swapper not allowed");
 
-        uint balanceBefore = assetOut.balanceOf(address(this));
-        // approve the swapper
-        assetIn.forceApprove(swapParams.swapper, amountIn);
+        // @dev 0 amount swaps may revert (depending on swapper), short-circuit here instead of in
+        // swappers to: reduce surface area for integration issues, gas. Happens during forecloseLoan.
+        if (amountIn == 0) {
+            amountOut = 0;
+        } else {
+            uint balanceBefore = assetOut.balanceOf(address(this));
+            // approve the swapper
+            assetIn.forceApprove(swapParams.swapper, amountIn);
 
-        /* @dev It may be tempting to simplify this by using an arbitrary call instead of a
-        specific interface such as ISwapper. However:
-        1. Using a specific interface is safer because it makes stealing approvals impossible.
-        This is safer than depending only on the allowlist.
-        2. An arbitrary call payload for a swap is more difficult to construct and inspect
-        so requires more user trust on the FE.
-        3. Swap's amountIn would need to be calculated off-chain exactly, which in case of closing
-        the loan is problematic if position was not settled already (and so exact withdrawal amount
-        is not known), so would require first settling, and then closing.
+            /* @dev It may be tempting to simplify this by using an arbitrary call instead of a
+            specific interface such as ISwapper. However:
+            1. Using a specific interface is safer because it makes stealing approvals impossible.
+            This is safer than depending only on the allowlist.
+            2. An arbitrary call payload for a swap is more difficult to construct and inspect
+            so requires more user trust on the FE.
+            3. Swap's amountIn would need to be calculated off-chain exactly, which in case of closing
+            the loan is problematic if position was not settled already (and so exact withdrawal amount
+            is not known), so would require first settling, and then closing.
 
-        The interface still allows arbitrary complexity via the extraData field if needed.
-        */
-        uint amountOutSwapper = ISwapper(swapParams.swapper).swap(
-            assetIn, assetOut, amountIn, swapParams.minAmountOut, swapParams.extraData
-        );
-        // Calculate the actual amount received
-        amountOut = assetOut.balanceOf(address(this)) - balanceBefore;
-        // check balance is updated as expected and as reported by swapper (no other balance changes)
-        // @dev important check for preventing swapper reentrancy (if using e.g., arbitrary call swapper)
-        require(amountOut == amountOutSwapper, "loans: balance update mismatch");
+            The interface still allows arbitrary complexity via the extraData field if needed.
+            */
+            uint amountOutSwapper = ISwapper(swapParams.swapper).swap(
+                assetIn, assetOut, amountIn, swapParams.minAmountOut, swapParams.extraData
+            );
+            // Calculate the actual amount received
+            amountOut = assetOut.balanceOf(address(this)) - balanceBefore;
+            // check balance is updated as expected and as reported by swapper (no other balance changes)
+            // @dev important check for preventing swapper reentrancy (if using e.g., arbitrary call swapper)
+            require(amountOut == amountOutSwapper, "loans: balance update mismatch");
+        }
+
         // check amount is as expected by user
         require(amountOut >= swapParams.minAmountOut, "loans: slippage exceeded");
     }

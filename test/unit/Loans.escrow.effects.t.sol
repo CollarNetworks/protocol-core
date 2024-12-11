@@ -19,7 +19,7 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
 
     function checkForecloseLoan(uint settlePrice, uint currentPrice, uint skipAfterGrace, address caller)
         internal
-        returns (EscrowReleaseAmounts memory released, uint estimatedGracePeriod)
+        returns (EscrowReleaseAmounts memory released, uint swapOut)
     {
         (uint loanId,,) = createAndCheckLoan();
 
@@ -31,14 +31,14 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         // update to currentPrice price
         updatePrice(currentPrice);
         // estimate the length of grace period
-        estimatedGracePeriod = loans.escrowGracePeriod(loanId);
+        uint estimatedGracePeriod = loans.escrowGracePeriod(loanId);
 
         // skip past grace period
         skip(estimatedGracePeriod + skipAfterGrace);
         updatePrice(currentPrice);
 
         uint takerCash = takerNFT.getPosition(loanId).withdrawable;
-        uint swapOut = chainlinkOracle.convertToBaseAmount(takerCash, currentPrice);
+        swapOut = chainlinkOracle.convertToBaseAmount(takerCash, currentPrice);
         prepareSwap(underlying, swapOut);
 
         // calculate expected escrow release values
@@ -207,6 +207,11 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
 
         // price decrease, and increase
         checkForecloseLoan(1, largeAmount, maxGracePeriod, supplier);
+    }
+
+    function test_forecloseLoan_zero_amount_swap() public {
+        (, uint swapOut) = checkForecloseLoan(1, 1, maxGracePeriod, supplier);
+        assertEq(swapOut, 0);
     }
 
     function test_forecloseLoan_borrowerRefund() public {

@@ -189,4 +189,24 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         vm.expectRevert("SwapperUniV3: slippage exceeded");
         loans.forecloseLoan(loanId, ILoansNFT.SwapParams(swapOut + 1, defaultSwapper, ""));
     }
+
+    function test_revert_forecloseLoan_invalidParameters_zeroAmountSwap() public {
+        (uint loanId,,) = createAndCheckLoan();
+
+        // after grace period
+        skip(duration + maxGracePeriod + 1);
+        updatePrice(1); // set low price to cause 0 amount swap
+        takerNFT.settlePairedPosition(loanId);
+        // check no cash
+        assertEq(takerNFT.getPosition(loanId).withdrawable, 0);
+
+        // foreclose with an invalid swapper
+        vm.startPrank(supplier);
+        vm.expectRevert("loans: swapper not allowed");
+        loans.forecloseLoan(loanId, ILoansNFT.SwapParams(0, address(0x123), ""));
+
+        // slippage
+        vm.expectRevert("loans: slippage exceeded");
+        loans.forecloseLoan(loanId, ILoansNFT.SwapParams(1, defaultSwapper, ""));
+    }
 }
