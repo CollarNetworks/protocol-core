@@ -259,10 +259,15 @@ contract Rolls is IRolls, BaseManaged {
         // auth, will revert if takerId was burned already
         require(msg.sender == takerNFT.ownerOf(offer.takerId), "rolls: not taker ID owner");
 
-        // @dev an expired position should settle at some past price, so if rolling after expiry is allowed,
+        // @dev an expired position should settle at some past price, so if rolling after settlement is allowed,
         // a different price may be used in settlement calculations instead of current price.
         // This is prevented by this check, since supporting the complexity of such scenarios is not needed.
         ICollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(offer.takerId);
+        /* @dev at the expiration timestamp, both rolling and closing / settling are possible.
+        This is because there is no need in preventing either of those during that second.
+        The seeming logical inconsistency (both expired and non-expired state) can be resolved by seeing expiration
+        defined at some point during the expiration second (e.g., w.l.g. half-way), such that the second contains
+        first a non-expired, and then an expired period of time. */
         require(block.timestamp <= takerPos.expiration, "rolls: taker position expired");
 
         // offer is within its terms
