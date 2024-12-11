@@ -872,7 +872,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // The transfer subtracted the fee (see Rolls _previewTransferAmounts), so it needs
         // to be added back. The fee is not part of the position, so that if price hasn't changed,
         // after rolling, the updated position (loan amount + takerLocked) would still be equivalent
-        // to the initial underlying.
+        // to the initial underlying (if it was initially equivalent, depending on the initial swap)
         // Example: toTaker       = position-gain - fee = 100 - 1 = 99
         //      So: position-gain = toTaker       + fee = 99  + 1 = 100
         int loanChange = fromRollsToUser + rollFee;
