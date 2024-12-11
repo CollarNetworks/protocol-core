@@ -88,12 +88,12 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         mockSwapperRouter.setupSwap(amount, amount);
     }
 
-    function prepareSwapToUnderlyingAtOraclePrice() public returns (uint swapOut) {
+    function prepareDefaultSwapToUnderlying() public returns (uint swapOut) {
         swapOut = underlyingAmount * 1e18 / oraclePrice;
         prepareSwap(underlying, swapOut);
     }
 
-    function prepareSwapToCashAtOraclePrice() public returns (uint swapOut) {
+    function prepareDefaultSwapToCash() public returns (uint swapOut) {
         swapOut = underlyingAmount * oraclePrice / 1e18;
         prepareSwap(cashAsset, swapOut);
     }
@@ -386,7 +386,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         uint withdrawal = takerPosition.takerLocked * putRatio / BIPS_100PCT
             + takerPosition.providerLocked * callRatio / BIPS_100PCT;
         // setup router output
-        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
+        uint swapOut = prepareDefaultSwapToUnderlying();
         closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
         return loanId;
     }
@@ -475,7 +475,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         // withdrawal: no price change so only user locked (put locked)
         uint withdrawal = takerPosition.takerLocked;
         // setup router output
-        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
+        uint swapOut = prepareDefaultSwapToUnderlying();
         closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
     }
 
@@ -495,7 +495,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         // withdrawal: no price change so only user locked (put locked)
         uint withdrawal = takerPosition.takerLocked;
         // setup router output
-        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
+        uint swapOut = prepareDefaultSwapToUnderlying();
         closeAndCheckLoan(loanId, keeper, loanAmount, withdrawal, swapOut);
     }
 
@@ -585,7 +585,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         // create a closable loan
         (uint loanId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
-        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
+        uint swapOut = prepareDefaultSwapToUnderlying();
 
         // switch swappers
         (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) = switchToArbitrarySwapper();

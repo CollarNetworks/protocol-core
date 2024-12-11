@@ -268,7 +268,7 @@ contract LoansRollsEscrowRevertsTest is LoansRollsRevertsTest {
         maybeCreateEscrowOffer();
 
         vm.startPrank(user1);
-        prepareSwapToCashAtOraclePrice();
+        prepareDefaultSwapToCash();
         cashAsset.approve(address(loans), type(uint).max);
         underlying.approve(address(loans), underlyingAmount + escrowFee);
         vm.expectRevert("loans: duration mismatch");
