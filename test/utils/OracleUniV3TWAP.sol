@@ -94,7 +94,7 @@ contract OracleUniV3TWAP is BaseTakerOracle {
     /// fails (if sequencer uptime feed is set), or if the TWAP window is not available for
     /// the twapWindow.
     /// @return Amount of quoteToken for a "unit" of baseToken (i.e. 10**baseToken.decimals())
-    function currentPrice() external view override returns (uint) {
+    function currentPrice() public view override returns (uint) {
         uint32[] memory secondsAgos = new uint32[](2);
         // _secondsAgos is in offsets format. e.g., [120, 60] means that observations 120 and 60
         // seconds ago will be used for the TWAP calculation
