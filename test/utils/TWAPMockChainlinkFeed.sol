@@ -14,7 +14,6 @@ contract MockChainlinkFeed is OracleUniV3TWAP, IChainlinkFeedLike {
     uint8 public immutable decimals;
     string public description;
     uint private immutable virtualQuoteDecimals;
-    string public constant override VERSION = "0.1.0";
     uint32 public constant TWAP_WINDOW = 1800; // 30 minutes
 
     constructor(
