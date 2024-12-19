@@ -80,6 +80,25 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         openLoan(underlyingAmount, minLoanAmount, 0, providerOffer);
     }
 
+    function test_revert_closeLoan_checkLateFee() public {
+        (uint loanId,, uint loanAmount) = createAndCheckLoan();
+        skip(duration + maxGracePeriod);
+        updatePrice();
+        vm.startPrank(user1);
+        cashAsset.approve(address(loans), loanAmount);
+
+        // 0 out
+        prepareSwap(underlying, 0);
+        vm.expectRevert("loans: fromSwap < lateFee");
+        loans.closeLoan(loanId, defaultSwapParams(0));
+
+        // 1 wei less than late fee
+        (, uint lateFee) = escrowNFT.currentOwed(loans.getLoan(loanId).escrowId);
+        prepareSwap(underlying, lateFee - 1);
+        vm.expectRevert("loans: fromSwap < lateFee");
+        loans.closeLoan(loanId, defaultSwapParams(0));
+    }
+
     function test_revert_unwrapAndCancelLoan_timing() public {
         (uint loanId,,) = createAndCheckLoan();
         // after expiry
