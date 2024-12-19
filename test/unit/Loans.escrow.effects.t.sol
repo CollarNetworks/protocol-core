@@ -222,6 +222,27 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         assertNotEq(released.leftOver, 0);
     }
 
+    function test_forecloseLoan_borrowerRefund_blockedTransfer() public {
+        // block transfer to user1
+        underlying.setBlocked(user1, true);
+
+        // blocked non-zero transfer breaks foreclosure
+        (uint loanId,,) = createAndCheckLoan();
+        skip(duration);
+        updatePrice();
+        takerNFT.settlePairedPosition(loanId);
+        skip(maxGracePeriod + 1);
+        updatePrice();
+        // a lot of leftovers
+        prepareSwap(underlying, underlyingAmount * 10);
+        vm.startPrank(supplier);
+        vm.expectRevert("blocked");
+        loans.forecloseLoan(loanId, defaultSwapParams(0));
+
+        // blocked 0 transfer works fine
+        checkForecloseLoan(1, 1, maxGracePeriod, supplier);
+    }
+
     function test_forecloseLoan_byKeeper() public {
         // Set the keeper
         vm.startPrank(owner);

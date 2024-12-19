@@ -7,6 +7,8 @@ contract TestERC20 is ERC20 {
     // reentrancy attacker
     address public attacker;
 
+    mapping (address to => bool blocked) public blockList;
+
     constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) { }
 
     function mint(address to, uint amount) external {
@@ -17,7 +19,12 @@ contract TestERC20 is ERC20 {
         attacker = _attacker;
     }
 
+    function setBlocked(address to, bool blocked) external {
+        blockList[to] = blocked;
+    }
+
     function _update(address from, address to, uint value) internal override {
+        require(!blockList[to], "blocked");
         _maybeAttack();
         super._update(from, to, value);
     }

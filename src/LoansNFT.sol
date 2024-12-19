@@ -422,7 +422,14 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // (withdrawal) is neglected here due to being anyway in an undesirable state of being foreclosed
         // due to not repaying on time. It's the responsibility of the NFT owner to avoid foreclosure
         // so if the NFT is in some contract that won't attribute these funds, it's the owner's fault.
-        underlying.safeTransfer(borrower, toBorrower);
+        // If transfer is blocked (e.g., loanNFT sent to some blocked address for the ERC-20),
+        // escrow owner still has lastResortSeizeEscrow(). This greifing is only plausible for a dust
+        // cash position, since otherwise the borrower would cancel / close / roll in time to avoid
+        // losing their cash to late fees.
+        // We prevent the griefing for the more plausible, and easier to prevent case of 0 refund.
+        if (toBorrower != 0) {
+            underlying.safeTransfer(borrower, toBorrower);
+        }
 
         emit LoanForeclosed(loanId, loan.escrowId, fromSwap, toBorrower);
     }
@@ -826,6 +833,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             This would be relevant in case the user position has some dust cash in it - not enough
             to justify repaying (due to slippage on full amount). In such a case user should unwrap
             before expiry, or allow the dust to go to the escrow supplier.
+
+            Note that this does not allow cancelling after expiry if escrow owner disappears and never calls
+            either foreclose or seize. In that scenario the borrower can only call closeLoan, but cannot cancel.
             */
             require(escrowReleased || block.timestamp <= _expiration(loanId), "loans: loan expired");
 
