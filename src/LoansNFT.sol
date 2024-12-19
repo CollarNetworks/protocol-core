@@ -336,7 +336,14 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         _mint(msg.sender, newLoanId); // @dev does not use _safeMint to avoid reentrancy
 
         emit LoanRolled(
-            msg.sender, loanId, rollOffer.id, newLoanId, prevLoan.loanAmount, newLoanAmount, toUser
+            msg.sender,
+            loanId,
+            rollOffer.id,
+            newLoanId,
+            prevLoan.loanAmount,
+            newLoanAmount,
+            toUser,
+            newEscrowId
         );
     }
 
