@@ -101,7 +101,7 @@ contract LoansRollTestBase is LoansTestBase {
             prevLoan.loanAmount,
             expected.newLoanAmount,
             expected.toTaker,
-            uint64(expected.newEscrowId)
+            expected.newEscrowId
         );
         // min change param
         int minToUser = int(expected.newLoanAmount) - int(prevLoan.loanAmount) - rollFee;

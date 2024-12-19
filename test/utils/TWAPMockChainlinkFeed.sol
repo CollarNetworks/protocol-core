@@ -14,7 +14,7 @@ contract MockChainlinkFeed is OracleUniV3TWAP, IChainlinkFeedLike {
     uint8 public immutable decimals;
     string public description;
     uint private immutable virtualQuoteDecimals;
-    uint32 public constant TWAP_WINDOW = 1800; // 30 minutes
+    uint32 public constant TWAP_WINDOW = 300; // 5 minutes
 
     constructor(
         address _baseToken,
@@ -44,11 +44,11 @@ contract MockChainlinkFeed is OracleUniV3TWAP, IChainlinkFeedLike {
         view
         returns (uint80 roundId, int answer, uint startedAt, uint updatedAt, uint80 answeredInRound)
     {
-        uint rawPrice = currentPrice();
+        uint priceQuoteDecimals = currentPrice();
 
         // Convert to virtual decimals (e.g., from USDC to USD)
         uint quoteDecimals = IERC20Metadata(quoteToken).decimals();
-        uint priceInVirtualDecimals = rawPrice * 10 ** (virtualQuoteDecimals - quoteDecimals);
+        uint priceInVirtualDecimals = priceQuoteDecimals * 10 ** (virtualQuoteDecimals - quoteDecimals);
 
         // Convert to Chainlink feed decimals
         uint scalingFactor = 10 ** (virtualQuoteDecimals - decimals);

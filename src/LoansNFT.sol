@@ -343,7 +343,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             prevLoan.loanAmount,
             newLoanAmount,
             toUser,
-            SafeCast.toUint64(newEscrowId)
+            newEscrowId
         );
     }
 
