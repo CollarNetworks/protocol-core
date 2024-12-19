@@ -37,7 +37,9 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         skip(estimatedGracePeriod + skipAfterGrace);
         updatePrice(currentPrice);
 
-        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
+        uint takerCash = takerNFT.getPosition(loanId).withdrawable;
+        uint swapOut = chainlinkOracle.convertToBaseAmount(takerCash, currentPrice);
+        prepareSwap(underlying, swapOut);
 
         // calculate expected escrow release values
         uint escrowId = loans.getLoan(loanId).escrowId;
@@ -205,6 +207,14 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
 
         // price decrease, and increase
         checkForecloseLoan(1, largeAmount, maxGracePeriod, supplier);
+    }
+
+    function test_forecloseLoan_borrowerRefund() public {
+        // price decrease during swap to get a lot of underlying leftovers
+        (EscrowReleaseAmounts memory released,) =
+            checkForecloseLoan(oraclePrice, oraclePrice / 100, maxGracePeriod, supplier);
+        // check borrower should have got something, exact amount is checked in checkForecloseLoan
+        assertNotEq(released.leftOver, 0);
     }
 
     function test_forecloseLoan_byKeeper() public {

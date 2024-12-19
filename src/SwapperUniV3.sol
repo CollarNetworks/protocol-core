@@ -33,6 +33,7 @@ contract SwapperUniV3 is ISwapper {
         // @dev The most precise check would be to check via factory's feeAmountTickSpacing():
         //      require(IUniswapV3Factory(factory).feeAmountTickSpacing(newFeeTier) != 0, .. );
         // KISS is fine here: known tiers aren't likely to change, and swappers can easily be replaced.
+        // Note that additional fee tiers are available on some chains (e.g., on Base).
         require(
             _feeTier == 100 || _feeTier == 500 || _feeTier == 3000 || _feeTier == 10_000, "invalid fee tier"
         );

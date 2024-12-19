@@ -13,6 +13,7 @@ abstract contract BaseTakerOracle is ITakerOracle {
     /// @dev If both assets are supplied as virtual, the views baseToken and quoteToken lose
     /// their ability to help onchain validations.
     address public constant VIRTUAL_ASSET = address(type(uint160).max); // 0xff..ff
+    uint8 internal constant VIRTUAL_ASSET_DECIMALS = 18;
 
     address public immutable baseToken;
     address public immutable quoteToken;
@@ -43,7 +44,7 @@ abstract contract BaseTakerOracle is ITakerOracle {
      * @param atLeast The duration of time for which the sequencer should have been live for until now.
      * @return true if sequencer is live now and was live for atLeast seconds up until now
      */
-    function sequencerLiveFor(uint atLeast) public view virtual returns (bool) {
+    function sequencerLiveFor(uint atLeast) public view returns (bool) {
         require(address(sequencerChainlinkFeed) != address(0), "sequencer uptime feed unset");
 
         (, int answer, uint startedAt,,) = sequencerChainlinkFeed.latestRoundData();
@@ -60,6 +61,15 @@ abstract contract BaseTakerOracle is ITakerOracle {
             and can result in DoS periods if feed starts to be updated frequently.
         */
         return answer == 0 && block.timestamp - startedAt >= atLeast;
+
+        /* For auditors: there's a common invalid contest finding regarding startedAt being 0
+        for "invalid rounds". It appears to have always been invalid:
+        - On L2 side: this is not possible as the update is ignored if timestamp if lower than previous:
+        https://arbiscan.io/address/0xC1303BBBaf172C55848D3Cb91606d8E27FF38428#code#F1#L216
+        - On L1 side: the contract also cannot send such an update, as it sends block.timestamp:
+        https://etherscan.io/address/0x7399C5e6437269B9ff338251b2E88FB363703910#code#F1#L264
+        - Chainlink in their updated docs doesn't use it, neither does AAVE in their oracle code above.
+        */
     }
 
     /**
@@ -90,6 +100,6 @@ abstract contract BaseTakerOracle is ITakerOracle {
     // ------ internal views --------
 
     function _unitAmount(address asset) internal view returns (uint) {
-        return 10 ** ((asset == VIRTUAL_ASSET) ? 18 : IERC20Metadata(asset).decimals());
+        return 10 ** ((asset == VIRTUAL_ASSET) ? VIRTUAL_ASSET_DECIMALS : IERC20Metadata(asset).decimals());
     }
 }

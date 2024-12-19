@@ -35,7 +35,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
         vm.startPrank(user1);
         underlying.approve(address(loans), underlyingAmount + escrowFee);
-        prepareSwapToCashAtOraclePrice();
+        prepareDefaultSwapToCash();
 
         // 0 underlying
         vm.expectRevert("loans: invalid underlying amount");
@@ -143,7 +143,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
     function test_revert_openLoan_insufficientLoanAmount() public {
         uint offerId = createProviderOffer();
         maybeCreateEscrowOffer();
-        uint swapOut = prepareSwapToCashAtOraclePrice();
+        uint swapOut = prepareDefaultSwapToCash();
 
         vm.startPrank(user1);
         underlying.approve(address(loans), underlyingAmount + escrowFee);
@@ -159,7 +159,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         uint takerLocked = swapCashAmount - loanAmount;
 
         // prep again
-        prepareSwapToCashAtOraclePrice();
+        prepareDefaultSwapToCash();
         underlying.approve(address(loans), underlyingAmount + escrowFee);
 
         vm.mockCall(
@@ -337,7 +337,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         vm.startPrank(user1);
         // Close the loan normally
         skip(duration);
-        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
+        uint swapOut = prepareDefaultSwapToUnderlying();
         closeAndCheckLoan(
             loanId, user1, loans.getLoan(loanId).loanAmount, takerNFT.getPosition(loanId).takerLocked, swapOut
         );
