@@ -79,7 +79,7 @@ interface ILoansNFT {
         uint escrowId
     );
     event LoanCancelled(uint indexed loanId, address indexed sender);
-    event ClosingKeeperApproved(address indexed sender, bool indexed enabled);
+    event ClosingKeeperApproved(address indexed sender, uint indexed loanId, bool indexed enabled);
     event ClosingKeeperUpdated(address indexed previousKeeper, address indexed newKeeper);
     event SwapperSet(address indexed swapper, bool indexed allowed, bool indexed setDefault);
     event EscrowSettled(uint indexed escrowId, uint lateFee, uint toEscrow, uint fromEscrow, uint leftOver);

@@ -224,13 +224,6 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         checkCloseRolledLoan(newLoanId, expected.newLoanAmount);
     }
 
-    function test_rollLoan_setKeeperAllowed_preserved() public {
-        (uint loanId,,) = createAndCheckLoan();
-        loans.setKeeperApproved(true);
-        // checked to correspond to previous value in checkRollLoan
-        checkRollLoan(loanId, oraclePrice);
-    }
-
     function test_rollLoan_price_increase() public {
         (uint loanId,,) = createAndCheckLoan();
         // +5%

@@ -60,8 +60,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     // ----- User state ----- //
     /// @notice Stores loan information for each NFT ID
     mapping(uint loanId => LoanStored) internal loans;
-    // callers (users or escrow owners) that allow a keeper for loan closing
-    mapping(address sender => bool enabled) public keeperApproved;
+    // callers (users or escrow owners) that allow a keeper for loan closing for specific loans
+    mapping(address sender => mapping(uint loanId => bool enabled)) public keeperApprovedFor;
 
     // ----- Admin state ----- //
     // optional keeper (set by contract owner) that's useful for the time-sensitive
@@ -213,7 +213,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
      * The amount of underlying returned may be smaller or larger than originally deposited,
      * depending on the position's settlement result, escrow late fees, and the final swap.
      * This method can be called by either the loanId's NFT owner or by a keeper
-     * if the keeper was allowed by the current owner (by calling setKeeperAllowed).
+     * if the keeper was allowed for this loan by the current owner (by calling setKeeperAllowed).
      * Using a keeper may be desired because the call's timing should be as close to settlement
      * as possible, to avoid additional price exposure since the swaps uses the spot price.
      * However, allowing a keeper also trusts them to set the swap parameters, trusting them
@@ -250,7 +250,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // - keeper sets the SwapParams and its slippage parameter
         /// @dev ownerOf will revert on non-existent (unminted / burned) loan ID
         address borrower = ownerOf(loanId);
-        require(_isSenderOrKeeperFor(borrower), "loans: not NFT owner or allowed keeper");
+        require(_isSenderOrKeeperFor(borrower, loanId), "loans: not NFT owner or allowed keeper");
 
         // burn token. This prevents any other (or reentrant) calls for this loan
         _burn(loanId);
@@ -406,11 +406,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // Funds beneficiary (escrow owner) should ideally set the swapParams.
         // A keeper can be useful because foreclosing can be time-sensitive, due to swap timing
         // impacting the amount of funds available for late-fee repayment.
-        // Note that if the keeper is authorized by escrow owner, it is authorized also for
-        // closing any loans they themselves hold.
         // @dev will also revert on non-existent (unminted / burned) escrow ID
         address escrowOwner = escrowNFT.ownerOf(escrowId);
-        require(_isSenderOrKeeperFor(escrowOwner), "loans: not escrow owner or allowed keeper");
+        require(_isSenderOrKeeperFor(escrowOwner, loanId), "loans: not escrow owner or allowed keeper");
 
         // @dev foreclosureValues uses oracle-price, while actual swap is using spot price.
         // This has several implications:
@@ -485,19 +483,16 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     }
 
     /**
-     * @notice Allows or disallows a keeper for closing loans on behalf of a caller
+     * @notice Allows or disallows a keeper for closing a specific loan on behalf of a caller
      * A user that sets this allowance with the intention for the keeper to closeLoan
-     * has to also cash approval to this contract that should be valid when
+     * has to also ensure cash approval to this contract that should be valid when
      * closeLoan is called by the keeper.
-     * @dev The allowance is tied to the the caller address, for any action that a keeper can
-     *      do. So if they buy a new loan NFT, and they previously allowed a keeper - it is
-     *      allowed for their new NFT as well. If they are also an escrow supplier, from the
-     *      same address, the keeper would be able to call foreCloseLoan on their behalf.
+     * @param loanId specific loanId which the user approves the keeper to close/foreclose
      * @param enabled True to allow the keeper, false to disallow
      */
-    function setKeeperApproved(bool enabled) external whenNotPaused {
-        keeperApproved[msg.sender] = enabled;
-        emit ClosingKeeperApproved(msg.sender, enabled);
+    function setKeeperApproved(uint loanId, bool enabled) external whenNotPaused {
+        keeperApprovedFor[msg.sender][loanId] = enabled;
+        emit ClosingKeeperApproved(msg.sender, loanId, enabled);
     }
 
     // ----- Admin methods ----- //
@@ -911,11 +906,11 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     would be able to pull all NFTs from exposed users, instead of currently being able to exploit only
     their loans that are about to be closed, and only via a more complex "slippage" attack.
     */
-    function _isSenderOrKeeperFor(address authorizedSender) internal view returns (bool) {
+    function _isSenderOrKeeperFor(address authorizedSender, uint loanId) internal view returns (bool) {
         bool isSender = msg.sender == authorizedSender; // is the auth target
         bool isKeeper = msg.sender == closingKeeper;
         // our auth target allows the keeper
-        bool _keeperApproved = keeperApproved[authorizedSender];
+        bool _keeperApproved = keeperApprovedFor[authorizedSender][loanId];
         return isSender || (_keeperApproved && isKeeper);
     }
 

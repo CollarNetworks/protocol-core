@@ -149,14 +149,14 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
 
         // keeper authorized by user but not supplier
         vm.startPrank(user1);
-        loans.setKeeperApproved(true);
+        loans.setKeeperApproved(loanId, true);
         vm.startPrank(keeper);
         vm.expectRevert("loans: not escrow owner or allowed keeper");
         loans.forecloseLoan(loanId, defaultSwapParams(0));
 
         // allow keeper
         vm.startPrank(supplier);
-        loans.setKeeperApproved(true);
+        loans.setKeeperApproved(loanId, true);
 
         // foreclosable now
         skip(1);

@@ -301,7 +301,15 @@ contract LoansBasicRevertsTest is LoansTestBase {
         loans.closeLoan(loanId, defaultSwapParams(0));
 
         vm.startPrank(user1);
-        loans.setKeeperApproved(true);
+        loans.setKeeperApproved(0, true);
+        // approved wrong loan
+        vm.startPrank(keeper);
+        vm.expectRevert("loans: not NFT owner or allowed keeper");
+        loans.closeLoan(loanId, defaultSwapParams(0));
+
+        // correct loan
+        vm.startPrank(user1);
+        loans.setKeeperApproved(loanId, true);
 
         vm.startPrank(user1);
         // transfer invalidates approval

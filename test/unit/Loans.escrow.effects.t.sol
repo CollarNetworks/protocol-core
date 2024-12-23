@@ -281,7 +281,8 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
 
         // Supplier allows the keeper to foreclose
         vm.startPrank(supplier);
-        loans.setKeeperApproved(true);
+        // approve keeper for next loan ID, since it will be created in the helper method
+        loans.setKeeperApproved(takerNFT.nextPositionId(), true);
 
         // by keeper
         checkForecloseLoan(oraclePrice, oraclePrice, 1, keeper);

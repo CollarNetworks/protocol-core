@@ -164,7 +164,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
 
         // Allow the keeper to close the loan (but not roll)
         vm.startPrank(user1);
-        loans.setKeeperApproved(true);
+        loans.setKeeperApproved(loanId, true);
 
         // Attempt to roll the loan as the keeper
         vm.startPrank(keeper);
