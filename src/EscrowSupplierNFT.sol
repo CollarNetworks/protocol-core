@@ -521,13 +521,16 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
         // everything owed: original escrow + (interest held - interest refund) + late fee
         uint targetWithdrawal = escrow.escrowed + escrow.interestHeld + lateFee - interestRefund;
-        // what we have is what we held (escrow + full interest) and whatever loans just sent us
+
+        // What we have available is what we held (escrow + full interest) and fromLoans.
+        // FromLoans should be escrow + lateFee, such that the escrow amounts are
+        // "exchanged" again, and any shortfall reduces the toLoans return amount.
         // @dev note that withdrawal of at least escrow + interest fee is always guaranteed
         uint available = escrow.escrowed + escrow.interestHeld + fromLoans;
 
         // use as much as possible from available up to target
         withdrawal = Math.min(available, targetWithdrawal);
-        // refund the rest if anything is left, this accounts both for interestRefund and any overpayment
+        // refund the rest if anything is left: returned supplier's funds, interestRefund, overpayment.
         toLoans = available - withdrawal;
 
         // @dev note 1: interest refund "theoretically" covers some of the late fee shortfall, but

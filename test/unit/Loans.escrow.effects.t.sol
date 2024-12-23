@@ -19,7 +19,7 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
 
     function checkForecloseLoan(uint settlePrice, uint currentPrice, uint skipAfterGrace, address caller)
         internal
-        returns (EscrowReleaseAmounts memory released, uint estimatedGracePeriod)
+        returns (EscrowReleaseAmounts memory released, uint swapOut)
     {
         (uint loanId,,) = createAndCheckLoan();
 
@@ -31,14 +31,14 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         // update to currentPrice price
         updatePrice(currentPrice);
         // estimate the length of grace period
-        estimatedGracePeriod = loans.escrowGracePeriod(loanId);
+        uint estimatedGracePeriod = loans.escrowGracePeriod(loanId);
 
         // skip past grace period
         skip(estimatedGracePeriod + skipAfterGrace);
         updatePrice(currentPrice);
 
         uint takerCash = takerNFT.getPosition(loanId).withdrawable;
-        uint swapOut = chainlinkOracle.convertToBaseAmount(takerCash, currentPrice);
+        swapOut = chainlinkOracle.convertToBaseAmount(takerCash, currentPrice);
         prepareSwap(underlying, swapOut);
 
         // calculate expected escrow release values
@@ -209,12 +209,38 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         checkForecloseLoan(1, largeAmount, maxGracePeriod, supplier);
     }
 
+    function test_forecloseLoan_zero_amount_swap() public {
+        (, uint swapOut) = checkForecloseLoan(1, 1, maxGracePeriod, supplier);
+        assertEq(swapOut, 0);
+    }
+
     function test_forecloseLoan_borrowerRefund() public {
         // price decrease during swap to get a lot of underlying leftovers
         (EscrowReleaseAmounts memory released,) =
             checkForecloseLoan(oraclePrice, oraclePrice / 100, maxGracePeriod, supplier);
         // check borrower should have got something, exact amount is checked in checkForecloseLoan
         assertNotEq(released.leftOver, 0);
+    }
+
+    function test_forecloseLoan_borrowerRefund_blockedTransfer() public {
+        // block transfer to user1
+        underlying.setBlocked(user1, true);
+
+        // blocked non-zero transfer breaks foreclosure
+        (uint loanId,,) = createAndCheckLoan();
+        skip(duration);
+        updatePrice();
+        takerNFT.settlePairedPosition(loanId);
+        skip(maxGracePeriod + 1);
+        updatePrice();
+        // a lot of leftovers
+        prepareSwap(underlying, underlyingAmount * 10);
+        vm.startPrank(supplier);
+        vm.expectRevert("blocked");
+        loans.forecloseLoan(loanId, defaultSwapParams(0));
+
+        // blocked 0 transfer works fine
+        checkForecloseLoan(1, 1, maxGracePeriod, supplier);
     }
 
     function test_forecloseLoan_byKeeper() public {
