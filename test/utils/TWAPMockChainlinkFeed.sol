@@ -12,7 +12,7 @@ import { OracleUniV3TWAP } from "./OracleUniV3TWAP.sol";
 
 contract MockChainlinkFeed is OracleUniV3TWAP, IChainlinkFeedLike {
     uint8 public immutable decimals;
-    string public description;
+    string public _description;
     uint private immutable virtualQuoteDecimals;
     uint32 public constant TWAP_WINDOW = 300; // 5 minutes
 
@@ -35,8 +35,17 @@ contract MockChainlinkFeed is OracleUniV3TWAP, IChainlinkFeedLike {
         )
     {
         decimals = feedDecimals;
-        description = feedDescription;
+        _description = feedDescription;
         virtualQuoteDecimals = _virtualQuoteDecimals;
+    }
+
+    function description()
+        external
+        view
+        override(OracleUniV3TWAP, IChainlinkFeedLike)
+        returns (string memory)
+    {
+        return _description;
     }
 
     function latestRoundData()

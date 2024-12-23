@@ -118,7 +118,7 @@ contract OracleUniV3TWAP is BaseTakerOracle {
     }
 
     /// @notice returns the description of the oracle for human readable config sanity checks.
-    function description() external view returns (string memory) {
+    function description() external view virtual returns (string memory) {
         revert("not implemented");
     }
 
