@@ -7,5 +7,5 @@ interface ISwapper {
     function swap(IERC20 assetIn, IERC20 assetOut, uint amountIn, uint minAmountOut, bytes calldata extraData)
         external
         returns (uint amountOut);
-    function VERSION() external returns (string memory);
+    function VERSION() external view returns (string memory);
 }

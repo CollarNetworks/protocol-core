@@ -167,7 +167,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         uint minLoanAmount,
         SwapParams calldata swapParams,
         ProviderOffer calldata providerOffer
-    ) public whenNotPaused returns (uint loanId, uint providerId, uint loanAmount) {
+    ) external whenNotPaused returns (uint loanId, uint providerId, uint loanAmount) {
         EscrowOffer memory noEscrow = EscrowOffer(EscrowSupplierNFT(address(0)), 0);
         return _openLoan(underlyingAmount, minLoanAmount, swapParams, providerOffer, false, noEscrow, 0);
     }
@@ -327,7 +327,10 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         toUser = _toUser; // convenience to allow declaring all outputs above
 
         Loan memory prevLoan = getLoan(loanId);
-        // calculate the updated loan amount (changed due to the roll)
+        // calculate the updated loan amount (changed due to the roll).
+        // Note that although the loan amount may change (due to roll), the escrow amount should not.
+        // This is because the escrow holds the borrower funds that correspond to the loan's first swap,
+        // so should remain unchanged to return as much of it as possible in the end.
         newLoanAmount = _loanAmountAfterRoll(toUser, rollFee, prevLoan.loanAmount);
 
         // set the new ID from new taker ID
@@ -621,7 +624,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         _checkSwapPrice(cashFromSwap, underlyingAmount);
 
         // split the cash to loanAmount and takerLocked
-        // this uses LTV === put strike price, so the loan is the pre-exercised put (sent to user)
+        // this uses LTV === put strike percent, so the loan is the pre-exercised put (sent to user)
         // in the "Variable Prepaid Forward" (trad-fi) structure. The Collar paired position NFTs
         // implement the rest of the payout.
         uint ltvPercent = providerNFT.getOffer(offerId).putStrikePercent;
@@ -649,10 +652,15 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         require(deviation <= MAX_SWAP_PRICE_DEVIATION_BIPS, "swap and oracle price too different");
     }
 
-    /// @dev swap logic with balance and slippage checks
-    /// @dev reentrancy assumption: _swap is called either before or after all internal user state
-    /// writes or reads. Such that if there's a reentrancy (e.g., via a malicious token in a
-    /// multi-hop route), it should NOT be able to take advantage of any inconsistent state.
+    /**
+     * @dev swap logic with balance and slippage checks
+     * @dev reentrancy assumption 1: _swap is called either before or after all internal user state
+     * writes or reads. Such that if there's a reentrancy (e.g., via a malicious token in a
+     * multi-hop route), it should NOT be able to take advantage of any inconsistent state.
+     * @dev reentrancy assumption 2: contract does not hold funds. If the contract is changed to
+     * hold funds at rest, and swap is allowed to reenter a method that increases funds at rest,
+     * there can be a risk of double-counting - in that method, and in the balance update check below.
+     */
     function _swap(IERC20 assetIn, IERC20 assetOut, uint amountIn, SwapParams calldata swapParams)
         internal
         returns (uint amountOut)
@@ -968,6 +976,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // switching escrow and this code.
         require(escrow.loanId == loanId, "loans: unexpected loanId");
         // check expirations are equal to ensure no duration mismatch between escrow and collar
+        // @dev if this constraint is removed (escrow duration can be longer than loan), care should
+        // be taken around the escrow interest refund limit
         require(escrow.expiration == _expiration(loanId), "loans: duration mismatch");
     }
 }

@@ -349,6 +349,8 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
 
     // calculations
 
+    // Rounding down precision loss is negligible, and the values (strike percentages, and price)
+    // are outside of their control so this should not be possible to abuse assuming reasonable values.
     function _strikePrices(uint putStrikePercent, uint callStrikePercent, uint startPrice)
         internal
         pure
@@ -358,6 +360,13 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         callStrikePrice = startPrice * callStrikePercent / BIPS_BASE;
     }
 
+    /**
+     * @dev Note that linear price changes are used instead of geometric. This means that if geometric
+     * (multiplicative) changes are assumed equi-probable (e.g., -10% corresponds to +11.1%)
+     * the amounts locked on both sides of a symmetric position are increasingly unbalanced.
+     * So no strict symmetry assumptions should be made, and takers and providers should choose
+     * the strikes correctly to fit their needs.
+     */
     function _settlementCalculations(TakerPosition memory position, uint endPrice)
         internal
         pure

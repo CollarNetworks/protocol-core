@@ -151,9 +151,9 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         uint period = escrow.maxGracePeriod;
         // avoid div-zero
         if (escrow.escrowed != 0 && escrow.lateFeeAPR != 0) {
-            // Calculate the grace period that can be "afforded" by maxLateFee according to few APR.
-            //  fee = escrowed * time * APR / year / 100bips, so
-            //  time = fee * year * 100bips / escrowed / APR;
+            // Calculate the grace period that can be "afforded" by maxLateFee according to fee APR.
+            //  fee = escrowed * time * APR / year / 100%, so
+            //  time = fee * year * 100% / escrowed / APR;
             // rounding down, against the user
             uint timeAfforded = maxLateFee * YEAR * BIPS_BASE / escrow.escrowed / escrow.lateFeeAPR;
             // cap to timeAfforded
@@ -294,7 +294,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         // @dev despite the fact that they partially cancel out, so can be done as just fee transfer,
         // these transfers are the whole point of this contract from product point of view.
         // The transfer events for the full amounts are needed such that the tokens used for the swap
-        // in Loans should be "supplier's", and not "borrower's" from CGT tax lows perspective.
+        // in Loans should be "supplier's", and not "borrower's" from CGT tax laws perspective.
         // transfer "borrower's" funds in
         asset.safeTransferFrom(msg.sender, address(this), escrowed + fee);
         // transfer "supplier's" funds out
@@ -445,10 +445,10 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
         // @dev withdrawal is immediate, so escrow.withdrawable is not set here (no _releaseEscrow call).
         // release escrowed and full interest
-        uint withdawal = escrow.escrowed + escrow.interestHeld;
-        asset.safeTransfer(msg.sender, withdawal);
+        uint withdrawal = escrow.escrowed + escrow.interestHeld;
+        asset.safeTransfer(msg.sender, withdrawal);
 
-        emit EscrowSeizedLastResort(escrowId, msg.sender, withdawal);
+        emit EscrowSeizedLastResort(escrowId, msg.sender, withdrawal);
     }
 
     // ----- admin ----- //

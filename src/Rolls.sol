@@ -149,6 +149,7 @@ contract Rolls is IRolls, BaseManaged {
      *     negative (paid by provider)
      * @param feeDeltaFactorBIPS How much the fee changes with price, in basis points, can be
      *     negative. Positive means asset price increase benefits provider, and negative benefits user.
+     *     If feeAmount is 0, delta-factor has no effect.
      * @param minPrice The minimum acceptable price for roll execution
      * @param maxPrice The maximum acceptable price for roll execution
      * @param minToProvider The minimum amount the provider is willing to receive, or maximum willing to pay
