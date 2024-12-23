@@ -556,8 +556,8 @@ contract LoansBasicEffectsTest is LoansTestBase {
 
     function test_openLoan_swapper_extraData() public {
         (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) = switchToArbitrarySwapper();
-        assertFalse(loans.allowedSwappers(address(swapperUniV3)));
-        assertTrue(loans.allowedSwappers(address(arbCallSwapper)));
+        assertFalse(loans.isAllowedSwapper(address(swapperUniV3)));
+        assertTrue(loans.isAllowedSwapper(address(arbCallSwapper)));
 
         // check that without extraData, open loan fails
         uint providerOfferId = createProviderOffer();
@@ -603,8 +603,8 @@ contract LoansBasicEffectsTest is LoansTestBase {
 
         // switch swappers
         (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) = switchToArbitrarySwapper();
-        assertFalse(loans.allowedSwappers(address(swapperUniV3)));
-        assertTrue(loans.allowedSwappers(address(arbCallSwapper)));
+        assertFalse(loans.isAllowedSwapper(address(swapperUniV3)));
+        assertTrue(loans.isAllowedSwapper(address(arbCallSwapper)));
 
         // try with incorrect data (extraData is empty)
         vm.startPrank(user1);

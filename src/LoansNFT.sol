@@ -4,6 +4,7 @@ pragma solidity 0.8.22;
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import { CollarTakerNFT, ICollarTakerNFT, ITakerOracle, BaseNFT, ConfigHub } from "./CollarTakerNFT.sol";
 import { Rolls, CollarProviderNFT, IRolls } from "./Rolls.sol";
@@ -44,6 +45,7 @@ import { ILoansNFT } from "./interfaces/ILoansNFT.sol";
  */
 contract LoansNFT is ILoansNFT, BaseNFT {
     using SafeERC20 for IERC20;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     uint internal constant BIPS_BASE = 10_000;
 
@@ -67,10 +69,10 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     // optional keeper (set by contract owner) that's useful for the time-sensitive
     // swap back during loan closing and foreclosing
     address public closingKeeper;
+    // contracts allowed for swaps
+    EnumerableSet.AddressSet internal allowedSwappers;
     // a convenience view to allow querying for a swapper onchain / FE without subgraph
     address public defaultSwapper;
-    // contracts allowed for swaps, including the defaultSwapper
-    mapping(address swapper => bool allowed) public allowedSwappers;
 
     constructor(address initialOwner, CollarTakerNFT _takerNFT, string memory _name, string memory _symbol)
         BaseNFT(initialOwner, _name, _symbol)
@@ -138,6 +140,16 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         lateFeeCash = oracle.convertToQuoteAmount(lateFee, currentPrice);
         // cap at what's actually available
         lateFeeCash = Math.min(lateFeeCash, cashAvailable);
+    }
+
+    /// @notice Checks whether a swapper is allowed for this contract
+    function isAllowedSwapper(address swapper) public view returns (bool) {
+        return allowedSwappers.contains(swapper);
+    }
+
+    /// @notice Returns all the swappers allowed for this loans contract
+    function allAllowedSwappers() external view returns (address[] memory) {
+        return allowedSwappers.values();
     }
 
     // ----- STATE CHANGING FUNCTIONS ----- //
@@ -514,15 +526,15 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     /// The default swapper is a convenience view, and it's best to keep it up to date
     /// and to make sure the default one is allowed.
     /// @dev only owner
-    function setSwapperAllowed(address swapper, bool allowed, bool setDefault) external onlyOwner {
-        if (allowed) require(bytes(ISwapper(swapper).VERSION()).length > 0, "loans: invalid swapper");
-        allowedSwappers[swapper] = allowed;
+    function setSwapperAllowed(address swapper, bool allow, bool setDefault) external onlyOwner {
+        if (allow) require(bytes(ISwapper(swapper).VERSION()).length > 0, "loans: invalid swapper");
+        allow ? allowedSwappers.add(swapper) : allowedSwappers.remove(swapper);
 
         // it is possible to disallow and set as default at the same time. E.g., to unset the default
         // to zero. Worst case, if no swappers are allowed, loans can be cancelled and unwrapped.
         if (setDefault) defaultSwapper = swapper;
 
-        emit SwapperSet(swapper, allowed, setDefault);
+        emit SwapperSet(swapper, allow, setDefault);
     }
 
     // ----- INTERNAL MUTATIVE ----- //
@@ -666,7 +678,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         returns (uint amountOut)
     {
         // check swapper allowed
-        require(allowedSwappers[swapParams.swapper], "loans: swapper not allowed");
+        require(isAllowedSwapper(swapParams.swapper), "loans: swapper not allowed");
 
         // @dev 0 amount swaps may revert (depending on swapper), short-circuit here instead of in
         // swappers to: reduce surface area for integration issues, gas. Happens during forecloseLoan.
