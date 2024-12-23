@@ -117,6 +117,11 @@ contract OracleUniV3TWAP is BaseTakerOracle {
         (,,,, observationCardinalityNext,,) = pool.slot0();
     }
 
+    /// @notice returns the description of the oracle for human readable config sanity checks.
+    function description() external view returns (string memory) {
+        revert("not implemented");
+    }
+
     // ----- Mutative ----- //
 
     /// @notice Increases the observation cardinality of the pool

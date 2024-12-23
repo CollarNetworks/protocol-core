@@ -76,8 +76,9 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
                 name: "WETH/USDC",
                 underlying: IERC20(tWETH),
                 cashAsset: IERC20(tUSDC),
-                // ETH/USD -> invert(USDC/USD)
-                oracle: deployCombinedOracle(tWETH, tUSDC, oracletETH_USD, oracletUSDC_USD, true),
+                oracle: deployCombinedOracle(
+                    tWETH, tUSDC, oracletETH_USD, oracletUSDC_USD, true, "Comb(CL(ETH / USD)|inv(CL(USDC / USD)))"
+                ),
                 swapFeeTier: swapFeeTier,
                 swapRouter: swapRouterAddress,
                 existingEscrowNFT: address(0)
@@ -91,8 +92,14 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
                 name: "WBTC/USDC",
                 underlying: IERC20(tWBTC),
                 cashAsset: IERC20(tUSDC),
-                // BTC/USD -> invert(USDC/USD)
-                oracle: deployCombinedOracle(tWBTC, tUSDC, oracletWBTC_USD, oracletUSDC_USD, true),
+                oracle: deployCombinedOracle(
+                    tWBTC,
+                    tUSDC,
+                    oracletWBTC_USD,
+                    oracletUSDC_USD,
+                    true,
+                    "Comb(CL(BTC / USD)|inv(CL(USDC / USD)))"
+                ),
                 swapFeeTier: swapFeeTier,
                 swapRouter: swapRouterAddress,
                 existingEscrowNFT: address(0)

@@ -4,20 +4,20 @@
 ------------------------------------------------------------------------------------------
 File                                        blank        comment           code
 ------------------------------------------------------------------------------------------
-src/LoansNFT.sol                              125            468            381
+src/LoansNFT.sol                              127            470            389
 src/EscrowSupplierNFT.sol                      81            275            262
 src/CollarTakerNFT.sol                         57            151            197
 src/Rolls.sol                                  56            202            194
 src/CollarProviderNFT.sol                      48            145            190
 src/ConfigHub.sol                              25             73             79
-src/ChainlinkOracle.sol                        13             46             52
-src/CombinedOracle.sol                         11             37             47
+src/CombinedOracle.sol                         14             40             56
+src/ChainlinkOracle.sol                        14             48             55
 src/SwapperUniV3.sol                            9             52             43
 src/base/BaseManaged.sol                       17             38             41
 src/base/BaseTakerOracle.sol                   14             57             34
 src/base/BaseNFT.sol                            7             13             23
 ------------------------------------------------------------------------------------------
-SUM:                                          463           1557           1543
+SUM:                                          469           1564           1563
 ------------------------------------------------------------------------------------------
 ```
 

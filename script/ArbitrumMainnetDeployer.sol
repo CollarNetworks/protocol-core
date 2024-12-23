@@ -63,8 +63,9 @@ abstract contract ArbitrumMainnetDeployer is BaseDeployer {
                 name: "WETH/USDC",
                 underlying: IERC20(WETH),
                 cashAsset: IERC20(USDC),
-                // ETH/USD -> invert(USDC/USD)
-                oracle: deployCombinedOracle(WETH, USDC, oracleETH_USD, oracleUSDC_USD, true),
+                oracle: deployCombinedOracle(
+                    WETH, USDC, oracleETH_USD, oracleUSDC_USD, true, "Comb(CL(ETH / USD)|inv(CL(USDC / USD)))"
+                ),
                 swapFeeTier: swapFeeTier,
                 swapRouter: swapRouterAddress,
                 existingEscrowNFT: address(wethEscrow)
@@ -78,8 +79,9 @@ abstract contract ArbitrumMainnetDeployer is BaseDeployer {
                 name: "WETH/USDT",
                 underlying: IERC20(WETH),
                 cashAsset: IERC20(USDT),
-                // ETH/USD -> invert(USDT/USD)
-                oracle: deployCombinedOracle(WETH, USDT, oracleETH_USD, oracleUSDT_USD, true),
+                oracle: deployCombinedOracle(
+                    WETH, USDT, oracleETH_USD, oracleUSDT_USD, true, "Comb(CL(ETH / USD)|inv(CL(USDT / USD)))"
+                ),
                 swapFeeTier: swapFeeTier,
                 swapRouter: swapRouterAddress,
                 existingEscrowNFT: address(wethEscrow)
@@ -93,8 +95,9 @@ abstract contract ArbitrumMainnetDeployer is BaseDeployer {
                 name: "WBTC/USDT",
                 underlying: IERC20(WBTC),
                 cashAsset: IERC20(USDT),
-                // WBTC/USD -> invert(USDT/USD)
-                oracle: deployCombinedOracle(WBTC, USDT, oracleWBTC_USD, oracleUSDT_USD, true),
+                oracle: deployCombinedOracle(
+                    WBTC, USDT, oracleWBTC_USD, oracleUSDT_USD, true, "Comb(CL(WBTC / USD)|inv(CL(USDT / USD)))"
+                ),
                 swapFeeTier: swapFeeTier,
                 swapRouter: swapRouterAddress,
                 existingEscrowNFT: address(0)
