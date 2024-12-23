@@ -7,7 +7,7 @@ contract TestERC20 is ERC20 {
     // reentrancy attacker
     address public attacker;
 
-    mapping (address to => bool blocked) public blockList;
+    mapping(address to => bool blocked) public blockList;
 
     constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) { }
 

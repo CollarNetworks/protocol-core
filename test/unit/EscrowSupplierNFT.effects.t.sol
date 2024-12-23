@@ -192,6 +192,35 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         assertEq(asset.balanceOf(loans), balanceLoans + toLoansReturned - repaid);
     }
 
+    function checkEndEscrowOnlyLateFees(uint escrowId, uint repaid, ExpectedRelease memory expectedWithRefund)
+        internal
+        returns (uint expectedWithdrawal)
+    {
+        startHoax(loans);
+        asset.approve(address(escrowNFT), repaid);
+
+        EscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(escrowId);
+
+        uint balanceEscrow = asset.balanceOf(address(escrowNFT));
+        uint balanceLoans = asset.balanceOf(loans);
+
+        expectedWithdrawal = expectedWithRefund.withdrawable + expectedWithRefund.toLoans;
+        vm.expectEmit(address(escrowNFT));
+        emit IEscrowSupplierNFT.EscrowReleased(escrowId, repaid, expectedWithdrawal, 0);
+        // check the needed transfer events order and amounts
+        emit IERC20.Transfer(loans, address(escrowNFT), repaid);
+        escrowNFT.endEscrowOnlyLateFees(escrowId, repaid);
+
+        // Check escrow state
+        escrow = escrowNFT.getEscrow(escrowId);
+        assertTrue(escrow.released);
+        assertEq(escrow.withdrawable, expectedWithdrawal);
+
+        // balance changes
+        assertEq(asset.balanceOf(address(escrowNFT)), balanceEscrow + repaid);
+        assertEq(asset.balanceOf(loans), balanceLoans - repaid);
+    }
+
     function checkWithdrawReleased(uint escrowId, uint expectedWithdrawal) internal {
         startHoax(supplier1);
         uint balanceBefore = asset.balanceOf(supplier1);
@@ -260,10 +289,17 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         assertEq(toLoans, expected.toLoans);
         assertEq(refund, expected.refund);
 
+        uint checkpoint = vm.snapshotState();
         // check end escrow
         checkEndEscrow(escrowId, repaid, expected);
         // check withdraw
         checkWithdrawReleased(escrowId, expected.withdrawable);
+
+        vm.revertTo(checkpoint);
+        // check end escrow without refund
+        uint noRefundWithdrawal = checkEndEscrowOnlyLateFees(escrowId, repaid, expected);
+        // check withdraw
+        checkWithdrawReleased(escrowId, noRefundWithdrawal);
     }
 
     function expectedLateFees(EscrowSupplierNFT.Escrow memory escrow) internal view returns (uint fee) {

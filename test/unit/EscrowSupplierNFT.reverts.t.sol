@@ -152,6 +152,9 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         escrowNFT.endEscrow(1000, 0);
 
         vm.expectRevert("escrow: position does not exist");
+        escrowNFT.endEscrowOnlyLateFees(1000, 0);
+
+        vm.expectRevert("escrow: position does not exist");
         escrowNFT.switchEscrow(1000, 0, 0, 0);
     }
 
@@ -225,6 +228,8 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         vm.expectRevert("escrow: loans address mismatch");
         escrowNFT.endEscrow(escrowId, 0);
         vm.expectRevert("escrow: loans address mismatch");
+        escrowNFT.endEscrowOnlyLateFees(escrowId, 0);
+        vm.expectRevert("escrow: loans address mismatch");
         escrowNFT.switchEscrow(escrowId, 0, 0, 0);
 
         // released already
@@ -235,6 +240,8 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         escrowNFT.endEscrow(escrowId, largeAmount / 2);
         vm.expectRevert("escrow: already released");
         escrowNFT.endEscrow(escrowId, 0);
+        vm.expectRevert("escrow: already released");
+        escrowNFT.endEscrowOnlyLateFees(escrowId, 0);
         vm.expectRevert("escrow: already released");
         escrowNFT.switchEscrow(escrowId, 0, 0, 0);
     }

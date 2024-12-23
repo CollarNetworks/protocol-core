@@ -111,9 +111,9 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
     function test_revert_forecloseLoan_timingAndAuthorization() public {
         (uint loanId,,) = createAndCheckLoan();
 
-        // view reverts too escrowGracePeriod
+        // view reverts too foreclosureValues
         vm.expectRevert("loans: taker position not settled");
-        loans.escrowGracePeriod(loanId);
+        loans.foreclosureValues(loanId);
 
         // foreclose before settlement
         vm.startPrank(supplier);
@@ -124,7 +124,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         skip(duration);
         updatePrice();
         takerNFT.settlePairedPosition(loanId);
-        uint gracePeriod = loans.escrowGracePeriod(loanId);
+        (uint gracePeriod,) = loans.foreclosureValues(loanId);
 
         // at the end of grace period
         skip(gracePeriod);
