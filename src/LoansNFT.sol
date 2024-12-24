@@ -225,7 +225,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
      * The amount of underlying returned may be smaller or larger than originally deposited,
      * depending on the position's settlement result, escrow late fees, and the final swap.
      * This method can be called by either the loanId's NFT owner or by a keeper
-     * if the keeper was allowed for this loan by the current owner (by calling setKeeperAllowed).
+     * if the keeper was allowed for this loan by the current owner (by calling setKeeperApproved).
      * Using a keeper may be desired because the call's timing should be as close to settlement
      * as possible, to avoid additional price exposure since the swaps uses the spot price.
      * However, allowing a keeper also trusts them to set the swap parameters, trusting them
