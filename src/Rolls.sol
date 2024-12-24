@@ -208,8 +208,8 @@ contract Rolls is IRolls, BaseManaged {
             maxPrice: maxPrice,
             minToProvider: minToProvider
         });
-        rollId = nextRollId++;
         // storage updates
+        rollId = nextRollId++;
         rollOffers[rollId] = offer;
         emit OfferCreated(msg.sender, rollId, offer);
     }
