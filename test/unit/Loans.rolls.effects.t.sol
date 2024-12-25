@@ -100,7 +100,8 @@ contract LoansRollTestBase is LoansTestBase {
             expected.newLoanId,
             prevLoan.loanAmount,
             expected.newLoanAmount,
-            expected.toTaker
+            expected.toTaker,
+            expected.newEscrowId
         );
         // min change param
         int minToUser = int(expected.newLoanAmount) - int(prevLoan.loanAmount) - rollFee;
@@ -176,7 +177,7 @@ contract LoansRollTestBase is LoansTestBase {
 
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition({ takerId: loanId });
         uint withdrawal = takerPosition.takerLocked;
-        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
+        uint swapOut = prepareDefaultSwapToUnderlying();
         closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
         return loanId;
     }
@@ -221,13 +222,6 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         assertEq(expected.newLoanAmount, loans.getLoan(newLoanId).loanAmount);
 
         checkCloseRolledLoan(newLoanId, expected.newLoanAmount);
-    }
-
-    function test_rollLoan_setKeeperAllowed_preserved() public {
-        (uint loanId,,) = createAndCheckLoan();
-        loans.setKeeperApproved(true);
-        // checked to correspond to previous value in checkRollLoan
-        checkRollLoan(loanId, oraclePrice);
     }
 
     function test_rollLoan_price_increase() public {

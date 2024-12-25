@@ -36,6 +36,8 @@ contract CombinedOracleTest is Test {
     uint8 baseDecimals2 = 6;
     uint unit2Price = 2;
 
+    string defaultDescription = "Comb(CL(feed1)|inv(CL(feed2)))";
+
     int feed1Answer;
     uint expectedOraclePrice1;
     int feed2Answer;
@@ -55,7 +57,13 @@ contract CombinedOracleTest is Test {
             baseToken2, crossToken, address(mockFeed2), "feed2", maxStaleness, mockSequencerFeed
         );
         comboOracle = new CombinedOracle(
-            baseToken1, baseToken2, address(oracle_1), invert_1, address(oracle_2), invert_2
+            baseToken1,
+            baseToken2,
+            address(oracle_1),
+            invert_1,
+            address(oracle_2),
+            invert_2,
+            defaultDescription
         );
         vm.clearMockedCalls();
         // roll into future to avoid underflow with timestamps
@@ -147,6 +155,7 @@ contract CombinedOracleTest is Test {
         assertEq(comboOracle.VIRTUAL_ASSET(), VIRTUAL_ASSET);
         assertEq(comboOracle.baseToken(), baseToken1);
         assertEq(comboOracle.quoteToken(), baseToken2);
+        assertEq(comboOracle.description(), defaultDescription);
         assertEq(comboOracle.baseUnitAmount(), 10 ** baseDecimals1);
         assertEq(comboOracle.quoteUnitAmount(), 10 ** baseDecimals2);
         assertEq(address(comboOracle.sequencerChainlinkFeed()), address(0));
@@ -197,9 +206,17 @@ contract CombinedOracleTest is Test {
             crossToken, baseToken2, address(mockFeed2), "feed2", maxStaleness, mockSequencerFeed
         );
         invert_2 = false;
+        defaultDescription = "Comb(CL(feed1)|CL(feed2))";
         comboOracle = new CombinedOracle(
-            baseToken1, baseToken2, address(oracle_1), invert_1, address(oracle_2), invert_2
+            baseToken1,
+            baseToken2,
+            address(oracle_1),
+            invert_1,
+            address(oracle_2),
+            invert_2,
+            defaultDescription
         );
+        assertEq(comboOracle.description(), defaultDescription);
         // 1: as before
         // 2: cross -> base2
         feed2Answer = int(10 ** feed2Decimals / unit2Price);
@@ -222,9 +239,17 @@ contract CombinedOracleTest is Test {
         );
         invert_1 = true;
         invert_2 = false;
+        defaultDescription = "Comb(inv(CL(feed1))|CL(feed2))";
         comboOracle = new CombinedOracle(
-            baseToken1, baseToken2, address(oracle_1), invert_1, address(oracle_2), invert_2
+            baseToken1,
+            baseToken2,
+            address(oracle_1),
+            invert_1,
+            address(oracle_2),
+            invert_2,
+            defaultDescription
         );
+        assertEq(comboOracle.description(), defaultDescription);
         // 1: cross -> base1
         feed1Answer = int(10 ** feed1Decimals / unit1Price);
         expectedOraclePrice1 = 10 ** baseDecimals1 / unit1Price;
@@ -244,9 +269,17 @@ contract CombinedOracleTest is Test {
             crossToken, baseToken1, address(mockFeed1), "feed1", maxStaleness, mockSequencerFeed
         );
         invert_1 = true;
+        defaultDescription = "Comb(inv(CL(feed1))|inv(CL(feed2)))";
         comboOracle = new CombinedOracle(
-            baseToken1, baseToken2, address(oracle_1), invert_1, address(oracle_2), invert_2
+            baseToken1,
+            baseToken2,
+            address(oracle_1),
+            invert_1,
+            address(oracle_2),
+            invert_2,
+            defaultDescription
         );
+        assertEq(comboOracle.description(), defaultDescription);
         // 1: cross -> base1
         feed1Answer = int(10 ** feed1Decimals / unit1Price);
         expectedOraclePrice1 = 10 ** baseDecimals1 / unit1Price;
@@ -325,31 +358,47 @@ contract CombinedOracleTest is Test {
         // base
         vm.expectRevert("CombinedOracle: base argument mismatch");
         comboOracle = new CombinedOracle(
-            baseToken1, baseToken2, address(oracle_2), invert_1, address(oracle_1), invert_2
+            baseToken1, baseToken2, address(oracle_2), invert_1, address(oracle_1), invert_2, ""
         );
         vm.expectRevert("CombinedOracle: base argument mismatch");
         comboOracle = new CombinedOracle(
-            baseToken2, baseToken2, address(oracle_1), invert_1, address(oracle_2), invert_2
+            baseToken2, baseToken2, address(oracle_1), invert_1, address(oracle_2), invert_2, ""
         );
 
         // quote
         vm.expectRevert("CombinedOracle: quote argument mismatch");
         comboOracle = new CombinedOracle(
-            baseToken1, crossToken, address(oracle_1), invert_1, address(oracle_2), invert_2
+            baseToken1, crossToken, address(oracle_1), invert_1, address(oracle_2), invert_2, ""
         );
         vm.expectRevert("CombinedOracle: quote argument mismatch");
         comboOracle = new CombinedOracle(
-            baseToken1, baseToken2, address(oracle_1), invert_1, address(oracle_1), invert_2
+            baseToken1, baseToken2, address(oracle_1), invert_1, address(oracle_1), invert_2, ""
         );
 
         // cross
         vm.expectRevert("CombinedOracle: cross token mismatch");
         comboOracle = new CombinedOracle(
-            baseToken1, crossToken, address(oracle_1), invert_1, address(oracle_2), !invert_2
+            baseToken1, crossToken, address(oracle_1), invert_1, address(oracle_2), !invert_2, ""
         );
         vm.expectRevert("CombinedOracle: cross token mismatch");
         comboOracle = new CombinedOracle(
-            crossToken, baseToken2, address(oracle_1), !invert_1, address(oracle_2), invert_2
+            crossToken, baseToken2, address(oracle_1), !invert_1, address(oracle_2), invert_2, ""
+        );
+
+        // description mismatch
+        vm.expectRevert("CombinedOracle: description mismatch");
+        comboOracle = new CombinedOracle(
+            baseToken1, baseToken2, address(oracle_1), invert_1, address(oracle_2), invert_2, ""
+        );
+        vm.expectRevert("CombinedOracle: description mismatch");
+        comboOracle = new CombinedOracle(
+            baseToken1,
+            baseToken2,
+            address(oracle_1),
+            invert_1,
+            address(oracle_2),
+            invert_2,
+            string.concat(defaultDescription, "nope")
         );
     }
 

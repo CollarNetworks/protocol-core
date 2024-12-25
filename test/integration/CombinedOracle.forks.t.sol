@@ -32,6 +32,7 @@ contract CombinedOracle_ArbiMain_WETHUSDC_ForkTest is Test {
     address priceFeed2;
     string description1;
     string description2;
+    string comboDescription;
     uint maxStaleness1;
     uint maxStaleness2;
 
@@ -54,7 +55,13 @@ contract CombinedOracle_ArbiMain_WETHUSDC_ForkTest is Test {
             baseToken2, quoteToken2, priceFeed2, description2, maxStaleness2, sequencerFeed
         );
         comboOracle = new CombinedOracle(
-            comboBaseToken, comboQuoteToken, address(oracle_1), invert1, address(oracle_2), invert2
+            comboBaseToken,
+            comboQuoteToken,
+            address(oracle_1),
+            invert1,
+            address(oracle_2),
+            invert2,
+            comboDescription
         );
     }
 
@@ -77,6 +84,8 @@ contract CombinedOracle_ArbiMain_WETHUSDC_ForkTest is Test {
         priceFeed2 = 0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3;
         description2 = "USDC / USD";
         maxStaleness2 = 1 days + 1 minutes; // some grace for congestion
+
+        comboDescription = "Comb(CL(ETH / USD)|inv(CL(USDC / USD)))";
 
         comboBaseToken = baseToken1;
         comboQuoteToken = baseToken2;
@@ -104,13 +113,20 @@ contract CombinedOracle_ArbiMain_WETHUSDC_ForkTest is Test {
 
     function test_constructor() public {
         comboOracle = new CombinedOracle(
-            comboBaseToken, comboQuoteToken, address(oracle_1), invert1, address(oracle_2), invert2
+            comboBaseToken,
+            comboQuoteToken,
+            address(oracle_1),
+            invert1,
+            address(oracle_2),
+            invert2,
+            comboDescription
         );
 
         // BaseTakerOracle
         assertEq(comboOracle.VIRTUAL_ASSET(), VIRTUAL_ASSET);
         assertEq(comboOracle.baseToken(), baseToken1);
         assertEq(comboOracle.quoteToken(), baseToken2);
+        assertEq(comboOracle.description(), comboDescription);
         assertEq(comboOracle.baseUnitAmount(), expectedUnitAmount(baseToken1));
         assertEq(comboOracle.quoteUnitAmount(), expectedUnitAmount(baseToken2));
         assertEq(address(comboOracle.sequencerChainlinkFeed()), address(0));
@@ -178,7 +194,13 @@ contract CombinedOracle_ArbiMain_USDCWETH_ForkTest is CombinedOracle_ArbiMain_WE
     function setUp() public virtual override {
         super.setUp();
         comboOracle = new CombinedOracle(
-            comboQuoteToken, comboBaseToken, address(oracle_2), invert1, address(oracle_1), invert2
+            comboQuoteToken,
+            comboBaseToken,
+            address(oracle_2),
+            invert1,
+            address(oracle_1),
+            invert2,
+            "Comb(CL(USDC / USD)|inv(CL(ETH / USD)))"
         );
     }
 
@@ -212,6 +234,8 @@ contract CombinedOracle_ArbiSepolia_WBTCUSDC_ForkTest is CombinedOracle_ArbiMain
         priceFeed2 = 0x0153002d20B96532C639313c2d54c3dA09109309;
         description2 = "USDC / USD";
         maxStaleness2 = 1 days + 1 minutes; // some grace for congestion
+
+        comboDescription = "Comb(CL(BTC / USD)|inv(CL(USDC / USD)))";
 
         comboBaseToken = baseToken1;
         comboQuoteToken = baseToken2;

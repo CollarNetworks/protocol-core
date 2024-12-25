@@ -33,6 +33,7 @@ contract SwapperUniV3 is ISwapper {
         // @dev The most precise check would be to check via factory's feeAmountTickSpacing():
         //      require(IUniswapV3Factory(factory).feeAmountTickSpacing(newFeeTier) != 0, .. );
         // KISS is fine here: known tiers aren't likely to change, and swappers can easily be replaced.
+        // Note that additional fee tiers are available on some chains (e.g., on Base).
         require(
             _feeTier == 100 || _feeTier == 500 || _feeTier == 3000 || _feeTier == 10_000, "invalid fee tier"
         );
@@ -50,7 +51,7 @@ contract SwapperUniV3 is ISwapper {
      *  - A slippage check vs. minAmountOut.
      * @param assetIn ERC20 token being swapped from.
      * @param assetOut ERC20 token being swapped to.
-     * @param amountIn The amount of `assetIn` to swap.
+     * @param amountIn The amount of `assetIn` to swap. @dev Must not be 0, otherwise will revert.
      * @param minAmountOut The minimum amount of `assetOut` to accept, limiting slippage.
      * @param extraData Arbitrary bytes data (unused in this contract) that are part of ISwapper interface
      * for more complex integrations in other implementations.
@@ -84,7 +85,7 @@ contract SwapperUniV3 is ISwapper {
                 tokenOut: address(assetOut),
                 fee: swapFeeTier,
                 recipient: msg.sender,
-                amountIn: amountIn,
+                amountIn: amountIn, // @dev must not be 0
                 amountOutMinimum: minAmountOut,
                 sqrtPriceLimitX96: 0
             })

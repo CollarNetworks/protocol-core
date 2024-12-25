@@ -88,12 +88,12 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         mockSwapperRouter.setupSwap(amount, amount);
     }
 
-    function prepareSwapToUnderlyingAtOraclePrice() public returns (uint swapOut) {
+    function prepareDefaultSwapToUnderlying() public returns (uint swapOut) {
         swapOut = underlyingAmount * 1e18 / oraclePrice;
         prepareSwap(underlying, swapOut);
     }
 
-    function prepareSwapToCashAtOraclePrice() public returns (uint swapOut) {
+    function prepareDefaultSwapToCash() public returns (uint swapOut) {
         swapOut = underlyingAmount * oraclePrice / 1e18;
         prepareSwap(cashAsset, swapOut);
     }
@@ -182,7 +182,16 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
         ILoansNFT.SwapParams memory swapParams = defaultSwapParams(swapCashAmount);
         vm.expectEmit(address(loans));
-        emit ILoansNFT.LoanOpened(ids.loanId, user1, underlyingAmount, expectedLoanAmount);
+
+        emit ILoansNFT.LoanOpened(
+            ids.loanId,
+            user1,
+            underlyingAmount,
+            expectedLoanAmount,
+            openEscrowLoan,
+            openEscrowLoan ? ids.nextEscrowId : 0,
+            openEscrowLoan ? address(escrowNFT) : address(NO_ESCROW)
+        );
 
         if (openEscrowLoan) {
             (loanId, providerId, loanAmount) = loans.openEscrowLoan(
@@ -386,7 +395,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         uint withdrawal = takerPosition.takerLocked * putRatio / BIPS_100PCT
             + takerPosition.providerLocked * callRatio / BIPS_100PCT;
         // setup router output
-        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
+        uint swapOut = prepareDefaultSwapToUnderlying();
         closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
         return loanId;
     }
@@ -453,18 +462,23 @@ contract LoansBasicEffectsTest is LoansTestBase {
     }
 
     function test_allowsClosingKeeper() public {
+        uint loanId = 100;
+        uint otherLoanId = 50;
         startHoax(user1);
-        assertFalse(loans.keeperApproved(user1));
+        assertFalse(loans.keeperApprovedFor(user1, loanId));
+        assertFalse(loans.keeperApprovedFor(user1, otherLoanId));
 
         vm.expectEmit(address(loans));
-        emit ILoansNFT.ClosingKeeperApproved(user1, true);
-        loans.setKeeperApproved(true);
-        assertTrue(loans.keeperApproved(user1));
+        emit ILoansNFT.ClosingKeeperApproved(user1, loanId, true);
+        loans.setKeeperApproved(loanId, true);
+        assertTrue(loans.keeperApprovedFor(user1, loanId));
+        assertFalse(loans.keeperApprovedFor(user1, otherLoanId));
 
         vm.expectEmit(address(loans));
-        emit ILoansNFT.ClosingKeeperApproved(user1, false);
-        loans.setKeeperApproved(false);
-        assertFalse(loans.keeperApproved(user1));
+        emit ILoansNFT.ClosingKeeperApproved(user1, loanId, false);
+        loans.setKeeperApproved(loanId, false);
+        assertFalse(loans.keeperApprovedFor(user1, loanId));
+        assertFalse(loans.keeperApprovedFor(user1, otherLoanId));
     }
 
     function test_closeLoan_simple() public {
@@ -475,7 +489,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         // withdrawal: no price change so only user locked (put locked)
         uint withdrawal = takerPosition.takerLocked;
         // setup router output
-        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
+        uint swapOut = prepareDefaultSwapToUnderlying();
         closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
     }
 
@@ -489,13 +503,13 @@ contract LoansBasicEffectsTest is LoansTestBase {
 
         // Allow the keeper to close the loan
         vm.startPrank(user1);
-        loans.setKeeperApproved(true);
+        loans.setKeeperApproved(loanId, true);
 
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition({ takerId: loanId });
         // withdrawal: no price change so only user locked (put locked)
         uint withdrawal = takerPosition.takerLocked;
         // setup router output
-        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
+        uint swapOut = prepareDefaultSwapToUnderlying();
         closeAndCheckLoan(loanId, keeper, loanAmount, withdrawal, swapOut);
     }
 
@@ -542,8 +556,8 @@ contract LoansBasicEffectsTest is LoansTestBase {
 
     function test_openLoan_swapper_extraData() public {
         (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) = switchToArbitrarySwapper();
-        assertFalse(loans.allowedSwappers(address(swapperUniV3)));
-        assertTrue(loans.allowedSwappers(address(arbCallSwapper)));
+        assertFalse(loans.isAllowedSwapper(address(swapperUniV3)));
+        assertTrue(loans.isAllowedSwapper(address(arbCallSwapper)));
 
         // check that without extraData, open loan fails
         uint providerOfferId = createProviderOffer();
@@ -585,12 +599,12 @@ contract LoansBasicEffectsTest is LoansTestBase {
         // create a closable loan
         (uint loanId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
-        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
+        uint swapOut = prepareDefaultSwapToUnderlying();
 
         // switch swappers
         (SwapperArbitraryCall arbCallSwapper, SwapperUniV3 newUniSwapper) = switchToArbitrarySwapper();
-        assertFalse(loans.allowedSwappers(address(swapperUniV3)));
-        assertTrue(loans.allowedSwappers(address(arbCallSwapper)));
+        assertFalse(loans.isAllowedSwapper(address(swapperUniV3)));
+        assertTrue(loans.isAllowedSwapper(address(arbCallSwapper)));
 
         // try with incorrect data (extraData is empty)
         vm.startPrank(user1);

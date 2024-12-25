@@ -35,7 +35,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
         vm.startPrank(user1);
         underlying.approve(address(loans), underlyingAmount + escrowFee);
-        prepareSwapToCashAtOraclePrice();
+        prepareDefaultSwapToCash();
 
         // 0 underlying
         vm.expectRevert("loans: invalid underlying amount");
@@ -143,7 +143,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
     function test_revert_openLoan_insufficientLoanAmount() public {
         uint offerId = createProviderOffer();
         maybeCreateEscrowOffer();
-        uint swapOut = prepareSwapToCashAtOraclePrice();
+        uint swapOut = prepareDefaultSwapToCash();
 
         vm.startPrank(user1);
         underlying.approve(address(loans), underlyingAmount + escrowFee);
@@ -159,7 +159,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         uint takerLocked = swapCashAmount - loanAmount;
 
         // prep again
-        prepareSwapToCashAtOraclePrice();
+        prepareDefaultSwapToCash();
         underlying.approve(address(loans), underlyingAmount + escrowFee);
 
         vm.mockCall(
@@ -301,7 +301,15 @@ contract LoansBasicRevertsTest is LoansTestBase {
         loans.closeLoan(loanId, defaultSwapParams(0));
 
         vm.startPrank(user1);
-        loans.setKeeperApproved(true);
+        loans.setKeeperApproved(0, true);
+        // approved wrong loan
+        vm.startPrank(keeper);
+        vm.expectRevert("loans: not NFT owner or allowed keeper");
+        loans.closeLoan(loanId, defaultSwapParams(0));
+
+        // correct loan
+        vm.startPrank(user1);
+        loans.setKeeperApproved(loanId, true);
 
         vm.startPrank(user1);
         // transfer invalidates approval
@@ -337,7 +345,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         vm.startPrank(user1);
         // Close the loan normally
         skip(duration);
-        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
+        uint swapOut = prepareDefaultSwapToUnderlying();
         closeAndCheckLoan(
             loanId, user1, loans.getLoan(loanId).loanAmount, takerNFT.getPosition(loanId).takerLocked, swapOut
         );

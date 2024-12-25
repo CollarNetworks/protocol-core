@@ -48,33 +48,44 @@ contract LoansAdminTest is LoansTestBase {
     function test_setSwapperAllowed() public {
         vm.startPrank(owner);
 
+        address[] memory oneSwapper = new address[](1);
+        oneSwapper[0] = defaultSwapper;
+        assertEq(loans.allAllowedSwappers(), oneSwapper);
+
         // not default
         SwapperUniV3 newSwapper = new SwapperUniV3(address(mockSwapperRouter), swapFeeTier);
         vm.expectEmit(address(loans));
         emit ILoansNFT.SwapperSet(address(newSwapper), true, false);
         loans.setSwapperAllowed(address(newSwapper), true, false);
-        assertTrue(loans.allowedSwappers(address(newSwapper)));
+        assertTrue(loans.isAllowedSwapper(address(newSwapper)));
         assertEq(loans.defaultSwapper(), address(defaultSwapper));
+        address[] memory twoSwappers = new address[](2);
+        twoSwappers[0] = defaultSwapper;
+        twoSwappers[1] = address(newSwapper);
+        assertEq(loans.allAllowedSwappers(), twoSwappers);
 
         vm.expectEmit(address(loans));
         emit ILoansNFT.SwapperSet(address(newSwapper), true, true);
         loans.setSwapperAllowed(address(newSwapper), true, true);
-        assertTrue(loans.allowedSwappers(address(newSwapper)));
+        assertTrue(loans.isAllowedSwapper(address(newSwapper)));
         assertEq(loans.defaultSwapper(), address(newSwapper));
+        assertEq(loans.allAllowedSwappers(), twoSwappers);
 
         // disallow new
         vm.expectEmit(address(loans));
         emit ILoansNFT.SwapperSet(address(newSwapper), false, false);
         loans.setSwapperAllowed(address(newSwapper), false, false);
-        assertFalse(loans.allowedSwappers(address(newSwapper)));
+        assertFalse(loans.isAllowedSwapper(address(newSwapper)));
         assertEq(loans.defaultSwapper(), address(newSwapper)); // default swapper should remain unchanged
+        oneSwapper[0] = defaultSwapper;
+        assertEq(loans.allAllowedSwappers(), oneSwapper);
 
         // unset default
         vm.expectEmit(address(loans));
         emit ILoansNFT.SwapperSet(address(0), false, true);
         // does not revert
         loans.setSwapperAllowed(address(0), false, true);
-        assertFalse(loans.allowedSwappers(address(0)));
+        assertFalse(loans.isAllowedSwapper(address(0)));
         assertEq(loans.defaultSwapper(), address(0)); // default is unset
     }
 
@@ -98,7 +109,7 @@ contract LoansAdminTest is LoansTestBase {
         loans.openEscrowLoan(0, 0, defaultSwapParams(0), providerOffer(0), escrowOffer(0), 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.setKeeperApproved(true);
+        loans.setKeeperApproved(0, true);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
         loans.closeLoan(loanId, defaultSwapParams(0));

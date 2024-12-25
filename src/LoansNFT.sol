@@ -4,6 +4,7 @@ pragma solidity 0.8.22;
 import { IERC20, SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import { CollarTakerNFT, ICollarTakerNFT, ITakerOracle, BaseNFT, ConfigHub } from "./CollarTakerNFT.sol";
 import { Rolls, CollarProviderNFT, IRolls } from "./Rolls.sol";
@@ -44,6 +45,7 @@ import { ILoansNFT } from "./interfaces/ILoansNFT.sol";
  */
 contract LoansNFT is ILoansNFT, BaseNFT {
     using SafeERC20 for IERC20;
+    using EnumerableSet for EnumerableSet.AddressSet;
 
     uint internal constant BIPS_BASE = 10_000;
 
@@ -60,17 +62,17 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     // ----- User state ----- //
     /// @notice Stores loan information for each NFT ID
     mapping(uint loanId => LoanStored) internal loans;
-    // callers (users or escrow owners) that allow a keeper for loan closing
-    mapping(address sender => bool enabled) public keeperApproved;
+    // callers (users or escrow owners) that allow a keeper for loan closing for specific loans
+    mapping(address sender => mapping(uint loanId => bool enabled)) public keeperApprovedFor;
 
     // ----- Admin state ----- //
     // optional keeper (set by contract owner) that's useful for the time-sensitive
     // swap back during loan closing and foreclosing
     address public closingKeeper;
+    // contracts allowed for swaps
+    EnumerableSet.AddressSet internal allowedSwappers;
     // a convenience view to allow querying for a swapper onchain / FE without subgraph
     address public defaultSwapper;
-    // contracts allowed for swaps, including the defaultSwapper
-    mapping(address swapper => bool allowed) public allowedSwappers;
 
     constructor(address initialOwner, CollarTakerNFT _takerNFT, string memory _name, string memory _symbol)
         BaseNFT(initialOwner, _name, _symbol)
@@ -101,12 +103,16 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         });
     }
 
-    /// @notice The available grace period using position cash value available for late fees.
+    /// @notice The values needed for calling forecloseLoan:
+    /// - available grace period using position cash value available for late fees. For timing the call.
+    /// - the cash amount that will be swapped to underlying for paying late fees. For setting swap parameters.
     /// @dev Uses oracle price for calculations, reverts if position not settled (and therefore before expiry).
     /// No validation of loan existing or being active, so can return nonsense values for invalid loans.
     /// @param loanId The ID of the loan to calculate for
-    /// @return The length of the grace period
-    function escrowGracePeriod(uint loanId) public view returns (uint) {
+    /// @return gracePeriod The length of the grace period assuming current oracle price
+    /// @return lateFeeCash The amount of cash that will be swapped to pay late fees assuming
+    /// loan is foreclosed now
+    function foreclosureValues(uint loanId) public view returns (uint gracePeriod, uint lateFeeCash) {
         ICollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition(_takerId(loanId));
         // @dev avoid settlement estimation complexity: if position is not settled, estimating
         // withdrawable funds is unnecessarily complex.
@@ -114,14 +120,36 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         require(takerPosition.settled, "loans: taker position not settled");
         uint cashAvailable = takerPosition.withdrawable;
 
-        // use current price for estimation of swap output.
-        // round down is ok since it's against the user (being foreclosed).
-        ITakerOracle oracle = takerNFT.oracle();
-        uint underlyingAmount = oracle.convertToBaseAmount(cashAvailable, oracle.currentPrice());
-
         Loan memory loan = getLoan(loanId);
+        (EscrowSupplierNFT escrowNFT, uint escrowId) = (loan.escrowNFT, loan.escrowId);
+        ITakerOracle oracle = takerNFT.oracle();
+
+        // use current price for estimation of underlying that's available after swapping cashAvailable.
+        uint currentPrice = oracle.currentPrice();
+        // round down is ok since it's against the user (being foreclosed).
+        uint underlyingAmount = oracle.convertToBaseAmount(cashAvailable, currentPrice);
         // assume all available underlying can be used for fees (escrowNFT will cap between max and min)
-        return loan.escrowNFT.cappedGracePeriod(loan.escrowId, underlyingAmount);
+        gracePeriod = escrowNFT.cappedGracePeriod(escrowId, underlyingAmount);
+
+        // calculate the cash amount to be swapped for paying late fee
+        // @dev this means that escrow owner pays swap fees and slippage from late fees, which is fine
+        // since they control the swap during foreclosure, and so should account for it in their offer
+        (, uint lateFee) = escrowNFT.currentOwed(escrowId);
+        // round down is fine since can be known in advance, and escrow owner can choose
+        // reasonable offer values (minEscrow, APR, grace period)
+        lateFeeCash = oracle.convertToQuoteAmount(lateFee, currentPrice);
+        // cap at what's actually available
+        lateFeeCash = Math.min(lateFeeCash, cashAvailable);
+    }
+
+    /// @notice Checks whether a swapper is allowed for this contract
+    function isAllowedSwapper(address swapper) public view returns (bool) {
+        return allowedSwappers.contains(swapper);
+    }
+
+    /// @notice Returns all the swappers allowed for this loans contract
+    function allAllowedSwappers() external view returns (address[] memory) {
+        return allowedSwappers.values();
     }
 
     // ----- STATE CHANGING FUNCTIONS ----- //
@@ -151,7 +179,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         uint minLoanAmount,
         SwapParams calldata swapParams,
         ProviderOffer calldata providerOffer
-    ) public whenNotPaused returns (uint loanId, uint providerId, uint loanAmount) {
+    ) external whenNotPaused returns (uint loanId, uint providerId, uint loanAmount) {
         EscrowOffer memory noEscrow = EscrowOffer(EscrowSupplierNFT(address(0)), 0);
         return _openLoan(underlyingAmount, minLoanAmount, swapParams, providerOffer, false, noEscrow, 0);
     }
@@ -197,7 +225,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
      * The amount of underlying returned may be smaller or larger than originally deposited,
      * depending on the position's settlement result, escrow late fees, and the final swap.
      * This method can be called by either the loanId's NFT owner or by a keeper
-     * if the keeper was allowed by the current owner (by calling setKeeperAllowed).
+     * if the keeper was allowed for this loan by the current owner (by calling setKeeperApproved).
      * Using a keeper may be desired because the call's timing should be as close to settlement
      * as possible, to avoid additional price exposure since the swaps uses the spot price.
      * However, allowing a keeper also trusts them to set the swap parameters, trusting them
@@ -234,7 +262,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // - keeper sets the SwapParams and its slippage parameter
         /// @dev ownerOf will revert on non-existent (unminted / burned) loan ID
         address borrower = ownerOf(loanId);
-        require(_isSenderOrKeeperFor(borrower), "loans: not NFT owner or allowed keeper");
+        require(_isSenderOrKeeperFor(borrower, loanId), "loans: not NFT owner or allowed keeper");
 
         // burn token. This prevents any other (or reentrant) calls for this loan
         _burn(loanId);
@@ -255,10 +283,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // @dev Reentrancy assumption: no user state writes or reads AFTER the swapper call in _swap.
         uint underlyingFromSwap = _swap(cashAsset, underlying, cashAmount, swapParams);
 
-        // release escrow if it was used, paying any late fees if needed
-        // @dev no slippage param / check on escrow release result since it depends only on time
-        // so cannot be manipulated and so can be checked off-chain / known in advance reliably
-        underlyingOut = _conditionalReleaseEscrow(loan, underlyingFromSwap);
+        // release escrow if it was used, paying any late fees if needed.
+        underlyingOut = _conditionalEndEscrow(loan, underlyingFromSwap);
 
         underlying.safeTransfer(borrower, underlyingOut);
 
@@ -313,7 +339,10 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         toUser = _toUser; // convenience to allow declaring all outputs above
 
         Loan memory prevLoan = getLoan(loanId);
-        // calculate the updated loan amount (changed due to the roll)
+        // calculate the updated loan amount (changed due to the roll).
+        // Note that although the loan amount may change (due to roll), the escrow amount should not.
+        // This is because the escrow holds the borrower funds that correspond to the loan's first swap,
+        // so should remain unchanged to return as much of it as possible in the end.
         newLoanAmount = _loanAmountAfterRoll(toUser, rollFee, prevLoan.loanAmount);
 
         // set the new ID from new taker ID
@@ -336,7 +365,14 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         _mint(msg.sender, newLoanId); // @dev does not use _safeMint to avoid reentrancy
 
         emit LoanRolled(
-            msg.sender, loanId, rollOffer.id, newLoanId, prevLoan.loanAmount, newLoanAmount, toUser
+            msg.sender,
+            loanId,
+            rollOffer.id,
+            newLoanId,
+            prevLoan.loanAmount,
+            newLoanAmount,
+            toUser,
+            newEscrowId
         );
     }
 
@@ -364,9 +400,14 @@ contract LoansNFT is ILoansNFT, BaseNFT {
      * @notice Forecloses an escrow loan, that was not repaid on time, after grace period is finished.
      * The max grace period and its late-fee APR is determined by the initial supplier's offer.
      * The actual period is dynamically limited by the position's value, to reduce late-fee underpayment.
+     * Uses foreclosureValues() to calculate both the timing and the amount of cash to swap for paying
+     * late fees. Any remaining cash is transferred directly to the borrower, any underlying dust from
+     * late fee repayment (resulting from overestimation) after the swap is transferred to the escrow
+     * NFT holder.
      * @dev Can be called only by the escrow owner or an allowed keeper (if authorized by escrow owner)
      * @param loanId The ID of the loan to foreclose
-     * @param swapParams Swap parameters for cash to underlying conversion
+     * @param swapParams Swap parameters for cash to underlying conversion for swapping lateFeeCash
+     * as returned by foreclosureValues()
      */
     function forecloseLoan(uint loanId, SwapParams calldata swapParams) external whenNotPaused {
         // get the borrower address here, both to ensure loan is active (will revert otherwise)
@@ -380,27 +421,19 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // Funds beneficiary (escrow owner) should ideally set the swapParams.
         // A keeper can be useful because foreclosing can be time-sensitive, due to swap timing
         // impacting the amount of funds available for late-fee repayment.
-        // Note that if the keeper is authorized by escrow owner, it is authorized also for
-        // closing any loans they themselves hold.
         // @dev will also revert on non-existent (unminted / burned) escrow ID
         address escrowOwner = escrowNFT.ownerOf(escrowId);
-        require(_isSenderOrKeeperFor(escrowOwner), "loans: not escrow owner or allowed keeper");
+        require(_isSenderOrKeeperFor(escrowOwner, loanId), "loans: not escrow owner or allowed keeper");
 
-        // @dev escrowGracePeriod uses oracle-price, while actual foreclosing swap is using spot price.
+        // @dev foreclosureValues uses oracle-price, while actual swap is using spot price.
         // This has several implications:
-        // 1. This protects foreclosing from price manipulation edge-cases.
-        // 2. The final swap can be manipulated against the supplier, so either they or a trusted keeper
-        //    should do it.
-        // 3. This also means that swap amount may be different from the estimation in escrowGracePeriod
-        //    if near the end of a grace-period that was capped.
-        //    In this case, if swap price is less than oracle, the late fees may be slightly underpaid
-        //    because of the spot-oracle difference and slippage.
-        // 4. Because the supplier (escrow owner) is controlling this call, they can manipulate the price
-        //    to their benefit, but it still can't pay more than the lateFees calculated by time, and can only
-        //    result in "leftovers" that will go to the borrower, so makes no sense for them to do (since
-        //    manipulation costs money).
-        uint gracePeriodEnd = _expiration(loanId) + escrowGracePeriod(loanId);
-        require(block.timestamp > gracePeriodEnd, "loans: cannot foreclose yet");
+        // 1. This protects foreclosing timing from price manipulation.
+        // 2. The swap can be manipulated against the supplier, so either they or a trusted keeper
+        //    should call this method (to set the slippage parameters).
+        // 3. This also means that swap amount may be different from the estimation in foreclosureValues().
+        //    In most cases late fees will be slightly underpaid due to this (+slippage and swap fees).
+        (uint gracePeriod, uint lateFeeCash) = foreclosureValues(loanId);
+        require(block.timestamp > _expiration(loanId) + gracePeriod, "loans: cannot foreclose yet");
 
         // burn NFT from the user. Prevents any further actions for this loan.
         // Although they are not the caller, altering their assets is fine here because
@@ -411,35 +444,70 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // @dev because taker NFT is held by this contract, this could not have been called already
         uint cashAvailable = takerNFT.withdrawFromSettled(_takerId(loanId));
 
-        // @dev Reentrancy assumption: no user state writes or reads AFTER the swapper call in _swap.
-        // A call to escrowNFT.endEscrow is made after this, but escrow belongs to the caller, and is
-        // protected via "released" flag in escrow.
-        uint fromSwap = _swap(cashAsset, underlying, cashAvailable, swapParams);
+        /*
+        @dev Swapping **only** the lateFeeCash prevents escrow owner from being able to
+        extract borrower's remaining funds via self-sandwiching the swap.
+        However, this also means that escrow owner pays swap fees and slippage from late fees,
+        which is fine since they control the swap, and should account for it in their offer.
+        @dev this also means that lateFeeCash via foreclosureValues() needs to be used to set
+        set the slippage in swapParams.
+        @dev Reentrancy assumption: no user state writes or reads AFTER the swapper call in _swap.
+        A call to escrowNFT.endEscrow is made after this, but escrow belongs to the caller, and is
+        protected via "released" flag in escrow.
+        */
+        uint fromSwap = _swap(cashAsset, underlying, lateFeeCash, swapParams);
 
-        // Release escrow, and send any leftovers to user. Their express trigger of balance update
-        // (withdrawal) is neglected here due to being anyway in an undesirable state of being foreclosed
-        // due to not repaying on time. It's the responsibility of the NFT owner to avoid foreclosure
-        // so if the NFT is in some contract that won't attribute these funds, it's the owner's fault.
-        uint toBorrower = _releaseEscrow(escrowNFT, escrowId, fromSwap);
-        underlying.safeTransfer(borrower, toBorrower);
+        // release the escrow
+        underlying.forceApprove(address(escrowNFT), fromSwap);
+        /*
+        endEscrowOnlyLateFees is used since we swapped **only** the cash that corresponds to the late fees
+        and so all of the swap output should go to escrow owner regardless of swap price.
+        There can be no interest fee refund because this happens after expiration.
+        If regular endEscrow would be used, there could be a refund due to oracle and spot price
+        difference, but this refund would need to be then sent to the escrow owner anyway, so this
+        method avoids the need to split the funds, and do a direct transfer outside of withdrawal flow.
+        */
+        escrowNFT.endEscrowOnlyLateFees(escrowId, fromSwap);
 
-        emit LoanForeclosed(loanId, escrowId, fromSwap, toBorrower);
+        // any cash remaining after paying late fees is refunded to the borrower
+        // @dev cannot underflow because lateFeeCash is capped to cashAvailable in foreclosureValues
+        uint cashToBorrower = cashAvailable - lateFeeCash;
+
+        /*
+        Withdrawal pull-pattern is neglected here due to:
+        1) It's the responsibility of the NFT owner to avoid foreclosure so if the NFT is in some
+        contract that won't attribute these funds, it's the borrower's fault for being in an undesirable
+        state of being foreclosed due to not repaying on time
+        2) To avoid making the contract hold funds (useful assumption in other places)
+        3) For simplicity, as this flow is already very complex
+
+        Regarding blocked transfers. In most cases, either the cashToBorrower is 0 (and so no
+        transfer will be done), or if the cashToBorrower is non-zero after deducting late fees,
+        we're at maxGracePeriod end, and max late fee accumulation point.
+        This is a scenario the borrower would want to avoid in the first place and instead
+        cancel / close / roll in time to receive as much of the full cashAvailable as possible.
+        Still, if this transfer is blocked, it can only be at the end of maxGracePeriod and, and
+        escrow owner can call lastResortSeizeEscrow() then. While they don't get the late fees,
+        the borrower likely lost an even larger amount of funds, which makes the scenario implausible.
+        */
+        if (cashToBorrower != 0) {
+            cashAsset.safeTransfer(borrower, cashToBorrower);
+        }
+
+        emit LoanForeclosed(loanId, escrowId, fromSwap, cashToBorrower);
     }
 
     /**
-     * @notice Allows or disallows a keeper for closing loans on behalf of a caller
+     * @notice Allows or disallows a keeper for closing a specific loan on behalf of a caller
      * A user that sets this allowance with the intention for the keeper to closeLoan
-     * has to also cash approval to this contract that should be valid when
+     * has to also ensure cash approval to this contract that should be valid when
      * closeLoan is called by the keeper.
-     * @dev The allowance is tied to the the caller address, for any action that a keeper can
-     *      do. So if they buy a new loan NFT, and they previously allowed a keeper - it is
-     *      allowed for their new NFT as well. If they are also an escrow supplier, from the
-     *      same address, the keeper would be able to call foreCloseLoan on their behalf.
+     * @param loanId specific loanId which the user approves the keeper to close/foreclose
      * @param enabled True to allow the keeper, false to disallow
      */
-    function setKeeperApproved(bool enabled) external whenNotPaused {
-        keeperApproved[msg.sender] = enabled;
-        emit ClosingKeeperApproved(msg.sender, enabled);
+    function setKeeperApproved(uint loanId, bool enabled) external whenNotPaused {
+        keeperApprovedFor[msg.sender][loanId] = enabled;
+        emit ClosingKeeperApproved(msg.sender, loanId, enabled);
     }
 
     // ----- Admin methods ----- //
@@ -458,15 +526,15 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     /// The default swapper is a convenience view, and it's best to keep it up to date
     /// and to make sure the default one is allowed.
     /// @dev only owner
-    function setSwapperAllowed(address swapper, bool allowed, bool setDefault) external onlyOwner {
-        if (allowed) require(bytes(ISwapper(swapper).VERSION()).length > 0, "loans: invalid swapper");
-        allowedSwappers[swapper] = allowed;
+    function setSwapperAllowed(address swapper, bool allow, bool setDefault) external onlyOwner {
+        if (allow) require(bytes(ISwapper(swapper).VERSION()).length > 0, "loans: invalid swapper");
+        allow ? allowedSwappers.add(swapper) : allowedSwappers.remove(swapper);
 
         // it is possible to disallow and set as default at the same time. E.g., to unset the default
         // to zero. Worst case, if no swappers are allowed, loans can be cancelled and unwrapped.
         if (setDefault) defaultSwapper = swapper;
 
-        emit SwapperSet(swapper, allowed, setDefault);
+        emit SwapperSet(swapper, allow, setDefault);
     }
 
     // ----- INTERNAL MUTATIVE ----- //
@@ -529,7 +597,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // transfer the full loan amount on open
         cashAsset.safeTransfer(msg.sender, loanAmount);
 
-        emit LoanOpened(loanId, msg.sender, underlyingAmount, loanAmount);
+        emit LoanOpened(
+            loanId, msg.sender, underlyingAmount, loanAmount, usesEscrow, escrowId, address(escrowNFT)
+        );
     }
 
     /// @dev swaps underlying to cash and mints collar position
@@ -566,7 +636,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         _checkSwapPrice(cashFromSwap, underlyingAmount);
 
         // split the cash to loanAmount and takerLocked
-        // this uses LTV === put strike price, so the loan is the pre-exercised put (sent to user)
+        // this uses LTV === put strike percent, so the loan is the pre-exercised put (sent to user)
         // in the "Variable Prepaid Forward" (trad-fi) structure. The Collar paired position NFTs
         // implement the rest of the payout.
         uint ltvPercent = providerNFT.getOffer(offerId).putStrikePercent;
@@ -594,41 +664,53 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         require(deviation <= MAX_SWAP_PRICE_DEVIATION_BIPS, "swap and oracle price too different");
     }
 
-    /// @dev swap logic with balance and slippage checks
-    /// @dev reentrancy assumption: _swap is called either before or after all internal user state
-    /// writes or reads. Such that if there's a reentrancy (e.g., via a malicious token in a
-    /// multi-hop route), it should NOT be able to take advantage of any inconsistent state.
+    /**
+     * @dev swap logic with balance and slippage checks
+     * @dev reentrancy assumption 1: _swap is called either before or after all internal user state
+     * writes or reads. Such that if there's a reentrancy (e.g., via a malicious token in a
+     * multi-hop route), it should NOT be able to take advantage of any inconsistent state.
+     * @dev reentrancy assumption 2: contract does not hold funds. If the contract is changed to
+     * hold funds at rest, and swap is allowed to reenter a method that increases funds at rest,
+     * there can be a risk of double-counting - in that method, and in the balance update check below.
+     */
     function _swap(IERC20 assetIn, IERC20 assetOut, uint amountIn, SwapParams calldata swapParams)
         internal
         returns (uint amountOut)
     {
         // check swapper allowed
-        require(allowedSwappers[swapParams.swapper], "loans: swapper not allowed");
+        require(isAllowedSwapper(swapParams.swapper), "loans: swapper not allowed");
 
-        uint balanceBefore = assetOut.balanceOf(address(this));
-        // approve the swapper
-        assetIn.forceApprove(swapParams.swapper, amountIn);
+        // @dev 0 amount swaps may revert (depending on swapper), short-circuit here instead of in
+        // swappers to: reduce surface area for integration issues, gas. Happens during forecloseLoan.
+        if (amountIn == 0) {
+            amountOut = 0;
+        } else {
+            uint balanceBefore = assetOut.balanceOf(address(this));
+            // approve the swapper
+            assetIn.forceApprove(swapParams.swapper, amountIn);
 
-        /* @dev It may be tempting to simplify this by using an arbitrary call instead of a
-        specific interface such as ISwapper. However:
-        1. Using a specific interface is safer because it makes stealing approvals impossible.
-        This is safer than depending only on the allowlist.
-        2. An arbitrary call payload for a swap is more difficult to construct and inspect
-        so requires more user trust on the FE.
-        3. Swap's amountIn would need to be calculated off-chain exactly, which in case of closing
-        the loan is problematic if position was not settled already (and so exact withdrawal amount
-        is not known), so would require first settling, and then closing.
+            /* @dev It may be tempting to simplify this by using an arbitrary call instead of a
+            specific interface such as ISwapper. However:
+            1. Using a specific interface is safer because it makes stealing approvals impossible.
+            This is safer than depending only on the allowlist.
+            2. An arbitrary call payload for a swap is more difficult to construct and inspect
+            so requires more user trust on the FE.
+            3. Swap's amountIn would need to be calculated off-chain exactly, which in case of closing
+            the loan is problematic if position was not settled already (and so exact withdrawal amount
+            is not known), so would require first settling, and then closing.
 
-        The interface still allows arbitrary complexity via the extraData field if needed.
-        */
-        uint amountOutSwapper = ISwapper(swapParams.swapper).swap(
-            assetIn, assetOut, amountIn, swapParams.minAmountOut, swapParams.extraData
-        );
-        // Calculate the actual amount received
-        amountOut = assetOut.balanceOf(address(this)) - balanceBefore;
-        // check balance is updated as expected and as reported by swapper (no other balance changes)
-        // @dev important check for preventing swapper reentrancy (if using e.g., arbitrary call swapper)
-        require(amountOut == amountOutSwapper, "loans: balance update mismatch");
+            The interface still allows arbitrary complexity via the extraData field if needed.
+            */
+            uint amountOutSwapper = ISwapper(swapParams.swapper).swap(
+                assetIn, assetOut, amountIn, swapParams.minAmountOut, swapParams.extraData
+            );
+            // Calculate the actual amount received
+            amountOut = assetOut.balanceOf(address(this)) - balanceBefore;
+            // check balance is updated as expected and as reported by swapper (no other balance changes)
+            // @dev important check for preventing swapper reentrancy (if using e.g., arbitrary call swapper)
+            require(amountOut == amountOutSwapper, "loans: balance update mismatch");
+        }
+
         // check amount is as expected by user
         require(amountOut >= swapParams.minAmountOut, "loans: slippage exceeded");
     }
@@ -751,37 +833,41 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         }
     }
 
-    function _conditionalReleaseEscrow(Loan memory loan, uint fromSwap)
-        internal
-        returns (uint underlyingOut)
-    {
-        // if escrow not used: return the full swap amount, otherwise the underlying after releasing escrow
-        return loan.usesEscrow ? _releaseEscrow(loan.escrowNFT, loan.escrowId, fromSwap) : fromSwap;
-    }
+    // @dev used in close
+    function _conditionalEndEscrow(Loan memory loan, uint fromSwap) internal returns (uint underlyingOut) {
+        if (loan.usesEscrow) {
+            (EscrowSupplierNFT escrowNFT, uint escrowId) = (loan.escrowNFT, loan.escrowId);
 
-    function _releaseEscrow(EscrowSupplierNFT escrowNFT, uint escrowId, uint fromSwap)
-        internal
-        returns (uint underlyingOut)
-    {
-        // get owing and late fee (included in totalOwed)
-        (uint totalOwed, uint lateFee) = escrowNFT.currentOwed(escrowId);
+            // get owing and late fee (included in totalOwed)
+            (uint totalOwed, uint lateFee) = escrowNFT.currentOwed(escrowId);
 
-        // if owing more than swapped, use all, otherwise just what's owed
-        uint toEscrow = Math.min(fromSwap, totalOwed);
-        // if owing less than swapped, left over gains are for the borrower
-        uint leftOver = fromSwap - toEscrow;
+            /* Ensure caller when closing didn't self-sandwich the swap to underpay lateFees.
+            If the late fees are higher than the a legitimate (unmanipulated) swap amount when closing,
+            the user would not call close anyway - since they would get no underlying out for
+            their repayment, so this check is not creating a DoS for that case.
+            */
+            require(fromSwap >= lateFee, "loans: fromSwap < lateFee");
 
-        underlying.forceApprove(address(escrowNFT), toEscrow);
-        // fromEscrow is what escrow returns after deducting any shortfall.
-        // (although not problematic, there should not be any interest fee refund here,
-        // because this method is called after expiry)
-        uint fromEscrow = escrowNFT.endEscrow(escrowId, toEscrow);
-        // @dev no balance checks because contract holds no funds, mismatch will cause reverts
+            // if owing more than swapped, use all, otherwise just what's owed
+            uint toEscrow = Math.min(fromSwap, totalOwed);
+            // if owing less than swapped, left over gains are for the borrower
+            uint leftOver = fromSwap - toEscrow;
 
-        // the released and the leftovers to be sent to borrower. Zero-value-transfer is allowed
-        underlyingOut = fromEscrow + leftOver;
+            underlying.forceApprove(address(escrowNFT), toEscrow);
+            // fromEscrow is what escrow returns after deducting any shortfall.
+            // (although not problematic, there should not be any interest fee refund here,
+            // because this method is called after expiry).
+            // a refund is expected since escrow should return the user's original funds (minus shortfall)
+            uint fromEscrow = escrowNFT.endEscrow(escrowId, toEscrow);
+            // @dev no balance checks because contract holds no funds, mismatch will cause reverts
 
-        emit EscrowSettled(escrowId, lateFee, toEscrow, fromEscrow, leftOver);
+            // the released and the leftovers to be sent to borrower. Zero-value-transfer is allowed
+            underlyingOut = fromEscrow + leftOver;
+
+            emit EscrowSettled(escrowId, lateFee, toEscrow, fromEscrow, leftOver);
+        } else {
+            underlyingOut = fromSwap;
+        }
     }
 
     function _conditionalCheckAndCancelEscrow(uint loanId, address refundRecipient) internal {
@@ -809,6 +895,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             This would be relevant in case the user position has some dust cash in it - not enough
             to justify repaying (due to slippage on full amount). In such a case user should unwrap
             before expiry, or allow the dust to go to the escrow supplier.
+
+            Note that this does not allow cancelling after expiry if escrow owner disappears and never calls
+            either foreclose or seize. In that scenario the borrower can only call closeLoan, but cannot cancel.
             */
             require(escrowReleased || block.timestamp <= _expiration(loanId), "loans: loan expired");
 
@@ -818,6 +907,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
                 // no swap. There may be an interest fee refund for the borrower.
                 // @dev In immediate cancellation: NOT all escrow fee is refunded. A minimal fee is ensured
                 // to prevent DoS of escrow offers by cycling them into withdrawals.
+                // A refund is expected since escrow should return an interest fee refund if available.
                 uint feeRefund = escrowNFT.endEscrow(escrowId, 0);
                 // @dev no balance checks because contract holds no funds, mismatch will cause reverts
 
@@ -836,11 +926,11 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     would be able to pull all NFTs from exposed users, instead of currently being able to exploit only
     their loans that are about to be closed, and only via a more complex "slippage" attack.
     */
-    function _isSenderOrKeeperFor(address authorizedSender) internal view returns (bool) {
+    function _isSenderOrKeeperFor(address authorizedSender, uint loanId) internal view returns (bool) {
         bool isSender = msg.sender == authorizedSender; // is the auth target
         bool isKeeper = msg.sender == closingKeeper;
         // our auth target allows the keeper
-        bool _keeperApproved = keeperApproved[authorizedSender];
+        bool _keeperApproved = keeperApprovedFor[authorizedSender][loanId];
         return isSender || (_keeperApproved && isKeeper);
     }
 
@@ -872,7 +962,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // The transfer subtracted the fee (see Rolls _previewTransferAmounts), so it needs
         // to be added back. The fee is not part of the position, so that if price hasn't changed,
         // after rolling, the updated position (loan amount + takerLocked) would still be equivalent
-        // to the initial underlying.
+        // to the initial underlying (if it was initially equivalent, depending on the initial swap)
         // Example: toTaker       = position-gain - fee = 100 - 1 = 99
         //      So: position-gain = toTaker       + fee = 99  + 1 = 100
         int loanChange = fromRollsToUser + rollFee;
@@ -898,6 +988,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // switching escrow and this code.
         require(escrow.loanId == loanId, "loans: unexpected loanId");
         // check expirations are equal to ensure no duration mismatch between escrow and collar
+        // @dev if this constraint is removed (escrow duration can be longer than loan), care should
+        // be taken around the escrow interest refund limit
         require(escrow.expiration == _expiration(loanId), "loans: duration mismatch");
     }
 }

@@ -89,7 +89,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         CollarProviderNFT.ProviderPosition memory providerPos = providerNFT.getPosition(providerNFTId);
         assertEq(providerPos.duration, duration);
         assertEq(providerPos.expiration, block.timestamp + duration);
-        assertEq(providerPos.providerLocked, providerLocked);
+        assertEq(providerPos.providerLocked, _providerLocked);
         assertEq(providerPos.putStrikePercent, ltv);
         assertEq(providerPos.callStrikePercent, callStrikePercent);
         assertEq(providerPos.settled, false);
@@ -120,6 +120,37 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         checkSettlePosition(takerId, priceToSettleAt, expectedProviderChange);
     }
 
+    function checkSettlementCalculation(CollarTakerNFT.TakerPosition memory takerPos, uint endPrice)
+        internal
+        returns (uint takerBalance, int providerDelta)
+    {
+        uint e = endPrice;
+        uint s = takerPos.startPrice;
+
+        //        // can be used to check (in fuzz test) if roundup affects results
+        //        uint p = (s * ltv - 1) / BIPS_100PCT + 1;
+        uint p = s * ltv / BIPS_100PCT;
+        uint c = s * callStrikePercent / BIPS_100PCT;
+
+        e = e > c ? c : e;
+        e = e < p ? p : e;
+
+        if (e < s) {
+            uint pGain = takerPos.takerLocked * (s - e) / (s - p);
+            takerBalance = takerPos.takerLocked - pGain;
+            providerDelta = int(pGain);
+        } else {
+            uint tGain = takerPos.providerLocked * (e - s) / (c - s);
+            takerBalance = takerPos.takerLocked + tGain;
+            providerDelta = -int(tGain);
+        }
+
+        (uint takerBalanceView, int providerDeltaView) = takerNFT.previewSettlement(takerPos, endPrice);
+
+        assertEq(takerBalance, takerBalanceView);
+        assertEq(providerDelta, providerDeltaView);
+    }
+
     function checkSettlePosition(uint takerId, uint expectedSettlePrice, int expectedProviderChange)
         internal
     {
@@ -131,7 +162,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         // check the view
         {
             (uint takerBalanceView, int providerChangeView) =
-                takerNFT.previewSettlement(takerPos, expectedSettlePrice);
+                checkSettlementCalculation(takerPos, expectedSettlePrice);
             assertEq(takerBalanceView, expectedTakerOut);
             assertEq(providerChangeView, expectedProviderChange);
         }
@@ -190,10 +221,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     function test_constructor() public {
         vm.expectEmit();
         emit ICollarTakerNFT.OracleSet(BaseTakerOracle(address(0)), chainlinkOracle);
-        vm.expectEmit();
-        emit ICollarTakerNFT.CollarTakerNFTCreated(
-            address(cashAsset), address(underlying), address(chainlinkOracle)
-        );
         CollarTakerNFT takerNFT = new CollarTakerNFT(
             owner, configHub, cashAsset, underlying, chainlinkOracle, "NewCollarTakerNFT", "NBPNFT"
         );
@@ -426,6 +453,20 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     function test_settleAndWIthdrawNoChange() public {
         uint takerId = createAndSettlePosition(oraclePrice, 0);
         checkWithdrawFromSettled(takerId, takerLocked);
+    }
+
+    /// forge-config: default.fuzz.runs = 100
+    function test_settleCalculation_fuzz(int deltaPrice, uint takerIn, uint pStrike, uint cStrike) public {
+        deltaPrice = bound(deltaPrice, -int(oraclePrice / 10), int(oraclePrice / 10));
+        takerLocked = bound(takerIn, 0, 1 ether);
+        ltv = bound(pStrike, 9000, 9999);
+        callStrikePercent = bound(cStrike, 10_001, 12_000);
+        vm.startPrank(owner);
+        configHub.setLTVRange(ltv, ltv);
+        uint newPrice = uint(int(oraclePrice) + deltaPrice);
+        (uint takerId,) = checkOpenPairedPosition();
+        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
+        checkSettlementCalculation(takerPos, newPrice);
     }
 
     function test_settleAndWIthdrawPriceAboveCall() public {

@@ -94,7 +94,7 @@ contract OracleUniV3TWAP is BaseTakerOracle {
     /// fails (if sequencer uptime feed is set), or if the TWAP window is not available for
     /// the twapWindow.
     /// @return Amount of quoteToken for a "unit" of baseToken (i.e. 10**baseToken.decimals())
-    function currentPrice() external view override returns (uint) {
+    function currentPrice() public view override returns (uint) {
         uint32[] memory secondsAgos = new uint32[](2);
         // _secondsAgos is in offsets format. e.g., [120, 60] means that observations 120 and 60
         // seconds ago will be used for the TWAP calculation
@@ -115,6 +115,11 @@ contract OracleUniV3TWAP is BaseTakerOracle {
     /// @notice Returns the current observation cardinality of the pool
     function currentCardinality() public view returns (uint16 observationCardinalityNext) {
         (,,,, observationCardinalityNext,,) = pool.slot0();
+    }
+
+    /// @notice returns the description of the oracle for human readable config sanity checks.
+    function description() external view virtual returns (string memory) {
+        revert("not implemented");
     }
 
     // ----- Mutative ----- //

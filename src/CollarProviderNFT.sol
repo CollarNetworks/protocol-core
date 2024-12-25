@@ -76,7 +76,6 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         underlying = _underlying;
         taker = _taker;
         _setConfigHub(_configHub);
-        emit CollarProviderNFTCreated(address(_cashAsset), address(_underlying), _taker);
     }
 
     modifier onlyTaker() {
@@ -92,7 +91,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     }
 
     /// @notice Retrieves the details of a specific position (corresponds to the NFT token ID)
-    function getPosition(uint positionId) public view returns (ProviderPosition memory) {
+    function getPosition(uint positionId) external view returns (ProviderPosition memory) {
         ProviderPositionStored memory stored = positions[positionId];
         LiquidityOffer memory offer = getOffer(stored.offerId);
         return ProviderPosition({

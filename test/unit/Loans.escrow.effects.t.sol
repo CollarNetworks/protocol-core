@@ -11,15 +11,22 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         openEscrowLoan = true;
     }
 
-    function expectedGracePeriod(uint loanId, uint swapPrice) internal view returns (uint) {
-        uint cashAvailable = takerNFT.getPosition({ takerId: loanId }).withdrawable;
-        uint underlyingAmt = chainlinkOracle.convertToBaseAmount(cashAvailable, swapPrice);
-        return escrowNFT.cappedGracePeriod(loans.getLoan(loanId).escrowId, underlyingAmt);
+    function expectedForeclosureValues(uint loanId, uint price)
+        internal
+        view
+        returns (uint gracePeriod, uint cashAvailable, uint lateFeeCash)
+    {
+        cashAvailable = takerNFT.getPosition({ takerId: loanId }).withdrawable;
+        (, uint lateFee) = escrowNFT.currentOwed(loans.getLoan(loanId).escrowId);
+        uint underlyingAmt = chainlinkOracle.convertToBaseAmount(cashAvailable, price);
+        gracePeriod = escrowNFT.cappedGracePeriod(loans.getLoan(loanId).escrowId, underlyingAmt);
+        lateFeeCash = chainlinkOracle.convertToQuoteAmount(lateFee, price);
+        lateFeeCash = lateFeeCash > cashAvailable ? cashAvailable : lateFeeCash;
     }
 
     function checkForecloseLoan(uint settlePrice, uint currentPrice, uint skipAfterGrace, address caller)
         internal
-        returns (EscrowReleaseAmounts memory released, uint estimatedGracePeriod)
+        returns (uint swapOut, uint expectedBorrowerRefund)
     {
         (uint loanId,,) = createAndCheckLoan();
 
@@ -31,19 +38,23 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         // update to currentPrice price
         updatePrice(currentPrice);
         // estimate the length of grace period
-        estimatedGracePeriod = loans.escrowGracePeriod(loanId);
+        (uint estimatedGracePeriod,) = loans.foreclosureValues(loanId);
 
         // skip past grace period
         skip(estimatedGracePeriod + skipAfterGrace);
         updatePrice(currentPrice);
+        // estimate the cash for late fees
+        (, uint lateFeeCash) = loans.foreclosureValues(loanId);
 
-        uint swapOut = prepareSwapToUnderlyingAtOraclePrice();
+        uint takerCash = takerNFT.getPosition(loanId).withdrawable;
+        swapOut = chainlinkOracle.convertToBaseAmount(lateFeeCash, currentPrice);
+        prepareSwap(underlying, swapOut);
 
         // calculate expected escrow release values
         uint escrowId = loans.getLoan(loanId).escrowId;
-        released = getEscrowReleaseValues(escrowId, swapOut);
-        uint expectedToUser = released.fromEscrow + released.leftOver;
-        uint userBalance = underlying.balanceOf(user1);
+        EscrowReleaseAmounts memory released = getEscrowReleaseValues(escrowId, swapOut);
+        expectedBorrowerRefund = takerCash - lateFeeCash;
+        uint userCashBalance = cashAsset.balanceOf(user1);
         uint escrowBalance = underlying.balanceOf(address(escrowNFT));
 
         // check late fee and grace period values
@@ -54,23 +65,17 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         // foreclose
         vm.startPrank(caller);
         vm.expectEmit(address(loans));
-        emit ILoansNFT.EscrowSettled(
-            escrowId, released.lateFee, released.toEscrow, released.fromEscrow, released.leftOver
-        );
-        vm.expectEmit(address(loans));
-        emit ILoansNFT.LoanForeclosed(loanId, escrowId, swapOut, expectedToUser);
+        emit ILoansNFT.LoanForeclosed(loanId, escrowId, swapOut, expectedBorrowerRefund);
         loans.forecloseLoan(loanId, defaultSwapParams(0));
 
         // balances
-        assertEq(underlying.balanceOf(user1), userBalance + expectedToUser);
-        assertEq(
-            underlying.balanceOf(address(escrowNFT)), escrowBalance + released.toEscrow - released.fromEscrow
-        );
+        assertEq(cashAsset.balanceOf(user1), userCashBalance + expectedBorrowerRefund);
+        assertEq(underlying.balanceOf(address(escrowNFT)), escrowBalance + swapOut);
 
         // struct
         IEscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(escrowId);
         assertTrue(escrow.released);
-        assertEq(escrow.withdrawable, escrow.escrowed + escrow.interestHeld + swapOut - expectedToUser);
+        assertEq(escrow.withdrawable, escrow.escrowed + escrow.interestHeld + swapOut);
 
         // loan and taker NFTs burned
         expectRevertERC721Nonexistent(loanId);
@@ -125,7 +130,7 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         loans.unwrapAndCancelLoan(loanId);
     }
 
-    function test_escrowGracePeriod_afterExpiry() public {
+    function test_foreclosureValues_afterExpiry() public {
         (uint loanId,,) = createAndCheckLoan();
 
         skip(duration);
@@ -134,57 +139,82 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         // current price is different from settlement
         oraclePrice = oraclePrice * 11 / 10;
         updatePrice();
-        uint expected = expectedGracePeriod(loanId, oraclePrice);
+        (uint expectedPeriod,,) = expectedForeclosureValues(loanId, oraclePrice);
 
         // after expiry, keeps using correct price
         skip(1);
         updatePrice();
-        assertEq(loans.escrowGracePeriod(loanId), expected);
+        (uint gracePeriod, uint lateFeeCash) = loans.foreclosureValues(loanId);
+        assertEq(gracePeriod, expectedPeriod);
+        assertEq(lateFeeCash, 0);
 
-        // After min grace period
+        // at last second of grace period
         skip(escrowNFT.MIN_GRACE_PERIOD() - 1);
         updatePrice();
-        assertEq(loans.escrowGracePeriod(loanId), expected);
+        (gracePeriod, lateFeeCash) = loans.foreclosureValues(loanId);
+        assertEq(gracePeriod, expectedPeriod);
+        assertEq(lateFeeCash, 0);
 
         // After max grace period
         skip(escrowNFT.MAX_GRACE_PERIOD());
         updatePrice();
-        assertEq(loans.escrowGracePeriod(loanId), expected);
+        // late fee cash changes with time due to late fee accumulating
+        (,, uint expectedFeeCash) = expectedForeclosureValues(loanId, oraclePrice);
+        (gracePeriod, lateFeeCash) = loans.foreclosureValues(loanId);
+        assertEq(gracePeriod, expectedPeriod);
+        assertEq(lateFeeCash, expectedFeeCash);
     }
 
-    function test_escrowGracePeriod_priceChanges() public {
+    function test_foreclosureValues_priceChanges() public {
         (uint loanId,,) = createAndCheckLoan();
 
         skip(duration); // at expiry
         updatePrice();
         takerNFT.settlePairedPosition(loanId);
+        // skip to max grace period for late fee accumulation
+        skip(escrowNFT.MAX_GRACE_PERIOD());
+        updatePrice();
 
         // Price increase
         uint highPrice = oraclePrice * 2;
         updatePrice(highPrice);
-        assertEq(loans.escrowGracePeriod(loanId), expectedGracePeriod(loanId, highPrice));
+        (uint expectedPeriod, uint cashAvailable, uint expectedFeeCash) =
+            expectedForeclosureValues(loanId, highPrice);
+        (uint gracePeriod, uint lateFeeCash) = loans.foreclosureValues(loanId);
+        assertEq(gracePeriod, expectedPeriod);
+        assertEq(lateFeeCash, expectedFeeCash);
 
         // Price decrease
         uint lowPrice = oraclePrice / 2;
         updatePrice(lowPrice);
-        assertEq(loans.escrowGracePeriod(loanId), expectedGracePeriod(loanId, lowPrice));
+        (expectedPeriod,, expectedFeeCash) = expectedForeclosureValues(loanId, lowPrice);
+        (gracePeriod, lateFeeCash) = loans.foreclosureValues(loanId);
+        assertEq(gracePeriod, expectedPeriod);
+        assertEq(lateFeeCash, expectedFeeCash);
 
         // min grace period (for very high price), very high price means cash is worth 0 underlying
         updatePrice(type(uint128).max);
-        assertEq(loans.escrowGracePeriod(loanId), escrowNFT.MIN_GRACE_PERIOD());
+        (gracePeriod, lateFeeCash) = loans.foreclosureValues(loanId);
+        assertEq(gracePeriod, escrowNFT.MIN_GRACE_PERIOD());
+        assertEq(lateFeeCash, cashAvailable);
 
-        // max grace period (for very low price), because user swap will return a lot of underlying
+        // max grace period (for very low price), because swap will return a lot of underlying
         uint minPrice = 1;
         updatePrice(minPrice);
-        assertEq(loans.escrowGracePeriod(loanId), maxGracePeriod);
+        (,, expectedFeeCash) = expectedForeclosureValues(loanId, minPrice);
+        (gracePeriod, lateFeeCash) = loans.foreclosureValues(loanId);
+        assertEq(gracePeriod, maxGracePeriod);
+        assertEq(lateFeeCash, expectedFeeCash);
 
         // worthless position
         (loanId,,) = createAndCheckLoan();
         skip(duration); // at expiry
         updatePrice(minPrice);
         takerNFT.settlePairedPosition(loanId);
+        (gracePeriod, lateFeeCash) = loans.foreclosureValues(loanId);
         // position is worth 0 cash, so low underlying price doesn't matter
-        assertEq(loans.escrowGracePeriod(loanId), escrowNFT.MIN_GRACE_PERIOD());
+        assertEq(gracePeriod, escrowNFT.MIN_GRACE_PERIOD());
+        assertEq(lateFeeCash, 0);
     }
 
     function test_forecloseLoan_prices() public {
@@ -207,6 +237,43 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         checkForecloseLoan(1, largeAmount, maxGracePeriod, supplier);
     }
 
+    function test_forecloseLoan_zero_amount_swap() public {
+        (uint swapOut,) = checkForecloseLoan(1, 1, maxGracePeriod, supplier);
+        assertEq(swapOut, 0);
+    }
+
+    function test_forecloseLoan_borrowerRefund() public {
+        // price decrease during swap to get so that little cash is needed to cover late fees
+        // and a large refund is left
+        (, uint borrowerRefund) = checkForecloseLoan(oraclePrice, oraclePrice / 100, maxGracePeriod, supplier);
+        // check borrower should have got something, exact amount is checked in checkForecloseLoan
+        assertNotEq(borrowerRefund, 0);
+    }
+
+    function test_forecloseLoan_borrowerRefund_blockedTransfer() public {
+        // blocked non-zero transfer breaks foreclosure
+        (uint loanId,,) = createAndCheckLoan();
+        skip(duration);
+        updatePrice();
+        takerNFT.settlePairedPosition(loanId);
+        skip(maxGracePeriod + 1);
+        updatePrice();
+
+        // block transfer to user1
+        cashAsset.setBlocked(user1, true);
+        prepareSwap(underlying, underlyingAmount);
+        // a lot of leftovers
+        vm.startPrank(supplier);
+        vm.expectRevert("blocked");
+        loans.forecloseLoan(loanId, defaultSwapParams(0));
+
+        // blocked 0 transfer works fine
+
+        // update to high price such the cash now doesn't buy enough late fees, so all cash is used up
+        updatePrice(type(uint128).max);
+        loans.forecloseLoan(loanId, defaultSwapParams(0));
+    }
+
     function test_forecloseLoan_byKeeper() public {
         // Set the keeper
         vm.startPrank(owner);
@@ -214,7 +281,8 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
 
         // Supplier allows the keeper to foreclose
         vm.startPrank(supplier);
-        loans.setKeeperApproved(true);
+        // approve keeper for next loan ID, since it will be created in the helper method
+        loans.setKeeperApproved(takerNFT.nextPositionId(), true);
 
         // by keeper
         checkForecloseLoan(oraclePrice, oraclePrice, 1, keeper);

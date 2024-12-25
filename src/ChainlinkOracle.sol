@@ -90,6 +90,12 @@ contract ChainlinkOracle is BaseTakerOracle {
         return baseUnitAmount * feedUnitAmount / _latestAnswer();
     }
 
+    /// @notice returns the description of the oracle for human readable config sanity checks.
+    /// If feed.description is ABC, return CL(ABC)
+    function description() external view returns (string memory) {
+        return string.concat("CL(", priceFeed.description(), ")");
+    }
+
     // ------ internal views --------
 
     function _checkSequencer() internal view {

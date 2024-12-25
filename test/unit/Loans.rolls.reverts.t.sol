@@ -164,7 +164,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
 
         // Allow the keeper to close the loan (but not roll)
         vm.startPrank(user1);
-        loans.setKeeperApproved(true);
+        loans.setKeeperApproved(loanId, true);
 
         // Attempt to roll the loan as the keeper
         vm.startPrank(keeper);
@@ -268,7 +268,7 @@ contract LoansRollsEscrowRevertsTest is LoansRollsRevertsTest {
         maybeCreateEscrowOffer();
 
         vm.startPrank(user1);
-        prepareSwapToCashAtOraclePrice();
+        prepareDefaultSwapToCash();
         cashAsset.approve(address(loans), type(uint).max);
         underlying.approve(address(loans), underlyingAmount + escrowFee);
         vm.expectRevert("loans: duration mismatch");

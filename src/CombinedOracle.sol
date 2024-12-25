@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.22;
 
+import { Strings } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+
 import { BaseTakerOracle, ITakerOracle } from "./base/BaseTakerOracle.sol";
 
 /**
@@ -40,7 +42,8 @@ contract CombinedOracle is BaseTakerOracle {
         address _oracle_1,
         bool _invert_1,
         address _oracle_2,
-        bool _invert_2
+        bool _invert_2,
+        string memory expectedDescription
     ) BaseTakerOracle(_baseToken, _quoteToken, address(0)) {
         oracle_1 = ITakerOracle(_oracle_1);
         oracle_2 = ITakerOracle(_oracle_2);
@@ -66,6 +69,9 @@ contract CombinedOracle is BaseTakerOracle {
         // cache amounts
         (base1Amount, quote1Amount) = (oracle_1.baseUnitAmount(), oracle_1.quoteUnitAmount());
         (base2Amount, quote2Amount) = (oracle_2.baseUnitAmount(), oracle_2.quoteUnitAmount());
+
+        // check description as expected
+        require(Strings.equal(description(), expectedDescription), "CombinedOracle: description mismatch");
     }
 
     /// @notice Current price of a unit of base tokens (i.e. 10**baseToken.decimals()) in quote tokens.
@@ -91,5 +97,14 @@ contract CombinedOracle is BaseTakerOracle {
         // 1: ETH/USD_18, 2: inv USDC/USD_18. inversePrice() is for unit of USDC in ETH
         // p2=1e18, d2=1e18, p1=(1/3000)e18 -> 1e18 * (1/3000)e18 / 1e18 -> (1/3000)e18
         return price2 * price1 / divisor2;
+    }
+
+    /// @notice returns the description of the oracle for human readable config sanity checks.
+    /// For O1, and O2, and invert 1 false, and invert 2 true, returns "Comb(O1|inv(O2))"
+    function description() public view returns (string memory) {
+        (bool inv1, bool inv2) = (invert_1, invert_2);
+        string memory o1 = string.concat(inv1 ? "inv(" : "", oracle_1.description(), inv1 ? ")" : "");
+        string memory o2 = string.concat(inv2 ? "inv(" : "", oracle_2.description(), inv2 ? ")" : "");
+        return string.concat("Comb(", o1, "|", o2, ")");
     }
 }

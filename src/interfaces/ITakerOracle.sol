@@ -8,6 +8,7 @@ pragma solidity 0.8.22;
  * base/quote token pair. Prices are expressed as the amount of quote tokens per "unit" of base token.
  */
 interface ITakerOracle {
+    function description() external view returns (string memory);
     function baseToken() external view returns (address);
     function quoteToken() external view returns (address);
 
