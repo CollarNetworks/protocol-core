@@ -89,7 +89,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
     }
 
     function prepareDefaultSwapToUnderlying() public returns (uint swapOut) {
-        swapOut = underlyingAmount * 1e18 / oraclePrice;
+        swapOut = underlyingAmount * pow10(cashDecimals) / oraclePrice;
         prepareSwap(underlying, swapOut);
     }
 
@@ -116,17 +116,17 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
     function createProviderOffer() internal returns (uint offerId) {
         startHoax(provider);
-        cashAsset.approve(address(providerNFT), largeAmount);
-        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration, 0);
+        cashAsset.approve(address(providerNFT), largeCash);
+        offerId = providerNFT.createOffer(callStrikePercent, largeCash, ltv, duration, 0);
     }
 
     function maybeCreateEscrowOffer() internal {
         // calculates values for with or without escrow mode
         if (openEscrowLoan) {
             startHoax(supplier);
-            underlying.approve(address(escrowNFT), largeAmount);
+            underlying.approve(address(escrowNFT), largeUnderlying);
             escrowOfferId =
-                escrowNFT.createOffer(largeAmount, duration, interestAPR, maxGracePeriod, lateFeeAPR, 0);
+                escrowNFT.createOffer(largeUnderlying, duration, interestAPR, maxGracePeriod, lateFeeAPR, 0);
             escrowFee = escrowNFT.interestFee(escrowOfferId, underlyingAmount);
         } else {
             // reset to 0

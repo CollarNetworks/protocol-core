@@ -231,10 +231,10 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         checkForecloseLoan(1, 1, maxGracePeriod, supplier);
 
         // price increase, and decrease
-        checkForecloseLoan(largeAmount, 1, maxGracePeriod, supplier);
+        checkForecloseLoan(largeCash, 1, maxGracePeriod, supplier);
 
         // price decrease, and increase
-        checkForecloseLoan(1, largeAmount, maxGracePeriod, supplier);
+        checkForecloseLoan(1, largeCash, maxGracePeriod, supplier);
     }
 
     function test_forecloseLoan_zero_amount_swap() public {

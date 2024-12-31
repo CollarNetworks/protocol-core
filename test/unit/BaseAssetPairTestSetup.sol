@@ -36,17 +36,21 @@ contract BaseAssetPairTestSetup is Test {
     uint constant BIPS_100PCT = 10_000;
     uint constant FEED_STALENESS = 1000;
 
+    uint8 cashDecimals = 6;
+    uint8 feedDecimals = 8;
+
     uint ltv = 9000;
     uint duration = 300;
     uint callStrikePercent = 12_000;
     uint protocolFeeAPR = 100;
 
     uint underlyingAmount = 1 ether;
-    uint largeAmount = 100_000 ether;
-    uint oraclePrice = 1000 ether;
+    uint largeUnderlying = 100_000 ether;
+    uint largeCash = cashUnits(100_000);
+    uint oraclePrice = cashUnits(1000);
     uint swapCashAmount = (underlyingAmount * oraclePrice / 1e18);
 
-    int rollFee = 1 ether;
+    int rollFee = 1e6;
 
     function setUp() public virtual {
         deployContracts();
@@ -57,8 +61,8 @@ contract BaseAssetPairTestSetup is Test {
     }
 
     function deployContracts() internal {
-        cashAsset = new TestERC20("TestCash", "TestCash");
-        underlying = new TestERC20("TestCollat", "TestCollat");
+        cashAsset = new TestERC20("TestCash", "TestCash", cashDecimals);
+        underlying = new TestERC20("TestCollat", "TestCollat", 18);
         vm.label(address(cashAsset), "TestCash");
         vm.label(address(underlying), "TestCollat");
 
@@ -66,7 +70,7 @@ contract BaseAssetPairTestSetup is Test {
         vm.label(address(configHub), "ConfigHub");
 
         // asset pair contracts
-        mockCLFeed = new MockChainlinkFeed(18, "TestFeed");
+        mockCLFeed = new MockChainlinkFeed(feedDecimals, "TestFeed");
         chainlinkOracle = createMockFeedOracle(address(underlying), address(cashAsset));
 
         // taker checks oracle price on construction
@@ -122,12 +126,25 @@ contract BaseAssetPairTestSetup is Test {
         vm.stopPrank();
     }
 
+    function pow10(uint p) internal pure returns (uint) {
+        return 10 ** p;
+    }
+
+    function cashUnits(uint amount) internal view returns (uint) {
+        return amount * pow10(cashDecimals);
+    }
+
+    function cashFraction(uint amountWei) internal view returns (uint) {
+        return amountWei * pow10(cashDecimals) / 1 ether;
+    }
+
     function updatePrice() public {
-        require(int(oraclePrice) > 0, "bad price");
-        mockCLFeed.setLatestAnswer(int(oraclePrice), block.timestamp);
+        updatePrice(oraclePrice);
     }
 
     function updatePrice(uint price) public {
+        // convert to feed decimals
+        price *= pow10(feedDecimals) / pow10(cashDecimals);
         require(int(price) > 0, "bad price");
         mockCLFeed.setLatestAnswer(int(price), block.timestamp);
     }
@@ -135,8 +152,8 @@ contract BaseAssetPairTestSetup is Test {
     function mintAssets() public {
         underlying.mint(user1, underlyingAmount * 10);
         cashAsset.mint(user1, swapCashAmount * 10);
-        cashAsset.mint(provider, largeAmount * 10);
-        underlying.mint(supplier, largeAmount * 10);
+        cashAsset.mint(provider, largeCash * 10);
+        underlying.mint(supplier, largeUnderlying * 10);
     }
 
     function mintDustToProtocolAddresses() public {
