@@ -45,7 +45,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         assertEq(offer.putStrikePercent, ltv);
     }
 
-    function checkOpenPairedPosition() internal returns (uint takerId, uint providerNFTId) {
+    function checkOpenPairedPosition() public returns (uint takerId, uint providerNFTId) {
         createOffer();
 
         startHoax(user1);
@@ -128,8 +128,8 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         uint e = endPrice;
         uint s = takerPos.startPrice;
 
-        //        // can be used to check (in fuzz test) if roundup affects results
-        //        uint p = (s * ltv - 1) / BIPS_100PCT + 1;
+        // can be used to check (in fuzz test) if roundup affects results
+        // uint p = (s * ltv - 1) / BIPS_100PCT + 1;
         uint p = s * ltv / BIPS_100PCT;
         uint c = s * callStrikePercent / BIPS_100PCT;
 
@@ -457,20 +457,33 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     }
 
     /// forge-config: default.fuzz.runs = 100
-    function test_settleCalculation_fuzz(int deltaPrice, uint takerIn, uint pStrike, uint cStrike) public {
-        deltaPrice = bound(deltaPrice, -int(oraclePrice / 10), int(oraclePrice / 10));
-        takerLocked = bound(takerIn, 0, cashUnits(1));
-        ltv = bound(pStrike, 9000, 9999);
+    function test_settleCalculation_fuzz(
+        uint startPrice,
+        uint endPrice,
+        uint pStrike,
+        uint cStrike,
+        uint tLocked
+    ) public {
+        // price must be at least BIPS_100PCT so that 1 bip strike results in different strike prices
+        oraclePrice = bound(startPrice, BIPS_100PCT, oraclePrice * pow10(18 - cashDecimals));
+        endPrice = bound(endPrice, oraclePrice / 100, oraclePrice * 100);
+        ltv = bound(pStrike, 1000, 9999);
         callStrikePercent = bound(cStrike, 10_001, 12_000);
+        takerLocked = bound(tLocked, 0, takerLocked);
+        updatePrice();
         vm.startPrank(owner);
         configHub.setLTVRange(ltv, ltv);
-        uint newPrice = uint(int(oraclePrice) + deltaPrice);
-        (uint takerId,) = checkOpenPairedPosition();
+        vm.assumeNoRevert();
+        // using "this." so that assumeNoRevert covers the whole setup phase
+        (uint takerId,) = this.checkOpenPairedPosition();
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
-        checkSettlementCalculation(takerPos, newPrice);
+        checkSettlementCalculation(takerPos, endPrice);
     }
 
-    function test_contest_467() public {
+    // test case that can show roundup direction difference for price calculations
+    // when rounding is done differently in checkSettlementCalculation from contract
+    // part of validating finding #467 from the contest
+    function test_rounding_contest_467() public {
         oraclePrice = 99_990_909;
         updatePrice();
         takerLocked = 1e9;

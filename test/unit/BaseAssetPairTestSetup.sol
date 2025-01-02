@@ -151,7 +151,7 @@ contract BaseAssetPairTestSetup is Test {
 
     function mintAssets() public {
         underlying.mint(user1, underlyingAmount * 10);
-        cashAsset.mint(user1, swapCashAmount * 10);
+        cashAsset.mint(user1, largeCash * 10);
         cashAsset.mint(provider, largeCash * 10);
         underlying.mint(supplier, largeUnderlying * 10);
     }
