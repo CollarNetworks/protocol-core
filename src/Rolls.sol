@@ -66,10 +66,11 @@ contract Rolls is IRolls, BaseManaged {
     /// Does not need `canOpen` auth here because its auth is checked in Loans, or requires no auth
     /// if used directly.
     /// Has no long-lived functionality so doesn't need a close-only migration mode.
-    constructor(address initialOwner, CollarTakerNFT _takerNFT) BaseManaged(initialOwner) {
+    constructor(address initialOwner, CollarTakerNFT _takerNFT)
+        BaseManaged(initialOwner, _takerNFT.configHub())
+    {
         takerNFT = _takerNFT;
         cashAsset = _takerNFT.cashAsset();
-        _setConfigHub(_takerNFT.configHub());
     }
 
     // ----- VIEW FUNCTIONS ----- //

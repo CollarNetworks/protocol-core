@@ -17,8 +17,8 @@ abstract contract BaseNFT is BaseManaged, ERC721 {
     // ----- State ----- //
     uint internal nextTokenId = 1; // NFT token ID, starts from 1 so that 0 ID is not used
 
-    constructor(address _initialOwner, string memory _name, string memory _symbol)
-        BaseManaged(_initialOwner)
+    constructor(address _initialOwner, string memory _name, string memory _symbol, ConfigHub _configHub)
+        BaseManaged(_initialOwner, _configHub)
         ERC721(_name, _symbol)
     { }
 

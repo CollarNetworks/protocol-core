@@ -74,9 +74,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         IERC20 _asset,
         string memory _name,
         string memory _symbol
-    ) BaseNFT(initialOwner, _name, _symbol) {
+    ) BaseNFT(initialOwner, _name, _symbol, _configHub) {
         asset = _asset;
-        _setConfigHub(_configHub);
     }
 
     // ----- VIEWS ----- //
