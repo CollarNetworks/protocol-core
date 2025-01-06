@@ -8,10 +8,10 @@ interface IEscrowSupplierNFT {
     struct OfferStored {
         // packed first slot
         uint32 duration;
-        uint32 maxGracePeriod;
+        uint32 gracePeriod;
         uint24 interestAPR; // allows up to 167,772%, must allow MAX_INTEREST_APR_BIPS
         uint24 lateFeeAPR; // allows up to 167,772%, must allow MAX_LATE_FEE_APR_BIPS
-        // Note that `maxGracePeriod` can also be u24 (194 days), and `interestAPR` can be u16 (650%) and
+        // Note that `gracePeriod` can also be u24 (194 days), and `interestAPR` can be u16 (650%) and
         // they will all fit into one slot with provider, but the impact is minimal, so not worth the
         // messiness (coupling, mental overhead).
         // second slot
@@ -27,7 +27,7 @@ interface IEscrowSupplierNFT {
         // terms
         uint duration;
         uint interestAPR;
-        uint maxGracePeriod;
+        uint gracePeriod;
         uint lateFeeAPR;
         uint minEscrow;
     }
@@ -42,7 +42,7 @@ interface IEscrowSupplierNFT {
         address loans;
         // rest of slots
         uint escrowed;
-        uint interestHeld;
+        uint feesHeld;
         uint withdrawable;
     }
 
@@ -53,12 +53,12 @@ interface IEscrowSupplierNFT {
         uint loanId;
         // terms
         uint escrowed;
-        uint maxGracePeriod;
+        uint gracePeriod;
         uint lateFeeAPR;
         // interest & refund
         uint duration;
         uint expiration;
-        uint interestHeld;
+        uint feesHeld;
         // withdrawal
         bool released;
         uint withdrawable;
@@ -69,17 +69,17 @@ interface IEscrowSupplierNFT {
         address indexed supplier,
         uint indexed interestAPR,
         uint indexed duration,
-        uint maxGracePeriod,
+        uint gracePeriod,
         uint lateFeeAPR,
         uint available,
         uint offerId,
         uint minEscrow
     );
     event OfferUpdated(uint indexed offerId, address indexed supplier, uint previousAmount, uint newAmount);
-    event EscrowCreated(uint indexed escrowId, uint indexed amount, uint interestFee, uint offerId);
+    event EscrowCreated(uint indexed escrowId, uint indexed amount, uint feesHeld, uint offerId);
     event EscrowReleased(uint indexed escrowId, uint fromLoans, uint withdrawable, uint toLoans);
     event EscrowsSwitched(uint indexed oldEscrowId, uint indexed newEscrowId);
     event WithdrawalFromReleased(uint indexed escrowId, address indexed recipient, uint withdrawn);
-    event EscrowSeizedLastResort(uint indexed escrowId, address indexed recipient, uint withdrawn);
+    event EscrowSeized(uint indexed escrowId, address indexed recipient, uint withdrawn);
     event LoansCanOpenSet(address indexed loansAddress, bool indexed allowed);
 }

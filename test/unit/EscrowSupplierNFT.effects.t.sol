@@ -66,13 +66,13 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         assertEq(offer.available, amount);
         assertEq(offer.duration, duration);
         assertEq(offer.interestAPR, interestAPR);
-        assertEq(offer.maxGracePeriod, maxGracePeriod);
+        assertEq(offer.gracePeriod, maxGracePeriod);
         assertEq(offer.lateFeeAPR, lateFeeAPR);
         // balance
         assertEq(asset.balanceOf(supplier), balance - amount);
         // fee view
         uint expectedMinFee = divUp(amount * interestAPR * duration, BIPS_100PCT * 365 days);
-        uint actualMinFee = escrowNFT.interestFee(offerId, amount);
+        uint actualMinFee = escrowNFT.upfrontFees(offerId, amount);
         assertEq(actualMinFee, expectedMinFee);
     }
 
@@ -95,7 +95,7 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         assertEq(offer.available, newAmount);
         assertEq(offer.duration, duration);
         assertEq(offer.interestAPR, interestAPR);
-        assertEq(offer.maxGracePeriod, maxGracePeriod);
+        assertEq(offer.gracePeriod, maxGracePeriod);
         assertEq(offer.lateFeeAPR, lateFeeAPR);
         // balance
         assertEq(asset.balanceOf(address(escrowNFT)), balance + newAmount - largeAmount);
@@ -142,11 +142,11 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         assertEq(escrow.loans, loans);
         assertEq(escrow.loanId, loanId);
         assertEq(escrow.escrowed, escrowAmount);
-        assertEq(escrow.maxGracePeriod, maxGracePeriod);
+        assertEq(escrow.gracePeriod, maxGracePeriod);
         assertEq(escrow.lateFeeAPR, lateFeeAPR);
         assertEq(escrow.duration, duration);
         assertEq(escrow.expiration, block.timestamp + duration);
-        assertEq(escrow.interestHeld, fee);
+        assertEq(escrow.feesHeld, fee);
         assertFalse(escrow.released);
         assertEq(escrow.withdrawable, 0);
         // check escrow view
@@ -253,7 +253,7 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
 
         vm.expectEmit(address(escrowNFT));
         emit IEscrowSupplierNFT.EscrowSeizedLastResort(escrowId, supplier1, escrowAmount + fee);
-        escrowNFT.lastResortSeizeEscrow(escrowId);
+        escrowNFT.seizeEscrow(escrowId);
 
         // Check balance
         assertEq(asset.balanceOf(supplier1), balanceBefore + escrowAmount + fee);
@@ -523,7 +523,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         assertEq(newEscrow.loans, loans);
         assertEq(newEscrow.loanId, newLoanId);
         assertEq(newEscrow.escrowed, amounts.escrowAmount);
-        assertEq(newEscrow.interestHeld, amounts.newFee);
+        assertEq(newEscrow.feesHeld, amounts.newFee);
         assertFalse(newEscrow.released);
         assertEq(newEscrow.withdrawable, 0);
 
@@ -576,7 +576,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         assertEq(owed, escrowAmount + expectedFee);
 
         // skip to last second of max-grace
-        skip(escrow.maxGracePeriod - escrowNFT.MIN_GRACE_PERIOD() - 1); // we skipped min-grace already
+        skip(escrow.gracePeriod - escrowNFT.MIN_GRACE_PERIOD() - 1); // we skipped min-grace already
         uint cappedLateFee;
         (owed, cappedLateFee) = escrowNFT.currentOwed(escrowId);
         expectedFee = expectedLateFees(escrow);
@@ -607,7 +607,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
 
         // Full grace period when fee amount covers it
         uint fullGracePeriod = escrowNFT.cappedGracePeriod(escrowId, escrowAmount);
-        assertEq(fullGracePeriod, escrow.maxGracePeriod);
+        assertEq(fullGracePeriod, escrow.gracePeriod);
 
         // Partial grace period, 5 days at 100% is 1.3% (5/365 or 1/73)
         uint partialFeeAmount = escrowAmount / 73;
@@ -632,11 +632,11 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         (uint offerId,) = createAndCheckOffer(supplier, largeAmount);
 
         // zero escrow amount
-        assertEq(escrowNFT.interestFee(offerId, 0), 0);
+        assertEq(escrowNFT.upfrontFees(offerId, 0), 0);
 
         // zero APR
         interestAPR = 0;
         (offerId,) = createAndCheckOffer(supplier, largeAmount);
-        assertEq(escrowNFT.interestFee(offerId, largeAmount), 0);
+        assertEq(escrowNFT.upfrontFees(offerId, largeAmount), 0);
     }
 }

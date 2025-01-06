@@ -212,7 +212,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         internal
         returns (uint loanId, uint providerId, uint loanAmount)
     {
-        uint expectedEscrowFee = pair.escrowNFT.interestFee(escrowOfferId, underlyingAmount);
+        uint expectedEscrowFee = pair.escrowNFT.upfrontFees(escrowOfferId, underlyingAmount);
 
         // Open escrow loan using base function
         (loanId, providerId, loanAmount) = openEscrowLoan(
@@ -231,7 +231,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         uint escrowSupplierUnderlyingBefore,
         uint expectedProtocolFee
     ) internal view {
-        uint expectedEscrowFee = pair.escrowNFT.interestFee(escrowOfferId, underlyingAmount);
+        uint expectedEscrowFee = pair.escrowNFT.upfrontFees(escrowOfferId, underlyingAmount);
 
         uint userUnderlyingBefore = pair.underlying.balanceOf(user) + underlyingAmount + expectedEscrowFee;
 
@@ -331,7 +331,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         ILoansNFT.Loan memory loanBefore = pair.loansContract.getLoan(loanId);
 
         uint escrowSupplierBefore = pair.underlying.balanceOf(escrowSupplier);
-        uint interestFee = pair.escrowNFT.interestFee(escrowOfferId, underlyingAmount);
+        uint interestFee = pair.escrowNFT.upfrontFees(escrowOfferId, underlyingAmount);
 
         // Skip to expiry
         skip(duration);
@@ -358,7 +358,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
     function testRollEscrowLoanBetweenSuppliers() public {
         // Create first provider and escrow offers
         (uint offerId1, uint escrowOfferId1) = createEscrowOffers();
-        uint interestFee1 = pair.escrowNFT.interestFee(escrowOfferId1, underlyingAmount);
+        uint interestFee1 = pair.escrowNFT.upfrontFees(escrowOfferId1, underlyingAmount);
 
         uint userUnderlyingBefore = pair.underlying.balanceOf(user);
         (uint loanId, uint providerId,) = executeEscrowLoan(offerId1, escrowOfferId1);
@@ -394,7 +394,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         // Create roll offer using existing provider position
         uint rollOfferId = createRollOffer(pair, provider, loanId, providerId, rollFee, rollDeltaFactor);
 
-        uint newEscrowFee = pair.escrowNFT.interestFee(escrowOfferId2, underlyingAmount);
+        uint newEscrowFee = pair.escrowNFT.upfrontFees(escrowOfferId2, underlyingAmount);
         uint userUnderlyingBeforeRoll = pair.underlying.balanceOf(user);
 
         vm.startPrank(user);

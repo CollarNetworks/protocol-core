@@ -127,7 +127,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
             underlying.approve(address(escrowNFT), largeAmount);
             escrowOfferId =
                 escrowNFT.createOffer(largeAmount, duration, interestAPR, maxGracePeriod, lateFeeAPR, 0);
-            escrowFee = escrowNFT.interestFee(escrowOfferId, underlyingAmount);
+            escrowFee = escrowNFT.upfrontFees(escrowOfferId, underlyingAmount);
         } else {
             // reset to 0
             escrowOfferId = 0;
@@ -284,11 +284,11 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(escrow.loans, address(loans));
         assertEq(escrow.loanId, loanId);
         assertEq(escrow.escrowed, underlyingAmount);
-        assertEq(escrow.maxGracePeriod, maxGracePeriod);
+        assertEq(escrow.gracePeriod, maxGracePeriod);
         assertEq(escrow.lateFeeAPR, lateFeeAPR);
         assertEq(escrow.duration, duration);
         assertEq(escrow.expiration, block.timestamp + duration);
-        assertEq(escrow.interestHeld, expectedEscrowFee);
+        assertEq(escrow.feesHeld, expectedEscrowFee);
         assertEq(escrow.released, false);
         assertEq(escrow.withdrawable, 0);
     }
@@ -669,7 +669,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
             // escrow released
             assertEq(escrowNFT.getEscrow(loan.escrowId).released, true);
             // received refund for half a duration
-            refund = escrowNFT.getEscrow(loan.escrowId).interestHeld / 2;
+            refund = escrowNFT.getEscrow(loan.escrowId).feesHeld / 2;
         }
         assertEq(underlying.balanceOf(user1), balanceBefore + refund);
     }

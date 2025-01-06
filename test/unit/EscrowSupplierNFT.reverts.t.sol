@@ -62,7 +62,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         vm.expectRevert("escrow: amount too high");
         escrowNFT.startEscrow(offerId, largeAmount + 1, 1 ether, 1000);
 
-        uint minFee = escrowNFT.interestFee(offerId, largeAmount);
+        uint minFee = escrowNFT.upfrontFees(offerId, largeAmount);
         vm.expectRevert("escrow: insufficient fee");
         escrowNFT.startEscrow(offerId, largeAmount, minFee - 1, 1000);
 
@@ -105,7 +105,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         asset.approve(address(escrowNFT), largeAmount);
 
         (uint newOfferId,) = createAndCheckOffer(supplier2, largeAmount - 1);
-        uint minFee = escrowNFT.interestFee(newOfferId, largeAmount - 1);
+        uint minFee = escrowNFT.upfrontFees(newOfferId, largeAmount - 1);
 
         // fee
         startHoax(loans);
@@ -277,12 +277,12 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
 
         startHoax(supplier2);
         vm.expectRevert("escrow: not escrow owner");
-        escrowNFT.lastResortSeizeEscrow(escrowId);
+        escrowNFT.seizeEscrow(escrowId);
 
         skip(duration + maxGracePeriod);
         startHoax(supplier1);
         vm.expectRevert("escrow: grace period not elapsed");
-        escrowNFT.lastResortSeizeEscrow(escrowId);
+        escrowNFT.seizeEscrow(escrowId);
 
         // release
         startHoax(loans);
@@ -292,6 +292,6 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         skip(1);
         startHoax(supplier1);
         vm.expectRevert("escrow: already released");
-        escrowNFT.lastResortSeizeEscrow(escrowId);
+        escrowNFT.seizeEscrow(escrowId);
     }
 }

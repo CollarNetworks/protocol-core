@@ -77,7 +77,7 @@ contract EscrowSupplierNFT_AdminTest is BaseEscrowSupplierNFTTest {
         escrowNFT.withdrawReleased(0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        escrowNFT.lastResortSeizeEscrow(0);
+        escrowNFT.seizeEscrow(0);
 
         // transfers are paused
         vm.expectRevert(Pausable.EnforcedPause.selector);

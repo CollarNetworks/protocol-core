@@ -75,7 +75,7 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         // struct
         IEscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(escrowId);
         assertTrue(escrow.released);
-        assertEq(escrow.withdrawable, escrow.escrowed + escrow.interestHeld + swapOut);
+        assertEq(escrow.withdrawable, escrow.escrowed + escrow.feesHeld + swapOut);
 
         // loan and taker NFTs burned
         expectRevertERC721Nonexistent(loanId);
