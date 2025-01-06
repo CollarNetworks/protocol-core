@@ -65,7 +65,7 @@ contract LoansRollTestBase is LoansTestBase {
         providerNFT.approve(address(rolls), providerId);
         cashAsset.approve(address(rolls), type(uint).max);
         rollId = rolls.createOffer(
-            takerId, rollFee, 0, 0, type(uint).max, -int(largeAmount), block.timestamp + duration
+            takerId, rollFee, 0, 0, type(uint).max, -int(largeCash), block.timestamp + duration
         );
     }
 
@@ -230,9 +230,9 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         uint newPrice = oraclePrice * 105 / 100;
         (uint newLoanId, ExpectedRoll memory expected) = checkRollLoan(loanId, newPrice);
 
-        assertEq(expected.newTakerLocked, 105 ether); // scaled by price
-        assertEq(expected.newProviderLocked, 210 ether); // scaled by price
-        assertEq(expected.toTaker, 44 ether); // 45 (+5% * 90% LTV) - 1 (fee)
+        assertEq(expected.newTakerLocked, cashUnits(105)); // scaled by price
+        assertEq(expected.newProviderLocked, cashUnits(210)); // scaled by price
+        assertEq(expected.toTaker, int(cashUnits(44))); // 45 (+5% * 90% LTV) - 1 (fee)
 
         // LTV & underlying relationship maintained (because within collar bounds)
         assertEq(underlyingAmount * newPrice * ltv / 1e18 / BIPS_100PCT, expected.newLoanAmount);
@@ -247,9 +247,9 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         uint newPrice = oraclePrice * 95 / 100;
         (uint newLoanId, ExpectedRoll memory expected) = checkRollLoan(loanId, newPrice);
 
-        assertEq(expected.newTakerLocked, 95 ether); // scaled by price
-        assertEq(expected.newProviderLocked, 190 ether); // scaled by price
-        assertEq(expected.toTaker, -46 ether); // -45 (-5% * 90% LTV) - 1 (fee)
+        assertEq(expected.newTakerLocked, cashUnits(95)); // scaled by price
+        assertEq(expected.newProviderLocked, cashUnits(190)); // scaled by price
+        assertEq(expected.toTaker, -int(cashUnits(46))); // -45 (-5% * 90% LTV) - 1 (fee)
 
         // LTV & underlying relationship maintained (because within collar bounds)
         assertEq(underlyingAmount * newPrice * ltv / 1e18 / BIPS_100PCT, expected.newLoanAmount);
@@ -264,9 +264,9 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         uint newPrice = oraclePrice * 150 / 100;
         (uint newLoanId, ExpectedRoll memory expected) = checkRollLoan(loanId, newPrice);
 
-        assertEq(expected.newTakerLocked, 150 ether); // scaled by price
-        assertEq(expected.newProviderLocked, 300 ether); // scaled by price
-        assertEq(expected.toTaker, 149 ether); // 150 (300 collar settle - 150 collar open) - 1 fee
+        assertEq(expected.newTakerLocked, cashUnits(150)); // scaled by price
+        assertEq(expected.newProviderLocked, cashUnits(300)); // scaled by price
+        assertEq(expected.toTaker, int(cashUnits(149))); // 150 (300 collar settle - 150 collar open) - 1 fee
 
         // LTV & underlying relationship NOT maintained because outside of collar bounds
         assertTrue(expected.newLoanAmount < underlyingAmount * newPrice * ltv / 1e18 / BIPS_100PCT);
@@ -281,9 +281,9 @@ contract LoansRollsEffectsTest is LoansRollTestBase {
         uint newPrice = oraclePrice * 50 / 100;
         (uint newLoanId, ExpectedRoll memory expected) = checkRollLoan(loanId, newPrice);
 
-        assertEq(expected.newTakerLocked, 50 ether); // scaled by price
-        assertEq(expected.newProviderLocked, 100 ether); // scaled by price
-        assertEq(expected.toTaker, -51 ether); // -50 (0 collar settle - 50 collar open) - 1 fee
+        assertEq(expected.newTakerLocked, cashUnits(50)); // scaled by price
+        assertEq(expected.newProviderLocked, cashUnits(100)); // scaled by price
+        assertEq(expected.toTaker, -int(cashUnits(51))); // -50 (0 collar settle - 50 collar open) - 1 fee
 
         // LTV & underlying relationship NOT maintained because outside of collar bounds
         assertTrue(expected.newLoanAmount > underlyingAmount * newPrice * ltv / 1e18 / BIPS_100PCT);
