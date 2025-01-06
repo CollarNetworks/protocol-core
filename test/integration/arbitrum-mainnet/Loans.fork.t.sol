@@ -11,8 +11,12 @@ contract WETHUSDCLoansForkTest is BaseLoansForkTest {
 
         _setParams();
 
-        pair = getPairByAssets(address(cashAsset), address(underlying));
+        uint pairIndex;
+        (pair, pairIndex) = getPairByAssets(address(cashAsset), address(underlying));
         require(address(pair.loansContract) != address(0), "Loans contract not deployed");
+        // ensure we're testing all deployed pairs
+        require(pairIndex == expectedPairIndex, "pair index mismatch");
+        require(deployedPairs.length == expectedNumPairs, "number of pairs mismatch");
 
         // Fund whale for price manipulation
         deal(address(pair.cashAsset), whale, 100 * bigCashAmount);
@@ -29,7 +33,11 @@ contract WETHUSDCLoansForkTest is BaseLoansForkTest {
     }
 
     function _setParams() internal virtual {
+        // @dev all pairs must be tested, so if this number is increased, test classes must be added
+        expectedNumPairs = 3;
+
         // set up all the variables for this pair
+        expectedPairIndex = 0;
         underlying = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
         cashAsset = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // USDC
         offerAmount = 100_000e6;
@@ -51,6 +59,7 @@ contract WETHUSDCLoansForkTest is BaseLoansForkTest {
 contract WETHUSDTLoansForkTest is WETHUSDCLoansForkTest {
     function _setParams() internal virtual override {
         super._setParams();
+        expectedPairIndex = 1;
         underlying = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
         cashAsset = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9; // USDT
     }
@@ -60,6 +69,7 @@ contract WBTCUSDTLoansForkTest is WETHUSDCLoansForkTest {
     function _setParams() internal virtual override {
         super._setParams();
 
+        expectedPairIndex = 2;
         underlying = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f; // WBTC
         cashAsset = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9; // USDT
         underlyingAmount = 0.1e8;

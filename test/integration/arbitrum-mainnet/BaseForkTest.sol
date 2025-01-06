@@ -118,9 +118,12 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
 
     uint expectedOraclePrice;
 
+    uint expectedNumPairs;
+
     // values to be set by pair
     address cashAsset;
     address underlying;
+    uint expectedPairIndex;
     uint offerAmount;
     uint underlyingAmount;
     uint minLoanAmount;
