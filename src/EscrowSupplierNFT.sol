@@ -486,7 +486,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         // refund the rest if anything is left: returned supplier's funds, interestRefund, overpayment.
         toLoans = available - withdrawal;
 
-        // @dev for (swtichEscrow, fromLoans is 0, and lateFee is 0, so toLoans is just the interest refund
+        // @dev for swtichEscrow, fromLoans is 0, and lateFee is 0, so toLoans is just the interest refund
     }
 
     function _upfrontFees(uint offerId, uint escrowed)
@@ -501,31 +501,27 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     }
 
     function _feesRefund(Escrow memory escrow) internal view returns (uint) {
-        // check how much was held for interest (exl
+        // check how much was held for interest and late fees
         (uint interestHeld, uint lateFeeHeld) = _upfrontFees(escrow.offerId, escrow.escrowed);
 
         // refund any initial voluntary overpayment of fees. This cannot revert because
-        // is checked on escrow start.
+        // fee is checked vs. this sum on escrow start.
         uint overpaymentRefund = escrow.feesHeld - interestHeld - lateFeeHeld;
-
         uint interestRefund = _interestRefund(escrow, interestHeld);
-
-        // lateFee is non-zero after MIN_GRACE_PERIOD is over (late endEscrow())
-        uint lateFeeRefund = lateFeeHeld - _lateFeeOwed(escrow);
-
+        uint lateFeeRefund = _lateFeeRefund(escrow, lateFeeHeld);
         return interestRefund + lateFeeRefund + overpaymentRefund;
     }
 
-    function _lateFeeOwed(Escrow memory escrow) internal view returns (uint) {
-        if (block.timestamp <= escrow.expiration + MIN_GRACE_PERIOD) {
-            // grace period cliff
-            return 0;
+    function _lateFeeRefund(Escrow memory escrow, uint lateFeeHeld) internal view returns (uint) {
+        uint overdue = 0;
+        // MIN_GRACE_PERIOD is grace period cliff, before which the full late fee is refunded
+        if (block.timestamp > escrow.expiration + MIN_GRACE_PERIOD) {
+            overdue = block.timestamp - escrow.expiration; // counts from expiration despite the cliff
+            // cap at specified grace period
+            overdue = Math.min(overdue, escrow.gracePeriod);
         }
-        uint overdue = block.timestamp - escrow.expiration; // counts from expiration despite the cliff
-        // cap at specified grace period
-        overdue = Math.min(overdue, escrow.gracePeriod);
-        // @dev rounds up to prevent avoiding fee using many small positions
-        return Math.ceilDiv(escrow.escrowed * escrow.lateFeeAPR * overdue, BIPS_BASE * YEAR);
+        // round down against borrower
+        return lateFeeHeld * (escrow.gracePeriod - overdue) / escrow.gracePeriod;
     }
 
     function _interestRefund(Escrow memory escrow, uint interestHeld) internal view returns (uint) {
