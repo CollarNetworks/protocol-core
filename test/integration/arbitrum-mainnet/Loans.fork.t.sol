@@ -25,7 +25,6 @@ contract WETHUSDCLoansForkTest is BaseLoansForkTest {
         fundWallets();
 
         duration = 5 minutes;
-        durationPriceMovement = 30 days;
         ltv = 9000;
     }
 
@@ -44,9 +43,6 @@ contract WETHUSDCLoansForkTest is BaseLoansForkTest {
 
         slippage = 100; // 1%
         callstrikeToUse = 11_000;
-
-        // price movement swap amounts
-        swapStepCashAmount = 2_000_000e6;
 
         expectedOraclePrice = 3_000_000_000;
     }
@@ -70,7 +66,6 @@ contract WBTCUSDTLoansForkTest is WETHUSDCLoansForkTest {
         bigUnderlyingAmount = 100e8;
 
         callstrikeToUse = 10_500;
-        swapStepCashAmount = 500_000e6;
 
         expectedOraclePrice = 90_000_000_000;
     }
