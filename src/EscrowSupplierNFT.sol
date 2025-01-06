@@ -163,7 +163,9 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @notice Creates a new escrow offer
      * @param amount The offered amount
      * @param duration The offer duration in seconds
-     * @param interestAPR The annual interest rate in basis points
+     * @param interestAPR The annual interest rate in basis points. At most MAX_FEE_REFUND_BIPS
+     * of the upfront interest can be refunded on cancellation. If interestAPR is 0, this
+     * will have no effect, and allow free cancellations.
      * @param gracePeriod The maximum grace period duration in seconds
      * @param lateFeeAPR The annual late fee rate in basis points
      * @param minEscrow The minimum escrow amount. Protection from dust mints.
@@ -241,7 +243,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @param offerId The ID of the offer to use
      * @param escrowed The amount to escrow
      * @param fees The upfront interest and late fees to hold. Checked to be sufficient.
-     *   Will be partially refunded depending on escrow release time.
+     *   Will be partially refunded depending on escrow release time. If overpaid, any overpayment
+     *   will be refunded when escrow will be released (if not seized after grace period).
      * @param loanId The associated loan ID
      * @return escrowId The ID of the created escrow
      */
