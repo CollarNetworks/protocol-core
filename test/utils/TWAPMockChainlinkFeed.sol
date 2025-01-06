@@ -10,7 +10,7 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { IChainlinkFeedLike } from "../../src/interfaces/IChainlinkFeedLike.sol";
 import { OracleUniV3TWAP } from "./OracleUniV3TWAP.sol";
 
-contract MockChainlinkFeed is OracleUniV3TWAP, IChainlinkFeedLike {
+contract TWAPMockChainlinkFeed is OracleUniV3TWAP, IChainlinkFeedLike {
     uint8 public immutable decimals;
     string public _description;
     uint private immutable virtualQuoteDecimals;

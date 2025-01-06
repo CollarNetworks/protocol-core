@@ -2,7 +2,8 @@
 pragma solidity 0.8.22;
 
 import { BaseDeployer, ConfigHub, IERC20, EscrowSupplierNFT, BaseTakerOracle } from "./BaseDeployer.sol";
-import { MockChainlinkFeed } from "../test/utils/TWAPMockChainlinkFeed.sol";
+import { TWAPMockChainlinkFeed } from "../test/utils/TWAPMockChainlinkFeed.sol";
+import { FixedMockChainlinkFeed } from "../test/utils/FixedMockChainlinkFeed.sol";
 
 abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
     address constant tUSDC = 0x69fC9D4d59843C6E55f00b5F66b263C963214C53; // CollarOwnedERC20 deployed on 12/11/2024
@@ -13,6 +14,7 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
 
     address constant sequencerFeed = address(0);
     uint24 constant swapFeeTier = 3000;
+    uint constant USDSTABLEPRICE = 100_000_000; // 1 * 10^8 since feed decimals is 8
 
     constructor() {
         chainId = 421_614;
@@ -24,7 +26,7 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
 
     function _configureFeeds() internal {
         // Deploy mock feed for WETH / USDC pair
-        MockChainlinkFeed mockEthUsdFeed = new MockChainlinkFeed(
+        TWAPMockChainlinkFeed mockEthUsdFeed = new TWAPMockChainlinkFeed(
             tWETH, // base token
             tUSDC, // quote token
             3000, // fee tier
@@ -34,7 +36,7 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
             18 // virtual USD decimals
         );
 
-        MockChainlinkFeed mockBTCUSDFeed = new MockChainlinkFeed(
+        TWAPMockChainlinkFeed mockBTCUSDFeed = new TWAPMockChainlinkFeed(
             tWBTC, // base token
             tUSDC, // quote token
             3000, // fee tier
@@ -44,13 +46,18 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
             18 // virtual USD decimals
         );
 
+        //  deploy mock feed for USDC/USD (since sepolia deployed one is unreliable)
+        FixedMockChainlinkFeed mockUsdcUsdFeed = new FixedMockChainlinkFeed(100_000_000, 8, "USDC / USD");
+        //  deploy mock feed for USDT/USD (since sepolia deployed one is unreliable)
+        FixedMockChainlinkFeed mockUsdtUsdFeed = new FixedMockChainlinkFeed(100_000_000, 8, "USDT / USD");
+
         /// https://docs.chain.link/data-feeds/price-feeds/addresses?network=arbitrum&page=1#sepolia-testnet
         // define feeds to be used in oracles
         _configureFeed(ChainlinkFeed(address(mockEthUsdFeed), "ETH / USD", 120, 8, 5));
         // no WBTC, only virtual-BTC
         _configureFeed(ChainlinkFeed(address(mockBTCUSDFeed), "BTC / USD", 120, 8, 30));
-        _configureFeed(ChainlinkFeed(0x0153002d20B96532C639313c2d54c3dA09109309, "USDC / USD", 86_400, 8, 30));
-        _configureFeed(ChainlinkFeed(0x80EDee6f667eCc9f63a0a6f55578F870651f06A4, "USDT / USD", 3600, 8, 30));
+        _configureFeed(ChainlinkFeed(address(mockUsdcUsdFeed), "USDC / USD", 86_400, 8, 30));
+        _configureFeed(ChainlinkFeed(address(mockUsdtUsdFeed), "USDT / USD", 3600, 8, 30));
     }
 
     function _createContractPairs(ConfigHub configHub, address owner)
