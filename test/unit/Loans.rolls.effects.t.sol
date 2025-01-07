@@ -87,7 +87,7 @@ contract LoansRollTestBase is LoansTestBase {
         // Execute roll
         vm.startPrank(user1);
         cashAsset.approve(address(loans), type(uint).max);
-        underlying.approve(address(loans), escrowFee);
+        underlying.approve(address(loans), escrowFees);
 
         uint userCash = cashAsset.balanceOf(user1);
         uint userUnderlying = underlying.balanceOf(user1);
@@ -108,19 +108,19 @@ contract LoansRollTestBase is LoansTestBase {
         uint newLoanAmount;
         int toUser;
         (newLoanId, newLoanAmount, toUser) =
-            loans.rollLoan(loanId, rollOffer(rollId), minToUser, escrowOfferId, escrowFee);
+            loans.rollLoan(loanId, rollOffer(rollId), minToUser, escrowOfferId, escrowFees);
         if (expected.isEscrowLoan) {
             // sanity checks for test values
             assertGt(escrowOfferId, 0);
-            assertGt(escrowFee, 0);
+            assertGt(escrowFees, 0);
             // check new escrow
-            _checkEscrowViews(newLoanId, expected.newEscrowId, escrowFee);
+            _checkEscrowViews(newLoanId, expected.newEscrowId, escrowFees);
             // old released
             assertTrue(escrowNFT.getEscrow(prevLoan.escrowId).released);
         } else {
             // sanity checks for test values
             assertEq(escrowOfferId, 0);
-            assertEq(escrowFee, 0);
+            assertEq(escrowFees, 0);
         }
 
         // id
@@ -133,7 +133,7 @@ contract LoansRollTestBase is LoansTestBase {
 
         // balance change matches roll output value
         assertEq(cashAsset.balanceOf(user1), uint(int(userCash) + expected.toTaker));
-        assertEq(underlying.balanceOf(user1), userUnderlying + expected.escrowFeeRefund - escrowFee);
+        assertEq(underlying.balanceOf(user1), userUnderlying + expected.escrowFeeRefund - escrowFees);
         // loan change matches balance change
         int loanChange = int(newLoanAmount) - int(prevLoan.loanAmount);
         assertEq(expected.toTaker, toUser);
@@ -303,7 +303,7 @@ contract LoansRollsEscrowEffectsTest is LoansRollsEffectsTest {
 
     function test_rollLoan_escrowRefund() public {
         (uint loanId,,) = createAndCheckLoan();
-        uint prevFee = escrowFee;
+        uint prevFee = escrowFees;
         (, ExpectedRoll memory expected) = checkRollLoan(loanId, oraclePrice);
         // max refund
         uint maxRefund = escrowNFT.MAX_FEE_REFUND_BIPS() * prevFee / BIPS_100PCT;
@@ -311,14 +311,14 @@ contract LoansRollsEscrowEffectsTest is LoansRollsEffectsTest {
 
         (loanId,,) = createAndCheckLoan();
         skip(duration / 2);
-        prevFee = escrowFee;
+        prevFee = escrowFees;
         (, expected) = checkRollLoan(loanId, oraclePrice);
         // half refund for half duration
         assertEq(expected.escrowFeeRefund, prevFee / 2);
 
         (loanId,,) = createAndCheckLoan();
         skip(duration);
-        prevFee = escrowFee;
+        prevFee = escrowFees;
         (, expected) = checkRollLoan(loanId, oraclePrice);
         // no refund for full duraion
         assertEq(expected.escrowFeeRefund, 0);

@@ -140,6 +140,23 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     }
 
     /**
+     * @notice Calculates the refunds if escrow is released now. There are no refunds if escrow is seized after
+     * grace period end.
+     * @param escrowId The escrow Id to use for calculations
+     * @return total The calculated total refunds
+     * @return interestRefund refund of interest fee. Capped at MAX_FEE_REFUND_BIPS of held.
+     * @return lateFeeRefund refund of late fee. Full refund if before MIN_GRACE_PERIOD end.
+     * @return overpaymentRefund refund of any initial overpayment of fees. Always refunded.
+     */
+    function feesRefunds(uint escrowId)
+        external
+        view
+        returns (uint total, uint interestRefund, uint lateFeeRefund, uint overpaymentRefund)
+    {
+        return _feesRefunds(getEscrow(escrowId));
+    }
+
+    /**
      * @notice Previews the result of releasing an escrow if it is done now using endEscrow (with refund).
      * @param escrowId The ID of the escrow to preview
      * @param fromLoans The amount repaid from loans
@@ -478,7 +495,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         // @dev note that withdrawal of all escrow and fees (interest + late fee) is guaranteed
         uint available = escrow.escrowed + escrow.feesHeld + fromLoans;
 
-        feesRefund = _feesRefund(escrow);
+        (feesRefund,,,) = _feesRefunds(escrow);
 
         // this handles under-payment (slippage, default) or over-payment (excessive late fees):
         // any shortfall is for the borrower (e.g., slippage) - taken out of the escrow funds held
@@ -498,21 +515,26 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         returns (uint interestFee, uint lateFee)
     {
         Offer memory offer = getOffer(offerId);
-        // rounds up against the user
+        // rounds up against borrower
         interestFee = Math.ceilDiv(escrowed * offer.interestAPR * offer.duration, BIPS_BASE * YEAR);
         lateFee = Math.ceilDiv(escrowed * offer.lateFeeAPR * offer.gracePeriod, BIPS_BASE * YEAR);
     }
 
-    function _feesRefund(Escrow memory escrow) internal view returns (uint) {
+    function _feesRefunds(Escrow memory escrow)
+        internal
+        view
+        returns (uint total, uint interestRefund, uint lateFeeRefund, uint overpaymentRefund)
+    {
         // check how much was held for interest and late fees
         (uint interestHeld, uint lateFeeHeld) = _upfrontFees(escrow.offerId, escrow.escrowed);
 
+        interestRefund = _interestRefund(escrow, interestHeld);
+        lateFeeRefund = _lateFeeRefund(escrow, lateFeeHeld);
         // refund any initial voluntary overpayment of fees. This cannot revert because
         // fee is checked vs. this sum on escrow start.
-        uint overpaymentRefund = escrow.feesHeld - interestHeld - lateFeeHeld;
-        uint interestRefund = _interestRefund(escrow, interestHeld);
-        uint lateFeeRefund = _lateFeeRefund(escrow, lateFeeHeld);
-        return interestRefund + lateFeeRefund + overpaymentRefund;
+        overpaymentRefund = escrow.feesHeld - interestHeld - lateFeeHeld;
+
+        total = interestRefund + lateFeeRefund + overpaymentRefund;
     }
 
     function _lateFeeRefund(Escrow memory escrow, uint lateFeeHeld) internal view returns (uint) {

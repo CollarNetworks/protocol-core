@@ -68,9 +68,6 @@ contract EscrowSupplierNFT_AdminTest is BaseEscrowSupplierNFTTest {
         escrowNFT.endEscrow(0, 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        escrowNFT.endEscrowOnlyLateFees(0, 0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
         escrowNFT.switchEscrow(0, 0, 0, 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);

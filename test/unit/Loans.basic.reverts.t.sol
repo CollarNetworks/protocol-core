@@ -23,7 +23,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
                 defaultSwapParams(_minSwap),
                 providerOffer(_providerOfferId),
                 escrowOffer(escrowOfferId),
-                escrowFee
+                escrowFees
             );
         } else {
             loans.openLoan(_col, _minLoan, defaultSwapParams(_minSwap), providerOffer(_providerOfferId));
@@ -34,7 +34,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         maybeCreateEscrowOffer();
 
         vm.startPrank(user1);
-        underlying.approve(address(loans), underlyingAmount + escrowFee);
+        underlying.approve(address(loans), underlyingAmount + escrowFees);
         prepareDefaultSwapToCash();
 
         // 0 underlying
@@ -72,7 +72,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         // not enough approval for underlying
         vm.startPrank(user1);
         underlying.approve(address(loans), underlyingAmount);
-        expectRevertERC20Allowance(address(loans), underlyingAmount, underlyingAmount + 1 + escrowFee);
+        expectRevertERC20Allowance(address(loans), underlyingAmount, underlyingAmount + 1 + escrowFees);
         openLoan(underlyingAmount + 1, minLoanAmount, 0, offerId);
     }
 
@@ -82,7 +82,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         prepareSwap(cashAsset, swapCashAmount);
 
         vm.startPrank(user1);
-        underlying.approve(address(loans), underlyingAmount + escrowFee);
+        underlying.approve(address(loans), underlyingAmount + escrowFees);
 
         // balance mismatch
         mockSwapperRouter.setupSwap(swapCashAmount - 1, swapCashAmount);
@@ -109,7 +109,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
         // not allowed
         startHoax(user1);
-        underlying.approve(address(loans), underlyingAmount + escrowFee);
+        underlying.approve(address(loans), underlyingAmount + escrowFees);
         vm.expectRevert("loans: swapper not allowed");
         openLoan(underlyingAmount, minLoanAmount, 0, 0);
     }
@@ -127,7 +127,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         prepareSwap(cashAsset, swapCashAmount);
 
         vm.startPrank(user1);
-        underlying.approve(address(loans), underlyingAmount + escrowFee);
+        underlying.approve(address(loans), underlyingAmount + escrowFees);
 
         // balance mismatch
         mockSwapperRouter.setupSwap(swapCashAmount - 1, swapCashAmount);
@@ -146,7 +146,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
         uint swapOut = prepareDefaultSwapToCash();
 
         vm.startPrank(user1);
-        underlying.approve(address(loans), underlyingAmount + escrowFee);
+        underlying.approve(address(loans), underlyingAmount + escrowFees);
 
         uint highMinLoanAmount = (swapOut * ltv / BIPS_100PCT) + 1; // 1 wei more than ltv
         vm.expectRevert("loans: loan amount too low");
@@ -160,7 +160,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
         // prep again
         prepareDefaultSwapToCash();
-        underlying.approve(address(loans), underlyingAmount + escrowFee);
+        underlying.approve(address(loans), underlyingAmount + escrowFees);
 
         vm.mockCall(
             address(takerNFT),

@@ -65,8 +65,8 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         (uint newLoanId,,) = createAndCheckLoan();
         uint newRollId = createRollOffer(newLoanId);
         vm.startPrank(user1);
-        underlying.approve(address(loans), escrowFee);
-        loans.rollLoan(newLoanId, rollOffer(newRollId), MIN_INT, escrowOfferId, escrowFee);
+        underlying.approve(address(loans), escrowFees);
+        loans.rollLoan(newLoanId, rollOffer(newRollId), MIN_INT, escrowOfferId, escrowFees);
         // token is burned
         expectRevertERC721Nonexistent(newLoanId);
         loans.rollLoan(newLoanId, rollOffer(newRollId), MIN_INT, 0, 0);
@@ -80,7 +80,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         uint rollId = createRollOffer(loanId);
 
         vm.startPrank(user1);
-        underlying.approve(address(loans), escrowFee);
+        underlying.approve(address(loans), escrowFees);
         vm.mockCall(
             address(rolls),
             abi.encodeWithSelector(rolls.executeRoll.selector, rollId, 0),
@@ -243,17 +243,17 @@ contract LoansRollsEscrowRevertsTest is LoansRollsRevertsTest {
 
         // not enough approval for fee
         vm.startPrank(user1);
-        cashAsset.approve(address(loans), escrowFee - 1);
+        cashAsset.approve(address(loans), escrowFees - 1);
         cashAsset.approve(address(loans), type(uint).max);
-        underlying.approve(address(loans), escrowFee - 1);
-        expectRevertERC20Allowance(address(loans), escrowFee - 1, escrowFee);
-        loans.rollLoan(loanId, rollOffer(rollId), MIN_INT, escrowOfferId, escrowFee);
+        underlying.approve(address(loans), escrowFees - 1);
+        expectRevertERC20Allowance(address(loans), escrowFees - 1, escrowFees);
+        loans.rollLoan(loanId, rollOffer(rollId), MIN_INT, escrowOfferId, escrowFees);
 
         // unsupported escrow
         setCanOpenSingle(address(escrowNFT), false);
         vm.startPrank(user1);
         vm.expectRevert("loans: unsupported escrow");
-        loans.rollLoan(loanId, rollOffer(rollId), MIN_INT, escrowOfferId, escrowFee);
+        loans.rollLoan(loanId, rollOffer(rollId), MIN_INT, escrowOfferId, escrowFees);
     }
 
     function test_revert_rollLoan_escrowValidations() public {
@@ -270,9 +270,9 @@ contract LoansRollsEscrowRevertsTest is LoansRollsRevertsTest {
         vm.startPrank(user1);
         prepareDefaultSwapToCash();
         cashAsset.approve(address(loans), type(uint).max);
-        underlying.approve(address(loans), underlyingAmount + escrowFee);
+        underlying.approve(address(loans), underlyingAmount + escrowFees);
         vm.expectRevert("loans: duration mismatch");
-        loans.rollLoan(loanId, rollOffer(rollId), MIN_INT, escrowOfferId, escrowFee);
+        loans.rollLoan(loanId, rollOffer(rollId), MIN_INT, escrowOfferId, escrowFees);
 
         // loanId mismatch escrow
         IEscrowSupplierNFT.Escrow memory badEscrow;
@@ -283,7 +283,7 @@ contract LoansRollsEscrowRevertsTest is LoansRollsRevertsTest {
             abi.encode(badEscrow)
         );
         vm.expectRevert("loans: unexpected loanId");
-        loans.rollLoan(loanId, rollOffer(rollId), MIN_INT, escrowOfferId, escrowFee);
+        loans.rollLoan(loanId, rollOffer(rollId), MIN_INT, escrowOfferId, escrowFees);
     }
 }
 
