@@ -43,7 +43,7 @@ contract EscrowSupplierNFT_AdminTest is BaseEscrowSupplierNFTTest {
     }
 
     function test_paused_methods() public {
-        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying, 1 ether);
+        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying, escrowFee);
 
         // pause
         vm.startPrank(owner);

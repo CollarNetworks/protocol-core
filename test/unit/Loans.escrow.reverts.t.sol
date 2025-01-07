@@ -95,7 +95,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         takerNFT.settlePairedPosition(loanId);
 
         // at the end of grace period
-        skip(escrowNFT.MIN_GRACE_PERIOD());
+        skip(gracePeriod);
         vm.expectRevert("escrow: grace period not elapsed");
         escrowNFT.seizeEscrow(loan.escrowId);
 
@@ -120,20 +120,23 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
 
         // create and cancel a loan
         (uint loanId,, uint loanAmount) = createAndCheckLoan();
+        uint escrowId = loans.getLoan(loanId).escrowId;
 
         uint checkpoint = vm.snapshotState();
         vm.startPrank(user1);
         loans.unwrapAndCancelLoan(loanId);
         vm.startPrank(supplier);
         vm.expectRevert("escrow: already released");
-        escrowNFT.seizeEscrow(loans.getLoan(loanId).escrowId);
+        escrowNFT.seizeEscrow(escrowId);
 
         vm.revertTo(checkpoint);
         vm.startPrank(user1);
+        skip(duration);
+        updatePrice();
         cashAsset.approve(address(loans), loanAmount);
         loans.closeLoan(loanId, defaultSwapParams(0));
         vm.startPrank(supplier);
         vm.expectRevert("escrow: already released");
-        escrowNFT.seizeEscrow(loans.getLoan(loanId).escrowId);
+        escrowNFT.seizeEscrow(escrowId);
     }
 }

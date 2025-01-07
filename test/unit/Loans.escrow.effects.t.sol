@@ -23,11 +23,7 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         assertFalse(escrowNFT.getEscrow(escrowId).released);
 
         // after expiry
-        skip(duration + maxGracePeriod + 1);
-
-        // cannot release
-        vm.expectRevert("loans: loan expired");
-        loans.unwrapAndCancelLoan(loanId);
+        skip(duration + gracePeriod + 1);
 
         // user balance
         uint userBalance = underlying.balanceOf(user1);

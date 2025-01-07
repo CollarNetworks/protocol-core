@@ -11,7 +11,12 @@ import { MockSwapperRouter } from "../utils/MockSwapRouter.sol";
 import { SwapperArbitraryCall } from "../utils/SwapperArbitraryCall.sol";
 
 import {
-    LoansNFT, ILoansNFT, CollarProviderNFT, EscrowSupplierNFT, CollarTakerNFT
+    LoansNFT,
+    ILoansNFT,
+    CollarProviderNFT,
+    EscrowSupplierNFT,
+    CollarTakerNFT,
+    IEscrowSupplierNFT
 } from "../../src/LoansNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { SwapperUniV3, ISwapper } from "../../src/SwapperUniV3.sol";
@@ -34,7 +39,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
     // escrow
     uint interestAPR = 500; // 5%
-    uint maxGracePeriod = 7 days;
+    uint gracePeriod = 7 days;
     uint lateFeeAPR = 10_000; // 100%
 
     // basic tests are without escrow
@@ -126,7 +131,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
             startHoax(supplier);
             underlying.approve(address(escrowNFT), largeUnderlying);
             escrowOfferId =
-                escrowNFT.createOffer(largeUnderlying, duration, interestAPR, maxGracePeriod, lateFeeAPR, 0);
+                escrowNFT.createOffer(largeUnderlying, duration, interestAPR, gracePeriod, lateFeeAPR, 0);
             (escrowFees,,) = escrowNFT.upfrontFees(escrowOfferId, underlyingAmount);
         } else {
             // reset to 0
@@ -284,7 +289,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         assertEq(escrow.loans, address(loans));
         assertEq(escrow.loanId, loanId);
         assertEq(escrow.escrowed, underlyingAmount);
-        assertEq(escrow.gracePeriod, maxGracePeriod);
+        assertEq(escrow.gracePeriod, gracePeriod);
         assertEq(escrow.lateFeeAPR, lateFeeAPR);
         assertEq(escrow.duration, duration);
         assertEq(escrow.expiration, block.timestamp + duration);
@@ -416,7 +421,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
     }
 
     function expectedLateFees(uint overdue) internal view returns (uint fee) {
-        overdue = overdue > maxGracePeriod ? maxGracePeriod : overdue;
+        overdue = overdue > gracePeriod ? gracePeriod : overdue;
         fee = divUp(underlyingAmount * lateFeeAPR * overdue, BIPS_100PCT * 365 days);
     }
 
@@ -665,10 +670,12 @@ contract LoansBasicEffectsTest is LoansTestBase {
         // escrow effects
         uint refund;
         if (loan.usesEscrow) {
+            IEscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(loan.escrowId);
+            (, uint interestHeld, uint lateFeeHeld) = escrowNFT.upfrontFees(escrow.offerId, escrow.escrowed);
             // escrow released
             assertEq(escrowNFT.getEscrow(loan.escrowId).released, true);
             // received refund for half a duration
-            refund = escrowNFT.getEscrow(loan.escrowId).feesHeld / 2;
+            refund = interestHeld / 2 + lateFeeHeld;
         }
         assertEq(underlying.balanceOf(user1), balanceBefore + refund);
     }
@@ -678,20 +685,14 @@ contract LoansBasicEffectsTest is LoansTestBase {
         (uint loanId,,) = createAndCheckLoan();
         skip(duration + 1);
 
-        if (!loans.getLoan(loanId).usesEscrow) {
-            vm.expectEmit(address(loans));
-            emit ILoansNFT.LoanCancelled(loanId, address(user1));
-            loans.unwrapAndCancelLoan(loanId);
-            // upwrapped
-            assertEq(takerNFT.ownerOf({ tokenId: loanId }), user1);
-            // cancelled
-            expectRevertERC721Nonexistent(loanId);
-            loans.ownerOf(loanId);
-        } else {
-            // also tested in reverts
-            vm.expectRevert("loans: loan expired");
-            loans.unwrapAndCancelLoan(loanId);
-        }
+        vm.expectEmit(address(loans));
+        emit ILoansNFT.LoanCancelled(loanId, address(user1));
+        loans.unwrapAndCancelLoan(loanId);
+        // upwrapped
+        assertEq(takerNFT.ownerOf({ tokenId: loanId }), user1);
+        // cancelled
+        expectRevertERC721Nonexistent(loanId);
+        loans.ownerOf(loanId);
     }
 
     function test_exitIfBrokenOracle() public {

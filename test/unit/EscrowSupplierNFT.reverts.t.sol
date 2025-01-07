@@ -13,7 +13,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
 
         uint val = escrowNFT.MAX_INTEREST_APR_BIPS();
         vm.expectRevert("escrow: interest APR too high");
-        escrowNFT.createOffer(largeUnderlying, duration, val + 1, maxGracePeriod, lateFeeAPR, 0);
+        escrowNFT.createOffer(largeUnderlying, duration, val + 1, gracePeriod, lateFeeAPR, 0);
 
         val = escrowNFT.MIN_GRACE_PERIOD();
         vm.expectRevert("escrow: grace period too short");
@@ -25,7 +25,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
 
         val = escrowNFT.MAX_LATE_FEE_APR_BIPS();
         vm.expectRevert("escrow: late fee APR too high");
-        escrowNFT.createOffer(largeUnderlying, duration, interestAPR, maxGracePeriod, val + 1, 0);
+        escrowNFT.createOffer(largeUnderlying, duration, interestAPR, gracePeriod, val + 1, 0);
     }
 
     function test_revert_updateOfferAmount_notSupplier() public {
@@ -45,7 +45,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         escrowNFT.startEscrow(offerId, 0, 0, 0);
 
         minEscrow = largeUnderlying / 2;
-        uint fee = 1 ether;
+        uint fee = escrowFee;
         (offerId,) = createAndCheckOffer(supplier1, largeUnderlying);
         startHoax(loans);
         asset.approve(address(escrowNFT), largeUnderlying / 2);
@@ -60,7 +60,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         asset.approve(address(escrowNFT), largeUnderlying);
 
         vm.expectRevert("escrow: amount too high");
-        escrowNFT.startEscrow(offerId, largeUnderlying + 1, 1 ether, 1000);
+        escrowNFT.startEscrow(offerId, largeUnderlying + 1, escrowFee, 1000);
 
         (uint minFee,,) = escrowNFT.upfrontFees(offerId, largeUnderlying);
         vm.expectRevert("escrow: insufficient upfront fees");
@@ -73,7 +73,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         configHub.setCollarDurationRange(duration + 1, duration + 2);
         vm.startPrank(loans);
         vm.expectRevert("escrow: unsupported duration");
-        escrowNFT.startEscrow(offerId, largeUnderlying, 1 ether, 1000);
+        escrowNFT.startEscrow(offerId, largeUnderlying, escrowFee, 1000);
     }
 
     function test_revert_switchEscrow_minEscrow() public {
@@ -90,7 +90,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         vm.expectRevert("escrow: amount too low");
         escrowNFT.switchEscrow(escrowId, offer2, 0, 0);
 
-        uint fee = 1 ether;
+        uint fee = escrowFee;
         asset.approve(address(escrowNFT), largeUnderlying / 2 + fee - 1);
         (escrowId) = escrowNFT.startEscrow(offer1, largeUnderlying / 2 - 1, fee, 0);
         // switch to offer3, does not accept the amount
@@ -99,7 +99,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
     }
 
     function test_revert_switchEscrow_invalidParams() public {
-        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying, 1 ether);
+        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying, escrowFee);
 
         startHoax(loans);
         asset.approve(address(escrowNFT), largeUnderlying);
@@ -158,7 +158,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         setCanOpenSingle(address(escrowNFT), false);
         vm.startPrank(loans);
         vm.expectRevert("escrow: unsupported escrow");
-        escrowNFT.startEscrow(offerId, largeUnderlying / 2, 1 ether, 1000);
+        escrowNFT.startEscrow(offerId, largeUnderlying / 2, escrowFee, 1000);
 
         setCanOpenSingle(address(escrowNFT), true);
 
@@ -167,16 +167,16 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
         escrowNFT.setLoansCanOpen(loans, false);
         vm.startPrank(loans);
         vm.expectRevert("escrow: unauthorized loans contract");
-        escrowNFT.startEscrow(offerId, largeUnderlying / 2, 1 ether, 1000);
+        escrowNFT.startEscrow(offerId, largeUnderlying / 2, escrowFee, 1000);
 
         // some other address
         startHoax(makeAddr("otherLoans"));
         vm.expectRevert("escrow: unauthorized loans contract");
-        escrowNFT.startEscrow(offerId, largeUnderlying / 2, 1 ether, 1000);
+        escrowNFT.startEscrow(offerId, largeUnderlying / 2, escrowFee, 1000);
     }
 
     function test_revert_switchEscrow_unauthorizedLoans() public {
-        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying, 1 ether);
+        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying, escrowFee);
         (uint newOfferId,) = createAndCheckOffer(supplier2, largeUnderlying);
 
         setCanOpenSingle(address(escrowNFT), false);
@@ -200,7 +200,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
     }
 
     function test_revert_loansCanOpen_only_switchEscrow() public {
-        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying / 2, 1 ether);
+        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying / 2, escrowFee);
 
         // removing loans canOpen prevents switchEscrow
         vm.startPrank(owner);
@@ -213,7 +213,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
     }
 
     function test_revert_endEscrow_switchEscrow() public {
-        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying / 2, 1 ether);
+        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying / 2, escrowFee);
 
         // not same loans that started
         vm.startPrank(owner);
@@ -237,7 +237,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
     }
 
     function test_revert_withdrawReleased() public {
-        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying, 1 ether);
+        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying, escrowFee);
 
         startHoax(supplier2);
         vm.expectRevert("escrow: not escrow owner");
@@ -263,13 +263,13 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
     }
 
     function test_revert_seizeEscrow() public {
-        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying / 2, 1 ether);
+        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying / 2, escrowFee);
 
         startHoax(supplier2);
         vm.expectRevert("escrow: not escrow owner");
         escrowNFT.seizeEscrow(escrowId);
 
-        skip(duration + maxGracePeriod);
+        skip(duration + gracePeriod);
         startHoax(supplier1);
         vm.expectRevert("escrow: grace period not elapsed");
         escrowNFT.seizeEscrow(escrowId);

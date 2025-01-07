@@ -545,7 +545,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
             // cap at specified grace period
             overdue = Math.min(overdue, escrow.gracePeriod);
         }
-        // round down against borrower
+        // round down against borrower (again, because lateFeeHeld is rounded up).
         return lateFeeHeld * (escrow.gracePeriod - overdue) / escrow.gracePeriod;
     }
 

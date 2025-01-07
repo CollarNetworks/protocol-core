@@ -20,9 +20,10 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
     address supplier2 = makeAddr("supplier2");
 
     uint interestAPR = 500; // 5%
-    uint maxGracePeriod = 7 days;
-    uint lateFeeAPR = 10_000; // 100%
+    uint gracePeriod = 7 days;
+    uint lateFeeAPR = 5000; // 50%
     uint minEscrow = 0;
+    uint escrowFee = 1000 ether; // roughly 1% (late fees 50% for one week, and interest for 5 minutes)
 
     function setUp() public override {
         super.setUp();
@@ -53,9 +54,9 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
 
         vm.expectEmit(address(escrowNFT));
         emit IEscrowSupplierNFT.OfferCreated(
-            supplier, interestAPR, duration, maxGracePeriod, lateFeeAPR, amount, expectedId, minEscrow
+            supplier, interestAPR, duration, gracePeriod, lateFeeAPR, amount, expectedId, minEscrow
         );
-        offerId = escrowNFT.createOffer(amount, duration, interestAPR, maxGracePeriod, lateFeeAPR, minEscrow);
+        offerId = escrowNFT.createOffer(amount, duration, interestAPR, gracePeriod, lateFeeAPR, minEscrow);
 
         // offer ID
         assertEq(offerId, expectedId);
@@ -66,14 +67,17 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         assertEq(offer.available, amount);
         assertEq(offer.duration, duration);
         assertEq(offer.interestAPR, interestAPR);
-        assertEq(offer.gracePeriod, maxGracePeriod);
+        assertEq(offer.gracePeriod, gracePeriod);
         assertEq(offer.lateFeeAPR, lateFeeAPR);
         // balance
         assertEq(asset.balanceOf(supplier), balance - amount);
-        // fee view
-        uint expectedMinFee = divUp(amount * interestAPR * duration, BIPS_100PCT * 365 days);
-        (uint actualMinFee,,) = escrowNFT.upfrontFees(offerId, amount);
-        assertEq(actualMinFee, expectedMinFee);
+        // fees view
+        uint expectedInterestFee = divUp(amount * interestAPR * duration, BIPS_100PCT * 365 days);
+        uint expectedLateFee = divUp(amount * lateFeeAPR * gracePeriod, BIPS_100PCT * 365 days);
+        (uint actualMinFee, uint interestHeld, uint lateFeeHeld) = escrowNFT.upfrontFees(offerId, amount);
+        assertEq(interestHeld, expectedInterestFee);
+        assertEq(lateFeeHeld, expectedLateFee);
+        assertEq(actualMinFee, expectedInterestFee + expectedLateFee);
     }
 
     function checkUpdateOfferAmount(int delta) internal {
@@ -95,18 +99,18 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         assertEq(offer.available, newAmount);
         assertEq(offer.duration, duration);
         assertEq(offer.interestAPR, interestAPR);
-        assertEq(offer.gracePeriod, maxGracePeriod);
+        assertEq(offer.gracePeriod, gracePeriod);
         assertEq(offer.lateFeeAPR, lateFeeAPR);
         // balance
         assertEq(asset.balanceOf(address(escrowNFT)), balance + newAmount - largeUnderlying);
     }
 
-    function createAndCheckEscrow(address supplier, uint offerAmount, uint escrowAmount, uint fee)
+    function createAndCheckEscrow(address supplier, uint offerAmount, uint escrowAmount, uint fees)
         public
         returns (uint escrowId, EscrowSupplierNFT.Escrow memory escrow)
     {
         (uint offerId,) = createAndCheckOffer(supplier, offerAmount);
-        return createAndCheckEscrowFromOffer(offerId, escrowAmount, fee);
+        return createAndCheckEscrowFromOffer(offerId, escrowAmount, fees);
     }
 
     function createAndCheckEscrowFromOffer(uint offerId, uint escrowAmount, uint fees)
@@ -142,7 +146,7 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         assertEq(escrow.loans, loans);
         assertEq(escrow.loanId, loanId);
         assertEq(escrow.escrowed, escrowAmount);
-        assertEq(escrow.gracePeriod, maxGracePeriod);
+        assertEq(escrow.gracePeriod, gracePeriod);
         assertEq(escrow.lateFeeAPR, lateFeeAPR);
         assertEq(escrow.duration, duration);
         assertEq(escrow.expiration, block.timestamp + duration);
@@ -213,21 +217,20 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
 
     function checkSeizeEscrow(uint delay) public {
         uint escrowAmount = largeUnderlying / 2;
-        uint fee = 1 ether;
-        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, escrowAmount, fee);
+        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, escrowAmount, escrowFee);
 
         // Skip past expiration and grace period
-        skip(duration + maxGracePeriod + 1 + delay);
+        skip(duration + gracePeriod + 1 + delay);
 
         startHoax(supplier1);
         uint balanceBefore = asset.balanceOf(supplier1);
 
         vm.expectEmit(address(escrowNFT));
-        emit IEscrowSupplierNFT.EscrowSeized(escrowId, supplier1, escrowAmount + fee);
+        emit IEscrowSupplierNFT.EscrowSeized(escrowId, supplier1, escrowAmount + escrowFee);
         escrowNFT.seizeEscrow(escrowId);
 
         // Check balance
-        assertEq(asset.balanceOf(supplier1), balanceBefore + escrowAmount + fee);
+        assertEq(asset.balanceOf(supplier1), balanceBefore + escrowAmount + escrowFee);
 
         // Check escrow state
         EscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(escrowId);
@@ -268,7 +271,9 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
 
     function expectedLateFees(EscrowSupplierNFT.Escrow memory escrow) internal view returns (uint fee) {
         uint overdue = block.timestamp - escrow.expiration;
-        fee = divUp(escrow.escrowed * lateFeeAPR * overdue, BIPS_100PCT * 365 days);
+        uint feeHeld = divUp(escrow.escrowed * lateFeeAPR * gracePeriod, BIPS_100PCT * 365 days);
+        uint refund = feeHeld * (gracePeriod - overdue) / gracePeriod;
+        return feeHeld - refund;
     }
 
     function divUp(uint x, uint y) internal pure returns (uint) {
@@ -302,7 +307,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
 
         // max values ok
         interestAPR = escrowNFT.MAX_INTEREST_APR_BIPS();
-        maxGracePeriod = escrowNFT.MAX_GRACE_PERIOD();
+        gracePeriod = escrowNFT.MAX_GRACE_PERIOD();
         lateFeeAPR = escrowNFT.MAX_LATE_FEE_APR_BIPS();
         createAndCheckOffer(supplier1, largeUnderlying);
     }
@@ -320,12 +325,11 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
     }
 
     function test_startEscrow_simple() public {
-        uint fee = 1 ether; // arbitrary
-        createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying / 2, fee);
+        createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying / 2, escrowFee);
     }
 
     function test_tokenURI() public {
-        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying / 2, 1 ether);
+        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying / 2, escrowFee);
         string memory expected = string.concat(
             "https://services.collarprotocol.xyz/metadata/",
             Strings.toString(block.chainid),
@@ -341,12 +345,11 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
     function test_multipleEscrowsFromSameOffer() public {
         uint offerAmount = largeUnderlying;
         uint escrowAmount = largeUnderlying / 4;
-        uint fee = 1 ether;
 
         (uint offerId,) = createAndCheckOffer(supplier1, offerAmount);
 
         for (uint i = 0; i < 3; i++) {
-            createAndCheckEscrowFromOffer(offerId, escrowAmount, fee);
+            createAndCheckEscrowFromOffer(offerId, escrowAmount, escrowFee);
         }
         assertEq(escrowNFT.getOffer(offerId).available, offerAmount - 3 * escrowAmount);
     }
@@ -359,83 +362,115 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         startHoax(loans);
         escrowNFT.switchEscrow(escrowId, offerId, 0, 0);
 
-        uint fee = 1 ether;
         minEscrow = largeUnderlying / 10;
         // check non-zero minLocked effects (event)
         (offerId,) = createAndCheckOffer(supplier1, largeUnderlying);
-        (escrowId,) = createAndCheckEscrowFromOffer(offerId, minEscrow, fee);
+        (escrowId,) = createAndCheckEscrowFromOffer(offerId, minEscrow, escrowFee);
         startHoax(loans);
-        asset.approve(address(escrowNFT), fee);
-        escrowNFT.switchEscrow(escrowId, offerId, fee, 0);
+        asset.approve(address(escrowNFT), escrowFee);
+        escrowNFT.switchEscrow(escrowId, offerId, escrowFee, 0);
     }
 
     function test_endEscrow_withdrawReleased_simple() public {
         uint escrowed = largeUnderlying / 2;
-        uint fee = 1 ether;
+
+        (uint offerId,) = createAndCheckOffer(supplier, largeUnderlying);
+        (, uint interestHeld,) = escrowNFT.upfrontFees(offerId, escrowed);
+        uint refund = escrowFee - interestHeld;
 
         // after full duration
         check_preview_end_withdraw(
-            escrowed, escrowed, fee, duration, ExpectedRelease(escrowed + fee, escrowed, 0)
+            escrowed,
+            escrowed,
+            escrowFee,
+            duration,
+            ExpectedRelease(escrowed + escrowFee - refund, escrowed + refund, refund)
         );
 
         // double time is the same
         check_preview_end_withdraw(
-            escrowed, escrowed, fee, 2 * duration, ExpectedRelease(escrowed + fee, escrowed, 0)
+            escrowed,
+            escrowed,
+            escrowFee,
+            2 * duration,
+            ExpectedRelease(escrowed + escrowFee - refund, escrowed + refund, refund)
         );
     }
 
     function test_endEscrow_withdrawReleased_underRepay() public {
         uint escrowed = largeUnderlying / 2;
-        uint fee = 1 ether;
+
+        (uint offerId,) = createAndCheckOffer(supplier, largeUnderlying);
+        (, uint interestHeld,) = escrowNFT.upfrontFees(offerId, escrowed);
 
         // 0 repayment immediate release (cancellation)
-        uint maxRefund = escrowNFT.MAX_FEE_REFUND_BIPS() * fee / BIPS_100PCT;
+        uint interestRefund = escrowNFT.MAX_FEE_REFUND_BIPS() * interestHeld / BIPS_100PCT;
+        uint refund = escrowFee - (interestHeld - interestRefund);
         check_preview_end_withdraw(
-            escrowed, 0, fee, 0, ExpectedRelease(escrowed + fee - maxRefund, maxRefund, maxRefund)
+            escrowed, 0, escrowFee, 0, ExpectedRelease(escrowed + escrowFee - refund, refund, refund)
         );
 
         // 0 repayment a bit after max refund time
         // 95% is max refund, so after 6% of duration, 94% should be refunded
-        uint refund = fee * 94 / 100;
+        refund = escrowFee - (interestHeld - interestHeld * 94 / 100);
         check_preview_end_withdraw(
-            escrowed, 0, fee, duration * 6 / 100, ExpectedRelease(escrowed + fee - refund, refund, refund)
+            escrowed,
+            0,
+            escrowFee,
+            duration * 6 / 100,
+            ExpectedRelease(escrowed + escrowFee - refund, refund, refund)
         );
 
         // 0 repayment full duration
-        check_preview_end_withdraw(escrowed, 0, fee, duration, ExpectedRelease(escrowed + fee, 0, 0));
+        refund = escrowFee - interestHeld;
+        check_preview_end_withdraw(
+            escrowed, 0, escrowFee, duration, ExpectedRelease(escrowed + escrowFee - refund, refund, refund)
+        );
 
         // 0 repayment with refund
-        uint halfFee = fee / 2;
+        refund = escrowFee - interestHeld / 2;
         check_preview_end_withdraw(
-            escrowed, 0, fee, duration / 2, ExpectedRelease(escrowed + halfFee, halfFee, halfFee)
+            escrowed,
+            0,
+            escrowFee,
+            duration / 2,
+            ExpectedRelease(escrowed + escrowFee - refund, refund, refund)
         );
 
         // partial repayment with refund
         check_preview_end_withdraw(
             escrowed,
             escrowed / 2,
-            fee,
+            escrowFee,
             duration / 2,
-            ExpectedRelease(escrowed + halfFee, escrowed / 2 + halfFee, halfFee)
+            ExpectedRelease(escrowed + escrowFee - refund, escrowed / 2 + refund, refund)
         );
     }
 
     function test_endEscrow_withdrawReleased_overPay() public {
         uint escrowed = largeUnderlying / 2;
-        uint fee = 1 ether;
-        uint halfFee = fee / 2;
+
+        (uint offerId,) = createAndCheckOffer(supplier, largeUnderlying);
+        (, uint interestHeld,) = escrowNFT.upfrontFees(offerId, escrowed);
+        uint refund = escrowFee - interestHeld / 2;
+
         check_preview_end_withdraw(
             escrowed,
             escrowed * 2,
-            fee,
+            escrowFee,
             duration / 2,
             // does not take more than needed (escrow + fees - refund)
-            ExpectedRelease(escrowed + halfFee, escrowed * 2 + halfFee, halfFee)
+            ExpectedRelease(escrowed + escrowFee - refund, escrowed * 2 + refund, refund)
         );
 
-        // overpayment no refund
+        // overpayment no interest refund
+        refund = escrowFee - interestHeld;
         check_preview_end_withdraw(
-            escrowed, escrowed * 2, fee, duration, ExpectedRelease(escrowed + fee, escrowed * 2, 0)
+            escrowed,
+            escrowed * 2,
+            escrowFee,
+            duration,
+            ExpectedRelease(escrowed + escrowFee - refund, escrowed * 2 + refund, refund)
         );
     }
 
@@ -450,8 +485,8 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
     function test_switchEscrow_simple() public {
         Amounts memory amounts;
         amounts.escrowAmount = largeUnderlying / 2;
-        amounts.fee = 1 ether;
-        (uint oldEscrowId,) =
+        amounts.fee = escrowFee;
+        (uint oldEscrowId, EscrowSupplierNFT.Escrow memory oldEscrow) =
             createAndCheckEscrow(supplier1, largeUnderlying, amounts.escrowAmount, amounts.fee);
 
         amounts.newFee = amounts.fee * 2;
@@ -467,6 +502,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
 
         // wait half a duration
         skip(duration / 2);
+        (, uint interestHeld,) = escrowNFT.upfrontFees(oldEscrow.offerId, oldEscrow.escrowed);
         (uint withdrawablePreview,, uint refundPreview) =
             escrowNFT.previewRelease(oldEscrowId, amounts.escrowAmount);
 
@@ -480,7 +516,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         // check return values
         assertEq(newEscrowId, expectedId);
         assertEq(feeRefund, refundPreview);
-        assertEq(feeRefund, amounts.fee / 2);
+        assertEq(feeRefund, amounts.fee - interestHeld / 2);
 
         // Check new escrow
         EscrowSupplierNFT.Escrow memory newEscrow = escrowNFT.getEscrow(newEscrowId);
@@ -493,7 +529,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         assertEq(newEscrow.withdrawable, 0);
 
         // Check old escrow is released
-        EscrowSupplierNFT.Escrow memory oldEscrow = escrowNFT.getEscrow(oldEscrowId);
+        oldEscrow = escrowNFT.getEscrow(oldEscrowId);
         assertTrue(oldEscrow.released);
         assertEq(oldEscrow.withdrawable, withdrawablePreview);
 
@@ -517,7 +553,11 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
 
     // view effects
 
-    function checkLateFeeAndOverpaymentRefunds(uint escrowId, uint feesPaid) public returns (uint lateFee) {
+    function checkLateFeeAndOverpaymentRefunds(uint escrowId, uint feesPaid)
+        public
+        view
+        returns (uint lateFee)
+    {
         EscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(escrowId);
         (, uint interestFeeHeld, uint lateFeeHeld) = escrowNFT.upfrontFees(escrow.offerId, escrow.escrowed);
         (, uint interestFeeRefund, uint lateFeeRefund, uint overpayRefund) = escrowNFT.feesRefunds(escrowId);
@@ -533,7 +573,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
 
     function test_lateFeeRefund() public {
         uint escrowAmount = largeUnderlying / 2;
-        uint fees = 1 ether;
+        uint fees = escrowFee;
         (uint escrowId, EscrowSupplierNFT.Escrow memory escrow) =
             createAndCheckEscrow(supplier1, largeUnderlying, escrowAmount, fees);
 

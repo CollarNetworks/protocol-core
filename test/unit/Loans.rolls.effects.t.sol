@@ -303,24 +303,25 @@ contract LoansRollsEscrowEffectsTest is LoansRollsEffectsTest {
 
     function test_rollLoan_escrowRefund() public {
         (uint loanId,,) = createAndCheckLoan();
+        (, uint interestHeld, uint lateFeeHeld) = escrowNFT.upfrontFees(escrowOfferId, underlyingAmount);
         uint prevFee = escrowFees;
         (, ExpectedRoll memory expected) = checkRollLoan(loanId, oraclePrice);
         // max refund
-        uint maxRefund = escrowNFT.MAX_FEE_REFUND_BIPS() * prevFee / BIPS_100PCT;
-        assertEq(expected.escrowFeeRefund, maxRefund);
+        uint maxInterestRefund = escrowNFT.MAX_FEE_REFUND_BIPS() * interestHeld / BIPS_100PCT;
+        assertEq(expected.escrowFeeRefund, maxInterestRefund + lateFeeHeld);
 
         (loanId,,) = createAndCheckLoan();
         skip(duration / 2);
         prevFee = escrowFees;
         (, expected) = checkRollLoan(loanId, oraclePrice);
         // half refund for half duration
-        assertEq(expected.escrowFeeRefund, prevFee / 2);
+        assertEq(expected.escrowFeeRefund, interestHeld / 2 + lateFeeHeld);
 
         (loanId,,) = createAndCheckLoan();
         skip(duration);
         prevFee = escrowFees;
         (, expected) = checkRollLoan(loanId, oraclePrice);
-        // no refund for full duraion
-        assertEq(expected.escrowFeeRefund, 0);
+        // only late fee refund for full duration
+        assertEq(expected.escrowFeeRefund, lateFeeHeld);
     }
 }
