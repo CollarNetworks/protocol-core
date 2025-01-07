@@ -14,8 +14,10 @@ contract FixedMockChainlinkFeed is IChainlinkFeedLike {
         fixedPrice = _fixedPrice;
     }
 
+    /// @notice returns the description of the mockfeed for human readable config sanity checks.
+    /// If _description is ABC, return FixedMock(ABC)
     function description() external view override(IChainlinkFeedLike) returns (string memory) {
-        return _description;
+        return string.concat("FixedMock(", _description, ")");
     }
 
     function latestRoundData()

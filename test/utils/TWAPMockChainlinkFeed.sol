@@ -39,13 +39,15 @@ contract TWAPMockChainlinkFeed is OracleUniV3TWAP, IChainlinkFeedLike {
         virtualQuoteDecimals = _virtualQuoteDecimals;
     }
 
+    /// @notice returns the description of the mockfeed for human readable config sanity checks.
+    /// If _description is ABC, return TWAPMock(ABC)
     function description()
         external
         view
         override(OracleUniV3TWAP, IChainlinkFeedLike)
         returns (string memory)
     {
-        return _description;
+        return string.concat("TWAPMock(", _description, ")");
     }
 
     function latestRoundData()
