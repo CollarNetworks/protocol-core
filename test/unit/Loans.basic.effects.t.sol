@@ -183,7 +183,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         uint expectedLoanAmount = swapOut * ltv / BIPS_100PCT;
         uint expectedProviderLocked = swapOut * (callStrikePercent - BIPS_100PCT) / BIPS_100PCT;
         (uint expectedProtocolFee,) = providerNFT.protocolFee(expectedProviderLocked, duration);
-        assertGt(expectedProtocolFee, 0); // ensure fee is expected
+        if (expectedProviderLocked != 0) assertGt(expectedProtocolFee, 0); // ensure fee is expected
 
         ILoansNFT.SwapParams memory swapParams = defaultSwapParams(swapCashAmount);
         vm.expectEmit(address(loans));
@@ -495,6 +495,26 @@ contract LoansBasicEffectsTest is LoansTestBase {
         // setup router output
         uint swapOut = prepareDefaultSwapToUnderlying();
         closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
+    }
+
+    function test_closeLoan_zero_amount_swap() public {
+        uint providerOfferId = createProviderOffer();
+
+        // set up a 0 loanAmount loan
+        updatePrice(cashUnits(1e12)); // 1 wei underlying (18) is worth 1 wei cash (6)
+        prepareSwap(cashAsset, 1);
+        startHoax(user1);
+        // 1 wei underlying
+        underlying.approve(address(loans), 1);
+        (uint loanId, , uint loanAmount) =
+            loans.openLoan(1, 0, defaultSwapParams(0), providerOffer(providerOfferId));
+
+        assertEq(loanAmount, 0);
+        skip(duration);
+
+        // empty swap amount
+        prepareSwap(underlying, 0);
+        closeAndCheckLoan(loanId, user1, 0, 0, 0);
     }
 
     function test_closeLoan_byKeeper() public {
