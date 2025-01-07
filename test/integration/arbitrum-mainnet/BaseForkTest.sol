@@ -154,6 +154,13 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
 
     BaseDeployer.AssetPairContracts internal pair;
 
+    // restores back to snapshot for tests that skip time ahead
+    modifier restoreSnapshot() {
+        uint vmSnapshot = vm.snapshotState();
+        _;
+        vm.revertToState(vmSnapshot);
+    }
+
     function setUp() public virtual override {
         super.setUp();
 
@@ -286,7 +293,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         assertEq(oraclePrice, pair.takerNFT.currentOraclePrice());
     }
 
-    function testOpenAndCloseLoan() public {
+    function testOpenAndCloseLoan() public restoreSnapshot {
         uint providerBalanceBefore = pair.cashAsset.balanceOf(provider);
         uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration, ltv);
         assertEq(pair.cashAsset.balanceOf(provider), providerBalanceBefore - offerAmount);
@@ -327,7 +334,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         );
     }
 
-    function testOpenAndCloseEscrowLoan() public {
+    function testOpenAndCloseEscrowLoan() public restoreSnapshot {
         //  create provider and escrow offers
         (uint offerId, uint escrowOfferId) = createEscrowOffers();
         (uint loanId,, uint loanAmount) = executeEscrowLoan(offerId, escrowOfferId);
@@ -364,7 +371,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         assertEq(pair.underlying.balanceOf(user) - userBefore, underlyingOut);
     }
 
-    function testRollEscrowLoanBetweenSuppliers() public {
+    function testRollEscrowLoanBetweenSuppliers() public restoreSnapshot {
         // Create first provider and escrow offers
         (uint offerId1, uint escrowOfferId1) = createEscrowOffers();
         (uint escrowFees1,,) = pair.escrowNFT.upfrontFees(escrowOfferId1, underlyingAmount);
@@ -504,7 +511,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         assertGe(int(newLoanAmount), int(initialLoanAmount) + transferAmount);
     }
 
-    function testFullLoanLifecycle() public {
+    function testFullLoanLifecycle() public restoreSnapshot {
         uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
 
         uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration, ltv);
@@ -583,7 +590,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         assertEq(pair.underlying.balanceOf(user) - userUnderlyingBefore, underlyingOut);
     }
 
-    function testCloseEscrowLoanAfterGracePeriod() public {
+    function testCloseEscrowLoanAfterGracePeriod() public restoreSnapshot {
         //  create provider and escrow offers
         (uint offerId, uint escrowOfferId) = createEscrowOffers();
         (uint loanId,, uint loanAmount) = executeEscrowLoan(offerId, escrowOfferId);
@@ -626,7 +633,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         assertEq(pair.underlying.balanceOf(user) - userBefore, underlyingOut);
     }
 
-    function testSeizeEscrowAndUnwrapLoan() public {
+    function testSeizeEscrowAndUnwrapLoan() public restoreSnapshot {
         //  create provider and escrow offers
         (uint offerId, uint escrowOfferId) = createEscrowOffers();
         (uint loanId,,) = executeEscrowLoan(offerId, escrowOfferId);
@@ -666,7 +673,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         assertEq(pair.cashAsset.balanceOf(user) - userBeforeCash, takerWithdrawal);
     }
 
-    function testCloseEscrowLoanWithPartialLateFees() public {
+    function testCloseEscrowLoanWithPartialLateFees() public restoreSnapshot {
         //  create provider and escrow offers
         (uint offerId, uint escrowOfferId) = createEscrowOffers();
         (uint loanId,, uint loanAmount) = executeEscrowLoan(offerId, escrowOfferId);

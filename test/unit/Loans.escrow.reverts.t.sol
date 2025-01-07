@@ -129,7 +129,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         vm.expectRevert("escrow: already released");
         escrowNFT.seizeEscrow(escrowId);
 
-        vm.revertTo(checkpoint);
+        vm.revertToState(checkpoint);
         vm.startPrank(user1);
         skip(duration);
         updatePrice();
