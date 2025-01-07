@@ -339,7 +339,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     /**
      * @notice Cancels an active loan, burns the loan NFT, and unwraps the taker NFT to user,
      * disconnecting it from the loan.
-     * If escrow was used, checks releases the escrow if it wasn't released and sends any
+     * If escrow was used, releases the escrow if it wasn't released and sends any
      * escrow fee refunds to the caller.
      * @param loanId The ID representing the loan to unwrap and cancel
      */
@@ -540,7 +540,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         require(isAllowedSwapper(swapParams.swapper), "loans: swapper not allowed");
 
         // @dev 0 amount swaps may revert (depending on swapper), short-circuit here instead of in
-        // swappers to: reduce surface area for integration issues, gas.
+        // swappers to: reduce surface area for integration issues.
         if (amountIn == 0) {
             amountOut = 0;
         } else {

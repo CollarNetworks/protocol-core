@@ -17,7 +17,7 @@ import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
  * 1. Allows suppliers to create and manage escrow offers for multiple loans contracts.
  * 2. Mints NFTs representing escrow positions when offers are taken.
  * 3. Handles starting, ending, and switching of escrow positions.
- * 4. Manages withdrawals of released escrows and last-resort emergency seizures.
+ * 4. Manages withdrawals of released escrows and seizure of overdue escrows.
  *
  * Difference vs. CollarProviderNFT:
  * - Asset: Escrow is "supplied" in underlying tokens (e.g., ETH), while "providers"
@@ -124,6 +124,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
     /**
      * @notice Calculates the upfront interest fee and late fee held for an offer and escrow amount.
+     * Partially refunded depending on the time of escrow release.
      * @param offerId The offer Id to use for calculations
      * @param escrowed The escrowed amount
      * @return total The calculated total fees (interest and late fee)
@@ -140,8 +141,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     }
 
     /**
-     * @notice Calculates the refunds if escrow is released now. There are no refunds if escrow is seized after
-     * grace period end.
+     * @notice Calculates the refunds if escrow is released now. There are no refunds if escrow is
+     * seized after grace period end.
      * @param escrowId The escrow Id to use for calculations
      * @return total The calculated total refunds
      * @return interestRefund refund of interest fee. Capped at MAX_FEE_REFUND_BIPS of held.
@@ -318,7 +319,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @param newFees The new interest fee amount
      * @param newLoanId The new loan ID
      * @return newEscrowId The ID of the new escrow
-     * @return feesRefund The refunded fee amount from the old escrow's upfront interest
+     * @return feesRefund The refunded fee amount from old escrow's upfront held interest fee
+     * and late fee
      */
     function switchEscrow(uint releaseEscrowId, uint offerId, uint newFees, uint newLoanId)
         external
@@ -380,6 +382,11 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
     /**
      * @notice Seize escrow funds and any fees held after grace period end. Burns the NFT.
+     * Does not depend on loans to release.
+     * When this is callable, loan's cancel method is likely also still callable. If the borrower
+     * calls cancel, they will get any overpayment refund, and this method will stop being callable
+     * because escrow will be released then.
+     * In either case, escrow owner withdraws full principal, interest, and late fees.
      * @param escrowId The ID of the escrow to seize
      */
     function seizeEscrow(uint escrowId) external whenNotPaused {
@@ -490,23 +497,23 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         returns (uint withdrawal, uint toLoans, uint feesRefund)
     {
         // What we have available is what we held (escrow + upfront fees) and fromLoans.
-        // FromLoans should be escrow principal only, such that the escrow amounts are
+        // @dev fromLoans should be escrow principal only, such that the escrow amounts are
         // "exchanged" again, and any shortfall reduces the toLoans return amount.
-        // @dev note that withdrawal of all escrow and fees (interest + late fee) is guaranteed
+        // Even though the net flow can only be positive, the point of this contract is to
+        // exchange the (equal) principals between the escrow owner and the loans' borrower,
+        // which is why the inbound transfer of principal is needed
         uint available = escrow.escrowed + escrow.feesHeld + fromLoans;
 
         (feesRefund,,,) = _feesRefunds(escrow);
+        // the expected principal + upfront fees - refunds (of uprfront fees)
+        // @dev note that withdrawal of all escrow and fees (interest + late fee) is guaranteed
+        withdrawal = escrow.escrowed + escrow.feesHeld - feesRefund;
 
-        // this handles under-payment (slippage, default) or over-payment (excessive late fees):
-        // any shortfall is for the borrower (e.g., slippage) - taken out of the escrow funds held
-        uint targetWithdrawal = escrow.escrowed + escrow.feesHeld - feesRefund;
-
-        // use as much as possible from available up to target
-        withdrawal = Math.min(available, targetWithdrawal);
-        // refund the rest if anything is left: returned supplier's funds, interestRefund, overpayment.
+        // This is safe because available >= withdrawal.
+        // Available = E + F + L ; Withdrawal = E + F - R;
+        // Available - Withdrawal = L + R;
+        // refund the rest if anything is left: returned supplier's funds, interest, late fee, overpayment.
         toLoans = available - withdrawal;
-
-        // @dev for swtichEscrow, fromLoans is 0, and lateFee is 0, so toLoans is just the interest refund
     }
 
     function _upfrontFees(uint offerId, uint escrowed)
@@ -525,7 +532,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         view
         returns (uint total, uint interestRefund, uint lateFeeRefund, uint overpaymentRefund)
     {
-        // check how much was held for interest and late fees
+        // amounts held for interest and late fees. Assumes offer and size are immutable.
         (uint interestHeld, uint lateFeeHeld) = _upfrontFees(escrow.offerId, escrow.escrowed);
 
         interestRefund = _interestRefund(escrow, interestHeld);
@@ -538,15 +545,17 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     }
 
     function _lateFeeRefund(Escrow memory escrow, uint lateFeeHeld) internal view returns (uint) {
+        uint gracePeriod = escrow.gracePeriod;
+        // default to 0 overdue before MIN_GRACE_PERIOD end to refund full late fee
         uint overdue = 0;
-        // MIN_GRACE_PERIOD is grace period cliff, before which the full late fee is refunded
         if (block.timestamp > escrow.expiration + MIN_GRACE_PERIOD) {
-            overdue = block.timestamp - escrow.expiration; // counts from expiration despite the cliff
-            // cap at specified grace period
-            overdue = Math.min(overdue, escrow.gracePeriod);
+            // the cliff counts from expiration
+            overdue = block.timestamp - escrow.expiration;
+            // cap at grace period
+            overdue = Math.min(overdue, gracePeriod);
         }
-        // round down against borrower (again, because lateFeeHeld is rounded up).
-        return lateFeeHeld * (escrow.gracePeriod - overdue) / escrow.gracePeriod;
+        // rounds down against borrower a second time (lateFeeHeld was rounded up).
+        return lateFeeHeld * (gracePeriod - overdue) / gracePeriod;
     }
 
     function _interestRefund(Escrow memory escrow, uint interestHeld) internal view returns (uint) {

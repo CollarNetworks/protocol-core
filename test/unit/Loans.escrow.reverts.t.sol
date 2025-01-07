@@ -107,13 +107,13 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         // seize now
         skip(1);
 
-        // Keeper can now foreclose
+        // escrow can be seized
         vm.startPrank(supplier);
         escrowNFT.seizeEscrow(loan.escrowId);
     }
 
     function test_revert_seizeEscrow_invalidLoanStates() public {
-        // foreclose a non-existent loan
+        // seize a non-existent loan
         uint nonExistentEscrowId = 999;
         expectRevertERC721Nonexistent(nonExistentEscrowId);
         escrowNFT.seizeEscrow(nonExistentEscrowId);
