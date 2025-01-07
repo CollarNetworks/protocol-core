@@ -82,15 +82,16 @@ abstract contract DeploymentLoader is Test, ArbitrumMainnetDeployer {
     function getPairByAssets(address cashAsset, address underlying)
         internal
         view
-        returns (BaseDeployer.AssetPairContracts memory pair)
+        returns (BaseDeployer.AssetPairContracts memory pair, uint i)
     {
-        for (uint i = 0; i < deployedPairs.length; i++) {
+        for (i = 0; i < deployedPairs.length; i++) {
             if (
                 address(deployedPairs[i].cashAsset) == cashAsset
                     && address(deployedPairs[i].underlying) == underlying
             ) {
-                return deployedPairs[i];
+                return (deployedPairs[i], i);
             }
         }
+        revert("not found");
     }
 }

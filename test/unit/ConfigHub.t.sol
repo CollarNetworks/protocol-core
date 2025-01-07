@@ -26,8 +26,8 @@ contract ConfigHubTest is Test {
     bytes user1NotAuthorized = abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user1);
 
     function setUp() public {
-        token1 = new TestERC20("Test1", "TST1");
-        token2 = new TestERC20("Test2", "TST2");
+        token1 = new TestERC20("Test1", "TST1", 18);
+        token2 = new TestERC20("Test2", "TST2", 18);
         configHub = new ConfigHub(owner);
     }
 
