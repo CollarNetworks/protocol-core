@@ -506,7 +506,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         startHoax(user1);
         // 1 wei underlying
         underlying.approve(address(loans), 1);
-        (uint loanId, , uint loanAmount) =
+        (uint loanId,, uint loanAmount) =
             loans.openLoan(1, 0, defaultSwapParams(0), providerOffer(providerOfferId));
 
         assertEq(loanAmount, 0);
