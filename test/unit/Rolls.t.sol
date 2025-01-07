@@ -16,7 +16,7 @@ contract RollsTest is BaseAssetPairTestSetup {
     uint providerLocked = swapCashAmount * (callStrikePercent - BIPS_100PCT) / BIPS_100PCT; // 100
 
     // roll offer params
-    int feeAmount = 1 ether;
+    int feeAmount = int(cashUnits(1));
     int feeDeltaFactorBIPS = 5000; // 50%
     uint minPrice = oraclePrice * 9 / 10;
     uint maxPrice = oraclePrice * 11 / 10;
@@ -25,11 +25,11 @@ contract RollsTest is BaseAssetPairTestSetup {
 
     function createProviderOffers() internal returns (uint offerId, uint offerId2) {
         startHoax(provider);
-        cashAsset.approve(address(providerNFT), largeAmount);
-        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration, 0);
+        cashAsset.approve(address(providerNFT), largeCash);
+        offerId = providerNFT.createOffer(callStrikePercent, largeCash, ltv, duration, 0);
         // another provider NFT
-        cashAsset.approve(address(providerNFT2), largeAmount);
-        offerId2 = providerNFT2.createOffer(callStrikePercent, largeAmount, ltv, duration, 0);
+        cashAsset.approve(address(providerNFT2), largeCash);
+        offerId2 = providerNFT2.createOffer(callStrikePercent, largeCash, ltv, duration, 0);
     }
 
     function createTakerPositions() internal returns (uint takerId, uint providerId) {
@@ -307,8 +307,8 @@ contract RollsTest is BaseAssetPairTestSetup {
         - start 1000 at price 1000, 100 user locked, 200 provider locked
         - no changes except fee being charged
         */
-        assertEq(expected.newTakerLocked, 100 ether);
-        assertEq(expected.newProviderLocked, 200 ether);
+        assertEq(expected.newTakerLocked, cashUnits(100));
+        assertEq(expected.newProviderLocked, cashUnits(200));
         assertEq(expected.toTaker, -expected.rollFee);
         assertEq(expected.toProvider, expected.rollFee - int(expected.toProtocol));
     }
@@ -321,8 +321,8 @@ contract RollsTest is BaseAssetPairTestSetup {
         - start 1000 at price 1000, 100 user locked, 200 provider locked
         - no changes except fee being charged
         */
-        assertEq(expected.newTakerLocked, 100 ether);
-        assertEq(expected.newProviderLocked, 200 ether);
+        assertEq(expected.newTakerLocked, cashUnits(100));
+        assertEq(expected.newProviderLocked, cashUnits(200));
         assertEq(expected.toTaker, 0);
         assertEq(expected.toProvider, -int(expected.toProtocol));
     }
@@ -339,10 +339,10 @@ contract RollsTest is BaseAssetPairTestSetup {
         - toTaker = 150 - 105 = 45
         - toProvider = 150 - 210 = -60
         */
-        assertEq(expected.newTakerLocked, 105 ether);
-        assertEq(expected.newProviderLocked, 210 ether);
-        assertEq(expected.toTaker, 45 ether - expected.rollFee);
-        assertEq(expected.toProvider, -60 ether + expected.rollFee - int(expected.toProtocol));
+        assertEq(expected.newTakerLocked, cashUnits(105));
+        assertEq(expected.newProviderLocked, cashUnits(210));
+        assertEq(expected.toTaker, int(cashUnits(45)) - expected.rollFee);
+        assertEq(expected.toProvider, -int(cashUnits(60)) + expected.rollFee - int(expected.toProtocol));
     }
 
     function test_executeRoll_5_pct_down_simple() public {
@@ -357,16 +357,16 @@ contract RollsTest is BaseAssetPairTestSetup {
         - toTaker = 50 - 95 = -45
         - toProvider = 250 - 190 = 60
         */
-        assertEq(expected.newTakerLocked, 95 ether);
-        assertEq(expected.newProviderLocked, 190 ether);
-        assertEq(expected.toTaker, -45 ether - expected.rollFee);
-        assertEq(expected.toProvider, 60 ether + expected.rollFee - int(expected.toProtocol));
+        assertEq(expected.newTakerLocked, cashUnits(95));
+        assertEq(expected.newProviderLocked, cashUnits(190));
+        assertEq(expected.toTaker, -int(cashUnits(45)) - expected.rollFee);
+        assertEq(expected.toProvider, int(cashUnits(60)) + expected.rollFee - int(expected.toProtocol));
     }
 
     function test_executeRoll_30_pct_up_simple() public {
         // increase price tolerance
         maxPrice = oraclePrice * 2;
-        minToProvider = -260 ether;
+        minToProvider = -int(cashUnits(260));
         // Move the price up by 30%
         ExpectedRoll memory expected = checkExecuteRollForPriceChange(oraclePrice * 130 / 100);
 
@@ -378,10 +378,10 @@ contract RollsTest is BaseAssetPairTestSetup {
         - toTaker = 300 - 130 = 170
         - toProvider = 0 - 260 = -260
         */
-        assertEq(expected.newTakerLocked, 130 ether);
-        assertEq(expected.newProviderLocked, 260 ether);
-        assertEq(expected.toTaker, 170 ether - expected.rollFee);
-        assertEq(expected.toProvider, -260 ether + expected.rollFee - int(expected.toProtocol));
+        assertEq(expected.newTakerLocked, cashUnits(130));
+        assertEq(expected.newProviderLocked, cashUnits(260));
+        assertEq(expected.toTaker, int(cashUnits(170)) - expected.rollFee);
+        assertEq(expected.toProvider, -int(cashUnits(260)) + expected.rollFee - int(expected.toProtocol));
     }
 
     function test_executeRoll_20_pct_down_simple() public {
@@ -398,10 +398,10 @@ contract RollsTest is BaseAssetPairTestSetup {
         - toTaker = 0 - 80 = -80
         - toProvider = 300 - 160 = 140
         */
-        assertEq(expected.newTakerLocked, 80 ether);
-        assertEq(expected.newProviderLocked, 160 ether);
-        assertEq(expected.toTaker, -80 ether - expected.rollFee);
-        assertEq(expected.toProvider, 140 ether + expected.rollFee - int(expected.toProtocol));
+        assertEq(expected.newTakerLocked, cashUnits(80));
+        assertEq(expected.newProviderLocked, cashUnits(160));
+        assertEq(expected.toTaker, -int(cashUnits(80)) - expected.rollFee);
+        assertEq(expected.toProvider, int(cashUnits(140)) + expected.rollFee - int(expected.toProtocol));
     }
 
     function test_calculateRollFee() public {
@@ -412,79 +412,79 @@ contract RollsTest is BaseAssetPairTestSetup {
 
         // Price increase, positive fee, positive delta factor
         uint newPrice = oraclePrice * 110 / 100; // 10% increase
-        // Expected: 1 ether + (1 ether * 50% * 10%) = 1.05 ether
-        assertEq(rolls.calculateRollFee(offer, newPrice), 1.05 ether, "f+ p+ d+");
+        // Expected: 1 + (1 * 50% * 10%) = 1.05
+        assertEq(rolls.calculateRollFee(offer, newPrice), int(cashFraction(1.05 ether)), "f+ p+ d+");
 
         // Price increase, positive fee, negative delta factor
-        offer.feeAmount = 1 ether;
+        offer.feeAmount = int(cashUnits(1));
         offer.feeDeltaFactorBIPS = -5000; // -50%
         newPrice = oraclePrice * 110 / 100;
-        // Expected: 1 ether - (1 ether * 50% * 10%) = 0.95 ether
-        assertEq(rolls.calculateRollFee(offer, newPrice), 0.95 ether, "f+ p+ d-");
+        // Expected: 1 - (1 * 50% * 10%) = 0.95
+        assertEq(rolls.calculateRollFee(offer, newPrice), int(cashFraction(0.95 ether)), "f+ p+ d-");
 
         // Price decrease, positive fee, negative delta factor
         newPrice = oraclePrice * 90 / 100; // 10% decrease
         offer.feeDeltaFactorBIPS = -5000;
-        // Expected: 1 ether + (1 ether * 50% * 10%) = 1.05 ether
-        assertEq(rolls.calculateRollFee(offer, newPrice), 1.05 ether, "f+ p- d-");
+        // Expected: 1 + (1 * 50% * 10%) = 1.05
+        assertEq(rolls.calculateRollFee(offer, newPrice), int(cashFraction(1.05 ether)), "f+ p- d-");
 
         // Price decrease, positive fee, positive delta factor
         newPrice = oraclePrice * 90 / 100; // 10% decrease
         offer.feeDeltaFactorBIPS = 5000;
-        // Expected: 1 ether - (1 ether * 50% * 10%) = 0.95 ether
-        assertEq(rolls.calculateRollFee(offer, newPrice), 0.95 ether, "f+ p- d+");
+        // Expected: 1 - (1  * 50% * 10%) = 0.95
+        assertEq(rolls.calculateRollFee(offer, newPrice), int(cashFraction(0.95 ether)), "f+ p- d+");
 
         // Price increase, negative fee, positive delta factor
-        offer.feeAmount = -1 ether;
+        offer.feeAmount = -int(cashUnits(1));
         newPrice = oraclePrice * 110 / 100;
-        // Expected: -1 ether + (1 ether * 50% * 10%) = -0.95 ether
-        assertEq(rolls.calculateRollFee(offer, newPrice), -0.95 ether, "f- p+ d+");
+        // Expected: -1 + (1 * 50% * 10%) = -0.95
+        assertEq(rolls.calculateRollFee(offer, newPrice), -int(cashFraction(0.95 ether)), "f- p+ d+");
 
         // Price increase, negative fee, positive delta factor
-        offer.feeAmount = -1 ether;
+        offer.feeAmount = -int(cashUnits(1));
         newPrice = oraclePrice * 110 / 100;
         offer.feeDeltaFactorBIPS = -5000;
-        // Expected: -1 ether - (1 ether * 50% * 10%) = -1.05 ether
-        assertEq(rolls.calculateRollFee(offer, newPrice), -1.05 ether, "f- p+ d-");
+        // Expected: -1 - (1 * 50% * 10%) = -1.05
+        assertEq(rolls.calculateRollFee(offer, newPrice), -int(cashFraction(1.05 ether)), "f- p+ d-");
 
         // Price decrease, negative fee, negative delta factor
-        offer.feeAmount = -1 ether;
+        offer.feeAmount = -int(cashUnits(1));
         newPrice = oraclePrice * 90 / 100; // 10% decrease
         offer.feeDeltaFactorBIPS = 5000;
-        // Expected: -1 ether - (1 ether * 50% * 10%) = -1.05 ether
-        assertEq(rolls.calculateRollFee(offer, newPrice), -1.05 ether, "f- p- d+");
+        // Expected: -1 - (1 * 50% * 10%) = -1.05
+        assertEq(rolls.calculateRollFee(offer, newPrice), -int(cashFraction(1.05 ether)), "f- p- d+");
 
         // Price decrease, negative fee, negative delta factor
-        offer.feeAmount = -1 ether;
+        offer.feeAmount = -int(cashUnits(1));
         newPrice = oraclePrice * 90 / 100; // 10% decrease
         offer.feeDeltaFactorBIPS = -5000;
-        // Expected: -1 ether + (1 ether * 50% * 10%) = -0.95 ether
-        assertEq(rolls.calculateRollFee(offer, newPrice), -0.95 ether, "f- p- d-");
+        // Expected: -1 + (1 * 50% * 10%) = -0.95
+        assertEq(rolls.calculateRollFee(offer, newPrice), -int(cashFraction(0.95 ether)), "f- p- d-");
 
         // Large price change (100% increase)
-        offer.feeAmount = 1 ether;
+        offer.feeAmount = int(cashUnits(1));
         newPrice = oraclePrice * 200 / 100;
         offer.feeDeltaFactorBIPS = 5000; // 50%
-        // Expected: 1 ether + (1 ether * 50% * 100%) = 1.5 ether
-        assertEq(rolls.calculateRollFee(offer, newPrice), 1.5 ether, "+100%");
+        // Expected: 1 + (1 * 50% * 100%) = 1.5
+        assertEq(rolls.calculateRollFee(offer, newPrice), int(cashFraction(1.5 ether)), "+100%");
 
         // Zero fee
         offer.feeAmount = 0;
         assertEq(rolls.calculateRollFee(offer, oraclePrice * 150 / 100), 0, "0 fee");
 
         // Test case 9: Zero delta factor
-        offer.feeAmount = 1 ether;
+        offer.feeAmount = int(cashUnits(1));
         offer.feeDeltaFactorBIPS = 0;
-        assertEq(rolls.calculateRollFee(offer, oraclePrice * 150 / 100), 1 ether, "0 delta");
+        assertEq(rolls.calculateRollFee(offer, oraclePrice * 150 / 100), int(cashUnits(1)), "0 delta");
     }
 
     function test_calculateRollFee_additional() public {
         (,, IRolls.RollOffer memory offer) = createAndCheckRollOffer();
 
         // Edge cases for price changes
-        assertEq(rolls.calculateRollFee(offer, 0), 0.5 ether, "-100% price");
+        assertEq(rolls.calculateRollFee(offer, 0), int(cashFraction(0.5 ether)), "-100% price");
 
-        assertEq(rolls.calculateRollFee(offer, oraclePrice * 2), 1.5 ether, "+100%");
+        assertEq(rolls.calculateRollFee(offer, oraclePrice * 2), int(cashFraction(1.5 ether)), "+100%");
 
         // Edge cases for fee amounts
         offer.feeAmount = type(int).min;
@@ -496,16 +496,22 @@ contract RollsTest is BaseAssetPairTestSetup {
         rolls.calculateRollFee(offer, oraclePrice * 110 / 100);
 
         // Edge cases for delta factors
-        offer.feeAmount = 1 ether;
+        offer.feeAmount = int(cashUnits(1));
         offer.feeDeltaFactorBIPS = 10_000; // 100%
         assertEq(rolls.calculateRollFee(offer, 0), 0, "full delta factor no fee");
 
         offer.feeDeltaFactorBIPS = 10_000; // 100%
-        assertEq(rolls.calculateRollFee(offer, oraclePrice * 110 / 100), 1.1 ether, "linear fee");
+        assertEq(
+            rolls.calculateRollFee(offer, oraclePrice * 110 / 100), int(cashFraction(1.1 ether)), "linear fee"
+        );
 
         // Precision check
         offer.feeDeltaFactorBIPS = 10_000; // 100%
-        assertGt(rolls.calculateRollFee(offer, 10_001 * oraclePrice / 10_000), 1 ether, "tiny price change");
+        assertGt(
+            rolls.calculateRollFee(offer, 10_001 * oraclePrice / 10_000),
+            int(cashUnits(1)),
+            "tiny price change"
+        );
     }
 
     function test_pause() public {

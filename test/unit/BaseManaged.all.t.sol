@@ -41,7 +41,7 @@ abstract contract BaseManagedTestBase is Test {
     address guardian = makeAddr("guardian");
 
     function setUp() public virtual {
-        erc20 = new TestERC20("TestERC20", "TestERC20");
+        erc20 = new TestERC20("TestERC20", "TestERC20", 18);
         erc721 = new TestERC721();
         configHub = new ConfigHub(owner);
 

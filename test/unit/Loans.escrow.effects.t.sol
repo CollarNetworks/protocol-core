@@ -88,7 +88,7 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
 
     // repeat all effects tests (open, close, unwrap) from super, but with escrow
 
-    function test_unwrapAndCancelLoan_releasedEscrow() public {
+    function test_unwrapAndCancelLoan_after_lastResortSeizeEscrow() public {
         (uint loanId,,) = createAndCheckLoan();
 
         // check that escrow unreleased
@@ -96,7 +96,7 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         assertFalse(escrowNFT.getEscrow(escrowId).released);
 
         // after expiry
-        skip(duration + 1);
+        skip(duration + maxGracePeriod + 1);
 
         // cannot release
         vm.expectRevert("loans: loan expired");
@@ -106,10 +106,9 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         uint userBalance = underlying.balanceOf(user1);
         uint loansBalance = underlying.balanceOf(address(loans));
 
-        // release escrow via some other way without closing the loan
-        // can be lastResortSeizeEscrow if after full grace period
-        vm.startPrank(address(loans));
-        escrowNFT.endEscrow(escrowId, 0);
+        // release escrow via lastResortSeizeEscrow
+        vm.startPrank(supplier);
+        escrowNFT.lastResortSeizeEscrow(escrowId);
         assertTrue(escrowNFT.getEscrow(escrowId).released);
 
         // now can unwrap
@@ -231,10 +230,10 @@ contract LoansEscrowEffectsTest is LoansBasicEffectsTest {
         checkForecloseLoan(1, 1, maxGracePeriod, supplier);
 
         // price increase, and decrease
-        checkForecloseLoan(largeAmount, 1, maxGracePeriod, supplier);
+        checkForecloseLoan(largeCash, 1, maxGracePeriod, supplier);
 
         // price decrease, and increase
-        checkForecloseLoan(1, largeAmount, maxGracePeriod, supplier);
+        checkForecloseLoan(1, largeCash, maxGracePeriod, supplier);
     }
 
     function test_forecloseLoan_zero_amount_swap() public {

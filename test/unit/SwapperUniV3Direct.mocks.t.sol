@@ -26,8 +26,8 @@ contract SwapperUniV3Test is Test {
         mockRouter = new MockSwapperRouter();
         swapper = new SwapperUniV3(address(mockRouter), feeTier);
 
-        tokenIn = new TestERC20("Mock Token In", "MTI");
-        tokenOut = new TestERC20("Mock Token Out", "MTO");
+        tokenIn = new TestERC20("Mock Token In", "MTI", 18);
+        tokenOut = new TestERC20("Mock Token Out", "MTO", 18);
     }
 
     function setupSwap(uint _amountIn, uint _amountOut) internal {

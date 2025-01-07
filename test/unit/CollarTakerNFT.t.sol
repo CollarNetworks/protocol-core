@@ -19,33 +19,33 @@ import { ICollarProviderNFT } from "../../src/interfaces/ICollarProviderNFT.sol"
 import { ITakerOracle } from "../../src/interfaces/ITakerOracle.sol";
 
 contract CollarTakerNFTTest is BaseAssetPairTestSetup {
-    uint takerLocked = 1000 ether;
-    uint providerLocked = 2000 ether;
-    uint callStrikePrice = 1200 ether; // 120% of the price
-    uint putStrikePrice = 900 ether; // 90% of the price corresponding to 9000 LTV
+    uint takerLocked = cashUnits(1000);
+    uint providerLocked = cashUnits(2000);
+    uint callStrikePrice = cashUnits(1200); // 120% of the price
+    uint putStrikePrice = cashUnits(900); // 90% of the price corresponding to 9000 LTV
 
     uint offerId = 999; // stores latest ID, init to invalid
 
     function createOffer() internal {
         startHoax(provider);
-        cashAsset.approve(address(providerNFT), largeAmount);
+        cashAsset.approve(address(providerNFT), largeCash);
 
         uint expectedOfferId = providerNFT.nextPositionId();
         vm.expectEmit(address(providerNFT));
         emit ICollarProviderNFT.OfferCreated(
-            provider, ltv, duration, callStrikePercent, largeAmount, expectedOfferId, 0
+            provider, ltv, duration, callStrikePercent, largeCash, expectedOfferId, 0
         );
-        offerId = providerNFT.createOffer(callStrikePercent, largeAmount, ltv, duration, 0);
+        offerId = providerNFT.createOffer(callStrikePercent, largeCash, ltv, duration, 0);
         CollarProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
         assertEq(offer.callStrikePercent, callStrikePercent);
-        assertEq(offer.available, largeAmount);
+        assertEq(offer.available, largeCash);
         assertEq(offer.provider, provider);
         assertEq(offer.duration, duration);
         assertEq(offer.callStrikePercent, callStrikePercent);
         assertEq(offer.putStrikePercent, ltv);
     }
 
-    function checkOpenPairedPosition() internal returns (uint takerId, uint providerNFTId) {
+    function checkOpenPairedPosition() public returns (uint takerId, uint providerNFTId) {
         createOffer();
 
         startHoax(user1);
@@ -122,13 +122,14 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
     function checkSettlementCalculation(CollarTakerNFT.TakerPosition memory takerPos, uint endPrice)
         internal
+        view
         returns (uint takerBalance, int providerDelta)
     {
         uint e = endPrice;
         uint s = takerPos.startPrice;
 
-        //        // can be used to check (in fuzz test) if roundup affects results
-        //        uint p = (s * ltv - 1) / BIPS_100PCT + 1;
+        // can be used to check (in fuzz test) if roundup affects results
+        // uint p = (s * ltv - 1) / BIPS_100PCT + 1;
         uint p = s * ltv / BIPS_100PCT;
         uint c = s * callStrikePercent / BIPS_100PCT;
 
@@ -456,14 +457,41 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
     }
 
     /// forge-config: default.fuzz.runs = 100
-    function test_settleCalculation_fuzz(int deltaPrice, uint takerIn, uint pStrike, uint cStrike) public {
-        deltaPrice = bound(deltaPrice, -int(oraclePrice / 10), int(oraclePrice / 10));
-        takerLocked = bound(takerIn, 0, 1 ether);
-        ltv = bound(pStrike, 9000, 9999);
+    function test_settleCalculation_fuzz(
+        uint startPrice,
+        uint endPrice,
+        uint pStrike,
+        uint cStrike,
+        uint tLocked
+    ) public {
+        // price must be at least BIPS_100PCT so that 1 bip strike results in different strike prices
+        oraclePrice = bound(startPrice, BIPS_100PCT, oraclePrice * pow10(18 - cashDecimals));
+        endPrice = bound(endPrice, oraclePrice / 100, oraclePrice * 100);
+        ltv = bound(pStrike, 1000, 9999);
         callStrikePercent = bound(cStrike, 10_001, 12_000);
+        takerLocked = bound(tLocked, 0, takerLocked);
+        updatePrice();
         vm.startPrank(owner);
         configHub.setLTVRange(ltv, ltv);
-        uint newPrice = uint(int(oraclePrice) + deltaPrice);
+        vm.assumeNoRevert();
+        // using "this." so that assumeNoRevert covers the whole setup phase
+        (uint takerId,) = this.checkOpenPairedPosition();
+        CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
+        checkSettlementCalculation(takerPos, endPrice);
+    }
+
+    // test case that can show roundup direction difference for price calculations
+    // when rounding is done differently in checkSettlementCalculation from contract
+    // part of validating finding #467 from the contest
+    function test_rounding_contest_467() public {
+        oraclePrice = 99_990_909;
+        updatePrice();
+        takerLocked = 1e9;
+        ltv = 9999;
+        callStrikePercent = 10_002;
+        uint newPrice = 99_980_910;
+        vm.startPrank(owner);
+        configHub.setLTVRange(ltv, ltv);
         (uint takerId,) = checkOpenPairedPosition();
         CollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
         checkSettlementCalculation(takerPos, newPrice);
@@ -641,7 +669,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         // new oracle
         BaseTakerOracle newOracle = createMockFeedOracle(address(underlying), address(cashAsset));
 
-        uint newPrice = 1500 ether;
+        uint newPrice = cashUnits(1500);
         updatePrice(newPrice);
 
         startHoax(owner);
