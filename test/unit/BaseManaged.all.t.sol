@@ -222,9 +222,7 @@ contract BadConfigHub2 {
 
 // mock of an inheriting contract (because base is abstract)
 contract TestableBaseManaged is BaseManaged {
-    constructor(address _initialOwner, ConfigHub _configHub) BaseManaged(_initialOwner) {
-        _setConfigHub(_configHub);
-    }
+    constructor(address _initialOwner, ConfigHub _configHub) BaseManaged(_initialOwner, _configHub) { }
 }
 
 // the tests for the mock contract

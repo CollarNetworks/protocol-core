@@ -414,8 +414,10 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
     }
 
-    function test_openPairedPositionBadCashAssetMismatch() public {
+    function test_openPairedPosition_providerConfigMismatch() public {
         createOffer();
+
+        // cash mismatch
         CollarProviderNFT providerNFTBad = new CollarProviderNFT(
             owner, configHub, underlying, underlying, address(takerNFT), "CollarTakerNFTBad", "BRWTSTBAD"
         );
@@ -424,17 +426,25 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         cashAsset.approve(address(takerNFT), takerLocked);
         vm.expectRevert("taker: cashAsset mismatch");
         takerNFT.openPairedPosition(takerLocked, providerNFTBad, 0);
-    }
 
-    function test_openPairedPositionBadUnderlyingMismatch() public {
-        createOffer();
-        CollarProviderNFT providerNFTBad = new CollarProviderNFT(
+        // underlying mismatch
+        providerNFTBad = new CollarProviderNFT(
             owner, configHub, cashAsset, cashAsset, address(takerNFT), "CollarTakerNFTBad", "BRWTSTBAD"
         );
         setCanOpen(address(providerNFTBad), true);
         startHoax(user1);
         cashAsset.approve(address(takerNFT), takerLocked);
         vm.expectRevert("taker: underlying mismatch");
+        takerNFT.openPairedPosition(takerLocked, providerNFTBad, 0);
+
+        // taker mismatch
+        providerNFTBad = new CollarProviderNFT(
+            owner, configHub, cashAsset, underlying, address(providerNFT2), "CollarTakerNFTBad", "BRWTSTBAD"
+        );
+        setCanOpen(address(providerNFTBad), true);
+        startHoax(user1);
+        cashAsset.approve(address(takerNFT), takerLocked);
+        vm.expectRevert("taker: taker mismatch");
         takerNFT.openPairedPosition(takerLocked, providerNFTBad, 0);
     }
 

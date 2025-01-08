@@ -62,10 +62,9 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         ITakerOracle _oracle,
         string memory _name,
         string memory _symbol
-    ) BaseNFT(initialOwner, _name, _symbol) {
+    ) BaseNFT(initialOwner, _name, _symbol, _configHub) {
         cashAsset = _cashAsset;
         underlying = _underlying;
-        _setConfigHub(_configHub);
         _setOracle(_oracle);
     }
 
@@ -178,6 +177,8 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         // check assets match
         require(providerNFT.underlying() == underlying, "taker: underlying mismatch");
         require(providerNFT.cashAsset() == cashAsset, "taker: cashAsset mismatch");
+        // check this is the right taker (in case multiple are allowed). ProviderNFT checks too.
+        require(providerNFT.taker() == address(this), "taker: taker mismatch");
 
         CollarProviderNFT.LiquidityOffer memory offer = providerNFT.getOffer(offerId);
         require(offer.duration != 0, "taker: invalid offer");
@@ -201,9 +202,8 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         uint expiration = block.timestamp + offer.duration;
         require(expiration == providerNFT.expiration(providerId), "taker: expiration mismatch");
 
-        // increment ID
+        // storage updates
         takerId = nextTokenId++;
-        // store position data
         positions[takerId] = TakerPositionStored({
             providerNFT: providerNFT,
             providerId: SafeCast.toUint64(providerId),
@@ -250,6 +250,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         (CollarProviderNFT providerNFT, uint providerId) = (position.providerNFT, position.providerId);
         // settle paired and make the transfers
         if (providerDelta > 0) cashAsset.forceApprove(address(providerNFT), uint(providerDelta));
+        // @dev providerNFT is trusted to transfer providerDelta as instructed (in or out)
         providerNFT.settlePosition(providerId, providerDelta);
 
         emit PairedPositionSettled(

@@ -74,12 +74,11 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     address public defaultSwapper;
 
     constructor(address initialOwner, CollarTakerNFT _takerNFT, string memory _name, string memory _symbol)
-        BaseNFT(initialOwner, _name, _symbol)
+        BaseNFT(initialOwner, _name, _symbol, _takerNFT.configHub())
     {
         takerNFT = _takerNFT;
         cashAsset = _takerNFT.cashAsset();
         underlying = _takerNFT.underlying();
-        _setConfigHub(_takerNFT.configHub());
     }
 
     modifier onlyNFTOwner(uint loanId) {
@@ -595,7 +594,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         (Rolls rolls, uint rollId) = (rollOffer.rolls, rollOffer.id);
         // check this rolls contract is allowed
         require(configHub.canOpenPair(underlying, cashAsset, address(rolls)), "loans: unsupported rolls");
-        // taker matching roll's taker is not checked because if doesn't match, roll should check / fail
+        // ensure it's the right takerNFT in case of multiple takerNFTs for an asset pair
+        require(address(rolls.takerNFT()) == address(takerNFT), "loans: rolls takerNFT mismatch");
         // offer status (active) is not checked, also since rolls should check / fail
 
         // for balance check at the end
@@ -623,6 +623,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         require(toTaker == preview.toTaker, "loans: unexpected transfer amount");
         // check slippage (would have been checked in Rolls as well)
         require(toTaker >= minToUser, "loans: roll transfer < minToUser");
+        // check taker ID received
+        require(takerNFT.ownerOf(newTakerId) == address(this), "loans: new taker ID not received");
 
         // transfer cash if should have received any
         if (toTaker > 0) {
@@ -797,6 +799,16 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         (expiration,) = takerNFT.expirationAndSettled(_takerId(loanId));
     }
 
+    /*
+    @dev Note that if roll price was outside of the initial put-call range the newLoanAmount
+    may not correspond to the initial LTV (putStrikePercent) w.r.t, to the new position:
+        newLoanAmount / (newLoanAmount + takerLocked) <> putStrikePercent.
+    And the value in underlying terms will also not remain roughly constant.
+    - If the price went above call strike, the LTV and underlying-exposure will be lower.
+    - If the price went below put strike, the LTV and underlying-exposure will be higher.
+    Specifically this behavior should be taken into account w.r.t. to flexible roll implementations
+    (e.g., to different terms) to avoid assuming constant exposure or valid LTV.
+    */
     function _loanAmountAfterRoll(int fromRollsToUser, int rollFee, uint prevLoanAmount)
         internal
         pure

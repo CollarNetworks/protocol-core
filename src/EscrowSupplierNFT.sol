@@ -74,9 +74,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         IERC20 _asset,
         string memory _name,
         string memory _symbol
-    ) BaseNFT(initialOwner, _name, _symbol) {
+    ) BaseNFT(initialOwner, _name, _symbol, _configHub) {
         asset = _asset;
-        _setConfigHub(_configHub);
     }
 
     // ----- VIEWS ----- //
@@ -163,7 +162,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @param fromLoans The amount repaid from loans
      * @return withdrawal The amount to be withdrawn by the supplier
      * @return toLoans The amount to be returned to loans (includes refund)
-     * @return feesRefund The refunded interest amount
+     * @return feesRefund The refunded fees
      */
     function previewRelease(uint escrowId, uint fromLoans)
         external
@@ -288,14 +287,11 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @notice Ends an escrow. Returns any refund beyond what's owed back to loans.
      * @dev Can only be called by the Loans contract that started the escrow
      * @param escrowId The ID of the escrow to end
-     * @param repaid The amount repaid, can be more or less than original escrow amount, depending on
-     * late fees (enforced by the loans contract), or position / slippage / default shortfall. The
-     * supplier is guaranteed to withdraw at least the escrow amount + interest fees regardless.
+     * @param repaid The amount repaid which should be equal to the original escrow amount.
      * @return toLoans Amount to be returned to loans (refund deducing shortfalls)
      */
     function endEscrow(uint escrowId, uint repaid) external whenNotPaused returns (uint toLoans) {
         // @dev msg.sender auth is checked vs. stored loans in _endEscrow
-        // shouldRefund is true since this method returns the refund to loans
         toLoans = _endEscrow(escrowId, getEscrow(escrowId), repaid);
 
         // transfer in the repaid assets in: original supplier's assets, plus any late fee
@@ -506,7 +502,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
         (feesRefund,,,) = _feesRefunds(escrow);
         // the expected principal + upfront fees - refunds (of uprfront fees)
-        // @dev note that withdrawal of all escrow and fees (interest + late fee) is guaranteed
+        // @dev note that withdrawal of escrow and the right amount of fees (interest + late fee)
+        // is guaranteed by this contract regardless of fromLoans
         withdrawal = escrow.escrowed + escrow.feesHeld - feesRefund;
 
         // This is safe because available >= withdrawal.

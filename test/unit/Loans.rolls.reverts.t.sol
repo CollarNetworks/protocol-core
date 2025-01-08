@@ -29,6 +29,12 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         vm.startPrank(user1);
         vm.expectRevert("loans: unsupported rolls");
         loans.rollLoan(loanId, rollOffer(rollId), MIN_INT, 0, 0);
+
+        setCanOpen(address(rolls), true);
+        vm.mockCall(address(rolls), abi.encodeCall(rolls.takerNFT, ()), abi.encode(address(loans)));
+        vm.startPrank(user1);
+        vm.expectRevert("loans: rolls takerNFT mismatch");
+        loans.rollLoan(loanId, rollOffer(rollId), MIN_INT, 0, 0);
     }
 
     function test_revert_rollLoan_basic_checks() public {
@@ -90,7 +96,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         loans.rollLoan(loanId, rollOffer(rollId), 0, escrowOfferId, 0);
     }
 
-    function test_revert_rollLoan_slippage() public {
+    function test_revert_rollLoan_postRollChecks() public {
         (uint loanId,,) = createAndCheckLoan();
         uint rollId = createRollOffer(loanId);
 
@@ -106,8 +112,17 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
 
         // this should revert in loan
         vm.mockCall(
+            address(takerNFT),
+            abi.encodeCall(takerNFT.ownerOf, (takerNFT.nextPositionId())),
+            abi.encode(address(rolls)) // taker ID not transferred
+        );
+        vm.expectRevert("loans: new taker ID not received");
+        loans.rollLoan(loanId, rollOffer(rollId), loanChangePreview, 0, 0);
+
+        // this should revert in loan
+        vm.mockCall(
             address(rolls),
-            abi.encodeWithSelector(rolls.executeRoll.selector, rollId, loanChangePreview + 1),
+            abi.encodeCall(rolls.executeRoll, (rollId, loanChangePreview + 1)),
             abi.encode(0, 0, loanChangePreview, 0) // return less than previewed
         );
         vm.expectRevert("loans: roll transfer < minToUser");
@@ -116,7 +131,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         // Mock the executeRoll function to return unexpected value (-1)
         vm.mockCall(
             address(rolls),
-            abi.encodeWithSelector(rolls.executeRoll.selector, rollId, loanChangePreview),
+            abi.encodeCall(rolls.executeRoll, (rollId, loanChangePreview)),
             abi.encode(0, 0, loanChangePreview - 1, 0)
         );
         vm.expectRevert("loans: unexpected transfer amount");
@@ -125,7 +140,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         // Mock the executeRoll function to return unexpected value (+1)
         vm.mockCall(
             address(rolls),
-            abi.encodeWithSelector(rolls.executeRoll.selector, rollId, loanChangePreview),
+            abi.encodeCall(rolls.executeRoll, (rollId, loanChangePreview)),
             abi.encode(0, 0, loanChangePreview + 1, 0)
         );
         vm.expectRevert("loans: unexpected transfer amount");
@@ -200,22 +215,31 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         // It's negative because paying to rolls is pulling from the user - repaying the loan.
         ICollarTakerNFT.TakerPosition memory emptyTakerPos;
         int largeRepayment = -int(loanAmount + 1);
+        // mock previewRoll
         vm.mockCall(
             address(rolls),
             abi.encodeWithSelector(rolls.previewRoll.selector, rollId, oraclePrice),
             abi.encode(IRolls.PreviewResults(largeRepayment, 0, 0, emptyTakerPos, 0, 0, 0))
         );
+        // mock executeRoll
         vm.mockCall(
             address(rolls),
             abi.encodeWithSelector(rolls.executeRoll.selector, rollId, MIN_INT),
             abi.encode(loanId + 1, 0, largeRepayment, 0)
         );
+        // mock cashAsset transfer
         vm.mockCall(
             address(cashAsset),
             abi.encodeWithSelector(
                 cashAsset.transferFrom.selector, user1, address(loans), uint(-largeRepayment)
             ),
             abi.encode(true)
+        );
+        // mock new taker ID ownership
+        vm.mockCall(
+            address(takerNFT),
+            abi.encodeCall(takerNFT.ownerOf, (takerNFT.nextPositionId())),
+            abi.encode(address(loans))
         );
 
         // Attempt to roll the loan, which should revert due to large repayment

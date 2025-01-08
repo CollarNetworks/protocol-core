@@ -1,23 +1,23 @@
-## 2024 Dec Scope:
+## 2024 Jan Scope:
 
 ```
 ------------------------------------------------------------------------------------------
 File                                        blank        comment           code
 ------------------------------------------------------------------------------------------
-src/LoansNFT.sol                              127            470            389
-src/EscrowSupplierNFT.sol                      81            275            262
-src/CollarTakerNFT.sol                         57            151            197
-src/Rolls.sol                                  56            202            194
-src/CollarProviderNFT.sol                      48            145            190
+src/LoansNFT.sol                              108            368            364
+src/EscrowSupplierNFT.sol                      75            228            270
+src/CollarTakerNFT.sol                         57            152            196
+src/Rolls.sol                                  54            202            196
+src/CollarProviderNFT.sol                      48            153            188
 src/ConfigHub.sol                              25             73             79
 src/CombinedOracle.sol                         14             40             56
-src/ChainlinkOracle.sol                        14             48             55
-src/SwapperUniV3.sol                            9             52             43
-src/base/BaseManaged.sol                       17             38             41
+src/ChainlinkOracle.sol                        14             50             55
+src/SwapperUniV3.sol                            9             53             43
+src/base/BaseManaged.sol                       17             36             43
 src/base/BaseTakerOracle.sol                   14             57             34
-src/base/BaseNFT.sol                            7             13             23
+src/base/BaseNFT.sol                            8             13             24
 ------------------------------------------------------------------------------------------
-SUM:                                          469           1564           1563
+SUM:                                          443           1425           1548
 ------------------------------------------------------------------------------------------
 ```
 
@@ -40,8 +40,7 @@ Arbitrum only initially. OP stack rollups (Optimism, Base) in the future.
 ## Known Issues
 - Providers offers do not limit execution price (only strike percentages), nor have deadlines, and are expected to be actively managed.
 - No refund of protocol fee for position cancellations / rolls. Fee APR and roll frequency are assumed to be low, and rolls are assumed to be beneficial enough to users to be worth it. Accepted as low risk economic issue.
-- During escrow loan foreclosure, any remaining cash is sent to the borrower instead of being stored to be pulled. So it can be sent to a contract that will not credit it to actual user.
-- Because oracle prices undergo multiple conversions (feeds, tokens units), asset and price feed combinations w.r.t to decimals and price ranges are assumed to be checked to allow sufficient precision.
+- Because oracle prices undergo multiple conversions (feeds, tokens units), asset and price feed combinations w.r.t to decimals and price ranges (e.g., low price tokens) are assumed to be checked to allow sufficient precision.
 - In case of congestion, calls for `openPairedPosition` (`openLoan` that uses it), and rolls `executeRoll` can be executed at higher price than the user intended (if price is lower, `openLoan` and `executeRoll` have slippage protection, and `openPairedPosition` has better upside for the caller). This is accepted as low likelihood, and low impact: loss is small since short congestion will result in small price change vs. original intent, and long downtime may fail the oracle sequencer uptime check.
 - Issues and considerations explained in the Solidity comments and audit report.
  
@@ -53,6 +52,7 @@ Arbitrum only initially. OP stack rollups (Optimism, Base) in the future.
 ## Prior Audits
 - [Cantina solo review Oct-2024 report](../audits/2024-oct-cantinacode-solo-1.pdf)
 - Cantina contest (findings to be made available after contest is finished)
+- Spearbit audit (to be added when available)
 
 ## Non obvious parameter ranges
 - `minDuration` is at least 1 month.

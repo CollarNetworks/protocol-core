@@ -69,7 +69,8 @@ contract SwapperUniV3 is ISwapper {
 
         // pull funds (assumes approval from caller)
         assetIn.safeTransferFrom(msg.sender, address(this), amountIn);
-        // approve router to pull
+        // approve router to pull.
+        // @dev dangling approval (and balance) can remain if assetIn is WETH and router has ETH balance
         assetIn.forceApprove(address(uniV3SwapRouter), amountIn);
 
         // swap `recipient` is msg.sender, so its balance update is checked

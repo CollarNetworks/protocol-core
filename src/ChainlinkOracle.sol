@@ -16,6 +16,8 @@ import { IChainlinkFeedLike } from "./interfaces/IChainlinkFeedLike.sol";
  * Key Assumptions:
  * - Chainlink price feed configuration matches expectation.
  * - The sequencer (on L2 networks) is operating properly, and its uptime feed (if used) is reliable.
+ * - Feed decimals, ERC-20 decimals, and the token's price are checked to not result in excessive
+ * precision loss, especially for low unit-price base tokens when quoted in low decimals quote token.
  *
  * @dev references:
  * Euler: https://github.com/euler-xyz/euler-price-oracle/blob/0572b45f6096f42f290b7cf7df584226815bfa52/src/adapter/chainlink/ChainlinkOracle.sol

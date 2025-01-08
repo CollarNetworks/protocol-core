@@ -38,7 +38,7 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     uint public constant MAX_PROTOCOL_FEE_BIPS = BIPS_BASE / 100; // 1%
     uint public constant MIN_CONFIGURABLE_LTV_BIPS = BIPS_BASE / 10; // 10%
     uint public constant MAX_CONFIGURABLE_LTV_BIPS = BIPS_BASE - 1; // avoid 0 range edge cases
-    uint public constant MIN_CONFIGURABLE_DURATION = 300; // 5 minutes
+    uint public constant MIN_CONFIGURABLE_DURATION = 5 minutes;
     uint public constant MAX_CONFIGURABLE_DURATION = 5 * YEAR;
 
     // -- state variables ---
