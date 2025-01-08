@@ -322,7 +322,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// Can ONLY be called through the taker, which should check that BOTH NFTs are owned by its caller.
     /// This contract double-checks that this NFT was approved to taker by the owner
     /// when the call is made (which ensures a consenting provider).
-    /// @dev note that a withdrawal is triggerred (and the NFT is burned) because in contrast
+    /// @dev note that a withdrawal is triggered (and the NFT is burned) because in contrast
     /// to settlement, during cancellation the taker's caller MUST be the NFT owner (is the provider),
     /// so is assumed to specify the withdrawal correctly for their funds.
     /// @param positionId The ID of the position to cancel (NFT token ID)

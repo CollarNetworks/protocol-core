@@ -14,6 +14,8 @@ import { BaseManaged, ConfigHub } from "./BaseManaged.sol";
  * ConfigHub address.
  */
 abstract contract BaseNFT is BaseManaged, ERC721 {
+    string internal constant BASE_URI = "https://services.collarprotocol.xyz/metadata/";
+
     // ----- State ----- //
     uint internal nextTokenId = 1; // NFT token ID, starts from 1 so that 0 ID is not used
 
@@ -36,8 +38,8 @@ abstract contract BaseNFT is BaseManaged, ERC721 {
 
     // @dev used by ERC721.tokenURI to create tokenID specific metadata URIs
     function _baseURI() internal view virtual override returns (string memory) {
-        string memory base = "https://services.collarprotocol.xyz/metadata/";
-        return
-            string.concat(base, Strings.toString(block.chainid), "/", Strings.toHexString(address(this)), "/");
+        return string.concat(
+            BASE_URI, Strings.toString(block.chainid), "/", Strings.toHexString(address(this)), "/"
+        );
     }
 }

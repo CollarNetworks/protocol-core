@@ -200,9 +200,8 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         uint expiration = block.timestamp + offer.duration;
         require(expiration == providerNFT.expiration(providerId), "taker: expiration mismatch");
 
-        // increment ID
+        // storage updates
         takerId = nextTokenId++;
-        // store position data
         positions[takerId] = TakerPositionStored({
             providerNFT: providerNFT,
             providerId: SafeCast.toUint64(providerId),
