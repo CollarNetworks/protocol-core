@@ -43,7 +43,7 @@ contract EscrowSupplierNFT_AdminTest is BaseEscrowSupplierNFTTest {
     }
 
     function test_paused_methods() public {
-        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying, 1 ether);
+        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying, escrowFee);
 
         // pause
         vm.startPrank(owner);
@@ -68,16 +68,13 @@ contract EscrowSupplierNFT_AdminTest is BaseEscrowSupplierNFTTest {
         escrowNFT.endEscrow(0, 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        escrowNFT.endEscrowOnlyLateFees(0, 0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
         escrowNFT.switchEscrow(0, 0, 0, 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
         escrowNFT.withdrawReleased(0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        escrowNFT.lastResortSeizeEscrow(0);
+        escrowNFT.seizeEscrow(0);
 
         // transfers are paused
         vm.expectRevert(Pausable.EnforcedPause.selector);

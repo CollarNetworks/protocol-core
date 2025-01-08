@@ -22,14 +22,14 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
 
         // not enough approval for fee
         vm.startPrank(user1);
-        underlying.approve(address(loans), underlyingAmount + escrowFee - 1);
+        underlying.approve(address(loans), underlyingAmount + escrowFees - 1);
         expectRevertERC20Allowance(
-            address(loans), underlyingAmount + escrowFee - 1, underlyingAmount + escrowFee
+            address(loans), underlyingAmount + escrowFees - 1, underlyingAmount + escrowFees
         );
         openLoan(underlyingAmount, minLoanAmount, 0, 0);
 
         // fix allowance
-        underlying.approve(address(loans), underlyingAmount + escrowFee);
+        underlying.approve(address(loans), underlyingAmount + escrowFees);
 
         // unsupported escrow
         setCanOpenSingle(address(escrowNFT), false);
@@ -66,7 +66,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
 
         vm.startPrank(user1);
         prepareDefaultSwapToCash();
-        underlying.approve(address(loans), underlyingAmount + escrowFee);
+        underlying.approve(address(loans), underlyingAmount + escrowFees);
         vm.expectRevert("loans: duration mismatch");
         openLoan(underlyingAmount, minLoanAmount, 0, providerOffer);
 
@@ -80,152 +80,63 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         openLoan(underlyingAmount, minLoanAmount, 0, providerOffer);
     }
 
-    function test_revert_closeLoan_checkLateFee() public {
-        (uint loanId,, uint loanAmount) = createAndCheckLoan();
-        skip(duration + maxGracePeriod);
-        updatePrice();
-        vm.startPrank(user1);
-        cashAsset.approve(address(loans), loanAmount);
-
-        // 0 out
-        prepareSwap(underlying, 0);
-        vm.expectRevert("loans: fromSwap < lateFee");
-        loans.closeLoan(loanId, defaultSwapParams(0));
-
-        // 1 wei less than late fee
-        (, uint lateFee) = escrowNFT.currentOwed(loans.getLoan(loanId).escrowId);
-        prepareSwap(underlying, lateFee - 1);
-        vm.expectRevert("loans: fromSwap < lateFee");
-        loans.closeLoan(loanId, defaultSwapParams(0));
-    }
-
-    function test_revert_unwrapAndCancelLoan_timing() public {
+    function test_revert_seizeEscrow_timingAndAuthorization() public {
         (uint loanId,,) = createAndCheckLoan();
-        // after expiry
-        skip(duration + 1);
-        // cannot unwrap
-        vm.expectRevert("loans: loan expired");
-        loans.unwrapAndCancelLoan(loanId);
-    }
+        ILoansNFT.Loan memory loan = loans.getLoan(loanId);
 
-    function test_revert_forecloseLoan_timingAndAuthorization() public {
-        (uint loanId,,) = createAndCheckLoan();
-
-        // view reverts too foreclosureValues
-        vm.expectRevert("loans: taker position not settled");
-        loans.foreclosureValues(loanId);
-
-        // foreclose before settlement
+        // seize before settlement
         vm.startPrank(supplier);
-        vm.expectRevert("loans: taker position not settled");
-        loans.forecloseLoan(loanId, defaultSwapParams(0));
+        vm.expectRevert("escrow: grace period not elapsed");
+        escrowNFT.seizeEscrow(loan.escrowId);
 
         // settle
         skip(duration);
         updatePrice();
         takerNFT.settlePairedPosition(loanId);
-        (uint gracePeriod,) = loans.foreclosureValues(loanId);
 
         // at the end of grace period
         skip(gracePeriod);
-        updatePrice();
-        prepareDefaultSwapToUnderlying();
-        vm.expectRevert("loans: cannot foreclose yet");
-        loans.forecloseLoan(loanId, defaultSwapParams(0));
+        vm.expectRevert("escrow: grace period not elapsed");
+        escrowNFT.seizeEscrow(loan.escrowId);
 
-        // foreclose from an unauthorized address
+        // seize from an unauthorized address
         vm.startPrank(user1);
-        vm.expectRevert("loans: not escrow owner or allowed keeper");
-        loans.forecloseLoan(loanId, defaultSwapParams(0));
+        vm.expectRevert("escrow: not escrow owner");
+        escrowNFT.seizeEscrow(loan.escrowId);
 
-        // set the keeper
-        vm.startPrank(owner);
-        loans.setKeeper(keeper);
-
-        // keeper not authorized by supplier
-        vm.startPrank(keeper);
-        vm.expectRevert("loans: not escrow owner or allowed keeper");
-        loans.forecloseLoan(loanId, defaultSwapParams(0));
-
-        // keeper authorized by user but not supplier
-        vm.startPrank(user1);
-        loans.setKeeperApproved(loanId, true);
-        vm.startPrank(keeper);
-        vm.expectRevert("loans: not escrow owner or allowed keeper");
-        loans.forecloseLoan(loanId, defaultSwapParams(0));
-
-        // allow keeper
-        vm.startPrank(supplier);
-        loans.setKeeperApproved(loanId, true);
-
-        // foreclosable now
+        // seize now
         skip(1);
-        updatePrice();
-        prepareDefaultSwapToUnderlying();
 
-        // Keeper can now foreclose
-        vm.startPrank(keeper);
-        loans.forecloseLoan(loanId, defaultSwapParams(0));
+        // escrow can be seized
+        vm.startPrank(supplier);
+        escrowNFT.seizeEscrow(loan.escrowId);
     }
 
-    function test_revert_forecloseLoan_invalidLoanStates() public {
-        // foreclose a non-existent loan
-        uint nonExistentLoanId = 999;
-        expectRevertERC721Nonexistent(nonExistentLoanId);
-        loans.forecloseLoan(nonExistentLoanId, defaultSwapParams(0));
+    function test_revert_seizeEscrow_invalidLoanStates() public {
+        // seize a non-existent loan
+        uint nonExistentEscrowId = 999;
+        expectRevertERC721Nonexistent(nonExistentEscrowId);
+        escrowNFT.seizeEscrow(nonExistentEscrowId);
 
         // create and cancel a loan
-        (uint loanId,,) = createAndCheckLoan();
+        (uint loanId,, uint loanAmount) = createAndCheckLoan();
+        uint escrowId = loans.getLoan(loanId).escrowId;
+
+        uint checkpoint = vm.snapshotState();
         vm.startPrank(user1);
         loans.unwrapAndCancelLoan(loanId);
         vm.startPrank(supplier);
-        expectRevertERC721Nonexistent(loanId);
-        loans.forecloseLoan(loanId, defaultSwapParams(0));
+        vm.expectRevert("escrow: already released");
+        escrowNFT.seizeEscrow(escrowId);
 
-        // create a non-escrow loan
-        openEscrowLoan = false;
-        (uint nonEscrowLoanId,,) = createAndCheckLoan();
-        vm.startPrank(supplier);
-        vm.expectRevert("loans: not an escrowed loan");
-        loans.forecloseLoan(nonEscrowLoanId, defaultSwapParams(0));
-    }
-
-    function test_revert_forecloseLoan_invalidParameters() public {
-        (uint loanId,,) = createAndCheckLoan();
-
-        // after grace period
-        skip(duration + maxGracePeriod + 1);
+        vm.revertToState(checkpoint);
+        vm.startPrank(user1);
+        skip(duration);
         updatePrice();
-        takerNFT.settlePairedPosition(loanId);
-        uint swapOut = prepareDefaultSwapToUnderlying();
-
-        // foreclose with an invalid swapper
+        cashAsset.approve(address(loans), loanAmount);
+        loans.closeLoan(loanId, defaultSwapParams(0));
         vm.startPrank(supplier);
-        vm.expectRevert("loans: swapper not allowed");
-        loans.forecloseLoan(loanId, ILoansNFT.SwapParams(0, address(0x123), ""));
-
-        // slippage
-        vm.expectRevert("SwapperUniV3: slippage exceeded");
-        loans.forecloseLoan(loanId, ILoansNFT.SwapParams(swapOut + 1, defaultSwapper, ""));
-    }
-
-    function test_revert_forecloseLoan_invalidParameters_zeroAmountSwap() public {
-        (uint loanId,,) = createAndCheckLoan();
-
-        // after grace period
-        skip(duration + maxGracePeriod + 1);
-        updatePrice(1); // set low price to cause 0 amount swap
-        takerNFT.settlePairedPosition(loanId);
-        // check no cash
-        assertEq(takerNFT.getPosition(loanId).withdrawable, 0);
-
-        // foreclose with an invalid swapper
-        vm.startPrank(supplier);
-        vm.expectRevert("loans: swapper not allowed");
-        loans.forecloseLoan(loanId, ILoansNFT.SwapParams(0, address(0x123), ""));
-
-        // slippage
-        vm.expectRevert("loans: slippage exceeded");
-        loans.forecloseLoan(loanId, ILoansNFT.SwapParams(1, defaultSwapper, ""));
+        vm.expectRevert("escrow: already released");
+        escrowNFT.seizeEscrow(escrowId);
     }
 }

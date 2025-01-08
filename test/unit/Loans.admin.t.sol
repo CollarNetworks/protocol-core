@@ -115,9 +115,6 @@ contract LoansAdminTest is LoansTestBase {
         loans.closeLoan(loanId, defaultSwapParams(0));
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.forecloseLoan(loanId, defaultSwapParams(0));
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
         loans.rollLoan(loanId, rollOffer(0), 0, 0, 0);
 
         vm.expectRevert(Pausable.EnforcedPause.selector);

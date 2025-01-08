@@ -56,18 +56,6 @@ contract ArbitrumMainnetFullProtocolForkTest is Test, ArbitrumMainnetDeployer {
         validator.test_validatePairDeployments();
     }
 
-    //    function testPriceMovementFlow_aboveCallStrike() public {
-    //        setupLoansForkTest().testSettlementPriceAboveCallStrike();
-    //    }
-
-    //    function testPriceMovementFlow_belowPutStrike() public {
-    //        setupLoansForkTest().testSettlementPriceBelowPutStrike();
-    //    }
-
-    //    function testPriceMovementFlow_upBetweenStrikes() public {
-    //        setupLoansForkTest().testSettlementPriceUpBetweenStrikes();
-    //    }
-
     function testFullIntegration() public {
         WETHUSDCLoansForkTest loansTest = setupLoansForkTest();
         console.log("Running full integration test...");
@@ -83,8 +71,9 @@ contract ArbitrumMainnetFullProtocolForkTest is Test, ArbitrumMainnetDeployer {
         WETHUSDCLoansForkTest loansTest = setupLoansForkTest();
         loansTest.testOpenEscrowLoan();
         loansTest.testOpenAndCloseEscrowLoan();
-        //        loansTest.testCloseEscrowLoanAfterGracePeriod();
-        //        loansTest.testCloseEscrowLoanWithPartialLateFees();
+        loansTest.testCloseEscrowLoanAfterGracePeriod();
+        loansTest.testSeizeEscrowAndUnwrapLoan();
+        loansTest.testCloseEscrowLoanWithPartialLateFees();
         loansTest.testRollEscrowLoanBetweenSuppliers();
     }
 }
