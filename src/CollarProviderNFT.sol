@@ -140,15 +140,23 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
 
     // ----- Liquidity actions ----- //
 
-    /// @notice Creates a new non transferrable liquidity offer of cash asset, for specific terms.
-    /// The cash is held at the contract, but can be withdrawn at any time if unused.
-    /// The caller MUST be able to handle ERC-721 and interact with this contract later.
-    /// @param callStrikePercent The call strike percent in basis points
-    /// @param amount The amount of cash asset to offer
-    /// @param putStrikePercent The put strike percent in basis points
-    /// @param duration The duration of the offer in seconds
-    /// @param minLocked The minimum position amount. Protection from dust mints.
-    /// @return offerId The ID of the newly created offer
+    /**
+     * @notice Creates a new non transferrable liquidity offer of cash asset, for specific terms.
+     * The cash is held at the contract, but can be withdrawn at any time if unused.
+     * The caller MUST be able to handle ERC-721 and interact with this contract later.
+     * Offers are expected to be actively managed using updateOfferAmount as market conditions
+     * and terms profitability change.
+     * A protocol fee will be paid on top of any minted amount from the offer amount funds, according
+     * to the configured protocol fee APR at the time in the ConfigHub. While the max protocol fee
+     * APR is limited in ConfigHub, the value may change within the limited range between the time an
+     * offer is funded and a position is minted.
+     * @param callStrikePercent The call strike percent in basis points
+     * @param amount The amount of cash asset to offer
+     * @param putStrikePercent The put strike percent in basis points
+     * @param duration The duration of the offer in seconds
+     * @param minLocked The minimum position amount. Protection from dust mints.
+     * @return offerId The ID of the newly created offer
+     */
     function createOffer(
         uint callStrikePercent,
         uint amount,

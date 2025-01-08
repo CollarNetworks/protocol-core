@@ -294,7 +294,6 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      */
     function endEscrow(uint escrowId, uint repaid) external whenNotPaused returns (uint toLoans) {
         // @dev msg.sender auth is checked vs. stored loans in _endEscrow
-        // shouldRefund is true since this method returns the refund to loans
         toLoans = _endEscrow(escrowId, getEscrow(escrowId), repaid);
 
         // transfer in the repaid assets in: original supplier's assets, plus any late fee

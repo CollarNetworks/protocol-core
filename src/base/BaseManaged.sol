@@ -14,9 +14,8 @@ import { ConfigHub } from "../ConfigHub.sol";
  * @dev This contract provides common functionality for contracts that are owned and managed
  * via the Collar Protocol's ConfigHub. It includes 2 step ownership, pause/unpause functionality,
  * pause guardian pausing, and an emergency function to rescue stuck tokens.
- *
- * @dev All contracts that inherit from BaseManaged must call `_setConfigHub` to set the
- * ConfigHub address.
+ * @dev all inheriting contracts that hold funds should be owned by a secure multi-sig due
+ * the rescueTokens method.
  */
 abstract contract BaseManaged is Ownable2Step, Pausable {
     // ----- State ----- //
@@ -35,7 +34,7 @@ abstract contract BaseManaged is Ownable2Step, Pausable {
 
     // ----- Non-owner ----- //
 
-    // @notice Pause method called from a guardian authorized by the ConfigHub
+    // @notice Pause method called from a guardian authorized by the ConfigHub in case of emergency
     // Reverts if sender is not guardian, or if owner is revoked (since unpausing would be impossible)
     function pauseByGuardian() external {
         require(configHub.isPauseGuardian(msg.sender), "not guardian");
@@ -49,7 +48,7 @@ abstract contract BaseManaged is Ownable2Step, Pausable {
 
     // ----- owner ----- //
 
-    /// @notice Pauses the contract when called by the contract owner
+    /// @notice Pauses the contract when called by the contract owner in case of emergency.
     function pause() external onlyOwner {
         _pause();
     }
@@ -65,9 +64,9 @@ abstract contract BaseManaged is Ownable2Step, Pausable {
     }
 
     /**
-     * @notice Sends an amount of ERC-20, or an ID of ERC-721, to owner's address.
-     * To be used in case of emergency, user mistakes, or irrecoverable bugs.
-     * @dev Only callable by the contract owner
+     * @notice Sends an amount of any ERC-20, or an ID of any ERC-721, to owner's address.
+     * To be used to rescue stuck funds in case of irrecoverable bugs or mistakes.
+     * @dev Only callable by the contract owner, which must be a secure multi-sig.
      * @param token The address of the token contract
      * @param amountOrId The amount of tokens to rescue (or token ID for NFTs)
      * @param isNFT Whether the token is an NFT (true) or an ERC-20 (false)

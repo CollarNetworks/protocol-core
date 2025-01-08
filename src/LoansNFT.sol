@@ -799,17 +799,29 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         (expiration,) = takerNFT.expirationAndSettled(_takerId(loanId));
     }
 
+    /*
+    @dev Note that if roll price was outside of the initial put-call range the newLoanAmount
+    may not correspond to the initial LTV (putStrikePercent) w.r.t, to the new position:
+        newLoanAmount / (newLoanAmount + takerLocked) <> putStrikePercent.
+    And the value in underlying terms will also not remain roughly constant.
+    - If the price went above call strike, the LTV and underlying-exposure will be lower.
+    - If the price went below put strike, the LTV and underlying-exposure will be higher.
+    Specifically this behavior should be taken into account w.r.t. to flexible roll implementations
+    (e.g., to different terms) to avoid assuming constant exposure or valid LTV.
+    */
     function _loanAmountAfterRoll(int fromRollsToUser, int rollFee, uint prevLoanAmount)
         internal
         pure
         returns (uint newLoanAmount)
     {
-        // The transfer subtracted the fee (see Rolls _previewTransferAmounts), so it needs
-        // to be added back. The fee is not part of the position, so that if price hasn't changed,
-        // after rolling, the updated position (loan amount + takerLocked) would still be equivalent
-        // to the initial underlying (if it was initially equivalent, depending on the initial swap)
-        // Example: toTaker       = position-gain - fee = 100 - 1 = 99
-        //      So: position-gain = toTaker       + fee = 99  + 1 = 100
+        /*
+        The transfer subtracted the fee (see Rolls _previewTransferAmounts), so it needs
+        to be added back. The fee is not part of the position, so that if price hasn't changed,
+        after rolling, the updated position (loan amount + takerLocked) would still be equivalent
+        to the initial underlying (if it was initially equivalent, depending on the initial swap)
+        Example: toTaker       = position-gain - fee = 100 - 1 = 99
+             So: position-gain = toTaker       + fee = 99  + 1 = 100
+        */
         int loanChange = fromRollsToUser + rollFee;
         if (loanChange < 0) {
             uint repayment = uint(-loanChange); // will revert for type(int).min
