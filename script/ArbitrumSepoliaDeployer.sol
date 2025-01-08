@@ -53,11 +53,11 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
 
         /// https://docs.chain.link/data-feeds/price-feeds/addresses?network=arbitrum&page=1#sepolia-testnet
         // define feeds to be used in oracles
-        _configureFeed(ChainlinkFeed(address(mockEthUsdFeed), "ETH / USD", 120, 8, 5));
+        _configureFeed(ChainlinkFeed(address(mockEthUsdFeed), "TWAPMock(ETH / USD)", 120, 8, 5));
         // no WBTC, only virtual-BTC
-        _configureFeed(ChainlinkFeed(address(mockBTCUSDFeed), "BTC / USD", 120, 8, 30));
-        _configureFeed(ChainlinkFeed(address(mockUsdcUsdFeed), "USDC / USD", 86_400, 8, 30));
-        _configureFeed(ChainlinkFeed(address(mockUsdtUsdFeed), "USDT / USD", 3600, 8, 30));
+        _configureFeed(ChainlinkFeed(address(mockBTCUSDFeed), "TWAPMock(BTC / USD)", 120, 8, 30));
+        _configureFeed(ChainlinkFeed(address(mockUsdcUsdFeed), "FixedMock(USDC / USD)", 86_400, 8, 30));
+        _configureFeed(ChainlinkFeed(address(mockUsdtUsdFeed), "FixedMock(USDT / USD)", 3600, 8, 30));
     }
 
     function _createContractPairs(ConfigHub configHub, address owner)
@@ -70,12 +70,11 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
         _configureFeeds();
         // deploy direct oracles
         BaseTakerOracle oracletETH_USD =
-            deployChainlinkOracle(tWETH, VIRTUAL_ASSET, _getFeed("ETH / USD"), sequencerFeed);
+            deployChainlinkOracle(tWETH, VIRTUAL_ASSET, _getFeed("TWAPMock(ETH / USD)"), sequencerFeed);
         BaseTakerOracle oracletWBTC_USD =
-            deployChainlinkOracle(tWBTC, VIRTUAL_ASSET, _getFeed("BTC / USD"), sequencerFeed);
+            deployChainlinkOracle(tWBTC, VIRTUAL_ASSET, _getFeed("TWAPMock(BTC / USD)"), sequencerFeed);
         BaseTakerOracle oracletUSDC_USD =
-            deployChainlinkOracle(tUSDC, VIRTUAL_ASSET, _getFeed("USDC / USD"), sequencerFeed);
-
+            deployChainlinkOracle(tUSDC, VIRTUAL_ASSET, _getFeed("FixedMock(USDC / USD)"), sequencerFeed);
         // if any escrowNFT contracts will be reused for multiple pairs, they should be deployed first
         assetPairContracts[0] = deployContractPair(
             configHub,
@@ -84,7 +83,12 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
                 underlying: IERC20(tWETH),
                 cashAsset: IERC20(tUSDC),
                 oracle: deployCombinedOracle(
-                    tWETH, tUSDC, oracletETH_USD, oracletUSDC_USD, true, "Comb(CL(ETH / USD)|inv(CL(USDC / USD)))"
+                    tWETH,
+                    tUSDC,
+                    oracletETH_USD,
+                    oracletUSDC_USD,
+                    true,
+                    "Comb(CL(TWAPMock(ETH / USD))|inv(CL(FixedMock(USDC / USD))))"
                 ),
                 swapFeeTier: swapFeeTier,
                 swapRouter: swapRouterAddress,
@@ -105,7 +109,7 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
                     oracletWBTC_USD,
                     oracletUSDC_USD,
                     true,
-                    "Comb(CL(BTC / USD)|inv(CL(USDC / USD)))"
+                    "Comb(CL(TWAPMock(BTC / USD))|inv(CL(FixedMock(USDC / USD))))"
                 ),
                 swapFeeTier: swapFeeTier,
                 swapRouter: swapRouterAddress,

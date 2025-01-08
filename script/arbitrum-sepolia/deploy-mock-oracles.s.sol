@@ -27,17 +27,27 @@ contract DeployNewMocksForTakers is Script, ArbitrumSepoliaDeployer {
 
         // deploy direct oracles
         BaseTakerOracle oracletETH_USD =
-            deployChainlinkOracle(tWETH, VIRTUAL_ASSET, _getFeed("ETH / USD"), sequencerFeed);
+            deployChainlinkOracle(tWETH, VIRTUAL_ASSET, _getFeed("TWAPMock(ETH / USD)"), sequencerFeed);
         BaseTakerOracle oracletWBTC_USD =
-            deployChainlinkOracle(tWBTC, VIRTUAL_ASSET, _getFeed("BTC / USD"), sequencerFeed);
+            deployChainlinkOracle(tWBTC, VIRTUAL_ASSET, _getFeed("TWAPMock(BTC / USD)"), sequencerFeed);
         BaseTakerOracle oracletUSDC_USD =
-            deployChainlinkOracle(tUSDC, VIRTUAL_ASSET, _getFeed("USDC / USD"), sequencerFeed);
+            deployChainlinkOracle(tUSDC, VIRTUAL_ASSET, _getFeed("FixedMock(USDC / USD)"), sequencerFeed);
 
         BaseTakerOracle wethUSDCoracle = deployCombinedOracle(
-            tWETH, tUSDC, oracletETH_USD, oracletUSDC_USD, true, "Comb(CL(ETH / USD)|inv(CL(USDC / USD)))"
+            tWETH,
+            tUSDC,
+            oracletETH_USD,
+            oracletUSDC_USD,
+            true,
+            "Comb(CL(TWAPMock(ETH / USD))|inv(CL(FixedMock(USDC / USD))))"
         );
         BaseTakerOracle wbtcUSDCoracle = deployCombinedOracle(
-            tWBTC, tUSDC, oracletWBTC_USD, oracletUSDC_USD, true, "Comb(CL(BTC / USD)|inv(CL(USDC / USD)))"
+            tWBTC,
+            tUSDC,
+            oracletWBTC_USD,
+            oracletUSDC_USD,
+            true,
+            "Comb(CL(TWAPMock(BTC / USD))|inv(CL(FixedMock(USDC / USD))))"
         );
 
         CollarTakerNFT wethTaker = CollarTakerNFT(wethUSDCTakerAddress);
