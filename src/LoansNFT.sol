@@ -594,7 +594,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         (Rolls rolls, uint rollId) = (rollOffer.rolls, rollOffer.id);
         // check this rolls contract is allowed
         require(configHub.canOpenPair(underlying, cashAsset, address(rolls)), "loans: unsupported rolls");
-        // taker matching roll's taker is not checked because if doesn't match, roll should check / fail
+        // ensure it's the right takerNFT in case of multiple takerNFTs for an asset pair
+        require(address(rolls.takerNFT()) == address(takerNFT), "loans: rolls takerNFT mismatch");
         // offer status (active) is not checked, also since rolls should check / fail
 
         // for balance check at the end
@@ -622,6 +623,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         require(toTaker == preview.toTaker, "loans: unexpected transfer amount");
         // check slippage (would have been checked in Rolls as well)
         require(toTaker >= minToUser, "loans: roll transfer < minToUser");
+        // check taker ID received
+        require(takerNFT.ownerOf(newTakerId) == address(this), "loans: new taker ID not received");
 
         // transfer cash if should have received any
         if (toTaker > 0) {
