@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 
 import { BaseLoansForkTest } from "./BaseLoansForkTest.sol";
 import { ArbitrumMainnetDeployer } from "../../../script/ArbitrumMainnetDeployer.sol";
+import { ArbitrumSepoliaDeployer } from "../../../script/ArbitrumSepoliaDeployer.sol";
 
 contract WETHUSDC_ArbiMain_LoansForkTest is BaseLoansForkTest {
     function setUp() public override {
@@ -109,6 +110,64 @@ contract WBTCUSDT_ArbiMain_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
         bigUnderlyingAmount = 100e8;
 
         callstrikeToUse = 10_500;
+
+        expectedOraclePrice = 90_000_000_000;
+    }
+}
+
+// Sepolia
+
+contract WETHUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
+
+    function _setParams() internal virtual override {
+        super._setParams();
+        // @dev all pairs must be tested, so if this number is increased, test classes must be added
+        expectedNumPairs = 2;
+
+        // set up all the variables for this pair
+        expectedPairIndex = 0;
+        underlying = 0xF17eb654885Afece15039a9Aa26F91063cC693E0; // tWETH CollarOwnedERC20
+        cashAsset = 0x69fC9D4d59843C6E55f00b5F66b263C963214C53; // tUSDC CollarOwnedERC20
+        oracleDescription = "Comb(CL(TWAPMock(ETH / USD))|inv(CL(FixedMock(USDC / USD))))";
+
+        expectedOraclePrice = 3_000_000_000;
+    }
+
+    function setupNewFork() internal virtual override {
+        // if we are in development we want to fix the block to reduce the time it takes to run the tests
+        if (vm.envBool("FIX_BLOCK_ARBITRUM_SEPOLIA")) {
+            vm.createSelectFork(
+                vm.envString("ARBITRUM_SEPOLIA_RPC"), vm.envUint("BLOCK_NUMBER_ARBITRUM_SEPOLIA")
+            );
+        } else {
+            vm.createSelectFork(vm.envString("ARBITRUM_SEPOLIA_RPC"));
+        }
+    }
+
+    function setupDeployer() internal virtual override {
+        deployer = new ArbitrumSepoliaDeployer();
+    }
+}
+
+contract ArbiSep_LoansForkTest_LatestBlock is WETHUSDC_ArbiSep_LoansForkTest {
+    function setupNewFork() internal override {
+        // always use latest block for this one, even on local
+        vm.createSelectFork(vm.envString("ARBITRUM_SEPOLIA_RPC"));
+    }
+}
+
+contract WBTCUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiSep_LoansForkTest {
+    function _setParams() internal override {
+        super._setParams();
+
+        // set up all the variables for this pair
+        expectedPairIndex = 1;
+        underlying = 0x19d87c960265C229D4b1429DF6F0C7d18F0611F3; // tWBTC CollarOwnedERC20
+        cashAsset = 0x69fC9D4d59843C6E55f00b5F66b263C963214C53; // tUSDC CollarOwnedERC20
+        oracleDescription = "Comb(CL(TWAPMock(BTC / USD))|inv(CL(FixedMock(USDC / USD))))";
+
+        underlyingAmount = 0.1e8;
+        bigUnderlyingAmount = 100e8;
 
         expectedOraclePrice = 90_000_000_000;
     }

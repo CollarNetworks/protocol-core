@@ -14,13 +14,13 @@ contract ArbitrumSepoliaDeployer is BaseDeployer {
 
     address constant sequencerFeed = address(0);
     uint24 constant swapFeeTier = 3000;
-    uint constant USDSTABLEPRICE = 100_000_000; // 1 * 10^8 since feed decimals is 8
+    int constant USDSTABLEPRICE = 100_000_000; // 1 * 10^8 since feed decimals is 8
 
     constructor() {
         chainId = 421_614;
     }
 
-    function defaultHubParams() internal view override returns (HubParams memory) {
+    function defaultHubParams() internal pure override returns (HubParams memory) {
         return HubParams({ minDuration: 5 minutes, maxDuration: 365 days, minLTV: 2500, maxLTV: 9900 });
     }
 
@@ -47,9 +47,9 @@ contract ArbitrumSepoliaDeployer is BaseDeployer {
         );
 
         //  deploy mock feed for USDC/USD (since sepolia deployed one is unreliable)
-        FixedMockChainlinkFeed mockUsdcUsdFeed = new FixedMockChainlinkFeed(100_000_000, 8, "USDC / USD");
+        FixedMockChainlinkFeed mockUsdcUsdFeed = new FixedMockChainlinkFeed(USDSTABLEPRICE, 8, "USDC / USD");
         //  deploy mock feed for USDT/USD (since sepolia deployed one is unreliable)
-        FixedMockChainlinkFeed mockUsdtUsdFeed = new FixedMockChainlinkFeed(100_000_000, 8, "USDT / USD");
+        FixedMockChainlinkFeed mockUsdtUsdFeed = new FixedMockChainlinkFeed(USDSTABLEPRICE, 8, "USDT / USD");
 
         /// https://docs.chain.link/data-feeds/price-feeds/addresses?network=arbitrum&page=1#sepolia-testnet
         // define feeds to be used in oracles
