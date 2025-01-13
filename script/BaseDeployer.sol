@@ -69,15 +69,15 @@ abstract contract BaseDeployer {
     function deployAndSetupFullProtocol(address owner) public returns (DeploymentResult memory result) {
         require(chainId == block.chainid, "chainId does not match the chainId in config");
 
-        result.configHub = deployConfigHub(owner);
-
+        result.configHub = deployConfigHub();
         setupConfigHub(result.configHub);
 
-        result.assetPairContracts = deployAllContractPairs(result.configHub, owner);
-
+        result.assetPairContracts = deployAllContractPairs(result.configHub);
         for (uint i = 0; i < result.assetPairContracts.length; i++) {
             setupContractPair(result.configHub, result.assetPairContracts[i]);
         }
+
+        nominateNewOwnerAll(owner, result);
     }
 
     function getFeed(string memory description) public view returns (ChainlinkFeed memory) {
@@ -86,7 +86,7 @@ abstract contract BaseDeployer {
 
     // abstract
 
-    function deployAllContractPairs(ConfigHub configHub, address owner)
+    function deployAllContractPairs(ConfigHub configHub)
         internal
         virtual
         returns (AssetPairContracts[] memory);
@@ -95,22 +95,20 @@ abstract contract BaseDeployer {
 
     // internal (inheritance)
 
-    function deployConfigHub(address owner) internal returns (ConfigHub) {
-        return new ConfigHub(owner);
+    function deployConfigHub() internal returns (ConfigHub) {
+        return new ConfigHub(address(this));
     }
 
     function configureFeed(ChainlinkFeed memory feedConfig) internal {
         priceFeeds[bytes32(bytes(feedConfig.description))] = feedConfig;
     }
 
-    function deployEscrowNFT(
-        ConfigHub configHub,
-        address owner,
-        IERC20 underlying,
-        string memory underlyingSymbol
-    ) internal returns (EscrowSupplierNFT) {
+    function deployEscrowNFT(ConfigHub configHub, IERC20 underlying, string memory underlyingSymbol)
+        internal
+        returns (EscrowSupplierNFT)
+    {
         return new EscrowSupplierNFT(
-            owner,
+            address(this),
             configHub,
             underlying,
             string(abi.encodePacked("Escrow ", underlyingSymbol)),
@@ -153,12 +151,12 @@ abstract contract BaseDeployer {
         );
     }
 
-    function deployContractPair(ConfigHub configHub, PairConfig memory pairConfig, address owner)
+    function deployContractPair(ConfigHub configHub, PairConfig memory pairConfig)
         internal
         returns (AssetPairContracts memory contracts)
     {
         CollarTakerNFT takerNFT = new CollarTakerNFT(
-            owner,
+            address(this),
             configHub,
             pairConfig.cashAsset,
             pairConfig.underlying,
@@ -167,7 +165,7 @@ abstract contract BaseDeployer {
             string(abi.encodePacked("T", pairConfig.name))
         );
         CollarProviderNFT providerNFT = new CollarProviderNFT(
-            owner,
+            address(this),
             configHub,
             pairConfig.cashAsset,
             pairConfig.underlying,
@@ -176,12 +174,12 @@ abstract contract BaseDeployer {
             string(abi.encodePacked("P", pairConfig.name))
         );
         LoansNFT loansContract = new LoansNFT(
-            owner,
+            address(this),
             takerNFT,
             string(abi.encodePacked("Loans ", pairConfig.name)),
             string(abi.encodePacked("L", pairConfig.name))
         );
-        Rolls rollsContract = new Rolls(owner, takerNFT);
+        Rolls rollsContract = new Rolls(address(this), takerNFT);
         SwapperUniV3 swapperUniV3 = new SwapperUniV3(pairConfig.swapRouter, pairConfig.swapFeeTier);
         // Use existing escrow if provided, otherwise create new
         EscrowSupplierNFT escrowNFT;
@@ -189,10 +187,7 @@ abstract contract BaseDeployer {
             escrowNFT = EscrowSupplierNFT(pairConfig.existingEscrowNFT);
         } else {
             escrowNFT = deployEscrowNFT(
-                configHub,
-                owner,
-                pairConfig.underlying,
-                IERC20Metadata(address(pairConfig.underlying)).symbol()
+                configHub, pairConfig.underlying, IERC20Metadata(address(pairConfig.underlying)).symbol()
             );
         }
         contracts = AssetPairContracts({
@@ -214,8 +209,10 @@ abstract contract BaseDeployer {
         hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.providerNFT), true);
         hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.loansContract), true);
         hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.rollsContract), true);
-        pair.loansContract.setSwapperAllowed(address(pair.swapperUniV3), true, true);
         hub.setCanOpenPair(pair.underlying, hub.ANY_ASSET(), address(pair.escrowNFT), true);
+
+        pair.loansContract.setSwapperAllowed(address(pair.swapperUniV3), true, true);
+
         pair.escrowNFT.setLoansCanOpen(address(pair.loansContract), true);
     }
 
@@ -223,5 +220,22 @@ abstract contract BaseDeployer {
         HubParams memory hubParams = defaultHubParams();
         configHub.setLTVRange(hubParams.minLTV, hubParams.maxLTV);
         configHub.setCollarDurationRange(hubParams.minDuration, hubParams.maxDuration);
+    }
+
+    // @dev this only nominates, and ownership must be accepted by the new owner
+    function nominateNewOwnerAll(address owner, DeploymentResult memory result) internal {
+        result.configHub.transferOwnership(owner);
+
+        for (uint i = 0; i < result.assetPairContracts.length; i++) {
+            nominateNewOwnerPair(owner, result.assetPairContracts[i]);
+        }
+    }
+
+    function nominateNewOwnerPair(address owner, AssetPairContracts memory pair) internal {
+        pair.takerNFT.transferOwnership(owner);
+        pair.providerNFT.transferOwnership(owner);
+        pair.loansContract.transferOwnership(owner);
+        pair.rollsContract.transferOwnership(owner);
+        pair.escrowNFT.transferOwnership(owner);
     }
 }

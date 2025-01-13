@@ -19,7 +19,7 @@ contract ArbitrumMainnetDeployer is BaseDeployer {
         chainId = 42_161;
     }
 
-    function defaultHubParams() pure override returns (HubParams memory) {
+    function defaultHubParams() internal override returns (HubParams memory) {
         return HubParams({ minDuration: 5 minutes, maxDuration: 365 days, minLTV: 2500, maxLTV: 9900 });
     }
 
@@ -33,7 +33,7 @@ contract ArbitrumMainnetDeployer is BaseDeployer {
         configureFeed(ChainlinkFeed(0x3f3f5dF88dC9F13eac63DF89EC16ef6e7E25DdE7, "USDT / USD", 86_400, 8, 10));
     }
 
-    function deployAllContractPairs(ConfigHub configHub, address owner)
+    function deployAllContractPairs(ConfigHub configHub)
         internal
         override
         returns (AssetPairContracts[] memory assetPairContracts)
@@ -44,7 +44,7 @@ contract ArbitrumMainnetDeployer is BaseDeployer {
         _configureFeeds();
 
         // if any escrowNFT contracts will be reused for multiple pairs, they should be deployed first
-        EscrowSupplierNFT wethEscrow = deployEscrowNFT(configHub, owner, IERC20(WETH), "WETH");
+        EscrowSupplierNFT wethEscrow = deployEscrowNFT(configHub, IERC20(WETH), "WETH");
 
         // deploy direct oracles
         BaseTakerOracle oracleETH_USD =
@@ -69,8 +69,7 @@ contract ArbitrumMainnetDeployer is BaseDeployer {
                 swapFeeTier: swapFeeTier,
                 swapRouter: swapRouterAddress,
                 existingEscrowNFT: address(wethEscrow)
-            }),
-            owner
+            })
         );
 
         assetPairContracts[1] = deployContractPair(
@@ -85,8 +84,7 @@ contract ArbitrumMainnetDeployer is BaseDeployer {
                 swapFeeTier: swapFeeTier,
                 swapRouter: swapRouterAddress,
                 existingEscrowNFT: address(wethEscrow)
-            }),
-            owner
+            })
         );
 
         assetPairContracts[2] = deployContractPair(
@@ -101,8 +99,7 @@ contract ArbitrumMainnetDeployer is BaseDeployer {
                 swapFeeTier: swapFeeTier,
                 swapRouter: swapRouterAddress,
                 existingEscrowNFT: address(0)
-            }),
-            owner
+            })
         );
     }
 }

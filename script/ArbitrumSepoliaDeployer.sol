@@ -20,7 +20,7 @@ contract ArbitrumSepoliaDeployer is BaseDeployer {
         chainId = 421_614;
     }
 
-    function defaultHubParams() pure override returns (HubParams memory) {
+    function defaultHubParams() internal override returns (HubParams memory) {
         return HubParams({ minDuration: 5 minutes, maxDuration: 365 days, minLTV: 2500, maxLTV: 9900 });
     }
 
@@ -60,7 +60,7 @@ contract ArbitrumSepoliaDeployer is BaseDeployer {
         configureFeed(ChainlinkFeed(address(mockUsdtUsdFeed), "FixedMock(USDT / USD)", 3600, 8, 30));
     }
 
-    function deployAllContractPairs(ConfigHub configHub, address owner)
+    function deployAllContractPairs(ConfigHub configHub)
         internal
         override
         returns (AssetPairContracts[] memory assetPairContracts)
@@ -93,8 +93,7 @@ contract ArbitrumSepoliaDeployer is BaseDeployer {
                 swapFeeTier: swapFeeTier,
                 swapRouter: swapRouterAddress,
                 existingEscrowNFT: address(0)
-            }),
-            owner
+            })
         );
 
         assetPairContracts[1] = deployContractPair(
@@ -114,8 +113,7 @@ contract ArbitrumSepoliaDeployer is BaseDeployer {
                 swapFeeTier: swapFeeTier,
                 swapRouter: swapRouterAddress,
                 existingEscrowNFT: address(0)
-            }),
-            owner
+            })
         );
     }
 }

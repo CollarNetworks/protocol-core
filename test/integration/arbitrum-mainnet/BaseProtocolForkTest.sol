@@ -38,10 +38,14 @@ abstract contract BaseProtocolForkTest is Test {
         if (!forkSet) {
             console.log("Setting up fork and deploying contracts");
             setupNewFork();
+
+            vm.startPrank(owner);
             setupDeployer();
             // Deploy contracts
-            vm.startPrank(owner);
             BaseDeployer.DeploymentResult memory result = deployer.deployAndSetupFullProtocol(owner);
+
+            acceptOwnership(owner, result);
+
             DeploymentArtifactsLib.exportDeployment(
                 vm, deploymentName(), address(result.configHub), result.assetPairContracts
             );
@@ -78,6 +82,19 @@ abstract contract BaseProtocolForkTest is Test {
 
     function deploymentName() internal pure returns (string memory) {
         return "collar_protocol_fork_deployment";
+    }
+
+    function acceptOwnership(address _owner, BaseDeployer.DeploymentResult memory result) internal {
+        result.configHub.acceptOwnership();
+        for (uint i = 0; i < result.assetPairContracts.length; i++) {
+            BaseDeployer.AssetPairContracts memory pair = result.assetPairContracts[i];
+            pair.takerNFT.acceptOwnership();
+            pair.providerNFT.acceptOwnership();
+            pair.loansContract.acceptOwnership();
+            pair.rollsContract.acceptOwnership();
+            // check because we may have already accepted previously (for another pair)
+            if (pair.escrowNFT.owner() != _owner) pair.escrowNFT.acceptOwnership();
+        }
     }
 
     function loadDeployment() internal view returns (ConfigHub, BaseDeployer.AssetPairContracts[] memory) {
