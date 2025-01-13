@@ -68,11 +68,6 @@ abstract contract BaseLoansForkTest is BaseProtocolForkTest {
         escrowSupplier = makeAddr("escrowSupplier");
     }
 
-    function setForkId(uint _forkId) public {
-        forkId = _forkId;
-        forkSet = true;
-    }
-
     function createProviderOffer(uint callStrikePercent, uint amount) internal returns (uint offerId) {
         vm.startPrank(provider);
         pair.cashAsset.approve(address(pair.providerNFT), amount);

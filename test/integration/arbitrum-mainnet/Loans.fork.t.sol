@@ -55,6 +55,32 @@ contract WETHUSDCLoansForkTest is BaseLoansForkTest {
 
         expectedOraclePrice = 3_000_000_000;
     }
+
+    function setupNewFork() internal virtual override {
+        // if we are in development we want to fix the block to reduce the time it takes to run the tests
+        if (vm.envBool("FIX_BLOCK_ARBITRUM_MAINNET")) {
+            vm.createSelectFork(
+                vm.envString("ARBITRUM_MAINNET_RPC"), vm.envUint("BLOCK_NUMBER_ARBITRUM_MAINNET")
+            );
+        } else {
+            vm.createSelectFork(vm.envString("ARBITRUM_MAINNET_RPC"));
+        }
+    }
+
+    function setupDeployer() internal virtual override {
+        deployer = new ArbitrumMainnetDeployer();
+    }
+
+    function deploymentName() internal pure virtual override returns (string memory) {
+        return "collar_protocol_fork_deployment";
+    }
+}
+
+contract ArbiMainnetLoansForkTest_LatestBlock is WETHUSDCLoansForkTest {
+    function setupNewFork() internal override {
+        // always use latest block for this one, even on local
+        vm.createSelectFork(vm.envString("ARBITRUM_MAINNET_RPC"));
+    }
 }
 
 contract WETHUSDTLoansForkTest is WETHUSDCLoansForkTest {

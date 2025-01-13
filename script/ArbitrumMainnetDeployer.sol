@@ -19,7 +19,7 @@ contract ArbitrumMainnetDeployer is BaseDeployer {
         chainId = 42_161;
     }
 
-    function defaultHubParams() internal override returns (HubParams memory) {
+    function defaultHubParams() internal view override returns (HubParams memory) {
         return HubParams({ minDuration: 5 minutes, maxDuration: 365 days, minLTV: 2500, maxLTV: 9900 });
     }
 

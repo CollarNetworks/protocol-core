@@ -91,7 +91,7 @@ abstract contract BaseDeployer {
         virtual
         returns (AssetPairContracts[] memory);
 
-    function defaultHubParams() internal virtual returns (HubParams memory);
+    function defaultHubParams() internal view virtual returns (HubParams memory);
 
     // internal (inheritance)
 

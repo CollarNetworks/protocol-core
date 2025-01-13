@@ -16,9 +16,6 @@ abstract contract BaseProtocolForkTest is Test {
     address user;
     address user2;
     address provider;
-    // deployment checks
-    uint forkId;
-    bool forkSet;
 
     function setUp() public virtual {
         uint deployerPrivKey = vm.envUint("PRIVKEY_DEV_DEPLOYER");
@@ -35,26 +32,22 @@ abstract contract BaseProtocolForkTest is Test {
         vm.label(owner, "Owner");
         vm.label(user, "User");
         vm.label(user2, "User 2");
-        if (!forkSet) {
-            console.log("Setting up fork and deploying contracts");
-            setupNewFork();
 
-            vm.startPrank(owner);
-            setupDeployer();
-            // Deploy contracts
-            BaseDeployer.DeploymentResult memory result = deployer.deployAndSetupFullProtocol(owner);
+        setupNewFork();
 
-            acceptOwnership(owner, result);
+        vm.startPrank(owner);
 
-            DeploymentArtifactsLib.exportDeployment(
-                vm, deploymentName(), address(result.configHub), result.assetPairContracts
-            );
-            vm.stopPrank();
-            forkSet = true;
-        } else {
-            console.log("Fork already set, selecting fork");
-            vm.selectFork(forkId);
-        }
+        setupDeployer();
+
+        BaseDeployer.DeploymentResult memory result = deployer.deployAndSetupFullProtocol(owner);
+
+        acceptOwnership(owner, result);
+
+        DeploymentArtifactsLib.exportDeployment(
+            vm, deploymentName(), address(result.configHub), result.assetPairContracts
+        );
+        vm.stopPrank();
+
         (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs) = loadDeployment();
         configHub = hub;
         for (uint i = 0; i < pairs.length; i++) {
@@ -64,25 +57,15 @@ abstract contract BaseProtocolForkTest is Test {
         require(deployedPairs.length > 0, "No pairs deployed");
     }
 
-    function setupNewFork() internal virtual {
-        // this test suite needs to run independently so we load a fork here
-        // if we are in development we want to fix the block to reduce the time it takes to run the tests
-        if (vm.envBool("FIX_BLOCK_ARBITRUM_MAINNET")) {
-            forkId = vm.createSelectFork(
-                vm.envString("ARBITRUM_MAINNET_RPC"), vm.envUint("BLOCK_NUMBER_ARBITRUM_MAINNET")
-            );
-        } else {
-            forkId = vm.createSelectFork(vm.envString("ARBITRUM_MAINNET_RPC"));
-        }
-    }
+    // abstract
 
-    function setupDeployer() internal virtual {
-        deployer = new ArbitrumMainnetDeployer();
-    }
+    function setupNewFork() internal virtual;
 
-    function deploymentName() internal pure returns (string memory) {
-        return "collar_protocol_fork_deployment";
-    }
+    function setupDeployer() internal virtual;
+
+    function deploymentName() internal pure virtual returns (string memory);
+
+    // internal
 
     function acceptOwnership(address _owner, BaseDeployer.DeploymentResult memory result) internal {
         result.configHub.acceptOwnership();
@@ -121,5 +104,37 @@ abstract contract BaseProtocolForkTest is Test {
             }
         }
         require(found, "getPairByAssets: not found");
+    }
+
+    // tests for deployment
+
+    function test_validateConfigHubDeployment() public view {
+        assertEq(address(configHub) != address(0), true);
+        assertEq(configHub.owner(), owner);
+    }
+
+    function test_validatePairDeployments() public view {
+        for (uint i = 0; i < deployedPairs.length; i++) {
+            BaseDeployer.AssetPairContracts memory pair = deployedPairs[i];
+
+            assertEq(address(pair.providerNFT) != address(0), true);
+            assertEq(address(pair.takerNFT) != address(0), true);
+            assertEq(address(pair.loansContract) != address(0), true);
+            assertEq(address(pair.rollsContract) != address(0), true);
+
+            assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.takerNFT)));
+            assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.providerNFT)));
+            assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.loansContract)));
+            assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.rollsContract)));
+
+            address[] memory allAuthed = new address[](4);
+            allAuthed[0] = address(pair.takerNFT);
+            allAuthed[1] = address(pair.providerNFT);
+            allAuthed[2] = address(pair.loansContract);
+            allAuthed[3] = address(pair.rollsContract);
+            assertEq(configHub.allCanOpenPair(pair.underlying, pair.cashAsset), allAuthed);
+
+            assertEq(address(pair.rollsContract.takerNFT()) == address(pair.takerNFT), true);
+        }
     }
 }
