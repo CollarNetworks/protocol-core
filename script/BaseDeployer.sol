@@ -161,8 +161,8 @@ abstract contract BaseDeployer {
             pairConfig.cashAsset,
             pairConfig.underlying,
             pairConfig.oracle,
-            string(abi.encodePacked("Taker ", pairConfig.name)),
-            string(abi.encodePacked("T", pairConfig.name))
+            string.concat("Taker ", pairConfig.name),
+            string.concat("T", pairConfig.name)
         );
         CollarProviderNFT providerNFT = new CollarProviderNFT(
             address(this),
@@ -170,14 +170,14 @@ abstract contract BaseDeployer {
             pairConfig.cashAsset,
             pairConfig.underlying,
             address(takerNFT),
-            string(abi.encodePacked("Provider ", pairConfig.name)),
-            string(abi.encodePacked("P", pairConfig.name))
+            string.concat("Provider ", pairConfig.name),
+            string.concat("P", pairConfig.name)
         );
         LoansNFT loansContract = new LoansNFT(
             address(this),
             takerNFT,
-            string(abi.encodePacked("Loans ", pairConfig.name)),
-            string(abi.encodePacked("L", pairConfig.name))
+            string.concat("Loans ", pairConfig.name),
+            string.concat("L", pairConfig.name)
         );
         Rolls rollsContract = new Rolls(address(this), takerNFT);
         SwapperUniV3 swapperUniV3 = new SwapperUniV3(pairConfig.swapRouter, pairConfig.swapFeeTier);

@@ -9,23 +9,8 @@ import { ArbitrumMainnetDeployer } from "../../../script/ArbitrumMainnetDeployer
 contract WETHUSDC_ArbiMain_LoansForkTest is BaseLoansForkTest {
     function setUp() public override {
         super.setUp();
-
         _setParams();
-
-        uint pairIndex;
-        (pair, pairIndex) = getPairByAssets(address(cashAsset), address(underlying));
-
-        // pair internal validations are done elsewhere
-        // but we should check that assets match so that these checks are relevant
-        require(address(pair.underlying) == underlying, "underlying mismatch");
-        require(address(pair.cashAsset) == cashAsset, "cashAsset mismatch");
-        // ensure we're testing all deployed pairs
-        require(pairIndex == expectedPairIndex, "pair index mismatch");
-        require(deployedPairs.length == expectedNumPairs, "number of pairs mismatch");
-
-        // Fund whale for price manipulation
-        deal(address(pair.cashAsset), whale, 100 * bigCashAmount);
-        deal(address(pair.underlying), whale, 100 * bigUnderlyingAmount);
+        _setPair();
 
         // Setup protocol fee
         vm.startPrank(owner);
@@ -37,6 +22,19 @@ contract WETHUSDC_ArbiMain_LoansForkTest is BaseLoansForkTest {
         ltv = 9000;
     }
 
+    function _setPair() internal {
+        uint pairIndex;
+        (pair, pairIndex) = getPairByAssets(address(cashAsset), address(underlying));
+
+        // pair internal validations are done elsewhere
+        // but we should check that assets match so that these checks are relevant
+        assertEq(address(pair.underlying), underlying);
+        assertEq(address(pair.cashAsset), cashAsset);
+        // ensure we're testing all deployed pairs
+        assertEq(pairIndex, expectedPairIndex);
+        assertEq(deployedPairs.length, expectedNumPairs);
+    }
+
     function _setParams() internal virtual {
         // @dev all pairs must be tested, so if this number is increased, test classes must be added
         expectedNumPairs = 3;
@@ -45,6 +43,8 @@ contract WETHUSDC_ArbiMain_LoansForkTest is BaseLoansForkTest {
         expectedPairIndex = 0;
         underlying = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
         cashAsset = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // USDC
+        oracleDescription = "Comb(CL(ETH / USD)|inv(CL(USDC / USD)))";
+
         offerAmount = 100_000e6;
         underlyingAmount = 1 ether;
         minLoanAmount = 0.3e6; // arbitrary low value
@@ -93,6 +93,7 @@ contract WETHUSDT_ArbiMain_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
         expectedPairIndex = 1;
         underlying = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
         cashAsset = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9; // USDT
+        oracleDescription = "Comb(CL(ETH / USD)|inv(CL(USDT / USD)))";
     }
 }
 
@@ -103,6 +104,7 @@ contract WBTCUSDT_ArbiMain_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
         expectedPairIndex = 2;
         underlying = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f; // WBTC
         cashAsset = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9; // USDT
+        oracleDescription = "Comb(CL(WBTC / USD)|inv(CL(USDT / USD)))";
         underlyingAmount = 0.1e8;
         bigUnderlyingAmount = 100e8;
 
