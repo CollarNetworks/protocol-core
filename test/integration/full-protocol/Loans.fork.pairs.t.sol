@@ -14,7 +14,11 @@ contract WETHUSDC_ArbiMain_LoansForkTest is BaseLoansForkTest {
 
         uint pairIndex;
         (pair, pairIndex) = getPairByAssets(address(cashAsset), address(underlying));
-        require(address(pair.loansContract) != address(0), "Loans contract not deployed");
+
+        // pair internal validations are done elsewhere
+        // but we should check that assets match so that these checks are relevant
+        require(address(pair.underlying) == underlying, "underlying mismatch");
+        require(address(pair.cashAsset) == cashAsset, "cashAsset mismatch");
         // ensure we're testing all deployed pairs
         require(pairIndex == expectedPairIndex, "pair index mismatch");
         require(deployedPairs.length == expectedNumPairs, "number of pairs mismatch");

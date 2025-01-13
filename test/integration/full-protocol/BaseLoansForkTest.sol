@@ -28,6 +28,7 @@ abstract contract BaseLoansForkTest is BaseProtocolForkTest {
     // values to be set by pair
     address cashAsset;
     address underlying;
+
     uint expectedPairIndex;
     uint offerAmount;
     uint underlyingAmount;
@@ -239,6 +240,38 @@ abstract contract BaseLoansForkTest is BaseProtocolForkTest {
         deal(address(underlying), user, bigUnderlyingAmount);
         deal(address(underlying), provider, bigUnderlyingAmount);
         deal(address(underlying), escrowSupplier, bigUnderlyingAmount);
+    }
+
+    function getProviderProtocolFeeByLoanAmount(uint loanAmount) internal view returns (uint protocolFee) {
+        // Calculate protocol fee based on post-swap provider locked amount
+        uint swapOut = loanAmount * BIPS_BASE / ltv;
+        uint initProviderLocked = swapOut * (callstrikeToUse - BIPS_BASE) / BIPS_BASE;
+        (protocolFee,) = pair.providerNFT.protocolFee(initProviderLocked, duration);
+        assertGt(protocolFee, 0);
+    }
+
+    function closeAndCheckLoan(
+        uint loanId,
+        uint loanAmount,
+        uint totalAmountToSwap,
+        uint currentPrice,
+        uint escrowRefund
+    ) internal returns (uint underlyingOut) {
+        // Track balances before closing
+        uint userCashBefore = pair.cashAsset.balanceOf(user);
+        uint userUnderlyingBefore = pair.underlying.balanceOf(user);
+        // Convert cash amount to expected underlying amount using oracle's conversion
+        uint expectedFromSwap = pair.oracle.convertToBaseAmount(totalAmountToSwap, currentPrice);
+
+        uint minUnderlyingOut = (expectedFromSwap * (BIPS_BASE - slippage) / BIPS_BASE);
+        underlyingOut = closeLoan(user, loanId, minUnderlyingOut);
+
+        assertApproxEqAbs(
+            underlyingOut, expectedFromSwap + escrowRefund, expectedFromSwap * slippage / BIPS_BASE
+        );
+        // Verify balance changes
+        assertEq(userCashBefore - pair.cashAsset.balanceOf(user), loanAmount);
+        assertEq(pair.underlying.balanceOf(user) - userUnderlyingBefore, underlyingOut);
     }
 
     // tests
@@ -504,38 +537,6 @@ abstract contract BaseLoansForkTest is BaseProtocolForkTest {
             pair.cashAsset.balanceOf(feeRecipient) - feeRecipientBalanceBefore,
             initialFee + expectedResults.protocolFee
         );
-    }
-
-    function getProviderProtocolFeeByLoanAmount(uint loanAmount) internal view returns (uint protocolFee) {
-        // Calculate protocol fee based on post-swap provider locked amount
-        uint swapOut = loanAmount * BIPS_BASE / ltv;
-        uint initProviderLocked = swapOut * (callstrikeToUse - BIPS_BASE) / BIPS_BASE;
-        (protocolFee,) = pair.providerNFT.protocolFee(initProviderLocked, duration);
-        assertGt(protocolFee, 0);
-    }
-
-    function closeAndCheckLoan(
-        uint loanId,
-        uint loanAmount,
-        uint totalAmountToSwap,
-        uint currentPrice,
-        uint escrowRefund
-    ) internal returns (uint underlyingOut) {
-        // Track balances before closing
-        uint userCashBefore = pair.cashAsset.balanceOf(user);
-        uint userUnderlyingBefore = pair.underlying.balanceOf(user);
-        // Convert cash amount to expected underlying amount using oracle's conversion
-        uint expectedFromSwap = pair.oracle.convertToBaseAmount(totalAmountToSwap, currentPrice);
-
-        uint minUnderlyingOut = (expectedFromSwap * (BIPS_BASE - slippage) / BIPS_BASE);
-        underlyingOut = closeLoan(user, loanId, minUnderlyingOut);
-
-        assertApproxEqAbs(
-            underlyingOut, expectedFromSwap + escrowRefund, expectedFromSwap * slippage / BIPS_BASE
-        );
-        // Verify balance changes
-        assertEq(userCashBefore - pair.cashAsset.balanceOf(user), loanAmount);
-        assertEq(pair.underlying.balanceOf(user) - userUnderlyingBefore, underlyingOut);
     }
 
     function testCloseEscrowLoanAfterGracePeriod() public {

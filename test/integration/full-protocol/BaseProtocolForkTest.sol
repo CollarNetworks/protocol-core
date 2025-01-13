@@ -117,24 +117,66 @@ abstract contract BaseProtocolForkTest is Test {
         for (uint i = 0; i < deployedPairs.length; i++) {
             BaseDeployer.AssetPairContracts memory pair = deployedPairs[i];
 
-            assertEq(address(pair.providerNFT) != address(0), true);
-            assertEq(address(pair.takerNFT) != address(0), true);
-            assertEq(address(pair.loansContract) != address(0), true);
-            assertEq(address(pair.rollsContract) != address(0), true);
+            // oracle
+            assertEq(address(pair.oracle.baseToken()), address(pair.underlying));
+            assertEq(address(pair.oracle.quoteToken()), address(pair.cashAsset));
 
+            // taker
+            assertEq(address(pair.takerNFT.owner()), owner);
+            assertEq(address(pair.takerNFT.configHub()), address(configHub));
+            assertEq(address(pair.takerNFT.underlying()), address(pair.underlying));
+            assertEq(address(pair.takerNFT.cashAsset()), address(pair.cashAsset));
+            assertEq(address(pair.takerNFT.oracle()), address(pair.oracle));
+
+            // provider
+            assertEq(address(pair.providerNFT.owner()), owner);
+            assertEq(address(pair.providerNFT.configHub()), address(configHub));
+            assertEq(address(pair.providerNFT.underlying()), address(pair.underlying));
+            assertEq(address(pair.providerNFT.cashAsset()), address(pair.cashAsset));
+            assertEq(address(pair.providerNFT.taker()), address(pair.takerNFT));
+
+            // rolls
+            assertEq(address(pair.rollsContract.owner()), owner);
+            assertEq(address(pair.rollsContract.configHub()), address(configHub));
+            assertEq(address(pair.rollsContract.takerNFT()), address(pair.takerNFT));
+            assertEq(address(pair.rollsContract.cashAsset()), address(pair.cashAsset));
+
+            // loans
+            assertEq(address(pair.loansContract.owner()), owner);
+            assertEq(address(pair.loansContract.configHub()), address(configHub));
+            assertEq(address(pair.loansContract.takerNFT()), address(pair.takerNFT));
+            assertEq(address(pair.loansContract.underlying()), address(pair.underlying));
+            assertEq(address(pair.loansContract.cashAsset()), address(pair.cashAsset));
+            assertEq(address(pair.loansContract.defaultSwapper()), address(pair.swapperUniV3));
+            assertTrue(pair.loansContract.isAllowedSwapper(address(pair.swapperUniV3)));
+
+            // escrow
+            assertEq(address(pair.escrowNFT.owner()), owner);
+            assertEq(address(pair.escrowNFT.configHub()), address(configHub));
+            assertTrue(pair.escrowNFT.loansCanOpen(address(pair.loansContract)));
+            assertEq(address(pair.escrowNFT.asset()), address(pair.underlying));
+
+            // pair auth
             assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.takerNFT)));
             assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.providerNFT)));
             assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.loansContract)));
             assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.rollsContract)));
 
-            address[] memory allAuthed = new address[](4);
-            allAuthed[0] = address(pair.takerNFT);
-            allAuthed[1] = address(pair.providerNFT);
-            allAuthed[2] = address(pair.loansContract);
-            allAuthed[3] = address(pair.rollsContract);
-            assertEq(configHub.allCanOpenPair(pair.underlying, pair.cashAsset), allAuthed);
+            // all pair auth
+            address[] memory pairAuthed = new address[](4);
+            pairAuthed[0] = address(pair.takerNFT);
+            pairAuthed[1] = address(pair.providerNFT);
+            pairAuthed[2] = address(pair.loansContract);
+            pairAuthed[3] = address(pair.rollsContract);
+            assertEq(configHub.allCanOpenPair(pair.underlying, pair.cashAsset), pairAuthed);
 
-            assertEq(address(pair.rollsContract.takerNFT()) == address(pair.takerNFT), true);
+            // single asset auth
+            assertTrue(configHub.canOpenSingle(pair.underlying, address(pair.escrowNFT)));
+
+            // all single auth for underlying
+            address[] memory escrowAuthed = new address[](1);
+            escrowAuthed[0] = address(pair.escrowNFT);
+            assertEq(configHub.allCanOpenPair(pair.underlying, configHub.ANY_ASSET()), escrowAuthed);
         }
     }
 }
