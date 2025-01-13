@@ -2,109 +2,14 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import "./DeploymentLoader.sol";
+import "./BaseProtocolForkTest.sol";
 import { ILoansNFT } from "../../../src/interfaces/ILoansNFT.sol";
 import { IRolls } from "../../../src/interfaces/IRolls.sol";
 import { ICollarTakerNFT } from "../../../src/interfaces/ICollarTakerNFT.sol";
 import { ICollarProviderNFT } from "../../../src/interfaces/ICollarProviderNFT.sol";
-import { PriceMovementHelper } from "../utils/PriceMovement.sol";
-import { ArbitrumMainnetDeployer, BaseDeployer } from "../../../script/ArbitrumMainnetDeployer.sol";
-import { DeploymentUtils } from "../../../script/utils/deployment-exporter.s.sol";
+import { BaseDeployer } from "../../../script/BaseDeployer.sol";
 
-abstract contract LoansForkTestBase is Test, DeploymentLoader {
-    function setUp() public virtual override {
-        super.setUp();
-    }
-
-    function createProviderOffer(
-        BaseDeployer.AssetPairContracts memory pair,
-        uint callStrikePercent,
-        uint amount,
-        uint duration,
-        uint ltv
-    ) internal returns (uint offerId) {
-        vm.startPrank(provider);
-        pair.cashAsset.approve(address(pair.providerNFT), amount);
-        offerId = pair.providerNFT.createOffer(callStrikePercent, amount, ltv, duration, 0);
-        vm.stopPrank();
-    }
-
-    function openLoan(
-        BaseDeployer.AssetPairContracts memory pair,
-        address user,
-        uint underlyingAmount,
-        uint minLoanAmount,
-        uint offerId
-    ) internal returns (uint loanId, uint providerId, uint loanAmount) {
-        vm.startPrank(user);
-        pair.underlying.approve(address(pair.loansContract), underlyingAmount);
-        (loanId, providerId, loanAmount) = pair.loansContract.openLoan(
-            underlyingAmount,
-            minLoanAmount,
-            ILoansNFT.SwapParams(0, address(pair.loansContract.defaultSwapper()), ""),
-            ILoansNFT.ProviderOffer(pair.providerNFT, offerId)
-        );
-        vm.stopPrank();
-    }
-
-    function closeLoan(
-        BaseDeployer.AssetPairContracts memory pair,
-        address user,
-        uint loanId,
-        uint minUnderlyingOut
-    ) internal returns (uint underlyingOut) {
-        vm.startPrank(user);
-        ILoansNFT.Loan memory loan = pair.loansContract.getLoan(loanId);
-        // approve repayment amount in cash asset to loans contract
-        pair.cashAsset.approve(address(pair.loansContract), loan.loanAmount);
-        underlyingOut = pair.loansContract.closeLoan(
-            loanId, ILoansNFT.SwapParams(minUnderlyingOut, address(pair.loansContract.defaultSwapper()), "")
-        );
-        vm.stopPrank();
-    }
-
-    function createRollOffer(
-        BaseDeployer.AssetPairContracts memory pair,
-        address provider,
-        uint loanId,
-        uint providerId,
-        int rollFee,
-        int rollDeltaFactor
-    ) internal returns (uint rollOfferId) {
-        vm.startPrank(provider);
-        pair.cashAsset.approve(address(pair.rollsContract), type(uint).max);
-        pair.providerNFT.approve(address(pair.rollsContract), providerId);
-        uint currentPrice = pair.takerNFT.currentOraclePrice();
-        uint takerId = loanId;
-        rollOfferId = pair.rollsContract.createOffer(
-            takerId,
-            rollFee,
-            rollDeltaFactor,
-            currentPrice * 90 / 100, // minPrice 90% of current
-            currentPrice * 110 / 100, // maxPrice 110% of current
-            0,
-            block.timestamp + 1 hours
-        );
-        vm.stopPrank();
-    }
-
-    function rollLoan(
-        BaseDeployer.AssetPairContracts memory pair,
-        address user,
-        uint loanId,
-        uint rollOfferId,
-        int minToUser
-    ) internal returns (uint newLoanId, uint newLoanAmount, int transferAmount) {
-        vm.startPrank(user);
-        pair.cashAsset.approve(address(pair.loansContract), type(uint).max);
-        (newLoanId, newLoanAmount, transferAmount) = pair.loansContract.rollLoan(
-            loanId, ILoansNFT.RollOffer(pair.rollsContract, rollOfferId), minToUser, 0, 0
-        );
-        vm.stopPrank();
-    }
-}
-
-abstract contract BaseLoansForkTest is LoansForkTestBase {
+abstract contract BaseLoansForkTest is BaseProtocolForkTest {
     // constants for all pairs
     uint constant BIPS_BASE = 10_000;
 
@@ -154,13 +59,6 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
 
     BaseDeployer.AssetPairContracts internal pair;
 
-    // restores back to snapshot for tests that skip time ahead
-    modifier restoreSnapshot() {
-        uint vmSnapshot = vm.snapshotState();
-        _;
-        vm.revertToState(vmSnapshot);
-    }
-
     function setUp() public virtual override {
         super.setUp();
 
@@ -175,12 +73,81 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         forkSet = true;
     }
 
-    function createEscrowOffer(uint _duration) internal returns (uint offerId) {
+    function createProviderOffer(uint callStrikePercent, uint amount) internal returns (uint offerId) {
+        vm.startPrank(provider);
+        pair.cashAsset.approve(address(pair.providerNFT), amount);
+        offerId = pair.providerNFT.createOffer(callStrikePercent, amount, ltv, duration, 0);
+        vm.stopPrank();
+    }
+
+    function openLoan(address user, uint offerId)
+        internal
+        returns (uint loanId, uint providerId, uint loanAmount)
+    {
+        vm.startPrank(user);
+        pair.underlying.approve(address(pair.loansContract), underlyingAmount);
+        (loanId, providerId, loanAmount) = pair.loansContract.openLoan(
+            underlyingAmount,
+            minLoanAmount,
+            ILoansNFT.SwapParams(0, address(pair.loansContract.defaultSwapper()), ""),
+            ILoansNFT.ProviderOffer(pair.providerNFT, offerId)
+        );
+        vm.stopPrank();
+    }
+
+    function closeLoan(address user, uint loanId, uint minUnderlyingOut)
+        internal
+        returns (uint underlyingOut)
+    {
+        vm.startPrank(user);
+        ILoansNFT.Loan memory loan = pair.loansContract.getLoan(loanId);
+        // approve repayment amount in cash asset to loans contract
+        pair.cashAsset.approve(address(pair.loansContract), loan.loanAmount);
+        underlyingOut = pair.loansContract.closeLoan(
+            loanId, ILoansNFT.SwapParams(minUnderlyingOut, address(pair.loansContract.defaultSwapper()), "")
+        );
+        vm.stopPrank();
+    }
+
+    function createRollOffer(address provider, uint loanId, uint providerId)
+        internal
+        returns (uint rollOfferId)
+    {
+        vm.startPrank(provider);
+        pair.cashAsset.approve(address(pair.rollsContract), type(uint).max);
+        pair.providerNFT.approve(address(pair.rollsContract), providerId);
+        uint currentPrice = pair.takerNFT.currentOraclePrice();
+        uint takerId = loanId;
+        rollOfferId = pair.rollsContract.createOffer(
+            takerId,
+            rollFee,
+            rollDeltaFactor,
+            currentPrice * 90 / 100, // minPrice 90% of current
+            currentPrice * 110 / 100, // maxPrice 110% of current
+            0,
+            block.timestamp + 1 hours
+        );
+        vm.stopPrank();
+    }
+
+    function rollLoan(address user, uint loanId, uint rollOfferId, int minToUser)
+        internal
+        returns (uint newLoanId, uint newLoanAmount, int transferAmount)
+    {
+        vm.startPrank(user);
+        pair.cashAsset.approve(address(pair.loansContract), type(uint).max);
+        (newLoanId, newLoanAmount, transferAmount) = pair.loansContract.rollLoan(
+            loanId, ILoansNFT.RollOffer(pair.rollsContract, rollOfferId), minToUser, 0, 0
+        );
+        vm.stopPrank();
+    }
+
+    function createEscrowOffer() internal returns (uint offerId) {
         vm.startPrank(escrowSupplier);
         pair.underlying.approve(address(pair.escrowNFT), underlyingAmount);
         offerId = pair.escrowNFT.createOffer(
             underlyingAmount,
-            _duration,
+            duration,
             interestAPR,
             gracePeriod,
             lateFeeAPR,
@@ -210,11 +177,11 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
 
     function createEscrowOffers() internal returns (uint offerId, uint escrowOfferId) {
         uint providerBalanceBefore = pair.cashAsset.balanceOf(provider);
-        offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration, ltv);
+        offerId = createProviderOffer(callstrikeToUse, offerAmount);
         assertEq(pair.cashAsset.balanceOf(provider), providerBalanceBefore - offerAmount);
 
         // Create escrow offer
-        escrowOfferId = createEscrowOffer(duration);
+        escrowOfferId = createEscrowOffer();
     }
 
     function executeEscrowLoan(uint offerId, uint escrowOfferId)
@@ -293,19 +260,13 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         assertEq(oraclePrice, pair.takerNFT.currentOraclePrice());
     }
 
-    function testOpenAndCloseLoan() public restoreSnapshot {
+    function testOpenAndCloseLoan() public {
         uint providerBalanceBefore = pair.cashAsset.balanceOf(provider);
-        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration, ltv);
+        uint offerId = createProviderOffer(callstrikeToUse, offerAmount);
         assertEq(pair.cashAsset.balanceOf(provider), providerBalanceBefore - offerAmount);
         uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
 
-        (uint loanId,, uint loanAmount) = openLoan(
-            pair,
-            user,
-            underlyingAmount,
-            minLoanAmount, // minLoanAmount
-            offerId
-        );
+        (uint loanId,, uint loanAmount) = openLoan(user, offerId);
         // Verify fee taken and sent to recipient
         uint expectedFee = getProviderProtocolFeeByLoanAmount(loanAmount);
         assertEq(pair.cashAsset.balanceOf(feeRecipient) - feeRecipientBalanceBefore, expectedFee);
@@ -334,7 +295,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         );
     }
 
-    function testOpenAndCloseEscrowLoan() public restoreSnapshot {
+    function testOpenAndCloseEscrowLoan() public {
         //  create provider and escrow offers
         (uint offerId, uint escrowOfferId) = createEscrowOffers();
         (uint loanId,, uint loanAmount) = executeEscrowLoan(offerId, escrowOfferId);
@@ -371,7 +332,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         assertEq(pair.underlying.balanceOf(user) - userBefore, underlyingOut);
     }
 
-    function testRollEscrowLoanBetweenSuppliers() public restoreSnapshot {
+    function testRollEscrowLoanBetweenSuppliers() public {
         // Create first provider and escrow offers
         (uint offerId1, uint escrowOfferId1) = createEscrowOffers();
         (uint escrowFees1,,) = pair.escrowNFT.upfrontFees(escrowOfferId1, underlyingAmount);
@@ -408,7 +369,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         vm.stopPrank();
 
         // Create roll offer using existing provider position
-        uint rollOfferId = createRollOffer(pair, provider, loanId, providerId, rollFee, rollDeltaFactor);
+        uint rollOfferId = createRollOffer(provider, loanId, providerId);
 
         (uint newEscrowFees,,) = pair.escrowNFT.upfrontFees(escrowOfferId2, underlyingAmount);
         uint userUnderlyingBeforeRoll = pair.underlying.balanceOf(user);
@@ -474,16 +435,10 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
     }
 
     function testRollLoan() public {
-        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration, ltv);
-        (uint loanId, uint providerId, uint initialLoanAmount) = openLoan(
-            pair,
-            user,
-            underlyingAmount,
-            minLoanAmount, // minLoanAmount
-            offerId
-        );
+        uint offerId = createProviderOffer(callstrikeToUse, offerAmount);
+        (uint loanId, uint providerId, uint initialLoanAmount) = openLoan(user, offerId);
 
-        uint rollOfferId = createRollOffer(pair, provider, loanId, providerId, rollFee, rollDeltaFactor);
+        uint rollOfferId = createRollOffer(provider, loanId, providerId);
 
         // Calculate and verify protocol fee based on new position's provider locked amount
         uint newPositionPrice = pair.takerNFT.currentOraclePrice();
@@ -495,7 +450,6 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         uint providerBalanceBefore = pair.cashAsset.balanceOf(provider);
         uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
         (uint newLoanId, uint newLoanAmount, int transferAmount) = rollLoan(
-            pair,
             user,
             loanId,
             rollOfferId,
@@ -511,13 +465,12 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         assertGe(int(newLoanAmount), int(initialLoanAmount) + transferAmount);
     }
 
-    function testFullLoanLifecycle() public restoreSnapshot {
+    function testFullLoanLifecycle() public {
         uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
 
-        uint offerId = createProviderOffer(pair, callstrikeToUse, offerAmount, duration, ltv);
+        uint offerId = createProviderOffer(callstrikeToUse, offerAmount);
 
-        (uint loanId, uint providerId, uint initialLoanAmount) =
-            openLoan(pair, user, underlyingAmount, minLoanAmount, offerId);
+        (uint loanId, uint providerId, uint initialLoanAmount) = openLoan(user, offerId);
         uint initialFee = getProviderProtocolFeeByLoanAmount(initialLoanAmount);
         // Verify fee taken and sent to recipient
         assertEq(pair.cashAsset.balanceOf(feeRecipient) - feeRecipientBalanceBefore, initialFee);
@@ -526,14 +479,14 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         skip(duration - 20);
 
         uint recipientBalanceAfterOpenLoan = pair.cashAsset.balanceOf(feeRecipient);
-        uint rollOfferId = createRollOffer(pair, provider, loanId, providerId, rollFee, rollDeltaFactor);
+        uint rollOfferId = createRollOffer(provider, loanId, providerId);
 
         // Calculate roll protocol fee
         IRolls.PreviewResults memory expectedResults =
             pair.rollsContract.previewRoll(rollOfferId, pair.takerNFT.currentOraclePrice());
         assertGt(expectedResults.protocolFee, 0);
         (uint newLoanId, uint newLoanAmount, int transferAmount) =
-            rollLoan(pair, user, loanId, rollOfferId, -1000e6);
+            rollLoan(user, loanId, rollOfferId, -1000e6);
 
         assertEq(
             pair.cashAsset.balanceOf(feeRecipient) - recipientBalanceAfterOpenLoan,
@@ -580,7 +533,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         uint expectedFromSwap = pair.oracle.convertToBaseAmount(totalAmountToSwap, currentPrice);
 
         uint minUnderlyingOut = (expectedFromSwap * (BIPS_BASE - slippage) / BIPS_BASE);
-        underlyingOut = closeLoan(pair, user, loanId, minUnderlyingOut);
+        underlyingOut = closeLoan(user, loanId, minUnderlyingOut);
 
         assertApproxEqAbs(
             underlyingOut, expectedFromSwap + escrowRefund, expectedFromSwap * slippage / BIPS_BASE
@@ -590,7 +543,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         assertEq(pair.underlying.balanceOf(user) - userUnderlyingBefore, underlyingOut);
     }
 
-    function testCloseEscrowLoanAfterGracePeriod() public restoreSnapshot {
+    function testCloseEscrowLoanAfterGracePeriod() public {
         //  create provider and escrow offers
         (uint offerId, uint escrowOfferId) = createEscrowOffers();
         (uint loanId,, uint loanAmount) = executeEscrowLoan(offerId, escrowOfferId);
@@ -633,7 +586,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         assertEq(pair.underlying.balanceOf(user) - userBefore, underlyingOut);
     }
 
-    function testSeizeEscrowAndUnwrapLoan() public restoreSnapshot {
+    function testSeizeEscrowAndUnwrapLoan() public {
         //  create provider and escrow offers
         (uint offerId, uint escrowOfferId) = createEscrowOffers();
         (uint loanId,,) = executeEscrowLoan(offerId, escrowOfferId);
@@ -673,7 +626,7 @@ abstract contract BaseLoansForkTest is LoansForkTestBase {
         assertEq(pair.cashAsset.balanceOf(user) - userBeforeCash, takerWithdrawal);
     }
 
-    function testCloseEscrowLoanWithPartialLateFees() public restoreSnapshot {
+    function testCloseEscrowLoanWithPartialLateFees() public {
         //  create provider and escrow offers
         (uint offerId, uint escrowOfferId) = createEscrowOffers();
         (uint loanId,, uint loanAmount) = executeEscrowLoan(offerId, escrowOfferId);

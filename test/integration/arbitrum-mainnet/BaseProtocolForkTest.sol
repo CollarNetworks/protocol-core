@@ -3,13 +3,14 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 
-import { DeploymentUtils } from "../../../script/utils/deployment-exporter.s.sol";
+import { DeploymentArtifactsLib } from "../../../script/utils/DeploymentArtifacts.sol";
 import { ConfigHub } from "../../../src/ConfigHub.sol";
 import { ArbitrumMainnetDeployer, BaseDeployer } from "../../../script/ArbitrumMainnetDeployer.sol";
 
-abstract contract DeploymentLoader is Test, ArbitrumMainnetDeployer {
+abstract contract BaseProtocolForkTest is Test {
     ConfigHub public configHub;
-    address public router;
+
+    BaseDeployer deployer;
     BaseDeployer.AssetPairContracts[] public deployedPairs;
     address owner;
     address user;
@@ -24,7 +25,6 @@ abstract contract DeploymentLoader is Test, ArbitrumMainnetDeployer {
         uint user1PrivKey = vm.envUint("PRIVKEY_DEV_TEST1");
         uint user2PrivKey = vm.envUint("PRIVKEY_DEV_TEST2");
         uint liquidityProviderPrivKey = vm.envUint("LIQUIDITY_PROVIDER_KEY");
-        uint blockNumber = vm.envUint("BLOCK_NUMBER_ARBITRUM_MAINNET");
 
         owner = vm.addr(deployerPrivKey);
         user = vm.addr(user1PrivKey);
@@ -37,25 +37,13 @@ abstract contract DeploymentLoader is Test, ArbitrumMainnetDeployer {
         vm.label(user2, "User 2");
         if (!forkSet) {
             console.log("Setting up fork and deploying contracts");
-            // this test suite needs to run independently so we load a fork here
-            // if we are in development we want to fix the block to reduce the time it takes to run the tests
-            bool shouldFixBlock = vm.envBool("FIX_BLOCK_ARBITRUM_MAINNET");
-            if (shouldFixBlock) {
-                vm.createSelectFork(vm.envString("ARBITRUM_MAINNET_RPC"), blockNumber);
-            } else {
-                forkId = vm.createFork(vm.envString("ARBITRUM_MAINNET_RPC"));
-                vm.selectFork(forkId);
-            }
-
+            setupNewFork();
+            setupDeployer();
             // Deploy contracts
             vm.startPrank(owner);
-            DeploymentResult memory result = deployAndSetupProtocol(owner);
-            DeploymentUtils.exportDeployment(
-                vm,
-                "collar_protocol_fork_deployment",
-                address(result.configHub),
-                swapRouterAddress,
-                result.assetPairContracts
+            BaseDeployer.DeploymentResult memory result = deployer.deployAndSetupFullProtocol(owner);
+            DeploymentArtifactsLib.exportDeployment(
+                vm, deploymentName(), address(result.configHub), result.assetPairContracts
             );
             vm.stopPrank();
             forkSet = true;
@@ -72,9 +60,29 @@ abstract contract DeploymentLoader is Test, ArbitrumMainnetDeployer {
         require(deployedPairs.length > 0, "No pairs deployed");
     }
 
+    function setupNewFork() internal virtual {
+        // this test suite needs to run independently so we load a fork here
+        // if we are in development we want to fix the block to reduce the time it takes to run the tests
+        if (vm.envBool("FIX_BLOCK_ARBITRUM_MAINNET")) {
+            forkId = vm.createSelectFork(
+                vm.envString("ARBITRUM_MAINNET_RPC"), vm.envUint("BLOCK_NUMBER_ARBITRUM_MAINNET")
+            );
+        } else {
+            forkId = vm.createSelectFork(vm.envString("ARBITRUM_MAINNET_RPC"));
+        }
+    }
+
+    function setupDeployer() internal virtual {
+        deployer = new ArbitrumMainnetDeployer();
+    }
+
+    function deploymentName() internal pure returns (string memory) {
+        return "collar_protocol_fork_deployment";
+    }
+
     function loadDeployment() internal view returns (ConfigHub, BaseDeployer.AssetPairContracts[] memory) {
         (address configHubAddress, BaseDeployer.AssetPairContracts[] memory pairs) =
-            DeploymentUtils.getAll(vm, "collar_protocol_fork_deployment");
+            DeploymentArtifactsLib.loadHubAndAllPairs(vm, deploymentName());
 
         return (ConfigHub(configHubAddress), pairs);
     }
@@ -82,16 +90,19 @@ abstract contract DeploymentLoader is Test, ArbitrumMainnetDeployer {
     function getPairByAssets(address cashAsset, address underlying)
         internal
         view
-        returns (BaseDeployer.AssetPairContracts memory pair, uint i)
+        returns (BaseDeployer.AssetPairContracts memory pair, uint index)
     {
-        for (i = 0; i < deployedPairs.length; i++) {
+        bool found = false;
+        for (uint i = 0; i < deployedPairs.length; i++) {
             if (
                 address(deployedPairs[i].cashAsset) == cashAsset
                     && address(deployedPairs[i].underlying) == underlying
             ) {
-                return (deployedPairs[i], i);
+                require(!found, "getPairByAssets: found twice");
+                found = true;
+                (pair, index) = (deployedPairs[i], i);
             }
         }
-        revert("not found");
+        require(found, "getPairByAssets: not found");
     }
 }

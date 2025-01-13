@@ -11,30 +11,27 @@ import { EscrowSupplierNFT } from "../../src/EscrowSupplierNFT.sol";
 import { BaseDeployer, BaseTakerOracle } from "../BaseDeployer.sol";
 import { SwapperUniV3 } from "../../src/SwapperUniV3.sol";
 
-library DeploymentUtils {
+library DeploymentArtifactsLib {
     uint8 constant ADDRESS_LENGTH = 42; // 20 raw bytes * 2 hex chars per byte + 2 for 0x prefix
 
     function exportDeployment(
         Vm vm,
         string memory name,
         address configHub,
-        address router,
         BaseDeployer.AssetPairContracts[] memory assetPairs
     ) internal {
-        string memory json = constructJson(vm, configHub, router, assetPairs);
+        string memory json = constructJson(vm, configHub, assetPairs);
         writeJsonToFile(vm, name, json);
     }
 
-    function constructJson(
-        Vm vm,
-        address configHub,
-        address router,
-        BaseDeployer.AssetPairContracts[] memory assetPairs
-    ) internal pure returns (string memory) {
+    function constructJson(Vm vm, address configHub, BaseDeployer.AssetPairContracts[] memory assetPairs)
+        internal
+        pure
+        returns (string memory)
+    {
         string memory json = "{";
 
         json = string(abi.encodePacked(json, '"configHub": "', vm.toString(configHub), '",'));
-        json = string(abi.encodePacked(json, '"router": "', vm.toString(router), '",'));
 
         for (uint i = 0; i < assetPairs.length; i++) {
             BaseDeployer.AssetPairContracts memory pair = assetPairs[i];
@@ -120,30 +117,16 @@ library DeploymentUtils {
         vm.writeJson(json, latestPath);
     }
 
-    function getConfigHub(Vm vm) internal view returns (address) {
-        string memory json = vm.readFile(
-            string(abi.encodePacked(_getExportPath(vm), "collar_protocol_deployment-latest.json"))
-        );
-        return _parseAddress(vm, bytes(json), ".configHub");
-    }
-
-    function getRouter(Vm vm) internal view returns (address) {
-        string memory json = vm.readFile(
-            string(abi.encodePacked(_getExportPath(vm), "collar_protocol_deployment-latest.json"))
-        );
-        return _parseAddress(vm, bytes(json), ".router");
-    }
-
-    function getAll(Vm vm, string memory filename)
+    function loadHubAndAllPairs(Vm vm, string memory filename)
         internal
         view
-        returns (address, BaseDeployer.AssetPairContracts[] memory)
+        returns (address configHubAddress, BaseDeployer.AssetPairContracts[] memory pairs)
     {
         string memory json =
             vm.readFile(string(abi.encodePacked(_getExportPath(vm), filename, "-latest.json")));
         bytes memory parsedJson = bytes(json);
 
-        address configHubAddress = _parseAddress(vm, parsedJson, ".configHub");
+        configHubAddress = _parseAddress(vm, parsedJson, ".configHub");
 
         string[] memory allKeys = vm.parseJsonKeys(json, ".");
 
@@ -162,7 +145,7 @@ library DeploymentUtils {
             }
         }
 
-        BaseDeployer.AssetPairContracts[] memory result = new BaseDeployer.AssetPairContracts[](pairCount);
+        pairs = new BaseDeployer.AssetPairContracts[](pairCount);
         uint resultIndex = 0;
 
         for (uint i = 0; i < allKeys.length; i++) {
@@ -178,7 +161,7 @@ library DeploymentUtils {
                 // using all other key suffixes
                 string memory baseKey = substring(allKeys[i], 0, bytes(allKeys[i]).length - 9);
 
-                result[resultIndex] = BaseDeployer.AssetPairContracts({
+                pairs[resultIndex] = BaseDeployer.AssetPairContracts({
                     providerNFT: CollarProviderNFT(
                         _parseAddress(vm, parsedJson, string(abi.encodePacked(".", baseKey, "_providerNFT")))
                     ),
@@ -215,23 +198,6 @@ library DeploymentUtils {
                 resultIndex++;
             }
         }
-
-        return (configHubAddress, result);
-    }
-
-    function getByAssetPair(Vm vm, string memory filename, address cashAsset, address underlying)
-        internal
-        view
-        returns (address hub, BaseDeployer.AssetPairContracts memory)
-    {
-        (address configHub, BaseDeployer.AssetPairContracts[] memory allPairs) = getAll(vm, filename);
-        for (uint i = 0; i < allPairs.length; i++) {
-            if (address(allPairs[i].cashAsset) == cashAsset && address(allPairs[i].underlying) == underlying)
-            {
-                return (configHub, allPairs[i]);
-            }
-        }
-        revert("Asset pair not found");
     }
 
     function _getExportPath(Vm vm) internal view returns (string memory) {
@@ -261,13 +227,14 @@ library DeploymentUtils {
         return address(uint160(uint(vm.parseJsonUint(string(json), key))));
     }
 
-    function _parseUintArray(Vm vm, bytes memory json, string memory key)
-        internal
-        pure
-        returns (uint[] memory)
-    {
-        bytes memory arrayData = vm.parseJson(string(json), key);
-        uint[] memory result = abi.decode(arrayData, (uint[]));
-        return result;
-    }
+    //    // unused
+    //    function _parseUintArray(Vm vm, bytes memory json, string memory key)
+    //        internal
+    //        pure
+    //        returns (uint[] memory)
+    //    {
+    //        bytes memory arrayData = vm.parseJson(string(json), key);
+    //        uint[] memory result = abi.decode(arrayData, (uint[]));
+    //        return result;
+    //    }
 }

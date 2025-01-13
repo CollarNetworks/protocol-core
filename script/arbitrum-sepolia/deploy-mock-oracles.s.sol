@@ -18,21 +18,22 @@ contract DeployNewMocksForTakers is Script, ArbitrumSepoliaDeployer {
         require(chainId == block.chainid, "chainId does not match the chainId in config");
 
         // Load deployer wallet
-        (address deployer,,,) = WalletLoader.loadWalletsFromEnv(vm);
+        (address deployerAcc,,,) = WalletLoader.loadWalletsFromEnv(vm);
 
-        vm.startBroadcast(deployer);
+        vm.startBroadcast(deployerAcc);
 
         // reconfigure mock feeds
         _configureFeeds();
 
         // deploy direct oracles
         BaseTakerOracle oracletETH_USD =
-            deployChainlinkOracle(tWETH, VIRTUAL_ASSET, _getFeed("TWAPMock(ETH / USD)"), sequencerFeed);
+            deployChainlinkOracle(tWETH, VIRTUAL_ASSET, getFeed("TWAPMock(ETH / USD)"), sequencerFeed);
         BaseTakerOracle oracletWBTC_USD =
-            deployChainlinkOracle(tWBTC, VIRTUAL_ASSET, _getFeed("TWAPMock(BTC / USD)"), sequencerFeed);
+            deployChainlinkOracle(tWBTC, VIRTUAL_ASSET, getFeed("TWAPMock(BTC / USD)"), sequencerFeed);
         BaseTakerOracle oracletUSDC_USD =
-            deployChainlinkOracle(tUSDC, VIRTUAL_ASSET, _getFeed("FixedMock(USDC / USD)"), sequencerFeed);
+            deployChainlinkOracle(tUSDC, VIRTUAL_ASSET, getFeed("FixedMock(USDC / USD)"), sequencerFeed);
 
+        // deploy combined oracles
         BaseTakerOracle wethUSDCoracle = deployCombinedOracle(
             tWETH,
             tUSDC,
@@ -50,14 +51,15 @@ contract DeployNewMocksForTakers is Script, ArbitrumSepoliaDeployer {
             "Comb(CL(TWAPMock(BTC / USD))|inv(CL(FixedMock(USDC / USD))))"
         );
 
+        // switch WETH taker oracle
         CollarTakerNFT wethTaker = CollarTakerNFT(wethUSDCTakerAddress);
         wethTaker.setOracle(wethUSDCoracle);
-
         address newOracle = address(wethTaker.oracle());
         console.log("new oracle address for taker %s : %s ", wethUSDCTakerAddress, newOracle);
+
+        // switch WBTC taker oracle
         CollarTakerNFT wbtcTaker = CollarTakerNFT(wbtcUSDCTakerAddress);
         wbtcTaker.setOracle(wbtcUSDCoracle);
-
         newOracle = address(wbtcTaker.oracle());
         console.log("new oracle address for taker : ", wbtcUSDCTakerAddress, newOracle);
 

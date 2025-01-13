@@ -16,14 +16,9 @@ import { SwapperUniV3 } from "../src/SwapperUniV3.sol";
 import { CombinedOracle } from "../src/CombinedOracle.sol";
 
 abstract contract BaseDeployer {
-    address constant VIRTUAL_ASSET = address(type(uint160).max); // 0xff..ff
+    address public constant VIRTUAL_ASSET = address(type(uint160).max); // 0xff..ff
 
-    uint immutable chainId;
-
-    uint immutable minDuration;
-    uint immutable maxDuration;
-    uint immutable minLTV;
-    uint immutable maxLTV;
+    uint public immutable chainId;
 
     struct AssetPairContracts {
         CollarProviderNFT providerNFT;
@@ -70,38 +65,42 @@ abstract contract BaseDeployer {
 
     mapping(bytes32 description => ChainlinkFeed feedConfig) internal priceFeeds;
 
-    function _configureFeed(ChainlinkFeed memory feedConfig) internal {
-        priceFeeds[bytes32(bytes(feedConfig.description))] = feedConfig;
-    }
-
-    function _getFeed(string memory description) internal view returns (ChainlinkFeed memory) {
-        return priceFeeds[bytes32(bytes(description))];
-    }
-
-    function deployAndSetupProtocol(address owner) internal returns (DeploymentResult memory result) {
+    // public methods (use via composition or inheritance)
+    function deployAndSetupFullProtocol(address owner) public returns (DeploymentResult memory result) {
         require(chainId == block.chainid, "chainId does not match the chainId in config");
 
         result.configHub = deployConfigHub(owner);
 
-        setupConfigHub(
-            result.configHub,
-            HubParams({ minLTV: minLTV, maxLTV: maxLTV, minDuration: minDuration, maxDuration: maxDuration })
-        );
+        setupConfigHub(result.configHub);
 
-        result.assetPairContracts = _createContractPairs(result.configHub, owner);
+        result.assetPairContracts = deployAllContractPairs(result.configHub, owner);
 
         for (uint i = 0; i < result.assetPairContracts.length; i++) {
             setupContractPair(result.configHub, result.assetPairContracts[i]);
         }
     }
 
-    function _createContractPairs(ConfigHub configHub, address owner)
+    function getFeed(string memory description) public view returns (ChainlinkFeed memory) {
+        return priceFeeds[bytes32(bytes(description))];
+    }
+
+    // abstract
+
+    function deployAllContractPairs(ConfigHub configHub, address owner)
         internal
         virtual
-        returns (AssetPairContracts[] memory assetPairContracts);
+        returns (AssetPairContracts[] memory);
+
+    function defaultHubParams() internal virtual returns (HubParams memory);
+
+    // internal (inheritance)
 
     function deployConfigHub(address owner) internal returns (ConfigHub) {
         return new ConfigHub(owner);
+    }
+
+    function configureFeed(ChainlinkFeed memory feedConfig) internal {
+        priceFeeds[bytes32(bytes(feedConfig.description))] = feedConfig;
     }
 
     function deployEscrowNFT(
@@ -220,7 +219,8 @@ abstract contract BaseDeployer {
         pair.escrowNFT.setLoansCanOpen(address(pair.loansContract), true);
     }
 
-    function setupConfigHub(ConfigHub configHub, HubParams memory hubParams) internal {
+    function setupConfigHub(ConfigHub configHub) internal {
+        HubParams memory hubParams = defaultHubParams();
         configHub.setLTVRange(hubParams.minLTV, hubParams.maxLTV);
         configHub.setCollarDurationRange(hubParams.minDuration, hubParams.maxDuration);
     }

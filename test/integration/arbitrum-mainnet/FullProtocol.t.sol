@@ -2,15 +2,15 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import { ArbitrumMainnetDeployer } from "../../../script/ArbitrumMainnetDeployer.sol";
-import { DeploymentUtils } from "../../../script/utils/deployment-exporter.s.sol";
-import { DeploymentLoader } from "./DeploymentLoader.sol";
+import { ArbitrumMainnetDeployer, BaseDeployer } from "../../../script/ArbitrumMainnetDeployer.sol";
+import { DeploymentArtifactsLib } from "../../../script/utils/DeploymentArtifacts.sol";
 import "./DeploymentValidation.t.sol";
 import "./Loans.fork.t.sol";
 
-contract ArbitrumMainnetFullProtocolForkTest is Test, ArbitrumMainnetDeployer {
+contract ArbitrumMainnetFullProtocolForkTest is Test {
     uint forkId;
     bool forkSet;
+    BaseDeployer deployer;
 
     function setUp() public {
         // Setup fork,
@@ -20,16 +20,13 @@ contract ArbitrumMainnetFullProtocolForkTest is Test, ArbitrumMainnetDeployer {
             forkId = vm.createFork(vm.envString("ARBITRUM_MAINNET_RPC"));
             vm.selectFork(forkId);
             // Deploy contracts
+            deployer = new ArbitrumMainnetDeployer();
             uint deployerPrivKey = vm.envUint("PRIVKEY_DEV_DEPLOYER");
             address owner = vm.addr(deployerPrivKey);
             vm.startPrank(owner);
-            DeploymentResult memory result = deployAndSetupProtocol(owner);
-            DeploymentUtils.exportDeployment(
-                vm,
-                "collar_protocol_fork_deployment",
-                address(result.configHub),
-                swapRouterAddress,
-                result.assetPairContracts
+            BaseDeployer.DeploymentResult memory result = deployer.deployAndSetupFullProtocol(owner);
+            DeploymentArtifactsLib.exportDeployment(
+                vm, "collar_protocol_fork_deployment", address(result.configHub), result.assetPairContracts
             );
             forkSet = true;
             vm.stopPrank();

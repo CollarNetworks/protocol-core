@@ -56,14 +56,14 @@ contract DeployArbitrumSepoliaAssets is Script {
         require(block.chainid == chainId, "Wrong chain");
 
         uint deployerPrivateKey = vm.envUint("PRIVKEY_DEV_DEPLOYER");
-        address deployer = vm.addr(deployerPrivateKey);
+        address deployerAcc = vm.addr(deployerPrivateKey);
 
         vm.startBroadcast(deployerPrivateKey);
 
         initializeAssets();
         initializeAssetPairs();
-        deployAssets(deployer);
-        createAndInitializePools(deployer);
+        deployAssets(deployerAcc);
+        createAndInitializePools(deployerAcc);
 
         vm.stopBroadcast();
 
@@ -102,20 +102,20 @@ contract DeployArbitrumSepoliaAssets is Script {
         // assetPairs.push(AssetPair("rETH", "USDT", 5900 ether, 20_014_452_000_000));
     }
 
-    function deployAssets(address deployer) internal {
+    function deployAssets(address deployerAcc) internal {
         for (uint i = 0; i < assets.length; i++) {
             Asset memory asset = assets[i];
             if (deployedAssets[asset.symbol] == address(0)) {
                 CollarOwnedERC20 newAsset =
-                    new CollarOwnedERC20(deployer, asset.symbol, asset.symbol, asset.decimals);
-                newAsset.mint(deployer, INITIAL_MINT_AMOUNT);
+                    new CollarOwnedERC20(deployerAcc, asset.symbol, asset.symbol, asset.decimals);
+                newAsset.mint(deployerAcc, INITIAL_MINT_AMOUNT);
                 deployedAssets[asset.symbol] = address(newAsset);
                 console.log("Deployed", asset.symbol, "at", address(newAsset));
             }
         }
     }
 
-    function createAndInitializePools(address deployer) internal {
+    function createAndInitializePools(address deployerAcc) internal {
         for (uint i = 0; i < assetPairs.length; i++) {
             AssetPair memory pair = assetPairs[i];
             address cashAsset = address(0x69fC9D4d59843C6E55f00b5F66b263C963214C53);
@@ -125,7 +125,7 @@ contract DeployArbitrumSepoliaAssets is Script {
 
             address poolAddress = createPool(cashAsset, underlying);
             console.log("Created pool at", poolAddress);
-            initializePool(poolAddress, pair, deployer);
+            initializePool(poolAddress, pair, deployerAcc);
 
             deployedPools[pair.collateralSymbol][pair.cashSymbol] = poolAddress;
 
@@ -147,7 +147,7 @@ contract DeployArbitrumSepoliaAssets is Script {
                 tokenIn: underlying,
                 tokenOut: cashAsset,
                 fee: FEE_TIER,
-                recipient: deployer,
+                recipient: deployerAcc,
                 amountIn: amountIn,
                 amountOutMinimum: 0,
                 sqrtPriceLimitX96: 0

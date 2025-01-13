@@ -2,11 +2,11 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import "./DeploymentLoader.sol";
+import "./BaseProtocolForkTest.sol";
 import { BaseDeployer } from "../../../script/BaseDeployer.sol";
-import { DeploymentUtils } from "../../../script/utils/deployment-exporter.s.sol";
+import { DeploymentArtifactsLib } from "../../../script/utils/DeploymentArtifacts.sol";
 
-contract DeploymentValidatorForkTest is Test, DeploymentLoader {
+contract DeploymentValidatorForkTest is BaseProtocolForkTest {
     function setUp() public override {
         super.setUp();
     }

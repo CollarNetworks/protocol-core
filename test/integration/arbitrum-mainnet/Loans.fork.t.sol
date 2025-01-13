@@ -3,7 +3,8 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 
-import { BaseLoansForkTest } from "./BaseForkTest.sol";
+import { BaseLoansForkTest } from "./BaseLoansForkTest.sol";
+import { ArbitrumMainnetDeployer } from "../../../script/ArbitrumMainnetDeployer.sol";
 
 contract WETHUSDCLoansForkTest is BaseLoansForkTest {
     function setUp() public override {
