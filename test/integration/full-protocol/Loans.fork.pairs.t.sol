@@ -6,7 +6,7 @@ import "forge-std/Test.sol";
 import { BaseLoansForkTest } from "./BaseLoansForkTest.sol";
 import { ArbitrumMainnetDeployer } from "../../../script/ArbitrumMainnetDeployer.sol";
 
-contract WETHUSDCLoansForkTest is BaseLoansForkTest {
+contract WETHUSDC_ArbiMain_LoansForkTest is BaseLoansForkTest {
     function setUp() public override {
         super.setUp();
 
@@ -76,14 +76,14 @@ contract WETHUSDCLoansForkTest is BaseLoansForkTest {
     }
 }
 
-contract ArbiMainnetLoansForkTest_LatestBlock is WETHUSDCLoansForkTest {
+contract ArbiMain_LoansForkTest_LatestBlock is WETHUSDC_ArbiMain_LoansForkTest {
     function setupNewFork() internal override {
         // always use latest block for this one, even on local
         vm.createSelectFork(vm.envString("ARBITRUM_MAINNET_RPC"));
     }
 }
 
-contract WETHUSDTLoansForkTest is WETHUSDCLoansForkTest {
+contract WETHUSDT_ArbiMain_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
     function _setParams() internal virtual override {
         super._setParams();
         expectedPairIndex = 1;
@@ -92,7 +92,7 @@ contract WETHUSDTLoansForkTest is WETHUSDCLoansForkTest {
     }
 }
 
-contract WBTCUSDTLoansForkTest is WETHUSDCLoansForkTest {
+contract WBTCUSDT_ArbiMain_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
     function _setParams() internal virtual override {
         super._setParams();
 
