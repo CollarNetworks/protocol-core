@@ -144,13 +144,16 @@ contract Rolls is IRolls, BaseManaged {
 
     /**
      * @notice Creates a new roll offer for an existing taker NFT position and pulls the provider NFT.
-     * @dev The provider must own the CollarProviderNFT for the position to be rolled
+     * The provider must own the CollarProviderNFT for the position to be rolled, and must approve it
+     * to this contract.
      * @param takerId The ID of the CollarTakerNFT position to be rolled
      * @param feeAmount The base fee for the roll, can be positive (paid by taker) or
      *     negative (paid by provider)
      * @param feeDeltaFactorBIPS How much the fee changes with price, in basis points, can be
      *     negative. Positive means asset price increase benefits provider, and negative benefits user.
-     *     If feeAmount is 0, delta-factor has no effect.
+     *     If feeAmount is 0, delta-factor has no effect. The current oracle price will be stored as
+     *     reference price for calculations. In a future version, providing a user specified reference
+     *     price can be considered if needed.
      * @param minPrice The minimum acceptable price for roll execution
      * @param maxPrice The maximum acceptable price for roll execution
      * @param minToProvider The minimum amount the provider is willing to receive, or maximum willing to pay

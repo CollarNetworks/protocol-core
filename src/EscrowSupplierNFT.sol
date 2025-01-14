@@ -252,10 +252,10 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     // ----- actions through loans contract ----- //
 
     /**
-     * @notice Starts a new escrow from an existing offer. Transfer the full amount in, escrow + fee,
+     * @notice Starts a new escrow from an existing offer. Transfer the full amount in, escrow + fees,
      * and then transfers out the escrow amount back.
-     * @dev Can only be called by allowed Loans contracts. Use `interestFee` view to calculate the
-     * required fee. Fee is specified explicitly for interface clarity, because is on top of the
+     * @dev Can only be called by allowed Loans contracts. Use `upfrontFees` view to calculate the
+     * required fees. Fees are specified explicitly for interface clarity, because is on top of the
      * escrowed amount, so the amount to approve is escrowed + fee.
      * @param offerId The ID of the offer to use
      * @param escrowed The amount to escrow
@@ -284,17 +284,19 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     }
 
     /**
-     * @notice Ends an escrow. Returns any refund beyond what's owed back to loans.
+     * @notice Ends an escrow. Returns any refund beyond what's owed (the original amount)
+     * back to loan, including any fee refunds.
      * @dev Can only be called by the Loans contract that started the escrow
      * @param escrowId The ID of the escrow to end
-     * @param repaid The amount repaid which should be equal to the original escrow amount.
+     * @param repaid The amount repaid which should be equal to the original escrow amount,
+     *   but doesn't have to be. Any under or overpayment, or fee refunds will effect toLoans.
      * @return toLoans Amount to be returned to loans (refund deducing shortfalls)
      */
     function endEscrow(uint escrowId, uint repaid) external whenNotPaused returns (uint toLoans) {
         // @dev msg.sender auth is checked vs. stored loans in _endEscrow
         toLoans = _endEscrow(escrowId, getEscrow(escrowId), repaid);
 
-        // transfer in the repaid assets in: original supplier's assets, plus any late fee
+        // transfer in the repaid assets in
         asset.safeTransferFrom(msg.sender, address(this), repaid);
         // release the escrow (with possible loss to the borrower): user's assets + refund - shortfall
         asset.safeTransfer(msg.sender, toLoans);
@@ -324,7 +326,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         returns (uint newEscrowId, uint feesRefund)
     {
         Escrow memory previousEscrow = getEscrow(releaseEscrowId);
-        // do not allow expired escrow to be switched since 0 fromLoans is used for _endEscrow
+        // do not allow expired escrow to be switched for simplicity, and to ensure it
+        // could not have been seized (only ended)
         require(block.timestamp <= previousEscrow.expiration, "escrow: expired");
 
         /*
@@ -332,8 +335,8 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         2. E is then "transferred" to secure new ID, "N". N's supplier's funds are taken, to release O.
         3. O is released (with N's funds). N's funds are now secured by E (user's escrow).
 
-        Interest is accounted separately by transferring the full N's interest fee
-        (held until release), and refunding O's interest held.
+        Fees are accounted separately by transferring the full N's feesHeld
+        (held until release) in, and refunding whatever is needed from O's feesHeld.
         */
 
         // "O" (old escrow): Release funds to the supplier.
@@ -399,7 +402,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         // burn token because this is a withdrawal and a direct last action by NFT owner
         _burn(escrowId);
 
-        // @dev withdrawal is immediate, so escrow.withdrawable is not set here (no _releaseEscrow call).
+        // @dev withdrawal is immediate, so escrow.withdrawable is not set here (no _endEscrow()).
         // release escrowed and full interest
         uint withdrawal = escrow.escrowed + escrow.feesHeld;
         asset.safeTransfer(msg.sender, withdrawal);
