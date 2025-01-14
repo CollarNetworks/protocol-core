@@ -8,35 +8,7 @@ import { ArbitrumMainnetDeployer } from "../../../script/ArbitrumMainnetDeployer
 import { ArbitrumSepoliaDeployer } from "../../../script/ArbitrumSepoliaDeployer.sol";
 
 contract WETHUSDC_ArbiMain_LoansForkTest is BaseLoansForkTest {
-    function setUp() public override {
-        super.setUp();
-        _setParams();
-        _setPair();
-
-        // Setup protocol fee
-        vm.startPrank(owner);
-        configHub.setProtocolFeeParams(feeAPR, feeRecipient);
-        vm.stopPrank();
-        fundWallets();
-
-        duration = 5 minutes;
-        ltv = 9000;
-    }
-
-    function _setPair() internal {
-        uint pairIndex;
-        (pair, pairIndex) = getPairByAssets(address(cashAsset), address(underlying));
-
-        // pair internal validations are done elsewhere
-        // but we should check that assets match so that these checks are relevant
-        assertEq(address(pair.underlying), underlying);
-        assertEq(address(pair.cashAsset), cashAsset);
-        // ensure we're testing all deployed pairs
-        assertEq(pairIndex, expectedPairIndex);
-        assertEq(deployedPairs.length, expectedNumPairs);
-    }
-
-    function _setParams() internal virtual {
+    function _setParams() internal virtual override {
         // @dev all pairs must be tested, so if this number is increased, test classes must be added
         expectedNumPairs = 3;
 
@@ -74,10 +46,6 @@ contract WETHUSDC_ArbiMain_LoansForkTest is BaseLoansForkTest {
 
     function setupDeployer() internal virtual override {
         deployer = new ArbitrumMainnetDeployer();
-    }
-
-    function deploymentName() internal pure virtual override returns (string memory) {
-        return "collar_protocol_fork_deployment";
     }
 }
 
@@ -118,7 +86,6 @@ contract WBTCUSDT_ArbiMain_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
 // Sepolia
 
 contract WETHUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
-
     function _setParams() internal virtual override {
         super._setParams();
         // @dev all pairs must be tested, so if this number is increased, test classes must be added

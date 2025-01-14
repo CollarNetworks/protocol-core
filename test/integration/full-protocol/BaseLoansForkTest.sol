@@ -64,7 +64,51 @@ abstract contract BaseLoansForkTest is BaseProtocolForkTest {
         // create addresses
         feeRecipient = makeAddr("feeRecipient");
         escrowSupplier = makeAddr("escrowSupplier");
+
+        _setParams();
+
+        _setPair();
+
+        duration = 5 minutes;
+        ltv = 9000;
+
+        // override config values from deployment
+        _updateConfigValues();
+
+        fundWallets();
     }
+
+    // setup
+
+    function _updateConfigValues() private {
+        vm.startPrank(owner);
+
+        // setup protocol fee to test with it
+        configHub.setProtocolFeeParams(feeAPR, feeRecipient);
+        // override duration being too short
+        configHub.setCollarDurationRange(duration, configHub.maxDuration());
+
+        vm.stopPrank();
+    }
+
+    function _setPair() private {
+        uint pairIndex;
+        (pair, pairIndex) = getPairByAssets(address(cashAsset), address(underlying));
+
+        // pair internal validations are done elsewhere
+        // but we should check that assets match so that these checks are relevant
+        assertEq(address(pair.underlying), underlying);
+        assertEq(address(pair.cashAsset), cashAsset);
+        // ensure we're testing all deployed pairs
+        assertEq(pairIndex, expectedPairIndex);
+        assertEq(deployedPairs.length, expectedNumPairs);
+    }
+
+    // abstract
+
+    function _setParams() internal virtual;
+
+    // utility
 
     function createProviderOffer(uint callStrikePercent, uint amount) internal returns (uint offerId) {
         vm.startPrank(provider);

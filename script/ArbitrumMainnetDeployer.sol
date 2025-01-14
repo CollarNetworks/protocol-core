@@ -20,7 +20,7 @@ contract ArbitrumMainnetDeployer is BaseDeployer {
     }
 
     function defaultHubParams() internal pure override returns (HubParams memory) {
-        return HubParams({ minDuration: 5 minutes, maxDuration: 365 days, minLTV: 2500, maxLTV: 9900 });
+        return HubParams({ minDuration: 30 days, maxDuration: 365 days, minLTV: 2500, maxLTV: 9000 });
     }
 
     function _configureFeeds() internal {

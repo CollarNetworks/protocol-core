@@ -63,9 +63,11 @@ abstract contract BaseProtocolForkTest is Test {
 
     function setupDeployer() internal virtual;
 
-    function deploymentName() internal pure virtual returns (string memory);
-
     // internal
+
+    function deploymentName() internal pure virtual returns (string memory) {
+        return "collar_protocol_fork_deployment";
+    }
 
     function acceptOwnership(address _owner, BaseDeployer.DeploymentResult memory result) internal {
         result.configHub.acceptOwnership();
