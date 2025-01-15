@@ -91,7 +91,7 @@ abstract contract BaseAssetPairForkTest is Test {
         duration = 5 minutes;
         ltv = 9000;
 
-        // override config values from deployment to ensure
+        // override config values from deployment to ensure test params are allowed
         _updateConfigValues();
 
         fundWallets();

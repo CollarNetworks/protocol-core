@@ -14,12 +14,13 @@ abstract contract BaseAssetPairForkTest_NewDeploymentWithExport is BaseAssetPair
 
     function getDeployedContracts()
         internal
+        virtual
         override
         returns (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs)
     {
         setupNewFork();
 
-        BaseDeployer.DeploymentResult memory result = deployFullProtocol(owner);
+        BaseDeployer.DeploymentResult memory result = deployFullProtocol();
 
         vm.startPrank(owner);
 
@@ -48,7 +49,7 @@ abstract contract BaseAssetPairForkTest_NewDeploymentWithExport is BaseAssetPair
         }
     }
 
-    function deployFullProtocol(address owner)
+    function deployFullProtocol()
         internal
         virtual
         returns (BaseDeployer.DeploymentResult memory)
@@ -167,7 +168,7 @@ contract WETHUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
         }
     }
 
-    function deployFullProtocol(address owner)
+    function deployFullProtocol()
         internal
         virtual
         override
@@ -200,3 +201,17 @@ contract WBTCUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiSep_LoansForkTest {
         expectedOraclePrice = 90_000_000_000;
     }
 }
+
+//// load existing
+//
+//contract WETHUSDC_ArbiSep_LoansForkTest_NoDeploy is WETHUSDC_ArbiSep_LoansForkTest {
+//    function getDeployedContracts()
+//    internal
+//    override
+//    returns (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs)
+//    {
+//        setupNewFork();
+//
+//        return DeploymentArtifactsLib.loadHubAndAllPairs(vm, "arbitrum_sepolia_collar_protocol_deployment");
+//    }
+//}
