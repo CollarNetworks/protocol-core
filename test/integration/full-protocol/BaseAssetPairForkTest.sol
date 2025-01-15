@@ -2,14 +2,15 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import "./BaseProtocolForkTest.sol";
+
+import { ConfigHub } from "../../../src/ConfigHub.sol";
+import { BaseDeployer } from "../../../script/BaseDeployer.sol";
 import { ILoansNFT } from "../../../src/interfaces/ILoansNFT.sol";
 import { IRolls } from "../../../src/interfaces/IRolls.sol";
 import { ICollarTakerNFT } from "../../../src/interfaces/ICollarTakerNFT.sol";
 import { ICollarProviderNFT } from "../../../src/interfaces/ICollarProviderNFT.sol";
-import { BaseDeployer } from "../../../script/BaseDeployer.sol";
 
-abstract contract BaseLoansForkTest is BaseProtocolForkTest {
+abstract contract BaseAssetPairForkTest is Test {
     // constants for all pairs
     uint constant BIPS_BASE = 10_000;
 
@@ -21,8 +22,20 @@ abstract contract BaseLoansForkTest is BaseProtocolForkTest {
     // Protocol fee params
     uint constant feeAPR = 100; // 1% APR
 
-    uint expectedOraclePrice;
+    // users
+    address owner;
+    address user;
+    address provider;
+    address escrowSupplier;
+    address feeRecipient;
 
+    // deployment
+    ConfigHub public configHub;
+    BaseDeployer.AssetPairContracts[] public deployedPairs;
+    BaseDeployer.AssetPairContracts internal pair;
+
+    // pair params
+    uint expectedOraclePrice;
     uint expectedNumPairs;
 
     // values to be set by pair
@@ -45,38 +58,54 @@ abstract contract BaseLoansForkTest is BaseProtocolForkTest {
     // Pool fee tier
     uint24 swapPoolFeeTier;
 
-    // Protocol fee values
-    address feeRecipient;
-
-    // escrow related values
-    address escrowSupplier;
-
     uint slippage;
     uint callstrikeToUse;
     uint duration;
     uint ltv;
 
-    BaseDeployer.AssetPairContracts internal pair;
+    function setUp() public virtual {
+        uint deployerPrivKey = vm.envUint("PRIVKEY_DEV_DEPLOYER");
+        uint user1PrivKey = vm.envUint("PRIVKEY_DEV_TEST1");
+        uint liquidityProviderPrivKey = vm.envUint("LIQUIDITY_PROVIDER_KEY");
 
-    function setUp() public virtual override {
-        super.setUp();
-
-        // create addresses
+        owner = vm.addr(deployerPrivKey);
+        user = vm.addr(user1PrivKey);
+        provider = vm.addr(liquidityProviderPrivKey);
         feeRecipient = makeAddr("feeRecipient");
         escrowSupplier = makeAddr("escrowSupplier");
 
-        _setParams();
+        // set the deployment
+        (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs) = getDeployedContracts();
+        configHub = hub;
+        for (uint i = 0; i < pairs.length; i++) {
+            deployedPairs.push(pairs[i]);
+        }
 
+        // sets pair selection inputs and expected validation outputs
+        _setPairParams();
+
+        // sets the pair based on the params
         _setPair();
 
+        // tests use these specific values
         duration = 5 minutes;
         ltv = 9000;
 
-        // override config values from deployment
+        // override config values from deployment to ensure
         _updateConfigValues();
 
         fundWallets();
     }
+
+    // abstract
+
+    // @dev this should do the various setup steps, depending on the type of deployment
+    // for example: fresh (deploy everything), fresh export-load, existing loaded, incremental from
+    // existing, etc..
+    function getDeployedContracts()
+        internal
+        virtual
+        returns (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs);
 
     // setup
 
@@ -104,9 +133,28 @@ abstract contract BaseLoansForkTest is BaseProtocolForkTest {
         assertEq(deployedPairs.length, expectedNumPairs);
     }
 
+    function getPairByAssets(address _cashAsset, address _underlying)
+        internal
+        view
+        returns (BaseDeployer.AssetPairContracts memory _pair, uint index)
+    {
+        bool found = false;
+        for (uint i = 0; i < deployedPairs.length; i++) {
+            if (
+                address(deployedPairs[i].cashAsset) == _cashAsset
+                    && address(deployedPairs[i].underlying) == _underlying
+            ) {
+                require(!found, "getPairByAssets: found twice");
+                found = true;
+                (_pair, index) = (deployedPairs[i], i);
+            }
+        }
+        require(found, "getPairByAssets: not found");
+    }
+
     // abstract
 
-    function _setParams() internal virtual;
+    function _setPairParams() internal virtual;
 
     // utility
 
@@ -117,7 +165,7 @@ abstract contract BaseLoansForkTest is BaseProtocolForkTest {
         vm.stopPrank();
     }
 
-    function openLoan(address user, uint offerId)
+    function openLoan(uint offerId)
         internal
         returns (uint loanId, uint providerId, uint loanAmount)
     {
@@ -132,7 +180,7 @@ abstract contract BaseLoansForkTest is BaseProtocolForkTest {
         vm.stopPrank();
     }
 
-    function closeLoan(address user, uint loanId, uint minUnderlyingOut)
+    function closeLoan(uint loanId, uint minUnderlyingOut)
         internal
         returns (uint underlyingOut)
     {
@@ -146,7 +194,7 @@ abstract contract BaseLoansForkTest is BaseProtocolForkTest {
         vm.stopPrank();
     }
 
-    function createRollOffer(address provider, uint loanId, uint providerId)
+    function createRollOffer(uint loanId, uint providerId)
         internal
         returns (uint rollOfferId)
     {
@@ -167,7 +215,7 @@ abstract contract BaseLoansForkTest is BaseProtocolForkTest {
         vm.stopPrank();
     }
 
-    function rollLoan(address user, uint loanId, uint rollOfferId, int minToUser)
+    function rollLoan(uint loanId, uint rollOfferId, int minToUser)
         internal
         returns (uint newLoanId, uint newLoanAmount, int transferAmount)
     {
@@ -305,7 +353,7 @@ abstract contract BaseLoansForkTest is BaseProtocolForkTest {
         uint expectedFromSwap = pair.oracle.convertToBaseAmount(totalAmountToSwap, currentPrice);
 
         uint minUnderlyingOut = (expectedFromSwap * (BIPS_BASE - slippage) / BIPS_BASE);
-        underlyingOut = closeLoan(user, loanId, minUnderlyingOut);
+        underlyingOut = closeLoan(loanId, minUnderlyingOut);
 
         assertApproxEqAbs(
             underlyingOut, expectedFromSwap + escrowRefund, expectedFromSwap * slippage / BIPS_BASE
@@ -409,7 +457,7 @@ abstract contract BaseLoansForkTest is BaseProtocolForkTest {
         assertEq(pair.cashAsset.balanceOf(provider), providerBalanceBefore - offerAmount);
         uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
 
-        (uint loanId,, uint loanAmount) = openLoan(user, offerId);
+        (uint loanId,, uint loanAmount) = openLoan(offerId);
         // Verify fee taken and sent to recipient
         uint expectedFee = getProviderProtocolFeeByLoanAmount(loanAmount);
         assertEq(pair.cashAsset.balanceOf(feeRecipient) - feeRecipientBalanceBefore, expectedFee);
@@ -512,7 +560,7 @@ abstract contract BaseLoansForkTest is BaseProtocolForkTest {
         vm.stopPrank();
 
         // Create roll offer using existing provider position
-        uint rollOfferId = createRollOffer(provider, loanId, providerId);
+        uint rollOfferId = createRollOffer(loanId, providerId);
 
         (uint newEscrowFees,,) = pair.escrowNFT.upfrontFees(escrowOfferId2, underlyingAmount);
         uint userUnderlyingBeforeRoll = pair.underlying.balanceOf(user);
@@ -579,9 +627,9 @@ abstract contract BaseLoansForkTest is BaseProtocolForkTest {
 
     function testRollLoan() public {
         uint offerId = createProviderOffer(callstrikeToUse, offerAmount);
-        (uint loanId, uint providerId, uint initialLoanAmount) = openLoan(user, offerId);
+        (uint loanId, uint providerId, uint initialLoanAmount) = openLoan(offerId);
 
-        uint rollOfferId = createRollOffer(provider, loanId, providerId);
+        uint rollOfferId = createRollOffer(loanId, providerId);
 
         // Calculate and verify protocol fee based on new position's provider locked amount
         uint newPositionPrice = pair.takerNFT.currentOraclePrice();
@@ -593,7 +641,6 @@ abstract contract BaseLoansForkTest is BaseProtocolForkTest {
         uint providerBalanceBefore = pair.cashAsset.balanceOf(provider);
         uint feeRecipientBalanceBefore = pair.cashAsset.balanceOf(feeRecipient);
         (uint newLoanId, uint newLoanAmount, int transferAmount) = rollLoan(
-            user,
             loanId,
             rollOfferId,
             -1000e6 // Allow up to 1000 tokens to be paid by the user
@@ -613,7 +660,7 @@ abstract contract BaseLoansForkTest is BaseProtocolForkTest {
 
         uint offerId = createProviderOffer(callstrikeToUse, offerAmount);
 
-        (uint loanId, uint providerId, uint initialLoanAmount) = openLoan(user, offerId);
+        (uint loanId, uint providerId, uint initialLoanAmount) = openLoan(offerId);
         uint initialFee = getProviderProtocolFeeByLoanAmount(initialLoanAmount);
         // Verify fee taken and sent to recipient
         assertEq(pair.cashAsset.balanceOf(feeRecipient) - feeRecipientBalanceBefore, initialFee);
@@ -622,14 +669,14 @@ abstract contract BaseLoansForkTest is BaseProtocolForkTest {
         skip(duration - 20);
 
         uint recipientBalanceAfterOpenLoan = pair.cashAsset.balanceOf(feeRecipient);
-        uint rollOfferId = createRollOffer(provider, loanId, providerId);
+        uint rollOfferId = createRollOffer(loanId, providerId);
 
         // Calculate roll protocol fee
         IRolls.PreviewResults memory expectedResults =
             pair.rollsContract.previewRoll(rollOfferId, pair.takerNFT.currentOraclePrice());
         assertGt(expectedResults.protocolFee, 0);
         (uint newLoanId, uint newLoanAmount, int transferAmount) =
-            rollLoan(user, loanId, rollOfferId, -1000e6);
+            rollLoan(loanId, rollOfferId, -1000e6);
 
         assertEq(
             pair.cashAsset.balanceOf(feeRecipient) - recipientBalanceAfterOpenLoan,

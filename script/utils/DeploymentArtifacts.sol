@@ -2,6 +2,7 @@
 pragma solidity 0.8.22;
 
 import { Vm } from "forge-std/Vm.sol";
+import { ConfigHub } from "../../src/ConfigHub.sol";
 import { CollarProviderNFT } from "../../src/CollarProviderNFT.sol";
 import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { LoansNFT } from "../../src/LoansNFT.sol";
@@ -17,21 +18,21 @@ library DeploymentArtifactsLib {
     function exportDeployment(
         Vm vm,
         string memory name,
-        address configHub,
+        ConfigHub configHub,
         BaseDeployer.AssetPairContracts[] memory assetPairs
     ) internal {
         string memory json = constructJson(vm, configHub, assetPairs);
         writeJsonToFile(vm, name, json);
     }
 
-    function constructJson(Vm vm, address configHub, BaseDeployer.AssetPairContracts[] memory assetPairs)
+    function constructJson(Vm vm, ConfigHub configHub, BaseDeployer.AssetPairContracts[] memory assetPairs)
         internal
         pure
         returns (string memory)
     {
         string memory json = "{";
 
-        json = string(abi.encodePacked(json, '"configHub": "', vm.toString(configHub), '",'));
+        json = string(abi.encodePacked(json, '"configHub": "', vm.toString(address(configHub)), '",'));
 
         for (uint i = 0; i < assetPairs.length; i++) {
             BaseDeployer.AssetPairContracts memory pair = assetPairs[i];
@@ -120,13 +121,13 @@ library DeploymentArtifactsLib {
     function loadHubAndAllPairs(Vm vm, string memory filename)
         internal
         view
-        returns (address configHubAddress, BaseDeployer.AssetPairContracts[] memory pairs)
+        returns (ConfigHub configHub, BaseDeployer.AssetPairContracts[] memory pairs)
     {
         string memory json =
             vm.readFile(string(abi.encodePacked(_getExportPath(vm), filename, "-latest.json")));
         bytes memory parsedJson = bytes(json);
 
-        configHubAddress = _parseAddress(vm, parsedJson, ".configHub");
+        configHub = ConfigHub(_parseAddress(vm, parsedJson, ".configHub"));
 
         string[] memory allKeys = vm.parseJsonKeys(json, ".");
 

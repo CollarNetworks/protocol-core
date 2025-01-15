@@ -7,44 +7,39 @@ import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { TWAPMockChainlinkFeed } from "../../test/utils/TWAPMockChainlinkFeed.sol";
 import { FixedMockChainlinkFeed } from "../../test/utils/FixedMockChainlinkFeed.sol";
 import { WalletLoader } from "../wallet-loader.s.sol";
-import { ArbitrumSepoliaDeployer } from "../ArbitrumSepoliaDeployer.sol";
 import { BaseTakerOracle } from "../BaseDeployer.sol";
 
-contract DeployNewMocksForTakers is Script, ArbitrumSepoliaDeployer {
+import { ArbitrumSepoliaDeployer as deployLib, BaseDeployer } from "../ArbitrumSepoliaDeployer.sol";
+
+contract DeployNewMocksForTakers is Script {
     address wethUSDCTakerAddress = 0x86F729a0C910890385666b77db4aFdA6daC2dA16;
     address wbtcUSDCTakerAddress = 0x898695c9955bc82e210C3bF231903fE004dAFeD5;
 
     function run() external {
-        require(chainId == block.chainid, "chainId does not match the chainId in config");
+        require(deployLib.chainId == block.chainid, "chainId does not match the chainId in config");
 
         // Load deployer wallet
         (address deployerAcc,,,) = WalletLoader.loadWalletsFromEnv(vm);
 
         vm.startBroadcast(deployerAcc);
 
-        // reconfigure mock feeds
-        _configureFeeds();
-
         // deploy direct oracles
-        BaseTakerOracle oracletETH_USD =
-            deployChainlinkOracle(tWETH, VIRTUAL_ASSET, getFeed("TWAPMock(ETH / USD)"), sequencerFeed);
-        BaseTakerOracle oracletWBTC_USD =
-            deployChainlinkOracle(tWBTC, VIRTUAL_ASSET, getFeed("TWAPMock(BTC / USD)"), sequencerFeed);
-        BaseTakerOracle oracletUSDC_USD =
-            deployChainlinkOracle(tUSDC, VIRTUAL_ASSET, getFeed("FixedMock(USDC / USD)"), sequencerFeed);
+        BaseTakerOracle oracletETH_USD = deployLib.deployMockOracleETHUSD();
+        BaseTakerOracle oracletWBTC_USD = deployLib.deployMockOracleBTCUSD();
+        BaseTakerOracle oracletUSDC_USD = deployLib.deployMockOracleUSDCUSD();
 
         // deploy combined oracles
-        BaseTakerOracle wethUSDCoracle = deployCombinedOracle(
-            tWETH,
-            tUSDC,
+        BaseTakerOracle wethUSDCoracle = BaseDeployer.deployCombinedOracle(
+            deployLib.tWETH,
+            deployLib.tUSDC,
             oracletETH_USD,
             oracletUSDC_USD,
             true,
             "Comb(CL(TWAPMock(ETH / USD))|inv(CL(FixedMock(USDC / USD))))"
         );
-        BaseTakerOracle wbtcUSDCoracle = deployCombinedOracle(
-            tWBTC,
-            tUSDC,
+        BaseTakerOracle wbtcUSDCoracle = BaseDeployer.deployCombinedOracle(
+            deployLib.tWBTC,
+            deployLib.tUSDC,
             oracletWBTC_USD,
             oracletUSDC_USD,
             true,
