@@ -13,8 +13,17 @@ contract DeployContractsArbitrumMainnet is Script {
         (address deployerAddress,,,) = WalletLoader.loadWalletsFromEnv(vm);
         vm.startBroadcast(deployerAddress);
 
+        // TODO: use the real owner instead of the deployer
+        address owner = deployerAddress;
+
+        // check we're on the right chain
         require(deployerLib.chainId == block.chainid, "chainId mismatch");
-        BaseDeployer.DeploymentResult memory result = deployerLib.deployAndSetupFullProtocol(deployerAddress);
+
+        // deploy and nominate owner
+        BaseDeployer.DeploymentResult memory result = deployerLib.deployAndSetupFullProtocol(owner);
+
+        // accept ownership from the owner
+        BaseDeployer.acceptOwnershipAsSender(owner, result);
 
         vm.stopBroadcast();
 

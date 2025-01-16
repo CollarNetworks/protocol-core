@@ -199,4 +199,22 @@ library BaseDeployer {
         pair.rollsContract.transferOwnership(owner);
         pair.escrowNFT.transferOwnership(owner);
     }
+
+    function acceptOwnershipAsSender(address acceptingOwner, DeploymentResult memory result) internal {
+        // we can't ensure sender is acceptingOwner by checking here because:
+        // - if this is run in a script msg.sender will be the scripts's sender
+        // - if it's run from a test it will be whoever is being pranked, or the test contract
+        // - if ran from within a contract, will be the contract address
+        // In any case, the acceptance will not work if sender is incorrect.
+        result.configHub.acceptOwnership();
+        for (uint i = 0; i < result.assetPairContracts.length; i++) {
+            BaseDeployer.AssetPairContracts memory pair = result.assetPairContracts[i];
+            pair.takerNFT.acceptOwnership();
+            pair.providerNFT.acceptOwnership();
+            pair.loansContract.acceptOwnership();
+            pair.rollsContract.acceptOwnership();
+            // check because we may have already accepted previously (for another pair)
+            if (pair.escrowNFT.owner() != acceptingOwner) pair.escrowNFT.acceptOwnership();
+        }
+    }
 }

@@ -23,9 +23,7 @@ abstract contract BaseAssetPairForkTest_NewDeploymentWithExport is BaseAssetPair
         BaseDeployer.DeploymentResult memory result = deployFullProtocol();
 
         vm.startPrank(owner);
-
-        acceptOwnership(owner, result);
-
+        BaseDeployer.acceptOwnershipAsSender(owner, result);
         vm.stopPrank();
 
         if (exportAndLoad) {
@@ -55,19 +53,6 @@ abstract contract BaseAssetPairForkTest_NewDeploymentWithExport is BaseAssetPair
         returns (BaseDeployer.DeploymentResult memory)
     {
         return ArbitrumMainnetDeployer.deployAndSetupFullProtocol(owner);
-    }
-
-    function acceptOwnership(address _owner, BaseDeployer.DeploymentResult memory result) internal {
-        result.configHub.acceptOwnership();
-        for (uint i = 0; i < result.assetPairContracts.length; i++) {
-            BaseDeployer.AssetPairContracts memory pair = result.assetPairContracts[i];
-            pair.takerNFT.acceptOwnership();
-            pair.providerNFT.acceptOwnership();
-            pair.loansContract.acceptOwnership();
-            pair.rollsContract.acceptOwnership();
-            // check because we may have already accepted previously (for another pair)
-            if (pair.escrowNFT.owner() != _owner) pair.escrowNFT.acceptOwnership();
-        }
     }
 }
 
