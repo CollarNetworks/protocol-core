@@ -4,10 +4,10 @@
 ------------------------------------------------------------------------------------------
 File                                        blank        comment           code
 ------------------------------------------------------------------------------------------
-src/LoansNFT.sol                              108            368            364
-src/EscrowSupplierNFT.sol                      75            228            270
+src/LoansNFT.sol                              108            380            364
+src/EscrowSupplierNFT.sol                      75            230            270
 src/CollarTakerNFT.sol                         57            152            196
-src/Rolls.sol                                  54            202            196
+src/Rolls.sol                                  54            205            196
 src/CollarProviderNFT.sol                      48            153            188
 src/ConfigHub.sol                              25             73             79
 src/CombinedOracle.sol                         14             40             56
@@ -17,7 +17,7 @@ src/base/BaseManaged.sol                       17             36             43
 src/base/BaseTakerOracle.sol                   14             57             34
 src/base/BaseNFT.sol                            8             13             24
 ------------------------------------------------------------------------------------------
-SUM:                                          443           1425           1548
+SUM:                                          443           1442           1548
 ------------------------------------------------------------------------------------------
 ```
 
@@ -57,11 +57,6 @@ Arbitrum only initially. OP stack rollups (Optimism, Base) in the future.
 ## Non obvious parameter ranges
 - `minDuration` is at least 1 month.
 - `maxLTV` is reasonably far from 99.99% 
-
-## Potentially useful topics that may be accepted for low / info findings, despite inherent OOS assumptions:
-- Arbitrum timeboost implications.
-- Reentrancy or concerns for using `SwapperArbitraryCall` with more advanced multi-hop swaps or dex aggregators instead of the currently in-scope swapper.
-- Any implications of "Known Issues" or design decisions we may be overlooking or underestimating, including any mechanism and economic issues (incentives). 
 
 ## Testing and POC
 - Install run tests excluding fork tests: `forge install && forge build && forge test --nmc Fork`
