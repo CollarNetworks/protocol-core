@@ -20,9 +20,9 @@ abstract contract BaseAssetPairForkTest_NewDeploymentWithExport is BaseAssetPair
     {
         setupNewFork();
 
+        vm.startPrank(owner);
         BaseDeployer.DeploymentResult memory result = deployFullProtocol();
 
-        vm.startPrank(owner);
         BaseDeployer.acceptOwnershipAsSender(owner, result);
         vm.stopPrank();
 
@@ -47,11 +47,7 @@ abstract contract BaseAssetPairForkTest_NewDeploymentWithExport is BaseAssetPair
         }
     }
 
-    function deployFullProtocol()
-        internal
-        virtual
-        returns (BaseDeployer.DeploymentResult memory)
-    {
+    function deployFullProtocol() internal virtual returns (BaseDeployer.DeploymentResult memory) {
         return ArbitrumMainnetDeployer.deployAndSetupFullProtocol(owner);
     }
 }
@@ -153,12 +149,7 @@ contract WETHUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
         }
     }
 
-    function deployFullProtocol()
-        internal
-        virtual
-        override
-        returns (BaseDeployer.DeploymentResult memory)
-    {
+    function deployFullProtocol() internal virtual override returns (BaseDeployer.DeploymentResult memory) {
         return ArbitrumSepoliaDeployer.deployAndSetupFullProtocol(owner);
     }
 }
