@@ -61,16 +61,18 @@ library BaseDeployer {
         AssetPairContracts[] assetPairContracts;
     }
 
-    function deployConfigHub() internal returns (ConfigHub) {
-        return new ConfigHub(address(this));
+    function deployConfigHub(address owner) internal returns (ConfigHub) {
+        return new ConfigHub(owner);
     }
 
-    function deployEscrowNFT(ConfigHub configHub, IERC20 underlying, string memory underlyingSymbol)
-        internal
-        returns (EscrowSupplierNFT)
-    {
+    function deployEscrowNFT(
+        address owner,
+        ConfigHub configHub,
+        IERC20 underlying,
+        string memory underlyingSymbol
+    ) internal returns (EscrowSupplierNFT) {
         return new EscrowSupplierNFT(
-            address(this),
+            owner,
             configHub,
             underlying,
             string(abi.encodePacked("Escrow ", underlyingSymbol)),
@@ -113,12 +115,12 @@ library BaseDeployer {
         );
     }
 
-    function deployContractPair(ConfigHub configHub, PairConfig memory pairConfig)
+    function deployContractPair(address owner, ConfigHub configHub, PairConfig memory pairConfig)
         internal
         returns (AssetPairContracts memory contracts)
     {
         CollarTakerNFT takerNFT = new CollarTakerNFT(
-            address(this),
+            owner,
             configHub,
             pairConfig.cashAsset,
             pairConfig.underlying,
@@ -127,7 +129,7 @@ library BaseDeployer {
             string.concat("T", pairConfig.name)
         );
         CollarProviderNFT providerNFT = new CollarProviderNFT(
-            address(this),
+            owner,
             configHub,
             pairConfig.cashAsset,
             pairConfig.underlying,
@@ -136,12 +138,9 @@ library BaseDeployer {
             string.concat("P", pairConfig.name)
         );
         LoansNFT loansContract = new LoansNFT(
-            address(this),
-            takerNFT,
-            string.concat("Loans ", pairConfig.name),
-            string.concat("L", pairConfig.name)
+            owner, takerNFT, string.concat("Loans ", pairConfig.name), string.concat("L", pairConfig.name)
         );
-        Rolls rollsContract = new Rolls(address(this), takerNFT);
+        Rolls rollsContract = new Rolls(owner, takerNFT);
         SwapperUniV3 swapperUniV3 = new SwapperUniV3(pairConfig.swapRouter, pairConfig.swapFeeTier);
         // Use existing escrow if provided, otherwise create new
         EscrowSupplierNFT escrowNFT;
@@ -149,7 +148,10 @@ library BaseDeployer {
             escrowNFT = EscrowSupplierNFT(pairConfig.existingEscrowNFT);
         } else {
             escrowNFT = deployEscrowNFT(
-                configHub, pairConfig.underlying, IERC20Metadata(address(pairConfig.underlying)).symbol()
+                owner,
+                configHub,
+                pairConfig.underlying,
+                IERC20Metadata(address(pairConfig.underlying)).symbol()
             );
         }
         contracts = AssetPairContracts({

@@ -33,11 +33,11 @@ library ArbitrumMainnetDeployer {
         require(chainId == block.chainid, "wrong chainId");
 
         // hub
-        result.configHub = BaseDeployer.deployConfigHub();
+        result.configHub = BaseDeployer.deployConfigHub(owner);
         BaseDeployer.setupConfigHub(result.configHub, defaultHubParams());
 
         // pairs
-        result.assetPairContracts = deployAllContractPairs(result.configHub);
+        result.assetPairContracts = deployAllContractPairs(owner, result.configHub);
         for (uint i = 0; i < result.assetPairContracts.length; i++) {
             BaseDeployer.setupContractPair(result.configHub, result.assetPairContracts[i]);
         }
@@ -46,7 +46,7 @@ library ArbitrumMainnetDeployer {
         BaseDeployer.nominateNewOwnerAll(owner, result);
     }
 
-    function deployAllContractPairs(ConfigHub configHub)
+    function deployAllContractPairs(address owner, ConfigHub configHub)
         internal
         returns (BaseDeployer.AssetPairContracts[] memory assetPairContracts)
     {
@@ -77,10 +77,11 @@ library ArbitrumMainnetDeployer {
             BaseDeployer.deployChainlinkOracle(USDT, BaseDeployer.VIRTUAL_ASSET, feedUSDT_USD, sequencerFeed);
 
         // if any escrowNFT contracts will be reused for multiple pairs, they should be deployed first
-        EscrowSupplierNFT wethEscrow = BaseDeployer.deployEscrowNFT(configHub, IERC20(WETH), "WETH");
+        EscrowSupplierNFT wethEscrow = BaseDeployer.deployEscrowNFT(owner, configHub, IERC20(WETH), "WETH");
 
         // deploy pairs
         assetPairContracts[0] = BaseDeployer.deployContractPair(
+            owner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "WETH/USDC",
@@ -96,6 +97,7 @@ library ArbitrumMainnetDeployer {
         );
 
         assetPairContracts[1] = BaseDeployer.deployContractPair(
+            owner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "WETH/USDT",
@@ -111,6 +113,7 @@ library ArbitrumMainnetDeployer {
         );
 
         assetPairContracts[2] = BaseDeployer.deployContractPair(
+            owner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "WBTC/USDT",
