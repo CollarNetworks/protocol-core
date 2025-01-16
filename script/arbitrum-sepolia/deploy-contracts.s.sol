@@ -3,27 +3,31 @@ pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
-import { DeploymentUtils } from "../utils/deployment-exporter.s.sol";
+import { DeploymentArtifactsLib } from "../utils/DeploymentArtifacts.sol";
 import { WalletLoader } from "../wallet-loader.s.sol";
-import { ArbitrumSepoliaDeployer } from "../ArbitrumSepoliaDeployer.sol";
 
-contract DeployContractsArbitrumSepolia is Script, ArbitrumSepoliaDeployer {
+import { ArbitrumSepoliaDeployer as deployerLib, BaseDeployer } from "../ArbitrumSepoliaDeployer.sol";
+
+contract DeployContractsArbitrumSepolia is Script {
     function run() external {
-        require(chainId == block.chainid, "chainId does not match the chainId in config");
-        (address deployer,,,) = WalletLoader.loadWalletsFromEnv(vm);
+        (address deployerAddress,,,) = WalletLoader.loadWalletsFromEnv(vm);
+        vm.startBroadcast(deployerAddress);
 
-        vm.startBroadcast(deployer);
+        address owner = deployerAddress;
 
-        DeploymentResult memory result = deployAndSetupProtocol(deployer);
+        // check we're on the right chain
+        require(deployerLib.chainId == block.chainid, "chainId mismatch");
+
+        // deploy and nominate owner
+        BaseDeployer.DeploymentResult memory result = deployerLib.deployAndSetupFullProtocol(owner);
+
+        // accept ownership from the owner
+        BaseDeployer.acceptOwnershipAsSender(owner, result);
 
         vm.stopBroadcast();
 
-        DeploymentUtils.exportDeployment(
-            vm,
-            "arbitrum_sepolia_collar_protocol_deployment",
-            address(result.configHub),
-            swapRouterAddress,
-            result.assetPairContracts
+        DeploymentArtifactsLib.exportDeployment(
+            vm, "arbitrum_sepolia_collar_protocol_deployment", result.configHub, result.assetPairContracts
         );
         console.log("\nDeployment completed successfully");
     }

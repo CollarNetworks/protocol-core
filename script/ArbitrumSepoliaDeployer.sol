@@ -5,26 +5,49 @@ import { BaseDeployer, ConfigHub, IERC20, EscrowSupplierNFT, BaseTakerOracle } f
 import { TWAPMockChainlinkFeed } from "../test/utils/TWAPMockChainlinkFeed.sol";
 import { FixedMockChainlinkFeed } from "../test/utils/FixedMockChainlinkFeed.sol";
 
-abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
+library ArbitrumSepoliaDeployer {
+    address public constant swapRouterAddress = address(0x101F443B4d1b059569D643917553c771E1b9663E);
+
+    uint constant chainId = 421_614;
+
     address constant tUSDC = 0x69fC9D4d59843C6E55f00b5F66b263C963214C53; // CollarOwnedERC20 deployed on 12/11/2024
     address constant tWETH = 0xF17eb654885Afece15039a9Aa26F91063cC693E0; // CollarOwnedERC20 deployed on 12/11/2024
     address constant tWBTC = 0x19d87c960265C229D4b1429DF6F0C7d18F0611F3; // CollarOwnedERC20 deployed on 12/11/2024
 
-    address constant swapRouterAddress = address(0x101F443B4d1b059569D643917553c771E1b9663E);
-
     address constant sequencerFeed = address(0);
     uint24 constant swapFeeTier = 3000;
-    uint constant USDSTABLEPRICE = 100_000_000; // 1 * 10^8 since feed decimals is 8
+    int constant USDSTABLEPRICE = 100_000_000; // 1 * 10^8 since feed decimals is 8
 
-    constructor() {
-        chainId = 421_614;
-        minDuration = 5 minutes;
-        maxDuration = 365 days;
-        minLTV = 2500;
-        maxLTV = 9900;
+    function defaultHubParams() internal pure returns (BaseDeployer.HubParams memory) {
+        return BaseDeployer.HubParams({
+            minDuration: 5 minutes,
+            maxDuration: 365 days,
+            minLTV: 2500,
+            maxLTV: 9900
+        });
     }
 
-    function _configureFeeds() internal {
+    function deployAndSetupFullProtocol(address owner)
+        internal
+        returns (BaseDeployer.DeploymentResult memory result)
+    {
+        require(chainId == block.chainid, "wrong chainId");
+
+        // hub
+        result.configHub = BaseDeployer.deployConfigHub(owner);
+        BaseDeployer.setupConfigHub(result.configHub, defaultHubParams());
+
+        // pairs
+        result.assetPairContracts = deployAllContractPairs(owner, result.configHub);
+        for (uint i = 0; i < result.assetPairContracts.length; i++) {
+            BaseDeployer.setupContractPair(result.configHub, result.assetPairContracts[i]);
+        }
+
+        // ownership
+        BaseDeployer.nominateNewOwnerAll(owner, result);
+    }
+
+    function deployMockOracleETHUSD() internal returns (BaseTakerOracle oracle) {
         // Deploy mock feed for WETH / USDC pair
         TWAPMockChainlinkFeed mockEthUsdFeed = new TWAPMockChainlinkFeed(
             tWETH, // base token
@@ -35,7 +58,13 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
             "ETH / USD", // description
             18 // virtual USD decimals
         );
+        BaseDeployer.ChainlinkFeed memory feedETH_USD =
+            BaseDeployer.ChainlinkFeed(address(mockEthUsdFeed), "TWAPMock(ETH / USD)", 120, 8, 5);
+        oracle =
+            BaseDeployer.deployChainlinkOracle(tWETH, BaseDeployer.VIRTUAL_ASSET, feedETH_USD, sequencerFeed);
+    }
 
+    function deployMockOracleBTCUSD() internal returns (BaseTakerOracle oracle) {
         TWAPMockChainlinkFeed mockBTCUSDFeed = new TWAPMockChainlinkFeed(
             tWBTC, // base token
             tUSDC, // quote token
@@ -45,44 +74,44 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
             "BTC / USD", // description
             18 // virtual USD decimals
         );
-
-        //  deploy mock feed for USDC/USD (since sepolia deployed one is unreliable)
-        FixedMockChainlinkFeed mockUsdcUsdFeed = new FixedMockChainlinkFeed(100_000_000, 8, "USDC / USD");
-        //  deploy mock feed for USDT/USD (since sepolia deployed one is unreliable)
-        FixedMockChainlinkFeed mockUsdtUsdFeed = new FixedMockChainlinkFeed(100_000_000, 8, "USDT / USD");
-
-        /// https://docs.chain.link/data-feeds/price-feeds/addresses?network=arbitrum&page=1#sepolia-testnet
-        // define feeds to be used in oracles
-        _configureFeed(ChainlinkFeed(address(mockEthUsdFeed), "TWAPMock(ETH / USD)", 120, 8, 5));
         // no WBTC, only virtual-BTC
-        _configureFeed(ChainlinkFeed(address(mockBTCUSDFeed), "TWAPMock(BTC / USD)", 120, 8, 30));
-        _configureFeed(ChainlinkFeed(address(mockUsdcUsdFeed), "FixedMock(USDC / USD)", 86_400, 8, 30));
-        _configureFeed(ChainlinkFeed(address(mockUsdtUsdFeed), "FixedMock(USDT / USD)", 3600, 8, 30));
+        BaseDeployer.ChainlinkFeed memory feedBTC_USD =
+            BaseDeployer.ChainlinkFeed(address(mockBTCUSDFeed), "TWAPMock(BTC / USD)", 120, 8, 30);
+        oracle =
+            BaseDeployer.deployChainlinkOracle(tWBTC, BaseDeployer.VIRTUAL_ASSET, feedBTC_USD, sequencerFeed);
     }
 
-    function _createContractPairs(ConfigHub configHub, address owner)
-        internal
-        override
-        returns (AssetPairContracts[] memory assetPairContracts)
-    {
-        assetPairContracts = new AssetPairContracts[](2);
+    function deployMockOracleUSDCUSD() internal returns (BaseTakerOracle oracle) {
+        //  deploy mock feed for USDC/USD (since sepolia deployed one is unreliable)
+        FixedMockChainlinkFeed mockUsdcUsdFeed = new FixedMockChainlinkFeed(USDSTABLEPRICE, 8, "USDC / USD");
 
-        _configureFeeds();
+        BaseDeployer.ChainlinkFeed memory feedUSDC_USD =
+            BaseDeployer.ChainlinkFeed(address(mockUsdcUsdFeed), "FixedMock(USDC / USD)", 86_400, 8, 30);
+        oracle =
+            BaseDeployer.deployChainlinkOracle(tUSDC, BaseDeployer.VIRTUAL_ASSET, feedUSDC_USD, sequencerFeed);
+    }
+
+    function deployAllContractPairs(address owner, ConfigHub configHub)
+        internal
+        returns (BaseDeployer.AssetPairContracts[] memory assetPairContracts)
+    {
+        assetPairContracts = new BaseDeployer.AssetPairContracts[](2);
+
+        /// https://docs.chain.link/data-feeds/price-feeds/addresses?network=arbitrum&page=1#sepolia-testnet
         // deploy direct oracles
-        BaseTakerOracle oracletETH_USD =
-            deployChainlinkOracle(tWETH, VIRTUAL_ASSET, _getFeed("TWAPMock(ETH / USD)"), sequencerFeed);
-        BaseTakerOracle oracletWBTC_USD =
-            deployChainlinkOracle(tWBTC, VIRTUAL_ASSET, _getFeed("TWAPMock(BTC / USD)"), sequencerFeed);
-        BaseTakerOracle oracletUSDC_USD =
-            deployChainlinkOracle(tUSDC, VIRTUAL_ASSET, _getFeed("FixedMock(USDC / USD)"), sequencerFeed);
+        BaseTakerOracle oracletETH_USD = deployMockOracleETHUSD();
+        BaseTakerOracle oracletWBTC_USD = deployMockOracleBTCUSD();
+        BaseTakerOracle oracletUSDC_USD = deployMockOracleUSDCUSD();
+
         // if any escrowNFT contracts will be reused for multiple pairs, they should be deployed first
-        assetPairContracts[0] = deployContractPair(
+        assetPairContracts[0] = BaseDeployer.deployContractPair(
+            owner,
             configHub,
-            PairConfig({
+            BaseDeployer.PairConfig({
                 name: "WETH/USDC",
                 underlying: IERC20(tWETH),
                 cashAsset: IERC20(tUSDC),
-                oracle: deployCombinedOracle(
+                oracle: BaseDeployer.deployCombinedOracle(
                     tWETH,
                     tUSDC,
                     oracletETH_USD,
@@ -93,17 +122,17 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
                 swapFeeTier: swapFeeTier,
                 swapRouter: swapRouterAddress,
                 existingEscrowNFT: address(0)
-            }),
-            owner
+            })
         );
 
-        assetPairContracts[1] = deployContractPair(
+        assetPairContracts[1] = BaseDeployer.deployContractPair(
+            owner,
             configHub,
-            PairConfig({
+            BaseDeployer.PairConfig({
                 name: "WBTC/USDC",
                 underlying: IERC20(tWBTC),
                 cashAsset: IERC20(tUSDC),
-                oracle: deployCombinedOracle(
+                oracle: BaseDeployer.deployCombinedOracle(
                     tWBTC,
                     tUSDC,
                     oracletWBTC_USD,
@@ -114,8 +143,7 @@ abstract contract ArbitrumSepoliaDeployer is BaseDeployer {
                 swapFeeTier: swapFeeTier,
                 swapRouter: swapRouterAddress,
                 existingEscrowNFT: address(0)
-            }),
-            owner
+            })
         );
     }
 }
