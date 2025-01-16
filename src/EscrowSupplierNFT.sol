@@ -296,7 +296,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         // @dev msg.sender auth is checked vs. stored loans in _endEscrow
         toLoans = _endEscrow(escrowId, getEscrow(escrowId), repaid);
 
-        // transfer in the repaid assets in
+        // transfer in the repaid assets
         asset.safeTransferFrom(msg.sender, address(this), repaid);
         // release the escrow (with possible loss to the borrower): user's assets + refund - shortfall
         asset.safeTransfer(msg.sender, toLoans);
