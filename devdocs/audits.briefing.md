@@ -52,7 +52,7 @@ Arbitrum only initially. OP stack rollups (Optimism, Base) in the future.
 ## Prior Audits
 - [Cantina solo review Oct-2024 report](../audits/2024-oct-cantinacode-solo-1.pdf)
 - Cantina contest (findings to be made available after contest is finished)
-- Spearbit audit (to be added when available)
+- [Spearbit review Jan-2024 report](../audits/report-spearbit-collar-protocol-1226.pdf)
 
 ## Non obvious parameter ranges
 - `minDuration` is at least 1 month.
