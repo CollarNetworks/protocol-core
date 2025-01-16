@@ -2,13 +2,62 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-
-import { BaseLoansForkTest } from "./BaseLoansForkTest.sol";
-import { ArbitrumMainnetDeployer } from "../../../script/ArbitrumMainnetDeployer.sol";
+import { DeploymentArtifactsLib } from "../../../script/utils/DeploymentArtifacts.sol";
+import { BaseAssetPairForkTest, ConfigHub } from "./BaseAssetPairForkTest.sol";
+import { ArbitrumMainnetDeployer, BaseDeployer } from "../../../script/ArbitrumMainnetDeployer.sol";
 import { ArbitrumSepoliaDeployer } from "../../../script/ArbitrumSepoliaDeployer.sol";
 
-contract WETHUSDC_ArbiMain_LoansForkTest is BaseLoansForkTest {
-    function _setParams() internal virtual override {
+abstract contract BaseAssetPairForkTest_NewDeploymentWithExport is BaseAssetPairForkTest {
+    string constant deploymentName = "collar_protocol_fork_deployment";
+
+    bool exportAndLoad = true;
+
+    function getDeployedContracts()
+        internal
+        virtual
+        override
+        returns (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs)
+    {
+        setupNewFork();
+
+        BaseDeployer.DeploymentResult memory result = deployFullProtocol();
+
+        vm.startPrank(owner);
+        BaseDeployer.acceptOwnershipAsSender(owner, result);
+        vm.stopPrank();
+
+        if (exportAndLoad) {
+            DeploymentArtifactsLib.exportDeployment(
+                vm, deploymentName, result.configHub, result.assetPairContracts
+            );
+            return DeploymentArtifactsLib.loadHubAndAllPairs(vm, deploymentName);
+        } else {
+            return (result.configHub, result.assetPairContracts);
+        }
+    }
+
+    function setupNewFork() internal virtual {
+        // if we are in development we want to fix the block to reduce the time it takes to run the tests
+        if (vm.envBool("FIX_BLOCK_ARBITRUM_MAINNET")) {
+            vm.createSelectFork(
+                vm.envString("ARBITRUM_MAINNET_RPC"), vm.envUint("BLOCK_NUMBER_ARBITRUM_MAINNET")
+            );
+        } else {
+            vm.createSelectFork(vm.envString("ARBITRUM_MAINNET_RPC"));
+        }
+    }
+
+    function deployFullProtocol()
+        internal
+        virtual
+        returns (BaseDeployer.DeploymentResult memory)
+    {
+        return ArbitrumMainnetDeployer.deployAndSetupFullProtocol(owner);
+    }
+}
+
+contract WETHUSDC_ArbiMain_LoansForkTest is BaseAssetPairForkTest_NewDeploymentWithExport {
+    function _setPairParams() internal virtual override {
         // @dev all pairs must be tested, so if this number is increased, test classes must be added
         expectedNumPairs = 3;
 
@@ -32,20 +81,13 @@ contract WETHUSDC_ArbiMain_LoansForkTest is BaseLoansForkTest {
 
         expectedOraclePrice = 3_000_000_000;
     }
+}
 
-    function setupNewFork() internal virtual override {
-        // if we are in development we want to fix the block to reduce the time it takes to run the tests
-        if (vm.envBool("FIX_BLOCK_ARBITRUM_MAINNET")) {
-            vm.createSelectFork(
-                vm.envString("ARBITRUM_MAINNET_RPC"), vm.envUint("BLOCK_NUMBER_ARBITRUM_MAINNET")
-            );
-        } else {
-            vm.createSelectFork(vm.envString("ARBITRUM_MAINNET_RPC"));
-        }
-    }
-
-    function setupDeployer() internal virtual override {
-        deployer = new ArbitrumMainnetDeployer();
+contract WETHUSDC_ArbiMain_LoansForkTest_noExport is WETHUSDC_ArbiMain_LoansForkTest {
+    function setUp() public override {
+        // do not use the artifacts for this one
+        exportAndLoad = false;
+        super.setUp();
     }
 }
 
@@ -57,8 +99,8 @@ contract ArbiMain_LoansForkTest_LatestBlock is WETHUSDC_ArbiMain_LoansForkTest {
 }
 
 contract WETHUSDT_ArbiMain_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
-    function _setParams() internal virtual override {
-        super._setParams();
+    function _setPairParams() internal virtual override {
+        super._setPairParams();
         expectedPairIndex = 1;
         underlying = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
         cashAsset = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9; // USDT
@@ -67,8 +109,8 @@ contract WETHUSDT_ArbiMain_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
 }
 
 contract WBTCUSDT_ArbiMain_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
-    function _setParams() internal virtual override {
-        super._setParams();
+    function _setPairParams() internal virtual override {
+        super._setPairParams();
 
         expectedPairIndex = 2;
         underlying = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f; // WBTC
@@ -86,8 +128,8 @@ contract WBTCUSDT_ArbiMain_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
 // Sepolia
 
 contract WETHUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
-    function _setParams() internal virtual override {
-        super._setParams();
+    function _setPairParams() internal virtual override {
+        super._setPairParams();
         // @dev all pairs must be tested, so if this number is increased, test classes must be added
         expectedNumPairs = 2;
 
@@ -111,8 +153,13 @@ contract WETHUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
         }
     }
 
-    function setupDeployer() internal virtual override {
-        deployer = new ArbitrumSepoliaDeployer();
+    function deployFullProtocol()
+        internal
+        virtual
+        override
+        returns (BaseDeployer.DeploymentResult memory)
+    {
+        return ArbitrumSepoliaDeployer.deployAndSetupFullProtocol(owner);
     }
 }
 
@@ -124,8 +171,8 @@ contract ArbiSep_LoansForkTest_LatestBlock is WETHUSDC_ArbiSep_LoansForkTest {
 }
 
 contract WBTCUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiSep_LoansForkTest {
-    function _setParams() internal override {
-        super._setParams();
+    function _setPairParams() internal override {
+        super._setPairParams();
 
         // set up all the variables for this pair
         expectedPairIndex = 1;
@@ -139,3 +186,17 @@ contract WBTCUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiSep_LoansForkTest {
         expectedOraclePrice = 90_000_000_000;
     }
 }
+
+//// load existing
+//
+//contract WETHUSDC_ArbiSep_LoansForkTest_NoDeploy is WETHUSDC_ArbiSep_LoansForkTest {
+//    function getDeployedContracts()
+//    internal
+//    override
+//    returns (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs)
+//    {
+//        setupNewFork();
+//
+//        return DeploymentArtifactsLib.loadHubAndAllPairs(vm, "arbitrum_sepolia_collar_protocol_deployment");
+//    }
+//}

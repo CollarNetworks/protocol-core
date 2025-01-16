@@ -15,10 +15,8 @@ import { ChainlinkOracle, BaseTakerOracle } from "../src/ChainlinkOracle.sol";
 import { SwapperUniV3 } from "../src/SwapperUniV3.sol";
 import { CombinedOracle } from "../src/CombinedOracle.sol";
 
-abstract contract BaseDeployer {
+library BaseDeployer {
     address public constant VIRTUAL_ASSET = address(type(uint160).max); // 0xff..ff
-
-    uint public immutable chainId;
 
     struct AssetPairContracts {
         CollarProviderNFT providerNFT;
@@ -37,8 +35,8 @@ abstract contract BaseDeployer {
         address feedAddress;
         string description;
         uint heartbeat;
-        uint decimals;
-        uint deviationBIPS;
+        uint decimals; // unused (quried onchain), defined for context
+        uint deviationBIPS; // unused, defined for context
     }
 
     struct PairConfig {
@@ -63,44 +61,8 @@ abstract contract BaseDeployer {
         AssetPairContracts[] assetPairContracts;
     }
 
-    mapping(bytes32 description => ChainlinkFeed feedConfig) internal priceFeeds;
-
-    // public methods (use via composition or inheritance)
-    function deployAndSetupFullProtocol(address owner) public returns (DeploymentResult memory result) {
-        require(chainId == block.chainid, "chainId does not match the chainId in config");
-
-        result.configHub = deployConfigHub();
-        setupConfigHub(result.configHub);
-
-        result.assetPairContracts = deployAllContractPairs(result.configHub);
-        for (uint i = 0; i < result.assetPairContracts.length; i++) {
-            setupContractPair(result.configHub, result.assetPairContracts[i]);
-        }
-
-        nominateNewOwnerAll(owner, result);
-    }
-
-    function getFeed(string memory description) public view returns (ChainlinkFeed memory) {
-        return priceFeeds[bytes32(bytes(description))];
-    }
-
-    // abstract
-
-    function deployAllContractPairs(ConfigHub configHub)
-        internal
-        virtual
-        returns (AssetPairContracts[] memory);
-
-    function defaultHubParams() internal view virtual returns (HubParams memory);
-
-    // internal (inheritance)
-
     function deployConfigHub() internal returns (ConfigHub) {
         return new ConfigHub(address(this));
-    }
-
-    function configureFeed(ChainlinkFeed memory feedConfig) internal {
-        priceFeeds[bytes32(bytes(feedConfig.description))] = feedConfig;
     }
 
     function deployEscrowNFT(ConfigHub configHub, IERC20 underlying, string memory underlyingSymbol)
@@ -216,8 +178,7 @@ abstract contract BaseDeployer {
         pair.escrowNFT.setLoansCanOpen(address(pair.loansContract), true);
     }
 
-    function setupConfigHub(ConfigHub configHub) internal {
-        HubParams memory hubParams = defaultHubParams();
+    function setupConfigHub(ConfigHub configHub, HubParams memory hubParams) internal {
         configHub.setLTVRange(hubParams.minLTV, hubParams.maxLTV);
         configHub.setCollarDurationRange(hubParams.minDuration, hubParams.maxDuration);
     }
@@ -237,5 +198,23 @@ abstract contract BaseDeployer {
         pair.loansContract.transferOwnership(owner);
         pair.rollsContract.transferOwnership(owner);
         pair.escrowNFT.transferOwnership(owner);
+    }
+
+    function acceptOwnershipAsSender(address acceptingOwner, DeploymentResult memory result) internal {
+        // we can't ensure sender is acceptingOwner by checking here because:
+        // - if this is run in a script msg.sender will be the scripts's sender
+        // - if it's run from a test it will be whoever is being pranked, or the test contract
+        // - if ran from within a contract, will be the contract address
+        // In any case, the acceptance will not work if sender is incorrect.
+        result.configHub.acceptOwnership();
+        for (uint i = 0; i < result.assetPairContracts.length; i++) {
+            BaseDeployer.AssetPairContracts memory pair = result.assetPairContracts[i];
+            pair.takerNFT.acceptOwnership();
+            pair.providerNFT.acceptOwnership();
+            pair.loansContract.acceptOwnership();
+            pair.rollsContract.acceptOwnership();
+            // check because we may have already accepted previously (for another pair)
+            if (pair.escrowNFT.owner() != acceptingOwner) pair.escrowNFT.acceptOwnership();
+        }
     }
 }
