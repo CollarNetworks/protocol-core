@@ -61,7 +61,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     // ----- User state ----- //
     /// @notice Stores loan information for each NFT ID
     mapping(uint loanId => LoanStored) internal loans;
-    // callers (users or escrow owners) that allow a keeper for loan closing for specific loans
+    // borrowers that allow a keeper for loan closing for specific loans
     mapping(address sender => mapping(uint loanId => bool enabled)) public keeperApprovedFor;
 
     // ----- Admin state ----- //
@@ -82,7 +82,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     }
 
     modifier onlyNFTOwner(uint loanId) {
-        /// @dev will also revert on non-existent (unminted / burned) taker ID
+        /// @dev will also revert on non-existent (unminted / burned) loan ID
         require(msg.sender == ownerOf(loanId), "loans: not NFT owner");
         _;
     }
@@ -180,10 +180,12 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     /**
      * @notice Closes an existing loan, repaying the borrowed amount and returning underlying.
      * If escrow was used, releases it by returning the swapped underlying in exchange for the
-     * user's underlying, handling any late fees.
+     * user's underlying, returning leftover fees if any.
      * The amount of underlying returned may be smaller or larger than originally deposited,
      * depending on the position's settlement result, escrow late fees, and the final swap.
-     * This method can be called by either the loanId's NFT owner or by a keeper
+     * In a future version, custom repayment amounts can be allowed to control the underlying
+     * amount more precisely.
+     * This method can be called by either the loanId's NFT owner or by a keeper,
      * if the keeper was allowed for this loan by the current owner (by calling setKeeperApproved).
      * Using a keeper may be desired because the call's timing should be as close to settlement
      * as possible, to avoid additional price exposure since the swaps uses the spot price.
@@ -242,7 +244,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         // @dev Reentrancy assumption: no user state writes or reads AFTER the swapper call in _swap.
         uint underlyingFromSwap = _swap(cashAsset, underlying, cashAmount, swapParams);
 
-        // release escrow if it was used, paying any late fees if needed.
+        // release escrow if it was used, returning leftover fees if any.
         underlyingOut = _conditionalEndEscrow(loan, underlyingFromSwap);
 
         underlying.safeTransfer(borrower, underlyingOut);
@@ -408,7 +410,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         uint escrowFees
     ) internal returns (uint loanId, uint providerId, uint loanAmount) {
         require(configHub.canOpenPair(underlying, cashAsset, address(this)), "loans: unsupported loans");
-        // taker NFT and provider NFT canOpen is checked in _swapAndMintPaired
+        // taker NFT and provider NFT canOpen is checked in _swapAndMintCollar
         // escrow NFT canOpen is checked in _conditionalOpenEscrow
 
         // sanitize escrowFee in case usesEscrow is false.
@@ -814,7 +816,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         pure
         returns (uint newLoanAmount)
     {
-        // The transfer subtracted the fee (see Rolls _previewTransferAmounts), so it needs
+        // The transfer subtracted the fee (see Rolls calculations), so it needs
         // to be added back. The fee is not part of the position, so that if price hasn't changed,
         // after rolling, the updated position (loan amount + takerLocked) would still be equivalent
         // to the initial underlying (if it was initially equivalent, depending on the initial swap)
