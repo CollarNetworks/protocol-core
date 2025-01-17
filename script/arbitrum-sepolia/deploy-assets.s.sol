@@ -222,7 +222,8 @@ contract DeployArbitrumSepoliaAssets is Script {
                 deadline: block.timestamp + 15 minutes
             });
 
-            (, uint128 liquidity, uint amount0, uint amount1) = INonfungiblePositionManager(Const.ArbiSep_UniPosMan).mint(params);
+            (, uint128 liquidity, uint amount0, uint amount1) =
+                INonfungiblePositionManager(Const.ArbiSep_UniPosMan).mint(params);
             console.log("Minted liquidity", liquidity);
             console.log("Minted amount0", amount0);
             console.log("Minted amount1", amount1);

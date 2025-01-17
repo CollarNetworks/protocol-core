@@ -62,8 +62,7 @@ library ArbitrumSepoliaDeployer {
         );
         BaseDeployer.ChainlinkFeed memory feedETH_USD =
             BaseDeployer.ChainlinkFeed(address(mockEthUsdFeed), "TWAPMock(ETH / USD)", 120, 8, 5);
-        oracle =
-            BaseDeployer.deployChainlinkOracle(tWETH, Const.VIRTUAL_ASSET, feedETH_USD, sequencerFeed);
+        oracle = BaseDeployer.deployChainlinkOracle(tWETH, Const.VIRTUAL_ASSET, feedETH_USD, sequencerFeed);
     }
 
     function deployMockOracleBTCUSD() internal returns (BaseTakerOracle oracle) {
@@ -79,8 +78,7 @@ library ArbitrumSepoliaDeployer {
         // no WBTC, only virtual-BTC
         BaseDeployer.ChainlinkFeed memory feedBTC_USD =
             BaseDeployer.ChainlinkFeed(address(mockBTCUSDFeed), "TWAPMock(BTC / USD)", 120, 8, 30);
-        oracle =
-            BaseDeployer.deployChainlinkOracle(tWBTC, Const.VIRTUAL_ASSET, feedBTC_USD, sequencerFeed);
+        oracle = BaseDeployer.deployChainlinkOracle(tWBTC, Const.VIRTUAL_ASSET, feedBTC_USD, sequencerFeed);
     }
 
     function deployMockOracleUSDCUSD() internal returns (BaseTakerOracle oracle) {
@@ -89,8 +87,7 @@ library ArbitrumSepoliaDeployer {
 
         BaseDeployer.ChainlinkFeed memory feedUSDC_USD =
             BaseDeployer.ChainlinkFeed(address(mockUsdcUsdFeed), "FixedMock(USDC / USD)", 86_400, 8, 30);
-        oracle =
-            BaseDeployer.deployChainlinkOracle(tUSDC, Const.VIRTUAL_ASSET, feedUSDC_USD, sequencerFeed);
+        oracle = BaseDeployer.deployChainlinkOracle(tUSDC, Const.VIRTUAL_ASSET, feedUSDC_USD, sequencerFeed);
     }
 
     function deployAllContractPairs(address owner, ConfigHub configHub)

@@ -288,7 +288,9 @@ abstract contract BaseAssetPairForkTest is Test {
         checkLoanAmount(loanAmount);
 
         // Verify protocol fee
-        assertEq(pair.cashAsset.balanceOf(protocolFeeRecipient) - feeRecipientBalanceBefore, expectedProtocolFee);
+        assertEq(
+            pair.cashAsset.balanceOf(protocolFeeRecipient) - feeRecipientBalanceBefore, expectedProtocolFee
+        );
 
         // Verify loan state
         ILoansNFT.Loan memory loan = pair.loansContract.getLoan(loanId);
@@ -638,7 +640,8 @@ abstract contract BaseAssetPairForkTest is Test {
 
         // Verify fee taken and sent to recipient
         assertEq(
-            pair.cashAsset.balanceOf(protocolFeeRecipient) - feeRecipientBalanceBefore, expectedResults.protocolFee
+            pair.cashAsset.balanceOf(protocolFeeRecipient) - feeRecipientBalanceBefore,
+            expectedResults.protocolFee
         );
         assertEq(int(pair.cashAsset.balanceOf(provider) - providerBalanceBefore), expectedResults.toProvider);
         assertGt(newLoanId, loanId);

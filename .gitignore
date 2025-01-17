@@ -17,4 +17,4 @@ docs-temp/
 # Built files
 bin/
 lib/
-script/output/
+script/artifacts/

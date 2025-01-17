@@ -184,16 +184,33 @@ contract WBTCUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiSep_LoansForkTest {
     }
 }
 
-//// load existing
-//
+////// load existing sepolia deployment
 //contract WETHUSDC_ArbiSep_LoansForkTest_NoDeploy is WETHUSDC_ArbiSep_LoansForkTest {
+//    function _setTestValues() internal override {
+//        super._setTestValues();
+//
+//        // owner is different
+//        owner = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
+//        // no pause guardians set
+//        pauseGuardians.pop();
+//    }
+//
+//    function setUp() public override {
+//        super.setUp();
+//
+//        vm.startPrank(owner);
+//        // protocol fee was not set
+//        configHub.setProtocolFeeParams(protocolFeeAPR, protocolFeeRecipient);
+//        vm.stopPrank();
+//    }
+//
 //    function getDeployedContracts()
-//    internal
-//    override
-//    returns (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs)
+//        internal
+//        override
+//        returns (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs)
 //    {
 //        setupNewFork();
 //
-//        return DeploymentArtifactsLib.loadHubAndAllPairs(vm, cashAsset = Const.ArbiSep_artifactsKey);
+//        return DeploymentArtifactsLib.loadHubAndAllPairs(vm, Const.ArbiSep_artifactsKey);
 //    }
 //}
