@@ -43,7 +43,7 @@ contract ChainlinkOracle_ArbiMain_WETHUSDC_ForkTest is Test {
 
     function _config() internal virtual {
         baseToken = Const.ArbiMain_WETH;
-        quoteToken = Const.ArbiMain_USDC; // USDC
+        quoteToken = Const.ArbiMain_USDC;
 
         sequencerFeedExists = true;
         sequencerFeed = Const.ArbiMain_SeqFeed;

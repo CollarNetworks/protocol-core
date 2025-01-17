@@ -28,7 +28,7 @@ contract DeployContractsArbitrumMainnet is Script {
         vm.stopBroadcast();
 
         DeploymentArtifactsLib.exportDeployment(
-            vm, Const.ArbiMain_artifactsKey, result.configHub, result.assetPairContracts
+            vm, Const.ArbiMain_artifactsName, result.configHub, result.assetPairContracts
         );
         console.log("\nDeployment completed successfully");
     }

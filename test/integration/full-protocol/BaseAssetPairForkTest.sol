@@ -267,12 +267,8 @@ abstract contract BaseAssetPairForkTest is Test {
         (uint expectedEscrowFee,,) = pair.escrowNFT.upfrontFees(escrowOfferId, underlyingAmount);
 
         // Open escrow loan using base function
-        (loanId, providerId, loanAmount) = openEscrowLoan(
-            minLoanAmount, // minLoanAmount
-            offerId,
-            escrowOfferId,
-            expectedEscrowFee
-        );
+        (loanId, providerId, loanAmount) =
+            openEscrowLoan(minLoanAmount, offerId, escrowOfferId, expectedEscrowFee);
     }
 
     function verifyEscrowLoan(

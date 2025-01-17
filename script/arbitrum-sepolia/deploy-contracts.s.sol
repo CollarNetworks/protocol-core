@@ -27,7 +27,7 @@ contract DeployContractsArbitrumSepolia is Script {
         vm.stopBroadcast();
 
         DeploymentArtifactsLib.exportDeployment(
-            vm, Const.ArbiSep_artifactsKey, result.configHub, result.assetPairContracts
+            vm, Const.ArbiSep_artifactsName, result.configHub, result.assetPairContracts
         );
         console.log("\nDeployment completed successfully");
     }

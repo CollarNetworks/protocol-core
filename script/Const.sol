@@ -29,7 +29,7 @@ library Const {
     address internal constant ArbiMain_WBTC = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f;
 
     // artifacts
-    string internal constant ArbiMain_artifactsKey = "arbitrum_mainnet_collar_protocol_deployment";
+    string internal constant ArbiMain_artifactsName = "arbitrum_mainnet_collar_protocol_deployment";
 
     // ----- Arbitrum Sepolia -----
     uint internal constant ArbiSep_chainId = 421_614;
@@ -52,5 +52,5 @@ library Const {
     // so are not defined here to reduce clutter.
 
     // artifacts
-    string internal constant ArbiSep_artifactsKey = "arbitrum_sepolia_collar_protocol_deployment";
+    string internal constant ArbiSep_artifactsName = "arbitrum_sepolia_collar_protocol_deployment";
 }
