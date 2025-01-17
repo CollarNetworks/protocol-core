@@ -1,29 +1,31 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.22;
 
+import { Const } from "./Const.sol";
 import { BaseDeployer, ConfigHub, IERC20, EscrowSupplierNFT, BaseTakerOracle } from "./BaseDeployer.sol";
 import { TWAPMockChainlinkFeed } from "../test/utils/TWAPMockChainlinkFeed.sol";
 import { FixedMockChainlinkFeed } from "../test/utils/FixedMockChainlinkFeed.sol";
 
 library ArbitrumSepoliaDeployer {
-    address public constant swapRouterAddress = address(0x101F443B4d1b059569D643917553c771E1b9663E);
-
-    uint constant chainId = 421_614;
-
-    address constant tUSDC = 0x69fC9D4d59843C6E55f00b5F66b263C963214C53; // CollarOwnedERC20 deployed on 12/11/2024
-    address constant tWETH = 0xF17eb654885Afece15039a9Aa26F91063cC693E0; // CollarOwnedERC20 deployed on 12/11/2024
-    address constant tWBTC = 0x19d87c960265C229D4b1429DF6F0C7d18F0611F3; // CollarOwnedERC20 deployed on 12/11/2024
+    address constant tUSDC = Const.ArbiSep_tUSDC;
+    address constant tWETH = Const.ArbiSep_tWETH;
+    address constant tWBTC = Const.ArbiSep_tWBTC;
 
     address constant sequencerFeed = address(0);
     uint24 constant swapFeeTier = 3000;
     int constant USDSTABLEPRICE = 100_000_000; // 1 * 10^8 since feed decimals is 8
 
     function defaultHubParams() internal pure returns (BaseDeployer.HubParams memory) {
+        address[] memory pauseGuardians = new address[](1);
+        pauseGuardians[0] = Const.ArbiSep_deployerAcc;
         return BaseDeployer.HubParams({
             minDuration: 5 minutes,
             maxDuration: 365 days,
             minLTV: 2500,
-            maxLTV: 9900
+            maxLTV: 9900,
+            feeAPR: 75,
+            feeRecipient: Const.ArbiSep_deployerAcc,
+            pauseGuardians: pauseGuardians
         });
     }
 
@@ -31,7 +33,7 @@ library ArbitrumSepoliaDeployer {
         internal
         returns (BaseDeployer.DeploymentResult memory result)
     {
-        require(chainId == block.chainid, "wrong chainId");
+        require(block.chainid == Const.ArbiSep_chainId, "wrong chainId");
 
         // hub
         result.configHub = BaseDeployer.deployConfigHub(owner);
@@ -53,7 +55,7 @@ library ArbitrumSepoliaDeployer {
             tWETH, // base token
             tUSDC, // quote token
             3000, // fee tier
-            swapRouterAddress, // UniV3 router
+            Const.ArbiSep_UniRouter, // UniV3 router
             8, // feed decimals (ETH/USD uses 8)
             "ETH / USD", // description
             18 // virtual USD decimals
@@ -61,7 +63,7 @@ library ArbitrumSepoliaDeployer {
         BaseDeployer.ChainlinkFeed memory feedETH_USD =
             BaseDeployer.ChainlinkFeed(address(mockEthUsdFeed), "TWAPMock(ETH / USD)", 120, 8, 5);
         oracle =
-            BaseDeployer.deployChainlinkOracle(tWETH, BaseDeployer.VIRTUAL_ASSET, feedETH_USD, sequencerFeed);
+            BaseDeployer.deployChainlinkOracle(tWETH, Const.VIRTUAL_ASSET, feedETH_USD, sequencerFeed);
     }
 
     function deployMockOracleBTCUSD() internal returns (BaseTakerOracle oracle) {
@@ -69,7 +71,7 @@ library ArbitrumSepoliaDeployer {
             tWBTC, // base token
             tUSDC, // quote token
             3000, // fee tier
-            swapRouterAddress, // UniV3 router
+            Const.ArbiSep_UniRouter, // UniV3 router
             8, // feed decimals (ETH/USD uses 8)
             "BTC / USD", // description
             18 // virtual USD decimals
@@ -78,7 +80,7 @@ library ArbitrumSepoliaDeployer {
         BaseDeployer.ChainlinkFeed memory feedBTC_USD =
             BaseDeployer.ChainlinkFeed(address(mockBTCUSDFeed), "TWAPMock(BTC / USD)", 120, 8, 30);
         oracle =
-            BaseDeployer.deployChainlinkOracle(tWBTC, BaseDeployer.VIRTUAL_ASSET, feedBTC_USD, sequencerFeed);
+            BaseDeployer.deployChainlinkOracle(tWBTC, Const.VIRTUAL_ASSET, feedBTC_USD, sequencerFeed);
     }
 
     function deployMockOracleUSDCUSD() internal returns (BaseTakerOracle oracle) {
@@ -88,7 +90,7 @@ library ArbitrumSepoliaDeployer {
         BaseDeployer.ChainlinkFeed memory feedUSDC_USD =
             BaseDeployer.ChainlinkFeed(address(mockUsdcUsdFeed), "FixedMock(USDC / USD)", 86_400, 8, 30);
         oracle =
-            BaseDeployer.deployChainlinkOracle(tUSDC, BaseDeployer.VIRTUAL_ASSET, feedUSDC_USD, sequencerFeed);
+            BaseDeployer.deployChainlinkOracle(tUSDC, Const.VIRTUAL_ASSET, feedUSDC_USD, sequencerFeed);
     }
 
     function deployAllContractPairs(address owner, ConfigHub configHub)
@@ -120,7 +122,7 @@ library ArbitrumSepoliaDeployer {
                     "Comb(CL(TWAPMock(ETH / USD))|inv(CL(FixedMock(USDC / USD))))"
                 ),
                 swapFeeTier: swapFeeTier,
-                swapRouter: swapRouterAddress,
+                swapRouter: Const.ArbiSep_UniRouter,
                 existingEscrowNFT: address(0)
             })
         );
@@ -141,7 +143,7 @@ library ArbitrumSepoliaDeployer {
                     "Comb(CL(TWAPMock(BTC / USD))|inv(CL(FixedMock(USDC / USD))))"
                 ),
                 swapFeeTier: swapFeeTier,
-                swapRouter: swapRouterAddress,
+                swapRouter: Const.ArbiSep_UniRouter,
                 existingEscrowNFT: address(0)
             })
         );

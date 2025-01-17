@@ -6,7 +6,7 @@ import "forge-std/console.sol";
 import { DeploymentArtifactsLib } from "../utils/DeploymentArtifacts.sol";
 import { WalletLoader } from "../wallet-loader.s.sol";
 
-import { ArbitrumMainnetDeployer as deployerLib, BaseDeployer } from "../ArbitrumMainnetDeployer.sol";
+import { ArbitrumMainnetDeployer as deployerLib, BaseDeployer, Const } from "../ArbitrumMainnetDeployer.sol";
 
 contract DeployContractsArbitrumMainnet is Script {
     function run() external {
@@ -17,7 +17,7 @@ contract DeployContractsArbitrumMainnet is Script {
         address owner = deployerAddress;
 
         // check we're on the right chain
-        require(deployerLib.chainId == block.chainid, "chainId mismatch");
+        require(block.chainid == Const.ArbiMain_chainId, "chainId mismatch");
 
         // deploy and nominate owner
         BaseDeployer.DeploymentResult memory result = deployerLib.deployAndSetupFullProtocol(owner);
@@ -28,7 +28,7 @@ contract DeployContractsArbitrumMainnet is Script {
         vm.stopBroadcast();
 
         DeploymentArtifactsLib.exportDeployment(
-            vm, "collar_protocol_deployment", result.configHub, result.assetPairContracts
+            vm, Const.ArbiMain_artifactsKey, result.configHub, result.assetPairContracts
         );
         console.log("\nDeployment completed successfully");
     }

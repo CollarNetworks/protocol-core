@@ -16,8 +16,6 @@ import { SwapperUniV3 } from "../src/SwapperUniV3.sol";
 import { CombinedOracle } from "../src/CombinedOracle.sol";
 
 library BaseDeployer {
-    address public constant VIRTUAL_ASSET = address(type(uint160).max); // 0xff..ff
-
     struct AssetPairContracts {
         CollarProviderNFT providerNFT;
         CollarTakerNFT takerNFT;
@@ -54,6 +52,9 @@ library BaseDeployer {
         uint maxLTV;
         uint minDuration;
         uint maxDuration;
+        address feeRecipient;
+        uint feeAPR;
+        address[] pauseGuardians;
     }
 
     struct DeploymentResult {

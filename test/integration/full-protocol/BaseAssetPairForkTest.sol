@@ -165,10 +165,7 @@ abstract contract BaseAssetPairForkTest is Test {
         vm.stopPrank();
     }
 
-    function openLoan(uint offerId)
-        internal
-        returns (uint loanId, uint providerId, uint loanAmount)
-    {
+    function openLoan(uint offerId) internal returns (uint loanId, uint providerId, uint loanAmount) {
         vm.startPrank(user);
         pair.underlying.approve(address(pair.loansContract), underlyingAmount);
         (loanId, providerId, loanAmount) = pair.loansContract.openLoan(
@@ -180,10 +177,7 @@ abstract contract BaseAssetPairForkTest is Test {
         vm.stopPrank();
     }
 
-    function closeLoan(uint loanId, uint minUnderlyingOut)
-        internal
-        returns (uint underlyingOut)
-    {
+    function closeLoan(uint loanId, uint minUnderlyingOut) internal returns (uint underlyingOut) {
         vm.startPrank(user);
         ILoansNFT.Loan memory loan = pair.loansContract.getLoan(loanId);
         // approve repayment amount in cash asset to loans contract
@@ -194,10 +188,7 @@ abstract contract BaseAssetPairForkTest is Test {
         vm.stopPrank();
     }
 
-    function createRollOffer(uint loanId, uint providerId)
-        internal
-        returns (uint rollOfferId)
-    {
+    function createRollOffer(uint loanId, uint providerId) internal returns (uint rollOfferId) {
         vm.startPrank(provider);
         pair.cashAsset.approve(address(pair.rollsContract), type(uint).max);
         pair.providerNFT.approve(address(pair.rollsContract), providerId);
@@ -675,8 +666,7 @@ abstract contract BaseAssetPairForkTest is Test {
         IRolls.PreviewResults memory expectedResults =
             pair.rollsContract.previewRoll(rollOfferId, pair.takerNFT.currentOraclePrice());
         assertGt(expectedResults.protocolFee, 0);
-        (uint newLoanId, uint newLoanAmount, int transferAmount) =
-            rollLoan(loanId, rollOfferId, -1000e6);
+        (uint newLoanId, uint newLoanAmount, int transferAmount) = rollLoan(loanId, rollOfferId, -1000e6);
 
         assertEq(
             pair.cashAsset.balanceOf(feeRecipient) - recipientBalanceAfterOpenLoan,

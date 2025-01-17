@@ -6,8 +6,8 @@ import "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { SwapperUniV3 } from "../../src/SwapperUniV3.sol";
-
 import { UniswapNewPoolHelper } from "../utils/UniswapNewPoolHelper.sol";
+import { Const } from "../../script/Const.sol";
 
 contract SwapperUniV3_BaseForkTest is Test {
     SwapperUniV3 public swapper;
@@ -53,9 +53,9 @@ contract SwapperUniV3_ArbiMain_ForkTest is SwapperUniV3_BaseForkTest {
     }
 
     function setupUSDCWETH() internal {
-        router = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
-        tokenIn = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
-        tokenOut = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // USDC
+        router = Const.ArbiMain_UniRouter;
+        tokenIn = Const.ArbiMain_WETH;
+        tokenOut = Const.ArbiMain_USDC;
         amountIn = 1 ether;
     }
 
@@ -106,8 +106,8 @@ contract SwapperUniV3_ArbiSepolia_ForkTest is SwapperUniV3_BaseForkTest, Uniswap
     }
 
     function setupSepolia() internal {
-        router = 0x101F443B4d1b059569D643917553c771E1b9663E; // arbi-sep
-        positionManager = 0x6b2937Bde17889EDCf8fbD8dE31C3C2a70Bc4d65; // arbi-sep
+        router = Const.ArbiSep_UniRouter;
+        positionManager = Const.ArbiSep_UniPosMan;
     }
 
     function setupUSDCWBTC() internal {
