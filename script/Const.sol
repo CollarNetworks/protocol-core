@@ -10,7 +10,7 @@ library Const {
 
     // deployer
     // TODO: use a different account
-    address internal constant ArbiMain_deployerAcc = 0x2229C86F931E76650e9C0a7fef259298Ee358713;
+    address internal constant ArbiMain_deployerAcc = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
 
     // uniswap
     address internal constant ArbiMain_UniRouter = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
@@ -35,7 +35,7 @@ library Const {
     uint internal constant ArbiSep_chainId = 421_614;
 
     // deployer
-    address internal constant ArbiSep_deployerAcc = 0x2229C86F931E76650e9C0a7fef259298Ee358713;
+    address internal constant ArbiSep_deployerAcc = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
 
     // uniswap
     address internal constant ArbiSep_UniRouter = 0x101F443B4d1b059569D643917553c771E1b9663E;
