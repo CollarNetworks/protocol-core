@@ -3,6 +3,8 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 import { ConfigHub } from "../../../src/ConfigHub.sol";
 import { BaseDeployer } from "../../../script/BaseDeployer.sol";
 import { ILoansNFT } from "../../../src/interfaces/ILoansNFT.sol";
@@ -429,6 +431,38 @@ abstract contract BaseAssetPairForkTest is Test {
         address[] memory escrowAuthed = new address[](1);
         escrowAuthed[0] = address(pair.escrowNFT);
         assertEq(configHub.allCanOpenPair(pair.underlying, configHub.ANY_ASSET()), escrowAuthed);
+    }
+
+    function testAssetsSanity() public {
+        IERC20 asset1 = IERC20(cashAsset);
+        IERC20 asset2 = IERC20(underlying);
+        // 0 transfer works
+        asset1.transfer(user, 0);
+        asset2.transfer(user, 0);
+        // 0 approval works
+        asset1.approve(user, 0);
+        asset2.approve(user, 0);
+
+        // get some tokens
+        deal(address(asset1), address(this), 10);
+        deal(address(asset2), address(this), 10);
+        // balance sanity
+        uint balanceBefore = asset1.balanceOf(address(this));
+        asset1.transfer(user, 1);
+        assertEq(asset1.balanceOf(address(this)), balanceBefore - 1);
+        balanceBefore = asset2.balanceOf(address(this));
+        asset2.transfer(user, 1);
+        assertEq(asset2.balanceOf(address(this)), balanceBefore - 1);
+
+        // no transfer "max"
+        vm.expectRevert();
+        asset1.transfer(user, type(uint).max);
+        vm.expectRevert();
+        asset1.transfer(user, type(uint128).max);
+        vm.expectRevert();
+        asset2.transfer(user, type(uint).max);
+        vm.expectRevert();
+        asset2.transfer(user, type(uint128).max);
     }
 
     function testOraclePrice() public view {
