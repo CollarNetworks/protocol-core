@@ -9,10 +9,15 @@ contract MockSwapperRouter {
     // mocking
     uint toReturn;
     uint toTransfer;
+    bool reverts;
 
     function setupSwap(uint _toReturn, uint _toTransfer) external {
         toReturn = _toReturn;
         toTransfer = _toTransfer;
+    }
+
+    function setReverts(bool shouldRevert) external {
+        reverts = shouldRevert;
     }
 
     // mock router
@@ -22,6 +27,7 @@ contract MockSwapperRouter {
         external
         returns (uint amountOut)
     {
+        require(!reverts, "reverts");
         IERC20(params.tokenIn).transferFrom(msg.sender, address(this), params.amountIn);
         amountOut = toReturn;
         IERC20(params.tokenOut).transfer(params.recipient, toTransfer);
@@ -34,6 +40,7 @@ contract MockSwapperRouter {
         external
         returns (uint amountOut)
     {
+        require(!reverts, "reverts");
         extraData;
         minAmountOut;
         assetIn.transferFrom(msg.sender, address(this), amountIn);
