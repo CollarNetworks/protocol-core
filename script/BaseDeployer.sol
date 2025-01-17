@@ -184,6 +184,10 @@ library BaseDeployer {
     function setupConfigHub(ConfigHub configHub, HubParams memory hubParams) internal {
         configHub.setLTVRange(hubParams.minLTV, hubParams.maxLTV);
         configHub.setCollarDurationRange(hubParams.minDuration, hubParams.maxDuration);
+        configHub.setProtocolFeeParams(hubParams.feeAPR, hubParams.feeRecipient);
+        for (uint i; i < hubParams.pauseGuardians.length; ++i) {
+            configHub.setPauseGuardian(hubParams.pauseGuardians[i], true);
+        }
     }
 
     // @dev this only nominates, and ownership must be accepted by the new owner

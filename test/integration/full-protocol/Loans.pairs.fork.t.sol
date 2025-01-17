@@ -54,7 +54,12 @@ abstract contract BaseAssetPairForkTest_NewDeploymentWithExport is BaseAssetPair
 }
 
 contract WETHUSDC_ArbiMain_LoansForkTest is BaseAssetPairForkTest_NewDeploymentWithExport {
-    function _setPairParams() internal virtual override {
+    function _setTestValues() internal virtual override {
+        // config params
+        protocolFeeAPR = 75;
+        protocolFeeRecipient = Const.ArbiMain_deployerAcc;
+        pauseGuardians.push(Const.ArbiMain_deployerAcc);
+
         // @dev all pairs must be tested, so if this number is increased, test classes must be added
         expectedNumPairs = 3;
 
@@ -96,8 +101,8 @@ contract ArbiMain_LoansForkTest_LatestBlock is WETHUSDC_ArbiMain_LoansForkTest {
 }
 
 contract WETHUSDT_ArbiMain_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
-    function _setPairParams() internal virtual override {
-        super._setPairParams();
+    function _setTestValues() internal virtual override {
+        super._setTestValues();
         expectedPairIndex = 1;
         underlying = Const.ArbiMain_WETH;
         cashAsset = Const.ArbiMain_USDT;
@@ -106,8 +111,8 @@ contract WETHUSDT_ArbiMain_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
 }
 
 contract WBTCUSDT_ArbiMain_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
-    function _setPairParams() internal virtual override {
-        super._setPairParams();
+    function _setTestValues() internal virtual override {
+        super._setTestValues();
 
         expectedPairIndex = 2;
         underlying = Const.ArbiMain_WBTC;
@@ -125,8 +130,8 @@ contract WBTCUSDT_ArbiMain_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
 // Sepolia
 
 contract WETHUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
-    function _setPairParams() internal virtual override {
-        super._setPairParams();
+    function _setTestValues() internal virtual override {
+        super._setTestValues();
         // @dev all pairs must be tested, so if this number is increased, test classes must be added
         expectedNumPairs = 2;
 
@@ -163,8 +168,8 @@ contract ArbiSep_LoansForkTest_LatestBlock is WETHUSDC_ArbiSep_LoansForkTest {
 }
 
 contract WBTCUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiSep_LoansForkTest {
-    function _setPairParams() internal override {
-        super._setPairParams();
+    function _setTestValues() internal override {
+        super._setTestValues();
 
         // set up all the variables for this pair
         expectedPairIndex = 1;
