@@ -4,6 +4,8 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 
+import { Const } from "../../script/Const.sol";
+
 import { ChainlinkOracle, IERC20Metadata, IChainlinkFeedLike } from "../../src/ChainlinkOracle.sol";
 import { CombinedOracle } from "../../src/CombinedOracle.sol";
 import { CollarOwnedERC20 } from "../utils/CollarOwnedERC20.sol";
@@ -71,17 +73,17 @@ contract CombinedOracle_ArbiMain_WETHUSDC_ForkTest is Test {
 
     function _config() internal virtual {
         sequencerFeedExists = true;
-        sequencerFeed = 0xFdB631F5EE196F0ed6FAa767959853A9F217697D;
+        sequencerFeed = Const.ArbiMain_SeqFeed;
 
-        baseToken1 = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
+        baseToken1 = Const.ArbiMain_WETH;
         quoteToken1 = VIRTUAL_ASSET; // USD_18
-        priceFeed1 = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612;
+        priceFeed1 = Const.ArbiMain_CLFeedETH_USD;
         description1 = "ETH / USD";
         maxStaleness1 = 1 days + 1 minutes; // some grace for congestion
 
-        baseToken2 = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // USDC
+        baseToken2 = Const.ArbiMain_USDC;
         quoteToken2 = VIRTUAL_ASSET; // USD_18
-        priceFeed2 = 0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3;
+        priceFeed2 = Const.ArbiMain_CLFeedUSDC_USD;
         description2 = "USDC / USD";
         maxStaleness2 = 1 days + 1 minutes; // some grace for congestion
 

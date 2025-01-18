@@ -203,7 +203,7 @@ library DeploymentArtifactsLib {
 
     function _getExportPath(Vm vm) internal view returns (string memory) {
         string memory root = vm.projectRoot();
-        return string(abi.encodePacked(root, "/script/output/", vm.toString(block.chainid), "/"));
+        return string(abi.encodePacked(root, "/script/artifacts/", vm.toString(block.chainid), "/"));
     }
 
     function substring(string memory str, uint startIndex, uint endIndex)

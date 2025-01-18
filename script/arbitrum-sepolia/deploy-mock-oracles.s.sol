@@ -9,14 +9,14 @@ import { FixedMockChainlinkFeed } from "../../test/utils/FixedMockChainlinkFeed.
 import { WalletLoader } from "../wallet-loader.s.sol";
 import { BaseTakerOracle } from "../BaseDeployer.sol";
 
-import { ArbitrumSepoliaDeployer as deployLib, BaseDeployer } from "../ArbitrumSepoliaDeployer.sol";
+import { ArbitrumSepoliaDeployer as deployLib, BaseDeployer, Const } from "../ArbitrumSepoliaDeployer.sol";
 
 contract DeployNewMocksForTakers is Script {
     address wethUSDCTakerAddress = 0x86F729a0C910890385666b77db4aFdA6daC2dA16;
     address wbtcUSDCTakerAddress = 0x898695c9955bc82e210C3bF231903fE004dAFeD5;
 
     function run() external {
-        require(deployLib.chainId == block.chainid, "chainId does not match the chainId in config");
+        require(block.chainid == Const.ArbiSep_chainId, "chainId does not match the chainId in config");
 
         // Load deployer wallet
         (address deployerAcc,,,) = WalletLoader.loadWalletsFromEnv(vm);

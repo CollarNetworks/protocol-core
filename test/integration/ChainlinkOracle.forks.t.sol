@@ -6,11 +6,12 @@ import "forge-std/Test.sol";
 
 import { ChainlinkOracle, IERC20Metadata, IChainlinkFeedLike } from "../../src/ChainlinkOracle.sol";
 import { CollarOwnedERC20 } from "../utils/CollarOwnedERC20.sol";
+import { Const } from "../../script/Const.sol";
 
 contract ChainlinkOracle_ArbiMain_WETHUSDC_ForkTest is Test {
     ChainlinkOracle public oracle;
 
-    address constant VIRTUAL_ASSET = address(type(uint160).max); // 0xff..ff
+    address constant VIRTUAL_ASSET = Const.VIRTUAL_ASSET;
 
     uint sequencerGracePeriod = 3600;
 
@@ -41,13 +42,13 @@ contract ChainlinkOracle_ArbiMain_WETHUSDC_ForkTest is Test {
     }
 
     function _config() internal virtual {
-        baseToken = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
-        quoteToken = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // USDC
+        baseToken = Const.ArbiMain_WETH;
+        quoteToken = Const.ArbiMain_USDC;
 
         sequencerFeedExists = true;
-        sequencerFeed = 0xFdB631F5EE196F0ed6FAa767959853A9F217697D;
+        sequencerFeed = Const.ArbiMain_SeqFeed;
 
-        priceFeed = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612;
+        priceFeed = Const.ArbiMain_CLFeedETH_USD;
         description = "ETH / USD";
         maxStaleness = 1 days + 1 minutes; // some grace for congestion
 

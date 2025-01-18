@@ -16,8 +16,6 @@ import { SwapperUniV3 } from "../src/SwapperUniV3.sol";
 import { CombinedOracle } from "../src/CombinedOracle.sol";
 
 library BaseDeployer {
-    address public constant VIRTUAL_ASSET = address(type(uint160).max); // 0xff..ff
-
     struct AssetPairContracts {
         CollarProviderNFT providerNFT;
         CollarTakerNFT takerNFT;
@@ -54,6 +52,9 @@ library BaseDeployer {
         uint maxLTV;
         uint minDuration;
         uint maxDuration;
+        address feeRecipient;
+        uint feeAPR;
+        address[] pauseGuardians;
     }
 
     struct DeploymentResult {
@@ -183,6 +184,10 @@ library BaseDeployer {
     function setupConfigHub(ConfigHub configHub, HubParams memory hubParams) internal {
         configHub.setLTVRange(hubParams.minLTV, hubParams.maxLTV);
         configHub.setCollarDurationRange(hubParams.minDuration, hubParams.maxDuration);
+        configHub.setProtocolFeeParams(hubParams.feeAPR, hubParams.feeRecipient);
+        for (uint i; i < hubParams.pauseGuardians.length; ++i) {
+            configHub.setPauseGuardian(hubParams.pauseGuardians[i], true);
+        }
     }
 
     // @dev this only nominates, and ownership must be accepted by the new owner

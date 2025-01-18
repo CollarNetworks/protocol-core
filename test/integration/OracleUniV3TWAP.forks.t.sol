@@ -4,13 +4,14 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 
+import { Const } from "../../script/Const.sol";
 import { UniswapNewPoolHelper } from "../utils/UniswapNewPoolHelper.sol";
 import { OracleUniV3TWAP } from "../utils/OracleUniV3TWAP.sol";
 
 contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
     OracleUniV3TWAP public oracle;
 
-    address router = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
+    address router = Const.ArbiMain_UniRouter;
     uint24 feeTier = 500;
 
     uint32 twapWindow = 300;
@@ -43,11 +44,11 @@ contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
     }
 
     function _config() internal virtual {
-        baseToken = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
-        quoteToken = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // USDC
+        baseToken = Const.ArbiMain_WETH;
+        quoteToken = Const.ArbiMain_USDC;
 
         sequencerFeedExists = true;
-        sequencerFeed = 0xFdB631F5EE196F0ed6FAa767959853A9F217697D;
+        sequencerFeed = Const.ArbiMain_SeqFeed;
 
         pool = 0xC6962004f452bE9203591991D15f6b388e09E8D0;
         expectedCardinality = 8000;
@@ -133,8 +134,8 @@ contract OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest is Test {
 contract OracleUniV3TWAP_ArbiMain_WETHUSDC_ForkTest is OracleUniV3TWAP_ArbiMain_USDCWETH_ForkTest {
     function _config() internal override {
         super._config();
-        baseToken = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831; // USDC
-        quoteToken = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // WETH
+        baseToken = Const.ArbiMain_USDC;
+        quoteToken = Const.ArbiMain_WETH;
 
         // 0.00036 ETH (= 1e18 / 2713) for 1e6 USDC (1 USDC)
         expectedCurPrice = 368_559_882_855_728;
@@ -149,7 +150,7 @@ contract OracleUniV3TWAP_ArbiSepolia_USDCWBTC_ForkTest is OracleUniV3TWAP_ArbiMa
 
     function _config() internal override {
         super._config();
-        router = 0x101F443B4d1b059569D643917553c771E1b9663E; // arbi-sep
+        router = Const.ArbiSep_UniRouter;
         baseToken = 0x0d64F70fAd5897d752c6e9e9a80ac3C978BF6897; // WBTC arbi-sep
         quoteToken = 0xbDCc1D2ADE76E4A02539674D6D03E4bf571Da712; // USDC arbi-sep
         pool = 0xa9933Deb1cEB37163f7F601eb69Dc923cAD3fcBc;
@@ -210,8 +211,8 @@ contract OracleUniV3TWAP_ArbiSepolia_NewPool_ForkTest is OracleUniV3TWAP_ArbiMai
 
     function _config() internal override {
         super._config();
-        router = 0x101F443B4d1b059569D643917553c771E1b9663E; // arbi-sep
-        positionManager = 0x6b2937Bde17889EDCf8fbD8dE31C3C2a70Bc4d65; // arbi-sep
+        router = Const.ArbiSep_UniRouter;
+        positionManager = Const.ArbiSep_UniPosMan;
 
         sequencerFeedExists = false;
         sequencerFeed = address(0);

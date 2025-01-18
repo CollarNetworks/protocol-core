@@ -6,7 +6,7 @@ import "forge-std/console.sol";
 import { DeploymentArtifactsLib } from "../utils/DeploymentArtifacts.sol";
 import { WalletLoader } from "../wallet-loader.s.sol";
 
-import { ArbitrumSepoliaDeployer as deployerLib, BaseDeployer } from "../ArbitrumSepoliaDeployer.sol";
+import { ArbitrumSepoliaDeployer as deployerLib, BaseDeployer, Const } from "../ArbitrumSepoliaDeployer.sol";
 
 contract DeployContractsArbitrumSepolia is Script {
     function run() external {
@@ -16,7 +16,7 @@ contract DeployContractsArbitrumSepolia is Script {
         address owner = deployerAddress;
 
         // check we're on the right chain
-        require(deployerLib.chainId == block.chainid, "chainId mismatch");
+        require(block.chainid == Const.ArbiSep_chainId, "chainId mismatch");
 
         // deploy and nominate owner
         BaseDeployer.DeploymentResult memory result = deployerLib.deployAndSetupFullProtocol(owner);
@@ -27,7 +27,7 @@ contract DeployContractsArbitrumSepolia is Script {
         vm.stopBroadcast();
 
         DeploymentArtifactsLib.exportDeployment(
-            vm, "arbitrum_sepolia_collar_protocol_deployment", result.configHub, result.assetPairContracts
+            vm, Const.ArbiSep_artifactsName, result.configHub, result.assetPairContracts
         );
         console.log("\nDeployment completed successfully");
     }

@@ -16,13 +16,11 @@ import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfac
 import { CollarOwnedERC20 } from "../../test/utils/CollarOwnedERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
+import { Const } from "../Const.sol";
+
 contract DeployArbitrumSepoliaAssets is Script {
     using SafeERC20 for IERC20;
 
-    uint constant chainId = 421_614; // Arbitrum Sepolia
-    address constant uniswapV3FactoryAddress = 0x248AB79Bbb9bC29bB72f7Cd42F17e054Fc40188e; // Arbitrum Sepolia UniswapV3Factory
-
-    IV3SwapRouter constant SWAP_ROUTER = IV3SwapRouter(0x101F443B4d1b059569D643917553c771E1b9663E);
     uint24 constant FEE_TIER = 3000;
     uint constant INITIAL_MINT_AMOUNT = 10_000_000_000 ether; // 10 billion tokens
 
@@ -31,9 +29,6 @@ contract DeployArbitrumSepoliaAssets is Script {
         int24 lowerTick;
         int24 upperTick;
     }
-
-    INonfungiblePositionManager constant POSITION_MANAGER =
-        INonfungiblePositionManager(0x6b2937Bde17889EDCf8fbD8dE31C3C2a70Bc4d65);
 
     struct Asset {
         string symbol;
@@ -53,7 +48,7 @@ contract DeployArbitrumSepoliaAssets is Script {
     mapping(string => mapping(string => address)) public deployedPools;
 
     function run() external {
-        require(block.chainid == chainId, "Wrong chain");
+        require(block.chainid == Const.ArbiSep_chainId, "Wrong chain");
 
         uint deployerPrivateKey = vm.envUint("PRIVKEY_DEV_DEPLOYER");
         address deployerAcc = vm.addr(deployerPrivateKey);
@@ -118,7 +113,7 @@ contract DeployArbitrumSepoliaAssets is Script {
     function createAndInitializePools(address deployerAcc) internal {
         for (uint i = 0; i < assetPairs.length; i++) {
             AssetPair memory pair = assetPairs[i];
-            address cashAsset = address(0x69fC9D4d59843C6E55f00b5F66b263C963214C53);
+            address cashAsset = Const.ArbiSep_tUSDC;
             address underlying = deployedAssets[pair.collateralSymbol];
 
             require(cashAsset != address(0) && underlying != address(0), "Assets not deployed");
@@ -140,7 +135,7 @@ contract DeployArbitrumSepoliaAssets is Script {
             CollarOwnedERC20 underlyingToken = CollarOwnedERC20(deployedAssets[pair.collateralSymbol]);
             uint amountIn = 10 ** underlyingToken.decimals();
             // Approve the router to spend tokens
-            underlyingToken.approve(address(SWAP_ROUTER), amountIn);
+            underlyingToken.approve(Const.ArbiSep_UniRouter, amountIn);
 
             // Prepare the parameters for the swap
             IV3SwapRouter.ExactInputSingleParams memory params = IV3SwapRouter.ExactInputSingleParams({
@@ -154,7 +149,7 @@ contract DeployArbitrumSepoliaAssets is Script {
             });
 
             // Execute the swap
-            uint amountOut = SWAP_ROUTER.exactInputSingle(params);
+            uint amountOut = IV3SwapRouter(Const.ArbiSep_UniRouter).exactInputSingle(params);
             console.log("amount in ", amountIn);
             console.log("Amount out", amountOut);
         }
@@ -175,19 +170,19 @@ contract DeployArbitrumSepoliaAssets is Script {
 
     function createPool(address tokenA, address tokenB) internal returns (address) {
         (address token0, address token1) = sortTokens(tokenA, tokenB);
-        return IUniswapV3Factory(uniswapV3FactoryAddress).createPool(token0, token1, FEE_TIER);
+        return IUniswapV3Factory(Const.ArbiSep_UniFactory).createPool(token0, token1, FEE_TIER);
     }
 
     function initializePool(address poolAddress, AssetPair memory pair, address deployer) internal {
-        CollarOwnedERC20 cashAsset = CollarOwnedERC20(address(0x69fC9D4d59843C6E55f00b5F66b263C963214C53));
+        CollarOwnedERC20 cashAsset = CollarOwnedERC20(Const.ArbiSep_tUSDC);
         CollarOwnedERC20 collateralAsset = CollarOwnedERC20(deployedAssets[pair.collateralSymbol]);
 
         // cashAsset.mint(deployer, pair.amountCashDesired);
         collateralAsset.mint(deployer, pair.amountCollDesired);
 
         // Approve tokens
-        collateralAsset.approve(address(POSITION_MANAGER), type(uint).max);
-        cashAsset.approve(address(POSITION_MANAGER), type(uint).max);
+        collateralAsset.approve(Const.ArbiSep_UniPosMan, type(uint).max);
+        cashAsset.approve(Const.ArbiSep_UniPosMan, type(uint).max);
         address token0 = IUniswapV3Pool(poolAddress).token0();
         address token1 = IUniswapV3Pool(poolAddress).token1();
         (uint amount0Desired, uint amount1Desired) = token0 == address(collateralAsset)
@@ -227,7 +222,8 @@ contract DeployArbitrumSepoliaAssets is Script {
                 deadline: block.timestamp + 15 minutes
             });
 
-            (, uint128 liquidity, uint amount0, uint amount1) = POSITION_MANAGER.mint(params);
+            (, uint128 liquidity, uint amount0, uint amount1) =
+                INonfungiblePositionManager(Const.ArbiSep_UniPosMan).mint(params);
             console.log("Minted liquidity", liquidity);
             console.log("Minted amount0", amount0);
             console.log("Minted amount1", amount1);
@@ -237,7 +233,7 @@ contract DeployArbitrumSepoliaAssets is Script {
         //     params.amount0Desired = amount0Desired * 10;
         //     params.amount1Desired = amount1Desired * 10;
 
-        //     (, liquidity, amount0, amount1) = POSITION_MANAGER.mint(params);
+        //     (, liquidity, amount0, amount1) = INonfungiblePositionManager(Const.ArbiSep_UniPosMan).mint(params);
 
         //     console.log("Additional liquidity added (iteration", i + 1, "):");
         //     console.log("Liquidity:", liquidity);
@@ -260,11 +256,7 @@ contract DeployArbitrumSepoliaAssets is Script {
         for (uint i = 0; i < assetPairs.length; i++) {
             AssetPair memory pair = assetPairs[i];
             console.log("AssetPair", pair.collateralSymbol, ",", pair.cashSymbol);
-            console.log(
-                deployedAssets[pair.collateralSymbol],
-                ", ",
-                address(0x69fC9D4d59843C6E55f00b5F66b263C963214C53)
-            );
+            console.log(deployedAssets[pair.collateralSymbol], ", ", Const.ArbiSep_tUSDC);
         }
     }
 
