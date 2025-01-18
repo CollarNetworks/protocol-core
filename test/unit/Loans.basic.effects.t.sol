@@ -359,7 +359,10 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         uint underlyingOut = loans.closeLoan(loanId, defaultSwapParams(0));
 
         // Check balances and return value
-        assertEq(underlyingOut, swapOut + released.fromEscrow + released.leftOver - released.toEscrow);
+        if (loan.usesEscrow) {
+            assertEq(underlyingOut, released.leftOver + released.fromEscrow);
+        }
+        assertEq(underlyingOut, swapOut + released.fromEscrow - released.toEscrow);
         assertEq(underlying.balanceOf(user1), balances.userUnderlying + underlyingOut);
         assertEq(cashAsset.balanceOf(user1), balances.userCash - loanAmount);
         assertEq(
@@ -452,6 +455,32 @@ contract LoansBasicEffectsTest is LoansTestBase {
         createAndCheckLoan();
     }
 
+    function test_openLoan_slippage() public {
+        uint providerOfferId = createProviderOffer();
+        maybeCreateEscrowOffer();
+
+        vm.startPrank(user1);
+        underlying.approve(address(loans), underlyingAmount * 2);
+
+        // 11% slippage down: nope
+        prepareSwap(cashAsset, swapCashAmount * 89 / 100);
+        vm.expectRevert("swap and oracle price too different");
+        loans.openLoan(underlyingAmount, 0, defaultSwapParams(0), providerOffer(providerOfferId));
+
+        // 11% slippage up: nope
+        prepareSwap(cashAsset, swapCashAmount * 111 / 100);
+        vm.expectRevert("swap and oracle price too different");
+        loans.openLoan(underlyingAmount, 0, defaultSwapParams(0), providerOffer(providerOfferId));
+
+        prepareSwap(cashAsset, swapCashAmount * 90 / 100);
+        // 10% slippage down: fine
+        loans.openLoan(underlyingAmount, 0, defaultSwapParams(0), providerOffer(providerOfferId));
+
+        prepareSwap(cashAsset, swapCashAmount * 110 / 100);
+        // 10% slippage up: fine
+        loans.openLoan(underlyingAmount, 0, defaultSwapParams(0), providerOffer(providerOfferId));
+    }
+
     function test_tokenURI() public {
         (uint loanId,,) = createAndCheckLoan();
         string memory expected = string.concat(
@@ -489,12 +518,22 @@ contract LoansBasicEffectsTest is LoansTestBase {
         (uint loanId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
 
-        CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition({ takerId: loanId });
         // withdrawal: no price change so only user locked (put locked)
-        uint withdrawal = takerPosition.takerLocked;
+        uint withdrawal = takerNFT.getPosition({ takerId: loanId }).takerLocked;
         // setup router output
         uint swapOut = prepareDefaultSwapToUnderlying();
         closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
+    }
+
+    function test_closeLoan_largeLeftOver() public {
+        (uint loanId,, uint loanAmount) = createAndCheckLoan();
+        skip(duration);
+
+        // withdrawal: no price change so only user locked (put locked)
+        uint withdrawal = takerNFT.getPosition({ takerId: loanId }).takerLocked;
+        // setup router output too large
+        prepareSwap(underlying, underlyingAmount * 2);
+        closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, underlyingAmount * 2);
     }
 
     function test_closeLoan_zero_amount_swap() public {
@@ -512,9 +551,25 @@ contract LoansBasicEffectsTest is LoansTestBase {
         assertEq(loanAmount, 0);
         skip(duration);
 
-        // empty swap amount
-        prepareSwap(underlying, 0);
+        // should revert for next swap
+        mockSwapperRouter.setReverts(true);
+
+        // empty swap amount doesn't hit swapper
         closeAndCheckLoan(loanId, user1, 0, 0, 0);
+    }
+
+    function test_closeLoan_settled() public {
+        (uint loanId,, uint loanAmount) = createAndCheckLoan();
+        skip(duration);
+
+        // settle so that close should skip settling
+        takerNFT.settlePairedPosition(loanId);
+
+        // withdrawal: no price change so only user locked (put locked)
+        uint withdrawal = takerNFT.getPosition({ takerId: loanId }).takerLocked;
+        // setup router output
+        uint swapOut = prepareDefaultSwapToUnderlying();
+        closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
     }
 
     function test_closeLoan_byKeeper() public {
@@ -672,6 +727,17 @@ contract LoansBasicEffectsTest is LoansTestBase {
         skip(duration / 2);
 
         // cancel
+        uint refund;
+        if (loan.usesEscrow) {
+            IEscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(loan.escrowId);
+            (, uint interestHeld, uint lateFeeHeld) = escrowNFT.upfrontFees(escrow.offerId, escrow.escrowed);
+            // received refund for half a duration
+            refund = interestHeld / 2 + lateFeeHeld;
+
+            // expect this only if escrow is used
+            vm.expectEmit(address(loans));
+            emit ILoansNFT.EscrowSettled(loan.escrowId, 0, refund, 0);
+        }
         vm.expectEmit(address(loans));
         emit ILoansNFT.LoanCancelled(loanId, address(user1));
         loans.unwrapAndCancelLoan(loanId);
@@ -688,14 +754,9 @@ contract LoansBasicEffectsTest is LoansTestBase {
         loans.unwrapAndCancelLoan(loanId);
 
         // escrow effects
-        uint refund;
         if (loan.usesEscrow) {
-            IEscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(loan.escrowId);
-            (, uint interestHeld, uint lateFeeHeld) = escrowNFT.upfrontFees(escrow.offerId, escrow.escrowed);
             // escrow released
             assertEq(escrowNFT.getEscrow(loan.escrowId).released, true);
-            // received refund for half a duration
-            refund = interestHeld / 2 + lateFeeHeld;
         }
         assertEq(underlying.balanceOf(user1), balanceBefore + refund);
     }
