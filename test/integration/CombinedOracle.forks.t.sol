@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 
-import { Const } from "../../script/Const.sol";
+import { Const } from "../../script/utils/Const.sol";
 
 import { ChainlinkOracle, IERC20Metadata, IChainlinkFeedLike } from "../../src/ChainlinkOracle.sol";
 import { CombinedOracle } from "../../src/CombinedOracle.sol";

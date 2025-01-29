@@ -7,7 +7,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { SwapperUniV3 } from "../../src/SwapperUniV3.sol";
 import { UniswapNewPoolHelper } from "../utils/UniswapNewPoolHelper.sol";
-import { Const } from "../../script/Const.sol";
+import { Const } from "../../script/utils/Const.sol";
 
 abstract contract SwapperUniV3_BaseForkTest is Test, UniswapNewPoolHelper {
     SwapperUniV3 public swapper;

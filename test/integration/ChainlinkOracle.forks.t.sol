@@ -6,7 +6,7 @@ import "forge-std/Test.sol";
 
 import { ChainlinkOracle, IERC20Metadata, IChainlinkFeedLike } from "../../src/ChainlinkOracle.sol";
 import { CollarOwnedERC20 } from "../utils/CollarOwnedERC20.sol";
-import { Const } from "../../script/Const.sol";
+import { Const } from "../../script/utils/Const.sol";
 
 contract ChainlinkOracle_ArbiMain_WETHUSDC_ForkTest is Test {
     ChainlinkOracle public oracle;

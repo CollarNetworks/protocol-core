@@ -2,11 +2,11 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import { Const } from "../../../script/Const.sol";
-import { DeploymentArtifactsLib } from "../../../script/utils/DeploymentArtifacts.sol";
+import { Const } from "../../../script/utils/Const.sol";
+import { DeploymentArtifactsLib } from "../../../script/libraries/DeploymentArtifacts.sol";
 import { BaseAssetPairForkTest, ConfigHub } from "./BaseAssetPairForkTest.sol";
-import { ArbitrumMainnetDeployer, BaseDeployer } from "../../../script/ArbitrumMainnetDeployer.sol";
-import { ArbitrumSepoliaDeployer } from "../../../script/ArbitrumSepoliaDeployer.sol";
+import { ArbitrumMainnetDeployer, BaseDeployer } from "../../../script/libraries/ArbitrumMainnetDeployer.sol";
+import { ArbitrumSepoliaDeployer } from "../../../script/libraries/ArbitrumSepoliaDeployer.sol";
 
 abstract contract BaseAssetPairForkTest_NewDeploymentWithExport is BaseAssetPairForkTest {
     string constant deploymentName = "collar_protocol_fork_deployment";

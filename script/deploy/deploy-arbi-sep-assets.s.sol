@@ -16,7 +16,7 @@ import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfac
 import { CollarOwnedERC20 } from "../../test/utils/CollarOwnedERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-import { Const } from "../Const.sol";
+import { Const } from "../utils/Const.sol";
 
 contract DeployArbitrumSepoliaAssets is Script {
     using SafeERC20 for IERC20;

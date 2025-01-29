@@ -9,7 +9,7 @@ import { LoansNFT } from "../../src/LoansNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../../src/Rolls.sol";
 import { EscrowSupplierNFT } from "../../src/EscrowSupplierNFT.sol";
-import { BaseDeployer, BaseTakerOracle } from "../BaseDeployer.sol";
+import { BaseDeployer, BaseTakerOracle } from "../libraries/BaseDeployer.sol";
 import { SwapperUniV3 } from "../../src/SwapperUniV3.sol";
 
 library DeploymentArtifactsLib {
