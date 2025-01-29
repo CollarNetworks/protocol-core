@@ -141,7 +141,7 @@ library BaseDeployer {
         LoansNFT loansContract = new LoansNFT(
             owner, takerNFT, string.concat("Loans ", pairConfig.name), string.concat("L", pairConfig.name)
         );
-        Rolls rollsContract = new Rolls(owner, providerNFT);
+        Rolls rollsContract = new Rolls(owner, takerNFT);
         SwapperUniV3 swapperUniV3 = new SwapperUniV3(pairConfig.swapRouter, pairConfig.swapFeeTier);
         // Use existing escrow if provided, otherwise create new
         EscrowSupplierNFT escrowNFT;

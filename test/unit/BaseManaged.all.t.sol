@@ -260,7 +260,7 @@ contract BaseManagedMockTest is BaseManagedTestBase {
 }
 
 contract ProviderNFTManagedTest is BaseManagedTestBase {
-    function setupTestedContract() internal virtual override {
+    function setupTestedContract() internal override {
         TestERC20 unrescuableErc20 = new TestERC20("TestERC20_2", "TestERC20_2", 18);
         unrescuable = address(unrescuableErc20);
         testedContract =
@@ -301,12 +301,12 @@ contract LoansManagedTest is TakerNFTManagedTest {
     }
 }
 
-contract RollsManagedTest is ProviderNFTManagedTest {
+contract RollsManagedTest is TakerNFTManagedTest {
     function setupTestedContract() internal override {
         super.setupTestedContract();
-        // take the provider contract setup by the super
-        CollarProviderNFT providerNFT = CollarProviderNFT(address(testedContract));
-        unrescuable = address(providerNFT);
-        testedContract = new Rolls(owner, providerNFT);
+        // take the taker contract setup by the super
+        CollarTakerNFT takerNFT = CollarTakerNFT(address(testedContract));
+        unrescuable = address(0);
+        testedContract = new Rolls(owner, takerNFT);
     }
 }

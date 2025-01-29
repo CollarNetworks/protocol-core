@@ -14,7 +14,7 @@ import { IRolls } from "./interfaces/IRolls.sol";
  * @title Rolls
  * @custom:security-contact security@collarprotocol.xyz
  * @dev This contract manages the "rolling" of existing collar positions before expiry to new strikes and
- * expiry for a specific pair of Provider and Taker contracts.
+ * expiry.
  *
  * Main Functionality:
  * 1. Allows providers to create and cancel roll offers for existing positions.
@@ -54,7 +54,6 @@ contract Rolls is IRolls, BaseManaged {
 
     // ----- IMMUTABLES ----- //
     CollarTakerNFT public immutable takerNFT;
-    CollarProviderNFT public immutable providerNFT;
     IERC20 public immutable cashAsset;
 
     // ----- STATE VARIABLES ----- //
@@ -63,16 +62,20 @@ contract Rolls is IRolls, BaseManaged {
 
     mapping(uint rollId => RollOfferStored) internal rollOffers;
 
-    /// @dev Rolls needs BaseManaged for pausing since is approved by users.
+    /// @dev Rolls needs BaseManaged for pausing since is approved by users, and holds NFTs.
     /// Does not need `canOpen` auth here because its auth is checked in Loans, or requires no auth
     /// if used directly.
     /// Has no long-lived functionality so doesn't need a close-only migration mode.
-    constructor(address initialOwner, CollarProviderNFT _providerNFT)
-        BaseManaged(initialOwner, _providerNFT.configHub(), address(_providerNFT))
+    /// @dev unrescuableAsset is not set, which means that providerNFTs held by this contract for active
+    /// offers can be rescued by the owner via `rescueTokens`. In a future implementation this can be set
+    /// to a specific providerNFT if needed (limiting the Rolls contract to a single provider NFT). Currently,
+    /// because roll offers are short lived and optional, the added complexity is not worth it wrt
+    /// to the risk mitigated by it.
+    constructor(address initialOwner, CollarTakerNFT _takerNFT)
+        BaseManaged(initialOwner, _takerNFT.configHub(), address(0))
     {
-        providerNFT = _providerNFT;
-        takerNFT = CollarTakerNFT(_providerNFT.taker());
-        cashAsset = _providerNFT.cashAsset();
+        takerNFT = _takerNFT;
+        cashAsset = _takerNFT.cashAsset();
     }
 
     // ----- VIEW FUNCTIONS ----- //
@@ -89,6 +92,7 @@ contract Rolls is IRolls, BaseManaged {
             maxPrice: stored.maxPrice,
             minToProvider: stored.minToProvider,
             deadline: stored.deadline,
+            providerNFT: stored.providerNFT,
             providerId: stored.providerId,
             provider: stored.provider,
             active: stored.active
@@ -187,6 +191,7 @@ contract Rolls is IRolls, BaseManaged {
         require(!takerPos.settled, "rolls: taker position settled");
         require(block.timestamp <= takerPos.expiration, "rolls: taker position expired");
 
+        CollarProviderNFT providerNFT = takerPos.providerNFT;
         uint providerId = takerPos.providerId;
         // caller is owner
         require(msg.sender == providerNFT.ownerOf(providerId), "rolls: not provider ID owner");
@@ -199,6 +204,7 @@ contract Rolls is IRolls, BaseManaged {
         // pull the NFT
         providerNFT.transferFrom(msg.sender, address(this), providerId);
         RollOfferStored memory offer = RollOfferStored({
+            providerNFT: providerNFT,
             providerId: SafeCast.toUint64(providerId),
             deadline: SafeCast.toUint32(deadline),
             takerId: SafeCast.toUint64(takerId),
@@ -233,7 +239,7 @@ contract Rolls is IRolls, BaseManaged {
         // store cancelled state
         rollOffers[rollId].active = false;
         // return the NFT
-        providerNFT.transferFrom(address(this), msg.sender, offer.providerId);
+        offer.providerNFT.transferFrom(address(this), msg.sender, offer.providerId);
         emit OfferCancelled(rollId, offer.takerId, offer.provider);
     }
 
@@ -328,14 +334,14 @@ contract Rolls is IRolls, BaseManaged {
 
         // we now own both of the new NFT IDs, so send them out to their new proud owners
         takerNFT.transferFrom(address(this), msg.sender, newTakerId);
-        providerNFT.transferFrom(address(this), offer.provider, newProviderId);
+        offer.providerNFT.transferFrom(address(this), offer.provider, newProviderId);
     }
 
     function _cancelPairedPositionAndWithdraw(uint takerId, ICollarTakerNFT.TakerPosition memory takerPos)
         internal
     {
         // approve the provider NFT ID to the takerNFT contract, which is needed for cancellation
-        providerNFT.approve(address(takerNFT), takerPos.providerId);
+        takerPos.providerNFT.approve(address(takerNFT), takerPos.providerId);
         // cancel and withdraw the cash from the existing paired position
         // @dev this relies on being the owner of both NFTs. it burns both NFTs, and withdraws
         // both put and locked cash to this contract
@@ -349,6 +355,8 @@ contract Rolls is IRolls, BaseManaged {
         internal
         returns (uint newTakerId, uint newProviderId)
     {
+        CollarProviderNFT providerNFT = preview.takerPos.providerNFT;
+
         // add the protocol fee that will be taken from the offer
         uint offerAmount = preview.newProviderLocked + preview.protocolFee;
 
@@ -390,7 +398,7 @@ contract Rolls is IRolls, BaseManaged {
         (uint newTakerLocked, uint newProviderLocked) = _newLockedAmounts(takerPos, newPrice);
 
         // new protocol fee. @dev there is no refund for previously paid protocol fee
-        (uint protocolFee,) = providerNFT.protocolFee(newProviderLocked, takerPos.duration);
+        (uint protocolFee,) = takerPos.providerNFT.protocolFee(newProviderLocked, takerPos.duration);
 
         // The taker and provider external balances (before fee) should be updated as if
         // they settled and withdrawn the old positions, and opened the new positions.
