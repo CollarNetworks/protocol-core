@@ -28,8 +28,9 @@ abstract contract BaseManaged is Ownable2Step, Pausable {
      *  This exclusion reduces the centralisation risk, and reduces the impact, incentive, and
      *  thus also the likelihood of compromizing the owner.
      * @dev this is a single address because currently only a single asset is held by each contract
-     *  at rest. Other assets, that may be held by the contract in-transit (during a transaction),
-     *  can be rescued. If further reduction of centralization risk is required, this should become a Set.
+     *  at rest (except for Rolls).
+     *  Other assets, that may be held by the contract in-transit (during a transaction), can be rescued.
+     *  If further reduction of centralization risk is required, this should become a Set.
      */
     address public immutable unrescuableAsset;
 
@@ -79,8 +80,8 @@ abstract contract BaseManaged is Ownable2Step, Pausable {
     }
 
     /**
-     * @notice Sends an amount of an ERC-20, or an ID of any ERC-721, to owner's address, unless
-     * it matches the `unrescuableAsset`.
+     * @notice Sends an amount of an ERC-20, or an ID of any ERC-721, to owner's address.
+     * Revers if the `token` matches the `unrescuableAsset`.
      * To be used to rescue stuck assets that were sent to the contract by mistake.
      * @dev Only callable by the contract owner.
      * @param token The address of the token contract
