@@ -71,7 +71,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         address _taker,
         string memory _name,
         string memory _symbol
-    ) BaseNFT(initialOwner, _name, _symbol, _configHub) {
+    ) BaseNFT(initialOwner, _name, _symbol, _configHub, address(_cashAsset)) {
         cashAsset = _cashAsset;
         underlying = _underlying;
         taker = _taker;

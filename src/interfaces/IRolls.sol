@@ -18,13 +18,12 @@ interface IRolls {
 
     struct RollOfferStored {
         // first slot
-        CollarProviderNFT providerNFT;
         uint64 providerId;
         uint32 deadline;
-        // second slot
         uint64 takerId;
         int24 feeDeltaFactorBIPS; // allows up to +-838%, must allow at least BIPS_BASE
         bool active;
+        // second slot
         address provider;
         // rest of slots
         int feeAmount;
@@ -45,8 +44,7 @@ interface IRolls {
         uint maxPrice;
         int minToProvider;
         uint deadline;
-        // somewhat redundant (since it comes from the taker ID), but safer for cancellations
-        CollarProviderNFT providerNFT;
+        // cancellation
         uint providerId;
         // state
         address provider;

@@ -60,7 +60,6 @@ contract RollsTest is BaseAssetPairTestSetup {
             provider,
             nextRollId,
             IRolls.RollOfferStored({
-                providerNFT: providerNFT,
                 providerId: uint64(providerId),
                 deadline: uint32(deadline),
                 takerId: uint64(takerId),
@@ -91,7 +90,6 @@ contract RollsTest is BaseAssetPairTestSetup {
         assertEq(offer.maxPrice, maxPrice);
         assertEq(offer.minToProvider, minToProvider);
         assertEq(offer.deadline, deadline);
-        assertEq(address(offer.providerNFT), address(providerNFT));
         assertEq(offer.providerId, providerId);
         assertEq(offer.provider, provider);
         assertTrue(offer.active);
@@ -274,7 +272,7 @@ contract RollsTest is BaseAssetPairTestSetup {
     // happy cases
 
     function test_constructor() public {
-        Rolls newRolls = new Rolls(owner, takerNFT);
+        Rolls newRolls = new Rolls(owner, providerNFT);
         assertEq(address(newRolls.takerNFT()), address(takerNFT));
         assertEq(address(newRolls.cashAsset()), address(cashAsset));
         assertEq(newRolls.VERSION(), "0.2.0");

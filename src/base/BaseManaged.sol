@@ -13,21 +13,36 @@ import { ConfigHub } from "../ConfigHub.sol";
  * @notice Base contract for managed contracts in the Collar Protocol
  * @dev This contract provides common functionality for contracts that are owned and managed
  * via the Collar Protocol's ConfigHub. It includes 2 step ownership, pause/unpause functionality,
- * pause guardian pausing, and an emergency function to rescue stuck tokens.
+ * pause guardian pausing, and a function to rescue stuck tokens.
  * @dev all inheriting contracts that hold funds should be owned by a secure multi-sig due
- * the rescueTokens method.
+ * the sensitive onlyOwner methods.
  */
 abstract contract BaseManaged is Ownable2Step, Pausable {
     // ----- State ----- //
     ConfigHub public configHub;
+
+    /**
+     * @notice a token address (ERC-20 or ERC-721) that the owner can NOT rescue via `rescueTokens`.
+     *  This should be the main asset that the contract holds at rest on behalf of its users.
+     *  If this asset is sent to the contract by mistake, there is no way to rescue it.
+     *  This exclusion reduces the centralisation risk, and reduces the impact, incentive, and
+     *  thus also the likelihood of compromizing the owner.
+     * @dev this is a single address because currently only a single asset is held by each contract
+     *  at rest. Other assets, that may be held by the contract in-transit (during a transaction),
+     *  can be rescued. If further reduction of centralization risk is required, this should become a Set.
+     */
+    address public immutable unrescuableAsset;
 
     // ----- Events ----- //
     event ConfigHubUpdated(ConfigHub previousConfigHub, ConfigHub newConfigHub);
     event PausedByGuardian(address guardian);
     event TokensRescued(address tokenContract, uint amountOrId);
 
-    constructor(address _initialOwner, ConfigHub _configHub) Ownable(_initialOwner) {
+    constructor(address _initialOwner, ConfigHub _configHub, address _unrescuableAsset)
+        Ownable(_initialOwner)
+    {
         _setConfigHub(_configHub);
+        unrescuableAsset = _unrescuableAsset;
     }
 
     // ----- MUTATIVE ----- //
@@ -64,16 +79,16 @@ abstract contract BaseManaged is Ownable2Step, Pausable {
     }
 
     /**
-     * @notice Sends an amount of any ERC-20, or an ID of any ERC-721, to owner's address.
-     * To be used to rescue stuck funds in case of irrecoverable bugs or mistakes.
-     * @dev Only callable by the contract owner, which must be a secure multi-sig.
+     * @notice Sends an amount of an ERC-20, or an ID of any ERC-721, to owner's address, unless
+     * it matches the `unrescuableAsset`.
+     * To be used to rescue stuck assets that were sent to the contract by mistake.
+     * @dev Only callable by the contract owner.
      * @param token The address of the token contract
      * @param amountOrId The amount of tokens to rescue (or token ID for NFTs)
      * @param isNFT Whether the token is an NFT (true) or an ERC-20 (false)
      */
     function rescueTokens(address token, uint amountOrId, bool isNFT) external onlyOwner {
-        /// The transfer is to the owner so that only full owner compromise can steal tokens
-        /// and not a single rescue transaction with bad params
+        require(token != unrescuableAsset, "unrescuable asset");
         if (isNFT) {
             IERC721(token).transferFrom(address(this), owner(), amountOrId);
         } else {

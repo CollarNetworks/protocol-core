@@ -9,9 +9,6 @@ import { BaseManaged, ConfigHub } from "./BaseManaged.sol";
  * @title BaseNFT
  * @notice Base contract for NFTs in the Collar Protocol. It provides the admin functionality
  * from BaseManaged, and ensures token transfers are paused when the contract is paused.
- *
- * @dev All contracts that inherit from BaseManaged must call `_setConfigHub` to set the
- * ConfigHub address.
  */
 abstract contract BaseNFT is BaseManaged, ERC721 {
     string internal constant BASE_URI = "https://services.collarprotocol.xyz/metadata/";
@@ -19,10 +16,13 @@ abstract contract BaseNFT is BaseManaged, ERC721 {
     // ----- State ----- //
     uint internal nextTokenId = 1; // NFT token ID, starts from 1 so that 0 ID is not used
 
-    constructor(address _initialOwner, string memory _name, string memory _symbol, ConfigHub _configHub)
-        BaseManaged(_initialOwner, _configHub)
-        ERC721(_name, _symbol)
-    { }
+    constructor(
+        address _initialOwner,
+        string memory _name,
+        string memory _symbol,
+        ConfigHub _configHub,
+        address _unrescuableAsset
+    ) BaseManaged(_initialOwner, _configHub, _unrescuableAsset) ERC721(_name, _symbol) { }
 
     // ----- INTERNAL MUTATIVE ----- //
 
