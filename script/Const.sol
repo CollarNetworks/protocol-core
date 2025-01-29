@@ -56,6 +56,7 @@ library Const {
     // https://docs.uniswap.org/contracts/v3/reference/deployments/base-deployments
     address internal constant OPBaseMain_UniRouter = 0x2626664c2603336E57B271c5C0b26F421741e481;
     address internal constant OPBaseSep_UniRouter = 0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4;
+    address internal constant OPBaseSep_UniPosMan = 0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2;
 
     // CL feeds
     // https://docs.chain.link/data-feeds/l2-sequencer-feeds#overview
