@@ -9,7 +9,11 @@ import { FixedMockChainlinkFeed } from "../../test/utils/FixedMockChainlinkFeed.
 import { WalletLoader } from "../wallet-loader.s.sol";
 import { BaseTakerOracle } from "../libraries/BaseDeployer.sol";
 
-import { ArbitrumSepoliaDeployer as deployLib, BaseDeployer, Const } from "../libraries/ArbitrumSepoliaDeployer.sol";
+import {
+    ArbitrumSepoliaDeployer as deployLib,
+    BaseDeployer,
+    Const
+} from "../libraries/ArbitrumSepoliaDeployer.sol";
 
 contract DeployNewMocksForTakers is Script {
     address wethUSDCTakerAddress = 0x86F729a0C910890385666b77db4aFdA6daC2dA16;

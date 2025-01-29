@@ -6,7 +6,11 @@ import "forge-std/console.sol";
 import { DeploymentArtifactsLib } from "../libraries/DeploymentArtifacts.sol";
 import { WalletLoader } from "../wallet-loader.s.sol";
 
-import { ArbitrumSepoliaDeployer as deployerLib, BaseDeployer, Const } from "../libraries/ArbitrumSepoliaDeployer.sol";
+import {
+    ArbitrumSepoliaDeployer as deployerLib,
+    BaseDeployer,
+    Const
+} from "../libraries/ArbitrumSepoliaDeployer.sol";
 
 contract DeployContractsArbitrumSepolia is Script {
     function run() external {

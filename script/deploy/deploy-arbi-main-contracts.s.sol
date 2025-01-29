@@ -6,7 +6,11 @@ import "forge-std/console.sol";
 import { DeploymentArtifactsLib } from "../libraries/DeploymentArtifacts.sol";
 import { WalletLoader } from "../wallet-loader.s.sol";
 
-import { ArbitrumMainnetDeployer as deployerLib, BaseDeployer, Const } from "../libraries/ArbitrumMainnetDeployer.sol";
+import {
+    ArbitrumMainnetDeployer as deployerLib,
+    BaseDeployer,
+    Const
+} from "../libraries/ArbitrumMainnetDeployer.sol";
 
 contract DeployContractsArbitrumMainnet is Script {
     function run() external {
