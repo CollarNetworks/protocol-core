@@ -42,4 +42,38 @@ library Const {
     // artifacts
     string internal constant ArbiMain_artifactsName = "arbitrum_mainnet_collar_protocol_deployment";
     string internal constant ArbiSep_artifactsName = "arbitrum_sepolia_collar_protocol_deployment";
+
+
+    // ----- Base -----
+    uint internal constant OPBaseMain_chainId = 8453;
+    uint internal constant OPBaseSep_chainId = 84532;
+
+    // deployer
+    // TODO: use a different account for mainnet
+    address internal constant OPBaseMain_deployerAcc = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
+    address internal constant OPBaseSep_deployerAcc = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
+
+    // uniswap
+    // https://docs.uniswap.org/contracts/v3/reference/deployments/base-deployments
+    address internal constant OPBaseMain_UniRouter = 0x2626664c2603336E57B271c5C0b26F421741e481;
+    address internal constant OPBaseSep_UniRouter = 0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4;
+
+    // CL feeds
+    // https://docs.chain.link/data-feeds/l2-sequencer-feeds#overview
+    address internal constant OPBaseMain_SeqFeed = 0xBCF85224fc0756B9Fa45aA7892530B47e10b6433;
+    // https://docs.chain.link/data-feeds/price-feeds/addresses?network=base&page=1
+    address internal constant OPBaseSep_CLFeedETH_USD = 0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70; // 0.15%, 1200, 8
+    address internal constant OPBaseSep_CLFeedUSDC_USD = 0x7e860098F58bBFC8648a4311b374B1D669a2bc6B; // 0.3%, 86400, 8
+
+    // assets
+    // https://app.uniswap.org/explore/pools/base/
+    address internal constant OPBaseMain_USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
+    address internal constant OPBaseMain_WETH = 0x4200000000000000000000000000000000000006;
+    address internal constant OPBaseSep_USDC = 0xf7464321de37bde4c03aaeef6b1e7b71379a9a64;
+    address internal constant OPBaseSep_WETH = 0x4200000000000000000000000000000000000006;
+
+    // artifacts
+    string internal constant OPBaseMain_artifactsName = "opbase_mainnet_collar_protocol_deployment";
+    string internal constant OPBaseSep_artifactsName = "opbase_sepolia_collar_protocol_deployment";
+
 }
