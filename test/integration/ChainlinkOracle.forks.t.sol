@@ -14,6 +14,7 @@ contract ChainlinkOracle_ArbiMain_WETHUSDC_ForkTest is Test {
     address constant VIRTUAL_ASSET = Const.VIRTUAL_ASSET;
 
     uint sequencerGracePeriod = 3600;
+    uint expectedSequencerStartedAt;
 
     // setup for particular test class
     address baseToken;
@@ -47,6 +48,7 @@ contract ChainlinkOracle_ArbiMain_WETHUSDC_ForkTest is Test {
 
         sequencerFeedExists = true;
         sequencerFeed = Const.ArbiMain_SeqFeed;
+        expectedSequencerStartedAt = 1_713_187_535;
 
         priceFeed = Const.ArbiMain_CLFeedETH_USD;
         description = "ETH / USD";
@@ -93,13 +95,12 @@ contract ChainlinkOracle_ArbiMain_WETHUSDC_ForkTest is Test {
             // check feed
             (, int answer, uint startedAt,,) = oracle.sequencerChainlinkFeed().latestRoundData();
             assertEq(answer, 0);
-            uint32 expectedStartedAt = 1_713_187_535;
-            assertEq(startedAt, expectedStartedAt);
+            assertEq(startedAt, expectedSequencerStartedAt);
 
             // check view
-            assertTrue(oracle.sequencerLiveFor(block.timestamp - expectedStartedAt));
-            assertFalse(oracle.sequencerLiveFor(block.timestamp - expectedStartedAt + 1));
-            assertFalse(oracle.sequencerLiveFor(block.timestamp - expectedStartedAt + 100 days));
+            assertTrue(oracle.sequencerLiveFor(block.timestamp - expectedSequencerStartedAt));
+            assertFalse(oracle.sequencerLiveFor(block.timestamp - expectedSequencerStartedAt + 1));
+            assertFalse(oracle.sequencerLiveFor(block.timestamp - expectedSequencerStartedAt + 100 days));
 
             // price works
             uint price = oracle.currentPrice();
@@ -237,5 +238,47 @@ contract ChainlinkOracle_ArbiSepolia_NewTokens_ForkTest is ChainlinkOracle_ArbiM
         expectedAnswer = 5_939_999_000_000;
         expectedCurPrice = 59_399_990_000_000_000_000_000; // 59000 * 1e18
         expectedInversePrice = 16_835_019_669_195; // 1e18 * 1e18 / 59_399_990_000_000_000_000_000
+    }
+}
+
+contract ChainlinkOracle_OPBaseMain_WETHUSDC_ForkTest is ChainlinkOracle_ArbiMain_WETHUSDC_ForkTest {
+    function _startFork() internal override {
+        vm.createSelectFork(vm.envString("OPBASE_MAINNET_RPC"), 25_666_192);
+    }
+
+    function _config() internal virtual override {
+        super._config();
+        baseToken = Const.OPBaseMain_WETH;
+        quoteToken = Const.OPBaseMain_USDC;
+
+        sequencerFeed = Const.OPBaseMain_SeqFeed;
+        expectedSequencerStartedAt = 1_727_286_839;
+
+        priceFeed = Const.OPBaseMain_CLFeedETH_USD;
+
+        expectedAnswer = 311_621_000_000; // 3116 in 8 decimals
+        expectedCurPrice = 3_116_210_000; // 3116 USDC per 1 ETH
+        expectedInversePrice = 320_902_634_931_535; // 1e8 * 1e18 / 311_621_000_000
+    }
+}
+
+contract ChainlinkOracle_OPBaseSep_WETHUSDC_ForkTest is ChainlinkOracle_ArbiMain_WETHUSDC_ForkTest {
+    function _startFork() internal override {
+        vm.createSelectFork(vm.envString("OPBASE_SEPOLIA_RPC"), 21_176_690);
+    }
+
+    function _config() internal virtual override {
+        super._config();
+        baseToken = Const.OPBaseSep_WETH;
+        quoteToken = Const.OPBaseSep_USDC;
+
+        sequencerFeedExists = false;
+        sequencerFeed = address(0);
+
+        priceFeed = Const.OPBaseSep_CLFeedETH_USD;
+
+        expectedAnswer = 311_485_030_000; // 3114 in 8 decimals
+        expectedCurPrice = 3_114_850_300_000_000_000_000; // 3114 18 decimals USDC per 1 ETH
+        expectedInversePrice = 321_042_715_921_211; // 1e8 * 1e18 / 311_485_030_000
     }
 }

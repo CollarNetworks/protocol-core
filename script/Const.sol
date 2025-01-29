@@ -43,10 +43,9 @@ library Const {
     string internal constant ArbiMain_artifactsName = "arbitrum_mainnet_collar_protocol_deployment";
     string internal constant ArbiSep_artifactsName = "arbitrum_sepolia_collar_protocol_deployment";
 
-
     // ----- Base -----
     uint internal constant OPBaseMain_chainId = 8453;
-    uint internal constant OPBaseSep_chainId = 84532;
+    uint internal constant OPBaseSep_chainId = 84_532;
 
     // deployer
     // TODO: use a different account for mainnet
@@ -62,18 +61,19 @@ library Const {
     // https://docs.chain.link/data-feeds/l2-sequencer-feeds#overview
     address internal constant OPBaseMain_SeqFeed = 0xBCF85224fc0756B9Fa45aA7892530B47e10b6433;
     // https://docs.chain.link/data-feeds/price-feeds/addresses?network=base&page=1
-    address internal constant OPBaseSep_CLFeedETH_USD = 0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70; // 0.15%, 1200, 8
-    address internal constant OPBaseSep_CLFeedUSDC_USD = 0x7e860098F58bBFC8648a4311b374B1D669a2bc6B; // 0.3%, 86400, 8
+    address internal constant OPBaseMain_CLFeedETH_USD = 0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70; // 0.15%, 1200, 8
+    address internal constant OPBaseMain_CLFeedUSDC_USD = 0x7e860098F58bBFC8648a4311b374B1D669a2bc6B; // 0.3%, 86400, 8
+    address internal constant OPBaseSep_CLFeedETH_USD = 0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1; // 0.15%, 1200, 8
+    address internal constant OPBaseSep_CLFeedUSDC_USD = 0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165; // 0.1%, 86400, 8
 
     // assets
     // https://app.uniswap.org/explore/pools/base/
     address internal constant OPBaseMain_USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
     address internal constant OPBaseMain_WETH = 0x4200000000000000000000000000000000000006;
-    address internal constant OPBaseSep_USDC = 0xf7464321de37bde4c03aaeef6b1e7b71379a9a64;
+    address internal constant OPBaseSep_USDC = 0xf7464321dE37BdE4C03AAeeF6b1e7b71379A9a64;
     address internal constant OPBaseSep_WETH = 0x4200000000000000000000000000000000000006;
 
     // artifacts
     string internal constant OPBaseMain_artifactsName = "opbase_mainnet_collar_protocol_deployment";
     string internal constant OPBaseSep_artifactsName = "opbase_sepolia_collar_protocol_deployment";
-
 }
