@@ -185,14 +185,14 @@ contract WBTCUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiSep_LoansForkTest {
 }
 
 ////// load existing sepolia deployment
-//contract WETHUSDC_ArbiSep_LoansForkTest_NoDeploy is WETHUSDC_ArbiSep_LoansForkTest {
-//    function getDeployedContracts()
-//        internal
-//        override
-//        returns (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs)
-//    {
-//        setupNewFork();
-//
-//        return DeploymentArtifactsLib.loadHubAndAllPairs(vm, Const.ArbiSep_artifactsKey);
-//    }
-//}
+contract WETHUSDC_ArbiSep_LoansForkTest_NoDeploy is WETHUSDC_ArbiSep_LoansForkTest {
+    function getDeployedContracts()
+        internal
+        override
+        returns (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs)
+    {
+        setupNewFork();
+
+        return DeploymentArtifactsLib.loadHubAndAllPairs(vm, Const.ArbiSep_artifactsName);
+    }
+}

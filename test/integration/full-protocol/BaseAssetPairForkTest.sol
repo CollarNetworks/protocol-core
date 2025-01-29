@@ -607,7 +607,7 @@ abstract contract BaseAssetPairForkTest is Test {
 
         // Execute withdrawal for first supplier
         vm.startPrank(escrowSupplier);
-        pair.escrowNFT.withdrawReleased(loanId);
+        pair.escrowNFT.withdrawReleased(loan.escrowId);
         vm.stopPrank();
 
         // Verify first supplier got partial fees using exact toLoans amount
@@ -637,7 +637,8 @@ abstract contract BaseAssetPairForkTest is Test {
 
         // Execute withdrawal for second supplier
         vm.startPrank(escrowSupplier2);
-        pair.escrowNFT.withdrawReleased(newLoanId);
+        ILoansNFT.Loan memory newLoan = pair.loansContract.getLoan(newLoanId);
+        pair.escrowNFT.withdrawReleased(newLoan.escrowId);
         vm.stopPrank();
 
         // Verify second supplier got full amount - refund
