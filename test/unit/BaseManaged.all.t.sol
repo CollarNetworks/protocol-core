@@ -41,7 +41,6 @@ abstract contract BaseManagedTestBase is Test {
     address user1 = makeAddr("user1");
     address guardian = makeAddr("guardian");
 
-
     function setUp() public virtual {
         erc20Rescuable = new TestERC20("TestERC20", "TestERC20", 18);
         erc721Rescuable = new TestERC721();
@@ -223,7 +222,6 @@ abstract contract BaseManagedTestBase is Test {
         vm.expectRevert("unrescuable asset");
         testedContract.rescueTokens(unrescuable, 0, true);
     }
-
 }
 
 contract BadConfigHub1 {
@@ -236,7 +234,9 @@ contract BadConfigHub2 {
 
 // mock of an inheriting contract (because base is abstract)
 contract TestableBaseManaged is BaseManaged {
-    constructor(address _initialOwner, ConfigHub _configHub, address _unrescuable) BaseManaged(_initialOwner, _configHub, _unrescuable) { }
+    constructor(address _initialOwner, ConfigHub _configHub, address _unrescuable)
+        BaseManaged(_initialOwner, _configHub, _unrescuable)
+    { }
 }
 
 // the tests for the mock contract
@@ -263,8 +263,9 @@ contract ProviderNFTManagedTest is BaseManagedTestBase {
     function setupTestedContract() internal override {
         TestERC20 unrescuableErc20 = new TestERC20("TestERC20_2", "TestERC20_2", 18);
         unrescuable = address(unrescuableErc20);
-        testedContract =
-            new CollarProviderNFT(owner, configHub, unrescuableErc20, erc20Rescuable, address(0), "ProviderNFT", "ProviderNFT");
+        testedContract = new CollarProviderNFT(
+            owner, configHub, unrescuableErc20, erc20Rescuable, address(0), "ProviderNFT", "ProviderNFT"
+        );
     }
 }
 
@@ -272,7 +273,8 @@ contract EscrowSupplierNFTManagedTest is BaseManagedTestBase {
     function setupTestedContract() internal override {
         TestERC20 unrescuableErc20 = new TestERC20("TestERC20_2", "TestERC20_2", 18);
         unrescuable = address(unrescuableErc20);
-        testedContract = new EscrowSupplierNFT(owner, configHub, unrescuableErc20, "ProviderNFT", "ProviderNFT");
+        testedContract =
+            new EscrowSupplierNFT(owner, configHub, unrescuableErc20, "ProviderNFT", "ProviderNFT");
     }
 }
 
@@ -282,12 +284,18 @@ contract TakerNFTManagedTest is BaseManagedTestBase {
         unrescuable = address(unrescuableErc20);
         MockChainlinkFeed mockCLFeed = new MockChainlinkFeed(18, "TestFeed");
         ChainlinkOracle oracle = new ChainlinkOracle(
-            address(erc20Rescuable), address(unrescuableErc20), address(mockCLFeed), "TestFeed", 60, address(0)
+            address(erc20Rescuable),
+            address(unrescuableErc20),
+            address(mockCLFeed),
+            "TestFeed",
+            60,
+            address(0)
         );
         // taker checks price on construction
         mockCLFeed.setLatestAnswer(1, 0);
-        testedContract =
-            new CollarTakerNFT(owner, configHub, unrescuableErc20, erc20Rescuable, oracle, "CollarTakerNFT", "BRWTST");
+        testedContract = new CollarTakerNFT(
+            owner, configHub, unrescuableErc20, erc20Rescuable, oracle, "CollarTakerNFT", "BRWTST"
+        );
     }
 }
 

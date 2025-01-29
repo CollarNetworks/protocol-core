@@ -142,6 +142,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         assertEq(newProviderNFT.MIN_CALL_STRIKE_BIPS(), 10_001);
         assertEq(newProviderNFT.MAX_CALL_STRIKE_BIPS(), 100_000);
         assertEq(newProviderNFT.MAX_PUT_STRIKE_BIPS(), 9999);
+        assertEq(newProviderNFT.MAX_PROTOCOL_FEE_BIPS(), 100);
         assertEq(newProviderNFT.VERSION(), "0.2.0");
         assertEq(newProviderNFT.name(), "NewCollarProviderNFT");
         assertEq(newProviderNFT.symbol(), "NPRVNFT");
@@ -745,6 +746,20 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         vm.startPrank(address(takerContract));
         vm.expectRevert("provider: amount too low");
         providerNFT.mintFromOffer(offerId, minLocked - 1, 0);
+    }
+
+    function test_reverts_protocolFeeAPRTooHigh() public {
+        (uint offerId,) = createAndCheckOffer(provider, largeCash);
+
+        uint limit = providerNFT.MAX_PROTOCOL_FEE_BIPS();
+        assertEq(limit, 100);
+
+        vm.startPrank(address(takerContract));
+        vm.mockCall(address(configHub), abi.encodeCall(configHub.protocolFeeAPR, ()), abi.encode(limit + 1));
+        vm.expectRevert("provider: protocol fee APR too high");
+        providerNFT.mintFromOffer(offerId, largeCash, 0);
+        vm.expectRevert("provider: protocol fee APR too high");
+        providerNFT.protocolFee(offerId, 0);
     }
 
     function test_revert_settlePosition() public {
