@@ -641,11 +641,6 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
         providerNFT.cancelAndWithdraw(0);
-
-        // transfers are paused
-        vm.startPrank(provider);
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        providerNFT.transferFrom(provider, user1, positionId);
     }
 
     function test_revert_createOffer_invalidParams() public {

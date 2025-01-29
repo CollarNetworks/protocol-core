@@ -307,11 +307,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         // Try to cancel a paired position while paused
         vm.expectRevert(Pausable.EnforcedPause.selector);
         takerNFT.cancelPairedPosition(0);
-
-        // transfers are paused
-        vm.startPrank(user1);
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        takerNFT.transferFrom(user1, provider, takerId);
     }
 
     function test_unpause() public {
