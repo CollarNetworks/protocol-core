@@ -18,17 +18,17 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/I
 
 import { Const } from "../utils/Const.sol";
 
-contract DeployArbitrumSepoliaAssets is Script {
+abstract contract AssetDeployer is Script {
     using SafeERC20 for IERC20;
 
-    uint24 constant FEE_TIER = 3000;
     uint constant INITIAL_MINT_AMOUNT = 10_000_000_000 ether; // 10 billion tokens
 
-    struct TickRange {
-        int24 currentTick;
-        int24 lowerTick;
-        int24 upperTick;
-    }
+    uint24 feeTier;
+    bool deployingCashAsset;
+    address cashAsset;
+    address uniRouter;
+    address uniFactory;
+    address uniPosMan;
 
     struct Asset {
         string symbol;
@@ -48,16 +48,15 @@ contract DeployArbitrumSepoliaAssets is Script {
     mapping(string => mapping(string => address)) public deployedPools;
 
     function run() external {
-        require(block.chainid == Const.ArbiSep_chainId, "Wrong chain");
-
         uint deployerPrivateKey = vm.envUint("PRIVKEY_DEV_DEPLOYER");
         address deployerAcc = vm.addr(deployerPrivateKey);
 
         vm.startBroadcast(deployerPrivateKey);
 
-        initializeAssets();
-        initializeAssetPairs();
+        setUp();
+
         deployAssets(deployerAcc);
+
         createAndInitializePools(deployerAcc);
 
         vm.stopBroadcast();
@@ -65,47 +64,22 @@ contract DeployArbitrumSepoliaAssets is Script {
         logDeployedAssets();
     }
 
-    function initializeAssets() internal {
-        // assets.push(Asset("coll", 18));
-        // assets.push(Asset("cash", 18));
-        // assets.push(Asset("USDC", 6));
-        // assets.push(Asset("USDT", 6));
-        // assets.push(Asset("wETH", 18));
-        assets.push(Asset("wBTC", 8));
-        // assets.push(Asset("wPOL", 18));
-        // assets.push(Asset("wstETH", 18));
-        // assets.push(Asset("weETH", 18));
-        // assets.push(Asset("cbBTC", 8));
-        // assets.push(Asset("rETH", 18));
-        // assets.push(Asset("cbETH", 18));
-    }
-
-    function initializeAssetPairs() internal {
-        // assetPairs.push(AssetPair("coll", "cash", 10_000_000 ether, 10_000_000 ether));
-        // assetPairs.push(AssetPair("wETH", "USDC", 1e6 * 1e18, 2452 * 1e6 * 1e6));
-        // assetPairs.push(AssetPair("wETH", "USDT", 1e6 * 1e18, 2452 * 1e6 * 1e6));
-        assetPairs.push(AssetPair("wBTC", "USDC", 1e6 * 1e8, 2e7 * 61_000 * 1e6));
-        // assetPairs.push(AssetPair("wBTC", "USDT", 1e6 * 1e8, 1e8 * 61_000 * 1e6));
-
-        // assetPairs.push(AssetPair("wPOL", "USDC", 1_315_000 ether, 20_027_450_000_000));
-        // assetPairs.push(AssetPair("wPOL", "USDT", 1_315_000 ether, 20_027_450_000_000));
-        // assetPairs.push(AssetPair("wstETH", "USDC", 6950 ether, 20_055_545_500_000));
-        // assetPairs.push(AssetPair("wstETH", "USDT", 6950 ether, 20_055_545_500_000));
-        // assetPairs.push(AssetPair("wstETH", "wETH", 17_000 ether, 20_015.8 ether));
-        // assetPairs.push(AssetPair("weETH", "wETH", 19_080 ether, 20_000 ether));
-        // assetPairs.push(AssetPair("rETH", "USDC", 5900 ether, 20_014_452_000_000));
-        // assetPairs.push(AssetPair("rETH", "USDT", 5900 ether, 20_014_452_000_000));
-    }
+    function setUp() internal virtual;
 
     function deployAssets(address deployerAcc) internal {
         for (uint i = 0; i < assets.length; i++) {
             Asset memory asset = assets[i];
-            if (deployedAssets[asset.symbol] == address(0)) {
-                CollarOwnedERC20 newAsset =
-                    new CollarOwnedERC20(deployerAcc, asset.symbol, asset.symbol, asset.decimals);
-                newAsset.mint(deployerAcc, INITIAL_MINT_AMOUNT);
-                deployedAssets[asset.symbol] = address(newAsset);
-                console.log("Deployed", asset.symbol, "at", address(newAsset));
+            require(deployedAssets[asset.symbol] == address(0), "already deployed");
+
+            CollarOwnedERC20 newAsset =
+                new CollarOwnedERC20(deployerAcc, asset.symbol, asset.symbol, asset.decimals);
+            newAsset.mint(deployerAcc, INITIAL_MINT_AMOUNT);
+            deployedAssets[asset.symbol] = address(newAsset);
+            console.log("Deployed", asset.symbol, "at", address(newAsset));
+
+            // set cash asset if deploying it. Must be first asset
+            if (deployingCashAsset && i == 0) {
+                cashAsset = address(newAsset);
             }
         }
     }
@@ -113,7 +87,6 @@ contract DeployArbitrumSepoliaAssets is Script {
     function createAndInitializePools(address deployerAcc) internal {
         for (uint i = 0; i < assetPairs.length; i++) {
             AssetPair memory pair = assetPairs[i];
-            address cashAsset = Const.ArbiSep_tUSDC;
             address underlying = deployedAssets[pair.collateralSymbol];
 
             require(cashAsset != address(0) && underlying != address(0), "Assets not deployed");
@@ -135,13 +108,13 @@ contract DeployArbitrumSepoliaAssets is Script {
             CollarOwnedERC20 underlyingToken = CollarOwnedERC20(deployedAssets[pair.collateralSymbol]);
             uint amountIn = 10 ** underlyingToken.decimals();
             // Approve the router to spend tokens
-            underlyingToken.approve(Const.ArbiSep_UniRouter, amountIn);
+            underlyingToken.approve(uniRouter, amountIn);
 
             // Prepare the parameters for the swap
             IV3SwapRouter.ExactInputSingleParams memory params = IV3SwapRouter.ExactInputSingleParams({
                 tokenIn: underlying,
                 tokenOut: cashAsset,
-                fee: FEE_TIER,
+                fee: feeTier,
                 recipient: deployerAcc,
                 amountIn: amountIn,
                 amountOutMinimum: 0,
@@ -149,7 +122,7 @@ contract DeployArbitrumSepoliaAssets is Script {
             });
 
             // Execute the swap
-            uint amountOut = IV3SwapRouter(Const.ArbiSep_UniRouter).exactInputSingle(params);
+            uint amountOut = IV3SwapRouter(uniRouter).exactInputSingle(params);
             console.log("amount in ", amountIn);
             console.log("Amount out", amountOut);
         }
@@ -165,30 +138,29 @@ contract DeployArbitrumSepoliaAssets is Script {
         } else {
             (token0, token1) = (tokenA, tokenB);
         }
-        require(token0 != address(0), "UniswapV3: ZERO_ADDRESS");
+        require(token0 != address(0), "ZERO_ADDRESS");
     }
 
     function createPool(address tokenA, address tokenB) internal returns (address) {
         (address token0, address token1) = sortTokens(tokenA, tokenB);
-        return IUniswapV3Factory(Const.ArbiSep_UniFactory).createPool(token0, token1, FEE_TIER);
+        return IUniswapV3Factory(uniFactory).createPool(token0, token1, feeTier);
     }
 
     function initializePool(address poolAddress, AssetPair memory pair, address deployer) internal {
-        CollarOwnedERC20 cashAsset = CollarOwnedERC20(Const.ArbiSep_tUSDC);
         CollarOwnedERC20 collateralAsset = CollarOwnedERC20(deployedAssets[pair.collateralSymbol]);
 
         // cashAsset.mint(deployer, pair.amountCashDesired);
         collateralAsset.mint(deployer, pair.amountCollDesired);
 
         // Approve tokens
-        collateralAsset.approve(Const.ArbiSep_UniPosMan, type(uint).max);
-        cashAsset.approve(Const.ArbiSep_UniPosMan, type(uint).max);
+        collateralAsset.approve(uniPosMan, type(uint).max);
+        CollarOwnedERC20(cashAsset).approve(uniPosMan, type(uint).max);
         address token0 = IUniswapV3Pool(poolAddress).token0();
         address token1 = IUniswapV3Pool(poolAddress).token1();
         (uint amount0Desired, uint amount1Desired) = token0 == address(collateralAsset)
             ? (pair.amountCollDesired, pair.amountCashDesired)
             : (pair.amountCashDesired, pair.amountCollDesired);
-        console.log("is cash token0 ", token0 == address(cashAsset));
+        console.log("is cash token0 ", token0 == cashAsset);
         console.log("amount0 desired ", amount0Desired);
         console.log("amount1 desired ", amount1Desired);
 
@@ -211,7 +183,7 @@ contract DeployArbitrumSepoliaAssets is Script {
             INonfungiblePositionManager.MintParams memory params = INonfungiblePositionManager.MintParams({
                 token0: token0,
                 token1: token1,
-                fee: FEE_TIER,
+                fee: feeTier,
                 tickLower: tickLower,
                 tickUpper: tickUpper,
                 amount0Desired: amount0Desired,
@@ -223,7 +195,7 @@ contract DeployArbitrumSepoliaAssets is Script {
             });
 
             (, uint128 liquidity, uint amount0, uint amount1) =
-                INonfungiblePositionManager(Const.ArbiSep_UniPosMan).mint(params);
+                INonfungiblePositionManager(uniPosMan).mint(params);
             console.log("Minted liquidity", liquidity);
             console.log("Minted amount0", amount0);
             console.log("Minted amount1", amount1);
@@ -233,7 +205,7 @@ contract DeployArbitrumSepoliaAssets is Script {
         //     params.amount0Desired = amount0Desired * 10;
         //     params.amount1Desired = amount1Desired * 10;
 
-        //     (, liquidity, amount0, amount1) = INonfungiblePositionManager(Const.ArbiSep_UniPosMan).mint(params);
+        //     (, liquidity, amount0, amount1) = INonfungiblePositionManager(uniPosMan).mint(params);
 
         //     console.log("Additional liquidity added (iteration", i + 1, "):");
         //     console.log("Liquidity:", liquidity);
@@ -256,7 +228,7 @@ contract DeployArbitrumSepoliaAssets is Script {
         for (uint i = 0; i < assetPairs.length; i++) {
             AssetPair memory pair = assetPairs[i];
             console.log("AssetPair", pair.collateralSymbol, ",", pair.cashSymbol);
-            console.log(deployedAssets[pair.collateralSymbol], ", ", Const.ArbiSep_tUSDC);
+            console.log(deployedAssets[pair.collateralSymbol], ", ", cashAsset);
         }
     }
 
@@ -280,5 +252,50 @@ contract DeployArbitrumSepoliaAssets is Script {
 
     function encodePriceToSqrtPriceX96(uint price) private pure returns (uint160) {
         return uint160(Math.sqrt((price << 192) / 1e16)); // this value to be adjusted depending on the pair and arbitrary testing
+    }
+}
+
+contract DeployArbitrumSepoliaAssets is AssetDeployer {
+    function setUp() internal virtual override {
+        // check chain
+        require(block.chainid == Const.ArbiSep_chainId, "Wrong chain");
+
+        // set params
+        feeTier = 500;
+        deployingCashAsset = false;
+        cashAsset = Const.ArbiSep_tUSDC;
+        uniRouter = Const.ArbiSep_UniRouter;
+        uniFactory = Const.ArbiSep_UniFactory;
+        uniPosMan = Const.ArbiSep_UniPosMan;
+
+        // assets
+        assets.push(Asset("wBTC", 8));
+
+        // pairs
+        assetPairs.push(AssetPair("wBTC", "USDC", 1e6 * 1e8, 2e7 * 61_000 * 1e6));
+    }
+}
+
+contract DeployOPBaseSepoliaAssets_WithCashAsset is AssetDeployer {
+    function setUp() internal virtual override {
+        // check chain
+        require(block.chainid == Const.OPBaseSep_chainId, "Wrong chain");
+
+        // set params
+        feeTier = 500;
+        deployingCashAsset = true;
+        cashAsset = address(0); // should be deployed by this script
+        uniRouter = Const.OPBaseSep_UniRouter;
+        uniFactory = Const.OPBaseSep_UniFactory;
+        uniPosMan = Const.OPBaseSep_UniPosMan;
+
+        // assets, first asset must be cash asset if deploying it
+        assets.push(Asset("tUSDC", 8));
+        assets.push(Asset("tWETH", 8));
+        assets.push(Asset("tWBTC", 8));
+
+        // pairs
+        assetPairs.push(AssetPair("tWBTC", "tUSDC", 1e6 * 1e8, 2e7 * 61_000 * 1e6));
+        assetPairs.push(AssetPair("tWETH", "tUSDC", 1e6 * 1e8, 2e7 * 61_000 * 1e6));
     }
 }

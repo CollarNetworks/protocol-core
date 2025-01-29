@@ -56,6 +56,7 @@ library Const {
     // https://docs.uniswap.org/contracts/v3/reference/deployments/base-deployments
     address internal constant OPBaseMain_UniRouter = 0x2626664c2603336E57B271c5C0b26F421741e481;
     address internal constant OPBaseSep_UniRouter = 0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4;
+    address internal constant OPBaseSep_UniFactory = 0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24;
     address internal constant OPBaseSep_UniPosMan = 0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2;
 
     // CL feeds
@@ -73,6 +74,9 @@ library Const {
     address internal constant OPBaseMain_WETH = 0x4200000000000000000000000000000000000006;
     address internal constant OPBaseSep_USDC = 0xf7464321dE37BdE4C03AAeeF6b1e7b71379A9a64;
     address internal constant OPBaseSep_WETH = 0x4200000000000000000000000000000000000006;
+    address internal constant OPBaseSep_tUSDC = address(0); // TBD
+    address internal constant OPBaseSep_tWETH = address(0); // TBD
+    address internal constant OPBaseSep_tWBTC = address(0); // TBD
 
     // artifacts
     string internal constant OPBaseMain_artifactsName = "opbase_mainnet_collar_protocol_deployment";

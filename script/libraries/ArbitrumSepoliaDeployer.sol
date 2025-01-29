@@ -54,7 +54,7 @@ library ArbitrumSepoliaDeployer {
         TWAPMockChainlinkFeed mockEthUsdFeed = new TWAPMockChainlinkFeed(
             tWETH, // base token
             tUSDC, // quote token
-            3000, // fee tier
+            swapFeeTier, // fee tier
             Const.ArbiSep_UniRouter, // UniV3 router
             8, // feed decimals (ETH/USD uses 8)
             "ETH / USD", // description
@@ -69,7 +69,7 @@ library ArbitrumSepoliaDeployer {
         TWAPMockChainlinkFeed mockBTCUSDFeed = new TWAPMockChainlinkFeed(
             tWBTC, // base token
             tUSDC, // quote token
-            3000, // fee tier
+            swapFeeTier, // fee tier
             Const.ArbiSep_UniRouter, // UniV3 router
             8, // feed decimals (ETH/USD uses 8)
             "BTC / USD", // description

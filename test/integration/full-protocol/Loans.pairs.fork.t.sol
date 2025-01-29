@@ -8,7 +8,6 @@ import { BaseAssetPairForkTest, ConfigHub } from "./BaseAssetPairForkTest.sol";
 import { ArbitrumMainnetDeployer, BaseDeployer } from "../../../script/libraries/ArbitrumMainnetDeployer.sol";
 import { ArbitrumSepoliaDeployer } from "../../../script/libraries/ArbitrumSepoliaDeployer.sol";
 import { OPBaseMainnetDeployer } from "../../../script/libraries/OPBaseMainnetDeployer.sol";
-import { OPBaseSepoliaDeployer } from "../../../script/libraries/OPBaseSepoliaDeployer.sol";
 
 abstract contract BaseAssetPairForkTest_NewDeploymentWithExport is BaseAssetPairForkTest {
     string constant deploymentName = "collar_protocol_fork_deployment";
@@ -266,53 +265,3 @@ contract OPBaseMain_LoansForkTest_LatestBlock is WETHUSDC_OPBaseMain_LoansForkTe
         vm.createSelectFork(vm.envString("OPBASE_MAINNET_RPC"));
     }
 }
-
-//// OPBase sepolia
-//
-//contract WETHUSDC_OPBaseSep_LoansForkTest is WETHUSDC_OPBaseMain_LoansForkTest {
-//    function _setTestValues() internal virtual override {
-//        super._setTestValues();
-//        // @dev all pairs must be tested, so if this number is increased, test classes must be added
-//        expectedNumPairs = 1;
-//
-//        // set up all the variables for this pair
-//        expectedPairIndex = 0;
-//        underlying = Const.OPBaseSep_WETH;
-//        cashAsset = Const.OPBaseSep_USDC;
-//    }
-//
-//    function setupNewFork() internal virtual override {
-//        // if we are in development we want to fix the block to reduce the time it takes to run the tests
-//        if (vm.envBool("FIX_BLOCK_OPBASE_SEPOLIA")) {
-//            vm.createSelectFork(
-//                vm.envString("OPBASE_SEPOLIA_RPC"), vm.envUint("BLOCK_NUMBER_OPBASE_SEPOLIA")
-//            );
-//        } else {
-//            vm.createSelectFork(vm.envString("OPBASE_SEPOLIA_RPC"));
-//        }
-//    }
-//
-//    function deployFullProtocol() internal virtual override returns (BaseDeployer.DeploymentResult memory) {
-//        return OPBaseSepoliaDeployer.deployAndSetupFullProtocol(owner);
-//    }
-//}
-
-//contract OPBaseSep_LoansForkTest_LatestBlock is WETHUSDC_OPBaseSep_LoansForkTest {
-//    function setupNewFork() internal override {
-//        // always use latest block for this one, even on local
-//        vm.createSelectFork(vm.envString("OPBASE_SEPOLIA_RPC"));
-//    }
-//}
-
-////// load existing sepolia deployment
-//contract WETHUSDC_OPBaseSep_LoansForkTest_NoDeploy is WETHUSDC_OPBaseSep_LoansForkTest {
-//    function getDeployedContracts()
-//        internal
-//        override
-//        returns (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs)
-//    {
-//        setupNewFork();
-//
-//        return DeploymentArtifactsLib.loadHubAndAllPairs(vm, Const.OPBaseSep_artifactsKey);
-//    }
-//}
