@@ -46,6 +46,6 @@ jobs:
 
       - name: Build Contracts & Run Tests
         run: |
-              NO_COLOR=1 forge test 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+              NO_COLOR=1 forge test  --mc WETHUSDC_ArbiSep_LoansForkTest_NoDeploy -vvvvv 2>&1 | tee -a $GITHUB_STEP_SUMMARY
               test_exit_status=${PIPESTATUS[0]}
               exit $test_exit_status
