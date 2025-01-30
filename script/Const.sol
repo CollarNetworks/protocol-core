@@ -9,9 +9,11 @@ library Const {
     uint internal constant ArbiMain_chainId = 42_161;
     uint internal constant ArbiSep_chainId = 421_614;
 
-    // deployer
-    // TODO: use a different account for mainnet
+    // accounts
+    // TODO: use different accounts for mainnet
+    address internal constant ArbiMain_owner = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;    
     address internal constant ArbiMain_deployerAcc = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
+    address internal constant ArbiSep_owner = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
     address internal constant ArbiSep_deployerAcc = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
 
     // uniswap
@@ -47,9 +49,11 @@ library Const {
     uint internal constant OPBaseMain_chainId = 8453;
     uint internal constant OPBaseSep_chainId = 84_532;
 
-    // deployer
-    // TODO: use a different account for mainnet
+    // accounts
+    // TODO: use different accounts for mainnet
+    address internal constant OPBaseMain_owner = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
     address internal constant OPBaseMain_deployerAcc = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
+    address internal constant OPBaseSep_owner = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
     address internal constant OPBaseSep_deployerAcc = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
 
     // uniswap
