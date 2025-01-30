@@ -55,6 +55,8 @@ abstract contract BaseAssetPairForkTest_NewDeploymentWithExport is BaseAssetPair
 
 contract WETHUSDC_ArbiMain_LoansForkTest is BaseAssetPairForkTest_NewDeploymentWithExport {
     function _setTestValues() internal virtual override {
+        owner = Const.ArbiMain_owner;
+
         // config params
         protocolFeeAPR = 75;
         protocolFeeRecipient = Const.ArbiMain_deployerAcc;
@@ -132,6 +134,9 @@ contract WBTCUSDT_ArbiMain_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
 contract WETHUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
     function _setTestValues() internal virtual override {
         super._setTestValues();
+
+        owner = Const.ArbiSep_owner;
+
         // @dev all pairs must be tested, so if this number is increased, test classes must be added
         expectedNumPairs = 2;
 
@@ -185,7 +190,8 @@ contract WBTCUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiSep_LoansForkTest {
 }
 
 ////// load existing sepolia deployment
-contract WETHUSDC_ArbiSep_LoansForkTest_NoDeploy is WETHUSDC_ArbiSep_LoansForkTest {
+contract WETHUSDC_ArbiSep_LoansForkTest_NoDeploy is ArbiSep_LoansForkTest_LatestBlock {
+
     function getDeployedContracts()
         internal
         override

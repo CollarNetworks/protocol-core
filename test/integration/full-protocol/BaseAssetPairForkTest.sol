@@ -67,14 +67,12 @@ abstract contract BaseAssetPairForkTest is Test {
     uint ltv;
 
     function setUp() public virtual {
-        uint deployerPrivKey = vm.envUint("PRIVKEY_DEV_DEPLOYER");
-        uint user1PrivKey = vm.envUint("PRIVKEY_DEV_TEST1");
-        uint liquidityProviderPrivKey = vm.envUint("LIQUIDITY_PROVIDER_KEY");
-
-        owner = vm.addr(deployerPrivKey);
-        user = vm.addr(user1PrivKey);
-        provider = vm.addr(liquidityProviderPrivKey);
+        user = makeAddr("user");
+        provider = makeAddr("provider");
         escrowSupplier = makeAddr("escrowSupplier");
+
+        // sets pair selection inputs and expected validation outputs
+        _setTestValues();
 
         // set the deployment
         (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs) = getDeployedContracts();
@@ -82,9 +80,6 @@ abstract contract BaseAssetPairForkTest is Test {
         for (uint i = 0; i < pairs.length; i++) {
             deployedPairs.push(pairs[i]);
         }
-
-        // sets pair selection inputs and expected validation outputs
-        _setTestValues();
 
         // sets the pair based on the params
         _setPair();
