@@ -191,7 +191,6 @@ contract WBTCUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiSep_LoansForkTest {
 
 ////// load existing sepolia deployment
 contract WETHUSDC_ArbiSep_LoansForkTest_NoDeploy is ArbiSep_LoansForkTest_LatestBlock {
-
     function getDeployedContracts()
         internal
         override
