@@ -62,6 +62,8 @@ contract WETHUSDC_ArbiMain_LoansForkTest is BaseAssetPairForkTest_NewDeploymentW
     }
 
     function _setTestValues() internal virtual override {
+        owner = Const.ArbiMain_owner;
+
         // config params
         protocolFeeAPR = 75;
         protocolFeeRecipient = Const.ArbiMain_deployerAcc;
@@ -139,6 +141,9 @@ contract WBTCUSDT_ArbiMain_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
 contract WETHUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
     function _setTestValues() internal virtual override {
         super._setTestValues();
+
+        owner = Const.ArbiSep_owner;
+
         // @dev all pairs must be tested, so if this number is increased, test classes must be added
         expectedNumPairs = 2;
 
@@ -192,17 +197,17 @@ contract WBTCUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiSep_LoansForkTest {
 }
 
 ////// load existing sepolia deployment
-//contract WETHUSDC_ArbiSep_LoansForkTest_NoDeploy is WETHUSDC_ArbiSep_LoansForkTest {
-//    function getDeployedContracts()
-//        internal
-//        override
-//        returns (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs)
-//    {
-//        setupNewFork();
-//
-//        return DeploymentArtifactsLib.loadHubAndAllPairs(vm, Const.ArbiSep_artifactsKey);
-//    }
-//}
+contract WETHUSDC_ArbiSep_LoansForkTest_NoDeploy is ArbiSep_LoansForkTest_LatestBlock {
+    function getDeployedContracts()
+        internal
+        override
+        returns (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs)
+    {
+        setupNewFork();
+
+        return DeploymentArtifactsLib.loadHubAndAllPairs(vm, Const.ArbiSep_artifactsName);
+    }
+}
 
 // OPBase mainnet
 
@@ -221,6 +226,8 @@ contract WETHUSDC_OPBaseMain_LoansForkTest is BaseAssetPairForkTest_NewDeploymen
     }
 
     function _setTestValues() internal virtual override {
+        owner = Const.OPBaseMain_owner;
+
         // config params
         protocolFeeAPR = 75;
         protocolFeeRecipient = Const.OPBaseMain_deployerAcc;

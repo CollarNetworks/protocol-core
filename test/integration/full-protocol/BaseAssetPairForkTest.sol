@@ -67,14 +67,12 @@ abstract contract BaseAssetPairForkTest is Test {
     uint ltv;
 
     function setUp() public virtual {
-        uint deployerPrivKey = vm.envUint("PRIVKEY_DEV_DEPLOYER");
-        uint user1PrivKey = vm.envUint("PRIVKEY_DEV_TEST1");
-        uint liquidityProviderPrivKey = vm.envUint("LIQUIDITY_PROVIDER_KEY");
-
-        owner = vm.addr(deployerPrivKey);
-        user = vm.addr(user1PrivKey);
-        provider = vm.addr(liquidityProviderPrivKey);
+        user = makeAddr("user");
+        provider = makeAddr("provider");
         escrowSupplier = makeAddr("escrowSupplier");
+
+        // sets pair selection inputs and expected validation outputs
+        _setTestValues();
 
         // set the deployment
         (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs) = getDeployedContracts();
@@ -82,9 +80,6 @@ abstract contract BaseAssetPairForkTest is Test {
         for (uint i = 0; i < pairs.length; i++) {
             deployedPairs.push(pairs[i]);
         }
-
-        // sets pair selection inputs and expected validation outputs
-        _setTestValues();
 
         // sets the pair based on the params
         _setPair();
@@ -545,31 +540,47 @@ abstract contract BaseAssetPairForkTest is Test {
         assertEq(pair.underlying.balanceOf(user) - userBefore, underlyingOut);
     }
 
+    // stack too deep
+    struct MemoryVars {
+        uint loanId;
+        uint providerId;
+        address escrowSupplier2;
+        uint escrowSupplier1Before;
+        uint userUnderlyingBeforeRoll;
+        uint escrowSupplier2Before;
+        ILoansNFT.Loan loan;
+        uint escrowWithdrawal;
+        uint toLoans;
+    }
+
     function testRollEscrowLoanBetweenSuppliers() public {
         // Create first provider and escrow offers
         (uint offerId1, uint escrowOfferId1) = createEscrowOffers();
         (uint escrowFees1,,) = pair.escrowNFT.upfrontFees(escrowOfferId1, underlyingAmount);
 
         uint userUnderlyingBefore = pair.underlying.balanceOf(user);
-        (uint loanId, uint providerId,) = executeEscrowLoan(offerId1, escrowOfferId1);
-        ILoansNFT.Loan memory loan = pair.loansContract.getLoan(loanId);
+
+        MemoryVars memory mem;
+        (mem.loanId, mem.providerId,) = executeEscrowLoan(offerId1, escrowOfferId1);
+
         // User has paid underlyingAmount + escrowFees1 at this point
         assertEq(userUnderlyingBefore - pair.underlying.balanceOf(user), underlyingAmount + escrowFees1);
 
-        uint escrowSupplier1Before = pair.underlying.balanceOf(escrowSupplier);
+        mem.escrowSupplier1Before = pair.underlying.balanceOf(escrowSupplier);
 
         // Create second escrow supplier
-        address escrowSupplier2 = makeAddr("escrowSupplier2");
-        deal(address(underlying), escrowSupplier2, bigUnderlyingAmount);
+        mem.escrowSupplier2 = makeAddr("escrowSupplier2");
+        deal(address(underlying), mem.escrowSupplier2, bigUnderlyingAmount);
 
         // Skip half the duration to test partial fees
         skip(duration / 2);
 
         // Get exact refund amount from contract
-        (uint withdrawal, uint toLoans,) = pair.escrowNFT.previewRelease(loan.escrowId, 0);
+        mem.loan = pair.loansContract.getLoan(mem.loanId);
+        (mem.escrowWithdrawal, mem.toLoans,) = pair.escrowNFT.previewRelease(mem.loan.escrowId, 0);
 
         // Create second escrow supplier's offer
-        vm.startPrank(escrowSupplier2);
+        vm.startPrank(mem.escrowSupplier2);
         pair.underlying.approve(address(pair.escrowNFT), underlyingAmount);
         uint escrowOfferId2 = pair.escrowNFT.createOffer(
             underlyingAmount,
@@ -582,22 +593,20 @@ abstract contract BaseAssetPairForkTest is Test {
         vm.stopPrank();
 
         // Create roll offer using existing provider position
-        uint rollOfferId = createRollOffer(loanId, providerId);
-
+        uint rollOfferId = createRollOffer(mem.loanId, mem.providerId);
         (uint newEscrowFees,,) = pair.escrowNFT.upfrontFees(escrowOfferId2, underlyingAmount);
-        uint userUnderlyingBeforeRoll = pair.underlying.balanceOf(user);
+        mem.userUnderlyingBeforeRoll = pair.underlying.balanceOf(user);
 
         vm.startPrank(user);
-        IRolls.PreviewResults memory results =
-            pair.rollsContract.previewRoll(rollOfferId, pair.takerNFT.currentOraclePrice());
+        int toTaker = pair.rollsContract.previewRoll(rollOfferId, pair.takerNFT.currentOraclePrice()).toTaker;
         // make sure preview roll fee is within 10% of actual roll fee
-        assertApproxEqAbs(-results.toTaker, rollFee, uint(rollFee) * 1000 / 10_000);
-        if (results.toTaker < 0) {
-            pair.cashAsset.approve(address(pair.loansContract), uint(-results.toTaker));
+        assertApproxEqAbs(-toTaker, rollFee, uint(rollFee) * 1000 / 10_000);
+        if (toTaker < 0) {
+            pair.cashAsset.approve(address(pair.loansContract), uint(-toTaker));
         }
         pair.underlying.approve(address(pair.loansContract), newEscrowFees);
         (uint newLoanId, uint newLoanAmount,) = pair.loansContract.rollLoan(
-            loanId,
+            mem.loanId,
             ILoansNFT.RollOffer(pair.rollsContract, rollOfferId),
             -1000e6,
             escrowOfferId2,
@@ -607,42 +616,40 @@ abstract contract BaseAssetPairForkTest is Test {
 
         // Execute withdrawal for first supplier
         vm.startPrank(escrowSupplier);
-        pair.escrowNFT.withdrawReleased(loanId);
+        pair.escrowNFT.withdrawReleased(mem.loan.escrowId);
         vm.stopPrank();
 
         // Verify first supplier got partial fees using exact toLoans amount
         // we use Ge because of rounding (seeing 1 wei difference 237823439879 != 237823439878)
-        assertGe(pair.underlying.balanceOf(escrowSupplier) - escrowSupplier1Before, withdrawal);
+        assertGe(pair.underlying.balanceOf(escrowSupplier) - mem.escrowSupplier1Before, mem.escrowWithdrawal);
 
         // Verify user paid new escrow fee and got refund from old escrow
-        assertEq(userUnderlyingBeforeRoll - pair.underlying.balanceOf(user) + toLoans, newEscrowFees);
+        assertEq(mem.userUnderlyingBeforeRoll - pair.underlying.balanceOf(user) + mem.toLoans, newEscrowFees);
 
         // Skip to end of new loan term
         skip(duration);
 
         // Track second supplier balance before closing
-        uint escrowSupplier2Before = pair.underlying.balanceOf(escrowSupplier2);
+        mem.escrowSupplier2Before = pair.underlying.balanceOf(mem.escrowSupplier2);
+        uint newEscrowId = pair.loansContract.getLoan(newLoanId).escrowId;
 
-        uint escrowRefund;
-        {
-            uint currentPrice = pair.oracle.currentPrice();
-            (uint takerWithdrawal,) =
-                pair.takerNFT.previewSettlement(pair.takerNFT.getPosition(newLoanId), currentPrice);
-            (escrowRefund,,,) = pair.escrowNFT.feesRefunds(pair.loansContract.getLoan(newLoanId).escrowId);
+        uint currentPrice = pair.oracle.currentPrice();
+        (uint takerWithdrawal,) =
+            pair.takerNFT.previewSettlement(pair.takerNFT.getPosition(newLoanId), currentPrice);
+        (uint escrowRefund,,,) = pair.escrowNFT.feesRefunds(newEscrowId);
 
-            closeAndCheckLoan(
-                newLoanId, newLoanAmount, newLoanAmount + takerWithdrawal, currentPrice, escrowRefund
-            );
-        }
+        closeAndCheckLoan(
+            newLoanId, newLoanAmount, newLoanAmount + takerWithdrawal, currentPrice, escrowRefund
+        );
 
         // Execute withdrawal for second supplier
-        vm.startPrank(escrowSupplier2);
-        pair.escrowNFT.withdrawReleased(newLoanId);
+        vm.startPrank(mem.escrowSupplier2);
+        pair.escrowNFT.withdrawReleased(newEscrowId);
         vm.stopPrank();
 
         // Verify second supplier got full amount - refund
         assertEq(
-            pair.underlying.balanceOf(escrowSupplier2) - escrowSupplier2Before,
+            pair.underlying.balanceOf(mem.escrowSupplier2) - mem.escrowSupplier2Before,
             underlyingAmount + newEscrowFees - escrowRefund
         );
     }
