@@ -7,7 +7,8 @@ import { BaseManaged, ConfigHub } from "./BaseManaged.sol";
 
 /**
  * @title BaseNFT
- * @notice Base contract for NFTs in the Collar Protocol. It provides the admin functionality from BaseManaged.
+ * @notice Base contract for NFTs in the Collar Protocol. It provides the admin functionality
+ * from BaseManaged, and the NFT metadata base URI.
  */
 abstract contract BaseNFT is BaseManaged, ERC721 {
     string internal constant BASE_URI = "https://services.collarprotocol.xyz/metadata/";

@@ -81,7 +81,7 @@ abstract contract BaseManaged is Ownable2Step, Pausable {
 
     /**
      * @notice Sends an amount of an ERC-20, or an ID of any ERC-721, to owner's address.
-     * Revers if the `token` matches the `unrescuableAsset`.
+     * Reverts if the `token` matches the `unrescuableAsset`.
      * To be used to rescue stuck assets that were sent to the contract by mistake.
      * @dev Only callable by the contract owner.
      * @param token The address of the token contract
