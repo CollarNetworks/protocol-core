@@ -5,14 +5,16 @@ import "forge-std/Test.sol";
 import { Const } from "../../../script/utils/Const.sol";
 import { DeploymentArtifactsLib } from "../../../script/libraries/DeploymentArtifacts.sol";
 import { BaseAssetPairForkTest, ConfigHub } from "./BaseAssetPairForkTest.sol";
-import { ArbitrumMainnetDeployer, BaseDeployer } from "../../../script/libraries/ArbitrumMainnetDeployer.sol";
-import { ArbitrumSepoliaDeployer } from "../../../script/libraries/ArbitrumSepoliaDeployer.sol";
+import { BaseDeployer } from "../../../script/libraries/BaseDeployer.sol";
 import { OPBaseMainnetDeployer } from "../../../script/libraries/OPBaseMainnetDeployer.sol";
+import { DeployArbitrumMainnet } from "../../../script/deploy/DeployArbitrumMainnet.s.sol";
+import { DeployArbitrumSepolia } from "../../../script/deploy/DeployArbitrumSepolia.s.sol";
+import { DeployOPBaseMainnet } from "../../../script/deploy/DeployOPBaseMainnet.s.sol";
 
-abstract contract BaseAssetPairForkTest_NewDeploymentWithExport is BaseAssetPairForkTest {
+abstract contract BaseAssetPairForkTest_ScriptTest is BaseAssetPairForkTest {
     string constant deploymentName = "collar_protocol_fork_deployment";
 
-    bool exportAndLoad = true;
+    bool loadFromArtifacts = true;
 
     function getDeployedContracts()
         internal
@@ -22,20 +24,19 @@ abstract contract BaseAssetPairForkTest_NewDeploymentWithExport is BaseAssetPair
     {
         setupNewFork();
 
-        vm.startPrank(owner);
         BaseDeployer.DeploymentResult memory result = deployFullProtocol();
 
-        BaseDeployer.acceptOwnershipAsSender(owner, result);
-        vm.stopPrank();
-
-        if (exportAndLoad) {
-            DeploymentArtifactsLib.exportDeployment(
-                vm, deploymentName, result.configHub, result.assetPairContracts
-            );
-            return DeploymentArtifactsLib.loadHubAndAllPairs(vm, deploymentName);
+        // load and return the deployment from artifacts
+        if (loadFromArtifacts) {
+            (hub, pairs) = DeploymentArtifactsLib.loadHubAndAllPairs(vm, deploymentName);
         } else {
-            return (result.configHub, result.assetPairContracts);
+            (hub, pairs) = (result.configHub, result.assetPairContracts);
         }
+
+        // accept ownership from the intended owner
+        vm.startPrank(owner);
+        BaseDeployer.acceptOwnershipAsSender(owner, hub, pairs);
+        vm.stopPrank();
     }
 
     // abstract
@@ -45,20 +46,24 @@ abstract contract BaseAssetPairForkTest_NewDeploymentWithExport is BaseAssetPair
     function deployFullProtocol() internal virtual returns (BaseDeployer.DeploymentResult memory);
 }
 
-contract WETHUSDC_ArbiMain_LoansForkTest is BaseAssetPairForkTest_NewDeploymentWithExport {
+contract WETHUSDC_ArbiMain_LoansForkTest is BaseAssetPairForkTest_ScriptTest {
     function setupNewFork() internal virtual override {
+        string memory rpc = vm.envString("ARBITRUM_MAINNET_RPC");
         // if we are in development we want to fix the block to reduce the time it takes to run the tests
         if (vm.envBool("FIX_BLOCK_ARBITRUM_MAINNET")) {
-            vm.createSelectFork(
-                vm.envString("ARBITRUM_MAINNET_RPC"), vm.envUint("BLOCK_NUMBER_ARBITRUM_MAINNET")
-            );
+            vm.createSelectFork(rpc, vm.envUint("BLOCK_NUMBER_ARBITRUM_MAINNET"));
         } else {
-            vm.createSelectFork(vm.envString("ARBITRUM_MAINNET_RPC"));
+            vm.createSelectFork(rpc);
         }
     }
 
-    function deployFullProtocol() internal virtual override returns (BaseDeployer.DeploymentResult memory) {
-        return ArbitrumMainnetDeployer.deployAndSetupFullProtocol(owner);
+    function deployFullProtocol()
+        internal
+        virtual
+        override
+        returns (BaseDeployer.DeploymentResult memory result)
+    {
+        result = (new DeployArbitrumMainnet()).run(deploymentName);
     }
 
     function _setTestValues() internal virtual override {
@@ -96,8 +101,8 @@ contract WETHUSDC_ArbiMain_LoansForkTest is BaseAssetPairForkTest_NewDeploymentW
 
 contract WETHUSDC_ArbiMain_LoansForkTest_noExport is WETHUSDC_ArbiMain_LoansForkTest {
     function setUp() public override {
-        // do not use the artifacts for this one
-        exportAndLoad = false;
+        // do not use the artifacts for this test (only the direct deployment result)
+        loadFromArtifacts = false;
         super.setUp();
     }
 }
@@ -157,18 +162,22 @@ contract WETHUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
     }
 
     function setupNewFork() internal virtual override {
+        string memory rpc = vm.envString("ARBITRUM_SEPOLIA_RPC");
         // if we are in development we want to fix the block to reduce the time it takes to run the tests
         if (vm.envBool("FIX_BLOCK_ARBITRUM_SEPOLIA")) {
-            vm.createSelectFork(
-                vm.envString("ARBITRUM_SEPOLIA_RPC"), vm.envUint("BLOCK_NUMBER_ARBITRUM_SEPOLIA")
-            );
+            vm.createSelectFork(rpc, vm.envUint("BLOCK_NUMBER_ARBITRUM_SEPOLIA"));
         } else {
-            vm.createSelectFork(vm.envString("ARBITRUM_SEPOLIA_RPC"));
+            vm.createSelectFork(rpc);
         }
     }
 
-    function deployFullProtocol() internal virtual override returns (BaseDeployer.DeploymentResult memory) {
-        return ArbitrumSepoliaDeployer.deployAndSetupFullProtocol(owner);
+    function deployFullProtocol()
+        internal
+        virtual
+        override
+        returns (BaseDeployer.DeploymentResult memory result)
+    {
+        result = (new DeployArbitrumSepolia()).run(deploymentName);
     }
 }
 
@@ -196,6 +205,14 @@ contract WBTCUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiSep_LoansForkTest {
     }
 }
 
+contract WETHUSDC_ArbiSep_LoansForkTest_noExport is WETHUSDC_ArbiSep_LoansForkTest {
+    function setUp() public override {
+        // do not use the artifacts for this test (only the direct deployment result)
+        loadFromArtifacts = false;
+        super.setUp();
+    }
+}
+
 ////// load existing sepolia deployment
 contract WETHUSDC_ArbiSep_LoansForkTest_NoDeploy is ArbiSep_LoansForkTest_LatestBlock {
     function getDeployedContracts()
@@ -211,18 +228,24 @@ contract WETHUSDC_ArbiSep_LoansForkTest_NoDeploy is ArbiSep_LoansForkTest_Latest
 
 // OPBase mainnet
 
-contract WETHUSDC_OPBaseMain_LoansForkTest is BaseAssetPairForkTest_NewDeploymentWithExport {
+contract WETHUSDC_OPBaseMain_LoansForkTest is BaseAssetPairForkTest_ScriptTest {
     function setupNewFork() internal virtual override {
+        string memory rpc = vm.envString("OPBASE_MAINNET_RPC");
         // if we are in development we want to fix the block to reduce the time it takes to run the tests
         if (vm.envBool("FIX_BLOCK_OPBASE_MAINNET")) {
-            vm.createSelectFork(vm.envString("OPBASE_MAINNET_RPC"), vm.envUint("BLOCK_NUMBER_OPBASE_MAINNET"));
+            vm.createSelectFork(rpc, vm.envUint("BLOCK_NUMBER_OPBASE_MAINNET"));
         } else {
-            vm.createSelectFork(vm.envString("OPBASE_MAINNET_RPC"));
+            vm.createSelectFork(rpc);
         }
     }
 
-    function deployFullProtocol() internal virtual override returns (BaseDeployer.DeploymentResult memory) {
-        return OPBaseMainnetDeployer.deployAndSetupFullProtocol(owner);
+    function deployFullProtocol()
+        internal
+        virtual
+        override
+        returns (BaseDeployer.DeploymentResult memory result)
+    {
+        result = (new DeployOPBaseMainnet()).run(deploymentName);
     }
 
     function _setTestValues() internal virtual override {
@@ -261,7 +284,7 @@ contract WETHUSDC_OPBaseMain_LoansForkTest is BaseAssetPairForkTest_NewDeploymen
 contract WETHUSDC_OPBaseMain_LoansForkTest_noExport is WETHUSDC_OPBaseMain_LoansForkTest {
     function setUp() public override {
         // do not use the artifacts for this one
-        exportAndLoad = false;
+        loadFromArtifacts = false;
         super.setUp();
     }
 }
@@ -272,3 +295,5 @@ contract OPBaseMain_LoansForkTest_LatestBlock is WETHUSDC_OPBaseMain_LoansForkTe
         vm.createSelectFork(vm.envString("OPBASE_MAINNET_RPC"));
     }
 }
+
+// TODO: add OPBase sepolia once assets and mock oracles are deployed
