@@ -25,27 +25,27 @@ library OPBaseMainnetDeployer {
         });
     }
 
-    function deployAndSetupFullProtocol(address owner)
+    function deployAndSetupFullProtocol(address thisSender, address finalOwner)
         internal
         returns (BaseDeployer.DeploymentResult memory result)
     {
         require(block.chainid == Const.OPBaseMain_chainId, "wrong chainId");
 
         // hub
-        result.configHub = BaseDeployer.deployConfigHub(owner);
+        result.configHub = BaseDeployer.deployConfigHub(thisSender);
         BaseDeployer.setupConfigHub(result.configHub, defaultHubParams());
 
         // pairs
-        result.assetPairContracts = deployAllContractPairs(owner, result.configHub);
+        result.assetPairContracts = deployAllContractPairs(thisSender, result.configHub);
         for (uint i = 0; i < result.assetPairContracts.length; i++) {
             BaseDeployer.setupContractPair(result.configHub, result.assetPairContracts[i]);
         }
 
         // ownership
-        BaseDeployer.nominateNewOwnerAll(owner, result);
+        BaseDeployer.nominateNewOwnerAll(finalOwner, result);
     }
 
-    function deployAllContractPairs(address owner, ConfigHub configHub)
+    function deployAllContractPairs(address initialOwner, ConfigHub configHub)
         internal
         returns (BaseDeployer.AssetPairContracts[] memory assetPairContracts)
     {
@@ -69,7 +69,7 @@ library OPBaseMainnetDeployer {
 
         // deploy pairs
         assetPairContracts[0] = BaseDeployer.deployContractPair(
-            owner,
+            initialOwner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "WETH/USDC",

@@ -15,13 +15,10 @@ import { SwapperUniV3 } from "../../src/SwapperUniV3.sol";
 library DeploymentArtifactsLib {
     uint8 constant ADDRESS_LENGTH = 42; // 20 raw bytes * 2 hex chars per byte + 2 for 0x prefix
 
-    function exportDeployment(
-        Vm vm,
-        string memory name,
-        ConfigHub configHub,
-        BaseDeployer.AssetPairContracts[] memory assetPairs
-    ) internal {
-        string memory json = constructJson(vm, configHub, assetPairs);
+    function exportDeployment(Vm vm, string memory name, BaseDeployer.DeploymentResult memory result)
+        internal
+    {
+        string memory json = constructJson(vm, result.configHub, result.assetPairContracts);
         writeJsonToFile(vm, name, json);
     }
 

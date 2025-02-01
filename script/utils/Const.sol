@@ -11,7 +11,7 @@ library Const {
 
     // accounts
     // TODO: use different accounts for mainnet
-    address internal constant ArbiMain_owner = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;    
+    address internal constant ArbiMain_owner = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
     address internal constant ArbiMain_deployerAcc = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
     address internal constant ArbiSep_owner = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
     address internal constant ArbiSep_deployerAcc = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
