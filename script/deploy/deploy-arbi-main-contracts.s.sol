@@ -3,20 +3,25 @@ pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
-import { DeploymentArtifactsLib } from "../utils/DeploymentArtifacts.sol";
+import { DeploymentArtifactsLib } from "../libraries/DeploymentArtifacts.sol";
 import { WalletLoader } from "../wallet-loader.s.sol";
 
-import { ArbitrumSepoliaDeployer as deployerLib, BaseDeployer, Const } from "../ArbitrumSepoliaDeployer.sol";
+import {
+    ArbitrumMainnetDeployer as deployerLib,
+    BaseDeployer,
+    Const
+} from "../libraries/ArbitrumMainnetDeployer.sol";
 
-contract DeployContractsArbitrumSepolia is Script {
+contract DeployContractsArbitrumMainnet is Script {
     function run() external {
         (address deployerAddress,,,) = WalletLoader.loadWalletsFromEnv(vm);
         vm.startBroadcast(deployerAddress);
 
+        // TODO: use the real owner instead of the deployer
         address owner = deployerAddress;
 
         // check we're on the right chain
-        require(block.chainid == Const.ArbiSep_chainId, "chainId mismatch");
+        require(block.chainid == Const.ArbiMain_chainId, "chainId mismatch");
 
         // deploy and nominate owner
         BaseDeployer.DeploymentResult memory result = deployerLib.deployAndSetupFullProtocol(owner);
@@ -27,7 +32,7 @@ contract DeployContractsArbitrumSepolia is Script {
         vm.stopBroadcast();
 
         DeploymentArtifactsLib.exportDeployment(
-            vm, Const.ArbiSep_artifactsName, result.configHub, result.assetPairContracts
+            vm, Const.ArbiMain_artifactsName, result.configHub, result.assetPairContracts
         );
         console.log("\nDeployment completed successfully");
     }

@@ -7,11 +7,11 @@ import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { TWAPMockChainlinkFeed } from "../../test/utils/TWAPMockChainlinkFeed.sol";
 import { FixedMockChainlinkFeed } from "../../test/utils/FixedMockChainlinkFeed.sol";
 import { WalletLoader } from "../wallet-loader.s.sol";
-import { BaseTakerOracle } from "../BaseDeployer.sol";
+import { BaseTakerOracle } from "../libraries/BaseDeployer.sol";
 
-import { ArbitrumSepoliaDeployer as deployLib, BaseDeployer, Const } from "../ArbitrumSepoliaDeployer.sol";
+import { ArbitrumSepoliaDeployer, BaseDeployer, Const } from "../libraries/ArbitrumSepoliaDeployer.sol";
 
-contract DeployNewMocksForTakers is Script {
+contract DeployArbiSepMocksOracles is Script {
     address wethUSDCTakerAddress = 0x86F729a0C910890385666b77db4aFdA6daC2dA16;
     address wbtcUSDCTakerAddress = 0x898695c9955bc82e210C3bF231903fE004dAFeD5;
 
@@ -24,22 +24,22 @@ contract DeployNewMocksForTakers is Script {
         vm.startBroadcast(deployerAcc);
 
         // deploy direct oracles
-        BaseTakerOracle oracletETH_USD = deployLib.deployMockOracleETHUSD();
-        BaseTakerOracle oracletWBTC_USD = deployLib.deployMockOracleBTCUSD();
-        BaseTakerOracle oracletUSDC_USD = deployLib.deployMockOracleUSDCUSD();
+        BaseTakerOracle oracletETH_USD = ArbitrumSepoliaDeployer.deployMockOracleETHUSD();
+        BaseTakerOracle oracletWBTC_USD = ArbitrumSepoliaDeployer.deployMockOracleBTCUSD();
+        BaseTakerOracle oracletUSDC_USD = ArbitrumSepoliaDeployer.deployMockOracleUSDCUSD();
 
         // deploy combined oracles
         BaseTakerOracle wethUSDCoracle = BaseDeployer.deployCombinedOracle(
-            deployLib.tWETH,
-            deployLib.tUSDC,
+            ArbitrumSepoliaDeployer.tWETH,
+            ArbitrumSepoliaDeployer.tUSDC,
             oracletETH_USD,
             oracletUSDC_USD,
             true,
             "Comb(CL(TWAPMock(ETH / USD))|inv(CL(FixedMock(USDC / USD))))"
         );
         BaseTakerOracle wbtcUSDCoracle = BaseDeployer.deployCombinedOracle(
-            deployLib.tWBTC,
-            deployLib.tUSDC,
+            ArbitrumSepoliaDeployer.tWBTC,
+            ArbitrumSepoliaDeployer.tUSDC,
             oracletWBTC_USD,
             oracletUSDC_USD,
             true,

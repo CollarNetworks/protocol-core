@@ -6,7 +6,7 @@ import "forge-std/Test.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import { ConfigHub } from "../../../src/ConfigHub.sol";
-import { BaseDeployer } from "../../../script/BaseDeployer.sol";
+import { BaseDeployer } from "../../../script/libraries/BaseDeployer.sol";
 import { ILoansNFT } from "../../../src/interfaces/ILoansNFT.sol";
 import { IRolls } from "../../../src/interfaces/IRolls.sol";
 import { ICollarTakerNFT } from "../../../src/interfaces/ICollarTakerNFT.sol";

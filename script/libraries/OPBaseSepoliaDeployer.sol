@@ -1,30 +1,30 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.22;
 
-import { Const } from "./Const.sol";
+import { Const } from "../utils/Const.sol";
 import { BaseDeployer, ConfigHub, IERC20, EscrowSupplierNFT, BaseTakerOracle } from "./BaseDeployer.sol";
-import { TWAPMockChainlinkFeed } from "../test/utils/TWAPMockChainlinkFeed.sol";
-import { FixedMockChainlinkFeed } from "../test/utils/FixedMockChainlinkFeed.sol";
+import { TWAPMockChainlinkFeed } from "../../test/utils/TWAPMockChainlinkFeed.sol";
+import { FixedMockChainlinkFeed } from "../../test/utils/FixedMockChainlinkFeed.sol";
 
-library ArbitrumSepoliaDeployer {
-    address constant tUSDC = Const.ArbiSep_tUSDC;
-    address constant tWETH = Const.ArbiSep_tWETH;
-    address constant tWBTC = Const.ArbiSep_tWBTC;
+library OPBaseSepoliaDeployer {
+    address constant tUSDC = Const.OPBaseSep_tUSDC;
+    address constant tWETH = Const.OPBaseSep_tWETH;
+    address constant tWBTC = Const.OPBaseSep_tWBTC;
 
     address constant sequencerFeed = address(0);
-    uint24 constant swapFeeTier = 3000;
+    uint24 constant swapFeeTier = 500;
     int constant USDSTABLEPRICE = 100_000_000; // 1 * 10^8 since feed decimals is 8
 
     function defaultHubParams() internal pure returns (BaseDeployer.HubParams memory) {
         address[] memory pauseGuardians = new address[](1);
-        pauseGuardians[0] = Const.ArbiSep_deployerAcc;
+        pauseGuardians[0] = Const.OPBaseSep_deployerAcc;
         return BaseDeployer.HubParams({
             minDuration: 5 minutes,
             maxDuration: 365 days,
             minLTV: 2500,
             maxLTV: 9900,
             feeAPR: 75,
-            feeRecipient: Const.ArbiSep_deployerAcc,
+            feeRecipient: Const.OPBaseSep_deployerAcc,
             pauseGuardians: pauseGuardians
         });
     }
@@ -33,7 +33,7 @@ library ArbitrumSepoliaDeployer {
         internal
         returns (BaseDeployer.DeploymentResult memory result)
     {
-        require(block.chainid == Const.ArbiSep_chainId, "wrong chainId");
+        require(block.chainid == Const.OPBaseSep_chainId, "wrong chainId");
 
         // hub
         result.configHub = BaseDeployer.deployConfigHub(owner);
@@ -54,8 +54,8 @@ library ArbitrumSepoliaDeployer {
         TWAPMockChainlinkFeed mockEthUsdFeed = new TWAPMockChainlinkFeed(
             tWETH, // base token
             tUSDC, // quote token
-            3000, // fee tier
-            Const.ArbiSep_UniRouter, // UniV3 router
+            swapFeeTier, // fee tier
+            Const.OPBaseSep_UniRouter, // UniV3 router
             8, // feed decimals (ETH/USD uses 8)
             "ETH / USD", // description
             18 // virtual USD decimals
@@ -69,8 +69,8 @@ library ArbitrumSepoliaDeployer {
         TWAPMockChainlinkFeed mockBTCUSDFeed = new TWAPMockChainlinkFeed(
             tWBTC, // base token
             tUSDC, // quote token
-            3000, // fee tier
-            Const.ArbiSep_UniRouter, // UniV3 router
+            swapFeeTier, // fee tier
+            Const.OPBaseSep_UniRouter, // UniV3 router
             8, // feed decimals (ETH/USD uses 8)
             "BTC / USD", // description
             18 // virtual USD decimals
@@ -96,7 +96,7 @@ library ArbitrumSepoliaDeployer {
     {
         assetPairContracts = new BaseDeployer.AssetPairContracts[](2);
 
-        /// https://docs.chain.link/data-feeds/price-feeds/addresses?network=arbitrum&page=1#sepolia-testnet
+        /// https://docs.chain.link/data-feeds/price-feeds/addresses?network=basetrum&page=1#sepolia-testnet
         // deploy direct oracles
         BaseTakerOracle oracletETH_USD = deployMockOracleETHUSD();
         BaseTakerOracle oracletWBTC_USD = deployMockOracleBTCUSD();
@@ -119,7 +119,7 @@ library ArbitrumSepoliaDeployer {
                     "Comb(CL(TWAPMock(ETH / USD))|inv(CL(FixedMock(USDC / USD))))"
                 ),
                 swapFeeTier: swapFeeTier,
-                swapRouter: Const.ArbiSep_UniRouter,
+                swapRouter: Const.OPBaseSep_UniRouter,
                 existingEscrowNFT: address(0)
             })
         );
@@ -140,7 +140,7 @@ library ArbitrumSepoliaDeployer {
                     "Comb(CL(TWAPMock(BTC / USD))|inv(CL(FixedMock(USDC / USD))))"
                 ),
                 swapFeeTier: swapFeeTier,
-                swapRouter: Const.ArbiSep_UniRouter,
+                swapRouter: Const.OPBaseSep_UniRouter,
                 existingEscrowNFT: address(0)
             })
         );

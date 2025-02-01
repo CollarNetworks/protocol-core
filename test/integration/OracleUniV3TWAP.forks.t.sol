@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 
-import { Const } from "../../script/Const.sol";
+import { Const } from "../../script/utils/Const.sol";
 import { UniswapNewPoolHelper } from "../utils/UniswapNewPoolHelper.sol";
 import { OracleUniV3TWAP } from "../utils/OracleUniV3TWAP.sol";
 
