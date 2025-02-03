@@ -41,6 +41,7 @@ contract ConfigHubTest is Test {
         assertEq(configHub.MAX_CONFIGURABLE_LTV_BIPS(), 9999);
         assertEq(configHub.MIN_CONFIGURABLE_DURATION(), 300);
         assertEq(configHub.MAX_CONFIGURABLE_DURATION(), 5 * 365 days);
+        assertEq(configHub.MAX_PROTOCOL_FEE_BIPS(), 100);
         assertFalse(configHub.isPauseGuardian(guardian));
         assertFalse(configHub.isPauseGuardian(owner));
         assertFalse(configHub.isPauseGuardian(address(0)));

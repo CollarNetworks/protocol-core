@@ -440,6 +440,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         loans = new LoansNFT(owner, takerNFT, "", "");
         assertEq(loans.MAX_SWAP_PRICE_DEVIATION_BIPS(), 1000);
         assertEq(address(loans.configHub()), address(configHub));
+        assertEq(loans.unrescuableAsset(), address(takerNFT));
         assertEq(address(loans.takerNFT()), address(takerNFT));
         assertEq(address(loans.cashAsset()), address(cashAsset));
         assertEq(address(loans.underlying()), address(underlying));

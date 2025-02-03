@@ -276,6 +276,8 @@ contract RollsTest is BaseAssetPairTestSetup {
     function test_constructor() public {
         Rolls newRolls = new Rolls(owner, takerNFT);
         assertEq(address(newRolls.takerNFT()), address(takerNFT));
+        assertEq(address(newRolls.configHub()), address(configHub));
+        assertEq(newRolls.unrescuableAsset(), address(0));
         assertEq(address(newRolls.cashAsset()), address(cashAsset));
         assertEq(newRolls.VERSION(), "0.2.0");
         assertEq(newRolls.owner(), owner);
