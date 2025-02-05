@@ -19,7 +19,7 @@ library OPBaseMainnetDeployer {
             maxDuration: 365 days,
             minLTV: 2500,
             maxLTV: 9500,
-            feeAPR: 75,
+            feeAPR: 90,
             feeRecipient: Const.OPBaseMain_deployerAcc,
             pauseGuardians: pauseGuardians
         });
