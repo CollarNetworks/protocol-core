@@ -7,21 +7,20 @@ import { DeploymentArtifactsLib } from "../libraries/DeploymentArtifacts.sol";
 import { BaseDeployer, Const } from "../libraries/OPBaseSepoliaDeployer.sol";
 
 /**
- * This simulates the ownership acceptance for:
- *
- * 1. Creating a broadcast artifact that can be used to create the Safe batch.
- * 2. Simulate the above action in fork tests.
+ * This simulates the ownership acceptance for two use-cases:
+ * - Creating a broadcast artifact that can be used to create the Safe batch.
+ * - Simulating the above step in fork tests.
  *
  * To create the Safe batch using this:
  *     1. Run the script as dry-run (default)
- *     2. Use the script output JSON (saved in ./broadcast/<script-name> and run this jq transform:
+ *     2. Use the script output JSON (saved in ./broadcast/<script-name> and run jq transform:
  *         ```
  *         jq -f script/utils/safe-batch-from-broadcast.jq \
  *             broadcast/AcceptOwnershipOPBaseSepolia.s.sol/84532/dry-run/run-latest.json \
  *             | tee temp-safe-batch.json
  *         ```
- *     3. Load the output into the Safe's using "Transaction Builder"'s "choose a file"
- *     4. Verify, simulate, inspect tenderly, and submit for signers to verify.
+ *     3. Load `temp-safe-batch.json` in Safe > Transaction Builder > choose a file
+ *     4. Verify, simulate, inspect tenderly, create, inspect, and submit for signers to verify.
  */
 contract AcceptOwnershipOPBaseSepolia is Script {
     // default run() as script
@@ -34,8 +33,10 @@ contract AcceptOwnershipOPBaseSepolia is Script {
     function run(string memory artifactsName) public {
         address owner = Const.OPBaseSep_owner;
 
-        // this is hardcoded to the owner, since this script only simulates and saves the
-        // txs batch to be imported into the Safe
+        // this is hardcoded to the owner:
+        // - in script usage this simulates and saves the txs batch to be imported
+        // into the Safe
+        // - in test usage this works as a prank for simulating the safe executing it
         vm.startBroadcast(owner);
 
         // artifact name if not given (should only be specified in tests)
