@@ -23,7 +23,7 @@ library OPBaseSepoliaDeployer {
             maxDuration: 365 days,
             minLTV: 2500,
             maxLTV: 9900,
-            feeAPR: 75,
+            feeAPR: 90,
             feeRecipient: Const.OPBaseSep_deployerAcc,
             pauseGuardians: pauseGuardians
         });
