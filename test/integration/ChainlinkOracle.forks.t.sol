@@ -262,6 +262,19 @@ contract ChainlinkOracle_OPBaseMain_WETHUSDC_ForkTest is ChainlinkOracle_ArbiMai
     }
 }
 
+contract ChainlinkOracle_OPBaseMain_CBBTCUSDC_ForkTest is ChainlinkOracle_OPBaseMain_WETHUSDC_ForkTest {
+    function _config() internal virtual override {
+        super._config();
+        baseToken = Const.OPBaseMain_cbBTC;
+        priceFeed = Const.OPBaseMain_CLFeedCBBTC_USD;
+        description = "cbBTC / USD";
+
+        expectedAnswer = 10_190_410_180_039; // 8 decimals
+        expectedCurPrice = 101_904_101_800; // 6 decimals
+        expectedInversePrice = 981; // 1e8 * 1e8 / 10_190_410_180_039
+    }
+}
+
 contract ChainlinkOracle_OPBaseSep_WETHUSDC_ForkTest is ChainlinkOracle_ArbiMain_WETHUSDC_ForkTest {
     function _startFork() internal override {
         vm.createSelectFork(vm.envString("OPBASE_SEPOLIA_RPC"), 21_176_690);

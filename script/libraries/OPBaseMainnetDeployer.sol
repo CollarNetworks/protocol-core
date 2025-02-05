@@ -7,6 +7,7 @@ import { BaseDeployer, ConfigHub, IERC20, EscrowSupplierNFT, BaseTakerOracle } f
 library OPBaseMainnetDeployer {
     address constant USDC = Const.OPBaseMain_USDC;
     address constant WETH = Const.OPBaseMain_WETH;
+    address constant cbBTC = Const.OPBaseMain_cbBTC;
     address constant sequencerFeed = Const.OPBaseMain_SeqFeed;
 
     uint24 constant swapFeeTier = 500;
@@ -49,8 +50,8 @@ library OPBaseMainnetDeployer {
         internal
         returns (BaseDeployer.AssetPairContracts[] memory assetPairContracts)
     {
-        // 1 pair below
-        assetPairContracts = new BaseDeployer.AssetPairContracts[](1);
+        // 2 pair below
+        assetPairContracts = new BaseDeployer.AssetPairContracts[](2);
 
         // https://docs.chain.link/data-feeds/price-feeds/addresses?network=base&page=1
         // deploy direct oracles
@@ -66,6 +67,12 @@ library OPBaseMainnetDeployer {
             BaseDeployer.ChainlinkFeed(Const.OPBaseMain_CLFeedUSDC_USD, "USDC / USD", 86_400, 8, 30),
             sequencerFeed
         );
+        BaseTakerOracle oracleCBBTC_USD = BaseDeployer.deployChainlinkOracle(
+            cbBTC,
+            Const.VIRTUAL_ASSET,
+            BaseDeployer.ChainlinkFeed(Const.OPBaseMain_CLFeedCBBTC_USD, "cbBTC / USD", 1200, 8, 30),
+            sequencerFeed
+        );
 
         // deploy pairs
         assetPairContracts[0] = BaseDeployer.deployContractPair(
@@ -77,6 +84,27 @@ library OPBaseMainnetDeployer {
                 cashAsset: IERC20(USDC),
                 oracle: BaseDeployer.deployCombinedOracle(
                     WETH, USDC, oracleETH_USD, oracleUSDC_USD, true, "Comb(CL(ETH / USD)|inv(CL(USDC / USD)))"
+                ),
+                swapFeeTier: swapFeeTier,
+                swapRouter: Const.OPBaseMain_UniRouter,
+                existingEscrowNFT: address(0)
+            })
+        );
+
+        assetPairContracts[1] = BaseDeployer.deployContractPair(
+            initialOwner,
+            configHub,
+            BaseDeployer.PairConfig({
+                name: "cbBTC/USDC",
+                underlying: IERC20(cbBTC),
+                cashAsset: IERC20(USDC),
+                oracle: BaseDeployer.deployCombinedOracle(
+                    cbBTC,
+                    USDC,
+                    oracleCBBTC_USD,
+                    oracleUSDC_USD,
+                    true,
+                    "Comb(CL(cbBTC / USD)|inv(CL(USDC / USD)))"
                 ),
                 swapFeeTier: swapFeeTier,
                 swapRouter: Const.OPBaseMain_UniRouter,

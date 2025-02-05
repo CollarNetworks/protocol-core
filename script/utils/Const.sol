@@ -69,6 +69,7 @@ library Const {
     // https://docs.chain.link/data-feeds/price-feeds/addresses?network=base&page=1
     address internal constant OPBaseMain_CLFeedETH_USD = 0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70; // 0.15%, 1200, 8
     address internal constant OPBaseMain_CLFeedUSDC_USD = 0x7e860098F58bBFC8648a4311b374B1D669a2bc6B; // 0.3%, 86400, 8
+    address internal constant OPBaseMain_CLFeedCBBTC_USD = 0x07DA0E54543a844a80ABE69c8A12F22B3aA59f9D; // 0.3%, 1200, 8
     address internal constant OPBaseSep_CLFeedETH_USD = 0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1; // 0.15%, 1200, 8
     address internal constant OPBaseSep_CLFeedUSDC_USD = 0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165; // 0.1%, 86400, 8
 
@@ -76,6 +77,7 @@ library Const {
     // https://app.uniswap.org/explore/pools/base/
     address internal constant OPBaseMain_USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
     address internal constant OPBaseMain_WETH = 0x4200000000000000000000000000000000000006;
+    address internal constant OPBaseMain_cbBTC = 0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf;
     address internal constant OPBaseSep_USDC = 0xf7464321dE37BdE4C03AAeeF6b1e7b71379A9a64;
     address internal constant OPBaseSep_WETH = 0x4200000000000000000000000000000000000006;
     address internal constant OPBaseSep_tUSDC = address(0); // TBD

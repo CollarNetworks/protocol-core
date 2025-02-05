@@ -213,6 +213,14 @@ contract WETHUSDC_ArbiSep_LoansForkTest_noExport is WETHUSDC_ArbiSep_LoansForkTe
     }
 }
 
+contract WBTCUSDC_ArbiSep_LoansForkTest_noExport is WBTCUSDC_ArbiSep_LoansForkTest {
+    function setUp() public override {
+        // do not use the artifacts for this test (only the direct deployment result)
+        loadFromArtifacts = false;
+        super.setUp();
+    }
+}
+
 ////// load existing sepolia deployment
 contract WETHUSDC_ArbiSep_LoansForkTest_NoDeploy is ArbiSep_LoansForkTest_LatestBlock {
     function getDeployedContracts()
@@ -221,7 +229,17 @@ contract WETHUSDC_ArbiSep_LoansForkTest_NoDeploy is ArbiSep_LoansForkTest_Latest
         returns (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs)
     {
         setupNewFork();
+        return DeploymentArtifactsLib.loadHubAndAllPairs(vm, Const.ArbiSep_artifactsName);
+    }
+}
 
+contract WBTCUSDC_ArbiSep_LoansForkTest_NoDeploy is WBTCUSDC_ArbiSep_LoansForkTest {
+    function getDeployedContracts()
+        internal
+        override
+        returns (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs)
+    {
+        setupNewFork();
         return DeploymentArtifactsLib.loadHubAndAllPairs(vm, Const.ArbiSep_artifactsName);
     }
 }
@@ -257,7 +275,7 @@ contract WETHUSDC_OPBaseMain_LoansForkTest is BaseAssetPairForkTest_ScriptTest {
         pauseGuardians.push(Const.OPBaseMain_deployerAcc);
 
         // @dev all pairs must be tested, so if this number is increased, test classes must be added
-        expectedNumPairs = 1;
+        expectedNumPairs = 2;
 
         // set up all the variables for this pair
         expectedPairIndex = 0;
@@ -278,6 +296,26 @@ contract WETHUSDC_OPBaseMain_LoansForkTest is BaseAssetPairForkTest_ScriptTest {
         callstrikeToUse = 11_000;
 
         expectedOraclePrice = 3_000_000_000;
+    }
+}
+
+contract CBBTCUSDC_OPBaseMain_LoansForkTest is WETHUSDC_OPBaseMain_LoansForkTest {
+    function _setTestValues() internal virtual override {
+        super._setTestValues();
+
+        // @dev all pairs must be tested, so if this number is increased, test classes must be added
+        expectedNumPairs = 2;
+
+        // set up all the variables for this pair
+        expectedPairIndex = 1;
+        underlying = Const.OPBaseMain_cbBTC;
+        cashAsset = Const.OPBaseMain_USDC;
+        oracleDescription = "Comb(CL(cbBTC / USD)|inv(CL(USDC / USD)))";
+
+        underlyingAmount = 0.1e8;
+        bigUnderlyingAmount = 100e8;
+
+        expectedOraclePrice = 90_000_000_000;
     }
 }
 
