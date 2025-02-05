@@ -21,7 +21,7 @@ library ArbitrumMainnetDeployer {
             maxDuration: 365 days,
             minLTV: 2500,
             maxLTV: 9500,
-            feeAPR: 75,
+            feeAPR: 90,
             feeRecipient: Const.ArbiMain_deployerAcc,
             pauseGuardians: pauseGuardians
         });
