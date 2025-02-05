@@ -385,4 +385,21 @@ contract TWBTCUSDC_OPBaseSep_LoansForkTest is CBBTCUSDC_OPBaseMain_LoansForkTest
     }
 }
 
+
+// TODO: uncomment after ownersthip is accepted by the owner
+//contract TWBTCUSDC_OPBaseSep_LoansForkTest_NoDeploy_LatestBlock is TWBTCUSDC_OPBaseSep_LoansForkTest {
+//    function setupNewFork() internal override {
+//        vm.createSelectFork(vm.envString("OPBASE_SEPOLIA_RPC"));
+//    }
+//
+//    function getDeployedContracts()
+//    internal
+//    override
+//    returns (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs)
+//    {
+//        setupNewFork();
+//        return DeploymentArtifactsLib.loadHubAndAllPairs(vm, Const.OPBaseSep_artifactsName);
+//    }
+//}
+
 // TODO: add more base-sep tests
