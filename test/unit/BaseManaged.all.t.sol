@@ -30,9 +30,10 @@ contract TestERC721 is ERC721 {
 
 // base contract for other tests that will check this functionality
 abstract contract BaseManagedTestBase is Test {
-    TestERC20 erc20;
-    TestERC721 erc721;
+    TestERC20 erc20Rescuable;
+    TestERC721 erc721Rescuable;
     ConfigHub configHub;
+    address unrescuable;
 
     BaseManaged testedContract;
 
@@ -41,13 +42,13 @@ abstract contract BaseManagedTestBase is Test {
     address guardian = makeAddr("guardian");
 
     function setUp() public virtual {
-        erc20 = new TestERC20("TestERC20", "TestERC20", 18);
-        erc721 = new TestERC721();
+        erc20Rescuable = new TestERC20("TestERC20", "TestERC20", 18);
+        erc721Rescuable = new TestERC721();
         configHub = new ConfigHub(owner);
 
         setupTestedContract();
 
-        vm.label(address(erc20), "TestERC20");
+        vm.label(address(erc20Rescuable), "TestERC20");
         vm.label(address(configHub), "ConfigHub");
     }
 
@@ -58,6 +59,7 @@ abstract contract BaseManagedTestBase is Test {
         setupTestedContract();
         assertEq(testedContract.owner(), owner);
         assertEq(address(testedContract.configHub()), address(configHub));
+        assertEq(address(testedContract.unrescuableAsset()), unrescuable);
     }
 
     function test_pauseByGuardian() public {
@@ -116,29 +118,29 @@ abstract contract BaseManagedTestBase is Test {
 
     function test_rescueTokens_ERC20() public {
         uint amount = 1000;
-        erc20.mint(address(testedContract), amount);
-        assertEq(erc20.balanceOf(address(testedContract)), amount);
+        erc20Rescuable.mint(address(testedContract), amount);
+        assertEq(erc20Rescuable.balanceOf(address(testedContract)), amount);
 
         vm.prank(owner);
         vm.expectEmit(address(testedContract));
-        emit BaseManaged.TokensRescued(address(erc20), amount);
-        testedContract.rescueTokens(address(erc20), amount, false);
+        emit BaseManaged.TokensRescued(address(erc20Rescuable), amount);
+        testedContract.rescueTokens(address(erc20Rescuable), amount, false);
 
-        assertEq(erc20.balanceOf(owner), amount);
-        assertEq(erc20.balanceOf(address(testedContract)), 0);
+        assertEq(erc20Rescuable.balanceOf(owner), amount);
+        assertEq(erc20Rescuable.balanceOf(address(testedContract)), 0);
     }
 
     function test_rescueTokens_ERC721() public {
         uint id = 1000;
-        erc721.mint(address(testedContract), id);
-        assertEq(erc721.ownerOf(id), address(testedContract));
+        erc721Rescuable.mint(address(testedContract), id);
+        assertEq(erc721Rescuable.ownerOf(id), address(testedContract));
 
         vm.prank(owner);
         vm.expectEmit(address(testedContract));
-        emit BaseManaged.TokensRescued(address(erc721), id);
-        testedContract.rescueTokens(address(erc721), id, true);
+        emit BaseManaged.TokensRescued(address(erc721Rescuable), id);
+        testedContract.rescueTokens(address(erc721Rescuable), id, true);
 
-        assertEq(erc721.ownerOf(id), owner);
+        assertEq(erc721Rescuable.ownerOf(id), owner);
     }
 
     // reverts
@@ -210,6 +212,16 @@ abstract contract BaseManagedTestBase is Test {
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, guardian));
         testedContract.unpause();
     }
+
+    function test_unrescuable() public {
+        vm.startPrank(owner);
+        vm.expectRevert("unrescuable asset");
+        testedContract.rescueTokens(unrescuable, 1, false);
+        vm.expectRevert("unrescuable asset");
+        testedContract.rescueTokens(unrescuable, 1, true);
+        vm.expectRevert("unrescuable asset");
+        testedContract.rescueTokens(unrescuable, 0, true);
+    }
 }
 
 contract BadConfigHub1 {
@@ -222,52 +234,68 @@ contract BadConfigHub2 {
 
 // mock of an inheriting contract (because base is abstract)
 contract TestableBaseManaged is BaseManaged {
-    constructor(address _initialOwner, ConfigHub _configHub) BaseManaged(_initialOwner, _configHub) { }
+    constructor(address _initialOwner, ConfigHub _configHub, address _unrescuable)
+        BaseManaged(_initialOwner, _configHub, _unrescuable)
+    { }
 }
 
 // the tests for the mock contract
 contract BaseManagedMockTest is BaseManagedTestBase {
     function setupTestedContract() internal override {
-        testedContract = new TestableBaseManaged(owner, configHub);
+        testedContract = new TestableBaseManaged(owner, configHub, unrescuable);
     }
 
     function test_revert_constructor_invalidConfigHub() public {
         vm.expectRevert(new bytes(0));
-        new TestableBaseManaged(owner, ConfigHub(address(0)));
+        new TestableBaseManaged(owner, ConfigHub(address(0)), unrescuable);
 
         ConfigHub badHub = ConfigHub(address(new BadConfigHub1()));
         vm.expectRevert();
-        new TestableBaseManaged(owner, badHub);
+        new TestableBaseManaged(owner, badHub, unrescuable);
 
         badHub = ConfigHub(address(new BadConfigHub2()));
         vm.expectRevert("invalid ConfigHub");
-        new TestableBaseManaged(owner, badHub);
+        new TestableBaseManaged(owner, badHub, unrescuable);
     }
 }
 
 contract ProviderNFTManagedTest is BaseManagedTestBase {
     function setupTestedContract() internal override {
-        testedContract =
-            new CollarProviderNFT(owner, configHub, erc20, erc20, address(0), "ProviderNFT", "ProviderNFT");
+        TestERC20 unrescuableErc20 = new TestERC20("TestERC20_2", "TestERC20_2", 18);
+        unrescuable = address(unrescuableErc20);
+        testedContract = new CollarProviderNFT(
+            owner, configHub, unrescuableErc20, erc20Rescuable, address(0), "ProviderNFT", "ProviderNFT"
+        );
     }
 }
 
 contract EscrowSupplierNFTManagedTest is BaseManagedTestBase {
     function setupTestedContract() internal override {
-        testedContract = new EscrowSupplierNFT(owner, configHub, erc20, "ProviderNFT", "ProviderNFT");
+        TestERC20 unrescuableErc20 = new TestERC20("TestERC20_2", "TestERC20_2", 18);
+        unrescuable = address(unrescuableErc20);
+        testedContract =
+            new EscrowSupplierNFT(owner, configHub, unrescuableErc20, "ProviderNFT", "ProviderNFT");
     }
 }
 
 contract TakerNFTManagedTest is BaseManagedTestBase {
     function setupTestedContract() internal virtual override {
+        TestERC20 unrescuableErc20 = new TestERC20("TestERC20_2", "TestERC20_2", 18);
+        unrescuable = address(unrescuableErc20);
         MockChainlinkFeed mockCLFeed = new MockChainlinkFeed(18, "TestFeed");
         ChainlinkOracle oracle = new ChainlinkOracle(
-            address(erc20), address(erc20), address(mockCLFeed), "TestFeed", 60, address(0)
+            address(erc20Rescuable),
+            address(unrescuableErc20),
+            address(mockCLFeed),
+            "TestFeed",
+            60,
+            address(0)
         );
         // taker checks price on construction
         mockCLFeed.setLatestAnswer(1, 0);
-        testedContract =
-            new CollarTakerNFT(owner, configHub, erc20, erc20, oracle, "CollarTakerNFT", "BRWTST");
+        testedContract = new CollarTakerNFT(
+            owner, configHub, unrescuableErc20, erc20Rescuable, oracle, "CollarTakerNFT", "BRWTST"
+        );
     }
 }
 
@@ -276,6 +304,7 @@ contract LoansManagedTest is TakerNFTManagedTest {
         super.setupTestedContract();
         // take the taker contract setup by the super
         CollarTakerNFT takerNFT = CollarTakerNFT(address(testedContract));
+        unrescuable = address(takerNFT);
         testedContract = new LoansNFT(owner, takerNFT, "", "");
     }
 }
@@ -285,6 +314,7 @@ contract RollsManagedTest is TakerNFTManagedTest {
         super.setupTestedContract();
         // take the taker contract setup by the super
         CollarTakerNFT takerNFT = CollarTakerNFT(address(testedContract));
+        unrescuable = address(0);
         testedContract = new Rolls(owner, takerNFT);
     }
 }
