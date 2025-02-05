@@ -53,7 +53,7 @@ library Const {
     // TODO: use different accounts for mainnet
     address internal constant OPBaseMain_owner = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
     address internal constant OPBaseMain_deployerAcc = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
-    address internal constant OPBaseSep_owner = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
+    address internal constant OPBaseSep_owner = 0x63cEcA915a23C3878b7c1a393F7676B4387C013f; // base sep safe multisig
     address internal constant OPBaseSep_deployerAcc = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
 
     // uniswap
@@ -80,9 +80,10 @@ library Const {
     address internal constant OPBaseMain_cbBTC = 0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf;
     address internal constant OPBaseSep_USDC = 0xf7464321dE37BdE4C03AAeeF6b1e7b71379A9a64;
     address internal constant OPBaseSep_WETH = 0x4200000000000000000000000000000000000006;
-    address internal constant OPBaseSep_tUSDC = address(0); // TBD
-    address internal constant OPBaseSep_tWETH = address(0); // TBD
-    address internal constant OPBaseSep_tWBTC = address(0); // TBD
+    // CollarOwnedERC20 deployed on 05/02/2025
+    address internal constant OPBaseSep_tUSDC = 0x4904B2c6208BE4c108Fbad2B22839278873A4d70;
+    address internal constant OPBaseSep_tWETH = 0x2BD50A6FA58F06A8e0a83eEc3aa8EBBcE3C1F540;
+    address internal constant OPBaseSep_tWBTC = 0xB45365d758b60ae21B6ca586dBeF13042a87792B;
 
     // artifacts
     string internal constant OPBaseMain_artifactsName = "opbase_mainnet_collar_protocol_deployment";

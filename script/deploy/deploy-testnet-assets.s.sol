@@ -48,16 +48,15 @@ abstract contract AssetDeployer is Script {
     mapping(string => mapping(string => address)) public deployedPools;
 
     function run() external {
-        uint deployerPrivateKey = vm.envUint("PRIVKEY_DEV_DEPLOYER");
-        address deployerAcc = vm.addr(deployerPrivateKey);
+        WalletLoader.loadWalletsFromEnv(vm);
 
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast(msg.sender);
 
         setUp();
 
-        deployAssets(deployerAcc);
+        deployAssets(msg.sender);
 
-        createAndInitializePools(deployerAcc);
+        createAndInitializePools(msg.sender);
 
         vm.stopBroadcast();
 
