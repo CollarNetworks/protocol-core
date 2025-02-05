@@ -23,7 +23,7 @@ library ArbitrumSepoliaDeployer {
             maxDuration: 365 days,
             minLTV: 2500,
             maxLTV: 9900,
-            feeAPR: 75,
+            feeAPR: 90,
             feeRecipient: Const.ArbiSep_deployerAcc,
             pauseGuardians: pauseGuardians
         });
