@@ -287,7 +287,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
     function test_pausableMethods() public {
         // create a position
-        (uint takerId,) = checkOpenPairedPosition();
+        checkOpenPairedPosition();
 
         startHoax(owner);
         takerNFT.pause();
@@ -561,6 +561,39 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         takerNFT.settlePairedPosition(takerId);
     }
 
+    function test_settlePairedPosition_balanceMismatch() public {
+        (uint takerId, uint providerId) = checkOpenPairedPosition();
+        skip(duration);
+        // expect to get paid
+        updatePrice(oraclePrice * 2);
+        // no transfer, but update is -providerLocked
+        vm.mockCall(
+            address(providerNFT),
+            abi.encodeCall(providerNFT .settlePosition, (providerId, -int(providerLocked))),
+            ""
+        );
+        vm.startPrank(user1);
+        // try to settle
+        vm.expectRevert("taker: settle balance mismatch");
+        takerNFT.settlePairedPosition(takerId);
+
+        // expect funds to be pulled
+        updatePrice();
+        (takerId, providerId) = checkOpenPairedPosition();
+        skip(duration);
+        // expect to get paid
+        updatePrice(oraclePrice / 2);
+        // no transfer, but update is +takerLocked
+        vm.mockCall(
+            address(providerNFT),
+            abi.encodeCall(providerNFT.settlePosition, (providerId, int(takerLocked))),
+            ""
+        );
+        // try to settle
+        vm.expectRevert("taker: settle balance mismatch");
+        takerNFT.settlePairedPosition(takerId);
+    }
+
     function test_withdrawFromSettled_NotOwner() public {
         (uint takerId,) = checkOpenPairedPosition();
 
@@ -668,6 +701,23 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         takerNFT.safeTransferFrom(user1, provider, takerId);
         startHoax(provider);
         vm.expectRevert("taker: already settled");
+        takerNFT.cancelPairedPosition(takerId);
+    }
+
+    function test_cancelPairedPosition_balanceMismatch() public {
+        (uint takerId, uint providerId) = checkOpenPairedPosition();
+
+        skip(duration);
+        vm.startPrank(provider);
+        providerNFT.transferFrom(provider, user1, providerId);
+        // one wei transfer expected, but doesn't happen
+        vm.mockCall(
+            address(providerNFT),
+            abi.encodeCall(providerNFT.cancelAndWithdraw, (providerId)),
+            abi.encode(1)
+        );
+        vm.startPrank(user1);
+        vm.expectRevert("taker: cancel balance mismatch");
         takerNFT.cancelPairedPosition(takerId);
     }
 
