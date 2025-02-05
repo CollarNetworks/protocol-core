@@ -247,11 +247,16 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         positions[takerId].settled = true;
         positions[takerId].withdrawable = takerBalance;
 
+        // settle and transfer the funds via the provider
         (CollarProviderNFT providerNFT, uint providerId) = (position.providerNFT, position.providerId);
-        // settle paired and make the transfers
+        // approve provider to pull cash if needed
         if (providerDelta > 0) cashAsset.forceApprove(address(providerNFT), uint(providerDelta));
-        // @dev providerNFT is trusted to transfer providerDelta as instructed (in or out)
+        // expected balance change is current-balance + withdrawable - takerLocked
+        uint expectedBalance = cashAsset.balanceOf(address(this)) + takerBalance - position.takerLocked;
+        // call provider side
         providerNFT.settlePosition(providerId, providerDelta);
+        // check balance update to prevent reducing resting balance
+        require(cashAsset.balanceOf(address(this)) == expectedBalance, "taker: settle balance mismatch");
 
         emit PairedPositionSettled(
             takerId, address(providerNFT), providerId, endPrice, takerBalance, providerDelta
@@ -302,7 +307,13 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         _burn(takerId);
 
         // cancel and withdraw
+        // record the balance
+        uint balanceBefore = cashAsset.balanceOf(address(this));
+        // cancel on provider side
         uint providerWithdrawal = providerNFT.cancelAndWithdraw(providerId);
+        // check balance update to prevent reducing resting balance
+        uint expectedBalance = balanceBefore + providerWithdrawal;
+        require(cashAsset.balanceOf(address(this)) == expectedBalance, "taker: cancel balance mismatch");
 
         // transfer the tokens locked in this contract and the withdrawal from provider
         withdrawal = position.takerLocked + providerWithdrawal;
