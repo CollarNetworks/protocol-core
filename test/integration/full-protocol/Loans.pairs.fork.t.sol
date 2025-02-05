@@ -73,7 +73,7 @@ contract WETHUSDC_ArbiMain_LoansForkTest is BaseAssetPairForkTest_ScriptTest {
         owner = Const.ArbiMain_owner;
 
         // config params
-        protocolFeeAPR = 75;
+        protocolFeeAPR = 90;
         protocolFeeRecipient = Const.ArbiMain_deployerAcc;
         pauseGuardians.push(Const.ArbiMain_deployerAcc);
 
@@ -285,7 +285,7 @@ contract WETHUSDC_OPBaseMain_LoansForkTest is BaseAssetPairForkTest_ScriptTest {
         owner = Const.OPBaseMain_owner;
 
         // config params
-        protocolFeeAPR = 75;
+        protocolFeeAPR = 90;
         protocolFeeRecipient = Const.OPBaseMain_deployerAcc;
         pauseGuardians.push(Const.OPBaseMain_deployerAcc);
 
