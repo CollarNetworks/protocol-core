@@ -229,6 +229,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         assertEq(takerNFT.owner(), owner);
         assertEq(takerNFT.pendingOwner(), address(0));
         assertEq(address(takerNFT.configHub()), address(configHub));
+        assertEq(takerNFT.unrescuableAsset(), address(cashAsset));
         assertEq(address(takerNFT.cashAsset()), address(cashAsset));
         assertEq(address(takerNFT.underlying()), address(underlying));
         assertEq(address(takerNFT.oracle()), address(chainlinkOracle));
@@ -306,11 +307,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         // Try to cancel a paired position while paused
         vm.expectRevert(Pausable.EnforcedPause.selector);
         takerNFT.cancelPairedPosition(0);
-
-        // transfers are paused
-        vm.startPrank(user1);
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        takerNFT.transferFrom(user1, provider, takerId);
     }
 
     function test_unpause() public {

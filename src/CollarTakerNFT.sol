@@ -62,7 +62,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
         ITakerOracle _oracle,
         string memory _name,
         string memory _symbol
-    ) BaseNFT(initialOwner, _name, _symbol, _configHub) {
+    ) BaseNFT(initialOwner, _name, _symbol, _configHub, address(_cashAsset)) {
         cashAsset = _cashAsset;
         underlying = _underlying;
         _setOracle(_oracle);

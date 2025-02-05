@@ -74,7 +74,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     address public defaultSwapper;
 
     constructor(address initialOwner, CollarTakerNFT _takerNFT, string memory _name, string memory _symbol)
-        BaseNFT(initialOwner, _name, _symbol, _takerNFT.configHub())
+        BaseNFT(initialOwner, _name, _symbol, _takerNFT.configHub(), address(_takerNFT))
     {
         takerNFT = _takerNFT;
         cashAsset = _takerNFT.cashAsset();
@@ -211,7 +211,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
      */
     function closeLoan(uint loanId, SwapParams calldata swapParams)
         external
-        whenNotPaused // also checked in _burn (mutations false positive)
+        whenNotPaused
         returns (uint underlyingOut)
     {
         // @dev cache the borrower now, since _closeLoan will burn the NFT, so ownerOf will revert
@@ -279,12 +279,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         int minToUser,
         uint newEscrowOfferId,
         uint newEscrowFee
-    )
-        external
-        whenNotPaused // also checked in _burn (mutations false positive)
-        onlyNFTOwner(loanId)
-        returns (uint newLoanId, uint newLoanAmount, int toUser)
-    {
+    ) external whenNotPaused onlyNFTOwner(loanId) returns (uint newLoanId, uint newLoanAmount, int toUser) {
         // check opening loans is still allowed (not in exit-only mode)
         require(configHub.canOpenPair(underlying, cashAsset, address(this)), "loans: unsupported loans");
 
