@@ -148,11 +148,7 @@ abstract contract AssetDeployer is Script {
         return IUniswapV3Factory(uniFactory).createPool(token0, token1, feeTier);
     }
 
-    function getSqrtPriceX96ForPriceRatio(uint amount0, uint amount1, uint8 decimals0, uint8 decimals1)
-        internal
-        pure
-        returns (uint160)
-    {
+    function getSqrtPriceX96ForPriceRatio(uint amount0, uint amount1) internal pure returns (uint160) {
         // Just use the raw ratio for sqrtPrice calculation
         // Price is amount1/amount0 in Q96 format
         return uint160(Math.sqrt((amount1 << 192) / amount0));
@@ -173,9 +169,7 @@ abstract contract AssetDeployer is Script {
             ? (1 * 10 ** IERC20Metadata(token0).decimals(), pair.priceRatio)
             : (pair.priceRatio, 1 * 10 ** IERC20Metadata(token1).decimals());
 
-        uint160 sqrtPriceX96 = getSqrtPriceX96ForPriceRatio(
-            baseAmount0, baseAmount1, IERC20Metadata(token0).decimals(), IERC20Metadata(token1).decimals()
-        );
+        uint160 sqrtPriceX96 = getSqrtPriceX96ForPriceRatio(baseAmount0, baseAmount1);
 
         (uint amount0Desired, uint amount1Desired) = token0 == address(collateralAsset)
             ? (pair.amountCollDesired, pair.amountCashDesired)
