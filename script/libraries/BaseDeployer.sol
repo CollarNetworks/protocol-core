@@ -92,7 +92,7 @@ library BaseDeployer {
             quote,
             chainlinkFeed.feedAddress,
             chainlinkFeed.description,
-            chainlinkFeed.heartbeat + 60, // a bit higher than heartbeat
+            chainlinkFeed.heartbeat + 600, // 10 minutes grace
             sequencerUptimeFeed
         );
     }
