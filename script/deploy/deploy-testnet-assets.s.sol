@@ -41,6 +41,7 @@ abstract contract AssetDeployer is Script {
         string cashSymbol;
         uint amountCollDesired;
         uint amountCashDesired;
+        uint priceRatio; // amount of cash for 1 underlying
     }
 
     Asset[] public assets;
@@ -92,6 +93,7 @@ abstract contract AssetDeployer is Script {
             require(cashAsset != address(0) && underlying != address(0), "Assets not deployed");
 
             address poolAddress = createPool(cashAsset, underlying);
+            console.log("Created pool for underlying ", underlying);
             console.log("Created pool at", poolAddress);
             initializePool(poolAddress, pair, deployerAcc);
 
@@ -146,72 +148,66 @@ abstract contract AssetDeployer is Script {
         return IUniswapV3Factory(uniFactory).createPool(token0, token1, feeTier);
     }
 
+    function getSqrtPriceX96ForPriceRatio(uint amount0, uint amount1, uint8 decimals0, uint8 decimals1)
+        internal
+        pure
+        returns (uint160)
+    {
+        // Just use the raw ratio for sqrtPrice calculation
+        // Price is amount1/amount0 in Q96 format
+        return uint160(Math.sqrt((amount1 << 192) / amount0));
+    }
+
     function initializePool(address poolAddress, AssetPair memory pair, address deployer) internal {
         CollarOwnedERC20 collateralAsset = CollarOwnedERC20(deployedAssets[pair.collateralSymbol]);
-
-        // cashAsset.mint(deployer, pair.amountCashDesired);
         collateralAsset.mint(deployer, pair.amountCollDesired);
 
-        // Approve tokens
         collateralAsset.approve(uniPosMan, type(uint).max);
         CollarOwnedERC20(cashAsset).approve(uniPosMan, type(uint).max);
+
         address token0 = IUniswapV3Pool(poolAddress).token0();
         address token1 = IUniswapV3Pool(poolAddress).token1();
+
+        // Calculate price ratio using 1 unit of collateral
+        (uint baseAmount0, uint baseAmount1) = token0 == address(collateralAsset)
+            ? (1 * 10 ** IERC20Metadata(token0).decimals(), pair.priceRatio)
+            : (pair.priceRatio, 1 * 10 ** IERC20Metadata(token1).decimals());
+
+        uint160 sqrtPriceX96 = getSqrtPriceX96ForPriceRatio(
+            baseAmount0, baseAmount1, IERC20Metadata(token0).decimals(), IERC20Metadata(token1).decimals()
+        );
+
         (uint amount0Desired, uint amount1Desired) = token0 == address(collateralAsset)
             ? (pair.amountCollDesired, pair.amountCashDesired)
             : (pair.amountCashDesired, pair.amountCollDesired);
-        console.log("is cash token0 ", token0 == cashAsset);
-        console.log("amount0 desired ", amount0Desired);
-        console.log("amount1 desired ", amount1Desired);
 
-        // uint160 sqrtPriceX96 = 79_228_162_514_264_337_593_543_950_336; // 1:1 price
-        uint160 sqrtPriceX96 = getSqrtPriceX96ByAmounts(token0, token1, amount0Desired, amount1Desired);
         IUniswapV3Pool(poolAddress).initialize(sqrtPriceX96);
+
         (, int24 currentTick,,,,,) = IUniswapV3Pool(poolAddress).slot0();
         int24 tickSpacing = IUniswapV3Pool(poolAddress).tickSpacing();
-        console.log("current tick");
-        console.logInt(currentTick);
 
-        {
-            // doesnt seem like changing this multiplier (50) does anything regarding price range
-            int24 tickLower = (currentTick - tickSpacing * 50) / tickSpacing * tickSpacing;
-            int24 tickUpper = (currentTick + tickSpacing * 50) / tickSpacing * tickSpacing;
-            console.log("tick lower ");
-            console.logInt(tickLower);
-            console.log("tick upper ");
-            console.logInt(tickUpper);
-            INonfungiblePositionManager.MintParams memory params = INonfungiblePositionManager.MintParams({
-                token0: token0,
-                token1: token1,
-                fee: feeTier,
-                tickLower: tickLower,
-                tickUpper: tickUpper,
-                amount0Desired: amount0Desired,
-                amount1Desired: amount1Desired,
-                amount0Min: 0,
-                amount1Min: 0,
-                recipient: deployer,
-                deadline: block.timestamp + 15 minutes
-            });
+        int24 tickLower = (currentTick - tickSpacing * 10) / tickSpacing * tickSpacing;
+        int24 tickUpper = (currentTick + tickSpacing * 10) / tickSpacing * tickSpacing;
 
-            (, uint128 liquidity, uint amount0, uint amount1) =
-                INonfungiblePositionManager(uniPosMan).mint(params);
-            console.log("Minted liquidity", liquidity);
-            console.log("Minted amount0", amount0);
-            console.log("Minted amount1", amount1);
-        }
-        // Add more liquidity
-        // for (uint i = 0; i < 1; i++) {
-        //     params.amount0Desired = amount0Desired * 10;
-        //     params.amount1Desired = amount1Desired * 10;
+        INonfungiblePositionManager.MintParams memory params = INonfungiblePositionManager.MintParams({
+            token0: token0,
+            token1: token1,
+            fee: feeTier,
+            tickLower: tickLower,
+            tickUpper: tickUpper,
+            amount0Desired: amount0Desired,
+            amount1Desired: amount1Desired,
+            amount0Min: 0,
+            amount1Min: 0,
+            recipient: deployer,
+            deadline: block.timestamp + 15 minutes
+        });
 
-        //     (, liquidity, amount0, amount1) = INonfungiblePositionManager(uniPosMan).mint(params);
-
-        //     console.log("Additional liquidity added (iteration", i + 1, "):");
-        //     console.log("Liquidity:", liquidity);
-        //     console.log("Amount0:", amount0);
-        //     console.log("Amount1:", amount1);
-        // }
+        (, uint128 liquidity, uint amount0, uint amount1) =
+            INonfungiblePositionManager(uniPosMan).mint(params);
+        console.log("Minted liquidity", liquidity);
+        console.log("Minted amount0", amount0);
+        console.log("Minted amount1", amount1);
         (sqrtPriceX96, currentTick,,,,,) = IUniswapV3Pool(poolAddress).slot0();
         console.log("current tick after mint");
         console.logInt(currentTick);
@@ -230,24 +226,6 @@ abstract contract AssetDeployer is Script {
             console.log("AssetPair", pair.collateralSymbol, ",", pair.cashSymbol);
             console.log(deployedAssets[pair.collateralSymbol], ", ", cashAsset);
         }
-    }
-
-    function getSqrtPriceX96ByAmounts(address token0, address token1, uint amount0, uint amount1)
-        public
-        view
-        returns (uint160)
-    {
-        uint8 decimals0 = IERC20Metadata(token0).decimals();
-        uint8 decimals1 = IERC20Metadata(token1).decimals();
-
-        // Normalize both amounts to 18 decimals for precision consistency
-        uint normalizedAmount0 = amount0 * (10 ** (18 - decimals0));
-        uint normalizedAmount1 = amount1 * (10 ** (18 - decimals1));
-
-        // Calculate price ratio as token1/token0 in 18 decimals
-        uint priceRatio = (normalizedAmount1 * 1e18) / normalizedAmount0;
-
-        return encodePriceToSqrtPriceX96(priceRatio);
     }
 
     function encodePriceToSqrtPriceX96(uint price) private pure returns (uint160) {
@@ -271,8 +249,13 @@ contract DeployArbitrumSepoliaAssets is AssetDeployer {
         // assets
         assets.push(Asset("wBTC", 8));
 
-        // pairs
-        assetPairs.push(AssetPair("wBTC", "USDC", 1e6 * 1e8, 2e7 * 61_000 * 1e6));
+        uint multiplier = 1e6;
+        // For WBTC/USDC: 100000 USDC per 1 WBTC
+        uint wbtcAmount = multiplier * 1e8; // 1M WBTC
+        uint wbtcUsdcRatio = 100_000 * 1e6;
+        uint wbtcUsdcAmount = multiplier * wbtcUsdcRatio; // 1M * 100k  USDC
+
+        assetPairs.push(AssetPair("wBTC", "tUSDC", wbtcAmount, wbtcUsdcAmount, wbtcUsdcRatio));
     }
 }
 
@@ -289,13 +272,23 @@ contract DeployOPBaseSepoliaAssets_WithCashAsset is AssetDeployer {
         uniFactory = Const.OPBaseSep_UniFactory;
         uniPosMan = Const.OPBaseSep_UniPosMan;
 
-        // assets, first asset must be cash asset if deploying it
-        assets.push(Asset("tUSDC", 8));
-        assets.push(Asset("tWETH", 8));
+        // USDC (6 decimals), WETH (18 decimals), WBTC (8 decimals)
+        assets.push(Asset("tUSDC", 6));
+        assets.push(Asset("tWETH", 18));
         assets.push(Asset("tWBTC", 8));
 
-        // pairs
-        assetPairs.push(AssetPair("tWBTC", "tUSDC", 1e6 * 1e8, 2e7 * 61_000 * 1e6));
-        assetPairs.push(AssetPair("tWETH", "tUSDC", 1e6 * 1e8, 2e7 * 61_000 * 1e6));
+        uint multiplier = 1e6;
+        // For WBTC/USDC: 100000 USDC per 1 WBTC
+        uint wbtcAmount = multiplier * 1e8; // 1M WBTC
+        uint wbtcUsdcRatio = 100_000 * 1e6;
+        uint wbtcUsdcAmount = multiplier * wbtcUsdcRatio; // 1M * 100k  USDC
+
+        // For WETH/USDC: 3500 USDC per 1 WETH
+        uint wethAmount = multiplier * 1e18; // 1M WETH
+        uint wethUsdcRatio = 3500 * 1e6;
+        uint wethUsdcAmount = multiplier * wethUsdcRatio; // 1M * 3500 USDC
+
+        assetPairs.push(AssetPair("tWBTC", "tUSDC", wbtcAmount, wbtcUsdcAmount, wbtcUsdcRatio));
+        assetPairs.push(AssetPair("tWETH", "tUSDC", wethAmount, wethUsdcAmount, wethUsdcRatio));
     }
 }
