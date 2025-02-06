@@ -15,6 +15,7 @@ import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 import { CollarOwnedERC20 } from "../../test/utils/CollarOwnedERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import { WalletLoader } from "../wallet-loader.s.sol";
 
 import { Const } from "../utils/Const.sol";
 
@@ -48,16 +49,15 @@ abstract contract AssetDeployer is Script {
     mapping(string => mapping(string => address)) public deployedPools;
 
     function run() external {
-        uint deployerPrivateKey = vm.envUint("PRIVKEY_DEV_DEPLOYER");
-        address deployerAcc = vm.addr(deployerPrivateKey);
+        WalletLoader.loadWalletsFromEnv(vm);
 
-        vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast(msg.sender);
 
         setUp();
 
-        deployAssets(deployerAcc);
+        deployAssets(msg.sender);
 
-        createAndInitializePools(deployerAcc);
+        createAndInitializePools(msg.sender);
 
         vm.stopBroadcast();
 

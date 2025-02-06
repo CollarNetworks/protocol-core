@@ -10,6 +10,7 @@ import { OPBaseMainnetDeployer } from "../../../script/libraries/OPBaseMainnetDe
 import { DeployArbitrumMainnet } from "../../../script/deploy/DeployArbitrumMainnet.s.sol";
 import { DeployArbitrumSepolia } from "../../../script/deploy/DeployArbitrumSepolia.s.sol";
 import { DeployOPBaseMainnet } from "../../../script/deploy/DeployOPBaseMainnet.s.sol";
+import { DeployOPBaseSepolia } from "../../../script/deploy/DeployOPBaseSepolia.s.sol";
 
 abstract contract BaseAssetPairForkTest_ScriptTest is BaseAssetPairForkTest {
     string constant deploymentName = "collar_protocol_fork_deployment";
@@ -334,4 +335,71 @@ contract OPBaseMain_LoansForkTest_LatestBlock is WETHUSDC_OPBaseMain_LoansForkTe
     }
 }
 
-// TODO: add OPBase sepolia once assets and mock oracles are deployed
+//// OPBase sep
+
+contract TWBTCUSDC_OPBaseSep_LoansForkTest is CBBTCUSDC_OPBaseMain_LoansForkTest {
+    function setupNewFork() internal virtual override {
+        string memory rpc = vm.envString("OPBASE_SEPOLIA_RPC");
+        // if we are in development we want to fix the block to reduce the time it takes to run the tests
+        if (vm.envBool("FIX_BLOCK_OPBASE_SEPOLIA")) {
+            vm.createSelectFork(rpc, vm.envUint("BLOCK_NUMBER_OPBASE_SEPOLIA"));
+        } else {
+            vm.createSelectFork(rpc);
+        }
+    }
+
+    function deployFullProtocol()
+        internal
+        virtual
+        override
+        returns (BaseDeployer.DeploymentResult memory result)
+    {
+        result = (new DeployOPBaseSepolia()).run(deploymentName);
+    }
+
+    function _setTestValues() internal virtual override {
+        super._setTestValues();
+        owner = Const.OPBaseSep_owner;
+
+        // config params
+        protocolFeeRecipient = Const.OPBaseSep_deployerAcc;
+        delete pauseGuardians;
+        pauseGuardians.push(Const.OPBaseSep_deployerAcc);
+
+        // @dev all pairs must be tested, so if this number is increased, test classes must be added
+        expectedNumPairs = 2;
+
+        // set up all the variables for this pair
+        expectedPairIndex = 1;
+        underlying = Const.OPBaseSep_tWBTC;
+        cashAsset = Const.OPBaseSep_tUSDC;
+        oracleDescription = "Comb(CL(TWAPMock(BTC / USD))|inv(CL(FixedMock(USDC / USD))))";
+
+        underlyingAmount = 0.1e8;
+        bigUnderlyingAmount = 100e8;
+
+        callstrikeToUse = 10_500;
+
+        // TODO: fix price when pool price is fixed
+        expectedOraclePrice = 10_000_000_000; // 100e8
+    }
+}
+
+
+// TODO: uncomment after ownersthip is accepted by the owner
+//contract TWBTCUSDC_OPBaseSep_LoansForkTest_NoDeploy_LatestBlock is TWBTCUSDC_OPBaseSep_LoansForkTest {
+//    function setupNewFork() internal override {
+//        vm.createSelectFork(vm.envString("OPBASE_SEPOLIA_RPC"));
+//    }
+//
+//    function getDeployedContracts()
+//    internal
+//    override
+//    returns (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs)
+//    {
+//        setupNewFork();
+//        return DeploymentArtifactsLib.loadHubAndAllPairs(vm, Const.OPBaseSep_artifactsName);
+//    }
+//}
+
+// TODO: add more base-sep tests

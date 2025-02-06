@@ -60,6 +60,7 @@ library OPBaseSepoliaDeployer {
             "ETH / USD", // description
             18 // virtual USD decimals
         );
+        mockEthUsdFeed.increaseCardinality(300);
         BaseDeployer.ChainlinkFeed memory feedETH_USD =
             BaseDeployer.ChainlinkFeed(address(mockEthUsdFeed), "TWAPMock(ETH / USD)", 120, 8, 5);
         oracle = BaseDeployer.deployChainlinkOracle(tWETH, Const.VIRTUAL_ASSET, feedETH_USD, sequencerFeed);
@@ -76,6 +77,7 @@ library OPBaseSepoliaDeployer {
             18 // virtual USD decimals
         );
         // no WBTC, only virtual-BTC
+        mockBTCUSDFeed.increaseCardinality(300);
         BaseDeployer.ChainlinkFeed memory feedBTC_USD =
             BaseDeployer.ChainlinkFeed(address(mockBTCUSDFeed), "TWAPMock(BTC / USD)", 120, 8, 30);
         oracle = BaseDeployer.deployChainlinkOracle(tWBTC, Const.VIRTUAL_ASSET, feedBTC_USD, sequencerFeed);

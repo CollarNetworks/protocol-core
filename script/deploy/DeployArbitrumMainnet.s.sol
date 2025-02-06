@@ -17,6 +17,8 @@ contract DeployArbitrumMainnet is Script {
     /// run() that can be used for tests, or for scripts by specifying `"" --sig 'run(string)'`
     /// @param artifactsName overrides the default artifacts name when used in tests
     function run(string memory artifactsName) public returns (BaseDeployer.DeploymentResult memory result) {
+        WalletLoader.loadWalletsFromEnv(vm);
+
         // note: when in tests, this also has the effect of "pranking" msg.sender
         vm.startBroadcast(msg.sender);
 
