@@ -154,32 +154,45 @@ abstract contract AssetDeployer is Script {
         return uint160(Math.sqrt((amount1 << 192) / amount0));
     }
 
-    function initializePool(address poolAddress, AssetPair memory pair, address deployer) internal {
+    // stack too deep
+    function _handleInitialSetup(AssetPair memory pair, address deployer) internal {
         CollarOwnedERC20 collateralAsset = CollarOwnedERC20(deployedAssets[pair.collateralSymbol]);
         collateralAsset.mint(deployer, pair.amountCollDesired);
-
         collateralAsset.approve(uniPosMan, type(uint).max);
         CollarOwnedERC20(cashAsset).approve(uniPosMan, type(uint).max);
+    }
 
+    // stack too deep
+    function _getTokensAndInitPool(address poolAddress, AssetPair memory pair)
+        internal
+        returns (address, address)
+    {
         address token0 = IUniswapV3Pool(poolAddress).token0();
         address token1 = IUniswapV3Pool(poolAddress).token1();
 
-        // Calculate price ratio using 1 unit of collateral
+        CollarOwnedERC20 collateralAsset = CollarOwnedERC20(deployedAssets[pair.collateralSymbol]);
+
         (uint baseAmount0, uint baseAmount1) = token0 == address(collateralAsset)
             ? (1 * 10 ** IERC20Metadata(token0).decimals(), pair.priceRatio)
             : (pair.priceRatio, 1 * 10 ** IERC20Metadata(token1).decimals());
 
         uint160 sqrtPriceX96 = getSqrtPriceX96ForPriceRatio(baseAmount0, baseAmount1);
-
-        (uint amount0Desired, uint amount1Desired) = token0 == address(collateralAsset)
-            ? (pair.amountCollDesired, pair.amountCashDesired)
-            : (pair.amountCashDesired, pair.amountCollDesired);
-
         IUniswapV3Pool(poolAddress).initialize(sqrtPriceX96);
 
+        return (token0, token1);
+    }
+
+    // stack too deep
+    function _mintPosition(
+        address poolAddress,
+        address token0,
+        address token1,
+        uint amount0Desired,
+        uint amount1Desired,
+        address deployer
+    ) internal {
         (, int24 currentTick,,,,,) = IUniswapV3Pool(poolAddress).slot0();
         int24 tickSpacing = IUniswapV3Pool(poolAddress).tickSpacing();
-
         int24 tickLower = (currentTick - tickSpacing * 10) / tickSpacing * tickSpacing;
         int24 tickUpper = (currentTick + tickSpacing * 10) / tickSpacing * tickSpacing;
 
@@ -199,13 +212,29 @@ abstract contract AssetDeployer is Script {
 
         (, uint128 liquidity, uint amount0, uint amount1) =
             INonfungiblePositionManager(uniPosMan).mint(params);
+
+        // Logging
         console.log("Minted liquidity", liquidity);
         console.log("Minted amount0", amount0);
         console.log("Minted amount1", amount1);
-        (sqrtPriceX96, currentTick,,,,,) = IUniswapV3Pool(poolAddress).slot0();
+
+        (uint160 sqrtPriceX96, int24 finalTick,,,,,) = IUniswapV3Pool(poolAddress).slot0();
         console.log("current tick after mint");
-        console.logInt(currentTick);
+        console.logInt(finalTick);
         console.log("sqrtPriceX96 after mint", sqrtPriceX96);
+    }
+
+    function initializePool(address poolAddress, AssetPair memory pair, address deployer) internal {
+        // Initial minting and approvals
+        _handleInitialSetup(pair, deployer);
+        // Get token ordering and initialize pool
+        (address token0, address token1) = _getTokensAndInitPool(poolAddress, pair);
+
+        (uint amount0Desired, uint amount1Desired) = token0 == address(deployedAssets[pair.collateralSymbol])
+            ? (pair.amountCollDesired, pair.amountCashDesired)
+            : (pair.amountCashDesired, pair.amountCollDesired);
+        // Create and execute mint params
+        _mintPosition(poolAddress, token0, token1, amount0Desired, amount1Desired, deployer);
     }
 
     function logDeployedAssets() internal view {
