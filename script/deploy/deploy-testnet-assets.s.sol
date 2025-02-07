@@ -5,13 +5,10 @@ import "forge-std/Script.sol";
 import "forge-std/console.sol";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { Math } from "@openzeppelin/contracts/utils/math/Math.sol";
 import { IUniswapV3Factory } from "@uniswap/v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import "@uniswap/v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/INonfungiblePositionManager.sol";
-import "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
-import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import { IV3SwapRouter } from "@uniswap/swap-router-contracts/contracts/interfaces/IV3SwapRouter.sol";
 import { CollarOwnedERC20 } from "../../test/utils/CollarOwnedERC20.sol";
 import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -20,8 +17,6 @@ import { WalletLoader } from "../wallet-loader.s.sol";
 import { Const } from "../utils/Const.sol";
 
 abstract contract AssetDeployer is Script {
-    using SafeERC20 for IERC20;
-
     uint constant INITIAL_MINT_AMOUNT = 10_000_000_000 ether; // 10 billion tokens
 
     uint24 feeTier;
@@ -37,9 +32,9 @@ abstract contract AssetDeployer is Script {
     }
 
     struct AssetPair {
-        string collateralSymbol;
+        string underlyingSymbol;
         string cashSymbol;
-        uint amountCollDesired;
+        uint amountUnderlyingDesired;
         uint amountCashDesired;
         uint priceRatio; // amount of cash for 1 underlying
     }
@@ -88,7 +83,7 @@ abstract contract AssetDeployer is Script {
     function createAndInitializePools(address deployerAcc) internal {
         for (uint i = 0; i < assetPairs.length; i++) {
             AssetPair memory pair = assetPairs[i];
-            address underlying = deployedAssets[pair.collateralSymbol];
+            address underlying = deployedAssets[pair.underlyingSymbol];
 
             require(cashAsset != address(0) && underlying != address(0), "Assets not deployed");
 
@@ -97,17 +92,17 @@ abstract contract AssetDeployer is Script {
             console.log("Created pool at", poolAddress);
             initializePool(poolAddress, pair, deployerAcc);
 
-            deployedPools[pair.collateralSymbol][pair.cashSymbol] = poolAddress;
+            deployedPools[pair.underlyingSymbol][pair.cashSymbol] = poolAddress;
 
             uint poolCashAssetBalance = IERC20(cashAsset).balanceOf(poolAddress);
-            uint poolCollateralAssetBalance = IERC20(underlying).balanceOf(poolAddress);
+            uint poolunderlyingBalance = IERC20(underlying).balanceOf(poolAddress);
             (uint160 sqrtPriceX96,,,,,,) = IUniswapV3Pool(poolAddress).slot0();
             console.log("pool cash balance ", poolCashAssetBalance);
-            console.log("pool collateral balance ", poolCollateralAssetBalance);
+            console.log("pool collateral balance ", poolunderlyingBalance);
             console.log("pool sqrtPriceX96 ", sqrtPriceX96);
 
             // make a small swap to check amounts
-            CollarOwnedERC20 underlyingToken = CollarOwnedERC20(deployedAssets[pair.collateralSymbol]);
+            CollarOwnedERC20 underlyingToken = CollarOwnedERC20(deployedAssets[pair.underlyingSymbol]);
             uint amountIn = 10 ** underlyingToken.decimals();
             // Approve the router to spend tokens
             underlyingToken.approve(uniRouter, amountIn);
@@ -148,38 +143,41 @@ abstract contract AssetDeployer is Script {
         return IUniswapV3Factory(uniFactory).createPool(token0, token1, feeTier);
     }
 
+    /**
+     * @notice Calculates sqrt(price) * 2^96 for Uniswap V3 price format
+     * @dev Uses formula: sqrtPriceX96 = sqrt(amount1/amount0) * 2^96
+     * Shifts by 192 (2*96) before sqrt to maintain precision in Q64.96 format
+     *  sqrt((amount1/amount0) * 2^192) = sqrt(price) * 2^96
+     *  https://blog.uniswap.org/uniswap-v3-math-primer
+     */
     function getSqrtPriceX96ForPriceRatio(uint amount0, uint amount1) internal pure returns (uint160) {
-        // Just use the raw ratio for sqrtPrice calculation
-        // Price is amount1/amount0 in Q96 format
         return uint160(Math.sqrt((amount1 << 192) / amount0));
     }
 
     // stack too deep
     function _handleInitialSetup(AssetPair memory pair, address deployer) internal {
-        CollarOwnedERC20 collateralAsset = CollarOwnedERC20(deployedAssets[pair.collateralSymbol]);
-        collateralAsset.mint(deployer, pair.amountCollDesired);
-        collateralAsset.approve(uniPosMan, type(uint).max);
+        CollarOwnedERC20 underlying = CollarOwnedERC20(deployedAssets[pair.underlyingSymbol]);
+        underlying.mint(deployer, pair.amountUnderlyingDesired);
+        underlying.approve(uniPosMan, type(uint).max);
         CollarOwnedERC20(cashAsset).approve(uniPosMan, type(uint).max);
     }
 
     // stack too deep
     function _getTokensAndInitPool(address poolAddress, AssetPair memory pair)
         internal
-        returns (address, address)
+        returns (address token0, address token1)
     {
-        address token0 = IUniswapV3Pool(poolAddress).token0();
-        address token1 = IUniswapV3Pool(poolAddress).token1();
+        token0 = IUniswapV3Pool(poolAddress).token0();
+        token1 = IUniswapV3Pool(poolAddress).token1();
 
-        CollarOwnedERC20 collateralAsset = CollarOwnedERC20(deployedAssets[pair.collateralSymbol]);
+        CollarOwnedERC20 underlying = CollarOwnedERC20(deployedAssets[pair.underlyingSymbol]);
 
-        (uint baseAmount0, uint baseAmount1) = token0 == address(collateralAsset)
-            ? (1 * 10 ** IERC20Metadata(token0).decimals(), pair.priceRatio)
-            : (pair.priceRatio, 1 * 10 ** IERC20Metadata(token1).decimals());
+        (uint baseAmount0, uint baseAmount1) = token0 == address(underlying)
+            ? (10 ** IERC20Metadata(token0).decimals(), pair.priceRatio)
+            : (pair.priceRatio, 10 ** IERC20Metadata(token1).decimals());
 
         uint160 sqrtPriceX96 = getSqrtPriceX96ForPriceRatio(baseAmount0, baseAmount1);
         IUniswapV3Pool(poolAddress).initialize(sqrtPriceX96);
-
-        return (token0, token1);
     }
 
     // stack too deep
@@ -193,6 +191,12 @@ abstract contract AssetDeployer is Script {
     ) internal {
         (, int24 currentTick,,,,,) = IUniswapV3Pool(poolAddress).slot0();
         int24 tickSpacing = IUniswapV3Pool(poolAddress).tickSpacing();
+
+        /**
+         * The tickSpacing field determines the granularity of price ranges that can be used for liquidity provision.
+         * using tick spacing 10 as referenced from uniswap as the value for pools with fee 500
+         * https://docs.uniswap.org/contracts/v4/quickstart/create-pool#1-configure-the-pool
+         */
         int24 tickLower = (currentTick - tickSpacing * 10) / tickSpacing * tickSpacing;
         int24 tickUpper = (currentTick + tickSpacing * 10) / tickSpacing * tickSpacing;
 
@@ -230,9 +234,9 @@ abstract contract AssetDeployer is Script {
         // Get token ordering and initialize pool
         (address token0, address token1) = _getTokensAndInitPool(poolAddress, pair);
 
-        (uint amount0Desired, uint amount1Desired) = token0 == address(deployedAssets[pair.collateralSymbol])
-            ? (pair.amountCollDesired, pair.amountCashDesired)
-            : (pair.amountCashDesired, pair.amountCollDesired);
+        (uint amount0Desired, uint amount1Desired) = token0 == address(deployedAssets[pair.underlyingSymbol])
+            ? (pair.amountUnderlyingDesired, pair.amountCashDesired)
+            : (pair.amountCashDesired, pair.amountUnderlyingDesired);
         // Create and execute mint params
         _mintPosition(poolAddress, token0, token1, amount0Desired, amount1Desired, deployer);
     }
@@ -246,8 +250,8 @@ abstract contract AssetDeployer is Script {
         console.log("\n--- Asset Pair Addresses (for initialization) ---");
         for (uint i = 0; i < assetPairs.length; i++) {
             AssetPair memory pair = assetPairs[i];
-            console.log("AssetPair", pair.collateralSymbol, ",", pair.cashSymbol);
-            console.log(deployedAssets[pair.collateralSymbol], ", ", cashAsset);
+            console.log("AssetPair", pair.underlyingSymbol, ",", pair.cashSymbol);
+            console.log(deployedAssets[pair.underlyingSymbol], ", ", cashAsset);
         }
     }
 
@@ -272,11 +276,11 @@ contract DeployArbitrumSepoliaAssets is AssetDeployer {
         // assets
         assets.push(Asset("wBTC", 8));
 
-        uint multiplier = 1e6;
+        uint wbtcUnits = 1000;
         // For WBTC/USDC: 100000 USDC per 1 WBTC
-        uint wbtcAmount = multiplier * 1e8; // 1M WBTC
+        uint wbtcAmount = wbtcUnits * 1e8; // 1k WBTC
         uint wbtcUsdcRatio = 100_000 * 1e6;
-        uint wbtcUsdcAmount = multiplier * wbtcUsdcRatio; // 1M * 100k  USDC
+        uint wbtcUsdcAmount = wbtcUnits * wbtcUsdcRatio; // 1k * 100k  USDC
 
         assetPairs.push(AssetPair("wBTC", "tUSDC", wbtcAmount, wbtcUsdcAmount, wbtcUsdcRatio));
     }
@@ -300,16 +304,17 @@ contract DeployOPBaseSepoliaAssets_WithCashAsset is AssetDeployer {
         assets.push(Asset("tWETH", 18));
         assets.push(Asset("tWBTC", 8));
 
-        uint multiplier = 1e6;
+        uint wbtcUnits = 1000;
         // For WBTC/USDC: 100000 USDC per 1 WBTC
-        uint wbtcAmount = multiplier * 1e8; // 1M WBTC
+        uint wbtcAmount = wbtcUnits * 1e8; // 1k WBTC
         uint wbtcUsdcRatio = 100_000 * 1e6;
-        uint wbtcUsdcAmount = multiplier * wbtcUsdcRatio; // 1M * 100k  USDC
+        uint wbtcUsdcAmount = wbtcUnits * wbtcUsdcRatio; // 1k * 100k  USDC
 
+        uint wethUnits = 1e6;
         // For WETH/USDC: 3500 USDC per 1 WETH
-        uint wethAmount = multiplier * 1e18; // 1M WETH
+        uint wethAmount = wethUnits * 1e18; // 1M WETH
         uint wethUsdcRatio = 3500 * 1e6;
-        uint wethUsdcAmount = multiplier * wethUsdcRatio; // 1M * 3500 USDC
+        uint wethUsdcAmount = wethUnits * wethUsdcRatio; // 1M * 3500 USDC
 
         assetPairs.push(AssetPair("tWBTC", "tUSDC", wbtcAmount, wbtcUsdcAmount, wbtcUsdcRatio));
         assetPairs.push(AssetPair("tWETH", "tUSDC", wethAmount, wethUsdcAmount, wethUsdcRatio));
