@@ -569,7 +569,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         // no transfer, but update is -providerLocked
         vm.mockCall(
             address(providerNFT),
-            abi.encodeCall(providerNFT .settlePosition, (providerId, -int(providerLocked))),
+            abi.encodeCall(providerNFT.settlePosition, (providerId, -int(providerLocked))),
             ""
         );
         vm.startPrank(user1);
@@ -712,9 +712,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         providerNFT.transferFrom(provider, user1, providerId);
         // one wei transfer expected, but doesn't happen
         vm.mockCall(
-            address(providerNFT),
-            abi.encodeCall(providerNFT.cancelAndWithdraw, (providerId)),
-            abi.encode(1)
+            address(providerNFT), abi.encodeCall(providerNFT.cancelAndWithdraw, (providerId)), abi.encode(1)
         );
         vm.startPrank(user1);
         vm.expectRevert("taker: cancel balance mismatch");

@@ -24,7 +24,7 @@ library ArbitrumSepoliaDeployer {
             minLTV: 2500,
             maxLTV: 9900,
             feeAPR: 90,
-            feeRecipient: Const.ArbiSep_deployerAcc,
+            feeRecipient: Const.ArbiSep_feeRecipient,
             pauseGuardians: pauseGuardians
         });
     }

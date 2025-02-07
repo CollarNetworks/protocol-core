@@ -7,11 +7,18 @@ import { DeploymentArtifactsLib } from "../../../script/libraries/DeploymentArti
 import { BaseAssetPairForkTest, ConfigHub } from "./BaseAssetPairForkTest.sol";
 import { BaseDeployer } from "../../../script/libraries/BaseDeployer.sol";
 import { OPBaseMainnetDeployer } from "../../../script/libraries/OPBaseMainnetDeployer.sol";
-import { DeployArbitrumMainnet } from "../../../script/deploy/DeployArbitrumMainnet.s.sol";
-import { DeployArbitrumSepolia } from "../../../script/deploy/DeployArbitrumSepolia.s.sol";
-import { DeployOPBaseMainnet } from "../../../script/deploy/DeployOPBaseMainnet.s.sol";
-import { DeployOPBaseSepolia } from "../../../script/deploy/DeployOPBaseSepolia.s.sol";
-import { AcceptOwnershipOPBaseSepolia } from "../../../script/deploy/AcceptOwnershipOPBaseSepolia.s.sol";
+import {
+    DeployArbitrumMainnet,
+    DeployArbitrumSepolia,
+    DeployOPBaseMainnet,
+    DeployOPBaseSepolia
+} from "../../../script/deploy/deploy-protocol.s.sol";
+import {
+    AcceptOwnershipOPBaseSepolia,
+    AcceptOwnershipOPBaseMainnet,
+    AcceptOwnershipArbiMainnet,
+    AcceptOwnershipArbiSepolia
+} from "../../../script/deploy/accept-ownership.s.sol";
 
 abstract contract BaseAssetPairForkTest_ScriptTest is BaseAssetPairForkTest {
     string constant deploymentName = "collar_protocol_fork_deployment";
@@ -62,11 +69,8 @@ contract WETHUSDC_ArbiMain_LoansForkTest is BaseAssetPairForkTest_ScriptTest {
     {
         result = (new DeployArbitrumMainnet()).run(deploymentName);
 
-        // TODO: replace with script when Safe is created
-        // accept ownership from the intended owner
-        vm.startPrank(owner);
-        BaseDeployer.acceptOwnershipAsSender(owner, result.configHub, result.assetPairContracts);
-        vm.stopPrank();
+        // accept ownership of the new deployment from the owner (via broadcast instead of prank)
+        (new AcceptOwnershipArbiMainnet()).run(deploymentName);
     }
 
     function _setTestValues() internal virtual override {
@@ -74,7 +78,7 @@ contract WETHUSDC_ArbiMain_LoansForkTest is BaseAssetPairForkTest_ScriptTest {
 
         // config params
         protocolFeeAPR = 90;
-        protocolFeeRecipient = Const.ArbiMain_deployerAcc;
+        protocolFeeRecipient = Const.ArbiMain_feeRecipient;
         pauseGuardians.push(Const.ArbiMain_deployerAcc);
 
         // @dev all pairs must be tested, so if this number is increased, test classes must be added
@@ -151,6 +155,9 @@ contract WETHUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
         super._setTestValues();
 
         owner = Const.ArbiSep_owner;
+        protocolFeeRecipient = Const.ArbiSep_feeRecipient;
+        delete pauseGuardians;
+        pauseGuardians.push(Const.ArbiSep_deployerAcc);
 
         // @dev all pairs must be tested, so if this number is increased, test classes must be added
         expectedNumPairs = 2;
@@ -182,11 +189,8 @@ contract WETHUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
     {
         result = (new DeployArbitrumSepolia()).run(deploymentName);
 
-        // TODO: replace with script when Safe is created
-        // accept ownership from the intended owner
-        vm.startPrank(owner);
-        BaseDeployer.acceptOwnershipAsSender(owner, result.configHub, result.assetPairContracts);
-        vm.stopPrank();
+        // accept ownership of the new deployment from the owner (via broadcast instead of prank)
+        (new AcceptOwnershipArbiSepolia()).run(deploymentName);
     }
 }
 
@@ -274,11 +278,8 @@ contract WETHUSDC_OPBaseMain_LoansForkTest is BaseAssetPairForkTest_ScriptTest {
     {
         result = (new DeployOPBaseMainnet()).run(deploymentName);
 
-        // TODO: replace with script when Safe is created
-        // accept ownership from the intended owner
-        vm.startPrank(owner);
-        BaseDeployer.acceptOwnershipAsSender(owner, result.configHub, result.assetPairContracts);
-        vm.stopPrank();
+        // accept ownership of the new deployment from the owner (via broadcast instead of prank)
+        (new AcceptOwnershipOPBaseMainnet()).run(deploymentName);
     }
 
     function _setTestValues() internal virtual override {
@@ -286,7 +287,7 @@ contract WETHUSDC_OPBaseMain_LoansForkTest is BaseAssetPairForkTest_ScriptTest {
 
         // config params
         protocolFeeAPR = 90;
-        protocolFeeRecipient = Const.OPBaseMain_deployerAcc;
+        protocolFeeRecipient = Const.OPBaseMain_feeRecipient;
         pauseGuardians.push(Const.OPBaseMain_deployerAcc);
 
         // @dev all pairs must be tested, so if this number is increased, test classes must be added
@@ -380,7 +381,7 @@ contract TWBTCUSDC_OPBaseSep_LoansForkTest is CBBTCUSDC_OPBaseMain_LoansForkTest
         owner = Const.OPBaseSep_owner;
 
         // config params
-        protocolFeeRecipient = Const.OPBaseSep_deployerAcc;
+        protocolFeeRecipient = Const.OPBaseSep_feeRecipient;
         delete pauseGuardians;
         pauseGuardians.push(Const.OPBaseSep_deployerAcc);
 

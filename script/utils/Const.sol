@@ -10,11 +10,12 @@ library Const {
     uint internal constant ArbiSep_chainId = 421_614;
 
     // accounts
-    // TODO: use different accounts for mainnet
-    address internal constant ArbiMain_owner = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
-    address internal constant ArbiMain_deployerAcc = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
+    address internal constant ArbiMain_owner = 0x064136F596D464650d599EF3B61c4f585f5fd438; // multisig
+    address internal constant ArbiMain_deployerAcc = 0x82269A25cfAceEDB88771A096e416E2Af646B3e2; // main-deployer
+    address internal constant ArbiMain_feeRecipient = 0x1980fB2f1e18E0CEc2219e3eda333b05fd92dA0d; // collarprotocol.eth
     address internal constant ArbiSep_owner = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
     address internal constant ArbiSep_deployerAcc = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
+    address internal constant ArbiSep_feeRecipient = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
 
     // uniswap
     address internal constant ArbiMain_UniRouter = 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45;
@@ -50,11 +51,12 @@ library Const {
     uint internal constant OPBaseSep_chainId = 84_532;
 
     // accounts
-    // TODO: use different accounts for mainnet
-    address internal constant OPBaseMain_owner = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
-    address internal constant OPBaseMain_deployerAcc = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
+    address internal constant OPBaseMain_owner = 0x064136F596D464650d599EF3B61c4f585f5fd438; // multisig
+    address internal constant OPBaseMain_deployerAcc = 0x82269A25cfAceEDB88771A096e416E2Af646B3e2; // main-deployer
+    address internal constant OPBaseMain_feeRecipient = 0x1980fB2f1e18E0CEc2219e3eda333b05fd92dA0d; // collarprotocol.eth
     address internal constant OPBaseSep_owner = 0x63cEcA915a23C3878b7c1a393F7676B4387C013f; // base sep safe multisig
     address internal constant OPBaseSep_deployerAcc = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
+    address internal constant OPBaseSep_feeRecipient = 0xCAB1dF186C386C2537d65484B3328383469cEbD8;
 
     // uniswap
     // https://docs.uniswap.org/contracts/v3/reference/deployments/base-deployments

@@ -21,7 +21,7 @@ library OPBaseMainnetDeployer {
             minLTV: 2500,
             maxLTV: 9500,
             feeAPR: 90,
-            feeRecipient: Const.OPBaseMain_deployerAcc,
+            feeRecipient: Const.OPBaseMain_feeRecipient,
             pauseGuardians: pauseGuardians
         });
     }
