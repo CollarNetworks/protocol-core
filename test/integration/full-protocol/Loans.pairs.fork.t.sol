@@ -11,6 +11,7 @@ import { DeployArbitrumMainnet } from "../../../script/deploy/DeployArbitrumMain
 import { DeployArbitrumSepolia } from "../../../script/deploy/DeployArbitrumSepolia.s.sol";
 import { DeployOPBaseMainnet } from "../../../script/deploy/DeployOPBaseMainnet.s.sol";
 import { DeployOPBaseSepolia } from "../../../script/deploy/DeployOPBaseSepolia.s.sol";
+import { AcceptOwnershipOPBaseSepolia } from "../../../script/deploy/AcceptOwnershipOPBaseSepolia.s.sol";
 
 abstract contract BaseAssetPairForkTest_ScriptTest is BaseAssetPairForkTest {
     string constant deploymentName = "collar_protocol_fork_deployment";
@@ -33,11 +34,6 @@ abstract contract BaseAssetPairForkTest_ScriptTest is BaseAssetPairForkTest {
         } else {
             (hub, pairs) = (result.configHub, result.assetPairContracts);
         }
-
-        // accept ownership from the intended owner
-        vm.startPrank(owner);
-        BaseDeployer.acceptOwnershipAsSender(owner, hub, pairs);
-        vm.stopPrank();
     }
 
     // abstract
@@ -65,6 +61,12 @@ contract WETHUSDC_ArbiMain_LoansForkTest is BaseAssetPairForkTest_ScriptTest {
         returns (BaseDeployer.DeploymentResult memory result)
     {
         result = (new DeployArbitrumMainnet()).run(deploymentName);
+
+        // TODO: replace with script when Safe is created
+        // accept ownership from the intended owner
+        vm.startPrank(owner);
+        BaseDeployer.acceptOwnershipAsSender(owner, result.configHub, result.assetPairContracts);
+        vm.stopPrank();
     }
 
     function _setTestValues() internal virtual override {
@@ -179,6 +181,12 @@ contract WETHUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
         returns (BaseDeployer.DeploymentResult memory result)
     {
         result = (new DeployArbitrumSepolia()).run(deploymentName);
+
+        // TODO: replace with script when Safe is created
+        // accept ownership from the intended owner
+        vm.startPrank(owner);
+        BaseDeployer.acceptOwnershipAsSender(owner, result.configHub, result.assetPairContracts);
+        vm.stopPrank();
     }
 }
 
@@ -265,6 +273,12 @@ contract WETHUSDC_OPBaseMain_LoansForkTest is BaseAssetPairForkTest_ScriptTest {
         returns (BaseDeployer.DeploymentResult memory result)
     {
         result = (new DeployOPBaseMainnet()).run(deploymentName);
+
+        // TODO: replace with script when Safe is created
+        // accept ownership from the intended owner
+        vm.startPrank(owner);
+        BaseDeployer.acceptOwnershipAsSender(owner, result.configHub, result.assetPairContracts);
+        vm.stopPrank();
     }
 
     function _setTestValues() internal virtual override {
@@ -354,7 +368,11 @@ contract TWBTCUSDC_OPBaseSep_LoansForkTest is CBBTCUSDC_OPBaseMain_LoansForkTest
         override
         returns (BaseDeployer.DeploymentResult memory result)
     {
+        // run the deployment and setup
         result = (new DeployOPBaseSepolia()).run(deploymentName);
+
+        // accept ownership of the new deployment from the owner (via broadcast instead of prank)
+        (new AcceptOwnershipOPBaseSepolia()).run(deploymentName);
     }
 
     function _setTestValues() internal virtual override {
@@ -385,21 +403,19 @@ contract TWBTCUSDC_OPBaseSep_LoansForkTest is CBBTCUSDC_OPBaseMain_LoansForkTest
     }
 }
 
+contract TWBTCUSDC_OPBaseSep_LoansForkTest_NoDeploy_LatestBlock is TWBTCUSDC_OPBaseSep_LoansForkTest {
+    function setupNewFork() internal override {
+        vm.createSelectFork(vm.envString("OPBASE_SEPOLIA_RPC"));
+    }
 
-// TODO: uncomment after ownersthip is accepted by the owner
-//contract TWBTCUSDC_OPBaseSep_LoansForkTest_NoDeploy_LatestBlock is TWBTCUSDC_OPBaseSep_LoansForkTest {
-//    function setupNewFork() internal override {
-//        vm.createSelectFork(vm.envString("OPBASE_SEPOLIA_RPC"));
-//    }
-//
-//    function getDeployedContracts()
-//    internal
-//    override
-//    returns (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs)
-//    {
-//        setupNewFork();
-//        return DeploymentArtifactsLib.loadHubAndAllPairs(vm, Const.OPBaseSep_artifactsName);
-//    }
-//}
+    function getDeployedContracts()
+        internal
+        override
+        returns (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs)
+    {
+        setupNewFork();
+        return DeploymentArtifactsLib.loadHubAndAllPairs(vm, Const.OPBaseSep_artifactsName);
+    }
+}
 
 // TODO: add more base-sep tests
