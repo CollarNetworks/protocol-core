@@ -22,7 +22,7 @@ library ArbitrumMainnetDeployer {
             minLTV: 2500,
             maxLTV: 9500,
             feeAPR: 90,
-            feeRecipient: Const.ArbiMain_deployerAcc,
+            feeRecipient: Const.ArbiMain_feeRecipient,
             pauseGuardians: pauseGuardians
         });
     }
