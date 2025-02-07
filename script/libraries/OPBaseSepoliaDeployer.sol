@@ -24,7 +24,7 @@ library OPBaseSepoliaDeployer {
             minLTV: 2500,
             maxLTV: 9900,
             feeAPR: 90,
-            feeRecipient: Const.OPBaseSep_deployerAcc,
+            feeRecipient: Const.OPBaseSep_feeRecipient,
             pauseGuardians: pauseGuardians
         });
     }
