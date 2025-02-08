@@ -22,7 +22,7 @@ abstract contract AssetDeployer is Script {
     uint24 feeTier;
     bool deployingCashAsset;
     address cashAsset;
-    address uniRouter;
+    address public uniRouter;
     address uniFactory;
     address uniPosMan;
 
@@ -276,11 +276,11 @@ contract DeployArbitrumSepoliaAssets is AssetDeployer {
         // assets
         assets.push(Asset("wBTC", 8));
 
-        uint wbtcUnits = 1000;
+        uint wbtcUnits = 10_000;
         // For WBTC/USDC: 100000 USDC per 1 WBTC
-        uint wbtcAmount = wbtcUnits * 1e8; // 1k WBTC
+        uint wbtcAmount = wbtcUnits * 1e8; // 10k WBTC
         uint wbtcUsdcRatio = 100_000 * 1e6;
-        uint wbtcUsdcAmount = wbtcUnits * wbtcUsdcRatio; // 1k * 100k  USDC
+        uint wbtcUsdcAmount = wbtcUnits * wbtcUsdcRatio; // 10k * 100k  USDC
 
         assetPairs.push(AssetPair("wBTC", "tUSDC", wbtcAmount, wbtcUsdcAmount, wbtcUsdcRatio));
     }
@@ -301,14 +301,14 @@ contract DeployOPBaseSepoliaAssets_WithCashAsset is AssetDeployer {
 
         // USDC (6 decimals), WETH (18 decimals), WBTC (8 decimals)
         assets.push(Asset("tUSDC", 6));
-        assets.push(Asset("tWETH", 18));
         assets.push(Asset("tWBTC", 8));
+        assets.push(Asset("tWETH", 18));
 
-        uint wbtcUnits = 1000;
+        uint wbtcUnits = 10_000;
         // For WBTC/USDC: 100000 USDC per 1 WBTC
-        uint wbtcAmount = wbtcUnits * 1e8; // 1k WBTC
+        uint wbtcAmount = wbtcUnits * 1e8; // 10k WBTC
         uint wbtcUsdcRatio = 100_000 * 1e6;
-        uint wbtcUsdcAmount = wbtcUnits * wbtcUsdcRatio; // 1k * 100k  USDC
+        uint wbtcUsdcAmount = wbtcUnits * wbtcUsdcRatio; // 10k * 100k  USDC
 
         uint wethUnits = 1e6;
         // For WETH/USDC: 3500 USDC per 1 WETH
