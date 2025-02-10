@@ -351,8 +351,7 @@ contract OPBaseMain_LoansForkTest_LatestBlock is WETHUSDC_OPBaseMain_LoansForkTe
 }
 
 //// OPBase sep
-
-contract TWBTCUSDC_OPBaseSep_LoansForkTest is CBBTCUSDC_OPBaseMain_LoansForkTest {
+contract TWETHTUSDC_OPBaseSep_LoansForkTest is WETHUSDC_OPBaseMain_LoansForkTest {
     function setupNewFork() internal virtual override {
         string memory rpc = vm.envString("OPBASE_SEPOLIA_RPC");
         // if we are in development we want to fix the block to reduce the time it takes to run the tests
@@ -389,6 +388,19 @@ contract TWBTCUSDC_OPBaseSep_LoansForkTest is CBBTCUSDC_OPBaseMain_LoansForkTest
         expectedNumPairs = 2;
 
         // set up all the variables for this pair
+        expectedPairIndex = 0;
+        underlying = Const.OPBaseSep_tWETH;
+        cashAsset = Const.OPBaseSep_tUSDC;
+        oracleDescription = "Comb(CL(TWAPMock(ETH / USD))|inv(CL(FixedMock(USDC / USD))))";
+
+        expectedOraclePrice = 3_500_000_000; // 3.5k in 1e6
+    }
+}
+
+contract TWBTCTUSDC_OPBaseSep_LoansForkTest is TWETHTUSDC_OPBaseSep_LoansForkTest {
+    function _setTestValues() internal virtual override {
+        super._setTestValues();
+        // set up all the variables for this pair
         expectedPairIndex = 1;
         underlying = Const.OPBaseSep_tWBTC;
         cashAsset = Const.OPBaseSep_tUSDC;
@@ -397,14 +409,11 @@ contract TWBTCUSDC_OPBaseSep_LoansForkTest is CBBTCUSDC_OPBaseMain_LoansForkTest
         underlyingAmount = 0.1e8;
         bigUnderlyingAmount = 100e8;
 
-        callstrikeToUse = 10_500;
-
-        // TODO: fix price when pool price is fixed
-        expectedOraclePrice = 10_000_000_000; // 100e8
+        expectedOraclePrice = 100_000_000_000; // 100k in 1e6
     }
 }
 
-contract TWBTCUSDC_OPBaseSep_LoansForkTest_NoDeploy_LatestBlock is TWBTCUSDC_OPBaseSep_LoansForkTest {
+contract TWETHTUSDC_OPBaseSep_LoansForkTest_NoDeploy_LatestBlock is TWETHTUSDC_OPBaseSep_LoansForkTest {
     function setupNewFork() internal override {
         vm.createSelectFork(vm.envString("OPBASE_SEPOLIA_RPC"));
     }
@@ -419,4 +428,17 @@ contract TWBTCUSDC_OPBaseSep_LoansForkTest_NoDeploy_LatestBlock is TWBTCUSDC_OPB
     }
 }
 
-// TODO: add more base-sep tests
+contract TWBTCTUSDC_OPBaseSep_LoansForkTest_NoDeploy_LatestBlock is TWBTCTUSDC_OPBaseSep_LoansForkTest {
+    function setupNewFork() internal override {
+        vm.createSelectFork(vm.envString("OPBASE_SEPOLIA_RPC"));
+    }
+
+    function getDeployedContracts()
+        internal
+        override
+        returns (ConfigHub hub, BaseDeployer.AssetPairContracts[] memory pairs)
+    {
+        setupNewFork();
+        return DeploymentArtifactsLib.loadHubAndAllPairs(vm, Const.OPBaseSep_artifactsName);
+    }
+}
