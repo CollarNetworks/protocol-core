@@ -71,7 +71,6 @@ abstract contract AssetDeployer is Script {
                 new CollarOwnedERC20(deployerAcc, asset.symbol, asset.symbol, asset.decimals);
             newAsset.mint(deployerAcc, INITIAL_MINT_AMOUNT);
             deployedAssets[asset.symbol] = address(newAsset);
-            console.log("Deployed", asset.symbol, "at", address(newAsset));
 
             // set cash asset if deploying it. Must be first asset
             if (deployingCashAsset && i == 0) {
@@ -87,60 +86,20 @@ abstract contract AssetDeployer is Script {
 
             require(cashAsset != address(0) && underlying != address(0), "Assets not deployed");
 
-            address poolAddress = createPool(cashAsset, underlying);
+            (address token0, address token1) =
+                (cashAsset > underlying) ? (underlying, cashAsset) : (cashAsset, underlying);
+            address poolAddress = IUniswapV3Factory(uniFactory).createPool(token0, token1, feeTier);
             console.log("Created pool for underlying ", underlying);
             console.log("Created pool at", poolAddress);
             initializePool(poolAddress, pair, deployerAcc);
 
             deployedPools[pair.underlyingSymbol][pair.cashSymbol] = poolAddress;
 
-            uint poolCashAssetBalance = IERC20(cashAsset).balanceOf(poolAddress);
-            uint poolunderlyingBalance = IERC20(underlying).balanceOf(poolAddress);
+            console.log("pool cash balance ", IERC20(cashAsset).balanceOf(poolAddress));
+            console.log("pool collateral balance ", IERC20(underlying).balanceOf(poolAddress));
             (uint160 sqrtPriceX96,,,,,,) = IUniswapV3Pool(poolAddress).slot0();
-            console.log("pool cash balance ", poolCashAssetBalance);
-            console.log("pool collateral balance ", poolunderlyingBalance);
             console.log("pool sqrtPriceX96 ", sqrtPriceX96);
-
-            // make a small swap to check amounts
-            CollarOwnedERC20 underlyingToken = CollarOwnedERC20(deployedAssets[pair.underlyingSymbol]);
-            uint amountIn = 10 ** underlyingToken.decimals();
-            // Approve the router to spend tokens
-            underlyingToken.approve(uniRouter, amountIn);
-
-            // Prepare the parameters for the swap
-            IV3SwapRouter.ExactInputSingleParams memory params = IV3SwapRouter.ExactInputSingleParams({
-                tokenIn: underlying,
-                tokenOut: cashAsset,
-                fee: feeTier,
-                recipient: deployerAcc,
-                amountIn: amountIn,
-                amountOutMinimum: 0,
-                sqrtPriceLimitX96: 0
-            });
-
-            // Execute the swap
-            uint amountOut = IV3SwapRouter(uniRouter).exactInputSingle(params);
-            console.log("amount in ", amountIn);
-            console.log("Amount out", amountOut);
         }
-    }
-
-    function sortTokens(address tokenA, address tokenB)
-        internal
-        pure
-        returns (address token0, address token1)
-    {
-        if (tokenA > tokenB) {
-            (token0, token1) = (tokenB, tokenA);
-        } else {
-            (token0, token1) = (tokenA, tokenB);
-        }
-        require(token0 != address(0), "ZERO_ADDRESS");
-    }
-
-    function createPool(address tokenA, address tokenB) internal returns (address) {
-        (address token0, address token1) = sortTokens(tokenA, tokenB);
-        return IUniswapV3Factory(uniFactory).createPool(token0, token1, feeTier);
     }
 
     /**
@@ -152,32 +111,6 @@ abstract contract AssetDeployer is Script {
      */
     function getSqrtPriceX96ForPriceRatio(uint amount0, uint amount1) internal pure returns (uint160) {
         return uint160(Math.sqrt((amount1 << 192) / amount0));
-    }
-
-    // stack too deep
-    function _handleInitialSetup(AssetPair memory pair, address deployer) internal {
-        CollarOwnedERC20 underlying = CollarOwnedERC20(deployedAssets[pair.underlyingSymbol]);
-        underlying.mint(deployer, pair.amountUnderlyingDesired);
-        underlying.approve(uniPosMan, type(uint).max);
-        CollarOwnedERC20(cashAsset).approve(uniPosMan, type(uint).max);
-    }
-
-    // stack too deep
-    function _getTokensAndInitPool(address poolAddress, AssetPair memory pair)
-        internal
-        returns (address token0, address token1)
-    {
-        token0 = IUniswapV3Pool(poolAddress).token0();
-        token1 = IUniswapV3Pool(poolAddress).token1();
-
-        CollarOwnedERC20 underlying = CollarOwnedERC20(deployedAssets[pair.underlyingSymbol]);
-
-        (uint baseAmount0, uint baseAmount1) = token0 == address(underlying)
-            ? (10 ** IERC20Metadata(token0).decimals(), pair.priceRatio)
-            : (pair.priceRatio, 10 ** IERC20Metadata(token1).decimals());
-
-        uint160 sqrtPriceX96 = getSqrtPriceX96ForPriceRatio(baseAmount0, baseAmount1);
-        IUniswapV3Pool(poolAddress).initialize(sqrtPriceX96);
     }
 
     // stack too deep
@@ -227,13 +160,26 @@ abstract contract AssetDeployer is Script {
 
     function initializePool(address poolAddress, AssetPair memory pair, address deployer) internal {
         // Initial minting and approvals
-        _handleInitialSetup(pair, deployer);
+        CollarOwnedERC20 underlying = CollarOwnedERC20(deployedAssets[pair.underlyingSymbol]);
+        underlying.mint(deployer, pair.amountUnderlyingDesired);
+        underlying.approve(uniPosMan, type(uint).max);
+        CollarOwnedERC20(cashAsset).approve(uniPosMan, type(uint).max);
+
         // Get token ordering and initialize pool
-        (address token0, address token1) = _getTokensAndInitPool(poolAddress, pair);
+        address token0 = IUniswapV3Pool(poolAddress).token0();
+        address token1 = IUniswapV3Pool(poolAddress).token1();
+
+        (uint baseAmount0, uint baseAmount1) = token0 == address(underlying)
+            ? (10 ** IERC20Metadata(token0).decimals(), pair.priceRatio)
+            : (pair.priceRatio, 10 ** IERC20Metadata(token1).decimals());
+
+        uint160 sqrtPriceX96 = getSqrtPriceX96ForPriceRatio(baseAmount0, baseAmount1);
+        IUniswapV3Pool(poolAddress).initialize(sqrtPriceX96);
 
         (uint amount0Desired, uint amount1Desired) = token0 == address(deployedAssets[pair.underlyingSymbol])
             ? (pair.amountUnderlyingDesired, pair.amountCashDesired)
             : (pair.amountCashDesired, pair.amountUnderlyingDesired);
+
         // Create and execute mint params
         _mintPosition(poolAddress, token0, token1, amount0Desired, amount1Desired, deployer);
     }
@@ -250,10 +196,6 @@ abstract contract AssetDeployer is Script {
             console.log("AssetPair", pair.underlyingSymbol, ",", pair.cashSymbol);
             console.log(deployedAssets[pair.underlyingSymbol], ", ", cashAsset);
         }
-    }
-
-    function encodePriceToSqrtPriceX96(uint price) private pure returns (uint160) {
-        return uint160(Math.sqrt((price << 192) / 1e16)); // this value to be adjusted depending on the pair and arbitrary testing
     }
 }
 

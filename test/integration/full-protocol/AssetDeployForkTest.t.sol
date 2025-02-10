@@ -119,14 +119,14 @@ contract AssetDeployForkTest is BaseAssetPairForkTest {
         );
         mockBTCUSDFeed.increaseCardinality(300);
         BaseDeployer.ChainlinkFeed memory feedBTC_USD =
-                            BaseDeployer.ChainlinkFeed(address(mockBTCUSDFeed), "TWAPMock(tWBTC / USD)", 120, 8, 30);
+            BaseDeployer.ChainlinkFeed(address(mockBTCUSDFeed), "TWAPMock(tWBTC / USD)", 120, 8, 30);
         oracle = BaseDeployer.deployChainlinkOracle(underlying, Const.VIRTUAL_ASSET, feedBTC_USD, address(0));
     }
 
     function deployMockOracleUSDCUSD() internal returns (BaseTakerOracle oracle) {
         FixedMockChainlinkFeed mockUsdcUsdFeed = new FixedMockChainlinkFeed(USDSTABLEPRICE, 8, "tUSDC / USD");
         BaseDeployer.ChainlinkFeed memory feedUSDC_USD =
-                            BaseDeployer.ChainlinkFeed(address(mockUsdcUsdFeed), "FixedMock(tUSDC / USD)", 86_400, 8, 30);
+            BaseDeployer.ChainlinkFeed(address(mockUsdcUsdFeed), "FixedMock(tUSDC / USD)", 86_400, 8, 30);
         oracle = BaseDeployer.deployChainlinkOracle(cashAsset, Const.VIRTUAL_ASSET, feedUSDC_USD, address(0));
     }
 
