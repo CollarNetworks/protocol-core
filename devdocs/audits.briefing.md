@@ -30,19 +30,19 @@ SUM:                                          443           1442           1548
 - (for checklist use: check changes to https://github.com/d-xo/weird-erc20)
 
 ## Deployment Destinations
-Arbitrum only initially. OP stack rollups (Optimism, Base) in the future.
+Base and Arbitrum initially.
 
 ## Other Documentation
 - Solidity files comments contain the most up to date documentation 
 - Some diagrams for high level overview: [diagrams.md](diagrams.md) 
-- General protocol / mechanism docs (outdated): https://docs.collarprotocol.xyz/
+- General protocol / mechanism docs (outdated!): https://docs.collarprotocol.xyz/
 
 ## Known Issues
 - Providers offers do not limit execution price (only strike percentages), nor have deadlines, and are expected to be actively managed.
 - No refund of protocol fee for position cancellations / rolls. Fee APR and roll frequency are assumed to be low, and rolls are assumed to be beneficial enough to users to be worth it. Accepted as low risk economic issue.
 - Because oracle prices undergo multiple conversions (feeds, tokens units), asset and price feed combinations w.r.t to decimals and price ranges (e.g., low price tokens) are assumed to be checked to allow sufficient precision.
 - In case of congestion, calls for `openPairedPosition` (`openLoan` that uses it), and rolls `executeRoll` can be executed at higher price than the user intended (if price is lower, `openLoan` and `executeRoll` have slippage protection, and `openPairedPosition` has better upside for the caller). This is accepted as low likelihood, and low impact: loss is small since short congestion will result in small price change vs. original intent, and long downtime may fail the oracle sequencer uptime check.
-- Issues and considerations explained in the Solidity comments and audit report.
+- Issues and considerations explained in the Solidity comments and audit reports.
  
 ## Commonly Noted Non-issues (unless we're wrong, and they are)
 - If deploying on a chain which can re-org, theoretically a re-org can allow an offer to be substituted by another. We see such a scenario as an extremely unlikely coincidence of implausibilities.
@@ -51,12 +51,20 @@ Arbitrum only initially. OP stack rollups (Optimism, Base) in the future.
 
 ## Prior Audits
 - [Cantina solo review Oct-2024 report](../audits/2024-oct-cantinacode-solo-1.pdf)
-- Cantina contest (findings to be made available after contest is finished)
+- [Cantina contest](../audits/2024-dec-cantina-competition.pdf)
 - [Spearbit review Jan-2024 report](../audits/report-spearbit-collar-protocol-1226.pdf)
 
 ## Non obvious parameter ranges
 - `minDuration` is at least 1 month.
 - `maxLTV` is reasonably far from 99.99% 
+
+## Owner privileges (for ownable contracts)
+- Can rescue tokens using `rescueTokens` **except** for the main asset of each contract: cannot rescue the cash asset from providerNFT or takerNFT, cannot rescue underlying from escrowNFT, cannot rescue takerNFT from loansNFT. Any asset can be rescued from Rolls.
+- Can pause and unpause all non-NFT user methods, including withdrawals, on each contract separately.
+- Can update the oracle address on the takerNFT.
+- Can update the loansNFT closing keeper address and allowed swappers.
+- Can update the values set in ConfigHub and replace the ConfigHub contract that's being used. This includes LTV range, durations range, protocol fee parameters, pause guardian addresses.
+- Can set what internal contracts are allowed to open positions (primarily via the ConfigHub).
 
 ## Testing and POC
 - Install run tests excluding fork tests: `forge install && forge build && forge test --nmc Fork`
