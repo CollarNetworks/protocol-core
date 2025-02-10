@@ -192,11 +192,8 @@ abstract contract AssetDeployer is Script {
         (, int24 currentTick,,,,,) = IUniswapV3Pool(poolAddress).slot0();
         int24 tickSpacing = IUniswapV3Pool(poolAddress).tickSpacing();
 
-        /**
-         * The tickSpacing field determines the granularity of price ranges that can be used for liquidity provision.
-         * using tick spacing 10 as referenced from uniswap as the value for pools with fee 500
-         * https://docs.uniswap.org/contracts/v4/quickstart/create-pool#1-configure-the-pool
-         */
+        // provide in 10 bins (initialiazed ticks) up and down from the current tick
+        // `/ tickSpacing * tickSpacing` aligns to the allowed ticks for this fee tier
         int24 tickLower = (currentTick - tickSpacing * 10) / tickSpacing * tickSpacing;
         int24 tickUpper = (currentTick + tickSpacing * 10) / tickSpacing * tickSpacing;
 
