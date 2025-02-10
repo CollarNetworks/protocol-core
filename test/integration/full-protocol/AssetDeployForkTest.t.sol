@@ -19,21 +19,31 @@ import { DeployOPBaseSepoliaAssets_WithCashAsset } from "../../../script/deploy/
 contract AssetDeployForkTest is BaseAssetPairForkTest {
     int constant USDSTABLEPRICE = 100_000_000;
 
-    function deployMockOracleBTCUSD() internal returns (BaseTakerOracle oracle) {
-        TWAPMockChainlinkFeed mockBTCUSDFeed = new TWAPMockChainlinkFeed(
-            underlying, cashAsset, 500, Const.OPBaseSep_UniRouter, 8, "tWBTC / USD", 18
-        );
-        mockBTCUSDFeed.increaseCardinality(300);
-        BaseDeployer.ChainlinkFeed memory feedBTC_USD =
-            BaseDeployer.ChainlinkFeed(address(mockBTCUSDFeed), "TWAPMock(tWBTC / USD)", 120, 8, 30);
-        oracle = BaseDeployer.deployChainlinkOracle(underlying, Const.VIRTUAL_ASSET, feedBTC_USD, address(0));
+    function setupNewFork() internal {
+        vm.createSelectFork(vm.envString("OPBASE_SEPOLIA_RPC"));
     }
 
-    function deployMockOracleUSDCUSD() internal returns (BaseTakerOracle oracle) {
-        FixedMockChainlinkFeed mockUsdcUsdFeed = new FixedMockChainlinkFeed(USDSTABLEPRICE, 8, "tUSDC / USD");
-        BaseDeployer.ChainlinkFeed memory feedUSDC_USD =
-            BaseDeployer.ChainlinkFeed(address(mockUsdcUsdFeed), "FixedMock(tUSDC / USD)", 86_400, 8, 30);
-        oracle = BaseDeployer.deployChainlinkOracle(cashAsset, Const.VIRTUAL_ASSET, feedUSDC_USD, address(0));
+    function _setTestValues() internal override {
+        protocolFeeRecipient = Const.OPBaseSep_feeRecipient;
+        pauseGuardians.push(Const.OPBaseSep_deployerAcc);
+
+        expectedNumPairs = 1;
+        expectedPairIndex = 0;
+        oracleDescription = "Comb(CL(TWAPMock(tWBTC / USD))|inv(CL(FixedMock(tUSDC / USD))))";
+
+        offerAmount = 100_000e6;
+        underlyingAmount = 0.1e8;
+        minLoanAmount = 0.3e6;
+        rollFee = 100e6;
+        rollDeltaFactor = 10_000;
+        bigCashAmount = 1_000_000e6;
+        bigUnderlyingAmount = 100e8;
+        swapPoolFeeTier = 500;
+        protocolFeeAPR = 90;
+
+        slippage = 100;
+        callstrikeToUse = 10_500;
+        expectedOraclePrice = 100_000_000_000; // 100k 1e6
     }
 
     function getDeployedContracts()
@@ -103,32 +113,24 @@ contract AssetDeployForkTest is BaseAssetPairForkTest {
         vm.stopPrank();
     }
 
-    function setupNewFork() internal {
-        vm.createSelectFork(vm.envString("OPBASE_SEPOLIA_RPC"));
+    function deployMockOracleBTCUSD() internal returns (BaseTakerOracle oracle) {
+        TWAPMockChainlinkFeed mockBTCUSDFeed = new TWAPMockChainlinkFeed(
+            underlying, cashAsset, 500, Const.OPBaseSep_UniRouter, 8, "tWBTC / USD", 18
+        );
+        mockBTCUSDFeed.increaseCardinality(300);
+        BaseDeployer.ChainlinkFeed memory feedBTC_USD =
+                            BaseDeployer.ChainlinkFeed(address(mockBTCUSDFeed), "TWAPMock(tWBTC / USD)", 120, 8, 30);
+        oracle = BaseDeployer.deployChainlinkOracle(underlying, Const.VIRTUAL_ASSET, feedBTC_USD, address(0));
     }
 
-    function _setTestValues() internal override {
-        protocolFeeRecipient = Const.OPBaseSep_feeRecipient;
-        pauseGuardians.push(Const.OPBaseSep_deployerAcc);
-
-        expectedNumPairs = 1;
-        expectedPairIndex = 0;
-        oracleDescription = "Comb(CL(TWAPMock(tWBTC / USD))|inv(CL(FixedMock(tUSDC / USD))))";
-
-        offerAmount = 100_000e6;
-        underlyingAmount = 0.1e8;
-        minLoanAmount = 0.3e6;
-        rollFee = 100e6;
-        rollDeltaFactor = 10_000;
-        bigCashAmount = 1_000_000e6;
-        bigUnderlyingAmount = 100e8;
-        swapPoolFeeTier = 500;
-        protocolFeeAPR = 90;
-
-        slippage = 100;
-        callstrikeToUse = 10_500;
-        expectedOraclePrice = 100_000_000_000; // 100k 1e6
+    function deployMockOracleUSDCUSD() internal returns (BaseTakerOracle oracle) {
+        FixedMockChainlinkFeed mockUsdcUsdFeed = new FixedMockChainlinkFeed(USDSTABLEPRICE, 8, "tUSDC / USD");
+        BaseDeployer.ChainlinkFeed memory feedUSDC_USD =
+                            BaseDeployer.ChainlinkFeed(address(mockUsdcUsdFeed), "FixedMock(tUSDC / USD)", 86_400, 8, 30);
+        oracle = BaseDeployer.deployChainlinkOracle(cashAsset, Const.VIRTUAL_ASSET, feedUSDC_USD, address(0));
     }
+
+    // added tests
 
     function testSwapRatio() public {
         // 1 unit of underlying
