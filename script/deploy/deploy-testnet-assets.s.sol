@@ -22,7 +22,7 @@ abstract contract AssetDeployer is Script {
     uint24 feeTier;
     bool deployingCashAsset;
     address cashAsset;
-    address public uniRouter;
+    address uniRouter;
     address uniFactory;
     address uniPosMan;
 
