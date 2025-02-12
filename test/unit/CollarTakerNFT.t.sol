@@ -12,7 +12,7 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import { BaseAssetPairTestSetup, BaseTakerOracle } from "./BaseAssetPairTestSetup.sol";
 
-import { CollarTakerNFT, ICollarTakerNFT } from "../../src/CollarTakerNFT.sol";
+import { CollarTakerNFT, ICollarTakerNFT, ReentrancyGuard } from "../../src/CollarTakerNFT.sol";
 import { ICollarTakerNFT } from "../../src/interfaces/ICollarTakerNFT.sol";
 import { CollarProviderNFT } from "../../src/CollarProviderNFT.sol";
 import { ICollarProviderNFT } from "../../src/interfaces/ICollarProviderNFT.sol";
@@ -410,6 +410,57 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
     }
 
+    function test_nonReentrant_methods() public {
+        createOffer();
+        vm.startPrank(user1);
+        bytes memory reentrantRevert =
+            abi.encodeWithSelector(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
+
+        // set up reentrancy
+        ReentrantAttacker attacker = new ReentrantAttacker();
+        cashAsset.setAttacker(address(attacker));
+
+        // attack open open
+        attacker.setCall(address(takerNFT), abi.encodeCall(takerNFT.openPairedPosition, (0, providerNFT, 0)));
+        vm.expectRevert(reentrantRevert);
+        takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
+
+        // attack open settle
+        attacker.setCall(address(takerNFT), abi.encodeCall(takerNFT.settlePairedPosition, (0)));
+        vm.expectRevert(reentrantRevert);
+        takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
+
+        // attack open cancel
+        attacker.setCall(address(takerNFT), abi.encodeCall(takerNFT.cancelPairedPosition, (0)));
+        vm.expectRevert(reentrantRevert);
+        takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
+
+        // attack open withdraw
+        attacker.setCall(address(takerNFT), abi.encodeCall(takerNFT.withdrawFromSettled, (0)));
+        vm.expectRevert(reentrantRevert);
+        takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
+
+        // below cases use settle entry point, but are mostly redundant since removing
+        // nonReentrant from any of the methods would fail one of the above cases
+
+        // open position
+        cashAsset.setAttacker(address(0));
+        cashAsset.approve(address(takerNFT), takerLocked);
+        (uint takerId,) = takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
+        skip(duration);
+        cashAsset.setAttacker(address(attacker));
+
+        // attack settle open
+        attacker.setCall(address(takerNFT), abi.encodeCall(takerNFT.openPairedPosition, (0, providerNFT, 0)));
+        vm.expectRevert(reentrantRevert);
+        takerNFT.settlePairedPosition(takerId);
+
+        // attack settle settle
+        attacker.setCall(address(takerNFT), abi.encodeCall(takerNFT.settlePairedPosition, (0)));
+        vm.expectRevert(reentrantRevert);
+        takerNFT.settlePairedPosition(takerId);
+    }
+
     function test_openPairedPosition_providerConfigMismatch() public {
         createOffer();
 
@@ -778,5 +829,25 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         vm.expectRevert("mocked");
         takerNFT.setOracle(newOracle);
         vm.clearMockedCalls();
+    }
+}
+
+contract ReentrantAttacker {
+    address public to;
+    bytes public data;
+
+    function setCall(address _to, bytes memory _data) external {
+        to = _to;
+        data = _data;
+    }
+
+    fallback() external {
+        (bool success, bytes memory retdata) = to.call(data);
+        // bubble up the revert reason
+        if (!success) {
+            assembly {
+                revert(add(retdata, 0x20), mload(retdata))
+            }
+        }
     }
 }

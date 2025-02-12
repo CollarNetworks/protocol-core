@@ -2,6 +2,7 @@
 pragma solidity 0.8.22;
 
 import { SafeCast } from "@openzeppelin/contracts/utils/math/SafeCast.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import { ConfigHub, BaseNFT, CollarProviderNFT, Math, IERC20, SafeERC20 } from "./CollarProviderNFT.sol";
 import { ITakerOracle } from "./interfaces/ITakerOracle.sol";
@@ -30,6 +31,8 @@ import { ICollarProviderNFT } from "./interfaces/ICollarProviderNFT.sol";
  * 3. The ConfigHub contract correctly manages protocol parameters and authorization.
  * 4. Asset (ERC-20) contracts are simple, non rebasing, do not allow reentrancy, balance changes
  *    correspond to transfer arguments.
+ * 5. nonReentrant is used on all balance changing methods to prevent a malicious ProviderNFT
+ *    from fooling balance checks.
  *
  * Post-Deployment Configuration:
  * - Oracle: If using Uniswap ensure adequate observation cardinality, if using Chainlink ensure correct config.
@@ -37,7 +40,7 @@ import { ICollarProviderNFT } from "./interfaces/ICollarProviderNFT.sol";
  * - ConfigHub: Set setCanOpenPair() to authorize the provider contract
  * - CollarProviderNFT: Ensure properly configured
  */
-contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
+contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using SafeCast for uint;
 
@@ -166,6 +169,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     function openPairedPosition(uint takerLocked, CollarProviderNFT providerNFT, uint offerId)
         external
         whenNotPaused
+        nonReentrant
         returns (uint takerId, uint providerId)
     {
         // check asset & self allowed
@@ -231,7 +235,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
      * one side is not (e.g., due to being at max loss). For this reason a keeper should be run to
      * prevent users with gains from not settling their positions on time.
      */
-    function settlePairedPosition(uint takerId) external whenNotPaused {
+    function settlePairedPosition(uint takerId) external whenNotPaused nonReentrant {
         // @dev this checks position exists
         TakerPosition memory position = getPosition(takerId);
 
@@ -266,7 +270,12 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
     /// @notice Withdraws funds from a settled position. Burns the NFT.
     /// @param takerId The ID of the settled position to withdraw from (NFT token ID).
     /// @return withdrawal The amount of cash asset withdrawn
-    function withdrawFromSettled(uint takerId) external whenNotPaused returns (uint withdrawal) {
+    function withdrawFromSettled(uint takerId)
+        external
+        whenNotPaused
+        nonReentrant
+        returns (uint withdrawal)
+    {
         require(msg.sender == ownerOf(takerId), "taker: not position owner");
 
         TakerPosition memory position = getPosition(takerId);
@@ -289,7 +298,12 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT {
      * @param takerId The ID of the taker position to cancel
      * @return withdrawal The amount of funds withdrawn from both positions together
      */
-    function cancelPairedPosition(uint takerId) external whenNotPaused returns (uint withdrawal) {
+    function cancelPairedPosition(uint takerId)
+        external
+        whenNotPaused
+        nonReentrant
+        returns (uint withdrawal)
+    {
         TakerPosition memory position = getPosition(takerId);
         (CollarProviderNFT providerNFT, uint providerId) = (position.providerNFT, position.providerId);
 
