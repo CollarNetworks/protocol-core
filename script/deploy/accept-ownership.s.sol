@@ -13,15 +13,11 @@ import { Const } from "../utils/Const.sol";
  * - Simulating the above step in fork tests.
  *
  * To create the Safe batch using this:
- *     1. Run the script as dry-run (i.e. without --broadcast)
- *     2. Use the script output JSON (saved in ./broadcast/<script-name> and run jq transform:
- *         ```
- *         jq -f script/utils/safe-batch-from-broadcast.jq \
- *             broadcast/<script-name>/<chain-id>/dry-run/run-latest.json \
- *             | tee temp-safe-batch.json
- *         ```
- *     3. Load `temp-safe-batch.json` in Safe > Transaction Builder > choose a file
- *     4. Verify, simulate, inspect tenderly, create, inspect, and submit for signers to verify.
+ * 1. Run the script as dry-run (i.e. without --broadcast)
+ * 2. Run jq transform on the script's output JSON ("Transactions saved to: .."):
+ *    `jq -f script/utils/safe-batch-from-broadcast.jq <sim-JSON> | tee temp-safe-batch.json'
+ * 3. Load `temp-safe-batch.json` in Safe > Transaction Builder > choose a file
+ * 4. Verify, simulate, inspect tenderly, create, inspect, and submit for signers to verify.
  */
 abstract contract AcceptOwnershipScript is Script {
     address public owner;
