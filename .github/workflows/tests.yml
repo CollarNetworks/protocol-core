@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  FOUNDRY_PROFILE: ci
+  FOUNDRY_PROFILE: default
   POLYGON_MAINNET_RPC: ${{ secrets.POLYGON_MAINNET_RPC }}
   ETHEREUM_MAINNET_RPC: ${{ secrets.ETHEREUM_MAINNET_RPC }}
   ARBITRUM_MAINNET_RPC: ${{ secrets.ARBITRUM_MAINNET_RPC }}
