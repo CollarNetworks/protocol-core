@@ -11,13 +11,13 @@ CONTRACT_ADDRESS=$2
 CONTRACT_NAME=$(basename "$3" .sol)
 LOCAL_CONTRACT_PATH="$3"
 
-# Create temp files with contract info in names
+# Temp files
 TEMP_DIR=$(mktemp -d)
 ETHERSCAN_FLAT="${TEMP_DIR}/${CONTRACT_NAME}-${CONTRACT_ADDRESS}-etherscan.sol"
 LOCAL_FLAT="${TEMP_DIR}/${CONTRACT_NAME}-${CONTRACT_ADDRESS}-local.sol"
 DIFF_OUTPUT="${TEMP_DIR}/${CONTRACT_NAME}-${CONTRACT_ADDRESS}-diff.txt"
 
-# Fetch and flatten contracts
+# Get the local and verified code
 forge flatten "$LOCAL_CONTRACT_PATH" > "$LOCAL_FLAT"
 cast source --flatten "$CONTRACT_ADDRESS" -c "$CHAIN_ID" > "$ETHERSCAN_FLAT"
 

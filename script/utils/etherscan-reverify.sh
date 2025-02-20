@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Usage:
-# - use this if some contracts eneded up not verified after broadcast
+# - use this if some contracts ended up not verified after broadcast
 # - ensure etherscan API and env vars are properly defined in foundry.toml and .env
 # - can be run any number of times, verified contracts will be skipped by forge
 

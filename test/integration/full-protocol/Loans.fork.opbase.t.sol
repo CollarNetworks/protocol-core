@@ -25,7 +25,7 @@ abstract contract BaseAssetPairForkTest_ScriptTest is BaseAssetPairForkTest {
     }
 
     TestMode testMode = TestMode.deploySaveLoad;
-    bool forceLatestBlock = false; // use latest block always
+    bool forceLatestBlock = false; // whether to use latest regardless of env flags
 
     string RPCEnvVarsBase; // eg OPBASE_MAINNET
     string realArtifactsName; // needed for noDeploy mode
