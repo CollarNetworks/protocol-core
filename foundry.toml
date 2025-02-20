@@ -29,4 +29,6 @@ runs= 500
 [etherscan]
 #                   Paste TENDERLY_ACCESS_KEY    Chain ID        Verifier URL: ${TENDERLY_VIRTUAL_TESTNET_RPC}verify/etherscan
 arbitrum-sepolia = { key = "${ARBITRUM_ETHERSCAN_API_KEY}",chain=421_614 , url = "https://api-sepolia.arbiscan.io/api" }
+arbitrum = { key = "${ARBITRUM_ETHERSCAN_API_KEY}",chain=42_161 , url = "https://api.arbiscan.io/api" }
 base-sepolia = { key = "${OPBASE_ETHERSCAN_API_KEY}",chain=84_532 , url = "https://api-sepolia.basescan.org/api" }
+base = { key = "${OPBASE_ETHERSCAN_API_KEY}",chain=84_53 , url = "https://api.basescan.org/api" }
