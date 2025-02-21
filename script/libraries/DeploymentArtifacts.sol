@@ -9,19 +9,16 @@ import { LoansNFT } from "../../src/LoansNFT.sol";
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { Rolls } from "../../src/Rolls.sol";
 import { EscrowSupplierNFT } from "../../src/EscrowSupplierNFT.sol";
-import { BaseDeployer, BaseTakerOracle } from "../BaseDeployer.sol";
+import { BaseDeployer, BaseTakerOracle } from "../libraries/BaseDeployer.sol";
 import { SwapperUniV3 } from "../../src/SwapperUniV3.sol";
 
 library DeploymentArtifactsLib {
     uint8 constant ADDRESS_LENGTH = 42; // 20 raw bytes * 2 hex chars per byte + 2 for 0x prefix
 
-    function exportDeployment(
-        Vm vm,
-        string memory name,
-        ConfigHub configHub,
-        BaseDeployer.AssetPairContracts[] memory assetPairs
-    ) internal {
-        string memory json = constructJson(vm, configHub, assetPairs);
+    function exportDeployment(Vm vm, string memory name, BaseDeployer.DeploymentResult memory result)
+        internal
+    {
+        string memory json = constructJson(vm, result.configHub, result.assetPairContracts);
         writeJsonToFile(vm, name, json);
     }
 

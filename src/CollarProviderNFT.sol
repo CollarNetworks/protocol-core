@@ -46,6 +46,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     uint public constant MIN_CALL_STRIKE_BIPS = BIPS_BASE + 1; // 1 more than 1x
     uint public constant MAX_CALL_STRIKE_BIPS = 10 * BIPS_BASE; // 10x or 1000%
     uint public constant MAX_PUT_STRIKE_BIPS = BIPS_BASE - 1; // 1 less than 1x
+    uint public constant MAX_PROTOCOL_FEE_BIPS = BIPS_BASE / 100; // 1%
 
     string public constant VERSION = "0.2.0";
 
@@ -71,7 +72,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         address _taker,
         string memory _name,
         string memory _symbol
-    ) BaseNFT(initialOwner, _name, _symbol, _configHub) {
+    ) BaseNFT(initialOwner, _name, _symbol, _configHub, address(_cashAsset)) {
         cashAsset = _cashAsset;
         underlying = _underlying;
         taker = _taker;
@@ -129,11 +130,11 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// @dev fee is set to 0 if recipient is zero because no transfer will be done
     function protocolFee(uint providerLocked, uint duration) public view returns (uint fee, address to) {
         to = configHub.feeRecipient();
+        uint apr = configHub.protocolFeeAPR();
+        require(apr <= MAX_PROTOCOL_FEE_BIPS, "provider: protocol fee APR too high");
         // prevents non-zero fee to zero-recipient.
-        fee = to == address(0)
-            ? 0
-            // rounds up to prevent avoiding fee using many small positions.
-            : Math.ceilDiv(providerLocked * configHub.protocolFeeAPR() * duration, BIPS_BASE * YEAR);
+        // rounds up to prevent avoiding fee using many small positions.
+        fee = to == address(0) ? 0 : Math.ceilDiv(providerLocked * apr * duration, BIPS_BASE * YEAR);
     }
 
     // ----- MUTATIVE ----- //

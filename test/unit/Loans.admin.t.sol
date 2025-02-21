@@ -119,10 +119,6 @@ contract LoansAdminTest is LoansTestBase {
 
         vm.expectRevert(Pausable.EnforcedPause.selector);
         loans.unwrapAndCancelLoan(loanId);
-
-        // transfers are paused
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.transferFrom(user1, provider, loanId);
     }
 
     function test_unpause() public {

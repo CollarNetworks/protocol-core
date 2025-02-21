@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 
-import { Const } from "../../script/Const.sol";
+import { Const } from "../../script/utils/Const.sol";
 
 import { ChainlinkOracle, IERC20Metadata, IChainlinkFeedLike } from "../../src/ChainlinkOracle.sol";
 import { CombinedOracle } from "../../src/CombinedOracle.sol";
@@ -20,6 +20,7 @@ contract CombinedOracle_ArbiMain_WETHUSDC_ForkTest is Test {
     uint sequencerGracePeriod = 3600;
     address sequencerFeed;
     bool sequencerFeedExists;
+    uint expectedSequencerStartedAt;
 
     // setup for particular test class
     address comboBaseToken;
@@ -74,6 +75,7 @@ contract CombinedOracle_ArbiMain_WETHUSDC_ForkTest is Test {
     function _config() internal virtual {
         sequencerFeedExists = true;
         sequencerFeed = Const.ArbiMain_SeqFeed;
+        expectedSequencerStartedAt = 1_713_187_535;
 
         baseToken1 = Const.ArbiMain_WETH;
         quoteToken1 = VIRTUAL_ASSET; // USD_18
@@ -158,12 +160,11 @@ contract CombinedOracle_ArbiMain_WETHUSDC_ForkTest is Test {
             // check feed
             (, int answer, uint startedAt,,) = oracle_1.sequencerChainlinkFeed().latestRoundData();
             assertEq(answer, 0);
-            uint32 expectedStartedAt = 1_713_187_535;
-            assertEq(startedAt, expectedStartedAt);
+            assertEq(startedAt, expectedSequencerStartedAt);
 
             // check view
-            assertTrue(oracle_1.sequencerLiveFor(block.timestamp - expectedStartedAt));
-            assertFalse(oracle_1.sequencerLiveFor(block.timestamp - expectedStartedAt + 1));
+            assertTrue(oracle_1.sequencerLiveFor(block.timestamp - expectedSequencerStartedAt));
+            assertFalse(oracle_1.sequencerLiveFor(block.timestamp - expectedSequencerStartedAt + 1));
 
             // price works
             assertNotEq(oracle_1.currentPrice(), 0);
@@ -252,5 +253,78 @@ contract CombinedOracle_ArbiSepolia_WBTCUSDC_ForkTest is CombinedOracle_ArbiMain
 
         expectedComboPrice = 59_398_029_800; // 59000 * 1e6 (USDC decimals)
         expectedComboInverse = 1683;
+    }
+}
+
+contract CombinedOracle_OPBaseMain_WETHUSDC_ForkTest is CombinedOracle_ArbiMain_WETHUSDC_ForkTest {
+    function _startFork() internal override {
+        vm.createSelectFork(vm.envString("OPBASE_MAINNET_RPC"), 25_666_192);
+    }
+
+    function _config() internal virtual override {
+        super._config();
+        sequencerFeedExists = true;
+        sequencerFeed = Const.OPBaseMain_SeqFeed;
+        expectedSequencerStartedAt = 1_727_286_839;
+
+        baseToken1 = Const.OPBaseMain_WETH;
+        quoteToken1 = VIRTUAL_ASSET; // USD_18
+        priceFeed1 = Const.OPBaseMain_CLFeedETH_USD;
+
+        baseToken2 = Const.OPBaseMain_USDC;
+        quoteToken2 = VIRTUAL_ASSET; // USD_18
+        priceFeed2 = Const.OPBaseMain_CLFeedUSDC_USD;
+        description2 = "USDC / USD";
+
+        comboBaseToken = baseToken1;
+        comboQuoteToken = baseToken2;
+        invert1 = false;
+        invert2 = true;
+
+        expectedAnswer1 = 311_621_000_000; // 3116 in 8 decimals
+        expectedCurPrice1 = 3_116_210_000_000_000_000_000; // 3116 USD_18, upscaled from 8 decimals
+
+        expectedAnswer2 = 99_997_464; // 1e8
+        expectedCurPrice2 = 999_974_640_000_000_000; // 1 USD_18, upscaled from 8 decimals
+
+        expectedComboPrice = 3_116_287_905; // 3116 in 6 decimals
+        // 99_997_464 * 1e18 / 311_621_000_000 = 320894496840713
+        expectedComboInverse = 320_894_496_840_713;
+    }
+}
+
+contract CombinedOracle_OPBaseSep_WETHUSDC_ForkTest is CombinedOracle_ArbiMain_WETHUSDC_ForkTest {
+    function _startFork() internal override {
+        vm.createSelectFork(vm.envString("OPBASE_SEPOLIA_RPC"), 21_176_690);
+    }
+
+    function _config() internal virtual override {
+        super._config();
+        sequencerFeedExists = false;
+        sequencerFeed = address(0);
+
+        baseToken1 = Const.OPBaseSep_WETH;
+        quoteToken1 = VIRTUAL_ASSET; // USD_18
+        priceFeed1 = Const.OPBaseSep_CLFeedETH_USD;
+
+        baseToken2 = Const.OPBaseSep_USDC;
+        quoteToken2 = VIRTUAL_ASSET; // USD_18
+        priceFeed2 = Const.OPBaseSep_CLFeedUSDC_USD;
+        description2 = "USDC / USD";
+
+        comboBaseToken = baseToken1;
+        comboQuoteToken = baseToken2;
+        invert1 = false;
+        invert2 = true;
+
+        expectedAnswer1 = 311_485_030_000; // 3114 in 8 decimals
+        expectedCurPrice1 = 3_114_850_300_000_000_000_000; // 3114 USD_18, upscaled from 8 decimals
+
+        expectedAnswer2 = 100_001_179; // 1e8
+        expectedCurPrice2 = 1_000_011_790_000_000_000; // 1 USD_18, upscaled from 8 decimals
+
+        expectedComboPrice = 3_114_813_576_347_934_857_346; // 3114 in 18 decimals
+        // 100_001_179 * 1e18 / 311_485_030_000 = 321_046_501_014_832, 1 wei precision loss
+        expectedComboInverse = 321_046_501_014_831;
     }
 }

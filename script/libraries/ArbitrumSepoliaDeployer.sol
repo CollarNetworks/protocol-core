@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.22;
 
-import { Const } from "./Const.sol";
+import { Const } from "../utils/Const.sol";
 import { BaseDeployer, ConfigHub, IERC20, EscrowSupplierNFT, BaseTakerOracle } from "./BaseDeployer.sol";
-import { TWAPMockChainlinkFeed } from "../test/utils/TWAPMockChainlinkFeed.sol";
-import { FixedMockChainlinkFeed } from "../test/utils/FixedMockChainlinkFeed.sol";
+import { TWAPMockChainlinkFeed } from "../../test/utils/TWAPMockChainlinkFeed.sol";
+import { FixedMockChainlinkFeed } from "../../test/utils/FixedMockChainlinkFeed.sol";
 
 library ArbitrumSepoliaDeployer {
     address constant tUSDC = Const.ArbiSep_tUSDC;
@@ -23,30 +23,30 @@ library ArbitrumSepoliaDeployer {
             maxDuration: 365 days,
             minLTV: 2500,
             maxLTV: 9900,
-            feeAPR: 75,
-            feeRecipient: Const.ArbiSep_deployerAcc,
+            feeAPR: 90,
+            feeRecipient: Const.ArbiSep_feeRecipient,
             pauseGuardians: pauseGuardians
         });
     }
 
-    function deployAndSetupFullProtocol(address owner)
+    function deployAndSetupFullProtocol(address thisSender, address finalOwner)
         internal
         returns (BaseDeployer.DeploymentResult memory result)
     {
         require(block.chainid == Const.ArbiSep_chainId, "wrong chainId");
 
         // hub
-        result.configHub = BaseDeployer.deployConfigHub(owner);
+        result.configHub = BaseDeployer.deployConfigHub(thisSender);
         BaseDeployer.setupConfigHub(result.configHub, defaultHubParams());
 
         // pairs
-        result.assetPairContracts = deployAllContractPairs(owner, result.configHub);
+        result.assetPairContracts = deployAllContractPairs(thisSender, result.configHub);
         for (uint i = 0; i < result.assetPairContracts.length; i++) {
             BaseDeployer.setupContractPair(result.configHub, result.assetPairContracts[i]);
         }
 
         // ownership
-        BaseDeployer.nominateNewOwnerAll(owner, result);
+        BaseDeployer.nominateNewOwnerAll(finalOwner, result);
     }
 
     function deployMockOracleETHUSD() internal returns (BaseTakerOracle oracle) {
@@ -54,7 +54,7 @@ library ArbitrumSepoliaDeployer {
         TWAPMockChainlinkFeed mockEthUsdFeed = new TWAPMockChainlinkFeed(
             tWETH, // base token
             tUSDC, // quote token
-            3000, // fee tier
+            swapFeeTier, // fee tier
             Const.ArbiSep_UniRouter, // UniV3 router
             8, // feed decimals (ETH/USD uses 8)
             "ETH / USD", // description
@@ -69,7 +69,7 @@ library ArbitrumSepoliaDeployer {
         TWAPMockChainlinkFeed mockBTCUSDFeed = new TWAPMockChainlinkFeed(
             tWBTC, // base token
             tUSDC, // quote token
-            3000, // fee tier
+            swapFeeTier, // fee tier
             Const.ArbiSep_UniRouter, // UniV3 router
             8, // feed decimals (ETH/USD uses 8)
             "BTC / USD", // description
@@ -90,7 +90,7 @@ library ArbitrumSepoliaDeployer {
         oracle = BaseDeployer.deployChainlinkOracle(tUSDC, Const.VIRTUAL_ASSET, feedUSDC_USD, sequencerFeed);
     }
 
-    function deployAllContractPairs(address owner, ConfigHub configHub)
+    function deployAllContractPairs(address initialOwner, ConfigHub configHub)
         internal
         returns (BaseDeployer.AssetPairContracts[] memory assetPairContracts)
     {
@@ -104,7 +104,7 @@ library ArbitrumSepoliaDeployer {
 
         // if any escrowNFT contracts will be reused for multiple pairs, they should be deployed first
         assetPairContracts[0] = BaseDeployer.deployContractPair(
-            owner,
+            initialOwner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "WETH/USDC",
@@ -125,7 +125,7 @@ library ArbitrumSepoliaDeployer {
         );
 
         assetPairContracts[1] = BaseDeployer.deployContractPair(
-            owner,
+            initialOwner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "WBTC/USDC",

@@ -12,7 +12,7 @@ import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import { BaseAssetPairTestSetup, BaseTakerOracle } from "./BaseAssetPairTestSetup.sol";
 
-import { CollarTakerNFT, ICollarTakerNFT } from "../../src/CollarTakerNFT.sol";
+import { CollarTakerNFT, ICollarTakerNFT, ReentrancyGuard } from "../../src/CollarTakerNFT.sol";
 import { ICollarTakerNFT } from "../../src/interfaces/ICollarTakerNFT.sol";
 import { CollarProviderNFT } from "../../src/CollarProviderNFT.sol";
 import { ICollarProviderNFT } from "../../src/interfaces/ICollarProviderNFT.sol";
@@ -229,6 +229,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         assertEq(takerNFT.owner(), owner);
         assertEq(takerNFT.pendingOwner(), address(0));
         assertEq(address(takerNFT.configHub()), address(configHub));
+        assertEq(takerNFT.unrescuableAsset(), address(cashAsset));
         assertEq(address(takerNFT.cashAsset()), address(cashAsset));
         assertEq(address(takerNFT.underlying()), address(underlying));
         assertEq(address(takerNFT.oracle()), address(chainlinkOracle));
@@ -286,7 +287,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
     function test_pausableMethods() public {
         // create a position
-        (uint takerId,) = checkOpenPairedPosition();
+        checkOpenPairedPosition();
 
         startHoax(owner);
         takerNFT.pause();
@@ -306,11 +307,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         // Try to cancel a paired position while paused
         vm.expectRevert(Pausable.EnforcedPause.selector);
         takerNFT.cancelPairedPosition(0);
-
-        // transfers are paused
-        vm.startPrank(user1);
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        takerNFT.transferFrom(user1, provider, takerId);
     }
 
     function test_unpause() public {
@@ -412,6 +408,57 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         );
         vm.expectRevert("taker: expiration mismatch");
         takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
+    }
+
+    function test_nonReentrant_methods() public {
+        createOffer();
+        vm.startPrank(user1);
+        bytes memory reentrantRevert =
+            abi.encodeWithSelector(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
+
+        // set up reentrancy
+        ReentrantAttacker attacker = new ReentrantAttacker();
+        cashAsset.setAttacker(address(attacker));
+
+        // attack open open
+        attacker.setCall(address(takerNFT), abi.encodeCall(takerNFT.openPairedPosition, (0, providerNFT, 0)));
+        vm.expectRevert(reentrantRevert);
+        takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
+
+        // attack open settle
+        attacker.setCall(address(takerNFT), abi.encodeCall(takerNFT.settlePairedPosition, (0)));
+        vm.expectRevert(reentrantRevert);
+        takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
+
+        // attack open cancel
+        attacker.setCall(address(takerNFT), abi.encodeCall(takerNFT.cancelPairedPosition, (0)));
+        vm.expectRevert(reentrantRevert);
+        takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
+
+        // attack open withdraw
+        attacker.setCall(address(takerNFT), abi.encodeCall(takerNFT.withdrawFromSettled, (0)));
+        vm.expectRevert(reentrantRevert);
+        takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
+
+        // below cases use settle entry point, but are mostly redundant since removing
+        // nonReentrant from any of the methods would fail one of the above cases
+
+        // open position
+        cashAsset.setAttacker(address(0));
+        cashAsset.approve(address(takerNFT), takerLocked);
+        (uint takerId,) = takerNFT.openPairedPosition(takerLocked, providerNFT, offerId);
+        skip(duration);
+        cashAsset.setAttacker(address(attacker));
+
+        // attack settle open
+        attacker.setCall(address(takerNFT), abi.encodeCall(takerNFT.openPairedPosition, (0, providerNFT, 0)));
+        vm.expectRevert(reentrantRevert);
+        takerNFT.settlePairedPosition(takerId);
+
+        // attack settle settle
+        attacker.setCall(address(takerNFT), abi.encodeCall(takerNFT.settlePairedPosition, (0)));
+        vm.expectRevert(reentrantRevert);
+        takerNFT.settlePairedPosition(takerId);
     }
 
     function test_openPairedPosition_providerConfigMismatch() public {
@@ -565,6 +612,39 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         takerNFT.settlePairedPosition(takerId);
     }
 
+    function test_settlePairedPosition_balanceMismatch() public {
+        (uint takerId, uint providerId) = checkOpenPairedPosition();
+        skip(duration);
+        // expect to get paid
+        updatePrice(oraclePrice * 2);
+        // no transfer, but update is -providerLocked
+        vm.mockCall(
+            address(providerNFT),
+            abi.encodeCall(providerNFT.settlePosition, (providerId, -int(providerLocked))),
+            ""
+        );
+        vm.startPrank(user1);
+        // try to settle
+        vm.expectRevert("taker: settle balance mismatch");
+        takerNFT.settlePairedPosition(takerId);
+
+        // expect funds to be pulled
+        updatePrice();
+        (takerId, providerId) = checkOpenPairedPosition();
+        skip(duration);
+        // expect to get paid
+        updatePrice(oraclePrice / 2);
+        // no transfer, but update is +takerLocked
+        vm.mockCall(
+            address(providerNFT),
+            abi.encodeCall(providerNFT.settlePosition, (providerId, int(takerLocked))),
+            ""
+        );
+        // try to settle
+        vm.expectRevert("taker: settle balance mismatch");
+        takerNFT.settlePairedPosition(takerId);
+    }
+
     function test_withdrawFromSettled_NotOwner() public {
         (uint takerId,) = checkOpenPairedPosition();
 
@@ -675,6 +755,21 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         takerNFT.cancelPairedPosition(takerId);
     }
 
+    function test_cancelPairedPosition_balanceMismatch() public {
+        (uint takerId, uint providerId) = checkOpenPairedPosition();
+
+        skip(duration);
+        vm.startPrank(provider);
+        providerNFT.transferFrom(provider, user1, providerId);
+        // one wei transfer expected, but doesn't happen
+        vm.mockCall(
+            address(providerNFT), abi.encodeCall(providerNFT.cancelAndWithdraw, (providerId)), abi.encode(1)
+        );
+        vm.startPrank(user1);
+        vm.expectRevert("taker: cancel balance mismatch");
+        takerNFT.cancelPairedPosition(takerId);
+    }
+
     function test_setOracle() public {
         // new oracle
         BaseTakerOracle newOracle = createMockFeedOracle(address(underlying), address(cashAsset));
@@ -734,5 +829,25 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         vm.expectRevert("mocked");
         takerNFT.setOracle(newOracle);
         vm.clearMockedCalls();
+    }
+}
+
+contract ReentrantAttacker {
+    address public to;
+    bytes public data;
+
+    function setCall(address _to, bytes memory _data) external {
+        to = _to;
+        data = _data;
+    }
+
+    fallback() external {
+        (bool success, bytes memory retdata) = to.call(data);
+        // bubble up the revert reason
+        if (!success) {
+            assembly {
+                revert(add(retdata, 0x20), mload(retdata))
+            }
+        }
     }
 }

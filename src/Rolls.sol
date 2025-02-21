@@ -66,8 +66,13 @@ contract Rolls is IRolls, BaseManaged {
     /// Does not need `canOpen` auth here because its auth is checked in Loans, or requires no auth
     /// if used directly.
     /// Has no long-lived functionality so doesn't need a close-only migration mode.
+    /// @dev unrescuableAsset is not set, which means that providerNFTs held by this contract for active
+    /// offers can be rescued by the owner via `rescueTokens`. In a future implementation this can be set
+    /// to a specific providerNFT if needed (limiting the Rolls contract to a single provider NFT). Currently,
+    /// because roll offers are short lived and optional, the added complexity is not worth it wrt
+    /// to the risk mitigated by it.
     constructor(address initialOwner, CollarTakerNFT _takerNFT)
-        BaseManaged(initialOwner, _takerNFT.configHub())
+        BaseManaged(initialOwner, _takerNFT.configHub(), address(0))
     {
         takerNFT = _takerNFT;
         cashAsset = _takerNFT.cashAsset();
