@@ -3,15 +3,17 @@ src = "src"
 out = "out"
 libs = ["lib"]
 optimizer = true
-fs_permissions = [{ access = "read", path = "./"}]
-solc_version = "0.8.21"
+solc_version = "0.8.22"
 revert_string = "debug"
+fs_permissions = [{ access = "read-write", path = "./"}]
+memory_limit = 41943040  # 4GB in bytes, adjust as needed
 
 [fmt]
-line_length = 140
+line_length = 110
 tab_width = 4
-int_types = "long"
+int_types = "short"
 number_underscore = "thousands"
+func_attrs_with_params_multiline = false
 ignore = ["lib/"]
 bracket_spacing = true
 
@@ -22,3 +24,11 @@ out = "docs-temp"
 
 [fuzz]
 runs= 500
+
+
+[etherscan]
+#                   Paste TENDERLY_ACCESS_KEY    Chain ID        Verifier URL: ${TENDERLY_VIRTUAL_TESTNET_RPC}verify/etherscan
+arbitrum-sepolia = { key = "${ARBITRUM_ETHERSCAN_API_KEY}",chain=421_614 , url = "https://api-sepolia.arbiscan.io/api" }
+arbitrum = { key = "${ARBITRUM_ETHERSCAN_API_KEY}",chain=42_161 , url = "https://api.arbiscan.io/api" }
+base-sepolia = { key = "${OPBASE_ETHERSCAN_API_KEY}",chain=84_532 , url = "https://api-sepolia.basescan.org/api" }
+base = { key = "${OPBASE_ETHERSCAN_API_KEY}",chain=84_53 , url = "https://api.basescan.org/api" }
