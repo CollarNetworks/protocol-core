@@ -366,7 +366,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
         // allowed for different assets, still reverts
         vm.startPrank(owner);
-        configHub.setCanOpenPair(cashAsset, underlying, address(takerNFT), true);
+        configHub.setCanOpenPair(address(cashAsset), address(underlying), address(takerNFT), true);
         vm.startPrank(user1);
         vm.expectRevert("taker: unsupported taker");
         takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
@@ -380,7 +380,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
         // allowed for different assets, still reverts
         vm.startPrank(owner);
-        configHub.setCanOpenPair(cashAsset, underlying, address(providerNFT), true);
+        configHub.setCanOpenPair(address(cashAsset), address(underlying), address(providerNFT), true);
         vm.startPrank(user1);
         vm.expectRevert("taker: unsupported provider");
         takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
@@ -646,9 +646,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         (uint takerId,) = checkOpenPairedPosition();
         skip(duration + takerNFT.SETTLE_AS_CANCELLED_DELAY());
         // oracle reverts now
-        vm.mockCallRevert(
-            address(takerNFT.oracle()), abi.encodeCall(takerNFT.oracle().currentPrice, ()), ""
-        );
+        vm.mockCallRevert(address(takerNFT.oracle()), abi.encodeCall(takerNFT.oracle().currentPrice, ()), "");
         // check that it reverts
         vm.expectRevert(new bytes(0));
         takerNFT.currentOraclePrice();
@@ -822,7 +820,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         vm.expectRevert("taker: cancel balance mismatch");
         takerNFT.cancelPairedPosition(takerId);
     }
-
 }
 
 contract ReentrantAttacker {

@@ -175,10 +175,14 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
         returns (uint takerId, uint providerId)
     {
         // check asset & self allowed
-        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "taker: unsupported taker");
+        require(
+            configHub.canOpenPair(address(underlying), address(cashAsset), address(this)),
+            "taker: unsupported taker"
+        );
         // check assets & provider allowed
         require(
-            configHub.canOpenPair(underlying, cashAsset, address(providerNFT)), "taker: unsupported provider"
+            configHub.canOpenPair(address(underlying), address(cashAsset), address(providerNFT)),
+            "taker: unsupported provider"
         );
         // check assets match
         require(providerNFT.underlying() == underlying, "taker: underlying mismatch");

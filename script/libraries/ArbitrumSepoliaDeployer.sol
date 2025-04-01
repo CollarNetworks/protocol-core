@@ -16,16 +16,13 @@ library ArbitrumSepoliaDeployer {
     int constant USDSTABLEPRICE = 100_000_000; // 1 * 10^8 since feed decimals is 8
 
     function defaultHubParams() internal pure returns (BaseDeployer.HubParams memory) {
-        address[] memory pauseGuardians = new address[](1);
-        pauseGuardians[0] = Const.ArbiSep_deployerAcc;
         return BaseDeployer.HubParams({
             minDuration: 5 minutes,
             maxDuration: 365 days,
             minLTV: 2500,
             maxLTV: 9900,
             feeAPR: 90,
-            feeRecipient: Const.ArbiSep_feeRecipient,
-            pauseGuardians: pauseGuardians
+            feeRecipient: Const.ArbiSep_feeRecipient
         });
     }
 

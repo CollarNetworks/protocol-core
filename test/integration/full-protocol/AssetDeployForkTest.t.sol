@@ -25,7 +25,6 @@ contract AssetDeployForkTest is BaseAssetPairForkTest {
 
     function _setTestValues() internal override {
         protocolFeeRecipient = Const.OPBaseSep_feeRecipient;
-        pauseGuardians.push(Const.OPBaseSep_deployerAcc);
 
         expectedNumPairs = 1;
         expectedPairIndex = 0;

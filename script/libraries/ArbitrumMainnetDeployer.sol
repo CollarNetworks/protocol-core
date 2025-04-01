@@ -14,16 +14,13 @@ library ArbitrumMainnetDeployer {
     uint24 constant swapFeeTier = 500;
 
     function defaultHubParams() internal pure returns (BaseDeployer.HubParams memory) {
-        address[] memory pauseGuardians = new address[](1);
-        pauseGuardians[0] = Const.ArbiMain_deployerAcc;
         return BaseDeployer.HubParams({
             minDuration: 30 days,
             maxDuration: 365 days,
             minLTV: 2500,
             maxLTV: 9500,
             feeAPR: 90,
-            feeRecipient: Const.ArbiMain_feeRecipient,
-            pauseGuardians: pauseGuardians
+            feeRecipient: Const.ArbiMain_feeRecipient
         });
     }
 

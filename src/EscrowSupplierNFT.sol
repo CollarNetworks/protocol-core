@@ -421,7 +421,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     {
         require(loansCanOpen[msg.sender], "escrow: unauthorized loans contract");
         // @dev loans is not checked since is directly authed in this contract via setLoansAllowed
-        require(configHub.canOpenSingle(asset, address(this)), "escrow: unsupported escrow");
+        require(configHub.canOpenSingle(address(asset), address(this)), "escrow: unsupported escrow");
 
         Offer memory offer = getOffer(offerId);
         require(offer.supplier != address(0), "escrow: invalid offer"); // revert here for clarity

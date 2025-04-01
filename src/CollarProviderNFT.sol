@@ -271,8 +271,14 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     {
         // @dev only checked on open, not checked later on settle / cancel to allow withdraw-only mode.
         // not checked on createOffer, so invalid offers can be created but not minted from
-        require(configHub.canOpenPair(underlying, cashAsset, msg.sender), "provider: unsupported taker");
-        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "provider: unsupported provider");
+        require(
+            configHub.canOpenPair(address(underlying), address(cashAsset), msg.sender),
+            "provider: unsupported taker"
+        );
+        require(
+            configHub.canOpenPair(address(underlying), address(cashAsset), address(this)),
+            "provider: unsupported provider"
+        );
 
         LiquidityOffer memory offer = getOffer(offerId);
         // check terms
