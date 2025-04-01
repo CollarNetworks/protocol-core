@@ -1,6 +1,6 @@
 # Changelog
 
-Notable changes to contracts will be noted here
+Notable changes to contracts.
 
 # Unreleased
 
@@ -9,6 +9,6 @@ Notable changes to contracts will be noted here
 - Rolls:
   - Update to use the updated protocolFee interface.
 
-# 0.2.0 all
+# 0.2.0 (All contracts)
 
 First version deployed to Base mainnet. 
