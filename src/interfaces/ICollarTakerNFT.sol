@@ -60,5 +60,4 @@ interface ICollarTakerNFT {
         uint expiration
     );
     event WithdrawalFromSettled(uint indexed takerId, uint withdrawn);
-    event OracleSet(ITakerOracle prevOracle, ITakerOracle newOracle);
 }

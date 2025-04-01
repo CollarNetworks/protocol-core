@@ -398,7 +398,6 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
         // may be too strict for more complex oracles, and .baseUnitAmount() is not used internally now
         require(_oracle.convertToBaseAmount(price, price) != 0, "taker: invalid convertToBaseAmount");
 
-        emit OracleSet(oracle, _oracle); // emit before for the prev value
         oracle = _oracle;
     }
 
