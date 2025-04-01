@@ -308,13 +308,3 @@ contract LoansManagedTest is TakerNFTManagedTest {
         testedContract = new LoansNFT(owner, takerNFT, "", "");
     }
 }
-
-contract RollsManagedTest is TakerNFTManagedTest {
-    function setupTestedContract() internal override {
-        super.setupTestedContract();
-        // take the taker contract setup by the super
-        CollarTakerNFT takerNFT = CollarTakerNFT(address(testedContract));
-        unrescuable = address(0);
-        testedContract = new Rolls(owner, takerNFT);
-    }
-}

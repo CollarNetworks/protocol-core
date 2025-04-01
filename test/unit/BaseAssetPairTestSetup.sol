@@ -90,7 +90,7 @@ contract BaseAssetPairTestSetup is Test {
         vm.label(address(providerNFT), "CollarProviderNFT");
 
         // asset pair periphery
-        rolls = new Rolls(owner, takerNFT);
+        rolls = new Rolls(takerNFT);
         vm.label(address(rolls), "Rolls");
     }
 

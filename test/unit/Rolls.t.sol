@@ -131,7 +131,8 @@ contract RollsTest is BaseAssetPairTestSetup {
             takerNFT.calculateProviderLocked(expected.newTakerLocked, ltv, callStrikePercent)
         );
         // protocol fee
-        (expected.toProtocol,) = providerNFT.protocolFee(expected.newProviderLocked, duration, callStrikePercent);
+        (expected.toProtocol,) =
+            providerNFT.protocolFee(expected.newProviderLocked, duration, callStrikePercent);
         // _calculateTransferAmounts
         (uint takerSettled, int providerChange) = takerNFT.previewSettlement(oldTakerPos, newPrice);
         int providerSettled = int(oldTakerPos.providerLocked) + providerChange;
@@ -274,13 +275,10 @@ contract RollsTest is BaseAssetPairTestSetup {
     // happy cases
 
     function test_constructor() public {
-        Rolls newRolls = new Rolls(owner, takerNFT);
+        Rolls newRolls = new Rolls(takerNFT);
         assertEq(address(newRolls.takerNFT()), address(takerNFT));
-        assertEq(address(newRolls.configHub()), address(configHub));
-        assertEq(newRolls.unrescuableAsset(), address(0));
         assertEq(address(newRolls.cashAsset()), address(cashAsset));
         assertEq(newRolls.VERSION(), "0.2.0");
-        assertEq(newRolls.owner(), owner);
     }
 
     function test_createRollOffer() public {
