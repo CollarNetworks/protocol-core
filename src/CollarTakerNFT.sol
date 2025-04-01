@@ -55,10 +55,9 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
     // ----- IMMUTABLES ----- //
     IERC20 public immutable cashAsset;
     IERC20 public immutable underlying; // not used as ERC20 here
+    ITakerOracle public immutable oracle;
 
     // ----- STATE VARIABLES ----- //
-    ITakerOracle public oracle;
-
     mapping(uint positionId => TakerPositionStored) internal positions;
 
     constructor(
@@ -71,7 +70,8 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
     ) BaseNFT(_name, _symbol, _configHub, address(_cashAsset)) {
         cashAsset = _cashAsset;
         underlying = _underlying;
-        _setOracle(_oracle);
+        _checkOracle(_oracle);
+        oracle = _oracle;
     }
 
     // ----- VIEW FUNCTIONS ----- //
@@ -381,11 +381,9 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
         );
     }
 
-    // ----- INTERNAL MUTATIVE ----- //
+    // ----- INTERNAL VIEWS ----- //
 
-    // internal owner
-
-    function _setOracle(ITakerOracle _oracle) internal {
+    function _checkOracle(ITakerOracle _oracle) internal view {
         // assets match
         require(_oracle.baseToken() == address(underlying), "taker: oracle underlying mismatch");
         require(_oracle.quoteToken() == address(cashAsset), "taker: oracle cashAsset mismatch");
@@ -401,11 +399,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
         // note: .convertToBaseAmount(price, price) should equal .baseUnitAmount(), but checking this
         // may be too strict for more complex oracles, and .baseUnitAmount() is not used internally now
         require(_oracle.convertToBaseAmount(price, price) != 0, "taker: invalid convertToBaseAmount");
-
-        oracle = _oracle;
     }
-
-    // ----- INTERNAL VIEWS ----- //
 
     // calculations
 
