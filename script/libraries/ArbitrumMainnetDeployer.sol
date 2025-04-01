@@ -39,16 +39,16 @@ library ArbitrumMainnetDeployer {
         BaseDeployer.setupConfigHub(result.configHub, defaultHubParams());
 
         // pairs
-        result.assetPairContracts = deployAllContractPairs(thisSender, result.configHub);
+        result.assetPairContracts = deployAllContractPairs(result.configHub);
         for (uint i = 0; i < result.assetPairContracts.length; i++) {
             BaseDeployer.setupContractPair(result.configHub, result.assetPairContracts[i]);
         }
 
         // ownership
-        BaseDeployer.nominateNewOwnerAll(finalOwner, result);
+        BaseDeployer.nominateNewHubOwner(finalOwner, result);
     }
 
-    function deployAllContractPairs(address initialOwner, ConfigHub configHub)
+    function deployAllContractPairs(ConfigHub configHub)
         internal
         returns (BaseDeployer.AssetPairContracts[] memory assetPairContracts)
     {
@@ -83,12 +83,10 @@ library ArbitrumMainnetDeployer {
         );
 
         // if any escrowNFT contracts will be reused for multiple pairs, they should be deployed first
-        EscrowSupplierNFT wethEscrow =
-            BaseDeployer.deployEscrowNFT(initialOwner, configHub, IERC20(WETH), "WETH");
+        EscrowSupplierNFT wethEscrow = BaseDeployer.deployEscrowNFT(configHub, IERC20(WETH), "WETH");
 
         // deploy pairs
         assetPairContracts[0] = BaseDeployer.deployContractPair(
-            initialOwner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "WETH/USDC",
@@ -104,7 +102,6 @@ library ArbitrumMainnetDeployer {
         );
 
         assetPairContracts[1] = BaseDeployer.deployContractPair(
-            initialOwner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "WETH/USDT",
@@ -120,7 +117,6 @@ library ArbitrumMainnetDeployer {
         );
 
         assetPairContracts[2] = BaseDeployer.deployContractPair(
-            initialOwner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "WBTC/USDT",

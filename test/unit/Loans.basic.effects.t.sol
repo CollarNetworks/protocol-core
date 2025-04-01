@@ -56,10 +56,10 @@ contract LoansTestBase is BaseAssetPairTestSetup {
         vm.label(address(mockSwapperRouter), "MockSwapRouter");
         vm.label(address(swapperUniV3), "SwapperUniV3");
         // escrow
-        escrowNFT = new EscrowSupplierNFT(owner, configHub, underlying, "Escrow", "Escrow");
+        escrowNFT = new EscrowSupplierNFT(configHub, underlying, "Escrow", "Escrow");
         vm.label(address(escrowNFT), "Escrow");
         // loans
-        loans = new LoansNFT(owner, takerNFT, "Loans", "Loans");
+        loans = new LoansNFT(takerNFT, "Loans", "Loans");
         vm.label(address(loans), "Loans");
 
         // config
@@ -438,7 +438,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
     // tests
 
     function test_constructor() public {
-        loans = new LoansNFT(owner, takerNFT, "", "");
+        loans = new LoansNFT(takerNFT, "", "");
         assertEq(loans.MAX_SWAP_PRICE_DEVIATION_BIPS(), 1000);
         assertEq(address(loans.configHub()), address(configHub));
         assertEq(loans.unrescuableAsset(), address(takerNFT));
@@ -446,7 +446,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         assertEq(address(loans.cashAsset()), address(cashAsset));
         assertEq(address(loans.underlying()), address(underlying));
         assertEq(loans.VERSION(), "0.2.0");
-        assertEq(loans.owner(), owner);
+        assertEq(loans.configHubOwner(), owner);
         assertEq(loans.closingKeeper(), address(0));
         assertEq(address(loans.defaultSwapper()), address(0));
         assertEq(loans.name(), "");

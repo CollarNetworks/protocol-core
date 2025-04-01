@@ -223,11 +223,10 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         vm.expectEmit();
         emit ICollarTakerNFT.OracleSet(BaseTakerOracle(address(0)), chainlinkOracle);
         CollarTakerNFT takerNFT = new CollarTakerNFT(
-            owner, configHub, cashAsset, underlying, chainlinkOracle, "NewCollarTakerNFT", "NBPNFT"
+            configHub, cashAsset, underlying, chainlinkOracle, "NewCollarTakerNFT", "NBPNFT"
         );
 
-        assertEq(takerNFT.owner(), owner);
-        assertEq(takerNFT.pendingOwner(), address(0));
+        assertEq(takerNFT.configHubOwner(), owner);
         assertEq(address(takerNFT.configHub()), address(configHub));
         assertEq(takerNFT.unrescuableAsset(), address(cashAsset));
         assertEq(address(takerNFT.cashAsset()), address(cashAsset));
@@ -243,79 +242,38 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         // Create an oracle with mismatched assets
         BaseTakerOracle invalidOracle = createMockFeedOracle(address(cashAsset), address(underlying));
         vm.expectRevert("taker: oracle underlying mismatch");
-        new CollarTakerNFT(
-            owner, configHub, cashAsset, underlying, invalidOracle, "NewCollarTakerNFT", "NBPNFT"
-        );
+        new CollarTakerNFT(configHub, cashAsset, underlying, invalidOracle, "NewCollarTakerNFT", "NBPNFT");
 
         invalidOracle = createMockFeedOracle(address(cashAsset), address(cashAsset));
         vm.expectRevert("taker: oracle underlying mismatch");
-        new CollarTakerNFT(
-            owner, configHub, cashAsset, underlying, invalidOracle, "NewCollarTakerNFT", "NBPNFT"
-        );
+        new CollarTakerNFT(configHub, cashAsset, underlying, invalidOracle, "NewCollarTakerNFT", "NBPNFT");
 
         invalidOracle = createMockFeedOracle(address(underlying), address(underlying));
         vm.expectRevert("taker: oracle cashAsset mismatch");
-        new CollarTakerNFT(
-            owner, configHub, cashAsset, underlying, invalidOracle, "NewCollarTakerNFT", "NBPNFT"
-        );
+        new CollarTakerNFT(configHub, cashAsset, underlying, invalidOracle, "NewCollarTakerNFT", "NBPNFT");
 
         vm.mockCall(address(100), abi.encodeCall(IERC20Metadata.decimals, ()), abi.encode(18));
         invalidOracle = createMockFeedOracle(address(underlying), address(100));
         vm.expectRevert("taker: oracle cashAsset mismatch");
-        new CollarTakerNFT(
-            owner, configHub, cashAsset, underlying, invalidOracle, "NewCollarTakerNFT", "NBPNFT"
-        );
+        new CollarTakerNFT(configHub, cashAsset, underlying, invalidOracle, "NewCollarTakerNFT", "NBPNFT");
 
         BaseTakerOracle newOracle = createMockFeedOracle(address(underlying), address(cashAsset));
         vm.mockCall(address(newOracle), abi.encodeCall(ITakerOracle.currentPrice, ()), abi.encode(0));
         vm.expectRevert("taker: invalid current price");
-        new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
+        new CollarTakerNFT(configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
         vm.clearMockedCalls();
 
         updatePrice(1);
         // 0 conversion view
         vm.mockCall(address(newOracle), abi.encodeCall(newOracle.convertToBaseAmount, (1, 1)), abi.encode(0));
         vm.expectRevert("taker: invalid convertToBaseAmount");
-        new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
+        new CollarTakerNFT(configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
         vm.clearMockedCalls();
 
         // reverting conversion view
         vm.mockCallRevert(address(newOracle), abi.encodeCall(newOracle.convertToBaseAmount, (1, 1)), "mocked");
         vm.expectRevert("mocked");
-        new CollarTakerNFT(owner, configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
-    }
-
-    function test_pausableMethods() public {
-        // create a position
-        checkOpenPairedPosition();
-
-        startHoax(owner);
-        takerNFT.pause();
-        assertTrue(takerNFT.paused());
-
-        // Try to open a position while paused
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
-        // Try to settle a position while paused
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        takerNFT.settlePairedPosition(0);
-
-        // Try to withdraw from settled while paused
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        takerNFT.withdrawFromSettled(0);
-
-        // Try to cancel a paired position while paused
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        takerNFT.cancelPairedPosition(0);
-    }
-
-    function test_unpause() public {
-        startHoax(owner);
-        takerNFT.pause();
-        takerNFT.unpause();
-        assertFalse(takerNFT.paused());
-        // Should be able to open a position after unpausing
-        checkOpenPairedPosition();
+        new CollarTakerNFT(configHub, cashAsset, underlying, newOracle, "NewCollarTakerNFT", "NBPNFT");
     }
 
     function test_supportsInterface() public view {
@@ -466,7 +424,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
         // cash mismatch
         CollarProviderNFT providerNFTBad = new CollarProviderNFT(
-            owner, configHub, underlying, underlying, address(takerNFT), "CollarTakerNFTBad", "BRWTSTBAD"
+            configHub, underlying, underlying, address(takerNFT), "CollarTakerNFTBad", "BRWTSTBAD"
         );
         setCanOpen(address(providerNFTBad), true);
         startHoax(user1);
@@ -476,7 +434,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
         // underlying mismatch
         providerNFTBad = new CollarProviderNFT(
-            owner, configHub, cashAsset, cashAsset, address(takerNFT), "CollarTakerNFTBad", "BRWTSTBAD"
+            configHub, cashAsset, cashAsset, address(takerNFT), "CollarTakerNFTBad", "BRWTSTBAD"
         );
         setCanOpen(address(providerNFTBad), true);
         startHoax(user1);
@@ -486,7 +444,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
         // taker mismatch
         providerNFTBad = new CollarProviderNFT(
-            owner, configHub, cashAsset, underlying, address(providerNFT2), "CollarTakerNFTBad", "BRWTSTBAD"
+            configHub, cashAsset, underlying, address(providerNFT2), "CollarTakerNFTBad", "BRWTSTBAD"
         );
         setCanOpen(address(providerNFTBad), true);
         startHoax(user1);
@@ -788,7 +746,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
     function test_revert_setOracle() public {
         startHoax(user1);
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user1));
+        vm.expectRevert("BaseManaged: not configHub owner");
         takerNFT.setOracle(chainlinkOracle);
 
         startHoax(owner);

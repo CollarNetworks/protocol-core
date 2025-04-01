@@ -40,13 +40,13 @@ library OPBaseSepoliaDeployer {
         BaseDeployer.setupConfigHub(result.configHub, defaultHubParams());
 
         // pairs
-        result.assetPairContracts = deployAllContractPairs(thisSender, result.configHub);
+        result.assetPairContracts = deployAllContractPairs(result.configHub);
         for (uint i = 0; i < result.assetPairContracts.length; i++) {
             BaseDeployer.setupContractPair(result.configHub, result.assetPairContracts[i]);
         }
 
         // ownership
-        BaseDeployer.nominateNewOwnerAll(finalOwner, result);
+        BaseDeployer.nominateNewHubOwner(finalOwner, result);
     }
 
     function deployMockOracleETHUSD() internal returns (BaseTakerOracle oracle) {
@@ -92,7 +92,7 @@ library OPBaseSepoliaDeployer {
         oracle = BaseDeployer.deployChainlinkOracle(tUSDC, Const.VIRTUAL_ASSET, feedUSDC_USD, sequencerFeed);
     }
 
-    function deployAllContractPairs(address initialOwner, ConfigHub configHub)
+    function deployAllContractPairs(ConfigHub configHub)
         internal
         returns (BaseDeployer.AssetPairContracts[] memory assetPairContracts)
     {
@@ -106,7 +106,6 @@ library OPBaseSepoliaDeployer {
 
         // if any escrowNFT contracts will be reused for multiple pairs, they should be deployed first
         assetPairContracts[0] = BaseDeployer.deployContractPair(
-            initialOwner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "WETH/USDC",
@@ -127,7 +126,6 @@ library OPBaseSepoliaDeployer {
         );
 
         assetPairContracts[1] = BaseDeployer.deployContractPair(
-            initialOwner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "WBTC/USDC",

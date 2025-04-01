@@ -4,8 +4,6 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 
-import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { ERC721 } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 import { TestERC20 } from "../utils/TestERC20.sol";
@@ -17,7 +15,6 @@ import { CollarTakerNFT } from "../../src/CollarTakerNFT.sol";
 import { CollarProviderNFT } from "../../src/CollarProviderNFT.sol";
 import { EscrowSupplierNFT } from "../../src/EscrowSupplierNFT.sol";
 import { LoansNFT } from "../../src/LoansNFT.sol";
-import { Rolls } from "../../src/Rolls.sol";
 import { ChainlinkOracle } from "../../src/ChainlinkOracle.sol";
 
 contract TestERC721 is ERC721 {
@@ -39,7 +36,6 @@ abstract contract BaseManagedTestBase is Test {
 
     address owner = makeAddr("owner");
     address user1 = makeAddr("user1");
-    address guardian = makeAddr("guardian");
 
     function setUp() public virtual {
         erc20Rescuable = new TestERC20("TestERC20", "TestERC20", 18);
@@ -57,52 +53,9 @@ abstract contract BaseManagedTestBase is Test {
 
     function test_constructor() public {
         setupTestedContract();
-        assertEq(testedContract.owner(), owner);
+        assertEq(testedContract.configHubOwner(), owner);
         assertEq(address(testedContract.configHub()), address(configHub));
         assertEq(address(testedContract.unrescuableAsset()), unrescuable);
-    }
-
-    function test_pauseByGuardian() public {
-        vm.prank(owner);
-        configHub.setPauseGuardian(guardian, true);
-
-        vm.prank(guardian);
-        vm.expectEmit(address(testedContract));
-        emit Pausable.Paused(guardian);
-        vm.expectEmit(address(testedContract));
-        emit BaseManaged.PausedByGuardian(guardian);
-        testedContract.pauseByGuardian();
-
-        assertTrue(testedContract.paused());
-
-        // unset
-        vm.startPrank(owner);
-        testedContract.unpause();
-        configHub.setPauseGuardian(guardian, false);
-
-        vm.startPrank(guardian);
-        vm.expectRevert("not guardian");
-        testedContract.pauseByGuardian();
-    }
-
-    function test_pause() public {
-        vm.prank(owner);
-        vm.expectEmit(address(testedContract));
-        emit Pausable.Paused(owner);
-        testedContract.pause();
-
-        assertTrue(testedContract.paused());
-    }
-
-    function test_unpause() public {
-        vm.startPrank(owner);
-        testedContract.pause();
-        vm.expectEmit(address(testedContract));
-        emit Pausable.Unpaused(owner);
-        testedContract.unpause();
-        vm.stopPrank();
-
-        assertFalse(testedContract.paused());
     }
 
     function test_setConfigHub() public {
@@ -155,62 +108,31 @@ abstract contract BaseManagedTestBase is Test {
         vm.expectRevert(new bytes(0));
         testedContract.setConfigHub(badHub);
 
-        badHub = ConfigHub(address(new BadConfigHub2()));
+        badHub = ConfigHub(address(new BadConfigHub2(owner)));
         vm.expectRevert("invalid ConfigHub");
         testedContract.setConfigHub(badHub);
     }
 
-    function test_onlyOwnerMethods() public {
+    function test_revert_setConfigHub_invalidConfigHubOwner() public {
+        vm.startPrank(owner);
+
+        ConfigHub hubDifferentOwner = new ConfigHub(user1);
+        vm.expectRevert("BaseManaged: new configHub owner mismatch");
+        testedContract.setConfigHub(hubDifferentOwner);
+
+        // has no owner view, so reverts when trying to get owner()
+        vm.expectRevert(new bytes(0));
+        testedContract.setConfigHub(ConfigHub(address(testedContract)));
+    }
+
+    function test_onlyConfigHubOwnerMethods() public {
         startHoax(user1);
-        bytes4 selector = Ownable.OwnableUnauthorizedAccount.selector;
 
-        vm.expectRevert(abi.encodeWithSelector(selector, user1));
-        testedContract.pause();
-
-        vm.expectRevert(abi.encodeWithSelector(selector, user1));
-        testedContract.unpause();
-
-        vm.expectRevert(abi.encodeWithSelector(selector, user1));
+        vm.expectRevert("BaseManaged: not configHub owner");
         testedContract.setConfigHub(configHub);
 
-        vm.expectRevert(abi.encodeWithSelector(selector, user1));
+        vm.expectRevert("BaseManaged: not configHub owner");
         testedContract.rescueTokens(address(0), 0, true);
-    }
-
-    function test_revert_pauseByGuardian_notGuardian() public {
-        vm.prank(user1);
-        vm.expectRevert("not guardian");
-        testedContract.pauseByGuardian();
-
-        vm.prank(owner);
-        configHub.setPauseGuardian(user1, true);
-        vm.prank(user1);
-        testedContract.pauseByGuardian();
-        assertTrue(testedContract.paused());
-    }
-
-    function test_revert_pauseByGuardian_ownerRenounced() public {
-        vm.prank(owner);
-        configHub.setPauseGuardian(guardian, true);
-
-        vm.prank(owner);
-        testedContract.renounceOwnership();
-
-        vm.prank(guardian);
-        vm.expectRevert("owner renounced");
-        testedContract.pauseByGuardian();
-    }
-
-    function test_revert_guardian_unpause() public {
-        vm.prank(owner);
-        configHub.setPauseGuardian(guardian, true);
-
-        vm.startPrank(guardian);
-        // can pause
-        testedContract.pauseByGuardian();
-        // cannot unpause
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, guardian));
-        testedContract.unpause();
     }
 
     function test_unrescuable() public {
@@ -229,33 +151,37 @@ contract BadConfigHub1 {
 }
 
 contract BadConfigHub2 {
+    address public owner;
+
+    constructor(address _owner) {
+        owner = _owner;
+    }
+
     function VERSION() external returns (string memory) { }
 }
 
 // mock of an inheriting contract (because base is abstract)
 contract TestableBaseManaged is BaseManaged {
-    constructor(address _initialOwner, ConfigHub _configHub, address _unrescuable)
-        BaseManaged(_initialOwner, _configHub, _unrescuable)
-    { }
+    constructor(ConfigHub _configHub, address _unrescuable) BaseManaged(_configHub, _unrescuable) { }
 }
 
 // the tests for the mock contract
 contract BaseManagedMockTest is BaseManagedTestBase {
     function setupTestedContract() internal override {
-        testedContract = new TestableBaseManaged(owner, configHub, unrescuable);
+        testedContract = new TestableBaseManaged(configHub, unrescuable);
     }
 
     function test_revert_constructor_invalidConfigHub() public {
         vm.expectRevert(new bytes(0));
-        new TestableBaseManaged(owner, ConfigHub(address(0)), unrescuable);
+        new TestableBaseManaged(ConfigHub(address(0)), unrescuable);
 
         ConfigHub badHub = ConfigHub(address(new BadConfigHub1()));
         vm.expectRevert();
-        new TestableBaseManaged(owner, badHub, unrescuable);
+        new TestableBaseManaged(badHub, unrescuable);
 
-        badHub = ConfigHub(address(new BadConfigHub2()));
+        badHub = ConfigHub(address(new BadConfigHub2(owner)));
         vm.expectRevert("invalid ConfigHub");
-        new TestableBaseManaged(owner, badHub, unrescuable);
+        new TestableBaseManaged(badHub, unrescuable);
     }
 }
 
@@ -264,7 +190,7 @@ contract ProviderNFTManagedTest is BaseManagedTestBase {
         TestERC20 unrescuableErc20 = new TestERC20("TestERC20_2", "TestERC20_2", 18);
         unrescuable = address(unrescuableErc20);
         testedContract = new CollarProviderNFT(
-            owner, configHub, unrescuableErc20, erc20Rescuable, address(0), "ProviderNFT", "ProviderNFT"
+            configHub, unrescuableErc20, erc20Rescuable, address(0), "ProviderNFT", "ProviderNFT"
         );
     }
 }
@@ -273,8 +199,7 @@ contract EscrowSupplierNFTManagedTest is BaseManagedTestBase {
     function setupTestedContract() internal override {
         TestERC20 unrescuableErc20 = new TestERC20("TestERC20_2", "TestERC20_2", 18);
         unrescuable = address(unrescuableErc20);
-        testedContract =
-            new EscrowSupplierNFT(owner, configHub, unrescuableErc20, "ProviderNFT", "ProviderNFT");
+        testedContract = new EscrowSupplierNFT(configHub, unrescuableErc20, "ProviderNFT", "ProviderNFT");
     }
 }
 
@@ -294,7 +219,7 @@ contract TakerNFTManagedTest is BaseManagedTestBase {
         // taker checks price on construction
         mockCLFeed.setLatestAnswer(1, 0);
         testedContract = new CollarTakerNFT(
-            owner, configHub, unrescuableErc20, erc20Rescuable, oracle, "CollarTakerNFT", "BRWTST"
+            configHub, unrescuableErc20, erc20Rescuable, oracle, "CollarTakerNFT", "BRWTST"
         );
     }
 }
@@ -305,6 +230,6 @@ contract LoansManagedTest is TakerNFTManagedTest {
         // take the taker contract setup by the super
         CollarTakerNFT takerNFT = CollarTakerNFT(address(testedContract));
         unrescuable = address(takerNFT);
-        testedContract = new LoansNFT(owner, takerNFT, "", "");
+        testedContract = new LoansNFT(takerNFT, "", "");
     }
 }

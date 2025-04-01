@@ -28,7 +28,7 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
     function setUp() public override {
         super.setUp();
         asset = underlying;
-        escrowNFT = new EscrowSupplierNFT(owner, configHub, asset, "ES Test", "ES Test");
+        escrowNFT = new EscrowSupplierNFT(configHub, asset, "ES Test", "ES Test");
 
         setCanOpenSingle(address(escrowNFT), true);
         setCanOpen(loans, true);
@@ -284,9 +284,9 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
 contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
     function test_constructor() public {
         EscrowSupplierNFT newEscrowSupplierNFT =
-            new EscrowSupplierNFT(owner, configHub, asset, "NewEscrowSupplierNFT", "NESNFT");
+            new EscrowSupplierNFT(configHub, asset, "NewEscrowSupplierNFT", "NESNFT");
 
-        assertEq(address(newEscrowSupplierNFT.owner()), owner);
+        assertEq(address(newEscrowSupplierNFT.configHubOwner()), owner);
         assertEq(address(newEscrowSupplierNFT.configHub()), address(configHub));
         assertEq(newEscrowSupplierNFT.unrescuableAsset(), address(asset));
         assertEq(address(newEscrowSupplierNFT.asset()), address(asset));
