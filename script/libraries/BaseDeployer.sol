@@ -173,7 +173,10 @@ library BaseDeployer {
 
         pair.loansContract.setSwapperAllowed(address(pair.swapperUniV3), true, true);
 
-        pair.escrowNFT.setLoansCanOpen(address(pair.loansContract), true);
+        // allow loans to open escrow positions
+        hub.setCanOpenPair(
+            address(pair.underlying), address(pair.escrowNFT), address(pair.loansContract), true
+        );
     }
 
     function setupConfigHub(ConfigHub configHub, HubParams memory hubParams) internal {

@@ -61,9 +61,6 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     // @dev this is NOT the NFT id, this is a  separate non transferrable ID
     uint public nextOfferId = 1; // starts from 1 so that 0 ID is not used
 
-    // loans contracts allowed to start or switch escrows
-    mapping(address loans => bool allowed) public loansCanOpen;
-
     mapping(uint offerId => OfferStored) internal offers;
 
     mapping(uint escrowId => EscrowStored) internal escrows;
@@ -265,7 +262,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         external
         returns (uint escrowId)
     {
-        // @dev msg.sender auth is checked vs. loansCanOpen in _startEscrow
+        // @dev msg.sender auth is checked vs. canOpenPair in _startEscrow
         escrowId = _startEscrow(offerId, escrowed, fees, loanId);
 
         // @dev despite the fact that they partially cancel out, so can be done as just fee transfer,
@@ -404,22 +401,17 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         emit EscrowSeized(escrowId, msg.sender, withdrawal);
     }
 
-    // ----- admin ----- //
-
-    /// @notice Sets whether a Loans contract is allowed to interact with this contract
-    function setLoansCanOpen(address loans, bool allowed) external onlyConfigHubOwner {
-        // @dev no checks for Loans interface since calls are only from Loans to this contract
-        loansCanOpen[loans] = allowed;
-        emit LoansCanOpenSet(loans, allowed);
-    }
-
     // ----- INTERNAL MUTATIVE ----- //
 
     function _startEscrow(uint offerId, uint escrowed, uint fees, uint loanId)
         internal
         returns (uint escrowId)
     {
-        require(loansCanOpen[msg.sender], "escrow: unauthorized loans contract");
+        // Loans should be authorized to open for underlying and this contract (as second asset)
+        require(
+            configHub.canOpenPair(address(asset), address(this), msg.sender),
+            "escrow: unauthorized loans contract"
+        );
         // @dev loans is not checked since is directly authed in this contract via setLoansAllowed
         require(configHub.canOpenSingle(address(asset), address(this)), "escrow: unsupported escrow");
 

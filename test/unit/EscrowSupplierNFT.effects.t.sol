@@ -33,7 +33,7 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         setCanOpenSingle(address(escrowNFT), true);
         setCanOpen(loans, true);
         vm.startPrank(owner);
-        escrowNFT.setLoansCanOpen(loans, true);
+        configHub.setCanOpenPair(address(underlying), address(escrowNFT), address(loans), true);
         vm.stopPrank();
 
         asset.mint(loans, largeUnderlying * 10);

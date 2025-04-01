@@ -400,7 +400,6 @@ abstract contract BaseAssetPairForkTest is Test {
         assertEq(pair.escrowNFT.VERSION(), "0.3.0");
         assertEq(address(pair.escrowNFT.configHubOwner()), owner);
         assertEq(address(pair.escrowNFT.configHub()), address(configHub));
-        assertTrue(pair.escrowNFT.loansCanOpen(address(pair.loansContract)));
         assertEq(address(pair.escrowNFT.asset()), address(pair.underlying));
 
         // pair auth
@@ -420,6 +419,11 @@ abstract contract BaseAssetPairForkTest is Test {
         assertTrue(
             configHub.canOpenPair(
                 address(pair.underlying), address(pair.cashAsset), address(pair.rollsContract)
+            )
+        );
+        assertTrue(
+            configHub.canOpenPair(
+                address(pair.underlying), address(pair.escrowNFT), address(pair.loansContract)
             )
         );
 

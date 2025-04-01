@@ -15,12 +15,14 @@ Notable changes to contracts.
   - `setOracle` is removed, and `settleAsCancelled` (for oracle failure) is added 
 - CollarProviderNFT:
   - `protocolFee` charges fee on full notional amount (cash value of loan input), and expects `callStrikePercent` argument.
+EscrowSupplierNFT:
+  - remove `loansCanOpen` and admin setter, and use canOpenPair on config hub for this auth instead
 - Rolls:
   - Update to use the updated protocolFee interface.
   - Not inheriting from BaseManaged.
 - ConfigHub
   - remove pause guardians
-  - make canOpenPair interface more loose to allow removing supplier's loansCanOpen    
+  - make canOpenPair interface more loose to allow removing supplier's `loansCanOpen`    
 
 # 0.2.0 (All contracts)
 
