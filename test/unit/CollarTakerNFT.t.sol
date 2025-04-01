@@ -646,9 +646,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         (uint takerId,) = checkOpenPairedPosition();
         skip(duration + takerNFT.SETTLE_AS_CANCELLED_DELAY());
         // oracle reverts now
-        vm.mockCallRevert(
-            address(takerNFT.oracle()), abi.encodeCall(takerNFT.oracle().currentPrice, ()), ""
-        );
+        vm.mockCallRevert(address(takerNFT.oracle()), abi.encodeCall(takerNFT.oracle().currentPrice, ()), "");
         // check that it reverts
         vm.expectRevert(new bytes(0));
         takerNFT.currentOraclePrice();
@@ -822,7 +820,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         vm.expectRevert("taker: cancel balance mismatch");
         takerNFT.cancelPairedPosition(takerId);
     }
-
 }
 
 contract ReentrantAttacker {
