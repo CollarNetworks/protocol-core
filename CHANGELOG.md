@@ -11,6 +11,8 @@ Notable changes to contracts.
   - Inheriting from updated BaseManaged (not ownable, not pausable).
   - Different constructor interface. 
   - Using `onlyConfigHubOwner` for admin methods.
+- CollarTakerNFT:
+  - `setOracle` is removed, and `settleAsCancelled` (for oracle failure) is added 
 - CollarProviderNFT:
   - `protocolFee` charges fee on full notional amount (cash value of loan input), and expects `callStrikePercent` argument.
 - Rolls:
