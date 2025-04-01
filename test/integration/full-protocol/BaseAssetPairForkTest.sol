@@ -350,7 +350,7 @@ abstract contract BaseAssetPairForkTest is Test {
 
     function test_validatePairDeployment() public view {
         // configHub
-        assertEq(configHub.VERSION(), "0.2.0");
+        assertEq(configHub.VERSION(), "0.3.0");
         assertEq(configHub.owner(), owner);
         assertEq(uint(configHub.protocolFeeAPR()), protocolFeeAPR);
         assertEq(configHub.feeRecipient(), protocolFeeRecipient);

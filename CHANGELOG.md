@@ -17,7 +17,10 @@ Notable changes to contracts.
   - `protocolFee` charges fee on full notional amount (cash value of loan input), and expects `callStrikePercent` argument.
 - Rolls:
   - Update to use the updated protocolFee interface.
-  - Not inheriting from BaseManaged. 
+  - Not inheriting from BaseManaged.
+- ConfigHub
+  - remove pause guardians
+  - make canOpenPair interface more loose to allow removing supplier's loansCanOpen    
 
 # 0.2.0 (All contracts)
 
