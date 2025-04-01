@@ -278,7 +278,9 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
      * Either taker or provider are incentivised to call settlePairedPosition prior to this method being callable,
      * and anyone else (like a keeper), can call it too. So if it wasn't called by anyone, we need to settle the
      * positions without an oracle, and allow their withdrawal.
-     * Only callable by a holder of either the taker or provider positions.
+     * Only callable by a holder of either the taker or provider positions. If the NFT is held
+     * by another contract it needs to allow withdrawing the NFT to call this method. For example
+     * LoansNFT.unwrapAndCancelLoan may need to be used in Loans by the borrower to call this method.
      */
     function settleAsCancelled(uint takerId) external nonReentrant {
         // @dev this checks position exists
