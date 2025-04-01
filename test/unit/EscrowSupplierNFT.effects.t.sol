@@ -295,7 +295,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         assertEq(newEscrowSupplierNFT.MAX_GRACE_PERIOD(), 30 days);
         assertEq(newEscrowSupplierNFT.MAX_LATE_FEE_APR_BIPS(), 12 * BIPS_100PCT);
         assertEq(newEscrowSupplierNFT.MAX_FEE_REFUND_BIPS(), 9500);
-        assertEq(newEscrowSupplierNFT.VERSION(), "0.2.0");
+        assertEq(newEscrowSupplierNFT.VERSION(), "0.3.0");
         assertEq(newEscrowSupplierNFT.name(), "NewEscrowSupplierNFT");
         assertEq(newEscrowSupplierNFT.symbol(), "NESNFT");
     }

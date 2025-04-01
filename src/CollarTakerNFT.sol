@@ -46,7 +46,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
 
     uint internal constant BIPS_BASE = 10_000;
 
-    string public constant VERSION = "0.2.0";
+    string public constant VERSION = "0.3.0";
 
     // ----- IMMUTABLES ----- //
     IERC20 public immutable cashAsset;

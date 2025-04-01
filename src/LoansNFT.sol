@@ -48,7 +48,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
     uint internal constant BIPS_BASE = 10_000;
 
-    string public constant VERSION = "0.2.0";
+    string public constant VERSION = "0.3.0";
     uint public constant MAX_SWAP_PRICE_DEVIATION_BIPS = 1000; // 10%, allows 10% self-sandwich slippage
 
     // ----- IMMUTABLES ----- //

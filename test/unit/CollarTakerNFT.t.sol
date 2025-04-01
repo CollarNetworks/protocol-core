@@ -232,7 +232,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         assertEq(address(takerNFT.cashAsset()), address(cashAsset));
         assertEq(address(takerNFT.underlying()), address(underlying));
         assertEq(address(takerNFT.oracle()), address(chainlinkOracle));
-        assertEq(takerNFT.VERSION(), "0.2.0");
+        assertEq(takerNFT.VERSION(), "0.3.0");
         assertEq(takerNFT.name(), "NewCollarTakerNFT");
         assertEq(takerNFT.symbol(), "NBPNFT");
         assertEq(takerNFT.nextPositionId(), 1);

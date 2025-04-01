@@ -48,7 +48,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     uint public constant MAX_PUT_STRIKE_BIPS = BIPS_BASE - 1; // 1 less than 1x
     uint public constant MAX_PROTOCOL_FEE_BIPS = BIPS_BASE / 100; // 1%
 
-    string public constant VERSION = "0.2.0";
+    string public constant VERSION = "0.3.0";
 
     // ----- IMMUTABLES ----- //
     IERC20 public immutable cashAsset;

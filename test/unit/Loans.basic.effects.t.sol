@@ -445,7 +445,7 @@ contract LoansBasicEffectsTest is LoansTestBase {
         assertEq(address(loans.takerNFT()), address(takerNFT));
         assertEq(address(loans.cashAsset()), address(cashAsset));
         assertEq(address(loans.underlying()), address(underlying));
-        assertEq(loans.VERSION(), "0.2.0");
+        assertEq(loans.VERSION(), "0.3.0");
         assertEq(loans.configHubOwner(), owner);
         assertEq(loans.closingKeeper(), address(0));
         assertEq(address(loans.defaultSwapper()), address(0));

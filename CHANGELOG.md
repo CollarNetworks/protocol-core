@@ -2,7 +2,7 @@
 
 Notable changes to contracts.
 
-# Unreleased
+# Unreleased (0.3.0)
 
 - BaseManaged:
   - No direct ownership, instead has `onlyConfigHubOwner` modifier.

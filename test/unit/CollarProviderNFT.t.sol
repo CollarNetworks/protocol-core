@@ -142,7 +142,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         assertEq(newProviderNFT.MAX_CALL_STRIKE_BIPS(), 100_000);
         assertEq(newProviderNFT.MAX_PUT_STRIKE_BIPS(), 9999);
         assertEq(newProviderNFT.MAX_PROTOCOL_FEE_BIPS(), 100);
-        assertEq(newProviderNFT.VERSION(), "0.2.0");
+        assertEq(newProviderNFT.VERSION(), "0.3.0");
         assertEq(newProviderNFT.name(), "NewCollarProviderNFT");
         assertEq(newProviderNFT.symbol(), "NPRVNFT");
     }

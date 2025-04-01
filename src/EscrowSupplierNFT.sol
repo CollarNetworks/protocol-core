@@ -52,7 +52,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     // @notice max percentage of refunded interest fee, prevents free cancellation issues
     uint public constant MAX_FEE_REFUND_BIPS = 9500; // 95%
 
-    string public constant VERSION = "0.2.0";
+    string public constant VERSION = "0.3.0";
 
     // ----- IMMUTABLES ----- //
     IERC20 public immutable asset; // corresponds to Loans' underlying

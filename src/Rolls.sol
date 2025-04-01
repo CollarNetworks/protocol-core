@@ -49,7 +49,7 @@ contract Rolls is IRolls {
 
     uint internal constant BIPS_BASE = 10_000;
 
-    string public constant VERSION = "0.2.0";
+    string public constant VERSION = "0.3.0";
 
     // ----- IMMUTABLES ----- //
     CollarTakerNFT public immutable takerNFT;
