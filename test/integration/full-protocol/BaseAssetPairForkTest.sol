@@ -319,7 +319,7 @@ abstract contract BaseAssetPairForkTest is Test {
         // Calculate protocol fee based on post-swap provider locked amount
         uint swapOut = loanAmount * BIPS_BASE / ltv;
         uint initProviderLocked = swapOut * (callstrikeToUse - BIPS_BASE) / BIPS_BASE;
-        (protocolFee,) = pair.providerNFT.protocolFee(initProviderLocked, duration);
+        (protocolFee,) = pair.providerNFT.protocolFee(initProviderLocked, duration, callstrikeToUse);
         assertGt(protocolFee, 0);
     }
 

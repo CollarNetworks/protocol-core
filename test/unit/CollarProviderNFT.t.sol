@@ -58,7 +58,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         // calculate expected
         uint numer = positionAmount * protocolFeeAPR * duration;
         // round up = ((x - 1) / y) + 1
-        expectedFee = numer == 0 ? 0 : (1 + ((numer - 1) / BIPS_100PCT / 365 days));
+        expectedFee = numer == 0 ? 0 : (1 + ((numer - 1) / (callStrikePercent - BIPS_100PCT) / 365 days));
         // no fee for 0 recipient
         expectedFee = (configHub.feeRecipient() == address(0)) ? 0 : expectedFee;
         if (positionAmount != 0 && expectNonZeroFee) {
@@ -66,7 +66,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
             assertTrue(expectedFee > 0);
         }
         // check the view
-        (uint feeView, address toView) = providerNFT.protocolFee(positionAmount, duration);
+        (uint feeView, address toView) = providerNFT.protocolFee(positionAmount, duration, callStrikePercent);
         assertEq(feeView, expectedFee);
         assertEq(toView, configHub.feeRecipient());
     }
@@ -347,7 +347,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
 
         // zero recipient, non-zero fee (prevented by config-hub setter, so needs to be mocked)
         vm.mockCall(address(configHub), abi.encodeCall(configHub.feeRecipient, ()), abi.encode(address(0)));
-        (uint fee, address feeRecipient) = providerNFT.protocolFee(amount, duration);
+        (uint fee, address feeRecipient) = providerNFT.protocolFee(amount, duration, callStrikePercent);
         assertEq(fee, 0);
         assertEq(feeRecipient, address(0));
         // this value is checked in the createAndCheckPosition helper to be deducted
@@ -365,27 +365,29 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         // zero APR
         vm.startPrank(owner);
         configHub.setProtocolFeeParams(0, protocolFeeRecipient);
-        (uint fee, address feeRecipient) = providerNFT.protocolFee(largeCash, duration);
+        (uint fee, address feeRecipient) = providerNFT.protocolFee(largeCash, duration, callStrikePercent);
         assertEq(feeRecipient, protocolFeeRecipient);
         assertEq(fee, 0);
 
         // test round up
         configHub.setProtocolFeeParams(1, feeRecipient);
-        (fee,) = providerNFT.protocolFee(1, 1); // very small fee
+        (fee,) = providerNFT.protocolFee(1, 1, callStrikePercent); // very small fee
         assertEq(fee, 1); // rounded up
 
         // test zero numerator
-        (fee,) = providerNFT.protocolFee(0, 1);
+        (fee,) = providerNFT.protocolFee(0, 1, callStrikePercent);
         assertEq(fee, 0);
-        (fee,) = providerNFT.protocolFee(1, 0);
+        (fee,) = providerNFT.protocolFee(1, 0, callStrikePercent);
         assertEq(fee, 0);
 
         // check calculation for specific hardcoded value
         configHub.setProtocolFeeParams(50, feeRecipient); // 0.5% per year
-        (fee,) = providerNFT.protocolFee(cashUnits(10), 365 days);
-        assertEq(fee, cashFraction(0.05 ether));
-        (fee,) = providerNFT.protocolFee(cashUnits(10) + 1, 365 days);
-        assertEq(fee, cashFraction(0.05 ether) + 1); // rounds up
+        (fee,) = providerNFT.protocolFee(cashUnits(10), 365 days, 12_000);
+        // 10 cash providerLocked, at 120% call strike, means 50 notional
+        // 0.5% on 50 notional is 0.25
+        assertEq(fee, cashFraction(0.25 ether));
+        (fee,) = providerNFT.protocolFee(cashUnits(10) + 1, 365 days, 12_000);
+        assertEq(fee, cashFraction(0.25 ether) + 1); // rounds up
     }
 
     function test_settlePositionIncrease() public {
@@ -754,7 +756,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         vm.expectRevert("provider: protocol fee APR too high");
         providerNFT.mintFromOffer(offerId, largeCash, 0);
         vm.expectRevert("provider: protocol fee APR too high");
-        providerNFT.protocolFee(offerId, 0);
+        providerNFT.protocolFee(offerId, 0, callStrikePercent);
     }
 
     function test_revert_settlePosition() public {
