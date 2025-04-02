@@ -182,7 +182,7 @@ contract LoansTestBase is BaseAssetPairTestSetup {
 
         uint expectedLoanAmount = swapOut * ltv / BIPS_100PCT;
         uint expectedProviderLocked = swapOut * (callStrikePercent - BIPS_100PCT) / BIPS_100PCT;
-        (uint expectedProtocolFee,) = providerNFT.protocolFee(expectedProviderLocked, duration);
+        (uint expectedProtocolFee,) = providerNFT.protocolFee(expectedProviderLocked, duration, callStrikePercent);
         if (expectedProviderLocked != 0) assertGt(expectedProtocolFee, 0); // ensure fee is expected
 
         ILoansNFT.SwapParams memory swapParams = defaultSwapParams(swapCashAmount);

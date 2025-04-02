@@ -126,15 +126,48 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         });
     }
 
-    /// @notice Calculates the protocol fee charged from offers on position creation.
-    /// @dev fee is set to 0 if recipient is zero because no transfer will be done
-    function protocolFee(uint providerLocked, uint duration) public view returns (uint fee, address to) {
+    /**
+     * @notice Calculates the protocol fee charged from offers on position creation.
+     * The fee is charged on the full notional value of the underlying's cash value - i.e. on 100%.
+     * Example: If providerLocked is 100, and callsTrike is 110%, the notional is 1000. If the APR is 1%,
+     * so the fee will on 1 year duration will be 1% of 1000 = 10, **on top** of the providerLocked.
+     * So when position is created, the offer amount will be reduced by 100 + 10 in this example,
+     * with 100 in providerLocked, and 10 sent to protocol fee recipient.
+     * @dev fee is set to 0 if recipient is zero because no transfer will be done
+     */
+    function protocolFee(uint providerLocked, uint duration, uint callStrikePercent)
+        public
+        view
+        returns (uint fee, address to)
+    {
         to = configHub.feeRecipient();
+        // prevent non-zero fee to zero-recipient.
+        if (to == address(0)) return (0, to);
+
         uint apr = configHub.protocolFeeAPR();
         require(apr <= MAX_PROTOCOL_FEE_BIPS, "provider: protocol fee APR too high");
-        // prevents non-zero fee to zero-recipient.
+
+        /* Calculation explanation:
+
+        1. fullNotional = providerLocked * BIPS_BASE / (callStrikePercent - BIPS_BASE)
+            - providerLocked was proportionally calculated from callStrikePercent
+            in CollarTakerNFT.calculateProviderLocked from takerLocked
+            - takerLocked was proportional to putStrikePercent in LoansNFT._swapAndMintCollar
+            So to get to full notional that was used in LoanNFT we need to divide providerLocked by
+            (callStrikePercent - 100%).
+
+        2. Apply the APR:
+            fee = fullNotional * feeAPR * duration / (BIPS_BASE * YEAR)
+
+        3. Combine 1 and 2:
+            fee =  providerLocked * BIPS_BASE * feeAPR * duration / ((callStrikePercent - BIPS_BASE) * BIPS_BASE * YEAR)
+
+        4. Simplify BIPS_BASE:
+            fee =  providerLocked * feeAPR * duration / ((callStrikePercent - BIPS_BASE) * YEAR
+        */
+
         // rounds up to prevent avoiding fee using many small positions.
-        fee = to == address(0) ? 0 : Math.ceilDiv(providerLocked * apr * duration, BIPS_BASE * YEAR);
+        fee = Math.ceilDiv(providerLocked * apr * duration, (callStrikePercent - BIPS_BASE) * YEAR);
     }
 
     // ----- MUTATIVE ----- //
@@ -223,8 +256,10 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// @notice Mints a new position from an existing offer. Can ONLY be called through the
     /// taker contract, which is trusted to open and settle the offer according to the terms.
     /// Offer parameters are checked vs. the global config to ensure they are still supported.
-    /// Protocol fee (based on the provider amount and duration) is deducted from offer, and sent
+    /// Protocol fee (charged on full notional value of the underlying) is deducted from offer, and sent
     /// to fee recipient. Offer amount is updated as well.
+    /// Note that because of how protocol fee is calculated, for low callStrikes it can be higher
+    /// than providerLocked itself. See protocolFee view for calculation details.
     /// The NFT, representing ownership of the position, is minted to original provider of the offer.
     /// @param offerId The ID of the offer to mint from
     /// @param providerLocked The amount of cash asset to use for the new position
@@ -248,7 +283,8 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         require(configHub.isValidCollarDuration(offer.duration), "provider: unsupported duration");
 
         // calc protocol fee to subtract from offer (on top of amount)
-        (uint fee, address feeRecipient) = protocolFee(providerLocked, offer.duration);
+        (uint fee, address feeRecipient) =
+            protocolFee(providerLocked, offer.duration, offer.callStrikePercent);
 
         // check amount
         require(providerLocked >= offer.minLocked, "provider: amount too low");

@@ -398,7 +398,8 @@ contract Rolls is IRolls, BaseManaged {
         (uint newTakerLocked, uint newProviderLocked) = _newLockedAmounts(takerPos, newPrice);
 
         // new protocol fee. @dev there is no refund for previously paid protocol fee
-        (uint protocolFee,) = takerPos.providerNFT.protocolFee(newProviderLocked, takerPos.duration);
+        (uint protocolFee,) =
+            takerPos.providerNFT.protocolFee(newProviderLocked, takerPos.duration, takerPos.callStrikePercent);
 
         // The taker and provider external balances (before fee) should be updated as if
         // they settled and withdrawn the old positions, and opened the new positions.
