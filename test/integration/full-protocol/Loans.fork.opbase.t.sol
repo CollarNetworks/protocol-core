@@ -126,6 +126,8 @@ contract WETHUSDC_OPBaseMain_LoansForkTest_NoDeploy is WETHUSDC_OPBaseMain_Loans
         super._setTestValues();
         forceLatestBlock = true;
         testMode = TestMode.noDeploy;
+        // TODO: enable test when new release is deployed
+        vm.skip(true); // deployment is outdated (0.2.0)
         realArtifactsName = Const.OPBaseMain_artifactsName;
     }
 }
@@ -155,6 +157,8 @@ contract CBBTCUSDC_OPBaseMain_LoansForkTest_NoDeploy is CBBTCUSDC_OPBaseMain_Loa
         super._setTestValues();
         forceLatestBlock = true;
         testMode = TestMode.noDeploy;
+        // TODO: enable test when new release is deployed
+        vm.skip(true); // deployment is outdated (0.2.0)
         realArtifactsName = Const.OPBaseMain_artifactsName;
     }
 }
@@ -202,6 +206,8 @@ contract TWETHTUSDC_OPBaseSep_LoansForkTest_NoDeploy is TWETHTUSDC_OPBaseSep_Loa
         super._setTestValues();
         forceLatestBlock = true;
         testMode = TestMode.noDeploy;
+        // TODO: enable test when new release is deployed
+        vm.skip(true); // deployment is outdated (0.2.0)
         realArtifactsName = Const.OPBaseSep_artifactsName;
     }
 }
@@ -227,6 +233,8 @@ contract TWBTCTUSDC_OPBaseSep_LoansForkTest_NoDeploy is TWBTCTUSDC_OPBaseSep_Loa
         super._setTestValues();
         forceLatestBlock = true;
         testMode = TestMode.noDeploy;
+        // TODO: enable test when new release is deployed
+        vm.skip(true); // deployment is outdated (0.2.0)
         realArtifactsName = Const.OPBaseSep_artifactsName;
     }
 }
