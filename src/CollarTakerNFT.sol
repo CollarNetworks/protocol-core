@@ -67,7 +67,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
         ITakerOracle _oracle,
         string memory _name,
         string memory _symbol
-    ) BaseNFT(_name, _symbol, _configHub, address(_cashAsset)) {
+    ) BaseNFT(_name, _symbol, _configHub) {
         cashAsset = _cashAsset;
         underlying = _underlying;
         _checkOracle(_oracle);

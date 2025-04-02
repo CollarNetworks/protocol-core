@@ -74,7 +74,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     address public defaultSwapper;
 
     constructor(CollarTakerNFT _takerNFT, string memory _name, string memory _symbol)
-        BaseNFT(_name, _symbol, _takerNFT.configHub(), address(_takerNFT))
+        BaseNFT(_name, _symbol, _takerNFT.configHub())
     {
         takerNFT = _takerNFT;
         cashAsset = _takerNFT.cashAsset();
