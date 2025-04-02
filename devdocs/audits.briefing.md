@@ -43,6 +43,7 @@ Base, possibly Eth L1 later.
 - Protocol fee (charged from provider offer, on top of provider position) can be high relative to provider position's size, especially for smaller callStrikePercent.  
 - Because oracle prices undergo multiple conversions (feeds, tokens units), asset and price feed combinations w.r.t to decimals and price ranges (e.g., low price tokens) are assumed to be checked to allow sufficient precision.
 - In case of congestion, calls for `openPairedPosition` (`openLoan` that uses it), and rolls `executeRoll` can be executed at higher price than the user intended (if price is lower, `openLoan` and `executeRoll` have slippage protection, and `openPairedPosition` has better upside for the caller). This is accepted as low likelihood, and low impact: loss is small since short congestion will result in small price change vs. original intent, and long downtime may fail the oracle sequencer uptime check.
+- If an oracle becomes malicious, there isn't a way to "unset" it. ConfigHub can prevent opening new positions for that pair, but existing positions will remain vulnerable.
 - Issues and considerations explained in the Solidity comments and audit reports.
  
 ## Commonly Noted Non-issues (unless we're wrong, and they are)
