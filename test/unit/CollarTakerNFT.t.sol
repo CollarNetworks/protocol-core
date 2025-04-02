@@ -366,7 +366,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
         // allowed for different assets, still reverts
         vm.startPrank(owner);
-        configHub.setCanOpenPair(cashAsset, underlying, address(takerNFT), true);
+        configHub.setCanOpenPair(address(cashAsset), address(underlying), address(takerNFT), true);
         vm.startPrank(user1);
         vm.expectRevert("taker: unsupported taker");
         takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
@@ -380,7 +380,7 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         takerNFT.openPairedPosition(takerLocked, providerNFT, 0);
         // allowed for different assets, still reverts
         vm.startPrank(owner);
-        configHub.setCanOpenPair(cashAsset, underlying, address(providerNFT), true);
+        configHub.setCanOpenPair(address(cashAsset), address(underlying), address(providerNFT), true);
         vm.startPrank(user1);
         vm.expectRevert("taker: unsupported provider");
         takerNFT.openPairedPosition(takerLocked, providerNFT, 0);

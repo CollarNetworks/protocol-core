@@ -54,7 +54,6 @@ library BaseDeployer {
         uint maxDuration;
         address feeRecipient;
         uint feeAPR;
-        address[] pauseGuardians;
     }
 
     struct DeploymentResult {
@@ -162,24 +161,28 @@ library BaseDeployer {
     }
 
     function setupContractPair(ConfigHub hub, AssetPairContracts memory pair) internal {
-        hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.takerNFT), true);
-        hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.providerNFT), true);
-        hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.loansContract), true);
-        hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.rollsContract), true);
-        hub.setCanOpenPair(pair.underlying, hub.ANY_ASSET(), address(pair.escrowNFT), true);
+        hub.setCanOpenPair(address(pair.underlying), address(pair.cashAsset), address(pair.takerNFT), true);
+        hub.setCanOpenPair(address(pair.underlying), address(pair.cashAsset), address(pair.providerNFT), true);
+        hub.setCanOpenPair(
+            address(pair.underlying), address(pair.cashAsset), address(pair.loansContract), true
+        );
+        hub.setCanOpenPair(
+            address(pair.underlying), address(pair.cashAsset), address(pair.rollsContract), true
+        );
+        hub.setCanOpenPair(address(pair.underlying), hub.ANY_ASSET(), address(pair.escrowNFT), true);
 
         pair.loansContract.setSwapperAllowed(address(pair.swapperUniV3), true, true);
 
-        pair.escrowNFT.setLoansCanOpen(address(pair.loansContract), true);
+        // allow loans to open escrow positions
+        hub.setCanOpenPair(
+            address(pair.underlying), address(pair.escrowNFT), address(pair.loansContract), true
+        );
     }
 
     function setupConfigHub(ConfigHub configHub, HubParams memory hubParams) internal {
         configHub.setLTVRange(hubParams.minLTV, hubParams.maxLTV);
         configHub.setCollarDurationRange(hubParams.minDuration, hubParams.maxDuration);
         configHub.setProtocolFeeParams(hubParams.feeAPR, hubParams.feeRecipient);
-        for (uint i; i < hubParams.pauseGuardians.length; ++i) {
-            configHub.setPauseGuardian(hubParams.pauseGuardians[i], true);
-        }
     }
 
     // @dev this only nominates, and ownership must be accepted by the new owner

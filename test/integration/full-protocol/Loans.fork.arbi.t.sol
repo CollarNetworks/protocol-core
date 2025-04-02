@@ -32,7 +32,6 @@ contract WETHUSDC_ArbiMain_LoansForkTest is BaseAssetPairForkTest_ScriptTest {
         // config params
         protocolFeeAPR = 90;
         protocolFeeRecipient = Const.ArbiMain_feeRecipient;
-        pauseGuardians.push(Const.ArbiMain_deployerAcc);
 
         // @dev all pairs must be tested, so if this number is increased, test classes must be added
         expectedNumPairs = 3;
@@ -110,8 +109,6 @@ contract WETHUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
 
         owner = Const.ArbiSep_owner;
         protocolFeeRecipient = Const.ArbiSep_feeRecipient;
-        delete pauseGuardians;
-        pauseGuardians.push(Const.ArbiSep_deployerAcc);
 
         // @dev all pairs must be tested, so if this number is increased, test classes must be added
         expectedNumPairs = 2;

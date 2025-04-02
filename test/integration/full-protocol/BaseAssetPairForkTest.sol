@@ -35,7 +35,6 @@ abstract contract BaseAssetPairForkTest is Test {
     // config params
     uint protocolFeeAPR;
     address protocolFeeRecipient;
-    address[] pauseGuardians;
 
     // pair params
     uint expectedOraclePrice;
@@ -351,11 +350,10 @@ abstract contract BaseAssetPairForkTest is Test {
 
     function test_validatePairDeployment() public view {
         // configHub
-        assertEq(configHub.VERSION(), "0.2.0");
+        assertEq(configHub.VERSION(), "0.3.0");
         assertEq(configHub.owner(), owner);
         assertEq(uint(configHub.protocolFeeAPR()), protocolFeeAPR);
         assertEq(configHub.feeRecipient(), protocolFeeRecipient);
-        assertEq(configHub.allPauseGuardians(), pauseGuardians);
 
         // oracle
         assertEq(address(pair.oracle.baseToken()), address(pair.underlying));
@@ -402,14 +400,32 @@ abstract contract BaseAssetPairForkTest is Test {
         assertEq(pair.escrowNFT.VERSION(), "0.3.0");
         assertEq(address(pair.escrowNFT.configHubOwner()), owner);
         assertEq(address(pair.escrowNFT.configHub()), address(configHub));
-        assertTrue(pair.escrowNFT.loansCanOpen(address(pair.loansContract)));
         assertEq(address(pair.escrowNFT.asset()), address(pair.underlying));
 
         // pair auth
-        assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.takerNFT)));
-        assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.providerNFT)));
-        assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.loansContract)));
-        assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.rollsContract)));
+        assertTrue(
+            configHub.canOpenPair(address(pair.underlying), address(pair.cashAsset), address(pair.takerNFT))
+        );
+        assertTrue(
+            configHub.canOpenPair(
+                address(pair.underlying), address(pair.cashAsset), address(pair.providerNFT)
+            )
+        );
+        assertTrue(
+            configHub.canOpenPair(
+                address(pair.underlying), address(pair.cashAsset), address(pair.loansContract)
+            )
+        );
+        assertTrue(
+            configHub.canOpenPair(
+                address(pair.underlying), address(pair.cashAsset), address(pair.rollsContract)
+            )
+        );
+        assertTrue(
+            configHub.canOpenPair(
+                address(pair.underlying), address(pair.escrowNFT), address(pair.loansContract)
+            )
+        );
 
         // all pair auth
         address[] memory pairAuthed = new address[](4);
@@ -417,15 +433,15 @@ abstract contract BaseAssetPairForkTest is Test {
         pairAuthed[1] = address(pair.providerNFT);
         pairAuthed[2] = address(pair.loansContract);
         pairAuthed[3] = address(pair.rollsContract);
-        assertEq(configHub.allCanOpenPair(pair.underlying, pair.cashAsset), pairAuthed);
+        assertEq(configHub.allCanOpenPair(address(pair.underlying), address(pair.cashAsset)), pairAuthed);
 
         // single asset auth
-        assertTrue(configHub.canOpenSingle(pair.underlying, address(pair.escrowNFT)));
+        assertTrue(configHub.canOpenSingle(address(pair.underlying), address(pair.escrowNFT)));
 
         // all single auth for underlying
         address[] memory escrowAuthed = new address[](1);
         escrowAuthed[0] = address(pair.escrowNFT);
-        assertEq(configHub.allCanOpenPair(pair.underlying, configHub.ANY_ASSET()), escrowAuthed);
+        assertEq(configHub.allCanOpenPair(address(pair.underlying), configHub.ANY_ASSET()), escrowAuthed);
     }
 
     function testAssetsSanity() public {

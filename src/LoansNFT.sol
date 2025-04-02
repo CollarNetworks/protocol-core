@@ -277,7 +277,10 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         uint newEscrowFee
     ) external onlyNFTOwner(loanId) returns (uint newLoanId, uint newLoanAmount, int toUser) {
         // check opening loans is still allowed (not in exit-only mode)
-        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "loans: unsupported loans");
+        require(
+            configHub.canOpenPair(address(underlying), address(cashAsset), address(this)),
+            "loans: unsupported loans"
+        );
 
         // @dev rolls contract is assumed to not allow rolling an expired or settled position,
         // but checking explicitly is safer and easier to review
@@ -400,7 +403,10 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         EscrowOffer memory escrowOffer,
         uint escrowFees
     ) internal returns (uint loanId, uint providerId, uint loanAmount) {
-        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "loans: unsupported loans");
+        require(
+            configHub.canOpenPair(address(underlying), address(cashAsset), address(this)),
+            "loans: unsupported loans"
+        );
         // taker NFT and provider NFT canOpen is checked in _swapAndMintCollar
         // escrow NFT canOpen is checked in _conditionalOpenEscrow
 
@@ -461,10 +467,14 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     ) internal returns (uint takerId, uint providerId, uint loanAmount) {
         (CollarProviderNFT providerNFT, uint offerId) = (offer.providerNFT, offer.id);
 
-        require(configHub.canOpenPair(underlying, cashAsset, address(takerNFT)), "loans: unsupported taker");
+        require(
+            configHub.canOpenPair(address(underlying), address(cashAsset), address(takerNFT)),
+            "loans: unsupported taker"
+        );
         // taker will check provider's canOpen as well, but we're using a view from it below so check too
         require(
-            configHub.canOpenPair(underlying, cashAsset, address(providerNFT)), "loans: unsupported provider"
+            configHub.canOpenPair(address(underlying), address(cashAsset), address(providerNFT)),
+            "loans: unsupported provider"
         );
         // taker is expected to check that providerNFT's assets match correctly
 
@@ -586,7 +596,10 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     {
         (Rolls rolls, uint rollId) = (rollOffer.rolls, rollOffer.id);
         // check this rolls contract is allowed
-        require(configHub.canOpenPair(underlying, cashAsset, address(rolls)), "loans: unsupported rolls");
+        require(
+            configHub.canOpenPair(address(underlying), address(cashAsset), address(rolls)),
+            "loans: unsupported rolls"
+        );
         // ensure it's the right takerNFT in case of multiple takerNFTs for an asset pair
         require(address(rolls.takerNFT()) == address(takerNFT), "loans: rolls takerNFT mismatch");
         // offer status (active) is not checked, also since rolls should check / fail
@@ -641,7 +654,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             // check asset matches
             require(escrowNFT.asset() == underlying, "loans: escrow asset mismatch");
             // whitelisted only
-            require(configHub.canOpenSingle(underlying, address(escrowNFT)), "loans: unsupported escrow");
+            require(
+                configHub.canOpenSingle(address(underlying), address(escrowNFT)), "loans: unsupported escrow"
+            );
 
             // @dev underlyingAmount and fee were pulled already before calling this method
             underlying.forceApprove(address(escrowNFT), escrowed + fees);
@@ -665,7 +680,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         if (prevLoan.usesEscrow) {
             EscrowSupplierNFT escrowNFT = prevLoan.escrowNFT;
             // check this escrow is still allowed
-            require(configHub.canOpenSingle(underlying, address(escrowNFT)), "loans: unsupported escrow");
+            require(
+                configHub.canOpenSingle(address(underlying), address(escrowNFT)), "loans: unsupported escrow"
+            );
 
             underlying.safeTransferFrom(msg.sender, address(this), newFees);
             underlying.forceApprove(address(escrowNFT), newFees);

@@ -635,7 +635,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         providerNFT.mintFromOffer(offerId, 0, 0);
         // allowed for different assets, still reverts
         vm.startPrank(owner);
-        configHub.setCanOpenPair(cashAsset, underlying, takerContract, true);
+        configHub.setCanOpenPair(address(cashAsset), address(underlying), takerContract, true);
         vm.startPrank(takerContract);
         vm.expectRevert("provider: unsupported taker");
         providerNFT.mintFromOffer(offerId, 0, 0);
@@ -647,7 +647,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         providerNFT.mintFromOffer(offerId, 0, 0);
         // allowed for different assets, still reverts
         vm.startPrank(owner);
-        configHub.setCanOpenPair(cashAsset, underlying, address(providerNFT), true);
+        configHub.setCanOpenPair(address(cashAsset), address(underlying), address(providerNFT), true);
         vm.startPrank(takerContract);
         vm.expectRevert("provider: unsupported provider");
         providerNFT.mintFromOffer(offerId, 0, 0);
