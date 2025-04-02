@@ -66,7 +66,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     mapping(uint escrowId => EscrowStored) internal escrows;
 
     constructor(ConfigHub _configHub, IERC20 _asset, string memory _name, string memory _symbol)
-        BaseNFT(_name, _symbol, _configHub, address(_asset))
+        BaseNFT(_name, _symbol, _configHub)
     {
         asset = _asset;
     }

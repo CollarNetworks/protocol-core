@@ -6,6 +6,7 @@ Notable changes to contracts.
 
 BaseManaged:
   - No direct ownership, instead has `onlyConfigHubOwner` modifier.
+  - `rescueTokens` removed. 
   - All pausing removed.
 CollarTakerNFT, LoansNFT, EscrowSupplierNFT, CollarProviderNFT:
   - Inheriting from updated BaseManaged (not ownable, not pausable).
@@ -16,7 +17,7 @@ CollarTakerNFT:
 CollarProviderNFT:
   - `protocolFee` charges fee on full notional amount (cash value of loan input), and expects `callStrikePercent` argument.
 EscrowSupplierNFT:
-  - remove `loansCanOpen` and admin setter, and use canOpenPair on config hub for this auth instead
+  - remove `loansCanOpen` and admin setter, and use canOpenPair on configHub for this auth instead
 Rolls:
   - Update to use the updated protocolFee interface.
   - Not inheriting from BaseManaged.

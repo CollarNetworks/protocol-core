@@ -288,7 +288,6 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
 
         assertEq(address(newEscrowSupplierNFT.configHubOwner()), owner);
         assertEq(address(newEscrowSupplierNFT.configHub()), address(configHub));
-        assertEq(newEscrowSupplierNFT.unrescuableAsset(), address(asset));
         assertEq(address(newEscrowSupplierNFT.asset()), address(asset));
         assertEq(newEscrowSupplierNFT.MAX_INTEREST_APR_BIPS(), BIPS_100PCT);
         assertEq(newEscrowSupplierNFT.MIN_GRACE_PERIOD(), 1 days);

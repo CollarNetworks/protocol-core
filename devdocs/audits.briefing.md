@@ -1,4 +1,4 @@
-## 2024 Jan Scope:
+## 2025 Apr Scope:
 
 ```
 ------------------------------------------------------------------------------------------
@@ -8,16 +8,16 @@ src/LoansNFT.sol                              108            380            372
 src/EscrowSupplierNFT.sol                      72            227            262
 src/CollarTakerNFT.sol                         57            175            217
 src/CollarProviderNFT.sol                      55            176            199
-src/Rolls.sol                                  54            204            193
+src/Rolls.sol                                  55            211            195
 src/ConfigHub.sol                              22             64             75
 src/CombinedOracle.sol                         14             40             56
 src/ChainlinkOracle.sol                        14             50             55
 src/SwapperUniV3.sol                            9             53             43
-src/base/BaseManaged.sol                       17             44             39
 src/base/BaseTakerOracle.sol                   14             57             34
+src/base/BaseManaged.sol                       14             22             25
 src/base/BaseNFT.sol                            7              9             16
 ------------------------------------------------------------------------------------------
-SUM:                                          443           1479           1561
+SUM:                                          441           1464           1549
 ------------------------------------------------------------------------------------------
 ```
 
@@ -44,6 +44,7 @@ Base, possibly Eth L1 later.
 - Because oracle prices undergo multiple conversions (feeds, tokens units), asset and price feed combinations w.r.t to decimals and price ranges (e.g., low price tokens) are assumed to be checked to allow sufficient precision.
 - In case of congestion, calls for `openPairedPosition` (`openLoan` that uses it), and rolls `executeRoll` can be executed at higher price than the user intended (if price is lower, `openLoan` and `executeRoll` have slippage protection, and `openPairedPosition` has better upside for the caller). This is accepted as low likelihood, and low impact: loss is small since short congestion will result in small price change vs. original intent, and long downtime may fail the oracle sequencer uptime check.
 - If an oracle becomes malicious, there isn't a way to "unset" it. ConfigHub can prevent opening new positions for that pair, but existing positions will remain vulnerable.
+- Any tokens accidentally sent to any of the contracts cannot be rescued.
 - Issues and considerations explained in the Solidity comments and audit reports.
  
 ## Commonly Noted Non-issues (unless we're wrong, and they are)
@@ -61,9 +62,8 @@ Base, possibly Eth L1 later.
 - `maxLTV` is reasonably far from 99.99% 
 
 ## ConfigHub's owner privileges (for BaseManaged contracts)
-- Can rescue tokens using `rescueTokens` **except** for the main asset of each BaseManaged contract: cannot rescue the cash asset from providerNFT or takerNFT, cannot rescue underlying from escrowNFT, cannot rescue takerNFT from loansNFT.
-- Can update the loansNFT closing keeper address and allowed swappers.
 - Can update the values set in ConfigHub and replace the ConfigHub contract that's being used. This includes what internal contracts are allowed to open positions, LTV range, durations range, protocol fee parameters.
+- Can update the loansNFT closing keeper address and allowed swappers.
 
 ## Testing and POC
 - Install run tests excluding fork tests: `forge install && forge build && forge test --nmc Fork`
