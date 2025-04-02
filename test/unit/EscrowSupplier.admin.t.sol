@@ -9,17 +9,10 @@ import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
 import { BaseEscrowSupplierNFTTest, IEscrowSupplierNFT } from "./EscrowSupplierNFT.effects.t.sol";
 
 contract EscrowSupplierNFT_AdminTest is BaseEscrowSupplierNFTTest {
-    function test_onlyOwnerMethods() public {
+    function test_onlyConfigHubOwnerMethods() public {
         vm.startPrank(user1);
-        bytes4 selector = Ownable.OwnableUnauthorizedAccount.selector;
 
-        vm.expectRevert(abi.encodeWithSelector(selector, user1));
-        escrowNFT.pause();
-
-        vm.expectRevert(abi.encodeWithSelector(selector, user1));
-        escrowNFT.unpause();
-
-        vm.expectRevert(abi.encodeWithSelector(selector, user1));
+        vm.expectRevert("BaseManaged: not configHub owner");
         escrowNFT.setLoansCanOpen(loans, true);
     }
 
@@ -40,51 +33,5 @@ contract EscrowSupplierNFT_AdminTest is BaseEscrowSupplierNFTTest {
         escrowNFT.setLoansCanOpen(newLoansContract, false);
 
         assertFalse(escrowNFT.loansCanOpen(newLoansContract));
-    }
-
-    function test_paused_methods() public {
-        (uint escrowId,) = createAndCheckEscrow(supplier1, largeUnderlying, largeUnderlying, escrowFee);
-
-        // pause
-        vm.startPrank(owner);
-        vm.expectEmit(address(escrowNFT));
-        emit Pausable.Paused(owner);
-        escrowNFT.pause();
-        // paused view
-        assertTrue(escrowNFT.paused());
-        // methods are paused
-        vm.startPrank(user1);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        escrowNFT.createOffer(0, 0, 0, 0, 0, 0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        escrowNFT.updateOfferAmount(0, 0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        escrowNFT.startEscrow(0, 0, 0, 0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        escrowNFT.endEscrow(0, 0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        escrowNFT.switchEscrow(0, 0, 0, 0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        escrowNFT.withdrawReleased(0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        escrowNFT.seizeEscrow(0);
-    }
-
-    function test_unpause() public {
-        vm.startPrank(owner);
-        escrowNFT.pause();
-        vm.expectEmit(address(escrowNFT));
-        emit Pausable.Unpaused(owner);
-        escrowNFT.unpause();
-        assertFalse(escrowNFT.paused());
-        // check at least one method workds now
-        createAndCheckOffer(supplier1, largeUnderlying);
     }
 }

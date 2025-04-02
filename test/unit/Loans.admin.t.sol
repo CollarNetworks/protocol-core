@@ -17,20 +17,13 @@ import {
 } from "./Loans.basic.effects.t.sol";
 
 contract LoansAdminTest is LoansTestBase {
-    function test_onlyOwnerMethods() public {
+    function test_onlyConfigHubOwnerMethods() public {
         vm.startPrank(user1);
-        bytes4 selector = Ownable.OwnableUnauthorizedAccount.selector;
 
-        vm.expectRevert(abi.encodeWithSelector(selector, user1));
-        loans.pause();
-
-        vm.expectRevert(abi.encodeWithSelector(selector, user1));
-        loans.unpause();
-
-        vm.expectRevert(abi.encodeWithSelector(selector, user1));
+        vm.expectRevert("BaseManaged: not configHub owner");
         loans.setKeeper(keeper);
 
-        vm.expectRevert(abi.encodeWithSelector(selector, user1));
+        vm.expectRevert("BaseManaged: not configHub owner");
         loans.setSwapperAllowed(address(0), true, true);
     }
 
@@ -87,49 +80,6 @@ contract LoansAdminTest is LoansTestBase {
         loans.setSwapperAllowed(address(0), false, true);
         assertFalse(loans.isAllowedSwapper(address(0)));
         assertEq(loans.defaultSwapper(), address(0)); // default is unset
-    }
-
-    function test_pause() public {
-        (uint loanId,,) = createAndCheckLoan();
-
-        // pause
-        vm.startPrank(owner);
-        vm.expectEmit(address(loans));
-        emit Pausable.Paused(owner);
-        loans.pause();
-        // paused view
-        assertTrue(loans.paused());
-        // methods are paused
-        vm.startPrank(user1);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.openLoan(0, 0, defaultSwapParams(0), providerOffer(0));
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.openEscrowLoan(0, 0, defaultSwapParams(0), providerOffer(0), escrowOffer(0), 0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.setKeeperApproved(0, true);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.closeLoan(loanId, defaultSwapParams(0));
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.rollLoan(loanId, rollOffer(0), 0, 0, 0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        loans.unwrapAndCancelLoan(loanId);
-    }
-
-    function test_unpause() public {
-        vm.startPrank(owner);
-        loans.pause();
-        vm.expectEmit(address(loans));
-        emit Pausable.Unpaused(owner);
-        loans.unpause();
-        assertFalse(loans.paused());
-        // check at least one method workds now
-        createAndCheckLoan();
     }
 
     function test_setSwapperAllowed_InvalidSwapper() public {

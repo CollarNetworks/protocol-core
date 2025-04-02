@@ -48,7 +48,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     uint public constant MAX_PUT_STRIKE_BIPS = BIPS_BASE - 1; // 1 less than 1x
     uint public constant MAX_PROTOCOL_FEE_BIPS = BIPS_BASE / 100; // 1%
 
-    string public constant VERSION = "0.2.0";
+    string public constant VERSION = "0.3.0";
 
     // ----- IMMUTABLES ----- //
     IERC20 public immutable cashAsset;
@@ -65,14 +65,13 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     mapping(uint positionId => ProviderPositionStored) internal positions;
 
     constructor(
-        address initialOwner,
         ConfigHub _configHub,
         IERC20 _cashAsset,
         IERC20 _underlying,
         address _taker,
         string memory _name,
         string memory _symbol
-    ) BaseNFT(initialOwner, _name, _symbol, _configHub, address(_cashAsset)) {
+    ) BaseNFT(_name, _symbol, _configHub, address(_cashAsset)) {
         cashAsset = _cashAsset;
         underlying = _underlying;
         taker = _taker;
@@ -197,7 +196,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         uint putStrikePercent,
         uint duration,
         uint minLocked
-    ) external whenNotPaused returns (uint offerId) {
+    ) external returns (uint offerId) {
         // sanity checks
         require(callStrikePercent >= MIN_CALL_STRIKE_BIPS, "provider: strike percent too low");
         require(callStrikePercent <= MAX_CALL_STRIKE_BIPS, "provider: strike percent too high");
@@ -230,7 +229,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
      * can be a low likelihood concern on a network that exposes a public mempool.
      * Avoid it by not granting excessive ERC-20 approvals.
      */
-    function updateOfferAmount(uint offerId, uint newAmount) external whenNotPaused {
+    function updateOfferAmount(uint offerId, uint newAmount) external {
         LiquidityOfferStored storage offer = liquidityOffers[offerId];
         require(msg.sender == offer.provider, "provider: not offer provider");
 
@@ -267,7 +266,6 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// @return positionId The ID of the newly created position (NFT token ID)
     function mintFromOffer(uint offerId, uint providerLocked, uint takerId)
         external
-        whenNotPaused
         onlyTaker
         returns (uint positionId)
     {
@@ -335,7 +333,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// of the NFT abruptly (only prevent settlement at future price).
     /// @param positionId The ID of the position to settle (NFT token ID)
     /// @param cashDelta The change in position value (positive or negative)
-    function settlePosition(uint positionId, int cashDelta) external whenNotPaused onlyTaker {
+    function settlePosition(uint positionId, int cashDelta) external onlyTaker {
         ProviderPositionStored storage position = positions[positionId];
 
         require(position.expiration != 0, "provider: position does not exist");
@@ -371,7 +369,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// to settlement, during cancellation the taker's caller MUST be the NFT owner (is the provider),
     /// so is assumed to specify the withdrawal correctly for their funds.
     /// @param positionId The ID of the position to cancel (NFT token ID)
-    function cancelAndWithdraw(uint positionId) external whenNotPaused onlyTaker returns (uint withdrawal) {
+    function cancelAndWithdraw(uint positionId) external onlyTaker returns (uint withdrawal) {
         ProviderPositionStored storage position = positions[positionId];
         require(position.expiration != 0, "provider: position does not exist");
         require(!position.settled, "provider: already settled");
@@ -405,7 +403,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// @notice Withdraws funds from a settled position. Can only be called for a settled position
     /// (and not a cancelled one), and checks the ownership of the NFT. Burns the NFT.
     /// @param positionId The ID of the settled position to withdraw from (NFT token ID).
-    function withdrawFromSettled(uint positionId) external whenNotPaused returns (uint withdrawal) {
+    function withdrawFromSettled(uint positionId) external returns (uint withdrawal) {
         // Note: _isAuthorized not used here to reduce surface area / KISS. Can be used if needed,
         // since an approved account can pull and withdraw.
         require(msg.sender == ownerOf(positionId), "provider: not position owner");

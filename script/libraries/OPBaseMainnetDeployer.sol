@@ -37,16 +37,16 @@ library OPBaseMainnetDeployer {
         BaseDeployer.setupConfigHub(result.configHub, defaultHubParams());
 
         // pairs
-        result.assetPairContracts = deployAllContractPairs(thisSender, result.configHub);
+        result.assetPairContracts = deployAllContractPairs(result.configHub);
         for (uint i = 0; i < result.assetPairContracts.length; i++) {
             BaseDeployer.setupContractPair(result.configHub, result.assetPairContracts[i]);
         }
 
         // ownership
-        BaseDeployer.nominateNewOwnerAll(finalOwner, result);
+        BaseDeployer.nominateNewHubOwner(finalOwner, result);
     }
 
-    function deployAllContractPairs(address initialOwner, ConfigHub configHub)
+    function deployAllContractPairs(ConfigHub configHub)
         internal
         returns (BaseDeployer.AssetPairContracts[] memory assetPairContracts)
     {
@@ -76,7 +76,6 @@ library OPBaseMainnetDeployer {
 
         // deploy pairs
         assetPairContracts[0] = BaseDeployer.deployContractPair(
-            initialOwner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "WETH/USDC",
@@ -92,7 +91,6 @@ library OPBaseMainnetDeployer {
         );
 
         assetPairContracts[1] = BaseDeployer.deployContractPair(
-            initialOwner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "cbBTC/USDC",

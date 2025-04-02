@@ -131,7 +131,8 @@ contract RollsTest is BaseAssetPairTestSetup {
             takerNFT.calculateProviderLocked(expected.newTakerLocked, ltv, callStrikePercent)
         );
         // protocol fee
-        (expected.toProtocol,) = providerNFT.protocolFee(expected.newProviderLocked, duration, callStrikePercent);
+        (expected.toProtocol,) =
+            providerNFT.protocolFee(expected.newProviderLocked, duration, callStrikePercent);
         // _calculateTransferAmounts
         (uint takerSettled, int providerChange) = takerNFT.previewSettlement(oldTakerPos, newPrice);
         int providerSettled = int(oldTakerPos.providerLocked) + providerChange;
@@ -274,13 +275,10 @@ contract RollsTest is BaseAssetPairTestSetup {
     // happy cases
 
     function test_constructor() public {
-        Rolls newRolls = new Rolls(owner, takerNFT);
+        Rolls newRolls = new Rolls(takerNFT);
         assertEq(address(newRolls.takerNFT()), address(takerNFT));
-        assertEq(address(newRolls.configHub()), address(configHub));
-        assertEq(newRolls.unrescuableAsset(), address(0));
         assertEq(address(newRolls.cashAsset()), address(cashAsset));
-        assertEq(newRolls.VERSION(), "0.2.0");
-        assertEq(newRolls.owner(), owner);
+        assertEq(newRolls.VERSION(), "0.3.0");
     }
 
     function test_createRollOffer() public {
@@ -514,38 +512,6 @@ contract RollsTest is BaseAssetPairTestSetup {
             int(cashUnits(1)),
             "tiny price change"
         );
-    }
-
-    function test_pause() public {
-        // pause
-        vm.startPrank(owner);
-        vm.expectEmit(address(rolls));
-        emit Pausable.Paused(owner);
-        rolls.pause();
-        // paused view
-        assertTrue(rolls.paused());
-        // methods are paused
-        vm.startPrank(user1);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        rolls.createOffer(0, 0, 0, 0, 0, 0, 0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        rolls.cancelOffer(0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        rolls.executeRoll(0, 0);
-    }
-
-    function test_unpause() public {
-        vm.startPrank(owner);
-        rolls.pause();
-        vm.expectEmit(address(rolls));
-        emit Pausable.Unpaused(owner);
-        rolls.unpause();
-        assertFalse(rolls.paused());
-        // check at least one method works now
-        createAndCheckRollOffer();
     }
 
     // reverts

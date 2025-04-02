@@ -4,7 +4,6 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { IERC721Errors, Strings } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 
 import { BaseAssetPairTestSetup } from "./BaseAssetPairTestSetup.sol";
@@ -130,10 +129,10 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
 
     function test_constructor() public {
         CollarProviderNFT newProviderNFT = new CollarProviderNFT(
-            owner, configHub, cashAsset, underlying, address(takerContract), "NewCollarProviderNFT", "NPRVNFT"
+            configHub, cashAsset, underlying, address(takerContract), "NewCollarProviderNFT", "NPRVNFT"
         );
 
-        assertEq(address(newProviderNFT.owner()), owner);
+        assertEq(address(newProviderNFT.configHubOwner()), owner);
         assertEq(address(newProviderNFT.configHub()), address(configHub));
         assertEq(newProviderNFT.unrescuableAsset(), address(cashAsset));
         assertEq(address(newProviderNFT.cashAsset()), address(cashAsset));
@@ -143,7 +142,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         assertEq(newProviderNFT.MAX_CALL_STRIKE_BIPS(), 100_000);
         assertEq(newProviderNFT.MAX_PUT_STRIKE_BIPS(), 9999);
         assertEq(newProviderNFT.MAX_PROTOCOL_FEE_BIPS(), 100);
-        assertEq(newProviderNFT.VERSION(), "0.2.0");
+        assertEq(newProviderNFT.VERSION(), "0.3.0");
         assertEq(newProviderNFT.name(), "NewCollarProviderNFT");
         assertEq(newProviderNFT.symbol(), "NPRVNFT");
     }
@@ -498,17 +497,6 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         providerNFT.cancelAndWithdraw(positionId);
     }
 
-    function test_unpause() public {
-        vm.startPrank(owner);
-        providerNFT.pause();
-        vm.expectEmit(address(providerNFT));
-        emit Pausable.Unpaused(owner);
-        providerNFT.unpause();
-        assertFalse(providerNFT.paused());
-        // check at least one method workds now
-        createAndCheckOffer(provider, largeCash);
-    }
-
     /// Interactions between multiple items
 
     function test_createMultipleOffersFromSameProvider() public {
@@ -611,39 +599,6 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
     }
 
     /// Reverts
-
-    function test_pausableMethods() public {
-        // create a position
-        (uint positionId,) = createAndCheckPosition(provider, largeCash, largeCash / 2);
-
-        // pause
-        vm.startPrank(owner);
-        vm.expectEmit(address(providerNFT));
-        emit Pausable.Paused(owner);
-        providerNFT.pause();
-        // paused view
-        assertTrue(providerNFT.paused());
-        // methods are paused
-        vm.startPrank(provider);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        providerNFT.createOffer(0, 0, 0, 0, 0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        providerNFT.updateOfferAmount(0, 0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        providerNFT.mintFromOffer(0, 0, 0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        providerNFT.settlePosition(0, 0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        providerNFT.withdrawFromSettled(0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        providerNFT.cancelAndWithdraw(0);
-    }
 
     function test_revert_createOffer_invalidParams() public {
         uint minStrike = providerNFT.MIN_CALL_STRIKE_BIPS();

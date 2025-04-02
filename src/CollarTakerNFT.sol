@@ -46,7 +46,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
 
     uint internal constant BIPS_BASE = 10_000;
 
-    string public constant VERSION = "0.2.0";
+    string public constant VERSION = "0.3.0";
 
     // ----- IMMUTABLES ----- //
     IERC20 public immutable cashAsset;
@@ -58,14 +58,13 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
     mapping(uint positionId => TakerPositionStored) internal positions;
 
     constructor(
-        address initialOwner,
         ConfigHub _configHub,
         IERC20 _cashAsset,
         IERC20 _underlying,
         ITakerOracle _oracle,
         string memory _name,
         string memory _symbol
-    ) BaseNFT(initialOwner, _name, _symbol, _configHub, address(_cashAsset)) {
+    ) BaseNFT(_name, _symbol, _configHub, address(_cashAsset)) {
         cashAsset = _cashAsset;
         underlying = _underlying;
         _setOracle(_oracle);
@@ -168,7 +167,6 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
      */
     function openPairedPosition(uint takerLocked, CollarProviderNFT providerNFT, uint offerId)
         external
-        whenNotPaused
         nonReentrant
         returns (uint takerId, uint providerId)
     {
@@ -235,7 +233,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
      * one side is not (e.g., due to being at max loss). For this reason a keeper should be run to
      * prevent users with gains from not settling their positions on time.
      */
-    function settlePairedPosition(uint takerId) external whenNotPaused nonReentrant {
+    function settlePairedPosition(uint takerId) external nonReentrant {
         // @dev this checks position exists
         TakerPosition memory position = getPosition(takerId);
 
@@ -270,12 +268,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
     /// @notice Withdraws funds from a settled position. Burns the NFT.
     /// @param takerId The ID of the settled position to withdraw from (NFT token ID).
     /// @return withdrawal The amount of cash asset withdrawn
-    function withdrawFromSettled(uint takerId)
-        external
-        whenNotPaused
-        nonReentrant
-        returns (uint withdrawal)
-    {
+    function withdrawFromSettled(uint takerId) external nonReentrant returns (uint withdrawal) {
         require(msg.sender == ownerOf(takerId), "taker: not position owner");
 
         TakerPosition memory position = getPosition(takerId);
@@ -298,12 +291,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
      * @param takerId The ID of the taker position to cancel
      * @return withdrawal The amount of funds withdrawn from both positions together
      */
-    function cancelPairedPosition(uint takerId)
-        external
-        whenNotPaused
-        nonReentrant
-        returns (uint withdrawal)
-    {
+    function cancelPairedPosition(uint takerId) external nonReentrant returns (uint withdrawal) {
         TakerPosition memory position = getPosition(takerId);
         (CollarProviderNFT providerNFT, uint providerId) = (position.providerNFT, position.providerId);
 
@@ -338,11 +326,11 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
         );
     }
 
-    // ----- Owner Mutative ----- //
+    // ----- admin Mutative ----- //
 
     /// @notice Sets the price oracle used by the contract
     /// @param _oracle The new price oracle to use
-    function setOracle(ITakerOracle _oracle) external onlyOwner {
+    function setOracle(ITakerOracle _oracle) external onlyConfigHubOwner {
         _setOracle(_oracle);
     }
 

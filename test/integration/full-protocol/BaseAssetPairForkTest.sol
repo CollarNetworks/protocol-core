@@ -351,6 +351,7 @@ abstract contract BaseAssetPairForkTest is Test {
 
     function test_validatePairDeployment() public view {
         // configHub
+        assertEq(configHub.VERSION(), "0.2.0");
         assertEq(configHub.owner(), owner);
         assertEq(uint(configHub.protocolFeeAPR()), protocolFeeAPR);
         assertEq(configHub.feeRecipient(), protocolFeeRecipient);
@@ -362,27 +363,29 @@ abstract contract BaseAssetPairForkTest is Test {
         assertEq(pair.oracle.description(), oracleDescription);
 
         // taker
-        assertEq(address(pair.takerNFT.owner()), owner);
+        assertEq(pair.takerNFT.VERSION(), "0.3.0");
+        assertEq(address(pair.takerNFT.configHubOwner()), owner);
         assertEq(address(pair.takerNFT.configHub()), address(configHub));
         assertEq(address(pair.takerNFT.underlying()), address(pair.underlying));
         assertEq(address(pair.takerNFT.cashAsset()), address(pair.cashAsset));
         assertEq(address(pair.takerNFT.oracle()), address(pair.oracle));
 
         // provider
-        assertEq(address(pair.providerNFT.owner()), owner);
+        assertEq(pair.providerNFT.VERSION(), "0.3.0");
+        assertEq(address(pair.providerNFT.configHubOwner()), owner);
         assertEq(address(pair.providerNFT.configHub()), address(configHub));
         assertEq(address(pair.providerNFT.underlying()), address(pair.underlying));
         assertEq(address(pair.providerNFT.cashAsset()), address(pair.cashAsset));
         assertEq(address(pair.providerNFT.taker()), address(pair.takerNFT));
 
         // rolls
-        assertEq(address(pair.rollsContract.owner()), owner);
-        assertEq(address(pair.rollsContract.configHub()), address(configHub));
+        assertEq(pair.rollsContract.VERSION(), "0.3.0");
         assertEq(address(pair.rollsContract.takerNFT()), address(pair.takerNFT));
         assertEq(address(pair.rollsContract.cashAsset()), address(pair.cashAsset));
 
         // loans
-        assertEq(address(pair.loansContract.owner()), owner);
+        assertEq(pair.loansContract.VERSION(), "0.3.0");
+        assertEq(address(pair.loansContract.configHubOwner()), owner);
         assertEq(address(pair.loansContract.configHub()), address(configHub));
         assertEq(address(pair.loansContract.takerNFT()), address(pair.takerNFT));
         assertEq(address(pair.loansContract.underlying()), address(pair.underlying));
@@ -396,7 +399,8 @@ abstract contract BaseAssetPairForkTest is Test {
         assertEq(pair.loansContract.closingKeeper(), address(0));
 
         // escrow
-        assertEq(address(pair.escrowNFT.owner()), owner);
+        assertEq(pair.escrowNFT.VERSION(), "0.3.0");
+        assertEq(address(pair.escrowNFT.configHubOwner()), owner);
         assertEq(address(pair.escrowNFT.configHub()), address(configHub));
         assertTrue(pair.escrowNFT.loansCanOpen(address(pair.loansContract)));
         assertEq(address(pair.escrowNFT.asset()), address(pair.underlying));

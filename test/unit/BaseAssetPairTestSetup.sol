@@ -75,22 +75,21 @@ contract BaseAssetPairTestSetup is Test {
 
         // taker checks oracle price on construction
         updatePrice();
-        takerNFT = new CollarTakerNFT(
-            owner, configHub, cashAsset, underlying, chainlinkOracle, "CollarTakerNFT", "TKRNFT"
-        );
+        takerNFT =
+            new CollarTakerNFT(configHub, cashAsset, underlying, chainlinkOracle, "CollarTakerNFT", "TKRNFT");
         providerNFT = new CollarProviderNFT(
-            owner, configHub, cashAsset, underlying, address(takerNFT), "ProviderNFT", "PRVNFT"
+            configHub, cashAsset, underlying, address(takerNFT), "ProviderNFT", "PRVNFT"
         );
         // this is to avoid having the paired IDs being equal
         providerNFT2 = new CollarProviderNFT(
-            owner, configHub, cashAsset, underlying, address(takerNFT), "ProviderNFT-2", "PRVNFT-2"
+            configHub, cashAsset, underlying, address(takerNFT), "ProviderNFT-2", "PRVNFT-2"
         );
         vm.label(address(chainlinkOracle), "MockChainlinkOracle");
         vm.label(address(takerNFT), "CollarTakerNFT");
         vm.label(address(providerNFT), "CollarProviderNFT");
 
         // asset pair periphery
-        rolls = new Rolls(owner, takerNFT);
+        rolls = new Rolls(takerNFT);
         vm.label(address(rolls), "Rolls");
     }
 
