@@ -651,14 +651,19 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         vm.expectRevert(new bytes(0));
         takerNFT.currentOraclePrice();
 
-        uint snapshot = vm.snapshot();
+        uint snapshot = vm.snapshotState();
         // settled at starting price and get takerLocked back
         checkSettleAsCancelled(takerId, user1);
         checkWithdrawFromSettled(takerId, takerLocked);
 
-        vm.revertTo(snapshot);
+        vm.revertToState(snapshot);
         // check provider can call too
         checkSettleAsCancelled(takerId, provider);
+        checkWithdrawFromSettled(takerId, takerLocked);
+
+        vm.revertToState(snapshot);
+        // check someone else can call too
+        checkSettleAsCancelled(takerId, keeper);
         checkWithdrawFromSettled(takerId, takerLocked);
     }
 
@@ -683,16 +688,6 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
 
         // Try to settle again
         vm.expectRevert("taker: already settled");
-        takerNFT.settleAsCancelled(takerId);
-    }
-
-    function test_settleAsCancelled_AccessControl() public {
-        (uint takerId, uint providerId) = checkOpenPairedPosition();
-        skip(duration + takerNFT.SETTLE_AS_CANCELLED_DELAY());
-
-        // try to settle from a different address
-        startHoax(address(0xdead));
-        vm.expectRevert("taker: not owner of taker or provider position");
         takerNFT.settleAsCancelled(takerId);
     }
 

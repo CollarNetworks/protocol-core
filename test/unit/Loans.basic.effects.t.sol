@@ -574,6 +574,27 @@ contract LoansBasicEffectsTest is LoansTestBase {
         closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
     }
 
+    function test_closeLoan_settledAsCancelled() public {
+        (uint loanId,, uint loanAmount) = createAndCheckLoan();
+        skip(duration + takerNFT.SETTLE_AS_CANCELLED_DELAY());
+
+        // oracle reverts now
+        vm.mockCallRevert(address(takerNFT.oracle()), abi.encodeCall(takerNFT.oracle().currentPrice, ()), "");
+        // check that settlement reverts
+        vm.expectRevert(new bytes(0));
+        takerNFT.settlePairedPosition(loanId);
+
+        // settle as cancelled works
+        takerNFT.settleAsCancelled(loanId);
+
+        // withdrawal: no price settlement change since settled as cancelled
+        uint withdrawal = takerNFT.getPosition({ takerId: loanId }).takerLocked;
+        // setup router output
+        uint swapOut = prepareDefaultSwapToUnderlying();
+        // closing works
+        closeAndCheckLoan(loanId, user1, loanAmount, withdrawal, swapOut);
+    }
+
     function test_closeLoan_byKeeper() public {
         (uint loanId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
