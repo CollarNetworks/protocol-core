@@ -293,7 +293,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         // check amount
         require(providerLocked >= offer.minLocked, "provider: amount too low");
         uint prevOfferAmount = offer.available;
-        require(providerLocked + fee <= prevOfferAmount, "provider: amount too high");
+        require(providerLocked + fee <= prevOfferAmount, "provider: offer < position + fee");
         uint newAvailable = prevOfferAmount - providerLocked - fee;
 
         // storage updates
