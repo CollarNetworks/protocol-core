@@ -691,6 +691,23 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         takerNFT.settleAsCancelled(takerId);
     }
 
+    function test_settleAsCancelled_balanceMismatch() public {
+        (uint takerId, uint providerId) = checkOpenPairedPosition();
+        skip(duration + takerNFT.SETTLE_AS_CANCELLED_DELAY());
+        DonatingProvider donatingProvider = new DonatingProvider(cashAsset);
+        deal(address(cashAsset), address(donatingProvider), 1);
+        // also mock getPosition with actual's getPosition data because it's called inside settleAsCancelled
+        // for some reason this needs to be mocked before the call to etch (doesn't work the other way around)
+        vm.mockCall(address(providerNFT), abi.encodeCall(providerNFT.getPosition, (providerId)), abi.encode(providerNFT.getPosition(providerId)));
+        // switch implementation to one that sends funds
+        vm.etch(address(providerNFT), address(donatingProvider).code);
+
+        vm.startPrank(user1);
+        // try to settle
+        vm.expectRevert("taker: settle balance mismatch");
+        takerNFT.settleAsCancelled(takerId);
+    }
+
     function test_withdrawFromSettled_NotOwner() public {
         (uint takerId,) = checkOpenPairedPosition();
 
@@ -834,5 +851,16 @@ contract ReentrantAttacker {
                 revert(add(retdata, 0x20), mload(retdata))
             }
         }
+    }
+}
+
+contract DonatingProvider {
+    TestERC20 public immutable cashAsset;
+    constructor(TestERC20 _cashAsset) {
+        cashAsset = _cashAsset;
+    }
+
+    function settlePosition(uint, int) external {
+        cashAsset.transfer(msg.sender, 1);
     }
 }
