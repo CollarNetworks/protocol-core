@@ -46,15 +46,18 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
 
     uint internal constant BIPS_BASE = 10_000;
 
+    /// @notice delay after expiry when positions can be settled to their original locked values.
+    /// This is needed for the case of a prolonged oracle failure.
+    uint public constant SETTLE_AS_CANCELLED_DELAY = 1 weeks;
+
     string public constant VERSION = "0.3.0";
 
     // ----- IMMUTABLES ----- //
     IERC20 public immutable cashAsset;
     IERC20 public immutable underlying; // not used as ERC20 here
+    ITakerOracle public immutable oracle;
 
     // ----- STATE VARIABLES ----- //
-    ITakerOracle public oracle;
-
     mapping(uint positionId => TakerPositionStored) internal positions;
 
     constructor(
@@ -67,7 +70,8 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
     ) BaseNFT(_name, _symbol, _configHub, address(_cashAsset)) {
         cashAsset = _cashAsset;
         underlying = _underlying;
-        _setOracle(_oracle);
+        _checkOracle(_oracle);
+        oracle = _oracle;
     }
 
     // ----- VIEW FUNCTIONS ----- //
@@ -265,6 +269,53 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
         );
     }
 
+    /**
+     * @notice Settles a paired position after expiry + SETTLE_AS_CANCELLED_DELAY if
+     * settlePairedPosition was not called during the delay by anyone, presumably due to oracle failure.
+     * @param takerId The ID of the taker position to settle
+     *
+     * @dev this method exists because if the oracle starts reverting, there is no way to update it.
+     * Either taker or provider are incentivised to call settlePairedPosition prior to this method being callable,
+     * and anyone else (like a keeper), can call it too. So if it wasn't called by anyone, we need to settle the
+     * positions without an oracle, and allow their withdrawal.
+     * Only callable by a holder of either the taker or provider positions. If the NFT is held
+     * by another contract it needs to allow withdrawing the NFT to call this method. For example
+     * LoansNFT.unwrapAndCancelLoan may need to be used in Loans by the borrower to call this method.
+     */
+    function settleAsCancelled(uint takerId) external nonReentrant {
+        // @dev this checks position exists
+        TakerPosition memory position = getPosition(takerId);
+        (CollarProviderNFT providerNFT, uint providerId) = (position.providerNFT, position.providerId);
+
+        require(
+            block.timestamp >= position.expiration + SETTLE_AS_CANCELLED_DELAY,
+            "taker: cannot be settled as cancelled yet"
+        );
+        require(!position.settled, "taker: already settled");
+
+        // must be taker or provider NFT owner to call this. ownerOf can revert if NFT is burned,
+        // but that can only happen after successful settlement.
+        require(
+            msg.sender == ownerOf(takerId) || msg.sender == providerNFT.ownerOf(providerId),
+            "taker: not owner of taker or provider position"
+        );
+
+        // store changes
+        positions[takerId].settled = true;
+        positions[takerId].withdrawable = position.takerLocked;
+
+        uint expectedBalance = cashAsset.balanceOf(address(this));
+        // call provider side to settle with no balance change
+        providerNFT.settlePosition(providerId, 0);
+        // check balance update to prevent reducing resting balance
+        require(cashAsset.balanceOf(address(this)) == expectedBalance, "taker: settle balance mismatch");
+
+        // endPrice is 0 since is unavailable, technically settlement price is position.startPrice but
+        // it would be incorrect to pass it as endPrice.
+        // Also, 0 allows distinguishing this type of settlement in events.
+        emit PairedPositionSettled(takerId, address(providerNFT), providerId, 0, position.takerLocked, 0);
+    }
+
     /// @notice Withdraws funds from a settled position. Burns the NFT.
     /// @param takerId The ID of the settled position to withdraw from (NFT token ID).
     /// @return withdrawal The amount of cash asset withdrawn
@@ -326,19 +377,9 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
         );
     }
 
-    // ----- admin Mutative ----- //
+    // ----- INTERNAL VIEWS ----- //
 
-    /// @notice Sets the price oracle used by the contract
-    /// @param _oracle The new price oracle to use
-    function setOracle(ITakerOracle _oracle) external onlyConfigHubOwner {
-        _setOracle(_oracle);
-    }
-
-    // ----- INTERNAL MUTATIVE ----- //
-
-    // internal owner
-
-    function _setOracle(ITakerOracle _oracle) internal {
+    function _checkOracle(ITakerOracle _oracle) internal view {
         // assets match
         require(_oracle.baseToken() == address(underlying), "taker: oracle underlying mismatch");
         require(_oracle.quoteToken() == address(cashAsset), "taker: oracle cashAsset mismatch");
@@ -354,12 +395,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
         // note: .convertToBaseAmount(price, price) should equal .baseUnitAmount(), but checking this
         // may be too strict for more complex oracles, and .baseUnitAmount() is not used internally now
         require(_oracle.convertToBaseAmount(price, price) != 0, "taker: invalid convertToBaseAmount");
-
-        emit OracleSet(oracle, _oracle); // emit before for the prev value
-        oracle = _oracle;
     }
-
-    // ----- INTERNAL VIEWS ----- //
 
     // calculations
 
