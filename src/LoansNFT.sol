@@ -348,7 +348,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     }
 
     /**
-     * @notice Sets a keeper for closing a specific loan on behalf of a loan holder.
+     * @notice Sets a keeper for closing a specific loan on behalf of a caller.
      * A user that sets this allowance with the intention for the keeper to closeLoan
      * has to also ensure cash approval to this contract that should be valid when
      * closeLoan is called by the keeper.

@@ -13,7 +13,7 @@ CollarTakerNFT, LoansNFT, EscrowSupplierNFT, CollarProviderNFT:
   - Different constructor interface. 
   - Using `onlyConfigHubOwner` for admin methods.
 LoansNFT:
-  - admin method for setting keeper removed, users can choose a keeper when approving
+  - removed the admin method for setting keeper, users can choose a keeper when approving
 CollarTakerNFT:
   - `setOracle` is removed, and `settleAsCancelled` (for oracle failure) is added 
 CollarProviderNFT:
