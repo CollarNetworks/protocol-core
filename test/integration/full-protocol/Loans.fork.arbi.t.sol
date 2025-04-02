@@ -178,6 +178,7 @@ contract WETHUSDC_ArbiSep_LoansForkTest_NoDeploy is ArbiSep_LoansForkTest_Latest
     function _setTestValues() internal virtual override {
         super._setTestValues();
         testMode = TestMode.noDeploy;
+        vm.skip(true); // deployment is outdated (0.2.0), ArbiSep isn't planned to be updated
         realArtifactsName = Const.ArbiSep_artifactsName;
     }
 }
@@ -186,6 +187,7 @@ contract WBTCUSDC_ArbiSep_LoansForkTest_NoDeploy is WBTCUSDC_ArbiSep_LoansForkTe
     function _setTestValues() internal virtual override {
         super._setTestValues();
         testMode = TestMode.noDeploy;
+        vm.skip(true); // deployment is outdated (0.2.0), ArbiSep isn't planned to be updated
         realArtifactsName = Const.ArbiSep_artifactsName;
     }
 }

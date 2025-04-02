@@ -680,7 +680,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         (uint offerId,) = createAndCheckOffer(provider, largeCash);
 
         vm.startPrank(address(takerContract));
-        vm.expectRevert("provider: amount too high");
+        vm.expectRevert("provider: offer < position + fee");
         providerNFT.mintFromOffer(offerId, largeCash + 1, 0);
     }
 

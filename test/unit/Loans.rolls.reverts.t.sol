@@ -43,7 +43,7 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
 
         // Non-existent roll offer
         vm.startPrank(user1);
-        vm.expectRevert("rolls: invalid rollId");
+        vm.expectRevert("rolls: invalid roll offer");
         loans.rollLoan(loanId, rollOffer(rollId + 1), MIN_INT, 0, 0);
 
         // cancelled roll offer

@@ -154,6 +154,10 @@ contract RollsTest is BaseAssetPairTestSetup {
         assertEq(preview.newTakerLocked, expected.newTakerLocked);
         assertEq(preview.newProviderLocked, expected.newProviderLocked);
         assertEq(preview.protocolFee, expected.toProtocol);
+
+        // check both views are equivalent
+        IRolls.PreviewResults memory preview2 = rolls.previewOffer(rolls.getRollOffer(rollId), newPrice);
+        assertEq(abi.encode(preview), abi.encode(preview2));
     }
 
     // stack too deep

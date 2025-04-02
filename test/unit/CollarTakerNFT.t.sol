@@ -651,14 +651,19 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         vm.expectRevert(new bytes(0));
         takerNFT.currentOraclePrice();
 
-        uint snapshot = vm.snapshot();
+        uint snapshot = vm.snapshotState();
         // settled at starting price and get takerLocked back
         checkSettleAsCancelled(takerId, user1);
         checkWithdrawFromSettled(takerId, takerLocked);
 
-        vm.revertTo(snapshot);
+        vm.revertToState(snapshot);
         // check provider can call too
         checkSettleAsCancelled(takerId, provider);
+        checkWithdrawFromSettled(takerId, takerLocked);
+
+        vm.revertToState(snapshot);
+        // check someone else can call too
+        checkSettleAsCancelled(takerId, keeper);
         checkWithdrawFromSettled(takerId, takerLocked);
     }
 
@@ -686,13 +691,24 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         takerNFT.settleAsCancelled(takerId);
     }
 
-    function test_settleAsCancelled_AccessControl() public {
+    function test_settleAsCancelled_balanceMismatch() public {
         (uint takerId, uint providerId) = checkOpenPairedPosition();
         skip(duration + takerNFT.SETTLE_AS_CANCELLED_DELAY());
+        DonatingProvider donatingProvider = new DonatingProvider(cashAsset);
+        deal(address(cashAsset), address(donatingProvider), 1);
+        // also mock getPosition with actual's getPosition data because it's called inside settleAsCancelled
+        // for some reason this needs to be mocked before the call to etch (doesn't work the other way around)
+        vm.mockCall(
+            address(providerNFT),
+            abi.encodeCall(providerNFT.getPosition, (providerId)),
+            abi.encode(providerNFT.getPosition(providerId))
+        );
+        // switch implementation to one that sends funds
+        vm.etch(address(providerNFT), address(donatingProvider).code);
 
-        // try to settle from a different address
-        startHoax(address(0xdead));
-        vm.expectRevert("taker: not owner of taker or provider position");
+        vm.startPrank(user1);
+        // try to settle
+        vm.expectRevert("taker: settle balance mismatch");
         takerNFT.settleAsCancelled(takerId);
     }
 
@@ -839,5 +855,17 @@ contract ReentrantAttacker {
                 revert(add(retdata, 0x20), mload(retdata))
             }
         }
+    }
+}
+
+contract DonatingProvider {
+    TestERC20 public immutable cashAsset;
+
+    constructor(TestERC20 _cashAsset) {
+        cashAsset = _cashAsset;
+    }
+
+    function settlePosition(uint, int) external {
+        cashAsset.transfer(msg.sender, 1);
     }
 }
