@@ -129,9 +129,19 @@ contract Rolls is IRolls {
      * @return PreviewResults Struct of preview results calculations
      */
     function previewRoll(uint rollId, uint price) external view returns (PreviewResults memory) {
-        RollOffer memory offer = getRollOffer(rollId);
-        // do not divide by zero
-        require(offer.feeReferencePrice != 0, "rolls: invalid rollId");
+        return previewOffer(getRollOffer(rollId), price);
+    }
+
+    /**
+     * @notice Calculates the amounts to be transferred for a roll offer at a specific price.
+     * Can be used off-chain for calculating offer parameters (like minToProvider) in the UI.
+     * Does not check any validity conditions (existence, deadline, price range, etc...).
+     * @param offer a struct of roll offer parameters to use
+     * @param price The price to use for the calculation
+     * @return PreviewResults Struct of preview results calculations
+     */
+    function previewOffer(RollOffer memory offer, uint price) public view returns (PreviewResults memory) {
+        require(offer.feeReferencePrice != 0, "rolls: invalid roll offer"); // do not divide by zero
         int rollFee = calculateRollFee(offer, price);
         return _previewRoll(takerNFT.getPosition(offer.takerId), price, rollFee);
     }

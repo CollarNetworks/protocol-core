@@ -698,7 +698,11 @@ contract CollarTakerNFTTest is BaseAssetPairTestSetup {
         deal(address(cashAsset), address(donatingProvider), 1);
         // also mock getPosition with actual's getPosition data because it's called inside settleAsCancelled
         // for some reason this needs to be mocked before the call to etch (doesn't work the other way around)
-        vm.mockCall(address(providerNFT), abi.encodeCall(providerNFT.getPosition, (providerId)), abi.encode(providerNFT.getPosition(providerId)));
+        vm.mockCall(
+            address(providerNFT),
+            abi.encodeCall(providerNFT.getPosition, (providerId)),
+            abi.encode(providerNFT.getPosition(providerId))
+        );
         // switch implementation to one that sends funds
         vm.etch(address(providerNFT), address(donatingProvider).code);
 
@@ -856,6 +860,7 @@ contract ReentrantAttacker {
 
 contract DonatingProvider {
     TestERC20 public immutable cashAsset;
+
     constructor(TestERC20 _cashAsset) {
         cashAsset = _cashAsset;
     }
