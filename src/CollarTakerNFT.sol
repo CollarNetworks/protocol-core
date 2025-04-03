@@ -36,8 +36,8 @@ import { ICollarProviderNFT } from "./interfaces/ICollarProviderNFT.sol";
  *
  * Post-Deployment Configuration:
  * - Oracle: If using Uniswap ensure adequate observation cardinality, if using Chainlink ensure correct config.
- * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset pair
- * - ConfigHub: Set setCanOpenPair() to authorize the provider contract
+ * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset pair [underlying, cash, taker]
+ * - ConfigHub: Set setCanOpenPair() to authorize the provider contract [underlying, cash, provider]
  * - CollarProviderNFT: Ensure properly configured
  */
 contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
@@ -302,7 +302,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
         uint expectedBalance = cashAsset.balanceOf(address(this));
         // call provider side to settle with no balance change
         providerNFT.settlePosition(providerId, 0);
-        // check balance update to prevent reducing resting balance
+        // check no balance change
         require(cashAsset.balanceOf(address(this)) == expectedBalance, "taker: settle balance mismatch");
 
         // endPrice is 0 since is unavailable, technically settlement price is position.startPrice but

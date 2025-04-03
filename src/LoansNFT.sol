@@ -34,9 +34,10 @@ import { ILoansNFT } from "./interfaces/ILoansNFT.sol";
  * according to transfer arguments (no rebasing, no FoT), 0 value approvals and transfers work.
  *
  * Post-Deployment Configuration:
- * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset pair
- * - ConfigHub: Set setCanOpenPair() to authorize: taker, provider, rolls contracts for the asset pair.
- * - ConfigHub: If allowing escrow, set setCanOpenPair() to authorize escrow for underlying and ANY_ASSET.
+ * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset pair [underlying, cash, loans]
+ * - ConfigHub: Set setCanOpenPair() to authorize: taker, provider, rolls for pair [underlying, cash, ...]
+ * - ConfigHub: If allowing escrow, set setCanOpenPair() to authorize escrow [underlying, ANY_ASSET, escrow].
+ * - ConfigHub: If allowing escrow, set setCanOpenPair() to authorize loans for escrow [underlying, escrow, loans].
  * - CollarTakerNFT and CollarProviderNFT: Ensure properly configured
  * - EscrowSupplierNFT: If allowing escrow, ensure properly configured
  * - This Contract: Set an allowed default swapper

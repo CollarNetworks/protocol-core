@@ -35,9 +35,9 @@ import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
  *
  * Post-Deployment Configuration:
  * - ConfigHub: Set valid collar duration range
- * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset
- * - ConfigHub: Set setCanOpenPair() to authorize its loans contracts
- * - This Contract: Set loans that can open escrows
+ * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset [underlying, ANY, escrow]
+ * - ConfigHub: Set setCanOpenPair() to authorize loans contracts to open positions [underlying, cash, loans]
+ * - ConfigHub: Set setCanOpenPair() to authorize loans contract to open escrow here [underlying, escrow, loans]
  */
 contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     using SafeERC20 for IERC20;
