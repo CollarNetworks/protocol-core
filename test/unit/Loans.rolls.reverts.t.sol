@@ -174,12 +174,10 @@ contract LoansRollsRevertsTest is LoansRollTestBase {
         // Create a loan
         (uint loanId,,) = createAndCheckLoan();
         uint rollId = createRollOffer(loanId);
-        vm.startPrank(owner);
-        loans.setKeeper(keeper);
 
         // Allow the keeper to close the loan (but not roll)
         vm.startPrank(user1);
-        loans.setKeeperApproved(loanId, true);
+        loans.setKeeperFor(loanId, keeper);
 
         // Attempt to roll the loan as the keeper
         vm.startPrank(keeper);

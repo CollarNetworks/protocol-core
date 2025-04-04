@@ -12,6 +12,8 @@ CollarTakerNFT, LoansNFT, EscrowSupplierNFT, CollarProviderNFT:
   - Inheriting from updated BaseManaged (not ownable, not pausable).
   - Different constructor interface. 
   - Using `onlyConfigHubOwner` for admin methods.
+LoansNFT:
+  - removed the admin method for setting keeper, users can choose a keeper when approving
 CollarTakerNFT:
   - `setOracle` is removed, and `settleAsCancelled` (for oracle failure) is added 
 CollarProviderNFT:

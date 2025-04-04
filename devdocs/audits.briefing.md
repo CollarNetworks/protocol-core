@@ -63,7 +63,7 @@ Base, possibly Eth L1 later.
 
 ## ConfigHub's owner privileges (for BaseManaged contracts)
 - Can update the values set in ConfigHub and replace the ConfigHub contract that's being used. This includes what internal contracts are allowed to open positions, LTV range, durations range, protocol fee parameters.
-- Can update the loansNFT closing keeper address and allowed swappers.
+- Can update the loansNFT allowed swappers.
 
 ## Testing and POC
 - Install run tests excluding fork tests: `forge install && forge build && forge test --nmc Fork`

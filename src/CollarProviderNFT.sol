@@ -35,8 +35,8 @@ import { ICollarProviderNFT } from "./interfaces/ICollarProviderNFT.sol";
  *
  * Post-Deployment Configuration:
  * - ConfigHub: Properly configured LTV, duration, and protocol fee parameters
- * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset pair
- * - ConfigHub: Set setCanOpenPair() to authorize its paired taker contract
+ * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset pair [underlying, cash, provider]
+ * - ConfigHub: Set setCanOpenPair() to authorize its paired taker contract [underlying, cash, taker]
  */
 contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     using SafeERC20 for IERC20;

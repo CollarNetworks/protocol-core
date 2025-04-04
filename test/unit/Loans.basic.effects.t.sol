@@ -446,7 +446,6 @@ contract LoansBasicEffectsTest is LoansTestBase {
         assertEq(address(loans.underlying()), address(underlying));
         assertEq(loans.VERSION(), "0.3.0");
         assertEq(loans.configHubOwner(), owner);
-        assertEq(loans.closingKeeper(), address(0));
         assertEq(address(loans.defaultSwapper()), address(0));
         assertEq(loans.name(), "");
         assertEq(loans.symbol(), "");
@@ -495,24 +494,24 @@ contract LoansBasicEffectsTest is LoansTestBase {
         assertEq(loans.tokenURI(loanId), expected);
     }
 
-    function test_allowsClosingKeeper() public {
+    function test_setKeeperFor() public {
         uint loanId = 100;
         uint otherLoanId = 50;
         startHoax(user1);
-        assertFalse(loans.keeperApprovedFor(user1, loanId));
-        assertFalse(loans.keeperApprovedFor(user1, otherLoanId));
+        assertEq(loans.keeperApprovedFor(user1, loanId), address(0));
+        assertEq(loans.keeperApprovedFor(user1, otherLoanId), address(0));
 
         vm.expectEmit(address(loans));
-        emit ILoansNFT.ClosingKeeperApproved(user1, loanId, true);
-        loans.setKeeperApproved(loanId, true);
-        assertTrue(loans.keeperApprovedFor(user1, loanId));
-        assertFalse(loans.keeperApprovedFor(user1, otherLoanId));
+        emit ILoansNFT.ClosingKeeperApproved(user1, loanId, keeper);
+        loans.setKeeperFor(loanId, keeper);
+        assertEq(loans.keeperApprovedFor(user1, loanId), keeper);
+        assertEq(loans.keeperApprovedFor(user1, otherLoanId), address(0));
 
         vm.expectEmit(address(loans));
-        emit ILoansNFT.ClosingKeeperApproved(user1, loanId, false);
-        loans.setKeeperApproved(loanId, false);
-        assertFalse(loans.keeperApprovedFor(user1, loanId));
-        assertFalse(loans.keeperApprovedFor(user1, otherLoanId));
+        emit ILoansNFT.ClosingKeeperApproved(user1, loanId, address(0));
+        loans.setKeeperFor(loanId, address(0));
+        assertEq(loans.keeperApprovedFor(user1, loanId), address(0));
+        assertEq(loans.keeperApprovedFor(user1, otherLoanId), address(0));
     }
 
     function test_closeLoan_simple() public {
@@ -598,13 +597,9 @@ contract LoansBasicEffectsTest is LoansTestBase {
         (uint loanId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
 
-        // Set the keeper
-        vm.startPrank(owner);
-        loans.setKeeper(keeper);
-
         // Allow the keeper to close the loan
         vm.startPrank(user1);
-        loans.setKeeperApproved(loanId, true);
+        loans.setKeeperFor(loanId, keeper);
 
         CollarTakerNFT.TakerPosition memory takerPosition = takerNFT.getPosition({ takerId: loanId });
         // withdrawal: no price change so only user locked (put locked)

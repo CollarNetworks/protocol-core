@@ -394,7 +394,6 @@ abstract contract BaseAssetPairForkTest is Test {
         address[] memory oneSwapper = new address[](1);
         oneSwapper[0] = address(pair.swapperUniV3);
         assertEq(pair.loansContract.allAllowedSwappers(), oneSwapper);
-        assertEq(pair.loansContract.closingKeeper(), address(0));
 
         // escrow
         assertEq(pair.escrowNFT.VERSION(), "0.3.0");

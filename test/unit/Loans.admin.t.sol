@@ -21,21 +21,7 @@ contract LoansAdminTest is LoansTestBase {
         vm.startPrank(user1);
 
         vm.expectRevert("BaseManaged: not configHub owner");
-        loans.setKeeper(keeper);
-
-        vm.expectRevert("BaseManaged: not configHub owner");
         loans.setSwapperAllowed(address(0), true, true);
-    }
-
-    function test_setKeeper() public {
-        assertEq(loans.closingKeeper(), address(0));
-
-        vm.startPrank(owner);
-        vm.expectEmit(address(loans));
-        emit ILoansNFT.ClosingKeeperUpdated(address(0), keeper);
-        loans.setKeeper(keeper);
-
-        assertEq(loans.closingKeeper(), keeper);
     }
 
     function test_setSwapperAllowed() public {

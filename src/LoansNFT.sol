@@ -34,13 +34,13 @@ import { ILoansNFT } from "./interfaces/ILoansNFT.sol";
  * according to transfer arguments (no rebasing, no FoT), 0 value approvals and transfers work.
  *
  * Post-Deployment Configuration:
- * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset pair
- * - ConfigHub: Set setCanOpenPair() to authorize: taker, provider, rolls contracts for the asset pair.
- * - ConfigHub: If allowing escrow, set setCanOpenPair() to authorize escrow for underlying and ANY_ASSET.
+ * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset pair [underlying, cash, loans]
+ * - ConfigHub: Set setCanOpenPair() to authorize: taker, provider, rolls for pair [underlying, cash, ...]
+ * - ConfigHub: If allowing escrow, set setCanOpenPair() to authorize escrow [underlying, ANY_ASSET, escrow].
+ * - ConfigHub: If allowing escrow, set setCanOpenPair() to authorize loans for escrow [underlying, escrow, loans].
  * - CollarTakerNFT and CollarProviderNFT: Ensure properly configured
  * - EscrowSupplierNFT: If allowing escrow, ensure properly configured
  * - This Contract: Set an allowed default swapper
- * - This Contract: Set allowed closing keeper if using keeper functionality
  */
 contract LoansNFT is ILoansNFT, BaseNFT {
     using SafeERC20 for IERC20;
@@ -62,12 +62,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     /// @notice Stores loan information for each NFT ID
     mapping(uint loanId => LoanStored) internal loans;
     // borrowers that allow a keeper for loan closing for specific loans
-    mapping(address sender => mapping(uint loanId => bool enabled)) public keeperApprovedFor;
+    mapping(address sender => mapping(uint loanId => address keeper)) public keeperApprovedFor;
 
     // ----- Admin state ----- //
-    // optional keeper (set by contract owner) that's useful for the time-sensitive
-    // swap back during loan closing
-    address public closingKeeper;
     // contracts allowed for swaps
     EnumerableSet.AddressSet internal allowedSwappers;
     // a convenience view to allow querying for a swapper onchain / FE without subgraph
@@ -352,28 +349,23 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     }
 
     /**
-     * @notice Allows or disallows a keeper for closing a specific loan on behalf of a caller
+     * @notice Sets a keeper for closing a specific loan on behalf of a caller.
      * A user that sets this allowance with the intention for the keeper to closeLoan
      * has to also ensure cash approval to this contract that should be valid when
      * closeLoan is called by the keeper.
+     * To unset, set keeper to address(0).
+     * If the loan is transferred to another owner, this approval will become invalid, because the loan
+     * is held by someone else. However, if it is transferred back to the original approver, the approval
+     * will become valid again.
      * @param loanId specific loanId which the user approves the keeper to close
-     * @param enabled True to allow the keeper, false to disallow
+     * @param keeper address of the keeper the user approves
      */
-    function setKeeperApproved(uint loanId, bool enabled) external {
-        keeperApprovedFor[msg.sender][loanId] = enabled;
-        emit ClosingKeeperApproved(msg.sender, loanId, enabled);
+    function setKeeperFor(uint loanId, address keeper) external {
+        keeperApprovedFor[msg.sender][loanId] = keeper;
+        emit ClosingKeeperApproved(msg.sender, loanId, keeper);
     }
 
     // ----- Admin methods ----- //
-
-    /// @notice Sets the address of the single allowed closing keeper. Alternative decentralized keeper
-    /// arrangements can be added via composability, e.g., a contract that would hold the NFTs (thus
-    /// will be able to perform actions) and allow incentivised keepers to call it.
-    /// @dev only configHub owner
-    function setKeeper(address keeper) external onlyConfigHubOwner {
-        emit ClosingKeeperUpdated(closingKeeper, keeper);
-        closingKeeper = keeper;
-    }
 
     /// @notice Enables or disables swappers and sets the defaultSwapper view.
     /// When no swapper is allowed, opening and closing loans will not be possible, only cancelling.
@@ -782,11 +774,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     their loans that are about to be closed, and only via a more complex "slippage" attack.
     */
     function _isSenderOrKeeperFor(address authorizedSender, uint loanId) internal view returns (bool) {
-        bool isSender = msg.sender == authorizedSender; // is the auth target
-        bool isKeeper = msg.sender == closingKeeper;
-        // our auth target allows the keeper
-        bool _keeperApproved = keeperApprovedFor[authorizedSender][loanId];
-        return isSender || (_keeperApproved && isKeeper);
+        return msg.sender == authorizedSender || msg.sender == keeperApprovedFor[authorizedSender][loanId];
     }
 
     function _newLoanIdCheck(uint takerId) internal view returns (uint loanId) {
