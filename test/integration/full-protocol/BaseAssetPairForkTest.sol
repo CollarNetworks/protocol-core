@@ -346,6 +346,27 @@ abstract contract BaseAssetPairForkTest is Test {
         assertEq(pair.underlying.balanceOf(user) - userUnderlyingBefore, underlyingOut);
     }
 
+    // addresses of all loans contracts expected to be using the escrow for a particular underlying
+    function expectedApprovedLoansForEscrow(IERC20 _underlying)
+        internal
+        view
+        returns (address[] memory expectedLoans)
+    {
+        // define a array that's too long, and truncate after the loop (otherwise need to do two ugly loops)
+        expectedLoans = new address[](deployedPairs.length);
+        uint nPairsForUnderlying;
+        for (uint i = 0; i < deployedPairs.length; i++) {
+            if (deployedPairs[i].underlying == _underlying) {
+                expectedLoans[nPairsForUnderlying] = address(deployedPairs[i].loansContract);
+                nPairsForUnderlying++;
+            }
+        }
+        // truncate the memory array to the right length
+        assembly {
+            mstore(expectedLoans, nPairsForUnderlying)
+        }
+    }
+
     // tests
 
     function test_validatePairDeployment() public view {
@@ -437,8 +458,8 @@ abstract contract BaseAssetPairForkTest is Test {
         assertEq(configHub.allCanOpenPair(address(pair.underlying), address(pair.cashAsset)), pairAuthed);
 
         // underlying x escrow -> loans
-        address[] memory loansToEscrow = new address[](1);
-        loansToEscrow[0] = address(pair.loansContract);
+        // multiple loans contracts can be using the same escrow
+        address[] memory loansToEscrow = expectedApprovedLoansForEscrow(pair.underlying);
         assertEq(configHub.allCanOpenPair(address(pair.underlying), address(pair.escrowNFT)), loansToEscrow);
 
         // single asset auth
