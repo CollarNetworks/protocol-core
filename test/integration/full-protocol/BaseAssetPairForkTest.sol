@@ -427,12 +427,19 @@ abstract contract BaseAssetPairForkTest is Test {
         );
 
         // all pair auth
+
+        // underlying x cash -> pair
         address[] memory pairAuthed = new address[](4);
         pairAuthed[0] = address(pair.takerNFT);
         pairAuthed[1] = address(pair.providerNFT);
         pairAuthed[2] = address(pair.loansContract);
         pairAuthed[3] = address(pair.rollsContract);
         assertEq(configHub.allCanOpenPair(address(pair.underlying), address(pair.cashAsset)), pairAuthed);
+
+        // underlying x escrow -> loans
+        address[] memory loansToEscrow = new address[](1);
+        loansToEscrow[0] = address(pair.loansContract);
+        assertEq(configHub.allCanOpenPair(address(pair.underlying), address(pair.escrowNFT)), loansToEscrow);
 
         // single asset auth
         assertTrue(configHub.canOpenSingle(address(pair.underlying), address(pair.escrowNFT)));
