@@ -206,8 +206,6 @@ contract TWETHTUSDC_OPBaseSep_LoansForkTest_NoDeploy is TWETHTUSDC_OPBaseSep_Loa
         super._setTestValues();
         forceLatestBlock = true;
         testMode = TestMode.noDeploy;
-        // TODO: enable test when new release is deployed
-        vm.skip(true); // deployment is outdated (0.2.0)
         realArtifactsName = Const.OPBaseSep_artifactsName;
     }
 }
@@ -233,8 +231,6 @@ contract TWBTCTUSDC_OPBaseSep_LoansForkTest_NoDeploy is TWBTCTUSDC_OPBaseSep_Loa
         super._setTestValues();
         forceLatestBlock = true;
         testMode = TestMode.noDeploy;
-        // TODO: enable test when new release is deployed
-        vm.skip(true); // deployment is outdated (0.2.0)
         realArtifactsName = Const.OPBaseSep_artifactsName;
     }
 }
