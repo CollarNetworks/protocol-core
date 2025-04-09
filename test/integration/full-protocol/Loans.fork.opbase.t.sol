@@ -110,7 +110,7 @@ contract WETHUSDC_OPBaseMain_LoansForkTest is BaseAssetPairForkTest_ScriptTest {
         slippage = 100; // 1%
         callstrikeToUse = 11_000;
 
-        expectedOraclePrice = 3_000_000_000;
+        expectedOraclePrice = 2_000_000_000;
     }
 }
 
@@ -197,7 +197,7 @@ contract TWETHTUSDC_OPBaseSep_LoansForkTest is WETHUSDC_OPBaseMain_LoansForkTest
         cashAsset = Const.OPBaseSep_tUSDC;
         oracleDescription = "Comb(CL(TWAPMock(ETH / USD))|inv(CL(FixedMock(USDC / USD))))";
 
-        expectedOraclePrice = 3_500_000_000; // 3.5k in 1e6
+        expectedOraclePrice = 2_000_000_000; // 2k in 1e6
     }
 }
 
