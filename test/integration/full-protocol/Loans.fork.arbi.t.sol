@@ -54,7 +54,7 @@ contract WETHUSDC_ArbiMain_LoansForkTest is BaseAssetPairForkTest_ScriptTest {
         slippage = 100; // 1%
         callstrikeToUse = 11_000;
 
-        expectedOraclePrice = 3_000_000_000;
+        expectedOraclePrice = 2_000_000_000;
     }
 }
 
@@ -119,7 +119,7 @@ contract WETHUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
         cashAsset = Const.ArbiSep_tUSDC;
         oracleDescription = "Comb(CL(TWAPMock(ETH / USD))|inv(CL(FixedMock(USDC / USD))))";
 
-        expectedOraclePrice = 3_000_000_000;
+        expectedOraclePrice = 2_000_000_000;
     }
 
     function deployFullProtocol()
