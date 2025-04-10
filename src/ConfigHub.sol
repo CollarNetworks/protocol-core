@@ -15,14 +15,12 @@ import { IConfigHub } from "./interfaces/IConfigHub.sol";
  * 1. Manages system-wide configuration and intern-contract authorization for the Collar Protocol.
  * 2. Controls which contracts are allowed to open positions for specific asset pairs.
  * 3. Sets valid ranges for key parameters like LTV and position duration.
- * 4. Designates pause guardians who can pause contracts in an emergency.
- * 5. Manages protocol fee parameters.
+ * 4. Manages protocol fee parameters.
  *
  * Post-Deployment Configuration:
  * - This Contract: Set valid LTV range for protocol
  * - This Contract: Set valid collar duration range for protocol
  * - This Contract: Set protocol fee parameters if fees are used
- * - This Contract: Set pause guardians if using guardian functionality
  */
 contract ConfigHub is Ownable2Step, IConfigHub {
     using EnumerableSet for EnumerableSet.AddressSet;
