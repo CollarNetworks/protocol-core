@@ -161,21 +161,40 @@ library BaseDeployer {
     }
 
     function setupContractPair(ConfigHub hub, AssetPairContracts memory pair) internal {
-        hub.setCanOpenPair(address(pair.underlying), address(pair.cashAsset), address(pair.takerNFT), true);
-        hub.setCanOpenPair(address(pair.underlying), address(pair.cashAsset), address(pair.providerNFT), true);
-        hub.setCanOpenPair(
-            address(pair.underlying), address(pair.cashAsset), address(pair.loansContract), true
-        );
-        hub.setCanOpenPair(
-            address(pair.underlying), address(pair.cashAsset), address(pair.rollsContract), true
-        );
-        hub.setCanOpenPair(address(pair.underlying), hub.ANY_ASSET(), address(pair.escrowNFT), true);
+        setContractsAuth(hub, pair, true);
 
+        // setup initial and default swapper
         pair.loansContract.setSwapperAllowed(address(pair.swapperUniV3), true, true);
+    }
 
-        // allow loans to open escrow positions
+    // @dev note that when disabling previous version, it's auth interfaces may be different
+    // from current (either in contracts or in ConfigHub), so more actions may be needed, or
+    // some actions may fail
+    function disableContractPair(ConfigHub hub, AssetPairContracts memory pair) internal {
+        setContractsAuth(hub, pair, false);
+
+        // @dev swappers are not touched, since closing position should still be possible
+    }
+
+    function setContractsAuth(ConfigHub hub, AssetPairContracts memory pair, bool enabled) internal {
+        // underlying x cash -> pair contracts
+        hub.setCanOpenPair(address(pair.underlying), address(pair.cashAsset), address(pair.takerNFT), enabled);
         hub.setCanOpenPair(
-            address(pair.underlying), address(pair.escrowNFT), address(pair.loansContract), true
+            address(pair.underlying), address(pair.cashAsset), address(pair.providerNFT), enabled
+        );
+        hub.setCanOpenPair(
+            address(pair.underlying), address(pair.cashAsset), address(pair.loansContract), enabled
+        );
+        hub.setCanOpenPair(
+            address(pair.underlying), address(pair.cashAsset), address(pair.rollsContract), enabled
+        );
+
+        // underlying x any -> escrow
+        hub.setCanOpenPair(address(pair.underlying), hub.ANY_ASSET(), address(pair.escrowNFT), enabled);
+
+        // underlying x escrow -> loans
+        hub.setCanOpenPair(
+            address(pair.underlying), address(pair.escrowNFT), address(pair.loansContract), enabled
         );
     }
 
