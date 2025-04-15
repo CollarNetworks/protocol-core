@@ -15,14 +15,12 @@ import { IConfigHub } from "./interfaces/IConfigHub.sol";
  * 1. Manages system-wide configuration and intern-contract authorization for the Collar Protocol.
  * 2. Controls which contracts are allowed to open positions for specific asset pairs.
  * 3. Sets valid ranges for key parameters like LTV and position duration.
- * 4. Designates pause guardians who can pause contracts in an emergency.
- * 5. Manages protocol fee parameters.
+ * 4. Manages protocol fee parameters.
  *
  * Post-Deployment Configuration:
  * - This Contract: Set valid LTV range for protocol
  * - This Contract: Set valid collar duration range for protocol
  * - This Contract: Set protocol fee parameters if fees are used
- * - This Contract: Set pause guardians if using guardian functionality
  */
 contract ConfigHub is Ownable2Step, IConfigHub {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -109,8 +107,6 @@ contract ConfigHub is Ownable2Step, IConfigHub {
         emit CollarDurationRangeSet(min, max);
     }
 
-    // pausing
-
     // protocol fee
 
     /// @notice Sets the APR in BIPs, and the address that receive the protocol fee.
@@ -127,12 +123,14 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     // ----- Views -----
 
     /// @notice main auth for system contracts calling each other during opening of positions for a pair.
-    function canOpenPair(address underlying, address cashAsset, address target)
+    /// @dev note that assets A/B aren't necessarily external ERC20, and can be internal contracts as well
+    /// e.g, escrow may query (underlying, escrow, loans) to check a loans contract is enabled for it
+    function canOpenPair(address assetA, address assetB, address target)
         external
         view
         returns (bool)
     {
-        return canOpenSets[underlying][cashAsset].contains(target);
+        return canOpenSets[assetA][assetB].contains(target);
     }
 
     /// @notice equivalent to `canOpenPair` view when the second asset is ANY_ASSET placeholder

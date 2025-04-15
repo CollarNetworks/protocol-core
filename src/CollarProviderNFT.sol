@@ -128,7 +128,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /**
      * @notice Calculates the protocol fee charged from offers on position creation.
      * The fee is charged on the full notional value of the underlying's cash value - i.e. on 100%.
-     * Example: If providerLocked is 100, and callsTrike is 110%, the notional is 1000. If the APR is 1%,
+     * Example: If providerLocked is 100, and callStrike is 110%, the notional is 1000. If the APR is 1%,
      * so the fee on 1 year duration will be 1% of 1000 = 10, **on top** of the providerLocked.
      * So when position is created, the offer amount will be reduced by 100 + 10 in this example,
      * with 100 in providerLocked, and 10 sent to protocol fee recipient.
@@ -162,7 +162,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
             fee =  providerLocked * BIPS_BASE * feeAPR * duration / ((callStrikePercent - BIPS_BASE) * BIPS_BASE * YEAR)
 
         4. Simplify BIPS_BASE:
-            fee =  providerLocked * feeAPR * duration / ((callStrikePercent - BIPS_BASE) * YEAR
+            fee =  providerLocked * feeAPR * duration / ((callStrikePercent - BIPS_BASE) * YEAR)
         */
 
         // rounds up to prevent avoiding fee using many small positions.

@@ -86,7 +86,9 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
         TakerPositionStored memory stored = positions[takerId];
         // do not try to call non-existent provider
         require(address(stored.providerNFT) != address(0), "taker: position does not exist");
-        // @dev the provider position fields that are used are assumed to be immutable (set once)
+        // @dev the provider position fields used here are assumed to be immutable (set once).
+        // @dev a provider contract that manipulates these values should only be able to affect positions
+        // that are paired with it, but no other positions or funds.
         ICollarProviderNFT.ProviderPosition memory providerPos =
             stored.providerNFT.getPosition(stored.providerId);
         return TakerPosition({
