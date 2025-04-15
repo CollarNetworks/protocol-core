@@ -107,8 +107,6 @@ contract ConfigHub is Ownable2Step, IConfigHub {
         emit CollarDurationRangeSet(min, max);
     }
 
-    // pausing
-
     // protocol fee
 
     /// @notice Sets the APR in BIPs, and the address that receive the protocol fee.
