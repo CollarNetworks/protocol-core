@@ -25,7 +25,7 @@ abstract contract BaseManaged {
     // ----- Modifiers ----- //
 
     modifier onlyConfigHubOwner() {
-        require(msg.sender == configHub.owner(), "BaseManaged: not configHub owner");
+        require(msg.sender == configHubOwner(), "BaseManaged: not configHub owner");
         _;
     }
 

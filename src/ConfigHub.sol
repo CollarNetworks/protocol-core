@@ -123,12 +123,14 @@ contract ConfigHub is Ownable2Step, IConfigHub {
     // ----- Views -----
 
     /// @notice main auth for system contracts calling each other during opening of positions for a pair.
-    function canOpenPair(address underlying, address cashAsset, address target)
+    /// @dev note that assets A/B aren't necessarily external ERC20, and can be internal contracts as well
+    /// e.g, escrow may query (underlying, escrow, loans) to check a loans contract is enabled for it
+    function canOpenPair(address assetA, address assetB, address target)
         external
         view
         returns (bool)
     {
-        return canOpenSets[underlying][cashAsset].contains(target);
+        return canOpenSets[assetA][assetB].contains(target);
     }
 
     /// @notice equivalent to `canOpenPair` view when the second asset is ANY_ASSET placeholder
