@@ -6,7 +6,7 @@ CHAIN_ID=8453 # base
 
 echo "=== Batch Contract Diff ==="
 echo "Using Chain ID: $CHAIN_ID (change in script as needed)"
-echo "1. Paste your contract table below (copied from raw or rendered markdown)"
+echo "1. Paste your contract table below (copied from raw or rendered markdown). ContractName assumed to be last column."
 echo "2. After pasting, press Enter"
 echo "3. Then press Ctrl+D to finish input :"
 # Create a temporary file to store the pasted table
@@ -27,7 +27,7 @@ while IFS= read -r line; do
             # Extract the contract name based on format
             if [[ "$line" == *"|"* ]]; then
                 # For pipe-delimited markdown format
-                CONTRACT_NAME=$(echo "$line" | awk -F'|' '{print $3}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                CONTRACT_NAME=$(echo "$line" | awk -F'|' '{print $(NF-1)}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
             else
                 # For tab-delimited rendered format
                 CONTRACT_NAME=$(echo "$line" | awk '{print $NF}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
