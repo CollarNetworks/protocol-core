@@ -22,7 +22,8 @@ while IFS= read -r line; do
     if [[ "$line" == *"/address/"* ]]; then
         # Extract the address using regex
         if [[ "$line" =~ (0x[a-fA-F0-9]{40}) ]]; then
-            ADDRESS="${BASH_REMATCH[1]}"
+            # Extract the address using grep (works in both bash and zsh)
+            ADDRESS=$(grep -o '0x[a-fA-F0-9]\{40\}' <<< "$line")
 
             # Extract the contract name based on format
             if [[ "$line" == *"|"* ]]; then
