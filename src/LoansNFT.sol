@@ -34,13 +34,13 @@ import { ILoansNFT } from "./interfaces/ILoansNFT.sol";
  * according to transfer arguments (no rebasing, no FoT), 0 value approvals and transfers work.
  *
  * Post-Deployment Configuration:
- * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset pair
- * - ConfigHub: Set setCanOpenPair() to authorize: taker, provider, rolls contracts for the asset pair.
- * - ConfigHub: If allowing escrow, set setCanOpenPair() to authorize escrow for underlying and ANY_ASSET.
+ * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset pair [underlying, cash, loans]
+ * - ConfigHub: Set setCanOpenPair() to authorize: taker, provider, rolls for pair [underlying, cash, ...]
+ * - ConfigHub: If allowing escrow, set setCanOpenPair() to authorize escrow [underlying, ANY_ASSET, escrow].
+ * - ConfigHub: If allowing escrow, set setCanOpenPair() to authorize loans for escrow [underlying, escrow, loans].
  * - CollarTakerNFT and CollarProviderNFT: Ensure properly configured
  * - EscrowSupplierNFT: If allowing escrow, ensure properly configured
  * - This Contract: Set an allowed default swapper
- * - This Contract: Set allowed closing keeper if using keeper functionality
  */
 contract LoansNFT is ILoansNFT, BaseNFT {
     using SafeERC20 for IERC20;
@@ -48,7 +48,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
     uint internal constant BIPS_BASE = 10_000;
 
-    string public constant VERSION = "0.2.0";
+    string public constant VERSION = "0.3.0";
     uint public constant MAX_SWAP_PRICE_DEVIATION_BIPS = 1000; // 10%, allows 10% self-sandwich slippage
 
     // ----- IMMUTABLES ----- //
@@ -62,19 +62,16 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     /// @notice Stores loan information for each NFT ID
     mapping(uint loanId => LoanStored) internal loans;
     // borrowers that allow a keeper for loan closing for specific loans
-    mapping(address sender => mapping(uint loanId => bool enabled)) public keeperApprovedFor;
+    mapping(address sender => mapping(uint loanId => address keeper)) public keeperApprovedFor;
 
     // ----- Admin state ----- //
-    // optional keeper (set by contract owner) that's useful for the time-sensitive
-    // swap back during loan closing
-    address public closingKeeper;
     // contracts allowed for swaps
     EnumerableSet.AddressSet internal allowedSwappers;
     // a convenience view to allow querying for a swapper onchain / FE without subgraph
     address public defaultSwapper;
 
-    constructor(address initialOwner, CollarTakerNFT _takerNFT, string memory _name, string memory _symbol)
-        BaseNFT(initialOwner, _name, _symbol, _takerNFT.configHub(), address(_takerNFT))
+    constructor(CollarTakerNFT _takerNFT, string memory _name, string memory _symbol)
+        BaseNFT(_name, _symbol, _takerNFT.configHub())
     {
         takerNFT = _takerNFT;
         cashAsset = _takerNFT.cashAsset();
@@ -138,7 +135,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         uint minLoanAmount,
         SwapParams calldata swapParams,
         ProviderOffer calldata providerOffer
-    ) external whenNotPaused returns (uint loanId, uint providerId, uint loanAmount) {
+    ) external returns (uint loanId, uint providerId, uint loanAmount) {
         EscrowOffer memory noEscrow = EscrowOffer(EscrowSupplierNFT(address(0)), 0);
         return _openLoan(underlyingAmount, minLoanAmount, swapParams, providerOffer, false, noEscrow, 0);
     }
@@ -171,7 +168,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         ProviderOffer calldata providerOffer,
         EscrowOffer calldata escrowOffer,
         uint escrowFees
-    ) external whenNotPaused returns (uint loanId, uint providerId, uint loanAmount) {
+    ) external returns (uint loanId, uint providerId, uint loanAmount) {
         return _openLoan(
             underlyingAmount, minLoanAmount, swapParams, providerOffer, true, escrowOffer, escrowFees
         );
@@ -209,11 +206,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
      *     - any extraData the swapper needs to use
      * @return underlyingOut The actual amount of underlying asset returned to the user
      */
-    function closeLoan(uint loanId, SwapParams calldata swapParams)
-        external
-        whenNotPaused
-        returns (uint underlyingOut)
-    {
+    function closeLoan(uint loanId, SwapParams calldata swapParams) external returns (uint underlyingOut) {
         // @dev cache the borrower now, since _closeLoan will burn the NFT, so ownerOf will revert
         // Borrower is the NFT owner, since msg.sender can be a keeper.
         // If called by keeper, the borrower must trust it because:
@@ -279,9 +272,12 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         int minToUser,
         uint newEscrowOfferId,
         uint newEscrowFee
-    ) external whenNotPaused onlyNFTOwner(loanId) returns (uint newLoanId, uint newLoanAmount, int toUser) {
+    ) external onlyNFTOwner(loanId) returns (uint newLoanId, uint newLoanAmount, int toUser) {
         // check opening loans is still allowed (not in exit-only mode)
-        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "loans: unsupported loans");
+        require(
+            configHub.canOpenPair(address(underlying), address(cashAsset), address(this)),
+            "loans: unsupported loans"
+        );
 
         // @dev rolls contract is assumed to not allow rolling an expired or settled position,
         // but checking explicitly is safer and easier to review
@@ -339,7 +335,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
      * escrow fee refunds to the caller.
      * @param loanId The ID representing the loan to unwrap and cancel
      */
-    function unwrapAndCancelLoan(uint loanId) external whenNotPaused onlyNFTOwner(loanId) {
+    function unwrapAndCancelLoan(uint loanId) external onlyNFTOwner(loanId) {
         // release escrow if needed with refunds (interest fee) to sender
         _conditionalCheckAndCancelEscrow(loanId);
 
@@ -353,35 +349,30 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     }
 
     /**
-     * @notice Allows or disallows a keeper for closing a specific loan on behalf of a caller
+     * @notice Sets a keeper for closing a specific loan on behalf of a caller.
      * A user that sets this allowance with the intention for the keeper to closeLoan
      * has to also ensure cash approval to this contract that should be valid when
      * closeLoan is called by the keeper.
+     * To unset, set keeper to address(0).
+     * If the loan is transferred to another owner, this approval will become invalid, because the loan
+     * is held by someone else. However, if it is transferred back to the original approver, the approval
+     * will become valid again.
      * @param loanId specific loanId which the user approves the keeper to close
-     * @param enabled True to allow the keeper, false to disallow
+     * @param keeper address of the keeper the user approves
      */
-    function setKeeperApproved(uint loanId, bool enabled) external whenNotPaused {
-        keeperApprovedFor[msg.sender][loanId] = enabled;
-        emit ClosingKeeperApproved(msg.sender, loanId, enabled);
+    function setKeeperFor(uint loanId, address keeper) external {
+        keeperApprovedFor[msg.sender][loanId] = keeper;
+        emit ClosingKeeperApproved(msg.sender, loanId, keeper);
     }
 
     // ----- Admin methods ----- //
-
-    /// @notice Sets the address of the single allowed closing keeper. Alternative decentralized keeper
-    /// arrangements can be added via composability, e.g., a contract that would hold the NFTs (thus
-    /// will be able to perform actions) and allow incentivised keepers to call it.
-    /// @dev only owner
-    function setKeeper(address keeper) external onlyOwner {
-        emit ClosingKeeperUpdated(closingKeeper, keeper);
-        closingKeeper = keeper;
-    }
 
     /// @notice Enables or disables swappers and sets the defaultSwapper view.
     /// When no swapper is allowed, opening and closing loans will not be possible, only cancelling.
     /// The default swapper is a convenience view, and it's best to keep it up to date
     /// and to make sure the default one is allowed.
-    /// @dev only owner
-    function setSwapperAllowed(address swapper, bool allow, bool setDefault) external onlyOwner {
+    /// @dev only configHub owner
+    function setSwapperAllowed(address swapper, bool allow, bool setDefault) external onlyConfigHubOwner {
         if (allow) require(bytes(ISwapper(swapper).VERSION()).length > 0, "loans: invalid swapper");
         allow ? allowedSwappers.add(swapper) : allowedSwappers.remove(swapper);
 
@@ -404,7 +395,10 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         EscrowOffer memory escrowOffer,
         uint escrowFees
     ) internal returns (uint loanId, uint providerId, uint loanAmount) {
-        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "loans: unsupported loans");
+        require(
+            configHub.canOpenPair(address(underlying), address(cashAsset), address(this)),
+            "loans: unsupported loans"
+        );
         // taker NFT and provider NFT canOpen is checked in _swapAndMintCollar
         // escrow NFT canOpen is checked in _conditionalOpenEscrow
 
@@ -465,10 +459,14 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     ) internal returns (uint takerId, uint providerId, uint loanAmount) {
         (CollarProviderNFT providerNFT, uint offerId) = (offer.providerNFT, offer.id);
 
-        require(configHub.canOpenPair(underlying, cashAsset, address(takerNFT)), "loans: unsupported taker");
+        require(
+            configHub.canOpenPair(address(underlying), address(cashAsset), address(takerNFT)),
+            "loans: unsupported taker"
+        );
         // taker will check provider's canOpen as well, but we're using a view from it below so check too
         require(
-            configHub.canOpenPair(underlying, cashAsset, address(providerNFT)), "loans: unsupported provider"
+            configHub.canOpenPair(address(underlying), address(cashAsset), address(providerNFT)),
+            "loans: unsupported provider"
         );
         // taker is expected to check that providerNFT's assets match correctly
 
@@ -590,7 +588,10 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     {
         (Rolls rolls, uint rollId) = (rollOffer.rolls, rollOffer.id);
         // check this rolls contract is allowed
-        require(configHub.canOpenPair(underlying, cashAsset, address(rolls)), "loans: unsupported rolls");
+        require(
+            configHub.canOpenPair(address(underlying), address(cashAsset), address(rolls)),
+            "loans: unsupported rolls"
+        );
         // ensure it's the right takerNFT in case of multiple takerNFTs for an asset pair
         require(address(rolls.takerNFT()) == address(takerNFT), "loans: rolls takerNFT mismatch");
         // offer status (active) is not checked, also since rolls should check / fail
@@ -645,7 +646,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
             // check asset matches
             require(escrowNFT.asset() == underlying, "loans: escrow asset mismatch");
             // whitelisted only
-            require(configHub.canOpenSingle(underlying, address(escrowNFT)), "loans: unsupported escrow");
+            require(
+                configHub.canOpenSingle(address(underlying), address(escrowNFT)), "loans: unsupported escrow"
+            );
 
             // @dev underlyingAmount and fee were pulled already before calling this method
             underlying.forceApprove(address(escrowNFT), escrowed + fees);
@@ -669,7 +672,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
         if (prevLoan.usesEscrow) {
             EscrowSupplierNFT escrowNFT = prevLoan.escrowNFT;
             // check this escrow is still allowed
-            require(configHub.canOpenSingle(underlying, address(escrowNFT)), "loans: unsupported escrow");
+            require(
+                configHub.canOpenSingle(address(underlying), address(escrowNFT)), "loans: unsupported escrow"
+            );
 
             underlying.safeTransferFrom(msg.sender, address(this), newFees);
             underlying.forceApprove(address(escrowNFT), newFees);
@@ -769,11 +774,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
     their loans that are about to be closed, and only via a more complex "slippage" attack.
     */
     function _isSenderOrKeeperFor(address authorizedSender, uint loanId) internal view returns (bool) {
-        bool isSender = msg.sender == authorizedSender; // is the auth target
-        bool isKeeper = msg.sender == closingKeeper;
-        // our auth target allows the keeper
-        bool _keeperApproved = keeperApprovedFor[authorizedSender][loanId];
-        return isSender || (_keeperApproved && isKeeper);
+        return msg.sender == authorizedSender || msg.sender == keeperApprovedFor[authorizedSender][loanId];
     }
 
     function _newLoanIdCheck(uint takerId) internal view returns (uint loanId) {

@@ -7,6 +7,9 @@
 BROADCAST_FILE="broadcast/deploy-protocol.s.sol/8453/dry-run/run-latest.json"
 EXPLORER_BASE_URL="https://basescan.org/address/"
 
+#BROADCAST_FILE="broadcast/deploy-protocol.s.sol/84532/dry-run/run-latest.json"
+#EXPLORER_BASE_URL="https://sepolia.basescan.org/address/"
+
 echo "# Deployed contracts"
 
 ## simple lines

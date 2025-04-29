@@ -16,16 +16,13 @@ library ArbitrumSepoliaDeployer {
     int constant USDSTABLEPRICE = 100_000_000; // 1 * 10^8 since feed decimals is 8
 
     function defaultHubParams() internal pure returns (BaseDeployer.HubParams memory) {
-        address[] memory pauseGuardians = new address[](1);
-        pauseGuardians[0] = Const.ArbiSep_deployerAcc;
         return BaseDeployer.HubParams({
             minDuration: 5 minutes,
             maxDuration: 365 days,
             minLTV: 2500,
             maxLTV: 9900,
             feeAPR: 90,
-            feeRecipient: Const.ArbiSep_feeRecipient,
-            pauseGuardians: pauseGuardians
+            feeRecipient: Const.ArbiSep_feeRecipient
         });
     }
 
@@ -40,13 +37,13 @@ library ArbitrumSepoliaDeployer {
         BaseDeployer.setupConfigHub(result.configHub, defaultHubParams());
 
         // pairs
-        result.assetPairContracts = deployAllContractPairs(thisSender, result.configHub);
+        result.assetPairContracts = deployAllContractPairs(result.configHub);
         for (uint i = 0; i < result.assetPairContracts.length; i++) {
             BaseDeployer.setupContractPair(result.configHub, result.assetPairContracts[i]);
         }
 
         // ownership
-        BaseDeployer.nominateNewOwnerAll(finalOwner, result);
+        BaseDeployer.nominateNewHubOwner(finalOwner, result);
     }
 
     function deployMockOracleETHUSD() internal returns (BaseTakerOracle oracle) {
@@ -90,7 +87,7 @@ library ArbitrumSepoliaDeployer {
         oracle = BaseDeployer.deployChainlinkOracle(tUSDC, Const.VIRTUAL_ASSET, feedUSDC_USD, sequencerFeed);
     }
 
-    function deployAllContractPairs(address initialOwner, ConfigHub configHub)
+    function deployAllContractPairs(ConfigHub configHub)
         internal
         returns (BaseDeployer.AssetPairContracts[] memory assetPairContracts)
     {
@@ -104,7 +101,6 @@ library ArbitrumSepoliaDeployer {
 
         // if any escrowNFT contracts will be reused for multiple pairs, they should be deployed first
         assetPairContracts[0] = BaseDeployer.deployContractPair(
-            initialOwner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "WETH/USDC",
@@ -125,7 +121,6 @@ library ArbitrumSepoliaDeployer {
         );
 
         assetPairContracts[1] = BaseDeployer.deployContractPair(
-            initialOwner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "WBTC/USDC",

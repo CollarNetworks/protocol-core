@@ -14,16 +14,13 @@ library ArbitrumMainnetDeployer {
     uint24 constant swapFeeTier = 500;
 
     function defaultHubParams() internal pure returns (BaseDeployer.HubParams memory) {
-        address[] memory pauseGuardians = new address[](1);
-        pauseGuardians[0] = Const.ArbiMain_deployerAcc;
         return BaseDeployer.HubParams({
             minDuration: 30 days,
             maxDuration: 365 days,
             minLTV: 2500,
             maxLTV: 9500,
             feeAPR: 90,
-            feeRecipient: Const.ArbiMain_feeRecipient,
-            pauseGuardians: pauseGuardians
+            feeRecipient: Const.ArbiMain_feeRecipient
         });
     }
 
@@ -39,16 +36,16 @@ library ArbitrumMainnetDeployer {
         BaseDeployer.setupConfigHub(result.configHub, defaultHubParams());
 
         // pairs
-        result.assetPairContracts = deployAllContractPairs(thisSender, result.configHub);
+        result.assetPairContracts = deployAllContractPairs(result.configHub);
         for (uint i = 0; i < result.assetPairContracts.length; i++) {
             BaseDeployer.setupContractPair(result.configHub, result.assetPairContracts[i]);
         }
 
         // ownership
-        BaseDeployer.nominateNewOwnerAll(finalOwner, result);
+        BaseDeployer.nominateNewHubOwner(finalOwner, result);
     }
 
-    function deployAllContractPairs(address initialOwner, ConfigHub configHub)
+    function deployAllContractPairs(ConfigHub configHub)
         internal
         returns (BaseDeployer.AssetPairContracts[] memory assetPairContracts)
     {
@@ -83,12 +80,10 @@ library ArbitrumMainnetDeployer {
         );
 
         // if any escrowNFT contracts will be reused for multiple pairs, they should be deployed first
-        EscrowSupplierNFT wethEscrow =
-            BaseDeployer.deployEscrowNFT(initialOwner, configHub, IERC20(WETH), "WETH");
+        EscrowSupplierNFT wethEscrow = BaseDeployer.deployEscrowNFT(configHub, IERC20(WETH), "WETH");
 
         // deploy pairs
         assetPairContracts[0] = BaseDeployer.deployContractPair(
-            initialOwner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "WETH/USDC",
@@ -104,7 +99,6 @@ library ArbitrumMainnetDeployer {
         );
 
         assetPairContracts[1] = BaseDeployer.deployContractPair(
-            initialOwner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "WETH/USDT",
@@ -120,7 +114,6 @@ library ArbitrumMainnetDeployer {
         );
 
         assetPairContracts[2] = BaseDeployer.deployContractPair(
-            initialOwner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "WBTC/USDT",

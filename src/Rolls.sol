@@ -7,7 +7,6 @@ import { SignedMath } from "@openzeppelin/contracts/utils/math/SignedMath.sol";
 
 import { CollarTakerNFT, ICollarTakerNFT } from "./CollarTakerNFT.sol";
 import { CollarProviderNFT, ICollarProviderNFT } from "./CollarProviderNFT.sol";
-import { BaseManaged } from "./base/BaseManaged.sol";
 import { IRolls } from "./interfaces/IRolls.sol";
 
 /**
@@ -44,13 +43,13 @@ import { IRolls } from "./interfaces/IRolls.sol";
  * - ConfigHub: If this contract is used through Loans, set setCanOpenPair() to authorize this
  * contract for its asset pair
  */
-contract Rolls is IRolls, BaseManaged {
+contract Rolls is IRolls {
     using SafeERC20 for IERC20;
     using SafeCast for uint;
 
     uint internal constant BIPS_BASE = 10_000;
 
-    string public constant VERSION = "0.2.0";
+    string public constant VERSION = "0.3.0";
 
     // ----- IMMUTABLES ----- //
     CollarTakerNFT public immutable takerNFT;
@@ -62,18 +61,10 @@ contract Rolls is IRolls, BaseManaged {
 
     mapping(uint rollId => RollOfferStored) internal rollOffers;
 
-    /// @dev Rolls needs BaseManaged for pausing since is approved by users, and holds NFTs.
-    /// Does not need `canOpen` auth here because its auth is checked in Loans, or requires no auth
+    /// @dev Rolls does not need `canOpen` auth because its auth is checked in Loans, or requires no auth
     /// if used directly.
     /// Has no long-lived functionality so doesn't need a close-only migration mode.
-    /// @dev unrescuableAsset is not set, which means that providerNFTs held by this contract for active
-    /// offers can be rescued by the owner via `rescueTokens`. In a future implementation this can be set
-    /// to a specific providerNFT if needed (limiting the Rolls contract to a single provider NFT). Currently,
-    /// because roll offers are short lived and optional, the added complexity is not worth it wrt
-    /// to the risk mitigated by it.
-    constructor(address initialOwner, CollarTakerNFT _takerNFT)
-        BaseManaged(initialOwner, _takerNFT.configHub(), address(0))
-    {
+    constructor(CollarTakerNFT _takerNFT) {
         takerNFT = _takerNFT;
         cashAsset = _takerNFT.cashAsset();
     }
@@ -138,9 +129,19 @@ contract Rolls is IRolls, BaseManaged {
      * @return PreviewResults Struct of preview results calculations
      */
     function previewRoll(uint rollId, uint price) external view returns (PreviewResults memory) {
-        RollOffer memory offer = getRollOffer(rollId);
-        // do not divide by zero
-        require(offer.feeReferencePrice != 0, "rolls: invalid rollId");
+        return previewOffer(getRollOffer(rollId), price);
+    }
+
+    /**
+     * @notice Calculates the amounts to be transferred for a roll offer at a specific price.
+     * Can be used off-chain for calculating offer parameters (like minToProvider) in the UI.
+     * Does not check any validity conditions (existence, deadline, price range, etc...).
+     * @param offer a struct of roll offer parameters to use
+     * @param price The price to use for the calculation
+     * @return PreviewResults Struct of preview results calculations
+     */
+    function previewOffer(RollOffer memory offer, uint price) public view returns (PreviewResults memory) {
+        require(offer.feeReferencePrice != 0, "rolls: invalid roll offer"); // do not divide by zero
         int rollFee = calculateRollFee(offer, price);
         return _previewRoll(takerNFT.getPosition(offer.takerId), price, rollFee);
     }
@@ -184,7 +185,7 @@ contract Rolls is IRolls, BaseManaged {
         uint maxPrice,
         int minToProvider,
         uint deadline
-    ) external whenNotPaused returns (uint rollId) {
+    ) external returns (uint rollId) {
         // taker position is valid
         ICollarTakerNFT.TakerPosition memory takerPos = takerNFT.getPosition(takerId);
         require(takerPos.expiration != 0, "rolls: taker position does not exist");
@@ -232,7 +233,7 @@ contract Rolls is IRolls, BaseManaged {
      * The risk of update is different here from providerNFT.updateOfferAmount because
      * the most an update can cause there is a revert of taking the offer.
      */
-    function cancelOffer(uint rollId) external whenNotPaused {
+    function cancelOffer(uint rollId) external {
         RollOffer memory offer = getRollOffer(rollId);
         require(msg.sender == offer.provider, "rolls: not offer provider");
         require(offer.active, "rolls: offer not active");
@@ -258,7 +259,6 @@ contract Rolls is IRolls, BaseManaged {
      */
     function executeRoll(uint rollId, int minToTaker)
         external
-        whenNotPaused
         returns (uint newTakerId, uint newProviderId, int toTaker, int toProvider)
     {
         RollOffer memory offer = getRollOffer(rollId);
@@ -398,7 +398,8 @@ contract Rolls is IRolls, BaseManaged {
         (uint newTakerLocked, uint newProviderLocked) = _newLockedAmounts(takerPos, newPrice);
 
         // new protocol fee. @dev there is no refund for previously paid protocol fee
-        (uint protocolFee,) = takerPos.providerNFT.protocolFee(newProviderLocked, takerPos.duration);
+        (uint protocolFee,) =
+            takerPos.providerNFT.protocolFee(newProviderLocked, takerPos.duration, takerPos.callStrikePercent);
 
         // The taker and provider external balances (before fee) should be updated as if
         // they settled and withdrawn the old positions, and opened the new positions.

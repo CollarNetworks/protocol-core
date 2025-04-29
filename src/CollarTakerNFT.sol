@@ -36,8 +36,8 @@ import { ICollarProviderNFT } from "./interfaces/ICollarProviderNFT.sol";
  *
  * Post-Deployment Configuration:
  * - Oracle: If using Uniswap ensure adequate observation cardinality, if using Chainlink ensure correct config.
- * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset pair
- * - ConfigHub: Set setCanOpenPair() to authorize the provider contract
+ * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset pair [underlying, cash, taker]
+ * - ConfigHub: Set setCanOpenPair() to authorize the provider contract [underlying, cash, provider]
  * - CollarProviderNFT: Ensure properly configured
  */
 contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
@@ -46,29 +46,32 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
 
     uint internal constant BIPS_BASE = 10_000;
 
-    string public constant VERSION = "0.2.0";
+    /// @notice delay after expiry when positions can be settled to their original locked values.
+    /// This is needed for the case of a prolonged oracle failure.
+    uint public constant SETTLE_AS_CANCELLED_DELAY = 1 weeks;
+
+    string public constant VERSION = "0.3.0";
 
     // ----- IMMUTABLES ----- //
     IERC20 public immutable cashAsset;
     IERC20 public immutable underlying; // not used as ERC20 here
+    ITakerOracle public immutable oracle;
 
     // ----- STATE VARIABLES ----- //
-    ITakerOracle public oracle;
-
     mapping(uint positionId => TakerPositionStored) internal positions;
 
     constructor(
-        address initialOwner,
         ConfigHub _configHub,
         IERC20 _cashAsset,
         IERC20 _underlying,
         ITakerOracle _oracle,
         string memory _name,
         string memory _symbol
-    ) BaseNFT(initialOwner, _name, _symbol, _configHub, address(_cashAsset)) {
+    ) BaseNFT(_name, _symbol, _configHub) {
         cashAsset = _cashAsset;
         underlying = _underlying;
-        _setOracle(_oracle);
+        _checkOracle(_oracle);
+        oracle = _oracle;
     }
 
     // ----- VIEW FUNCTIONS ----- //
@@ -83,7 +86,9 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
         TakerPositionStored memory stored = positions[takerId];
         // do not try to call non-existent provider
         require(address(stored.providerNFT) != address(0), "taker: position does not exist");
-        // @dev the provider position fields that are used are assumed to be immutable (set once)
+        // @dev the provider position fields used here are assumed to be immutable (set once).
+        // @dev a provider contract that manipulates these values should only be able to affect positions
+        // that are paired with it, but no other positions or funds.
         ICollarProviderNFT.ProviderPosition memory providerPos =
             stored.providerNFT.getPosition(stored.providerId);
         return TakerPosition({
@@ -168,15 +173,18 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
      */
     function openPairedPosition(uint takerLocked, CollarProviderNFT providerNFT, uint offerId)
         external
-        whenNotPaused
         nonReentrant
         returns (uint takerId, uint providerId)
     {
         // check asset & self allowed
-        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "taker: unsupported taker");
+        require(
+            configHub.canOpenPair(address(underlying), address(cashAsset), address(this)),
+            "taker: unsupported taker"
+        );
         // check assets & provider allowed
         require(
-            configHub.canOpenPair(underlying, cashAsset, address(providerNFT)), "taker: unsupported provider"
+            configHub.canOpenPair(address(underlying), address(cashAsset), address(providerNFT)),
+            "taker: unsupported provider"
         );
         // check assets match
         require(providerNFT.underlying() == underlying, "taker: underlying mismatch");
@@ -235,7 +243,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
      * one side is not (e.g., due to being at max loss). For this reason a keeper should be run to
      * prevent users with gains from not settling their positions on time.
      */
-    function settlePairedPosition(uint takerId) external whenNotPaused nonReentrant {
+    function settlePairedPosition(uint takerId) external nonReentrant {
         // @dev this checks position exists
         TakerPosition memory position = getPosition(takerId);
 
@@ -267,15 +275,48 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
         );
     }
 
+    /**
+     * @notice Settles a paired position after expiry + SETTLE_AS_CANCELLED_DELAY if
+     * settlePairedPosition was not called during the delay by anyone, presumably due to oracle failure.
+     * @param takerId The ID of the taker position to settle
+     *
+     * @dev this method exists because if the oracle starts reverting, there is no way to update it.
+     * Either taker or provider are incentivised to call settlePairedPosition prior to this method being callable,
+     * and anyone else (like a keeper), can call settlePairedPosition too.
+     * So if it wasn't called by anyone, we need to settle the positions without an oracle, and allow their withdrawal.
+     * Callable by anyone for consistency with settlePairedPosition and to allow loan closure without unwrapping.
+     */
+    function settleAsCancelled(uint takerId) external nonReentrant {
+        // @dev this checks position exists
+        TakerPosition memory position = getPosition(takerId);
+        (CollarProviderNFT providerNFT, uint providerId) = (position.providerNFT, position.providerId);
+
+        require(
+            block.timestamp >= position.expiration + SETTLE_AS_CANCELLED_DELAY,
+            "taker: cannot be settled as cancelled yet"
+        );
+        require(!position.settled, "taker: already settled");
+
+        // store changes
+        positions[takerId].settled = true;
+        positions[takerId].withdrawable = position.takerLocked;
+
+        uint expectedBalance = cashAsset.balanceOf(address(this));
+        // call provider side to settle with no balance change
+        providerNFT.settlePosition(providerId, 0);
+        // check no balance change
+        require(cashAsset.balanceOf(address(this)) == expectedBalance, "taker: settle balance mismatch");
+
+        // endPrice is 0 since is unavailable, technically settlement price is position.startPrice but
+        // it would be incorrect to pass it as endPrice.
+        // Also, 0 allows distinguishing this type of settlement in events.
+        emit PairedPositionSettled(takerId, address(providerNFT), providerId, 0, position.takerLocked, 0);
+    }
+
     /// @notice Withdraws funds from a settled position. Burns the NFT.
     /// @param takerId The ID of the settled position to withdraw from (NFT token ID).
     /// @return withdrawal The amount of cash asset withdrawn
-    function withdrawFromSettled(uint takerId)
-        external
-        whenNotPaused
-        nonReentrant
-        returns (uint withdrawal)
-    {
+    function withdrawFromSettled(uint takerId) external nonReentrant returns (uint withdrawal) {
         require(msg.sender == ownerOf(takerId), "taker: not position owner");
 
         TakerPosition memory position = getPosition(takerId);
@@ -298,12 +339,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
      * @param takerId The ID of the taker position to cancel
      * @return withdrawal The amount of funds withdrawn from both positions together
      */
-    function cancelPairedPosition(uint takerId)
-        external
-        whenNotPaused
-        nonReentrant
-        returns (uint withdrawal)
-    {
+    function cancelPairedPosition(uint takerId) external nonReentrant returns (uint withdrawal) {
         TakerPosition memory position = getPosition(takerId);
         (CollarProviderNFT providerNFT, uint providerId) = (position.providerNFT, position.providerId);
 
@@ -338,19 +374,9 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
         );
     }
 
-    // ----- Owner Mutative ----- //
+    // ----- INTERNAL VIEWS ----- //
 
-    /// @notice Sets the price oracle used by the contract
-    /// @param _oracle The new price oracle to use
-    function setOracle(ITakerOracle _oracle) external onlyOwner {
-        _setOracle(_oracle);
-    }
-
-    // ----- INTERNAL MUTATIVE ----- //
-
-    // internal owner
-
-    function _setOracle(ITakerOracle _oracle) internal {
+    function _checkOracle(ITakerOracle _oracle) internal view {
         // assets match
         require(_oracle.baseToken() == address(underlying), "taker: oracle underlying mismatch");
         require(_oracle.quoteToken() == address(cashAsset), "taker: oracle cashAsset mismatch");
@@ -366,12 +392,7 @@ contract CollarTakerNFT is ICollarTakerNFT, BaseNFT, ReentrancyGuard {
         // note: .convertToBaseAmount(price, price) should equal .baseUnitAmount(), but checking this
         // may be too strict for more complex oracles, and .baseUnitAmount() is not used internally now
         require(_oracle.convertToBaseAmount(price, price) != 0, "taker: invalid convertToBaseAmount");
-
-        emit OracleSet(oracle, _oracle); // emit before for the prev value
-        oracle = _oracle;
     }
-
-    // ----- INTERNAL VIEWS ----- //
 
     // calculations
 

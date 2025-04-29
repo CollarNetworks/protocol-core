@@ -35,9 +35,9 @@ import { IEscrowSupplierNFT } from "./interfaces/IEscrowSupplierNFT.sol";
  *
  * Post-Deployment Configuration:
  * - ConfigHub: Set valid collar duration range
- * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset
- * - ConfigHub: Set setCanOpenPair() to authorize its loans contracts
- * - This Contract: Set loans that can open escrows
+ * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset [underlying, ANY, escrow]
+ * - ConfigHub: Set setCanOpenPair() to authorize loans contracts to open positions [underlying, cash, loans]
+ * - ConfigHub: Set setCanOpenPair() to authorize loans contract to open escrow here [underlying, escrow, loans]
  */
 contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     using SafeERC20 for IERC20;
@@ -52,7 +52,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     // @notice max percentage of refunded interest fee, prevents free cancellation issues
     uint public constant MAX_FEE_REFUND_BIPS = 9500; // 95%
 
-    string public constant VERSION = "0.2.0";
+    string public constant VERSION = "0.3.0";
 
     // ----- IMMUTABLES ----- //
     IERC20 public immutable asset; // corresponds to Loans' underlying
@@ -61,20 +61,13 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     // @dev this is NOT the NFT id, this is a  separate non transferrable ID
     uint public nextOfferId = 1; // starts from 1 so that 0 ID is not used
 
-    // loans contracts allowed to start or switch escrows
-    mapping(address loans => bool allowed) public loansCanOpen;
-
     mapping(uint offerId => OfferStored) internal offers;
 
     mapping(uint escrowId => EscrowStored) internal escrows;
 
-    constructor(
-        address initialOwner,
-        ConfigHub _configHub,
-        IERC20 _asset,
-        string memory _name,
-        string memory _symbol
-    ) BaseNFT(initialOwner, _name, _symbol, _configHub, address(_asset)) {
+    constructor(ConfigHub _configHub, IERC20 _asset, string memory _name, string memory _symbol)
+        BaseNFT(_name, _symbol, _configHub)
+    {
         asset = _asset;
     }
 
@@ -195,7 +188,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         uint gracePeriod,
         uint lateFeeAPR,
         uint minEscrow
-    ) external whenNotPaused returns (uint offerId) {
+    ) external returns (uint offerId) {
         // sanity checks
         require(interestAPR <= MAX_INTEREST_APR_BIPS, "escrow: interest APR too high");
         require(lateFeeAPR <= MAX_LATE_FEE_APR_BIPS, "escrow: late fee APR too high");
@@ -228,7 +221,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * can be a low likelihood concern on a network that exposes a public mempool.
      * Avoid it by not granting excessive ERC-20 approvals.
      */
-    function updateOfferAmount(uint offerId, uint newAmount) external whenNotPaused {
+    function updateOfferAmount(uint offerId, uint newAmount) external {
         OfferStored storage offer = offers[offerId];
         require(msg.sender == offer.supplier, "escrow: not offer supplier");
 
@@ -267,10 +260,9 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      */
     function startEscrow(uint offerId, uint escrowed, uint fees, uint loanId)
         external
-        whenNotPaused
         returns (uint escrowId)
     {
-        // @dev msg.sender auth is checked vs. loansCanOpen in _startEscrow
+        // @dev msg.sender auth is checked vs. canOpenPair in _startEscrow
         escrowId = _startEscrow(offerId, escrowed, fees, loanId);
 
         // @dev despite the fact that they partially cancel out, so can be done as just fee transfer,
@@ -292,7 +284,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      *   but doesn't have to be. Any under or overpayment, or fee refunds will effect toLoans.
      * @return toLoans Amount to be returned to loans (refund deducing shortfalls)
      */
-    function endEscrow(uint escrowId, uint repaid) external whenNotPaused returns (uint toLoans) {
+    function endEscrow(uint escrowId, uint repaid) external returns (uint toLoans) {
         // @dev msg.sender auth is checked vs. stored loans in _endEscrow
         toLoans = _endEscrow(escrowId, getEscrow(escrowId), repaid);
 
@@ -322,7 +314,6 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      */
     function switchEscrow(uint releaseEscrowId, uint offerId, uint newFees, uint newLoanId)
         external
-        whenNotPaused
         returns (uint newEscrowId, uint feesRefund)
     {
         Escrow memory previousEscrow = getEscrow(releaseEscrowId);
@@ -362,7 +353,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
     /// @notice Withdraws funds from a released escrow. Burns the NFT.
     /// @param escrowId The ID of the escrow to withdraw from
-    function withdrawReleased(uint escrowId) external whenNotPaused {
+    function withdrawReleased(uint escrowId) external {
         require(msg.sender == ownerOf(escrowId), "escrow: not escrow owner"); // will revert for burned
 
         Escrow memory escrow = getEscrow(escrowId);
@@ -388,7 +379,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * In either case, escrow owner withdraws full principal, interest, and late fees.
      * @param escrowId The ID of the escrow to seize
      */
-    function seizeEscrow(uint escrowId) external whenNotPaused {
+    function seizeEscrow(uint escrowId) external {
         require(msg.sender == ownerOf(escrowId), "escrow: not escrow owner"); // will revert for burned
 
         Escrow memory escrow = getEscrow(escrowId);
@@ -410,24 +401,19 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         emit EscrowSeized(escrowId, msg.sender, withdrawal);
     }
 
-    // ----- admin ----- //
-
-    /// @notice Sets whether a Loans contract is allowed to interact with this contract
-    function setLoansCanOpen(address loans, bool allowed) external onlyOwner {
-        // @dev no checks for Loans interface since calls are only from Loans to this contract
-        loansCanOpen[loans] = allowed;
-        emit LoansCanOpenSet(loans, allowed);
-    }
-
     // ----- INTERNAL MUTATIVE ----- //
 
     function _startEscrow(uint offerId, uint escrowed, uint fees, uint loanId)
         internal
         returns (uint escrowId)
     {
-        require(loansCanOpen[msg.sender], "escrow: unauthorized loans contract");
+        // Loans should be authorized to open for underlying and this contract (as second asset)
+        require(
+            configHub.canOpenPair(address(asset), address(this), msg.sender),
+            "escrow: unauthorized loans contract"
+        );
         // @dev loans is not checked since is directly authed in this contract via setLoansAllowed
-        require(configHub.canOpenSingle(asset, address(this)), "escrow: unsupported escrow");
+        require(configHub.canOpenSingle(address(asset), address(this)), "escrow: unsupported escrow");
 
         Offer memory offer = getOffer(offerId);
         require(offer.supplier != address(0), "escrow: invalid offer"); // revert here for clarity

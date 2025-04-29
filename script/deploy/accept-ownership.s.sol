@@ -48,7 +48,7 @@ abstract contract AcceptOwnershipScript is Script {
             DeploymentArtifactsLib.loadHubAndAllPairs(vm, artifactsName);
 
         // deploy and nominate owner
-        BaseDeployer.acceptOwnershipAsSender(owner, result.configHub, result.assetPairContracts);
+        BaseDeployer.acceptOwnershipAsSender(owner, result.configHub);
 
         vm.stopBroadcast();
     }

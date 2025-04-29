@@ -88,7 +88,6 @@ contract WETHUSDC_OPBaseMain_LoansForkTest is BaseAssetPairForkTest_ScriptTest {
         // config params
         protocolFeeAPR = 90;
         protocolFeeRecipient = Const.OPBaseMain_feeRecipient;
-        pauseGuardians.push(Const.OPBaseMain_deployerAcc);
 
         // @dev all pairs must be tested, so if this number is increased, test classes must be added
         expectedNumPairs = 2;
@@ -111,7 +110,7 @@ contract WETHUSDC_OPBaseMain_LoansForkTest is BaseAssetPairForkTest_ScriptTest {
         slippage = 100; // 1%
         callstrikeToUse = 11_000;
 
-        expectedOraclePrice = 3_000_000_000;
+        expectedOraclePrice = 2_000_000_000;
     }
 }
 
@@ -184,8 +183,6 @@ contract TWETHTUSDC_OPBaseSep_LoansForkTest is WETHUSDC_OPBaseMain_LoansForkTest
 
         // config params
         protocolFeeRecipient = Const.OPBaseSep_feeRecipient;
-        delete pauseGuardians;
-        pauseGuardians.push(Const.OPBaseSep_deployerAcc);
 
         // @dev all pairs must be tested, so if this number is increased, test classes must be added
         expectedNumPairs = 2;
@@ -196,7 +193,7 @@ contract TWETHTUSDC_OPBaseSep_LoansForkTest is WETHUSDC_OPBaseMain_LoansForkTest
         cashAsset = Const.OPBaseSep_tUSDC;
         oracleDescription = "Comb(CL(TWAPMock(ETH / USD))|inv(CL(FixedMock(USDC / USD))))";
 
-        expectedOraclePrice = 3_500_000_000; // 3.5k in 1e6
+        expectedOraclePrice = 2_000_000_000; // 2k in 1e6
     }
 }
 

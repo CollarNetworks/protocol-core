@@ -54,7 +54,6 @@ library BaseDeployer {
         uint maxDuration;
         address feeRecipient;
         uint feeAPR;
-        address[] pauseGuardians;
     }
 
     struct DeploymentResult {
@@ -66,14 +65,11 @@ library BaseDeployer {
         return new ConfigHub(initialOwner);
     }
 
-    function deployEscrowNFT(
-        address initialOwner,
-        ConfigHub configHub,
-        IERC20 underlying,
-        string memory underlyingSymbol
-    ) internal returns (EscrowSupplierNFT) {
+    function deployEscrowNFT(ConfigHub configHub, IERC20 underlying, string memory underlyingSymbol)
+        internal
+        returns (EscrowSupplierNFT)
+    {
         return new EscrowSupplierNFT(
-            initialOwner,
             configHub,
             underlying,
             string(abi.encodePacked("Escrow ", underlyingSymbol)),
@@ -116,12 +112,11 @@ library BaseDeployer {
         );
     }
 
-    function deployContractPair(address initialOwner, ConfigHub configHub, PairConfig memory pairConfig)
+    function deployContractPair(ConfigHub configHub, PairConfig memory pairConfig)
         internal
         returns (AssetPairContracts memory contracts)
     {
         CollarTakerNFT takerNFT = new CollarTakerNFT(
-            initialOwner,
             configHub,
             pairConfig.cashAsset,
             pairConfig.underlying,
@@ -130,7 +125,6 @@ library BaseDeployer {
             string.concat("T", pairConfig.name)
         );
         CollarProviderNFT providerNFT = new CollarProviderNFT(
-            initialOwner,
             configHub,
             pairConfig.cashAsset,
             pairConfig.underlying,
@@ -139,12 +133,9 @@ library BaseDeployer {
             string.concat("P", pairConfig.name)
         );
         LoansNFT loansContract = new LoansNFT(
-            initialOwner,
-            takerNFT,
-            string.concat("Loans ", pairConfig.name),
-            string.concat("L", pairConfig.name)
+            takerNFT, string.concat("Loans ", pairConfig.name), string.concat("L", pairConfig.name)
         );
-        Rolls rollsContract = new Rolls(initialOwner, takerNFT);
+        Rolls rollsContract = new Rolls(takerNFT);
         SwapperUniV3 swapperUniV3 = new SwapperUniV3(pairConfig.swapRouter, pairConfig.swapFeeTier);
         // Use existing escrow if provided, otherwise create new
         EscrowSupplierNFT escrowNFT;
@@ -152,10 +143,7 @@ library BaseDeployer {
             escrowNFT = EscrowSupplierNFT(pairConfig.existingEscrowNFT);
         } else {
             escrowNFT = deployEscrowNFT(
-                initialOwner,
-                configHub,
-                pairConfig.underlying,
-                IERC20Metadata(address(pairConfig.underlying)).symbol()
+                configHub, pairConfig.underlying, IERC20Metadata(address(pairConfig.underlying)).symbol()
             );
         }
         contracts = AssetPairContracts({
@@ -173,59 +161,60 @@ library BaseDeployer {
     }
 
     function setupContractPair(ConfigHub hub, AssetPairContracts memory pair) internal {
-        hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.takerNFT), true);
-        hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.providerNFT), true);
-        hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.loansContract), true);
-        hub.setCanOpenPair(pair.underlying, pair.cashAsset, address(pair.rollsContract), true);
-        hub.setCanOpenPair(pair.underlying, hub.ANY_ASSET(), address(pair.escrowNFT), true);
+        setContractsAuth(hub, pair, true);
 
+        // setup initial and default swapper
         pair.loansContract.setSwapperAllowed(address(pair.swapperUniV3), true, true);
+    }
 
-        pair.escrowNFT.setLoansCanOpen(address(pair.loansContract), true);
+    // @dev note that when disabling previous version, it's auth interfaces may be different
+    // from current (either in contracts or in ConfigHub), so more actions may be needed, or
+    // some actions may fail
+    function disableContractPair(ConfigHub hub, AssetPairContracts memory pair) internal {
+        setContractsAuth(hub, pair, false);
+
+        // @dev swappers are not touched, since closing position should still be possible
+    }
+
+    function setContractsAuth(ConfigHub hub, AssetPairContracts memory pair, bool enabled) internal {
+        // underlying x cash -> pair contracts
+        hub.setCanOpenPair(address(pair.underlying), address(pair.cashAsset), address(pair.takerNFT), enabled);
+        hub.setCanOpenPair(
+            address(pair.underlying), address(pair.cashAsset), address(pair.providerNFT), enabled
+        );
+        hub.setCanOpenPair(
+            address(pair.underlying), address(pair.cashAsset), address(pair.loansContract), enabled
+        );
+        hub.setCanOpenPair(
+            address(pair.underlying), address(pair.cashAsset), address(pair.rollsContract), enabled
+        );
+
+        // underlying x any -> escrow
+        hub.setCanOpenPair(address(pair.underlying), hub.ANY_ASSET(), address(pair.escrowNFT), enabled);
+
+        // underlying x escrow -> loans
+        hub.setCanOpenPair(
+            address(pair.underlying), address(pair.escrowNFT), address(pair.loansContract), enabled
+        );
     }
 
     function setupConfigHub(ConfigHub configHub, HubParams memory hubParams) internal {
         configHub.setLTVRange(hubParams.minLTV, hubParams.maxLTV);
         configHub.setCollarDurationRange(hubParams.minDuration, hubParams.maxDuration);
         configHub.setProtocolFeeParams(hubParams.feeAPR, hubParams.feeRecipient);
-        for (uint i; i < hubParams.pauseGuardians.length; ++i) {
-            configHub.setPauseGuardian(hubParams.pauseGuardians[i], true);
-        }
     }
 
     // @dev this only nominates, and ownership must be accepted by the new owner
-    function nominateNewOwnerAll(address finalOwner, DeploymentResult memory result) internal {
+    function nominateNewHubOwner(address finalOwner, DeploymentResult memory result) internal {
         result.configHub.transferOwnership(finalOwner);
-
-        for (uint i = 0; i < result.assetPairContracts.length; i++) {
-            nominateNewOwnerPair(finalOwner, result.assetPairContracts[i]);
-        }
     }
 
-    function nominateNewOwnerPair(address finalOwner, AssetPairContracts memory pair) internal {
-        pair.takerNFT.transferOwnership(finalOwner);
-        pair.providerNFT.transferOwnership(finalOwner);
-        pair.loansContract.transferOwnership(finalOwner);
-        pair.rollsContract.transferOwnership(finalOwner);
-        pair.escrowNFT.transferOwnership(finalOwner);
-    }
-
-    function acceptOwnershipAsSender(address acceptingOwner, ConfigHub hub, AssetPairContracts[] memory pairs)
-        internal
-    {
+    function acceptOwnershipAsSender(address acceptingOwner, ConfigHub hub) internal {
         // we can't ensure sender is acceptingOwner by checking here because:
         // - if this is run in a script msg.sender will be the scripts's sender
         // - if it's run from a test it will be whoever is being pranked, or the test contract
         // - if ran from within a contract, will be the contract address
         // In any case, the acceptance will not work if sender is incorrect.
         hub.acceptOwnership();
-        for (uint i = 0; i < pairs.length; i++) {
-            pairs[i].takerNFT.acceptOwnership();
-            pairs[i].providerNFT.acceptOwnership();
-            pairs[i].loansContract.acceptOwnership();
-            pairs[i].rollsContract.acceptOwnership();
-            // check because we may have already accepted previously (for another pair)
-            if (pairs[i].escrowNFT.owner() != acceptingOwner) pairs[i].escrowNFT.acceptOwnership();
-        }
     }
 }

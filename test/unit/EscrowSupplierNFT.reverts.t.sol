@@ -164,7 +164,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
 
         // block loans access
         vm.startPrank(owner);
-        escrowNFT.setLoansCanOpen(loans, false);
+        configHub.setCanOpenPair(address(underlying), address(escrowNFT), address(loans), false);
         vm.startPrank(loans);
         vm.expectRevert("escrow: unauthorized loans contract");
         escrowNFT.startEscrow(offerId, largeUnderlying / 2, escrowFee, 1000);
@@ -188,7 +188,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
 
         // block loans open
         vm.startPrank(owner);
-        escrowNFT.setLoansCanOpen(loans, false);
+        configHub.setCanOpenPair(address(underlying), address(escrowNFT), address(loans), false);
         vm.startPrank(loans);
         vm.expectRevert("escrow: unauthorized loans contract");
         escrowNFT.switchEscrow(escrowId, newOfferId, 0, 0);
@@ -204,7 +204,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
 
         // removing loans canOpen prevents switchEscrow
         vm.startPrank(owner);
-        escrowNFT.setLoansCanOpen(loans, false);
+        configHub.setCanOpenPair(address(underlying), address(escrowNFT), address(loans), false);
         vm.startPrank(loans);
         vm.expectRevert("escrow: unauthorized loans contract");
         escrowNFT.switchEscrow(escrowId, 0, 0, 0);
@@ -217,7 +217,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
 
         // not same loans that started
         vm.startPrank(owner);
-        escrowNFT.setLoansCanOpen(supplier1, true);
+        configHub.setCanOpenPair(address(underlying), address(escrowNFT), address(supplier1), false);
         startHoax(supplier1);
         vm.expectRevert("escrow: loans address mismatch");
         escrowNFT.endEscrow(escrowId, 0);
@@ -226,7 +226,7 @@ contract EscrowSupplierNFT_BasicRevertsTest is BaseEscrowSupplierNFTTest {
 
         // released already
         vm.startPrank(owner);
-        escrowNFT.setLoansCanOpen(loans, true);
+        configHub.setCanOpenPair(address(underlying), address(escrowNFT), address(loans), true);
         vm.startPrank(loans);
         asset.approve(address(escrowNFT), largeUnderlying);
         escrowNFT.endEscrow(escrowId, largeUnderlying / 2);

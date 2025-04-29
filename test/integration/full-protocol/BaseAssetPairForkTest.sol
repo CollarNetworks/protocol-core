@@ -35,7 +35,6 @@ abstract contract BaseAssetPairForkTest is Test {
     // config params
     uint protocolFeeAPR;
     address protocolFeeRecipient;
-    address[] pauseGuardians;
 
     // pair params
     uint expectedOraclePrice;
@@ -319,7 +318,7 @@ abstract contract BaseAssetPairForkTest is Test {
         // Calculate protocol fee based on post-swap provider locked amount
         uint swapOut = loanAmount * BIPS_BASE / ltv;
         uint initProviderLocked = swapOut * (callstrikeToUse - BIPS_BASE) / BIPS_BASE;
-        (protocolFee,) = pair.providerNFT.protocolFee(initProviderLocked, duration);
+        (protocolFee,) = pair.providerNFT.protocolFee(initProviderLocked, duration, callstrikeToUse);
         assertGt(protocolFee, 0);
     }
 
@@ -347,14 +346,35 @@ abstract contract BaseAssetPairForkTest is Test {
         assertEq(pair.underlying.balanceOf(user) - userUnderlyingBefore, underlyingOut);
     }
 
+    // addresses of all loans contracts expected to be using the escrow for a particular underlying
+    function expectedApprovedLoansForEscrow(IERC20 _underlying)
+        internal
+        view
+        returns (address[] memory expectedLoans)
+    {
+        // define a array that's too long, and truncate after the loop (otherwise need to do two ugly loops)
+        expectedLoans = new address[](deployedPairs.length);
+        uint nPairsForUnderlying;
+        for (uint i = 0; i < deployedPairs.length; i++) {
+            if (deployedPairs[i].underlying == _underlying) {
+                expectedLoans[nPairsForUnderlying] = address(deployedPairs[i].loansContract);
+                nPairsForUnderlying++;
+            }
+        }
+        // truncate the memory array to the right length
+        assembly {
+            mstore(expectedLoans, nPairsForUnderlying)
+        }
+    }
+
     // tests
 
     function test_validatePairDeployment() public view {
         // configHub
+        assertEq(configHub.VERSION(), "0.3.0");
         assertEq(configHub.owner(), owner);
         assertEq(uint(configHub.protocolFeeAPR()), protocolFeeAPR);
         assertEq(configHub.feeRecipient(), protocolFeeRecipient);
-        assertEq(configHub.allPauseGuardians(), pauseGuardians);
 
         // oracle
         assertEq(address(pair.oracle.baseToken()), address(pair.underlying));
@@ -362,27 +382,29 @@ abstract contract BaseAssetPairForkTest is Test {
         assertEq(pair.oracle.description(), oracleDescription);
 
         // taker
-        assertEq(address(pair.takerNFT.owner()), owner);
+        assertEq(pair.takerNFT.VERSION(), "0.3.0");
+        assertEq(address(pair.takerNFT.configHubOwner()), owner);
         assertEq(address(pair.takerNFT.configHub()), address(configHub));
         assertEq(address(pair.takerNFT.underlying()), address(pair.underlying));
         assertEq(address(pair.takerNFT.cashAsset()), address(pair.cashAsset));
         assertEq(address(pair.takerNFT.oracle()), address(pair.oracle));
 
         // provider
-        assertEq(address(pair.providerNFT.owner()), owner);
+        assertEq(pair.providerNFT.VERSION(), "0.3.0");
+        assertEq(address(pair.providerNFT.configHubOwner()), owner);
         assertEq(address(pair.providerNFT.configHub()), address(configHub));
         assertEq(address(pair.providerNFT.underlying()), address(pair.underlying));
         assertEq(address(pair.providerNFT.cashAsset()), address(pair.cashAsset));
         assertEq(address(pair.providerNFT.taker()), address(pair.takerNFT));
 
         // rolls
-        assertEq(address(pair.rollsContract.owner()), owner);
-        assertEq(address(pair.rollsContract.configHub()), address(configHub));
+        assertEq(pair.rollsContract.VERSION(), "0.3.0");
         assertEq(address(pair.rollsContract.takerNFT()), address(pair.takerNFT));
         assertEq(address(pair.rollsContract.cashAsset()), address(pair.cashAsset));
 
         // loans
-        assertEq(address(pair.loansContract.owner()), owner);
+        assertEq(pair.loansContract.VERSION(), "0.3.0");
+        assertEq(address(pair.loansContract.configHubOwner()), owner);
         assertEq(address(pair.loansContract.configHub()), address(configHub));
         assertEq(address(pair.loansContract.takerNFT()), address(pair.takerNFT));
         assertEq(address(pair.loansContract.underlying()), address(pair.underlying));
@@ -393,35 +415,60 @@ abstract contract BaseAssetPairForkTest is Test {
         address[] memory oneSwapper = new address[](1);
         oneSwapper[0] = address(pair.swapperUniV3);
         assertEq(pair.loansContract.allAllowedSwappers(), oneSwapper);
-        assertEq(pair.loansContract.closingKeeper(), address(0));
 
         // escrow
-        assertEq(address(pair.escrowNFT.owner()), owner);
+        assertEq(pair.escrowNFT.VERSION(), "0.3.0");
+        assertEq(address(pair.escrowNFT.configHubOwner()), owner);
         assertEq(address(pair.escrowNFT.configHub()), address(configHub));
-        assertTrue(pair.escrowNFT.loansCanOpen(address(pair.loansContract)));
         assertEq(address(pair.escrowNFT.asset()), address(pair.underlying));
 
         // pair auth
-        assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.takerNFT)));
-        assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.providerNFT)));
-        assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.loansContract)));
-        assertTrue(configHub.canOpenPair(pair.underlying, pair.cashAsset, address(pair.rollsContract)));
+        assertTrue(
+            configHub.canOpenPair(address(pair.underlying), address(pair.cashAsset), address(pair.takerNFT))
+        );
+        assertTrue(
+            configHub.canOpenPair(
+                address(pair.underlying), address(pair.cashAsset), address(pair.providerNFT)
+            )
+        );
+        assertTrue(
+            configHub.canOpenPair(
+                address(pair.underlying), address(pair.cashAsset), address(pair.loansContract)
+            )
+        );
+        assertTrue(
+            configHub.canOpenPair(
+                address(pair.underlying), address(pair.cashAsset), address(pair.rollsContract)
+            )
+        );
+        assertTrue(
+            configHub.canOpenPair(
+                address(pair.underlying), address(pair.escrowNFT), address(pair.loansContract)
+            )
+        );
 
         // all pair auth
+
+        // underlying x cash -> pair
         address[] memory pairAuthed = new address[](4);
         pairAuthed[0] = address(pair.takerNFT);
         pairAuthed[1] = address(pair.providerNFT);
         pairAuthed[2] = address(pair.loansContract);
         pairAuthed[3] = address(pair.rollsContract);
-        assertEq(configHub.allCanOpenPair(pair.underlying, pair.cashAsset), pairAuthed);
+        assertEq(configHub.allCanOpenPair(address(pair.underlying), address(pair.cashAsset)), pairAuthed);
+
+        // underlying x escrow -> loans
+        // multiple loans contracts can be using the same escrow
+        address[] memory loansToEscrow = expectedApprovedLoansForEscrow(pair.underlying);
+        assertEq(configHub.allCanOpenPair(address(pair.underlying), address(pair.escrowNFT)), loansToEscrow);
 
         // single asset auth
-        assertTrue(configHub.canOpenSingle(pair.underlying, address(pair.escrowNFT)));
+        assertTrue(configHub.canOpenSingle(address(pair.underlying), address(pair.escrowNFT)));
 
         // all single auth for underlying
         address[] memory escrowAuthed = new address[](1);
         escrowAuthed[0] = address(pair.escrowNFT);
-        assertEq(configHub.allCanOpenPair(pair.underlying, configHub.ANY_ASSET()), escrowAuthed);
+        assertEq(configHub.allCanOpenPair(address(pair.underlying), configHub.ANY_ASSET()), escrowAuthed);
     }
 
     function testAssetsSanity() public {

@@ -4,7 +4,6 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import { IERC721Errors, Strings } from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import { Pausable } from "@openzeppelin/contracts/utils/Pausable.sol";
 import { TestERC20 } from "../utils/TestERC20.sol";
 
 import { BaseAssetPairTestSetup } from "./BaseAssetPairTestSetup.sol";
@@ -58,7 +57,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         // calculate expected
         uint numer = positionAmount * protocolFeeAPR * duration;
         // round up = ((x - 1) / y) + 1
-        expectedFee = numer == 0 ? 0 : (1 + ((numer - 1) / BIPS_100PCT / 365 days));
+        expectedFee = numer == 0 ? 0 : (1 + ((numer - 1) / (callStrikePercent - BIPS_100PCT) / 365 days));
         // no fee for 0 recipient
         expectedFee = (configHub.feeRecipient() == address(0)) ? 0 : expectedFee;
         if (positionAmount != 0 && expectNonZeroFee) {
@@ -66,7 +65,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
             assertTrue(expectedFee > 0);
         }
         // check the view
-        (uint feeView, address toView) = providerNFT.protocolFee(positionAmount, duration);
+        (uint feeView, address toView) = providerNFT.protocolFee(positionAmount, duration, callStrikePercent);
         assertEq(feeView, expectedFee);
         assertEq(toView, configHub.feeRecipient());
     }
@@ -130,12 +129,11 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
 
     function test_constructor() public {
         CollarProviderNFT newProviderNFT = new CollarProviderNFT(
-            owner, configHub, cashAsset, underlying, address(takerContract), "NewCollarProviderNFT", "NPRVNFT"
+            configHub, cashAsset, underlying, address(takerContract), "NewCollarProviderNFT", "NPRVNFT"
         );
 
-        assertEq(address(newProviderNFT.owner()), owner);
+        assertEq(address(newProviderNFT.configHubOwner()), owner);
         assertEq(address(newProviderNFT.configHub()), address(configHub));
-        assertEq(newProviderNFT.unrescuableAsset(), address(cashAsset));
         assertEq(address(newProviderNFT.cashAsset()), address(cashAsset));
         assertEq(address(newProviderNFT.underlying()), address(underlying));
         assertEq(address(newProviderNFT.taker()), takerContract);
@@ -143,7 +141,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         assertEq(newProviderNFT.MAX_CALL_STRIKE_BIPS(), 100_000);
         assertEq(newProviderNFT.MAX_PUT_STRIKE_BIPS(), 9999);
         assertEq(newProviderNFT.MAX_PROTOCOL_FEE_BIPS(), 100);
-        assertEq(newProviderNFT.VERSION(), "0.2.0");
+        assertEq(newProviderNFT.VERSION(), "0.3.0");
         assertEq(newProviderNFT.name(), "NewCollarProviderNFT");
         assertEq(newProviderNFT.symbol(), "NPRVNFT");
     }
@@ -347,7 +345,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
 
         // zero recipient, non-zero fee (prevented by config-hub setter, so needs to be mocked)
         vm.mockCall(address(configHub), abi.encodeCall(configHub.feeRecipient, ()), abi.encode(address(0)));
-        (uint fee, address feeRecipient) = providerNFT.protocolFee(amount, duration);
+        (uint fee, address feeRecipient) = providerNFT.protocolFee(amount, duration, callStrikePercent);
         assertEq(fee, 0);
         assertEq(feeRecipient, address(0));
         // this value is checked in the createAndCheckPosition helper to be deducted
@@ -365,27 +363,29 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         // zero APR
         vm.startPrank(owner);
         configHub.setProtocolFeeParams(0, protocolFeeRecipient);
-        (uint fee, address feeRecipient) = providerNFT.protocolFee(largeCash, duration);
+        (uint fee, address feeRecipient) = providerNFT.protocolFee(largeCash, duration, callStrikePercent);
         assertEq(feeRecipient, protocolFeeRecipient);
         assertEq(fee, 0);
 
         // test round up
         configHub.setProtocolFeeParams(1, feeRecipient);
-        (fee,) = providerNFT.protocolFee(1, 1); // very small fee
+        (fee,) = providerNFT.protocolFee(1, 1, callStrikePercent); // very small fee
         assertEq(fee, 1); // rounded up
 
         // test zero numerator
-        (fee,) = providerNFT.protocolFee(0, 1);
+        (fee,) = providerNFT.protocolFee(0, 1, callStrikePercent);
         assertEq(fee, 0);
-        (fee,) = providerNFT.protocolFee(1, 0);
+        (fee,) = providerNFT.protocolFee(1, 0, callStrikePercent);
         assertEq(fee, 0);
 
         // check calculation for specific hardcoded value
         configHub.setProtocolFeeParams(50, feeRecipient); // 0.5% per year
-        (fee,) = providerNFT.protocolFee(cashUnits(10), 365 days);
-        assertEq(fee, cashFraction(0.05 ether));
-        (fee,) = providerNFT.protocolFee(cashUnits(10) + 1, 365 days);
-        assertEq(fee, cashFraction(0.05 ether) + 1); // rounds up
+        (fee,) = providerNFT.protocolFee(cashUnits(10), 365 days, 12_000);
+        // 10 cash providerLocked, at 120% call strike, means 50 notional
+        // 0.5% on 50 notional is 0.25
+        assertEq(fee, cashFraction(0.25 ether));
+        (fee,) = providerNFT.protocolFee(cashUnits(10) + 1, 365 days, 12_000);
+        assertEq(fee, cashFraction(0.25 ether) + 1); // rounds up
     }
 
     function test_settlePositionIncrease() public {
@@ -496,17 +496,6 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         providerNFT.cancelAndWithdraw(positionId);
     }
 
-    function test_unpause() public {
-        vm.startPrank(owner);
-        providerNFT.pause();
-        vm.expectEmit(address(providerNFT));
-        emit Pausable.Unpaused(owner);
-        providerNFT.unpause();
-        assertFalse(providerNFT.paused());
-        // check at least one method workds now
-        createAndCheckOffer(provider, largeCash);
-    }
-
     /// Interactions between multiple items
 
     function test_createMultipleOffersFromSameProvider() public {
@@ -610,39 +599,6 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
 
     /// Reverts
 
-    function test_pausableMethods() public {
-        // create a position
-        (uint positionId,) = createAndCheckPosition(provider, largeCash, largeCash / 2);
-
-        // pause
-        vm.startPrank(owner);
-        vm.expectEmit(address(providerNFT));
-        emit Pausable.Paused(owner);
-        providerNFT.pause();
-        // paused view
-        assertTrue(providerNFT.paused());
-        // methods are paused
-        vm.startPrank(provider);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        providerNFT.createOffer(0, 0, 0, 0, 0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        providerNFT.updateOfferAmount(0, 0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        providerNFT.mintFromOffer(0, 0, 0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        providerNFT.settlePosition(0, 0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        providerNFT.withdrawFromSettled(0);
-
-        vm.expectRevert(Pausable.EnforcedPause.selector);
-        providerNFT.cancelAndWithdraw(0);
-    }
-
     function test_revert_createOffer_invalidParams() public {
         uint minStrike = providerNFT.MIN_CALL_STRIKE_BIPS();
         vm.expectRevert("provider: strike percent too low");
@@ -678,7 +634,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         providerNFT.mintFromOffer(offerId, 0, 0);
         // allowed for different assets, still reverts
         vm.startPrank(owner);
-        configHub.setCanOpenPair(cashAsset, underlying, takerContract, true);
+        configHub.setCanOpenPair(address(cashAsset), address(underlying), takerContract, true);
         vm.startPrank(takerContract);
         vm.expectRevert("provider: unsupported taker");
         providerNFT.mintFromOffer(offerId, 0, 0);
@@ -690,7 +646,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         providerNFT.mintFromOffer(offerId, 0, 0);
         // allowed for different assets, still reverts
         vm.startPrank(owner);
-        configHub.setCanOpenPair(cashAsset, underlying, address(providerNFT), true);
+        configHub.setCanOpenPair(address(cashAsset), address(underlying), address(providerNFT), true);
         vm.startPrank(takerContract);
         vm.expectRevert("provider: unsupported provider");
         providerNFT.mintFromOffer(offerId, 0, 0);
@@ -723,7 +679,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         (uint offerId,) = createAndCheckOffer(provider, largeCash);
 
         vm.startPrank(address(takerContract));
-        vm.expectRevert("provider: amount too high");
+        vm.expectRevert("provider: offer < position + fee");
         providerNFT.mintFromOffer(offerId, largeCash + 1, 0);
     }
 
@@ -754,7 +710,7 @@ contract CollarProviderNFTTest is BaseAssetPairTestSetup {
         vm.expectRevert("provider: protocol fee APR too high");
         providerNFT.mintFromOffer(offerId, largeCash, 0);
         vm.expectRevert("provider: protocol fee APR too high");
-        providerNFT.protocolFee(offerId, 0);
+        providerNFT.protocolFee(offerId, 0, callStrikePercent);
     }
 
     function test_revert_settlePosition() public {
