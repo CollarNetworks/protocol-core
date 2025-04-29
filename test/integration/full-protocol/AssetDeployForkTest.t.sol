@@ -25,7 +25,6 @@ contract AssetDeployForkTest is BaseAssetPairForkTest {
 
     function _setTestValues() internal override {
         protocolFeeRecipient = Const.OPBaseSep_feeRecipient;
-        pauseGuardians.push(Const.OPBaseSep_deployerAcc);
 
         expectedNumPairs = 1;
         expectedPairIndex = 0;
@@ -89,7 +88,6 @@ contract AssetDeployForkTest is BaseAssetPairForkTest {
         // deploy and configure new pair
         pairs = new BaseDeployer.AssetPairContracts[](1);
         pairs[0] = BaseDeployer.deployContractPair(
-            owner,
             hub,
             BaseDeployer.PairConfig({
                 name: "tWBTC-tUSDC",

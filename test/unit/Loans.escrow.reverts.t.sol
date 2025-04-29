@@ -45,7 +45,7 @@ contract LoansEscrowRevertsTest is LoansBasicRevertsTest {
         openLoan(underlyingAmount, minLoanAmount, 0, 0);
 
         // test escrow asset mismatch
-        EscrowSupplierNFT invalidEscrow = new EscrowSupplierNFT(owner, configHub, cashAsset, "", "");
+        EscrowSupplierNFT invalidEscrow = new EscrowSupplierNFT(configHub, cashAsset, "", "");
         setCanOpenSingle(address(invalidEscrow), true);
         vm.startPrank(user1);
         escrowNFT = invalidEscrow;

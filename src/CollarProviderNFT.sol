@@ -35,8 +35,8 @@ import { ICollarProviderNFT } from "./interfaces/ICollarProviderNFT.sol";
  *
  * Post-Deployment Configuration:
  * - ConfigHub: Properly configured LTV, duration, and protocol fee parameters
- * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset pair
- * - ConfigHub: Set setCanOpenPair() to authorize its paired taker contract
+ * - ConfigHub: Set setCanOpenPair() to authorize this contract for its asset pair [underlying, cash, provider]
+ * - ConfigHub: Set setCanOpenPair() to authorize its paired taker contract [underlying, cash, taker]
  */
 contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     using SafeERC20 for IERC20;
@@ -48,7 +48,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     uint public constant MAX_PUT_STRIKE_BIPS = BIPS_BASE - 1; // 1 less than 1x
     uint public constant MAX_PROTOCOL_FEE_BIPS = BIPS_BASE / 100; // 1%
 
-    string public constant VERSION = "0.2.0";
+    string public constant VERSION = "0.3.0";
 
     // ----- IMMUTABLES ----- //
     IERC20 public immutable cashAsset;
@@ -65,14 +65,13 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     mapping(uint positionId => ProviderPositionStored) internal positions;
 
     constructor(
-        address initialOwner,
         ConfigHub _configHub,
         IERC20 _cashAsset,
         IERC20 _underlying,
         address _taker,
         string memory _name,
         string memory _symbol
-    ) BaseNFT(initialOwner, _name, _symbol, _configHub, address(_cashAsset)) {
+    ) BaseNFT(_name, _symbol, _configHub) {
         cashAsset = _cashAsset;
         underlying = _underlying;
         taker = _taker;
@@ -126,15 +125,48 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         });
     }
 
-    /// @notice Calculates the protocol fee charged from offers on position creation.
-    /// @dev fee is set to 0 if recipient is zero because no transfer will be done
-    function protocolFee(uint providerLocked, uint duration) public view returns (uint fee, address to) {
+    /**
+     * @notice Calculates the protocol fee charged from offers on position creation.
+     * The fee is charged on the full notional value of the underlying's cash value - i.e. on 100%.
+     * Example: If providerLocked is 100, and callStrike is 110%, the notional is 1000. If the APR is 1%,
+     * so the fee on 1 year duration will be 1% of 1000 = 10, **on top** of the providerLocked.
+     * So when position is created, the offer amount will be reduced by 100 + 10 in this example,
+     * with 100 in providerLocked, and 10 sent to protocol fee recipient.
+     * @dev fee is set to 0 if recipient is zero because no transfer will be done
+     */
+    function protocolFee(uint providerLocked, uint duration, uint callStrikePercent)
+        public
+        view
+        returns (uint fee, address to)
+    {
         to = configHub.feeRecipient();
+        // prevent non-zero fee to zero-recipient.
+        if (to == address(0)) return (0, to);
+
         uint apr = configHub.protocolFeeAPR();
         require(apr <= MAX_PROTOCOL_FEE_BIPS, "provider: protocol fee APR too high");
-        // prevents non-zero fee to zero-recipient.
+
+        /* Calculation explanation:
+
+        1. fullNotional = providerLocked * BIPS_BASE / (callStrikePercent - BIPS_BASE)
+            - providerLocked was proportionally calculated from callStrikePercent
+            in CollarTakerNFT.calculateProviderLocked from takerLocked
+            - takerLocked was proportional to putStrikePercent in LoansNFT._swapAndMintCollar
+            So to get to full notional that was used in LoanNFT we need to divide providerLocked by
+            (callStrikePercent - 100%).
+
+        2. Apply the APR:
+            fee = fullNotional * feeAPR * duration / (BIPS_BASE * YEAR)
+
+        3. Combine 1 and 2:
+            fee =  providerLocked * BIPS_BASE * feeAPR * duration / ((callStrikePercent - BIPS_BASE) * BIPS_BASE * YEAR)
+
+        4. Simplify BIPS_BASE:
+            fee =  providerLocked * feeAPR * duration / ((callStrikePercent - BIPS_BASE) * YEAR)
+        */
+
         // rounds up to prevent avoiding fee using many small positions.
-        fee = to == address(0) ? 0 : Math.ceilDiv(providerLocked * apr * duration, BIPS_BASE * YEAR);
+        fee = Math.ceilDiv(providerLocked * apr * duration, (callStrikePercent - BIPS_BASE) * YEAR);
     }
 
     // ----- MUTATIVE ----- //
@@ -164,7 +196,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         uint putStrikePercent,
         uint duration,
         uint minLocked
-    ) external whenNotPaused returns (uint offerId) {
+    ) external returns (uint offerId) {
         // sanity checks
         require(callStrikePercent >= MIN_CALL_STRIKE_BIPS, "provider: strike percent too low");
         require(callStrikePercent <= MAX_CALL_STRIKE_BIPS, "provider: strike percent too high");
@@ -197,7 +229,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
      * can be a low likelihood concern on a network that exposes a public mempool.
      * Avoid it by not granting excessive ERC-20 approvals.
      */
-    function updateOfferAmount(uint offerId, uint newAmount) external whenNotPaused {
+    function updateOfferAmount(uint offerId, uint newAmount) external {
         LiquidityOfferStored storage offer = liquidityOffers[offerId];
         require(msg.sender == offer.provider, "provider: not offer provider");
 
@@ -223,8 +255,10 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// @notice Mints a new position from an existing offer. Can ONLY be called through the
     /// taker contract, which is trusted to open and settle the offer according to the terms.
     /// Offer parameters are checked vs. the global config to ensure they are still supported.
-    /// Protocol fee (based on the provider amount and duration) is deducted from offer, and sent
+    /// Protocol fee (charged on full notional value of the underlying) is deducted from offer, and sent
     /// to fee recipient. Offer amount is updated as well.
+    /// Note that because of how protocol fee is calculated, for low callStrikes it can be higher
+    /// than providerLocked itself. See protocolFee view for calculation details.
     /// The NFT, representing ownership of the position, is minted to original provider of the offer.
     /// @param offerId The ID of the offer to mint from
     /// @param providerLocked The amount of cash asset to use for the new position
@@ -232,14 +266,19 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// @return positionId The ID of the newly created position (NFT token ID)
     function mintFromOffer(uint offerId, uint providerLocked, uint takerId)
         external
-        whenNotPaused
         onlyTaker
         returns (uint positionId)
     {
         // @dev only checked on open, not checked later on settle / cancel to allow withdraw-only mode.
         // not checked on createOffer, so invalid offers can be created but not minted from
-        require(configHub.canOpenPair(underlying, cashAsset, msg.sender), "provider: unsupported taker");
-        require(configHub.canOpenPair(underlying, cashAsset, address(this)), "provider: unsupported provider");
+        require(
+            configHub.canOpenPair(address(underlying), address(cashAsset), msg.sender),
+            "provider: unsupported taker"
+        );
+        require(
+            configHub.canOpenPair(address(underlying), address(cashAsset), address(this)),
+            "provider: unsupported provider"
+        );
 
         LiquidityOffer memory offer = getOffer(offerId);
         // check terms
@@ -248,12 +287,13 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
         require(configHub.isValidCollarDuration(offer.duration), "provider: unsupported duration");
 
         // calc protocol fee to subtract from offer (on top of amount)
-        (uint fee, address feeRecipient) = protocolFee(providerLocked, offer.duration);
+        (uint fee, address feeRecipient) =
+            protocolFee(providerLocked, offer.duration, offer.callStrikePercent);
 
         // check amount
         require(providerLocked >= offer.minLocked, "provider: amount too low");
         uint prevOfferAmount = offer.available;
-        require(providerLocked + fee <= prevOfferAmount, "provider: amount too high");
+        require(providerLocked + fee <= prevOfferAmount, "provider: offer < position + fee");
         uint newAvailable = prevOfferAmount - providerLocked - fee;
 
         // storage updates
@@ -299,7 +339,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// of the NFT abruptly (only prevent settlement at future price).
     /// @param positionId The ID of the position to settle (NFT token ID)
     /// @param cashDelta The change in position value (positive or negative)
-    function settlePosition(uint positionId, int cashDelta) external whenNotPaused onlyTaker {
+    function settlePosition(uint positionId, int cashDelta) external onlyTaker {
         ProviderPositionStored storage position = positions[positionId];
 
         require(position.expiration != 0, "provider: position does not exist");
@@ -335,7 +375,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// to settlement, during cancellation the taker's caller MUST be the NFT owner (is the provider),
     /// so is assumed to specify the withdrawal correctly for their funds.
     /// @param positionId The ID of the position to cancel (NFT token ID)
-    function cancelAndWithdraw(uint positionId) external whenNotPaused onlyTaker returns (uint withdrawal) {
+    function cancelAndWithdraw(uint positionId) external onlyTaker returns (uint withdrawal) {
         ProviderPositionStored storage position = positions[positionId];
         require(position.expiration != 0, "provider: position does not exist");
         require(!position.settled, "provider: already settled");
@@ -369,7 +409,7 @@ contract CollarProviderNFT is ICollarProviderNFT, BaseNFT {
     /// @notice Withdraws funds from a settled position. Can only be called for a settled position
     /// (and not a cancelled one), and checks the ownership of the NFT. Burns the NFT.
     /// @param positionId The ID of the settled position to withdraw from (NFT token ID).
-    function withdrawFromSettled(uint positionId) external whenNotPaused returns (uint withdrawal) {
+    function withdrawFromSettled(uint positionId) external returns (uint withdrawal) {
         // Note: _isAuthorized not used here to reduce surface area / KISS. Can be used if needed,
         // since an approved account can pull and withdraw.
         require(msg.sender == ownerOf(positionId), "provider: not position owner");

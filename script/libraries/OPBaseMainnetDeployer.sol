@@ -13,16 +13,13 @@ library OPBaseMainnetDeployer {
     uint24 constant swapFeeTier = 500;
 
     function defaultHubParams() internal pure returns (BaseDeployer.HubParams memory) {
-        address[] memory pauseGuardians = new address[](1);
-        pauseGuardians[0] = Const.OPBaseMain_deployerAcc;
         return BaseDeployer.HubParams({
             minDuration: 30 days,
             maxDuration: 365 days,
             minLTV: 2500,
             maxLTV: 9500,
             feeAPR: 90,
-            feeRecipient: Const.OPBaseMain_feeRecipient,
-            pauseGuardians: pauseGuardians
+            feeRecipient: Const.OPBaseMain_feeRecipient
         });
     }
 
@@ -37,16 +34,16 @@ library OPBaseMainnetDeployer {
         BaseDeployer.setupConfigHub(result.configHub, defaultHubParams());
 
         // pairs
-        result.assetPairContracts = deployAllContractPairs(thisSender, result.configHub);
+        result.assetPairContracts = deployAllContractPairs(result.configHub);
         for (uint i = 0; i < result.assetPairContracts.length; i++) {
             BaseDeployer.setupContractPair(result.configHub, result.assetPairContracts[i]);
         }
 
         // ownership
-        BaseDeployer.nominateNewOwnerAll(finalOwner, result);
+        BaseDeployer.nominateNewHubOwner(finalOwner, result);
     }
 
-    function deployAllContractPairs(address initialOwner, ConfigHub configHub)
+    function deployAllContractPairs(ConfigHub configHub)
         internal
         returns (BaseDeployer.AssetPairContracts[] memory assetPairContracts)
     {
@@ -76,7 +73,6 @@ library OPBaseMainnetDeployer {
 
         // deploy pairs
         assetPairContracts[0] = BaseDeployer.deployContractPair(
-            initialOwner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "WETH/USDC",
@@ -92,7 +88,6 @@ library OPBaseMainnetDeployer {
         );
 
         assetPairContracts[1] = BaseDeployer.deployContractPair(
-            initialOwner,
             configHub,
             BaseDeployer.PairConfig({
                 name: "cbBTC/USDC",

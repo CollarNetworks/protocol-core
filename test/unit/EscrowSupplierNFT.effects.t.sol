@@ -28,12 +28,12 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
     function setUp() public override {
         super.setUp();
         asset = underlying;
-        escrowNFT = new EscrowSupplierNFT(owner, configHub, asset, "ES Test", "ES Test");
+        escrowNFT = new EscrowSupplierNFT(configHub, asset, "ES Test", "ES Test");
 
         setCanOpenSingle(address(escrowNFT), true);
         setCanOpen(loans, true);
         vm.startPrank(owner);
-        escrowNFT.setLoansCanOpen(loans, true);
+        configHub.setCanOpenPair(address(underlying), address(escrowNFT), address(loans), true);
         vm.stopPrank();
 
         asset.mint(loans, largeUnderlying * 10);
@@ -284,18 +284,17 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
 contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
     function test_constructor() public {
         EscrowSupplierNFT newEscrowSupplierNFT =
-            new EscrowSupplierNFT(owner, configHub, asset, "NewEscrowSupplierNFT", "NESNFT");
+            new EscrowSupplierNFT(configHub, asset, "NewEscrowSupplierNFT", "NESNFT");
 
-        assertEq(address(newEscrowSupplierNFT.owner()), owner);
+        assertEq(address(newEscrowSupplierNFT.configHubOwner()), owner);
         assertEq(address(newEscrowSupplierNFT.configHub()), address(configHub));
-        assertEq(newEscrowSupplierNFT.unrescuableAsset(), address(asset));
         assertEq(address(newEscrowSupplierNFT.asset()), address(asset));
         assertEq(newEscrowSupplierNFT.MAX_INTEREST_APR_BIPS(), BIPS_100PCT);
         assertEq(newEscrowSupplierNFT.MIN_GRACE_PERIOD(), 1 days);
         assertEq(newEscrowSupplierNFT.MAX_GRACE_PERIOD(), 30 days);
         assertEq(newEscrowSupplierNFT.MAX_LATE_FEE_APR_BIPS(), 12 * BIPS_100PCT);
         assertEq(newEscrowSupplierNFT.MAX_FEE_REFUND_BIPS(), 9500);
-        assertEq(newEscrowSupplierNFT.VERSION(), "0.2.0");
+        assertEq(newEscrowSupplierNFT.VERSION(), "0.3.0");
         assertEq(newEscrowSupplierNFT.name(), "NewEscrowSupplierNFT");
         assertEq(newEscrowSupplierNFT.symbol(), "NESNFT");
     }

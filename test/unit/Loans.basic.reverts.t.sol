@@ -292,16 +292,13 @@ contract LoansBasicRevertsTest is LoansTestBase {
         (uint loanId,, uint loanAmount) = createAndCheckLoan();
         skip(duration);
 
-        vm.startPrank(owner);
-        loans.setKeeper(keeper);
-
         vm.startPrank(keeper);
         // keeper was not allowed by user
         vm.expectRevert("loans: not NFT owner or allowed keeper");
         loans.closeLoan(loanId, defaultSwapParams(0));
 
         vm.startPrank(user1);
-        loans.setKeeperApproved(0, true);
+        loans.setKeeperFor(0, keeper);
         // approved wrong loan
         vm.startPrank(keeper);
         vm.expectRevert("loans: not NFT owner or allowed keeper");
@@ -309,7 +306,7 @@ contract LoansBasicRevertsTest is LoansTestBase {
 
         // correct loan
         vm.startPrank(user1);
-        loans.setKeeperApproved(loanId, true);
+        loans.setKeeperFor(loanId, keeper);
 
         vm.startPrank(user1);
         // transfer invalidates approval
@@ -322,6 +319,9 @@ contract LoansBasicRevertsTest is LoansTestBase {
         // transfer back
         vm.startPrank(provider);
         loans.transferFrom(provider, user1, loanId);
+        // not keeper cannot call (provider is calling)
+        vm.expectRevert("loans: not NFT owner or allowed keeper");
+        loans.closeLoan(loanId, defaultSwapParams(0));
 
         // should work now
         vm.startPrank(user1);

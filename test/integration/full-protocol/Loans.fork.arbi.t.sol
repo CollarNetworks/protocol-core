@@ -32,7 +32,6 @@ contract WETHUSDC_ArbiMain_LoansForkTest is BaseAssetPairForkTest_ScriptTest {
         // config params
         protocolFeeAPR = 90;
         protocolFeeRecipient = Const.ArbiMain_feeRecipient;
-        pauseGuardians.push(Const.ArbiMain_deployerAcc);
 
         // @dev all pairs must be tested, so if this number is increased, test classes must be added
         expectedNumPairs = 3;
@@ -55,7 +54,7 @@ contract WETHUSDC_ArbiMain_LoansForkTest is BaseAssetPairForkTest_ScriptTest {
         slippage = 100; // 1%
         callstrikeToUse = 11_000;
 
-        expectedOraclePrice = 3_000_000_000;
+        expectedOraclePrice = 2_000_000_000;
     }
 }
 
@@ -110,8 +109,6 @@ contract WETHUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
 
         owner = Const.ArbiSep_owner;
         protocolFeeRecipient = Const.ArbiSep_feeRecipient;
-        delete pauseGuardians;
-        pauseGuardians.push(Const.ArbiSep_deployerAcc);
 
         // @dev all pairs must be tested, so if this number is increased, test classes must be added
         expectedNumPairs = 2;
@@ -122,7 +119,7 @@ contract WETHUSDC_ArbiSep_LoansForkTest is WETHUSDC_ArbiMain_LoansForkTest {
         cashAsset = Const.ArbiSep_tUSDC;
         oracleDescription = "Comb(CL(TWAPMock(ETH / USD))|inv(CL(FixedMock(USDC / USD))))";
 
-        expectedOraclePrice = 3_000_000_000;
+        expectedOraclePrice = 2_000_000_000;
     }
 
     function deployFullProtocol()
@@ -181,6 +178,7 @@ contract WETHUSDC_ArbiSep_LoansForkTest_NoDeploy is ArbiSep_LoansForkTest_Latest
     function _setTestValues() internal virtual override {
         super._setTestValues();
         testMode = TestMode.noDeploy;
+        vm.skip(true); // deployment is outdated (0.2.0), ArbiSep isn't planned to be updated
         realArtifactsName = Const.ArbiSep_artifactsName;
     }
 }
@@ -189,6 +187,7 @@ contract WBTCUSDC_ArbiSep_LoansForkTest_NoDeploy is WBTCUSDC_ArbiSep_LoansForkTe
     function _setTestValues() internal virtual override {
         super._setTestValues();
         testMode = TestMode.noDeploy;
+        vm.skip(true); // deployment is outdated (0.2.0), ArbiSep isn't planned to be updated
         realArtifactsName = Const.ArbiSep_artifactsName;
     }
 }

@@ -81,5 +81,4 @@ interface IEscrowSupplierNFT {
     event EscrowsSwitched(uint indexed oldEscrowId, uint indexed newEscrowId);
     event WithdrawalFromReleased(uint indexed escrowId, address indexed recipient, uint withdrawn);
     event EscrowSeized(uint indexed escrowId, address indexed recipient, uint withdrawn);
-    event LoansCanOpenSet(address indexed loansAddress, bool indexed allowed);
 }
