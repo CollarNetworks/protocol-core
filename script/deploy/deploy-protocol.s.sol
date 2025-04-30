@@ -4,7 +4,6 @@ pragma solidity 0.8.22;
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
 import { DeploymentArtifactsLib } from "../libraries/DeploymentArtifacts.sol";
-import { WalletLoader } from "../wallet-loader.s.sol";
 
 import { BaseDeployer } from "../libraries/BaseDeployer.sol";
 import { Const } from "../utils/Const.sol";
@@ -26,8 +25,6 @@ abstract contract DeployProtocolScript is Script {
     /// @param artifactsName overrides the default artifacts name when used in tests
     function run(string memory artifactsName) public returns (BaseDeployer.DeploymentResult memory result) {
         setParams();
-
-        WalletLoader.loadWalletsFromEnv(vm);
 
         // note: when in tests, this also has the effect of "pranking" msg.sender
         vm.startBroadcast(msg.sender);
