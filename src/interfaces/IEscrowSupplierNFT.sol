@@ -7,7 +7,7 @@ import { ConfigHub } from "../ConfigHub.sol";
 interface IEscrowSupplierNFT {
     struct OfferStored {
         // packed first slot
-        uint maxDuration;
+        uint32 maxDuration;
         uint32 gracePeriod;
         uint24 interestAPR; // allows up to 167,772%, must allow MAX_INTEREST_APR_BIPS
         uint24 lateFeeAPR; // allows up to 167,772%, must allow MAX_LATE_FEE_APR_BIPS
@@ -69,6 +69,7 @@ interface IEscrowSupplierNFT {
     event OfferCreated(
         address indexed supplier,
         uint indexed interestAPR,
+        uint indexed maxDuration,
         uint gracePeriod,
         uint lateFeeAPR,
         uint available,

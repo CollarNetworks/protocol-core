@@ -201,16 +201,16 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         offerId = nextOfferId++;
         offers[offerId] = OfferStored({
             supplier: msg.sender,
+            maxDuration: SafeCast.toUint32(maxDuration),
             gracePeriod: SafeCast.toUint32(gracePeriod),
             interestAPR: SafeCast.toUint24(interestAPR),
             lateFeeAPR: SafeCast.toUint24(lateFeeAPR),
             minEscrow: minEscrow,
-            available: amount,
-            maxDuration: maxDuration
+            available: amount
         });
         asset.safeTransferFrom(msg.sender, address(this), amount);
         emit OfferCreated(
-            msg.sender, interestAPR, gracePeriod, lateFeeAPR, amount, offerId, minEscrow
+            msg.sender, interestAPR, maxDuration, gracePeriod, lateFeeAPR, amount, offerId, minEscrow
         );
     }
 
@@ -443,7 +443,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         // check params are supported
         require(configHub.isValidCollarDuration(duration), "escrow: unsupported duration");
 
-        (uint expectedFees,,) = _upfrontFees(offerId, escrowed, duration);
+        (uint expectedFees,,) = upfrontFees(offerId, escrowed, duration);
         // we don't check equality to avoid revert due to minor inaccuracies to the upside,
         // even though exact value should be used from the view.
         // The overpayment is refunded when escrow is properly released (but not when seized).
@@ -461,13 +461,13 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         escrows[escrowId] = EscrowStored({
             offerId: SafeCast.toUint64(offerId),
             loanId: SafeCast.toUint64(loanId),
+            duration: SafeCast.toUint32(duration),
             expiration: SafeCast.toUint32(block.timestamp + duration),
             released: false, // unset until release
             loans: msg.sender,
             escrowed: escrowed,
             feesHeld: fees,
-            withdrawable: 0, // unset until release
-            duration: SafeCast.toUint32(duration)
+            withdrawable: 0 // unset until release
          });
 
         // emit before token transfer event in mint for easier indexing
