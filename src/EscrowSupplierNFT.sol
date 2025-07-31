@@ -78,13 +78,15 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         return nextTokenId;
     }
 
+
+
     /// @notice Retrieves the details of a specific non-transferrable offer.
     function getOffer(uint offerId) public view returns (Offer memory) {
         OfferStored memory stored = offers[offerId];
         return Offer({
             supplier: stored.supplier,
             available: stored.available,
-            duration: stored.duration,
+            maxDuration: stored.maxDuration,
             interestAPR: stored.interestAPR,
             gracePeriod: stored.gracePeriod,
             lateFeeAPR: stored.lateFeeAPR,
@@ -106,7 +108,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
             escrowed: stored.escrowed,
             gracePeriod: offer.gracePeriod,
             lateFeeAPR: offer.lateFeeAPR,
-            duration: offer.duration,
+            duration: stored.duration,
             expiration: stored.expiration,
             feesHeld: stored.feesHeld,
             released: stored.released,
@@ -119,16 +121,17 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * Partially refunded depending on the time of escrow release.
      * @param offerId The offer Id to use for calculations
      * @param escrowed The escrowed amount
+     * @param duration The duration in seconds for the escrow
      * @return total The calculated total fees (interest and late fee)
      * @return interestFee The calculated interest fee to hold
      * @return lateFee The calculated late fee to hold
      */
-    function upfrontFees(uint offerId, uint escrowed)
+    function upfrontFees(uint offerId, uint escrowed, uint duration)
         public
         view
         returns (uint total, uint interestFee, uint lateFee)
     {
-        (interestFee, lateFee) = _upfrontFees(offerId, escrowed);
+        (interestFee, lateFee) = _upfrontFees(offerId, escrowed, duration);
         total = interestFee + lateFee;
     }
 
@@ -172,22 +175,22 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
     /**
      * @notice Creates a new escrow offer
      * @param amount The offered amount
-     * @param duration The offer duration in seconds
      * @param interestAPR The annual interest rate in basis points. At most MAX_FEE_REFUND_BIPS
      * of the upfront interest can be refunded on cancellation. If interestAPR is 0, this
      * will have no effect, and allow free cancellations.
      * @param gracePeriod The maximum grace period duration in seconds
      * @param lateFeeAPR The annual late fee rate in basis points
      * @param minEscrow The minimum escrow amount. Protection from dust mints.
+     * @param maxDuration The duration in seconds for the escrow (calculated from loan expiration)
      * @return offerId The ID of the created offer
      */
     function createOffer(
         uint amount,
-        uint duration,
         uint interestAPR,
         uint gracePeriod,
         uint lateFeeAPR,
-        uint minEscrow
+        uint minEscrow,
+        uint maxDuration
     ) external returns (uint offerId) {
         // sanity checks
         require(interestAPR <= MAX_INTEREST_APR_BIPS, "escrow: interest APR too high");
@@ -198,16 +201,16 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         offerId = nextOfferId++;
         offers[offerId] = OfferStored({
             supplier: msg.sender,
-            duration: SafeCast.toUint32(duration),
             gracePeriod: SafeCast.toUint32(gracePeriod),
             interestAPR: SafeCast.toUint24(interestAPR),
             lateFeeAPR: SafeCast.toUint24(lateFeeAPR),
             minEscrow: minEscrow,
-            available: amount
+            available: amount,
+            maxDuration: maxDuration
         });
         asset.safeTransferFrom(msg.sender, address(this), amount);
         emit OfferCreated(
-            msg.sender, interestAPR, duration, gracePeriod, lateFeeAPR, amount, offerId, minEscrow
+            msg.sender, interestAPR, gracePeriod, lateFeeAPR, amount, offerId, minEscrow
         );
     }
 
@@ -237,7 +240,22 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
             offer.available -= toRemove;
             asset.safeTransfer(msg.sender, toRemove);
         } else { } // no change
-        emit OfferUpdated(offerId, msg.sender, previousAmount, newAmount);
+        emit OfferAmountUpdated(offerId, msg.sender, previousAmount, newAmount);
+    }
+    
+    /**
+     * @notice Updates the max duration of an existing offer.
+     * @dev Can only be called by the offer supplier
+     * @param offerId The ID of the offer to update
+     * @param newMaxDuration The new max duration in seconds
+     */
+    function updateOfferMaxDuration(uint offerId, uint newMaxDuration) external {
+        OfferStored storage offer = offers[offerId];
+        require(msg.sender == offer.supplier, "escrow: not offer supplier");
+
+        uint previousMaxDuration = offer.maxDuration;
+        offer.maxDuration = newMaxDuration;
+        emit OfferMaxDurationUpdated(offerId, msg.sender, previousMaxDuration, newMaxDuration);
     }
 
     // ----- Escrow actions ----- //
@@ -258,12 +276,16 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
      * @param loanId The associated loan ID
      * @return escrowId The ID of the created escrow
      */
-    function startEscrow(uint offerId, uint escrowed, uint fees, uint loanId)
+    function startEscrow(uint offerId, uint escrowed, uint fees, uint loanId, uint duration)
         external
         returns (uint escrowId)
     {
+        // Check if duration is within the offer's max duration
+        Offer memory offer = getOffer(offerId);
+        require(duration <= offer.maxDuration, "escrow: duration exceeds offer's max duration");
+
         // @dev msg.sender auth is checked vs. canOpenPair in _startEscrow
-        escrowId = _startEscrow(offerId, escrowed, fees, loanId);
+        escrowId = _startEscrow(offerId, escrowed, fees, loanId, duration);
 
         // @dev despite the fact that they partially cancel out, so can be done as just fee transfer,
         // these transfers are the whole point of this contract from product point of view.
@@ -340,7 +362,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         // The escrow funds are funds that have been escrowed in the ID being released ("O").
         // The offer is reduced (which is used to repay the previous supplier)
         // A new escrow ID is minted.
-        newEscrowId = _startEscrow(offerId, previousEscrow.escrowed, newFees, newLoanId);
+        newEscrowId = _startEscrow(offerId, previousEscrow.escrowed, newFees, newLoanId, previousEscrow.duration);
 
         // fee transfers
         asset.safeTransferFrom(msg.sender, address(this), newFees);
@@ -403,7 +425,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
 
     // ----- INTERNAL MUTATIVE ----- //
 
-    function _startEscrow(uint offerId, uint escrowed, uint fees, uint loanId)
+    function _startEscrow(uint offerId, uint escrowed, uint fees, uint loanId, uint duration)
         internal
         returns (uint escrowId)
     {
@@ -419,9 +441,9 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         require(offer.supplier != address(0), "escrow: invalid offer"); // revert here for clarity
 
         // check params are supported
-        require(configHub.isValidCollarDuration(offer.duration), "escrow: unsupported duration");
+        require(configHub.isValidCollarDuration(duration), "escrow: unsupported duration");
 
-        (uint expectedFees,,) = upfrontFees(offerId, escrowed);
+        (uint expectedFees,,) = _upfrontFees(offerId, escrowed, duration);
         // we don't check equality to avoid revert due to minor inaccuracies to the upside,
         // even though exact value should be used from the view.
         // The overpayment is refunded when escrow is properly released (but not when seized).
@@ -439,12 +461,13 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         escrows[escrowId] = EscrowStored({
             offerId: SafeCast.toUint64(offerId),
             loanId: SafeCast.toUint64(loanId),
-            expiration: SafeCast.toUint32(block.timestamp + offer.duration),
+            expiration: SafeCast.toUint32(block.timestamp + duration),
             released: false, // unset until release
             loans: msg.sender,
             escrowed: escrowed,
             feesHeld: fees,
-            withdrawable: 0 // unset until release
+            withdrawable: 0, // unset until release
+            duration: SafeCast.toUint32(duration)
          });
 
         // emit before token transfer event in mint for easier indexing
@@ -502,14 +525,14 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         toLoans = available - withdrawal;
     }
 
-    function _upfrontFees(uint offerId, uint escrowed)
+    function _upfrontFees(uint offerId, uint escrowed, uint duration)
         internal
         view
         returns (uint interestFee, uint lateFee)
     {
         Offer memory offer = getOffer(offerId);
         // rounds up against borrower
-        interestFee = Math.ceilDiv(escrowed * offer.interestAPR * offer.duration, BIPS_BASE * YEAR);
+        interestFee = Math.ceilDiv(escrowed * offer.interestAPR * duration, BIPS_BASE * YEAR);
         lateFee = Math.ceilDiv(escrowed * offer.lateFeeAPR * offer.gracePeriod, BIPS_BASE * YEAR);
     }
 
@@ -519,7 +542,7 @@ contract EscrowSupplierNFT is IEscrowSupplierNFT, BaseNFT {
         returns (uint total, uint interestRefund, uint lateFeeRefund, uint overpaymentRefund)
     {
         // amounts held for interest and late fees. Assumes offer and size are immutable.
-        (uint interestHeld, uint lateFeeHeld) = _upfrontFees(escrow.offerId, escrow.escrowed);
+        (uint interestHeld, uint lateFeeHeld) = _upfrontFees(escrow.offerId, escrow.escrowed, escrow.duration);
 
         interestRefund = _interestRefund(escrow, interestHeld);
         lateFeeRefund = _lateFeeRefund(escrow, lateFeeHeld);
