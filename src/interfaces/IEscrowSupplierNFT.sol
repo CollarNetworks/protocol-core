@@ -40,13 +40,13 @@ interface IEscrowSupplierNFT {
         uint64 loanId; // assumes sequential IDs
         uint32 expiration;
         bool released;
+        uint32 duration; // duration for this escrow
         // second slot
         address loans;
         // rest of slots
         uint escrowed;
         uint feesHeld;
         uint withdrawable;
-        uint32 duration; // duration for this escrow
     }
 
     struct Escrow {
