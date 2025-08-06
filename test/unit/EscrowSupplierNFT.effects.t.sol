@@ -23,6 +23,7 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
     uint gracePeriod = 7 days;
     uint lateFeeAPR = 5000; // 50%
     uint minEscrow = 0;
+    uint maxDuration = 365 days; // new parameter (365 days = 31,536,000 seconds)
     uint escrowFee = 1000 ether; // roughly 1% (late fees 50% for one week, and interest for 5 minutes)
 
     function setUp() public override {
@@ -43,7 +44,7 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         asset.mint(address(escrowNFT), 1);
     }
 
-    function createAndCheckOffer(address supplier, uint amount)
+    function createAndCheckOffer(address supplier, uint amount, uint duration)
         public
         returns (uint offerId, EscrowSupplierNFT.Offer memory offer)
     {
@@ -54,9 +55,9 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
 
         vm.expectEmit(address(escrowNFT));
         emit IEscrowSupplierNFT.OfferCreated(
-            supplier, interestAPR, duration, gracePeriod, lateFeeAPR, amount, expectedId, minEscrow
+            supplier, interestAPR, gracePeriod, lateFeeAPR, amount, expectedId, minEscrow
         );
-        offerId = escrowNFT.createOffer(amount, duration, interestAPR, gracePeriod, lateFeeAPR, minEscrow);
+        offerId = escrowNFT.createOffer(amount, interestAPR, gracePeriod, lateFeeAPR, minEscrow, maxDuration);
 
         // offer ID
         assertEq(offerId, expectedId);
@@ -65,23 +66,23 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         offer = escrowNFT.getOffer(offerId);
         assertEq(offer.supplier, supplier);
         assertEq(offer.available, amount);
-        assertEq(offer.duration, duration);
         assertEq(offer.interestAPR, interestAPR);
         assertEq(offer.gracePeriod, gracePeriod);
         assertEq(offer.lateFeeAPR, lateFeeAPR);
+        assertEq(offer.maxDuration, maxDuration);
         // balance
         assertEq(asset.balanceOf(supplier), balance - amount);
         // fees view
         uint expectedInterestFee = divUp(amount * interestAPR * duration, BIPS_100PCT * 365 days);
         uint expectedLateFee = divUp(amount * lateFeeAPR * gracePeriod, BIPS_100PCT * 365 days);
-        (uint actualMinFee, uint interestHeld, uint lateFeeHeld) = escrowNFT.upfrontFees(offerId, amount);
+        (uint actualMinFee, uint interestHeld, uint lateFeeHeld) = escrowNFT.upfrontFees(offerId, amount, duration);
         assertEq(interestHeld, expectedInterestFee);
         assertEq(lateFeeHeld, expectedLateFee);
         assertEq(actualMinFee, expectedInterestFee + expectedLateFee);
     }
 
     function checkUpdateOfferAmount(int delta) internal {
-        (uint offerId,) = createAndCheckOffer(supplier1, largeUnderlying);
+        (uint offerId,) = createAndCheckOffer(supplier1, largeUnderlying, duration);
 
         asset.approve(address(escrowNFT), largeUnderlying);
         uint newAmount = delta > 0 ? largeUnderlying + uint(delta) : largeUnderlying - uint(-delta);
@@ -97,19 +98,41 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         EscrowSupplierNFT.Offer memory offer = escrowNFT.getOffer(offerId);
         assertEq(offer.supplier, supplier1);
         assertEq(offer.available, newAmount);
-        assertEq(offer.duration, duration);
         assertEq(offer.interestAPR, interestAPR);
         assertEq(offer.gracePeriod, gracePeriod);
         assertEq(offer.lateFeeAPR, lateFeeAPR);
+        assertEq(offer.maxDuration, maxDuration);
         // balance
         assertEq(asset.balanceOf(address(escrowNFT)), balance + newAmount - largeUnderlying);
+    }
+
+    function checkUpdateOfferMaxDuration(uint newMaxDuration) internal {
+        // newMaxDuration should be in seconds
+        (uint offerId,) = createAndCheckOffer(supplier1, largeUnderlying, duration);
+
+        uint previousMaxDuration = maxDuration;
+
+        vm.expectEmit(address(escrowNFT));
+        emit IEscrowSupplierNFT.OfferMaxDurationUpdated(offerId, supplier1, previousMaxDuration, newMaxDuration);
+        escrowNFT.updateOfferMaxDuration(offerId, newMaxDuration);
+
+        // next offer id not impacted
+        assertEq(escrowNFT.nextOfferId(), offerId + 1);
+        // offer
+        EscrowSupplierNFT.Offer memory offer = escrowNFT.getOffer(offerId);
+        assertEq(offer.supplier, supplier1);
+        assertEq(offer.available, largeUnderlying);
+        assertEq(offer.interestAPR, interestAPR);
+        assertEq(offer.gracePeriod, gracePeriod);
+        assertEq(offer.lateFeeAPR, lateFeeAPR);
+        assertEq(offer.maxDuration, newMaxDuration);
     }
 
     function createAndCheckEscrow(address supplier, uint offerAmount, uint escrowAmount, uint fees)
         public
         returns (uint escrowId, EscrowSupplierNFT.Escrow memory escrow)
     {
-        (uint offerId,) = createAndCheckOffer(supplier, offerAmount);
+        (uint offerId,) = createAndCheckOffer(supplier, offerAmount, duration);
         return createAndCheckEscrowFromOffer(offerId, escrowAmount, fees);
     }
 
@@ -137,7 +160,7 @@ contract BaseEscrowSupplierNFTTest is BaseAssetPairTestSetup {
         emit IERC20.Transfer(loans, address(escrowNFT), escrowAmount + fees);
         vm.expectEmit(address(asset));
         emit IERC20.Transfer(address(escrowNFT), loans, escrowAmount);
-        escrowId = escrowNFT.startEscrow(offerId, escrowAmount, fees, loanId);
+        escrowId = escrowNFT.startEscrow(offerId, escrowAmount, fees, loanId, duration);
         escrow = escrowNFT.getEscrow(escrowId);
 
         // Check escrow details
@@ -300,16 +323,16 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
     }
 
     function test_createOffer() public {
-        createAndCheckOffer(supplier1, largeUnderlying);
+        createAndCheckOffer(supplier1, largeUnderlying, duration);
 
         // another one (multiple offers)
-        createAndCheckOffer(supplier1, largeUnderlying);
+        createAndCheckOffer(supplier1, largeUnderlying, duration);
 
         // max values ok
         interestAPR = escrowNFT.MAX_INTEREST_APR_BIPS();
         gracePeriod = escrowNFT.MAX_GRACE_PERIOD();
         lateFeeAPR = escrowNFT.MAX_LATE_FEE_APR_BIPS();
-        createAndCheckOffer(supplier1, largeUnderlying);
+        createAndCheckOffer(supplier1, largeUnderlying, duration);
     }
 
     function test_updateOfferAmount() public {
@@ -322,6 +345,15 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         checkUpdateOfferAmount(-int(largeUnderlying) / 2);
 
         checkUpdateOfferAmount(0);
+    }
+
+    function test_updateOfferMaxDuration() public {
+        // Test with different maxDuration values (all in seconds)
+        checkUpdateOfferMaxDuration(180 days);  // 15,552,000 seconds
+
+        checkUpdateOfferMaxDuration(30 days);   // 2,592,000 seconds
+
+        checkUpdateOfferMaxDuration(365 days);  // 31,536,000 seconds
     }
 
     function test_startEscrow_simple() public {
@@ -346,7 +378,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         uint offerAmount = largeUnderlying;
         uint escrowAmount = largeUnderlying / 4;
 
-        (uint offerId,) = createAndCheckOffer(supplier1, offerAmount);
+        (uint offerId,) = createAndCheckOffer(supplier1, offerAmount, duration);
 
         for (uint i = 0; i < 3; i++) {
             createAndCheckEscrowFromOffer(offerId, escrowAmount, escrowFee);
@@ -355,7 +387,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
     }
 
     function test_startEscrow_switchEscrow_minEscrow() public {
-        (uint offerId,) = createAndCheckOffer(supplier1, largeUnderlying);
+        (uint offerId,) = createAndCheckOffer(supplier1, largeUnderlying, duration);
         // 0 amount works for startEscrow when minEscrow = 0
         (uint escrowId,) = createAndCheckEscrowFromOffer(offerId, 0, 0);
         // 0 amount works for switchEscrow when minEscrow = 0
@@ -364,7 +396,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
 
         minEscrow = largeUnderlying / 10;
         // check non-zero minLocked effects (event)
-        (offerId,) = createAndCheckOffer(supplier1, largeUnderlying);
+        (offerId,) = createAndCheckOffer(supplier1, largeUnderlying, duration);
         (escrowId,) = createAndCheckEscrowFromOffer(offerId, minEscrow, escrowFee);
         startHoax(loans);
         asset.approve(address(escrowNFT), escrowFee);
@@ -374,8 +406,8 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
     function test_endEscrow_withdrawReleased_simple() public {
         uint escrowed = largeUnderlying / 2;
 
-        (uint offerId,) = createAndCheckOffer(supplier, largeUnderlying);
-        (, uint interestHeld,) = escrowNFT.upfrontFees(offerId, escrowed);
+        (uint offerId,) = createAndCheckOffer(supplier, largeUnderlying, duration);
+        (, uint interestHeld,) = escrowNFT.upfrontFees(offerId, escrowed, duration);
         uint refund = escrowFee - interestHeld;
 
         // after full duration
@@ -400,8 +432,8 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
     function test_endEscrow_withdrawReleased_underRepay() public {
         uint escrowed = largeUnderlying / 2;
 
-        (uint offerId,) = createAndCheckOffer(supplier, largeUnderlying);
-        (, uint interestHeld,) = escrowNFT.upfrontFees(offerId, escrowed);
+        (uint offerId,) = createAndCheckOffer(supplier, largeUnderlying, duration);
+        (, uint interestHeld,) = escrowNFT.upfrontFees(offerId, escrowed, duration);
 
         // 0 repayment immediate release (cancellation)
         uint interestRefund = escrowNFT.MAX_FEE_REFUND_BIPS() * interestHeld / BIPS_100PCT;
@@ -450,8 +482,8 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
     function test_endEscrow_withdrawReleased_overPay() public {
         uint escrowed = largeUnderlying / 2;
 
-        (uint offerId,) = createAndCheckOffer(supplier, largeUnderlying);
-        (, uint interestHeld,) = escrowNFT.upfrontFees(offerId, escrowed);
+        (uint offerId,) = createAndCheckOffer(supplier, largeUnderlying, duration);
+        (, uint interestHeld,) = escrowNFT.upfrontFees(offerId, escrowed, duration);
         uint refund = escrowFee - interestHeld / 2;
 
         check_preview_end_withdraw(
@@ -490,7 +522,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
             createAndCheckEscrow(supplier1, largeUnderlying, amounts.escrowAmount, amounts.fee);
 
         amounts.newFee = amounts.fee * 2;
-        (uint newOfferId,) = createAndCheckOffer(supplier2, largeUnderlying);
+        (uint newOfferId,) = createAndCheckOffer(supplier2, largeUnderlying, duration);
 
         uint newLoanId = 1000; // arbitrary
 
@@ -502,7 +534,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
 
         // wait half a duration
         skip(duration / 2);
-        (, uint interestHeld,) = escrowNFT.upfrontFees(oldEscrow.offerId, oldEscrow.escrowed);
+        (, uint interestHeld,) = escrowNFT.upfrontFees(oldEscrow.offerId, oldEscrow.escrowed, oldEscrow.duration);
         (uint withdrawablePreview,, uint refundPreview) =
             escrowNFT.previewRelease(oldEscrowId, amounts.escrowAmount);
 
@@ -559,7 +591,7 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
         returns (uint lateFee)
     {
         EscrowSupplierNFT.Escrow memory escrow = escrowNFT.getEscrow(escrowId);
-        (, uint interestFeeHeld, uint lateFeeHeld) = escrowNFT.upfrontFees(escrow.offerId, escrow.escrowed);
+        (, uint interestFeeHeld, uint lateFeeHeld) = escrowNFT.upfrontFees(escrow.offerId, escrow.escrowed, escrow.duration);
         (, uint interestFeeRefund, uint lateFeeRefund, uint overpayRefund) = escrowNFT.feesRefunds(escrowId);
         (,, uint refunds) = escrowNFT.previewRelease(escrowId, 0);
         // no interest refund after expiry
@@ -612,16 +644,16 @@ contract EscrowSupplierNFT_BasicEffectsTest is BaseEscrowSupplierNFTTest {
     }
 
     function test_interestFee_noFee() public {
-        (uint offerId,) = createAndCheckOffer(supplier, largeUnderlying);
+        (uint offerId,) = createAndCheckOffer(supplier, largeUnderlying, duration);
 
         // zero escrow amount
-        (uint fees,,) = escrowNFT.upfrontFees(offerId, 0);
+        (uint fees,,) = escrowNFT.upfrontFees(offerId, 0, duration);
         assertEq(fees, 0);
 
         // zero APR
         interestAPR = 0;
-        (offerId,) = createAndCheckOffer(supplier, largeUnderlying);
-        (, uint interestHeld,) = escrowNFT.upfrontFees(offerId, largeUnderlying);
+        (offerId,) = createAndCheckOffer(supplier, largeUnderlying, duration);
+        (, uint interestHeld,) = escrowNFT.upfrontFees(offerId, largeUnderlying, duration);
         assertEq(interestHeld, 0);
     }
 }
