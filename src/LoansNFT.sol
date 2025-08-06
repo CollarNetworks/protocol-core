@@ -637,10 +637,13 @@ contract LoansNFT is ILoansNFT, BaseNFT {
 
     // ----- Conditional escrow mutative methods ----- //
 
-    function _conditionalOpenEscrow(bool usesEscrow, uint escrowed, EscrowOffer memory offer, uint fees, ProviderOffer memory providerOffer)
-        internal
-        returns (EscrowSupplierNFT escrowNFT, uint escrowId)
-    {
+    function _conditionalOpenEscrow(
+        bool usesEscrow,
+        uint escrowed,
+        EscrowOffer memory offer,
+        uint fees,
+        ProviderOffer memory providerOffer
+    ) internal returns (EscrowSupplierNFT escrowNFT, uint escrowId) {
         if (usesEscrow) {
             escrowNFT = offer.escrowNFT;
             // check asset matches
@@ -661,7 +664,7 @@ contract LoansNFT is ILoansNFT, BaseNFT {
                 fees: fees,
                 loanId: takerNFT.nextPositionId(), // @dev checked later in _escrowValidations
                 duration: duration
-             });
+            });
             // @dev no balance checks because contract holds no funds, mismatch will cause reverts
         } else {
             // returns default empty values
@@ -680,6 +683,9 @@ contract LoansNFT is ILoansNFT, BaseNFT {
                 configHub.canOpenSingle(address(underlying), address(escrowNFT)), "loans: unsupported escrow"
             );
 
+            uint takerId = _takerId(newLoanId);
+            uint duration = takerNFT.getPosition(takerId).duration;
+
             underlying.safeTransferFrom(msg.sender, address(this), newFees);
             underlying.forceApprove(address(escrowNFT), newFees);
             uint feesRefund;
@@ -687,7 +693,8 @@ contract LoansNFT is ILoansNFT, BaseNFT {
                 releaseEscrowId: prevLoan.escrowId,
                 offerId: offerId,
                 newFees: newFees,
-                newLoanId: newLoanId
+                newLoanId: newLoanId,
+                newDuration: duration
             });
 
             // check escrow and loan have matching fields
